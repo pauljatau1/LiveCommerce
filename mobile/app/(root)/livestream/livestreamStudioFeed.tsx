@@ -63,6 +63,7 @@ import LiveAuctionProductCard from "./liveAuctionProductCard";
 import BidVariationSelector from "@/app/(root)/livestream/bidVariationSelector";
 import StreamViewers from "./streamViewers";
 import StreamInfo from "./StreamInfo";
+import StreamOrders from "./streamOrders";
 import { useToast } from "@/contexts/ToastContext";
 
 const { width, height } = Dimensions.get("window");
@@ -85,6 +86,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
   const [status, setStatus] = useState("Initializing...");
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+  const [isFollowingLoading2, setIsFollowingLoading2] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [sellerId, setSellerId] = useState<string>("");
 
@@ -134,7 +136,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
     }>
   >([]);
   const [commentInput, setCommentInput] = useState("");
-  const commentsListRef = useRef<FlatList>(null);
+  const commentsListRef = useRef<ScrollView>(null);
   // Add a new state to track if video is actually playing
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   // Replace standard state with refs for instant updates
@@ -143,10 +145,12 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
   const [, forceUpdate] = useState({});
   const { width: screenWidth } = Dimensions.get("window");
 
-  // Add state for viewers bottom sheet
+  // New state for viewers bottom sheet
   const [showViewers, setShowViewers] = useState(false);
-  // Add state for stream info bottom sheet
+  // New state for stream info bottom sheet
   const [showStreamInfo, setShowStreamInfo] = useState(false);
+  // New state for orders bottom sheet
+  const [showOrders, setShowOrders] = useState(false);
   // Add state for menu popover
   const [showMenuPopover, setShowMenuPopover] = useState(false);
   // Add stream details state
@@ -160,6 +164,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
     actualStartTime: "",
     status: "live",
     type: "regular",
+    sellerFollowers: 0,
   });
 
   // Add state for leave stream loading
@@ -183,17 +188,29 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
     }
   }, [activeStreamDetails]);
 
+  // Setup and cleanup effect
   useEffect(() => {
-    isVisible ? setupLivestream() : null;
+    // On mount or when isVisible changes to true, run setupLivestream
+    if (isVisible) {
+      setupLivestream();
 
-    // Scroll to the end to show new comment
-    if (commentsListRef.current) {
-      commentsListRef.current.scrollToEnd({ animated: true });
+      // Scroll to the end to show new comment
+      if (commentsListRef.current) {
+        commentsListRef.current.scrollToEnd({ animated: true });
+      }
+
+      // Cleanup function - will run when:
+      // 1. Component unmounts
+      // 2. isVisible changes from true to false
+      // 3. id changes (which should disconnect and reconnect)
+      return () => {
+        // Since we only run the effect when isVisible is true,
+        // this cleanup will only run when we're either unmounting
+        // or isVisible is changing to false, both cases where we want to leave
+        handleLeaveStream(true);
+      };
     }
-
-    return () => {
-      handleLeaveStream(true);
-    };
+    // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
 
   // Separate useEffect for keyboard event listeners
@@ -371,6 +388,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
             actualStartTime: stream.startTime || new Date().toISOString(),
             status: stream.status || "live",
             type: "regular",
+            sellerFollowers: stream.sellerFollowers || 0,
           });
         }
       }
@@ -492,9 +510,9 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] &&
+                    notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -590,24 +608,24 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
             }
           }
           break;
-          
+
         case "liveshow_order":
           console.log("New order received:", notification.content);
-          
+
           // Show a brief toast notification with the order details
           if (notification.data?.orders) {
-            const orderCount = Array.isArray(notification.data.orders) ? 
+            const orderCount = Array.isArray(notification.data.orders) ?
               notification.data.orders.length : 1;
-            
+
             show({
               text1: "💰 New Order Placed!",
               text2: `${orderCount} item(s) ordered from this stream`,
               type: "success",
               duration: 3000,
-              topPosition: insets.top + 10,
+              topPosition: 18,
             });
           }
-          
+
           // Update UI to show order event in chat
           setLiveComments((prev) => [...prev, notification as any]);
           break;
@@ -944,7 +962,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         <View style={styles.liveshowOrderCommentItem}>
           {renderAvatar()}
           <View style={styles.liveshowOrderCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
+            <Text style={styles.liveshowCommentUser}>{item.user}</Text>
             <Text style={styles.liveshowOrderCommentText}>{item.content}</Text>
           </View>
         </View>
@@ -1035,7 +1053,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
       } else {
         console.error("Socket not connected, comment only saved locally");
       }
-      
+
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -1105,16 +1123,24 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
   }, []);
 
   // Add follow/unfollow handler functions
-  const handleFollowSeller = async () => {
+  const handleFollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await followSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await followSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(true);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error following seller:", error);
       show({
@@ -1124,20 +1150,28 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
 
-  const handleUnfollowSeller = async () => {
+  const handleUnfollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await unfollowSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(false);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error unfollowing seller:", error);
       show({
@@ -1147,7 +1181,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
 
@@ -1260,19 +1294,19 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
                         disabled
                       >
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size={17} color="#FFFFFF" />
                       </TouchableOpacity>
                     ) : isFollowing ? (
                       <TouchableOpacity
                         className="bg-[#444444] h-full px-4 py-1 rounded-full"
-                        onPress={handleUnfollowSeller}
+                        onPress={() => handleUnfollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Unfollow</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
-                        onPress={handleFollowSeller}
+                        onPress={() => handleFollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Follow</Text>
                       </TouchableOpacity>
@@ -1446,7 +1480,10 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                                     </View>*/}
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={() => setShowOrders(true)}
+                      >
                         <MaterialCommunityIcons
                           name="package-variant-closed"
                           size={24}
@@ -1619,22 +1656,6 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                       />
                     </View>
                   )}
-                {/* Disclaimer warning Card 
-                            {shouldShowUI && (
-                                <View style={styles.disclaimerContainer}>
-                                    <View style={styles.disclaimerLeftAccent}></View>
-                                    <View style={styles.disclaimerContent}>
-                                        <View style={styles.disclaimerIconContainer}>
-                                            <MaterialIcons name="security" size={22} color="#FFFFFF" />
-                                        </View>
-                                        <View style={styles.disclaimerTextContainer}>
-                                            <Text style={styles.disclaimerTitle}>Avoid Scams:</Text>
-                                            <Text style={styles.disclaimerText}>For a secure & safe experience, all transactions should be done on Auqli</Text>
-                                        </View>
-                                        <MaterialIcons name="chevron-right" size={20} color="rgba(255,255,255,0.4)" />
-                                    </View>
-                                </View>
-                            )}*/}
               </View>
             </View>
           </View>
@@ -1720,13 +1741,39 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-        //enableContentPanningGesture={true}
+      //enableContentPanningGesture={true}
       >
         <StreamInfo
-          storeInfo={storeInfo}
+          storeInfo={{
+            ...storeInfo,
+            following: isFollowing
+          }}
           streamInfo={streamDetails}
           isLoading={isLoading}
           closeSheet={() => setShowStreamInfo(false)}
+          sellerId={sellerId}
+          isFollowing={isFollowing}
+          isFollowingLoading={isFollowingLoading2}
+          onFollow={() => handleFollowSeller(true)}
+          onUnfollow={() => handleUnfollowSeller(true)}
+        />
+      </BottomSheet>
+
+      {/* Orders Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showOrders}
+        snapPoints={["100%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowOrders(false)}
+        keyboardBehavior="interactive"
+      >
+        <StreamOrders
+          streamId={id}
+          closeSheet={() => setShowOrders(false)}
         />
       </BottomSheet>
     </>
@@ -1784,7 +1831,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 13,
     bottom: 50,
-    maxHeight: 250,
+    maxHeight: 300,
     zIndex: 10,
   },
   commentsContainer: {
@@ -1792,7 +1839,7 @@ const styles = StyleSheet.create({
     bottom: 50,
     left: 0,
     width: "70%",
-    maxHeight: 200,
+    maxHeight: 250,
     zIndex: 10,
   },
   commentsList: {
@@ -2150,20 +2197,25 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    marginBottom: 0,
+    marginVertical: 8,
     maxWidth: "100%",
     alignSelf: "flex-start",
     flex: 1,
+    backgroundColor: "rgba(160, 32, 240, 0.2)",
   },
   liveshowOrderCommentContent: {
     flexDirection: "column",
     flex: 1,
   },
+  liveshowCommentUser: {
+    color: "#A020F0",
+    fontWeight: "bold",
+  },
   liveshowOrderCommentText: {
-    color: "#A020F0", // Purple text for "new order"
+    color: "#fff",
     fontSize: 12,
     fontFamily: "LexendDeca",
-    fontWeight: "bold",
+    fontWeight: "semibold",
     flexWrap: "wrap",
   },
 });

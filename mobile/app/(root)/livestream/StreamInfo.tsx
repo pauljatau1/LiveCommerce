@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
 import React, { useRef, useEffect, useState } from 'react';
 import { AntDesign, Ionicons, MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,7 @@ interface StreamInfo {
   actualStartTime?: string;
   status?: string;
   type?: string;
+  sellerFollowers?: number;
 }
 
 interface StreamInfoProps {
@@ -29,6 +30,11 @@ interface StreamInfoProps {
   streamInfo: StreamInfo;
   isLoading?: boolean;
   closeSheet: () => void;
+  sellerId?: string;
+  isFollowing?: boolean;
+  isFollowingLoading?: boolean;
+  onFollow?: () => Promise<void>;
+  onUnfollow?: () => Promise<void>;
 }
 
 interface SkeletonItemProps {
@@ -39,9 +45,20 @@ interface SkeletonItemProps {
 
 const { width } = Dimensions.get('window');
 
-const StreamInfo = ({ storeInfo, streamInfo, isLoading = false, closeSheet }: StreamInfoProps) => {
+const StreamInfo = ({ 
+  storeInfo, 
+  streamInfo, 
+  isLoading = false, 
+  closeSheet,
+  sellerId,
+  isFollowing = false,
+  isFollowingLoading = false,
+  onFollow,
+  onUnfollow
+}: StreamInfoProps) => {
   // Animation values for skeleton loading
   const breatheAnim = useRef(new Animated.Value(0)).current;
+  console.log('storeInfo', storeInfo)
 
   // Start the breathing animation for skeleton loaders
   useEffect(() => {
@@ -66,6 +83,26 @@ const StreamInfo = ({ storeInfo, streamInfo, isLoading = false, closeSheet }: St
       animation.stop();
     };
   }, []);
+
+  // Handle follow/unfollow button click
+  const handleFollowButtonPress = async () => {
+    if (!sellerId) {
+      console.error("No seller ID available");
+      return;
+    }
+
+    if (isFollowingLoading) return;
+
+    try {
+      if (isFollowing) {
+        onUnfollow && await onUnfollow();
+      } else {
+        onFollow && await onFollow();
+      }
+    } catch (error) {
+      console.error("Error with follow/unfollow:", error);
+    }
+  };
 
   // Format dates to be more readable
   const formatStreamDate = (dateString?: string) => {
@@ -147,17 +184,30 @@ const StreamInfo = ({ storeInfo, streamInfo, isLoading = false, closeSheet }: St
             <View style={styles.followerCount}>
               <MaterialIcons name="people" size={16} color="rgba(255,255,255,0.7)" />
               <Text style={styles.followerText}>
-                {storeInfo.followers ? storeInfo.followers.toLocaleString() : '0'} followers
+                {streamInfo.sellerFollowers ? streamInfo.sellerFollowers : '0'} followers
               </Text>
             </View>
           </View>
         </View>
         <View style={styles.followSection}>
-          <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>
-              {storeInfo.following ? 'Following' : 'Follow'}
-            </Text>
-            {storeInfo.following && <AntDesign name="check" size={14} color="#FFF" style={styles.followIcon} />}
+          <TouchableOpacity 
+            style={[
+              styles.followButton, 
+              isFollowing && styles.followingButton
+            ]}
+            onPress={handleFollowButtonPress}
+            disabled={isFollowingLoading}
+          >
+            {isFollowingLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.followButtonText}>
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Text>
+                {isFollowing && <AntDesign name="check" size={14} color="#FFF" style={styles.followIcon} />}
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -380,6 +430,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  followingButton: {
+    backgroundColor: '#444444',
   },
   followButtonText: {
     color: '#FFFFFF',

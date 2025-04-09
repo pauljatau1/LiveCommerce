@@ -99,5 +99,6 @@ export interface LivestreamContextType {
     followSellerThroughStream: (sellerId: string, sellerName: string) => Promise<any>;
     unfollowSellerThroughStream: (sellerId: string, sellerName: string) => Promise<any>;
     checkIfSellerIsFollowedFromSellerProfile: (sellerId: string) => Promise<any>;
+    fetchStreamOrders: (streamId: string) => Promise<any>;
     // Add other properties as needed
 }

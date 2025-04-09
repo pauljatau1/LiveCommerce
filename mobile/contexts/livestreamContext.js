@@ -236,6 +236,35 @@ export const LivestreamProvider = ({ children }) => {
     }
   }
 
+  const fetchStreamOrders = async (streamId) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/${streamId}/orders`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+
+      if (response.status === 200) {
+        console.log("Successfully fetched stream orders:", response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error fetching stream orders:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to fetch stream orders"
+      );
+    }
+  }
+
   return (
     <LivestreamContext.Provider
       value={{
@@ -247,6 +276,7 @@ export const LivestreamProvider = ({ children }) => {
         followSellerThroughStream,
         unfollowSellerThroughStream,
         checkIfSellerIsFollowedFromSellerProfile,
+        fetchStreamOrders,
         dispatch,
       }}
     >

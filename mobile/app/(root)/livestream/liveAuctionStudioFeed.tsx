@@ -70,6 +70,7 @@ import LiveAuctionProductCard from "./liveAuctionProductCard";
 import BidVariationSelector from "@/app/(root)/livestream/bidVariationSelector";
 import StreamViewers from "./streamViewers";
 import StreamInfo from "./StreamInfo";
+import StreamOrders from "./streamOrders";
 import BidErrorMessage from "./BidErrorMessage";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import OrderCreatedNotification from "./OrderCreatedNotification";
@@ -90,10 +91,18 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
   } = useLivestream() as LivestreamContextType;
-  const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
+  const [streamConfig, setStreamConfig] = useState<any>(null);
+  const [streamData, setStreamData] = useState<any>(null);
+  const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
+  const [showStreamInfo, setShowStreamInfo] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
   const [status, setStatus] = useState("Initializing...");
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+  const [isFollowingLoading2, setIsFollowingLoading2] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [sellerId, setSellerId] = useState<string>("");
 
@@ -128,7 +137,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   // Array of live comments
   const [liveComments, setLiveComments] = useState<StreamNotification[]>([]);
   const [commentInput, setCommentInput] = useState("");
-  const commentsListRef = useRef<any>(null);
+  const commentsListRef = useRef<ScrollView>(null);
   // Add a new state to track if video is actually playing
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   // Replace standard state with refs for instant updates
@@ -137,10 +146,6 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   const [, forceUpdate] = useState({});
   const { width: screenWidth } = Dimensions.get("window");
 
-  // Add new state for viewers bottom sheet
-  const [showViewers, setShowViewers] = useState(false);
-  // Add new state for stream info bottom sheet
-  const [showStreamInfo, setShowStreamInfo] = useState(false);
   // Add state for menu popover
   const [showMenuPopover, setShowMenuPopover] = useState(false);
   // Add stream details state
@@ -154,6 +159,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     actualStartTime: "",
     status: "live",
     type: "auction",
+    sellerFollowers: 0,
   });
 
   // Add state for leave stream loading
@@ -451,6 +457,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
             actualStartTime: stream.startTime || new Date().toISOString(),
             status: stream.status || "live",
             type: "auction",
+            sellerFollowers: stream.sellerFollowers || 0,
           });
         }
       }
@@ -1470,6 +1477,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     setShowStreamInfo(true);
   };
 
+  const handleShowOrders = () => {
+    setShowOrders(true);
+  };
+
   // Update handleLeaveStream function to actually leave the stream
   const handleLeaveStream = async (backButton: boolean) => {
     if (!id) return;
@@ -1598,16 +1609,24 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   );
 
   // Add follow/unfollow handler functions
-  const handleFollowSeller = async () => {
+  const handleFollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await followSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await followSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(true);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error following seller:", error);
       show({
@@ -1617,20 +1636,28 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
 
-  const handleUnfollowSeller = async () => {
+  const handleUnfollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await unfollowSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(false);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error unfollowing seller:", error);
       show({
@@ -1640,7 +1667,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
 
@@ -1753,19 +1780,19 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
                         disabled
                       >
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size={17} color="#FFFFFF" />
                       </TouchableOpacity>
                     ) : isFollowing ? (
                       <TouchableOpacity
                         className="bg-[#444444] h-full px-4 py-1 rounded-full"
-                        onPress={handleUnfollowSeller}
+                        onPress={() => handleUnfollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Unfollow</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
-                        onPress={handleFollowSeller}
+                        onPress={() => handleFollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Follow</Text>
                       </TouchableOpacity>
@@ -1935,7 +1962,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                                     </View>*/}
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleShowOrders}
+                      >
                         <MaterialCommunityIcons
                           name="package-variant-closed"
                           size={24}
@@ -2312,13 +2342,38 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
       >
         <StreamInfo
-          storeInfo={storeInfo}
+          storeInfo={{
+            ...storeInfo,
+            following: isFollowing
+          }}
           streamInfo={streamDetails}
           isLoading={isLoading}
           closeSheet={() => setShowStreamInfo(false)}
+          sellerId={sellerId}
+          isFollowing={isFollowing}
+          isFollowingLoading={isFollowingLoading2}
+          onFollow={() => handleFollowSeller(true)}
+          onUnfollow={() => handleUnfollowSeller(true)}
+        />
+      </BottomSheet>
+
+      {/* Orders Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showOrders}
+        snapPoints={["100%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowOrders(false)}
+        keyboardBehavior="interactive"
+      >
+        <StreamOrders
+          streamId={id}
+          closeSheet={() => setShowOrders(false)}
         />
       </BottomSheet>
 
