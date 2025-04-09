@@ -390,7 +390,7 @@ exports.createCategory = async (req, res) => {
     const newCategory = new Category({
       name,
       image: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key,
       },
       subCategories,
@@ -567,7 +567,7 @@ exports.updateCategory = async (req, res) => {
 
       const uploadResult = await s3.upload(uploadParams).promise();
       category.image = {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key,
       };
     }
@@ -677,7 +677,7 @@ exports.createBanner = async (req, res) => {
       title,
       description,
       mainImage: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       },
       category: categoryDoc._id,
@@ -738,7 +738,7 @@ exports.updateBanner = async (req, res) => {
       }).promise();
 
       banner.mainImage = {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       };
     }

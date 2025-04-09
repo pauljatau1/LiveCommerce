@@ -92,7 +92,7 @@ exports.createProduct = async (req, res) => {
           ContentType: image.contentType,
         };
         const data = await s3.upload(params).promise();
-        imagesLinks.push({ url: data.Location });
+        imagesLinks.push({ url: 'https://' + process.env.CDN_URL + `/${data.Key}` });
       }
     }
 
@@ -151,9 +151,9 @@ exports.createProduct = async (req, res) => {
           await fs.unlink(tempThumbnailPath).catch(() => {});
           
           blipsLinks.push({ 
-            url: videoData.Location,
+            url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
             contentType: blip.contentType,
-            thumbnail: thumbnailData.Location
+            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
           });
         } catch (err) {
           console.error('Error generating thumbnail:', err);
@@ -175,9 +175,9 @@ exports.createProduct = async (req, res) => {
           const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
           
           blipsLinks.push({ 
-            url: videoData.Location,
+            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
             contentType: blip.contentType,
-            thumbnail: fallbackData.Location
+            thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
           });
         }
       }
@@ -212,7 +212,7 @@ exports.createProduct = async (req, res) => {
             
             const data = await s3.upload(params).promise();
             variantImages.push({
-              data: data.Location,
+              data: `https://` + process.env.CDN_URL + `/${data.Key}`,
               contentType: image.contentType,
               isDefault: image.isDefault || false
             });
@@ -245,7 +245,7 @@ exports.createProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               subVariantImages.push({
-                data: data.Location,
+                data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -278,7 +278,7 @@ exports.createProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subSubVariantImages.push({
-                  data: data.Location,
+                  data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -931,7 +931,7 @@ exports.updateProduct = async (req, res) => {
             ContentType: image.contentType,
           };
           const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: data.Location });
+          imagesLinks.push({ url: `https://` + process.env.CDN_URL + `/${data.Key}`});
         }
       }
       updates.images = imagesLinks;
@@ -1002,9 +1002,9 @@ exports.updateProduct = async (req, res) => {
             await fs.unlink(tempThumbnailPath).catch(() => {});
             
             blipsLinks.push({ 
-              url: videoData.Location,
+              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
-              thumbnail: thumbnailData.Location
+              thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
             });
           } catch (err) {
             console.error('Error generating thumbnail:', err);
@@ -1026,9 +1026,9 @@ exports.updateProduct = async (req, res) => {
             const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
             
             blipsLinks.push({ 
-              url: videoData.Location,
+              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
-              thumbnail: fallbackData.Location
+              thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
             });
           }
         }
@@ -1068,7 +1068,7 @@ exports.updateProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               variantImages.push({
-                data: data.Location,
+                data: 'https://' + process.env.CDN_URL + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -1105,7 +1105,7 @@ exports.updateProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
-                  data: data.Location,
+                  data:`https://` + process.env.CDN_URL + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -1142,7 +1142,7 @@ exports.updateProduct = async (req, res) => {
                   
                   const data = await s3.upload(params).promise();
                   subSubVariantImages.push({
-                    data: data.Location,
+                    data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                     contentType: image.contentType,
                     isDefault: image.isDefault || false
                   });
@@ -2998,7 +2998,7 @@ exports.addReview = async (req, res) => {
         };
         const uploadResult = await s3.upload(params).promise();
         reviewImages.push({
-          url: uploadResult.Location,
+          url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
           contentType: file.mimetype
         });
       }
@@ -6975,9 +6975,9 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Create the new blip object
       const newBlip = {
-        url: videoData.Location,
+        url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
         contentType: req.file.mimetype,
-        thumbnail: thumbnailData.Location,
+        thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
         createdAt: new Date()
       };
       
@@ -7021,7 +7021,7 @@ exports.addBlipToProduct = async (req, res) => {
         const newBlip = {
           url: videoData ? videoData.Location : null,
           contentType: req.file.mimetype,
-          thumbnail: fallbackData.Location,
+          thumbnail: 'https://' + process.env.CDN_URL + `/${fallbackData.Key}`,
           createdAt: new Date()
         };
         

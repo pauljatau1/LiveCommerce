@@ -1218,7 +1218,7 @@ exports.uploadIdentityDocument = async (req, res) => {
 
     // Update buyer document
     buyer.identityDocument = {
-      url: uploadResult.Location,
+      url: 'https://'+ process.env.CDN_URL + "/" + uploadResult.Key,
       public_id: key,
       uploadedAt: new Date(),
       status: 'pending'

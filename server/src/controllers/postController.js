@@ -124,7 +124,7 @@ exports.createPost = async (req, res) => {
       };
       const uploadResult = await s3.upload(params).promise();
       images.push({
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       });
     }
@@ -141,7 +141,7 @@ exports.createPost = async (req, res) => {
       const videoUpload = await s3.upload(videoParams).promise();
 
       videos.push({
-        url: videoUpload.Location,
+        url: `https://` + process.env.CDN_URL + `/${videoUpload.Key}`,
         public_id: videoUpload.Key
       });
     }
@@ -979,7 +979,7 @@ exports.updatePost = async (req, res) => {
         };
         const uploadResult = await s3.upload(params).promise();
         imagesData.push({
-          url: uploadResult.Location,
+          url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
           public_id: uploadResult.Key
         });
       }
