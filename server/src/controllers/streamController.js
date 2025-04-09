@@ -114,7 +114,7 @@ exports.createStream = async (req, res) => {
 
         const uploadResult = await s3.upload(uploadParams).promise();
         imageData = {
-          url: uploadResult.Location,
+          url: 'https://'+ process.env.CDN_URL + "/",
           key: fileKey
         };
       } catch (uploadError) {
@@ -157,7 +157,7 @@ exports.createStream = async (req, res) => {
 
           const uploadResult = await s3.upload(params).promise();
           videoData = {
-            url: uploadResult.Location,
+            url: 'https://'+ process.env.CDN_URL + "/",
             key: fileKey
           };
         }
@@ -1280,7 +1280,7 @@ exports.createOpenLiveShow = async (req, res) => {
 
         const uploadResult = await s3.upload(uploadParams).promise();
         imageData = {
-          url: uploadResult.Location,
+          url: 'https://'+ process.env.CDN_URL + "/",
           key: fileKey
         };
       } catch (uploadError) {
@@ -1323,7 +1323,7 @@ exports.createOpenLiveShow = async (req, res) => {
 
           const uploadResult = await s3.upload(params).promise();
           videoData = {
-            url: uploadResult.Location,
+            url: 'https://'+ process.env.CDN_URL + "/",
             key: fileKey
           };
         }
