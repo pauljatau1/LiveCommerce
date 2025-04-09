@@ -7056,3 +7056,109 @@ exports.addBlipToProduct = async (req, res) => {
     });
   }
 };
+
+/**
+ * Search seller's products
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} - JSON response with products
+ */
+exports.searchSellerProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { 
+      query, 
+      category,
+      minPrice, 
+      maxPrice,
+      sortBy = 'createdAt',
+      order = 'desc',
+      page = 1, 
+      limit = 20 
+    } = req.query;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid seller ID format' 
+      });
+    }
+
+    // Build search query
+    const searchQuery = {
+      seller: sellerId,
+      status: 'active',
+      visibility: 'visible'
+    };
+
+    // Add text search if query provided
+    if (query) {
+      searchQuery.$or = [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
+      ];
+    }
+
+    // Add category filter if provided
+    if (category) {
+      searchQuery.category = category;
+    }
+
+    // Add price range if provided
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      searchQuery.price = {};
+      if (minPrice !== undefined) searchQuery.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) searchQuery.price.$lte = Number(maxPrice);
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price':
+        sortOptions.price = order === 'asc' ? 1 : -1;
+        break;
+      case 'name':
+        sortOptions.name = order === 'asc' ? 1 : -1;
+        break;
+      case 'popularity':
+        sortOptions['stats.views'] = order === 'asc' ? 1 : -1;
+        break;
+      case 'rating':
+        sortOptions['stats.averageRating'] = order === 'asc' ? 1 : -1;
+        break;
+      default:
+        sortOptions[sortBy] = order === 'asc' ? 1 : -1;
+    }
+
+    // Execute query with pagination
+    const products = await Product.find(searchQuery)
+      .sort(sortOptions)
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore');
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(searchQuery);
+
+    return res.status(200).json({
+      success: true,
+      data: products,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalProducts: total,
+        hasMore: page * limit < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error searching seller products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};

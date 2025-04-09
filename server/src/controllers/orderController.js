@@ -252,6 +252,12 @@ exports.createOrder = async (req, res) => {
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(buyerId);
     
+    console.log('DEBUG - Order Creation - Buyer Info:', {
+      buyerId: buyerId,
+      buyerFound: !!buyer,
+      buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'N/A'
+    });
+    
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -260,6 +266,11 @@ exports.createOrder = async (req, res) => {
     const Product = mongoose.model('Product');
     const productIds = items.map(item => item.productId);
     const products = await Product.find({ _id: { $in: productIds } }).populate('seller');
+    
+    console.log('DEBUG - Order Creation - Products Found:', {
+      requestedProducts: productIds.length,
+      foundProducts: products.length
+    });
     
     if (products.length !== productIds.length) {
       return res.status(400).json({ message: 'One or more products not found' });
@@ -287,6 +298,9 @@ exports.createOrder = async (req, res) => {
     const sellerItems = {};
     let totalAmount = 0;
     
+    // Keep track of unique sellers for adding the buyer to followers
+    const uniqueSellers = new Set();
+    
     items.forEach(item => {
       const product = productMap[item.productId];
       if (!product) {
@@ -294,6 +308,8 @@ exports.createOrder = async (req, res) => {
       }
       
       const sellerId = product.seller._id.toString();
+      uniqueSellers.add(sellerId);
+      
       if (!sellerItems[sellerId]) {
         sellerItems[sellerId] = {
           items: [],
@@ -355,6 +371,123 @@ exports.createOrder = async (req, res) => {
         specifications: item.specifications || {}
       });
     });
+    
+    console.log('DEBUG - Order Creation - Unique Sellers:', {
+      count: uniqueSellers.size,
+      sellerIds: Array.from(uniqueSellers)
+    });
+    
+    // Process each seller to check if buyer is already a follower
+    // and add if not
+    for (const sellerId of uniqueSellers) {
+      const Seller = mongoose.model('Seller');
+      const seller = await Seller.findById(sellerId);
+      
+      if (!seller) {
+        console.log(`DEBUG - Order Creation - Seller not found: ${sellerId}`);
+        continue;
+      }
+      
+      // Check if buyer is already a follower
+      const isFollower = seller.followers && 
+                        seller.followers.some(follower => 
+                          follower.buyerId && follower.buyerId.toString() === buyerId);
+      
+      console.log('DEBUG - Order Creation - Follower Check:', {
+        sellerId: sellerId,
+        sellerName: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+        followerCount: seller.followers ? seller.followers.length : 0,
+        isFollower: isFollower
+      });
+      
+      // Add the buyer to the seller's followers if not already following
+      if (!isFollower) {
+        console.log(`DEBUG - Order Creation - Adding buyer as follower for seller: ${sellerId}`);
+        
+        // Initialize followers array if it doesn't exist
+        if (!seller.followers) {
+          seller.followers = [];
+        }
+        
+        // Get buyer's main address
+        const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
+          ? {
+              country: buyer.shippingAddresses[0].country,
+              city: buyer.shippingAddresses[0].city,
+              address1: buyer.shippingAddresses[0].addressLine1,
+              address2: buyer.shippingAddresses[0].addressLine2,
+              zipCode: buyer.shippingAddresses[0].zipCode
+            }
+          : null;
+        
+        // Add to seller's followers list
+        seller.followers.push({
+          buyerId: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          email: buyer.email,
+          followDate: new Date(),
+          totalOrders: 1, // Start with 1 since this is their first order
+          lastInteraction: new Date(),
+          mainAddress: mainAddress
+        });
+        
+        // Save the seller with the new follower
+        await seller.save();
+        
+        console.log(`DEBUG - Order Creation - Buyer successfully added as follower. New follower count: ${seller.followers.length}`);
+        
+        // Add to buyer's activity feed if it exists
+        if (buyer.activityFeed) {
+          buyer.activityFeed.push({
+            type: 'follow',
+            content: `Started following ${seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`}`,
+            reference: seller._id,
+            referenceModel: 'Seller',
+            createdAt: new Date()
+          });
+          
+          // Save buyer with updated activity feed
+          await buyer.save();
+          console.log(`DEBUG - Order Creation - Added follow activity to buyer's feed`);
+        }
+      } else {
+        console.log(`DEBUG - Order Creation - Buyer is already a follower of seller: ${sellerId}`);
+        
+        // Update the existing follower's information
+        const followerIndex = seller.followers.findIndex(
+          follower => follower.buyerId && follower.buyerId.toString() === buyerId
+        );
+        
+        if (followerIndex !== -1) {
+          console.log(`DEBUG - Order Creation - Updating existing follower information`);
+          
+          // Increment order count and update last interaction
+          seller.followers[followerIndex].totalOrders = 
+            (seller.followers[followerIndex].totalOrders || 0) + 1;
+          seller.followers[followerIndex].lastInteraction = new Date();
+          
+          // Update main address if it has changed
+          if (buyer.shippingAddresses && buyer.shippingAddresses.length > 0) {
+            seller.followers[followerIndex].mainAddress = {
+              country: buyer.shippingAddresses[0].country,
+              city: buyer.shippingAddresses[0].city,
+              address1: buyer.shippingAddresses[0].addressLine1,
+              address2: buyer.shippingAddresses[0].addressLine2,
+              zipCode: buyer.shippingAddresses[0].zipCode
+            };
+          }
+          
+          // Save the seller with updated follower information
+          await seller.save();
+          
+          console.log(`DEBUG - Order Creation - Updated follower information:`, {
+            totalOrders: seller.followers[followerIndex].totalOrders,
+            lastInteraction: seller.followers[followerIndex].lastInteraction
+          });
+        }
+      }
+    }
     
     // Calculate shipping fee for each seller based on their items' total weight
     // This is a simplified calculation - you may want to use a more sophisticated algorithm
@@ -528,6 +661,12 @@ exports.createOrder = async (req, res) => {
         order_id: order.order_id
       });
       
+      // Schedule job to delete order if still unpaid after 10 minutes (for Paystack orders only)
+      if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
+        agenda.schedule('in 10 minutes', 'delete_unpaid_orders', { orderId: order._id });
+        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 10 minutes`);
+      }
+      
       // Add buyer to seller's customers list if not already a customer
       const Seller = mongoose.model('Seller');
       const sellerDoc = await Seller.findById(sellerId);
@@ -624,30 +763,6 @@ exports.createOrder = async (req, res) => {
         buyerId,
         sellerId
       });
-      
-      // Create transaction record for seller earnings (if not COD and not pending Paystack payment)
-      if ((!isItemCod || paidFromWallet) && !(paymentMethod === 'paystack' && !isItemCod && !paidFromWallet)) {
-        // Only create transaction for the product amount (not including shipping)
-        const Transaction = mongoose.model('Transaction');
-        const transaction = new Transaction({
-          seller: sellerId,
-          orderId: order._id,
-          amount: sellerTotal,
-          type: 'order_payment',
-          status: 'pending', // Changed from 'completed' to 'pending'
-          description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-          metadata: {
-            itemTotal: sellerTotal,
-            processingFeePercent: 0,
-            categoryName: sellerItemsList[0]?.productName || 'Mixed',
-            categoryFee: 0
-          }
-        });
-        
-        await transaction.save({ session });
-        
-        // Do not update seller's balance here - it will be updated when the order is closed
-      }
       
       // Prepare seller-specific parcel details for Fez
       const sellerParcel = {
@@ -3090,6 +3205,22 @@ exports.markOrderAsPaid = async (req, res) => {
 
     const updatedOrder = await order.save();
 
+    // Cancel any scheduled job to delete this order
+    try {
+      const jobs = await agenda.jobs({
+        name: 'delete_unpaid_orders',
+        'data.orderId': order._id.toString()
+      });
+      
+      if (jobs.length > 0) {
+        console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id} (manual marking)`);
+        await jobs[0].remove();
+      }
+    } catch (jobError) {
+      console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
+      // Continue processing even if job cancellation fails
+    }
+
     // Only schedule notifications if they haven't been sent yet
     if (!notificationsAlreadySent) {
       console.log(`Scheduling order notifications for order ${order.order_id} after manual payment marking`);
@@ -3142,7 +3273,41 @@ exports.verifyPaymentByReference = async (req, res) => {
     // Verify with Paystack
     const verificationResult = await verifyPaystackTransaction(reference);
     
+    // If verification fails or payment status is not success, handle the failure
     if (!verificationResult.success) {
+      if (orderId) {
+        // If an order ID was provided, check if we need to cancel the order
+        try {
+          const Order = mongoose.model('Order');
+          const order = await Order.findById(orderId);
+          
+          if (order && order.paymentInfo.method === 'paystack' && !order.paid) {
+            console.log(`Payment verification failed for order ${order.order_id}, reference: ${reference}`);
+            console.log(`Failed verification details:`, verificationResult.error);
+            
+            // Simulate a payment data object for failed payment handling
+            const failedPaymentData = {
+              reference,
+              metadata: { orderId },
+              gateway_response: verificationResult.error?.message || 'Payment verification failed'
+            };
+            
+            // Use the existing helper function to handle the failed payment
+            await handleFailedPayment(failedPaymentData, { 
+              status: () => ({ json: () => {} }) // Mock response object
+            });
+            
+            return res.status(400).json({ 
+              message: 'Payment verification failed and order has been cancelled', 
+              error: verificationResult.error
+            });
+          }
+        } catch (orderError) {
+          console.error('Error checking order status during failed verification:', orderError);
+          // Continue to return standard verification failed response
+        }
+      }
+      
       return res.status(400).json({ 
         message: 'Payment verification failed', 
         error: verificationResult.error 
@@ -3173,31 +3338,21 @@ exports.verifyPaymentByReference = async (req, res) => {
 
       const updatedOrder = await order.save();
 
-      // Create transaction record for seller earnings
-      const Transaction = mongoose.model('Transaction');
-      const transaction = new Transaction({
-        seller: order.seller._id,
-        orderId: order._id,
-        amount: order.totalAmount,
-        type: 'order_payment',
-        status: 'completed',
-        description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-        metadata: {
-          itemTotal: order.totalAmount,
-          processingFeePercent: 0,
-          categoryName: order.items[0]?.productName || 'Mixed',
-          categoryFee: 0,
-          paymentReference: reference
+      // Cancel any scheduled job to delete this order
+      try {
+        const jobs = await agenda.jobs({
+          name: 'delete_unpaid_orders',
+          'data.orderId': order._id.toString()
+        });
+        
+        if (jobs.length > 0) {
+          console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id} (reference verification)`);
+          await jobs[0].remove();
         }
-      });
-      
-      await transaction.save();
-      
-      // Update seller's balance
-      await Seller.findByIdAndUpdate(
-        order.seller._id,
-        { $inc: { 'wallet.balance': order.totalAmount } }
-      );
+      } catch (jobError) {
+        console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
+        // Continue processing even if job cancellation fails
+      }
 
       // Create notifications
       const notificationData = {
@@ -3221,6 +3376,33 @@ exports.verifyPaymentByReference = async (req, res) => {
         console.error('Error sending order confirmation email for reference verified payment:', emailError);
         // Continue processing even if email fails
       }
+
+      // Create transaction record for seller earnings
+      // const Transaction = mongoose.model('Transaction');
+      // const transaction = new Transaction({
+      //   seller: order.seller._id,
+      //   orderId: order._id,
+      //   amount: order.totalAmount,
+      //   type: 'order_payment',
+      //   status: 'completed',
+      //   description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+      //   metadata: {
+      //     itemTotal: order.totalAmount,
+      //     processingFeePercent: 0,
+      //     categoryName: order.items[0]?.productName || 'Mixed',
+      //     categoryFee: 0,
+      //     paymentReference: reference
+      //   }
+      // });
+      
+      // await transaction.save();
+      
+      // Update seller's balance
+      // await Seller.findByIdAndUpdate(
+      //   order.seller._id,
+      //   { $inc: { 'wallet.balance': order.totalAmount } }
+      // );
+
 
       return res.status(200).json({ 
         message: 'Order marked as paid successfully', 
@@ -3302,6 +3484,38 @@ exports.handlePaystackWebhook = async (req, res) => {
       return res.status(200).json({ message: 'Error processing webhook, but acknowledging receipt' });
     }
   }
+  
+  // Handle failed charge event
+  if (event.event === 'charge.failed' || 
+      event.event === 'transaction.failed' || 
+      (event.event === 'charge.dispute.create' && event.data?.status === 'failed') ||
+      (event.event === 'charge.dispute.resolve' && event.data?.status === 'declined')) {
+    const { reference, metadata } = event.data;
+    
+    // Log the event details
+    console.log(`Received payment failure event from Paystack:`, {
+      event: event.event,
+      reference,
+      failureStatus: event.data?.status,
+      gatewayResponse: event.data?.gateway_response,
+      metadata: JSON.stringify(metadata)
+    });
+    
+    // If there's no metadata or orderId, just acknowledge the webhook
+    if (!metadata || !metadata.orderId) {
+      return res.status(200).json({ message: 'Webhook received, but no order metadata for failed payment' });
+    }
+    
+    try {
+      // Process the failed payment
+      const result = await handleFailedPayment(event.data, res);
+      return result;
+    } catch (error) {
+      console.error('Error processing failed payment webhook:', error);
+      // Still return 200 to acknowledge the webhook
+      return res.status(200).json({ message: 'Error processing failed payment webhook, but acknowledging receipt' });
+    }
+  }
 
   // For other events, just acknowledge receipt
   return res.status(200).json({ message: 'Webhook received' });
@@ -3338,6 +3552,23 @@ async function handleOrderPayment(paymentData, res) {
   order.notificationsSent = true;
   
   const updatedOrder = await order.save();
+
+  // Cancel any scheduled job to delete this order
+  try {
+    // Find and cancel any delete_unpaid_orders job for this order
+    const jobs = await agenda.jobs({
+      name: 'delete_unpaid_orders',
+      'data.orderId': order._id.toString()
+    });
+    
+    if (jobs.length > 0) {
+      console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id}`);
+      await jobs[0].remove();
+    }
+  } catch (jobError) {
+    console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
+    // Continue processing even if job cancellation fails
+  }
 
   // Create transaction record for seller earnings
   const Transaction = mongoose.model('Transaction');
@@ -4372,5 +4603,163 @@ exports.getManifestUrl = async (req, res) => {
     });
   }
 };
+
+// Helper function to handle failed payments
+async function handleFailedPayment(paymentData, res) {
+  const { reference, metadata } = paymentData;
+  const orderId = metadata.orderId;
+  
+  const Order = mongoose.model('Order');
+  const order = await Order.findById(orderId);
+  
+  if (!order) {
+    console.log(`Order ${orderId} not found for failed Paystack payment`);
+    return res.status(200).json({ message: 'Order not found for failed payment, acknowledging webhook' });
+  }
+  
+  // Check if this is a Paystack order that's not already paid
+  if (order.paymentInfo.method !== 'paystack' || order.paid) {
+    console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
+    return res.status(200).json({ message: 'Order is not eligible for cancellation, acknowledging webhook' });
+  }
+  
+  console.log(`Processing payment failure for order ${order.order_id}, reference: ${reference}`);
+  
+  // Cancel any Fez shipment if it exists
+  if (order.shipping && order.shipping.fez_order_number) {
+    try {
+      console.log(`Attempting to cancel Fez shipment for failed payment order ${order.order_id}`);
+      
+      // Get Fez auth token
+      const getFezAuthToken = async () => {
+        try {
+          const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+          const authData = {
+            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+            password: process.env.FEZ_PASSWORD || "Bolu@123"
+          };
+          
+          const response = await axios.post(authUrl, authData);
+          
+          if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+            return response.data.authDetails.authToken;
+          } else {
+            throw new Error('Failed to authenticate with Fez Delivery');
+          }
+        } catch (error) {
+          console.error('Fez authentication error:', error.message);
+          throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+        }
+      };
+      
+      const authToken = await getFezAuthToken();
+      
+      // Cancel Fez shipment
+      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      const cancelResponse = await axios.post(
+        `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log(`Fez shipment cancellation response for failed payment order ${order.order_id}:`, {
+        status: cancelResponse.status,
+        data: cancelResponse.data
+      });
+    } catch (fezError) {
+      console.error(`Error cancelling Fez shipment for failed payment order ${order.order_id}:`, fezError.message);
+      // Continue with order deletion even if Fez cancellation fails
+    }
+  }
+  
+  // Restore product stock for each item in the order
+  try {
+    for (const item of order.items) {
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': -item.quantity,
+            'stock': item.quantity,
+            'inventory.quantity': item.quantity 
+          }
+        }
+      );
+      
+      console.log(`Restored stock for product ${item.productName} in failed payment order:`, {
+        productId: item.product,
+        quantity: item.quantity,
+        updateSuccessful: !!updateResult
+      });
+    }
+  } catch (stockError) {
+    console.error(`Error restoring product stock for failed payment order ${order.order_id}:`, stockError);
+    // Continue with order deletion even if stock restoration fails
+  }
+  
+  // Delete the order
+  await Order.findByIdAndDelete(order._id);
+  console.log(`Successfully deleted order ${order.order_id} due to failed Paystack payment`);
+  
+  // Cancel any scheduled deletion jobs for this order
+  try {
+    const jobs = await agenda.jobs({
+      name: 'delete_unpaid_orders',
+      'data.orderId': order._id.toString()
+    });
+    
+    if (jobs.length > 0) {
+      console.log(`Cancelling scheduled deletion job for failed payment order ${order.order_id}`);
+      await jobs[0].remove();
+    }
+  } catch (jobError) {
+    console.error(`Error cancelling delete job for failed payment order ${order.order_id}:`, jobError);
+  }
+  
+  // If the order was for a buyer, send them a notification about the failed payment
+  try {
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(order.buyer);
+    
+    if (buyer && buyer.email) {
+      // Send email notification about failed payment
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      await sgMail.send({
+        to: buyer.email,
+        from: 'Auqli Orders <support@auqli.com>',
+        subject: 'Payment Failed - Order Cancelled',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Payment Failed</h2>
+            <p>Dear ${buyer.firstName},</p>
+            <p>We're sorry to inform you that your payment for order #${order.order_id} has failed.</p>
+            <p>Your order has been automatically cancelled, and you'll need to place a new order if you wish to purchase these items.</p>
+            <p>Reason for failure: ${paymentData.gateway_response || 'Payment processing error'}</p>
+            <p>If you have any questions, please contact our support team.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+      
+      console.log(`Sent payment failure notification email to buyer ${buyer.email} for order ${order.order_id}`);
+    }
+  } catch (emailError) {
+    console.error(`Error sending payment failure email for order ${order.order_id}:`, emailError);
+    // Continue with response even if email fails
+  }
+  
+  return res.status(200).json({ 
+    message: 'Order deleted due to failed payment',
+    orderReference: order.order_id
+  });
+}
 
 

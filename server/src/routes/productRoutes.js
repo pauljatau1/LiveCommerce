@@ -3526,4 +3526,99 @@ router.post('/:productId/blips',
   productController.addBlipToProduct
 );
 
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/search:
+ *   get:
+ *     summary: Search seller's products
+ *     description: Search and filter products from a specific seller with various parameters
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search query to match against product name, description, or category
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by specific category
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, price, name, popularity, rating]
+ *         description: Field to sort by
+ *         default: createdAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort order
+ *         default: desc
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of products per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       400:
+ *         description: Invalid seller ID format
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/search', productController.searchSellerProducts);
+
 module.exports = router;

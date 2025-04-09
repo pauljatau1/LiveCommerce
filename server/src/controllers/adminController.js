@@ -559,7 +559,7 @@ exports.updateCategory = async (req, res) => {
       // Upload new image
       const imageKey = `categories/${uuidv4()}-${imageFile.originalname}`;
       const uploadParams = {
-        Bucket: process.env.CDN_S3_BUCKET',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: imageKey,
         Body: imageFile.buffer,
         ContentType: imageFile.mimetype,

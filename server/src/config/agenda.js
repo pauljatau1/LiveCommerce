@@ -1468,6 +1468,90 @@ agenda.define('bid_timer', async (job) => {
   }
 });
 
+// Define job to delete unpaid orders after 10 minutes
+agenda.define('delete_unpaid_orders', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Checking if order ${orderId} should be deleted due to unpaid status`);
+    
+    const Order = mongoose.model('Order');
+    
+    // Find the order
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already deleted`);
+      return;
+    }
+    
+    // Check if order is still unpaid and was created with Paystack
+    if (!order.paid && order.paymentInfo.method === 'paystack') {
+      console.log(`Deleting unpaid Paystack order ${order.order_id} after 10 minutes`);
+      
+      // If order has Fez shipment, attempt to cancel it
+      if (order.shipping && order.shipping.fez_order_number) {
+        try {
+          console.log(`Attempting to cancel Fez shipment for order ${order.order_id}`);
+          
+          // Get Fez auth token
+          const getFezAuthToken = async () => {
+            try {
+              const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+              const authData = {
+                user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+                password: process.env.FEZ_PASSWORD || "Bolu@123"
+              };
+              
+              const response = await axios.post(authUrl, authData);
+              
+              if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+                return response.data.authDetails.authToken;
+              } else {
+                throw new Error('Failed to authenticate with Fez Delivery');
+              }
+            } catch (error) {
+              console.error('Fez authentication error:', error.message);
+              throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+            }
+          };
+          
+          const authToken = await getFezAuthToken();
+          
+          // Cancel Fez shipment
+          const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+          const cancelResponse = await axios.post(
+            `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
+            {},
+            {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log(`Fez shipment cancellation response for order ${order.order_id}:`, {
+            status: cancelResponse.status,
+            data: cancelResponse.data
+          });
+        } catch (fezError) {
+          console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError.message);
+          // Continue with order deletion even if Fez cancellation fails
+        }
+      }
+      
+      // Delete the order
+      await Order.findByIdAndDelete(order._id);
+      console.log(`Successfully deleted unpaid Paystack order ${order.order_id}`);
+    } else {
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not deleting`);
+    }
+  } catch (error) {
+    console.error('Error in delete_unpaid_orders job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
