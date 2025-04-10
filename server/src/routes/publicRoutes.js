@@ -31,8 +31,10 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
     res.json({
       success: true,
       data: {
-        secretKey: process.env.PAYSTACK_SECRET_KEY,
-        publicKey: process.env.PAYSTACK_PUBLIC_KEY
+        // secretKey: process.env.PAYSTACK_SECRET_KEY,
+        // publicKey: process.env.PAYSTACK_PUBLIC_KEY
+        secretKey: 'sk_test_REDACTED',
+        publicKey: 'pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362'
       }
     });
   } catch (error) {
