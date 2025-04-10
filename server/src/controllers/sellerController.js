@@ -502,7 +502,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     // Upload Certificate of Incorporation
     const certFile = files.certificateOfIncorporation[0];
     const certParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/company/${uuidv4()}-${certFile.originalname}`,
       Body: certFile.buffer,
       ContentType: certFile.mimetype,
@@ -517,7 +517,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     // Upload Business Tax ID
     const taxFile = files.businessTaxId[0];
     const taxParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/company/${uuidv4()}-${taxFile.originalname}`,
       Body: taxFile.buffer,
       ContentType: taxFile.mimetype,
@@ -568,7 +568,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Individual Tax ID
     const taxFile = files.individualTaxId[0];
     const taxParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${taxFile.originalname}`,
       Body: taxFile.buffer,
       ContentType: taxFile.mimetype,
@@ -583,7 +583,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Government ID
     const govFile = files.governmentId[0];
     const govParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${govFile.originalname}`,
       Body: govFile.buffer,
       ContentType: govFile.mimetype,
@@ -598,7 +598,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Proof of Address
     const addressFile = files.proofOfAddress[0];
     const addressParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${addressFile.originalname}`,
       Body: addressFile.buffer,
       ContentType: addressFile.mimetype,
@@ -645,7 +645,7 @@ exports.uploadStoreAvatar = async (req, res) => {
     }
 
     const params = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${avatarFile.originalname}`,
       Body: avatarFile.buffer,
       ContentType: avatarFile.mimetype,
@@ -681,7 +681,7 @@ exports.uploadStoreBanner = async (req, res) => {
     }
 
     const params = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${bannerFile.originalname}`,
       Body: bannerFile.buffer,
       ContentType: bannerFile.mimetype,
@@ -905,7 +905,7 @@ exports.requestBankAccountChange = async (req, res) => {
     // Upload proof document to S3
     const fileKey = `bank-change-proofs/${uuidv4()}-${req.file.originalname}`;
     const uploadParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: fileKey,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
@@ -1343,85 +1343,7 @@ exports.getOrders = async (req, res) => {
   }
 };
 
-// Get seller's sales analytics
-exports.getSalesAnalytics = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const query = { 'items.seller': req.user.id };
 
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-
-    const orders = await Order.find(query);
-    
-    const analytics = {
-      totalOrders: orders.length,
-      totalRevenue: 0,
-      ordersByStatus: {
-        pending: 0,
-        processing: 0,
-        shipped: 0,
-        delivered: 0,
-        cancelled: 0,
-        returned: 0
-      },
-      revenueByDay: {},
-      topProducts: [],
-      averageOrderValue: 0
-    };
-
-    // Calculate metrics
-    orders.forEach(order => {
-      const sellerItems = order.items.filter(
-        item => item.seller.toString() === req.user.id
-      );
-      
-      const orderRevenue = sellerItems.reduce(
-        (sum, item) => sum + (item.price * item.quantity), 
-        0
-      );
-      
-      analytics.totalRevenue += orderRevenue;
-      
-      // Count by status
-      sellerItems.forEach(item => {
-        analytics.ordersByStatus[item.status]++;
-      });
-
-      // Group by day
-      const day = order.createdAt.toISOString().split('T')[0];
-      analytics.revenueByDay[day] = (analytics.revenueByDay[day] || 0) + orderRevenue;
-    });
-
-    // Calculate average order value
-    analytics.averageOrderValue = analytics.totalRevenue / analytics.totalOrders;
-
-    // Get top products
-    analytics.topProducts = await Order.aggregate([
-      { $match: query },
-      { $unwind: '$items' },
-      { $match: { 'items.seller': mongoose.Types.ObjectId(req.user.id) } },
-      { $group: {
-          _id: '$items.product',
-          totalSold: { $sum: '$items.quantity' },
-          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
-        }
-      },
-      { $sort: { totalRevenue: -1 } },
-      { $limit: 5 }
-    ]);
-
-    // Populate product details
-    await Product.populate(analytics.topProducts, { path: '_id' });
-
-    res.json(analytics);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching analytics', error: error.message });
-  }
-};
 
 // Get shipping label
 exports.getShippingLabel = async (req, res) => {
@@ -2176,185 +2098,6 @@ exports.getWithdrawalRequests = async (req, res) => {
   }
 };
 
-exports.getAnalyticsMetrics = async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const seller = await Seller.findById(sellerId);
-    
-    // Get date ranges
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-    const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-
-    // Get all orders
-    const allOrders = await Order.find({
-      seller: sellerId
-    }).populate('items.product');
-
-    const paidOrders = allOrders.filter(order => order.paid);
-
-    // Category Performance Analysis
-    const categoryPerformance = {};
-    paidOrders.forEach(order => {
-      order.items.forEach(item => {
-        if (item.product?.category) {
-          if (!categoryPerformance[item.product.category]) {
-            categoryPerformance[item.product.category] = {
-              soldCount: 0,
-              revenue: 0,
-              orderCount: 0
-            };
-          }
-          categoryPerformance[item.product.category].soldCount += item.quantity;
-          categoryPerformance[item.product.category].revenue += (item.price * item.quantity);
-          categoryPerformance[item.product.category].orderCount += 1;
-        }
-      });
-    });
-
-    // Top Products Analysis
-    const productPerformance = {};
-    paidOrders.forEach(order => {
-      order.items.forEach(item => {
-        if (!productPerformance[item.product?._id]) {
-          productPerformance[item.product?._id] = {
-            name: item.product?.name,
-            soldCount: 0,
-            revenue: 0,
-            orderCount: 0
-          };
-        }
-        productPerformance[item.product?._id].soldCount += item.quantity;
-        productPerformance[item.product?._id].revenue += (item.price * item.quantity);
-        productPerformance[item.product?._id].orderCount += 1;
-      });
-    });
-
-    // Calculate revenue metrics
-    const totalRevenue = paidOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-    const lastMonthOrders = paidOrders.filter(order => order.createdAt >= lastMonth);
-    const previousMonthOrders = paidOrders.filter(
-      order => order.createdAt >= twoMonthsAgo && order.createdAt < lastMonth
-    );
-    const lastYearOrders = paidOrders.filter(order => order.createdAt >= lastYear);
-    
-    const lastMonthRevenue = lastMonthOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-    const previousMonthRevenue = previousMonthOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-    const revenueGrowth = previousMonthRevenue ? 
-      ((lastMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 : 0;
-
-    // Customer Analysis
-    const uniqueCustomers = new Set(paidOrders.map(order => order.buyer.toString()));
-    const returningCustomers = seller.customers.filter(customer => customer.totalOrders > 1);
-    const customerRetentionRate = uniqueCustomers.size ? 
-      (returningCustomers.length / uniqueCustomers.size) * 100 : 0;
-
-    // Store Performance
-    const storeVisits = seller.storeVisits || 0;
-    const conversionRate = storeVisits ? 
-      (paidOrders.length / storeVisits) * 100 : 0;
-
-    const analyticsData = {
-      revenue: {
-        total: totalRevenue,
-        lastMonth: lastMonthRevenue,
-        growth: revenueGrowth,
-        yearToDate: lastYearOrders.reduce((sum, order) => sum + order.totalAmount, 0)
-      },
-      orders: {
-        total: allOrders.length,
-        completed: paidOrders.filter(order => order.status === 'delivered').length,
-        pending: allOrders.filter(order => order.status === 'pending').length,
-        cancelled: allOrders.filter(order => order.status === 'cancelled').length,
-        lastMonth: lastMonthOrders.length,
-        averageOrderValue: paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0
-      },
-      categories: {
-        performance: Object.entries(categoryPerformance)
-          .sort((a, b) => b[1].revenue - a[1].revenue)
-          .map(([category, data]) => ({
-            category,
-            ...data,
-            averageOrderValue: data.orderCount > 0 ? data.revenue / data.orderCount : 0
-          }))
-      },
-      products: {
-        topSelling: Object.entries(productPerformance)
-          .sort((a, b) => b[1].soldCount - a[1].soldCount)
-          .slice(0, 5)
-          .map(([id, data]) => ({
-            id,
-            ...data
-          })),
-        totalActive: await Product.countDocuments({ 
-          seller: sellerId, 
-          status: 'active' 
-        })
-      },
-      customers: {
-        total: uniqueCustomers.size,
-        returning: returningCustomers.length,
-        retentionRate: customerRetentionRate,
-        averageLifetimeValue: uniqueCustomers.size > 0 ? 
-          totalRevenue / uniqueCustomers.size : 0
-      },
-      storeMetrics: {
-        visits: storeVisits,
-        conversionRate,
-        averageOrderValue: paidOrders.length > 0 ? 
-          totalRevenue / paidOrders.length : 0
-      },
-      insights: [
-        {
-          metric: 'Revenue Growth',
-          value: revenueGrowth,
-          trend: revenueGrowth >= 0 ? 'up' : 'down',
-          percentageChange: Math.abs(revenueGrowth),
-          recommendation: revenueGrowth < 0 ? 
-            'Consider running promotions or reviewing pricing strategy' : 
-            'Keep up the good work and consider expanding your product line'
-        },
-        {
-          metric: 'Customer Retention',
-          value: customerRetentionRate,
-          trend: customerRetentionRate >= 70 ? 'up' : 'down',
-          percentageChange: customerRetentionRate,
-          recommendation: customerRetentionRate < 70 ? 
-            'Focus on customer engagement and loyalty programs' : 
-            'Maintain excellent customer service and consider referral programs'
-        },
-        {
-          metric: 'Store Conversion',
-          value: conversionRate,
-          trend: conversionRate >= 2 ? 'up' : 'down',
-          percentageChange: conversionRate,
-          recommendation: conversionRate < 2 ? 
-            'Review product descriptions and pricing strategy' : 
-            'Consider expanding marketing efforts to increase traffic'
-        }
-      ],
-      trends: {
-        monthOverMonth: {
-          revenue: revenueGrowth,
-          orders: lastMonthOrders.length - previousMonthOrders.length,
-          customers: lastMonthOrders.filter(order => 
-            !previousMonthOrders.find(po => po.buyer.toString() === order.buyer.toString())
-          ).length
-        }
-      }
-    };
-
-    res.json(analyticsData);
-
-  } catch (error) {
-    console.error('Error getting analytics metrics:', error);
-    res.status(500).json({
-      message: 'Failed to retrieve analytics metrics',
-      error: error.message
-    });
-  }
-};
 
 // Update store profile
 exports.updateStoreProfile = async (req, res) => {
@@ -2378,6 +2121,398 @@ exports.updateStoreProfile = async (req, res) => {
     res.json({ message: 'Store profile updated successfully', seller: updatedSeller });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update store profile', error: error.message });
+  }
+};
+
+// Get seller analytics
+exports.getSellerAnalytics = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { period = 'month', startDate, endDate } = req.query;
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    
+    // Set date range based on period
+    let dateFilter = {};
+    const now = new Date();
+    
+    if (startDate && endDate) {
+      dateFilter = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    } else if (period === 'week') {
+      const oneWeekAgo = new Date(now);
+      oneWeekAgo.setDate(now.getDate() - 7);
+      dateFilter = { $gte: oneWeekAgo };
+    } else if (period === 'month') {
+      const oneMonthAgo = new Date(now);
+      oneMonthAgo.setMonth(now.getMonth() - 1);
+      dateFilter = { $gte: oneMonthAgo };
+    } else if (period === 'year') {
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      dateFilter = { $gte: oneYearAgo };
+    }
+    
+    // Get orders data
+    const Order = mongoose.model('Order');
+    const orders = await Order.find({ 
+      seller: sellerId,
+      createdAt: dateFilter
+    }).populate('buyer', 'firstName lastName email');
+    
+    // Get products data with ACTUAL views
+    const Product = mongoose.model('Product');
+    const products = await Product.find({ 
+      seller: sellerId
+    }).sort({ createdAt: -1 });
+    
+    // Get streams data with more details
+    const Stream = mongoose.model('Stream');
+    const streams = await Stream.find({
+      seller: sellerId,
+      createdAt: dateFilter
+    }).populate({
+      path: 'viewers',
+      select: 'firstName lastName'
+    });
+    
+    // Calculate order statistics
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const fulfilledOrders = orders.filter(order => !order.isOpen).length;
+    const pendingOrders = orders.filter(order => order.isOpen).length;
+    
+    // Calculate average order value
+    const averageOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0;
+    
+    // Get unique buyers
+    const uniqueBuyers = [...new Set(orders.map(order => order.buyer?._id?.toString()))].filter(Boolean).length;
+    
+    // Calculate customer retention
+    const customerIds = orders.map(order => order.buyer?._id?.toString()).filter(Boolean);
+    const buyerFrequency = {};
+    customerIds.forEach(id => {
+      buyerFrequency[id] = (buyerFrequency[id] || 0) + 1;
+    });
+    
+    const repeatCustomers = Object.values(buyerFrequency).filter(count => count > 1).length;
+    const repeatCustomerRate = uniqueBuyers > 0 ? (repeatCustomers / uniqueBuyers * 100).toFixed(2) : 0;
+    
+    // Get top products with actual view counts
+    const topProducts = products.slice(0, 10).map(product => ({
+      _id: product._id,
+      name: product.name,
+      sold: product.stats?.soldCount || 0,
+      views: product.stats?.views || 0,
+      stock: product.stockQuantity,
+      price: product.price,
+      imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null,
+      lastUpdated: product.updatedAt
+    }));
+    
+    // Get most sold products
+    const mostSoldProducts = [...products]
+      .sort((a, b) => (b.stats?.soldCount || 0) - (a.stats?.soldCount || 0))
+      .slice(0, 5)
+      .map(product => ({
+        _id: product._id,
+        name: product.name,
+        sold: product.stats?.soldCount || 0,
+        views: product.stats?.views || 0,
+        price: product.price,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
+      }));
+    
+    // Get most viewed products
+    const mostViewedProducts = [...products]
+      .sort((a, b) => (b.stats?.views || 0) - (a.stats?.views || 0))
+      .slice(0, 5)
+      .map(product => ({
+        _id: product._id,
+        name: product.name,
+        views: product.stats?.views || 0,
+        sold: product.stats?.soldCount || 0,
+        price: product.price,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
+      }));
+    
+    // Get low stock products
+    const lowStockProducts = products
+      .filter(p => p.stockQuantity < (p.lowStockAlert || 5) && p.stockQuantity > 0)
+      .map(product => ({
+        _id: product._id,
+        name: product.name,
+        stock: product.stockQuantity,
+        lowStockThreshold: product.lowStockAlert || 5,
+        sold: product.stats?.soldCount || 0,
+        views: product.stats?.views || 0,
+        price: product.price,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
+      }));
+    
+    // Get stream analytics with richer data
+    const totalStreams = streams.length;
+    const liveStreams = streams.filter(stream => stream.status === 'live').length;
+    const endedStreams = streams.filter(stream => stream.status === 'ended').length;
+    const scheduledStreams = streams.filter(stream => stream.status === 'scheduled').length;
+    
+    const totalStreamViewers = streams.reduce((sum, stream) => sum + (stream.viewers?.length || 0), 0);
+    const averageViewersPerStream = totalStreams > 0 ? (totalStreamViewers / totalStreams).toFixed(2) : 0;
+    
+    // Get recent streams with viewer data
+    const recentStreams = streams
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5)
+      .map(stream => ({
+        _id: stream._id,
+        title: stream.title,
+        status: stream.status,
+        scheduledStartTime: stream.scheduledStartTime,
+        actualStartTime: stream.actualStartTime,
+        endTime: stream.endTime,
+        viewerCount: stream.viewers?.length || 0,
+        productCount: stream.products?.length || 0,
+        bidCount: stream.bids?.length || 0,
+        orderCount: stream.orders?.length || 0
+      }));
+    
+    // Get top performing streams
+    const topPerformingStreams = [...streams]
+      .sort((a, b) => (b.viewers?.length || 0) - (a.viewers?.length || 0))
+      .slice(0, 3)
+      .map(stream => ({
+        _id: stream._id,
+        title: stream.title,
+        viewerCount: stream.viewers?.length || 0,
+        orderCount: stream.orders?.length || 0,
+        scheduledStartTime: stream.scheduledStartTime
+      }));
+    
+    // Calculate revenue by date for chart data
+    const revenueByDate = {};
+    orders.forEach(order => {
+      const date = order.createdAt.toISOString().split('T')[0];
+      revenueByDate[date] = (revenueByDate[date] || 0) + order.totalAmount;
+    });
+    
+    const chartData = Object.keys(revenueByDate).sort().map(date => ({
+      date,
+      revenue: revenueByDate[date]
+    }));
+    
+    // Orders by channel
+    const ordersByChannel = orders.reduce((acc, order) => {
+      const channel = order.channel || 'marketplace';
+      acc[channel] = (acc[channel] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Revenue by channel
+    const revenueByChannel = orders.reduce((acc, order) => {
+      const channel = order.channel || 'marketplace';
+      acc[channel] = (acc[channel] || 0) + order.totalAmount;
+      return acc;
+    }, {});
+    
+    // Get recent orders with enhanced data
+    const recentOrders = orders
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5)
+      .map(order => ({
+        _id: order._id,
+        order_id: order.order_id,
+        buyerName: order.buyer ? `${order.buyer.firstName} ${order.buyer.lastName}` : 'Unknown',
+        totalAmount: order.totalAmount,
+        date: order.createdAt,
+        status: order.isOpen ? 'Open' : 'Closed',
+        items: order.items.length,
+        channel: order.channel || 'marketplace',
+        shippingStatus: order.shipping?.tracking?.status || 'pending'
+      }));
+    
+    // Get followers info (but omit unnecessary details)
+    const followersCount = seller.followers?.length || 0;
+    const recentFollowers = seller.followers
+      ?.filter(follower => follower.firstName && follower.lastName) // Filter out incomplete records
+      ?.slice(0, 5)
+      ?.map(follower => ({
+        _id: follower.buyerId,
+        name: `${follower.firstName} ${follower.lastName}`,
+        email: follower.email,
+        followDate: follower.followDate,
+        orderCount: follower.totalOrders || 0
+      })) || [];
+    
+    // Get store visit data
+    const storeVisits = seller.storeVisits || 0;
+    
+    // Use properly formatted monthly stats
+    const storeVisitsByMonth = {};
+    if (seller.monthlyStats && seller.monthlyStats.storeVisits) {
+      Object.entries(seller.monthlyStats.storeVisits).forEach(([key, value]) => {
+        // Convert keys like '2025-3' to proper month names
+        const [year, month] = key.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const monthName = date.toLocaleString('default', { month: 'long' });
+        storeVisitsByMonth[`${monthName} ${year}`] = value;
+      });
+    }
+    
+    // Generate insights and recommendations
+    const insights = [];
+    const recommendations = [];
+    
+    // Revenue insights
+    if (totalOrders > 0) {
+      insights.push(`Your average order value is ₦${parseFloat(averageOrderValue).toLocaleString()}.`);
+      
+      // Check if there's a significant portion of liveshows vs marketplace
+      const liveshowOrders = ordersByChannel['liveshow'] || 0;
+      const liveshowPercentage = (liveshowOrders / totalOrders) * 100;
+      
+      if (liveshowPercentage > 30) {
+        insights.push(`${liveshowPercentage.toFixed(0)}% of your orders come from live shows.`);
+        recommendations.push("Your live shows are performing well. Consider increasing the frequency of your streams.");
+      } else if (liveStreams > 0 || endedStreams > 0) {
+        recommendations.push("Consider featuring more products in your live streams to increase conversions.");
+      }
+    }
+    
+    // Customer insights
+    if (uniqueBuyers > 0) {
+      insights.push(`You have a ${repeatCustomerRate}% repeat customer rate.`);
+      
+      if (parseFloat(repeatCustomerRate) < 30) {
+        recommendations.push("Your repeat customer rate is relatively low. Consider implementing a loyalty program or sending follow-up emails.");
+      } else if (parseFloat(repeatCustomerRate) > 60) {
+        insights.push("You have a strong loyal customer base!");
+        recommendations.push("Leverage your loyal customers by introducing referral bonuses or exclusive products.");
+      }
+    }
+    
+    // Product insights
+    if (lowStockProducts.length > 0) {
+      insights.push(`You have ${lowStockProducts.length} products with low stock (below their threshold).`);
+      recommendations.push("Restock your low inventory items soon to avoid missed sales opportunities.");
+    }
+    
+    // Check for products with zero sales
+    if (products.length > 0) {
+      const productsWithZeroSales = products.filter(p => !p.stats?.soldCount || p.stats.soldCount === 0).length;
+      const percentageZeroSales = (productsWithZeroSales / products.length) * 100;
+      
+      if (percentageZeroSales > 30) {
+        insights.push(`${percentageZeroSales.toFixed(0)}% of your products have no sales.`);
+        recommendations.push("Consider updating your product listings or running promotions for items that aren't selling.");
+      }
+      
+      // Add insights for products with high views but low sales
+      const productsWithViewsButNoSales = products.filter(p => 
+        (p.stats?.views || 0) > 10 && (!p.stats?.soldCount || p.stats.soldCount === 0)
+      ).length;
+      
+      if (productsWithViewsButNoSales > 0) {
+        insights.push(`You have ${productsWithViewsButNoSales} products with significant views but no sales.`);
+        recommendations.push("Review pricing or product details for items that get views but don't convert to sales.");
+      }
+    }
+    
+    // Stream insights
+    if (totalStreams > 0) {
+      insights.push(`Your streams average ${averageViewersPerStream} viewers per session.`);
+      
+      if (parseFloat(averageViewersPerStream) < 5) {
+        recommendations.push("Promote your upcoming streams more actively to increase viewership.");
+      }
+      
+      const conversionRate = streams.reduce((sum, stream) => {
+        const viewers = stream.viewers?.length || 0;
+        const orders = stream.orders?.length || 0;
+        return viewers > 0 ? sum + (orders / viewers) : sum;
+      }, 0) / totalStreams;
+      
+      if (conversionRate > 0) {
+        insights.push(`Your stream-to-sale conversion rate is ${(conversionRate * 100).toFixed(1)}%.`);
+        
+        if (conversionRate < 0.05) {
+          recommendations.push("Try more engaging sales techniques during your streams to improve conversion.");
+        } else if (conversionRate > 0.2) {
+          insights.push("Your stream conversion rate is excellent!");
+        }
+      }
+    }
+    
+    // Prepare final response with enhanced data
+    const analytics = {
+      summary: {
+        totalOrders,
+        totalRevenue,
+        averageOrderValue,
+        uniqueBuyers,
+        totalProducts: products.length,
+        totalStreams,
+        storeVisits,
+        walletBalance: seller.walletBalance || 0,
+        followersCount,
+        ratingsAverage: seller.stats?.averageRating || 0,
+        totalReviews: seller.stats?.totalReviews || 0
+      },
+      insights,
+      recommendations,
+      ordersData: {
+        fulfilledOrders,
+        pendingOrders,
+        repeatCustomerRate,
+        recentOrders,
+        ordersByChannel,
+        revenueByChannel
+      },
+      productsData: {
+        topProducts,
+        mostSoldProducts,
+        mostViewedProducts,
+        lowStockProducts,
+        outOfStockCount: products.filter(p => p.stockQuantity === 0).length,
+        totalProductsSold: products.reduce((sum, product) => sum + (product.stats?.soldCount || 0), 0),
+        totalProductViews: products.reduce((sum, product) => sum + (product.stats?.views || 0), 0)
+      },
+      streamsData: {
+        liveStreams,
+        endedStreams,
+        scheduledStreams,
+        averageViewersPerStream,
+        totalStreamViewers,
+        recentStreams,
+        topPerformingStreams,
+        cancelledStreams: seller.cancelledStreamCount || 0
+      },
+      followersData: {
+        totalFollowers: followersCount,
+        recentFollowers
+      },
+      chartData,
+      ratingsDistribution: seller.stats?.ratingDistribution || {
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+      },
+      storeVisitsByMonth: Object.entries(storeVisitsByMonth).map(([month, count]) => ({
+        month,
+        count
+      }))
+    };
+    
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error fetching seller analytics:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch analytics', 
+      error: error.message 
+    });
   }
 };
 
@@ -3125,778 +3260,6 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// Updated helper function to calculate summary with separate fee types
-async function calculateTransactionSummary(sellerId) {
-  const [orderPayments, platformFees, processingFees, withdrawals] = await Promise.all([
-    Transaction.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'order_payment' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]),
-    Transaction.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'platform_fee' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]),
-    Transaction.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'processing_fee' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]),
-    Transaction.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'withdrawal' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ])
-  ]);
-
-  return {
-    totalEarnings: orderPayments[0]?.total || 0,
-    totalPlatformFees: platformFees[0]?.total || 0,
-    totalProcessingFees: processingFees[0]?.total || 0,
-    totalWithdrawals: withdrawals[0]?.total || 0
-  };
-}
-
-exports.getAdvancedAnalytics = async (req, res) => {
-  try {
-    console.log('Starting getAdvancedAnalytics...');
-    const sellerId = req.user.id;
-    const { timeframe = '30d' } = req.query;
-
-    console.log('Seller ID:', sellerId);
-    console.log('Timeframe:', timeframe);
-
-    // Calculate date ranges
-    const now = new Date();
-    const dateRanges = {
-      current: {
-        start: getDateRange(timeframe, now),
-        end: now
-      },
-      previous: {
-        start: getDateRange(timeframe, getDateRange(timeframe, now)),
-        end: getDateRange(timeframe, now)
-      }
-    };
-    console.log('Date ranges:', dateRanges);
-
-    // Parallel fetch all required data
-    console.log('Fetching data...');
-    const [
-      currentOrders,
-      previousOrders,
-      products,
-      customerData,
-      returns
-    ] = await Promise.all([
-      Order.find({
-        seller: sellerId,
-        createdAt: { $gte: dateRanges.current.start, $lte: dateRanges.current.end }
-      }).populate('buyer items.product'),
-      Order.find({
-        seller: sellerId,
-        createdAt: { $gte: dateRanges.previous.start, $lte: dateRanges.previous.end }
-      }),
-      Product.find({ seller: sellerId }),
-      Buyer.find({ 'orders.seller': sellerId }),
-      Order.find({ 
-        seller: sellerId,
-        'orderStatus.hasReturn': true,
-        createdAt: { $gte: dateRanges.current.start }
-      })
-    ]);
-
-    console.log('Data fetched:');
-    console.log('Current orders:', currentOrders.length);
-    console.log('Previous orders:', previousOrders.length);
-    console.log('Products:', products.length);
-    console.log('Customer data:', customerData?.length);
-    console.log('Returns:', returns.length);
-
-    // Calculate comprehensive analytics
-    console.log('Calculating analytics...');
-    const analytics = {
-      revenue: calculateRevenueMetrics(currentOrders, previousOrders),
-      orders: calculateOrderMetrics(currentOrders, previousOrders),
-      products: calculateProductMetrics(products, currentOrders),
-      inventory: calculateInventoryMetrics(products),
-      customers: calculateCustomerMetrics(customerData, currentOrders, previousOrders),
-      performance: calculatePerformanceMetrics(currentOrders, products),
-      categoryAnalysis: calculateCategoryAnalysis(products, currentOrders),
-      profitability: calculateProfitabilityMetrics(currentOrders),
-      marketingEffectiveness: calculateMarketingMetrics(currentOrders, products),
-      operationalMetrics: calculateOperationalMetrics(currentOrders, returns),
-      trends: calculateTrends(currentOrders, previousOrders, products),
-      recommendations: generateRecommendations({
-        orders: currentOrders,
-        products,
-        returns,
-        customerData
-      })
-    };
-
-    res.json(analytics);
-  } catch (error) {
-    console.error('Error in getAdvancedAnalytics:', error);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({
-      message: 'Failed to retrieve analytics',
-      error: error.message
-    });
-  }
-};
-
-// Helper functions
-
-function calculateRevenueMetrics(currentOrders, previousOrders) {
-  const currentRevenue = currentOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const previousRevenue = previousOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const revenueGrowth = previousRevenue ? 
-    Number(((currentRevenue - previousRevenue) / previousRevenue * 100).toFixed(1)) : 100;
-
-  return {
-    total: Math.round(currentRevenue),
-    previousPeriod: Math.round(previousRevenue),
-    growth: revenueGrowth,
-    dailyAverage: Math.round(currentRevenue / Math.max(1, currentOrders.length)),
-    byPaymentMethod: calculateRevenueByPaymentMethod(currentOrders),
-    byCategory: calculateRevenueByCategory(currentOrders)
-  };
-}
-
-function calculateOrderMetrics(currentOrders, previousOrders) {
-  const orderStatuses = currentOrders.reduce((acc, order) => {
-    acc[order.status] = (acc[order.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const growth = previousOrders.length ? 
-    Number(((currentOrders.length - previousOrders.length) / previousOrders.length * 100).toFixed(1)) : 100;
-
-  return {
-    total: currentOrders.length,
-    previousPeriod: previousOrders.length,
-    growth: growth,
-    byStatus: orderStatuses,
-    averageOrderValue: Math.round(currentOrders.length ? 
-      currentOrders.reduce((sum, order) => sum + order.totalAmount, 0) / currentOrders.length : 0),
-    fulfillmentTime: Number(calculateAverageFulfillmentTime(currentOrders).toFixed(1))
-  };
-}
-
-function calculateProductMetrics(products, currentOrders) {
-  const soldProducts = new Map();
-  
-  // Safely track sold products
-  currentOrders.forEach(order => {
-    if (!order.items) return;
-    
-    order.items.forEach(item => {
-      if (!item.product) return;
-      const productId = item.product._id || item.product;
-      if (!productId) return;
-      
-      const count = soldProducts.get(productId.toString()) || 0;
-      soldProducts.set(productId.toString(), count + (item.quantity || 0));
-    });
-  });
-
-  // Safely map product metrics
-  const productMetrics = products
-    .filter(product => product) // Filter out null products
-    .map(product => ({
-      id: product._id,
-      name: product.name || 'Unknown Product',
-      category: product.category || 'Uncategorized',
-      currentStock: product.inventory?.quantity || 0,
-      soldCount: soldProducts.get(product._id.toString()) || 0,
-      turnoverRate: calculateTurnoverRate(product, soldProducts.get(product._id.toString()) || 0)
-    }));
-
-  return {
-    total: products.length,
-    active: products.filter(p => p && p.status === 'active').length,
-    lowStock: products.filter(p => p && p.inventory && p.inventory.quantity <= (p.inventory.lowStockThreshold || 0)).length,
-    topSelling: productMetrics
-      .sort((a, b) => b.soldCount - a.soldCount)
-      .slice(0, 5),
-    turnoverRate: calculateAverageTurnoverRate(productMetrics)
-  };
-}
-
-// Add the missing calculateAverageTurnoverRate function
-function calculateAverageTurnoverRate(productMetrics) {
-  if (!productMetrics.length) return 0;
-  const totalTurnover = productMetrics.reduce((sum, product) => sum + (product.turnoverRate || 0), 0);
-  return Number((totalTurnover / productMetrics.length).toFixed(1));
-}
-
-// Update calculateTurnoverRate to handle null values
-function calculateTurnoverRate(product, soldCount) {
-  if (!product || !product.inventory) return 0;
-  const quantity = product.inventory.quantity || 0;
-  const averageInventory = (quantity + (quantity + (soldCount || 0))) / 2;
-  return averageInventory > 0 ? 
-    Number(((soldCount || 0) / averageInventory * 100).toFixed(1)) : 0;
-}
-
-function calculateInventoryMetrics(products) {
-  const totalValue = products.reduce((sum, product) => 
-    sum + (product.price * product.inventory.quantity), 0);
-
-  return {
-    totalProducts: products.length,
-    totalValue,
-    lowStockItems: products.filter(p => p.inventory.quantity <= p.inventory.lowStockThreshold),
-    outOfStockItems: products.filter(p => p.inventory.quantity === 0),
-    averageStockLevel: products.reduce((sum, p) => sum + p.inventory.quantity, 0) / products.length,
-    stockDistribution: calculateStockDistribution(products)
-  };
-}
-
-function calculateCustomerMetrics(customerData, currentOrders, previousOrders) {
-  console.log('Starting calculateCustomerMetrics...');
-  
-  // Initialize with safe defaults
-  const metrics = {
-    total: 0,
-    new: 0,
-    returning: 0,
-    retentionRate: 0,
-    averageOrdersPerCustomer: 0,
-    customerLifetimeValue: 0,
-    topCustomers: []
-  };
-
-  try {
-    // Combine customers and followers data
-    const allCustomers = new Set();
-    
-    // Add customers from orders
-    currentOrders.forEach(order => {
-      if (order?.buyer?._id) {
-        allCustomers.add(order.buyer._id.toString());
-      }
-    });
-
-    // Add followers if they exist in customerData
-    if (customerData && Array.isArray(customerData)) {
-      customerData.forEach(customer => {
-        if (customer?.followers) {
-          customer.followers.forEach(follower => {
-            if (follower?.buyerId) {
-              allCustomers.add(follower.buyerId.toString());
-            }
-          });
-        }
-        if (customer?.buyerId) {
-          allCustomers.add(customer.buyerId.toString());
-        }
-      });
-    }
-
-    // Process previous customers for retention calculation
-    const previousCustomerSet = new Set(
-      previousOrders
-        .filter(order => order?.buyer?._id)
-        .map(order => order.buyer._id.toString())
-    );
-
-    // Calculate returning customers
-    const returningCustomers = new Set(
-      [...allCustomers].filter(id => previousCustomerSet.has(id))
-    );
-
-    // Calculate customer lifetime value safely
-    const validOrders = currentOrders.filter(order => 
-      order?.totalAmount && order?.buyer?._id
-    );
-
-    const customerSpending = new Map();
-    validOrders.forEach(order => {
-      const buyerId = order.buyer._id.toString();
-      const currentSpent = customerSpending.get(buyerId) || 0;
-      customerSpending.set(buyerId, currentSpent + order.totalAmount);
-    });
-
-    // Get top customers
-    const topCustomers = Array.from(customerSpending.entries())
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([buyerId, totalSpent]) => {
-        const customerOrder = currentOrders.find(
-          order => order.buyer._id.toString() === buyerId
-        );
-        return {
-          id: buyerId,
-          name: customerOrder ? 
-            `${customerOrder.buyer.firstName || ''} ${customerOrder.buyer.lastName || ''}`.trim() : 
-            'Unknown Customer',
-          totalOrders: validOrders.filter(
-            order => order.buyer._id.toString() === buyerId
-          ).length,
-          totalSpent: totalSpent
-        };
-      });
-
-    // Update metrics
-    metrics.total = allCustomers.size;
-    metrics.new = allCustomers.size - returningCustomers.size;
-    metrics.returning = returningCustomers.size;
-    metrics.retentionRate = previousCustomerSet.size ? 
-      (returningCustomers.size / previousCustomerSet.size) * 100 : 0;
-    metrics.averageOrdersPerCustomer = validOrders.length / Math.max(1, allCustomers.size);
-    metrics.customerLifetimeValue = customerSpending.size ? 
-      Array.from(customerSpending.values()).reduce((sum, spent) => sum + spent, 0) / customerSpending.size : 0;
-    metrics.topCustomers = topCustomers;
-
-    console.log('Customer metrics calculated:', {
-      totalCustomers: metrics.total,
-      newCustomers: metrics.new,
-      returningCustomers: metrics.returning
-    });
-
-  } catch (error) {
-    console.error('Error calculating customer metrics:', error);
-    // Return safe defaults if there's an error
-  }
-
-  return metrics;
-}
-
-// Additional helper functions for specific calculations
-function calculateAverageFulfillmentTime(orders) {
-  const fulfillmentTimes = orders
-    .filter(order => order.status === 'delivered')
-    .map(order => {
-      const created = new Date(order.createdAt);
-      const delivered = new Date(order.deliveredAt);
-      return (delivered - created) / (1000 * 60 * 60); // Convert to hours
-    });
-
-  return fulfillmentTimes.length ? 
-    fulfillmentTimes.reduce((sum, time) => sum + time, 0) / fulfillmentTimes.length : 
-    0;
-}
-
-function calculateStockDistribution(products) {
-  return {
-    healthy: products.filter(p => p.inventory.quantity > p.inventory.lowStockThreshold).length,
-    low: products.filter(p => p.inventory.quantity <= p.inventory.lowStockThreshold && p.inventory.quantity > 0).length,
-    outOfStock: products.filter(p => p.inventory.quantity === 0).length
-  };
-}
-
-function calculateCustomerLifetimeValue(customerData, orders) {
-  const customerOrders = new Map();
-  orders.forEach(order => {
-    const customerId = order.buyer._id.toString();
-    const currentTotal = customerOrders.get(customerId) || 0;
-    customerOrders.set(customerId, currentTotal + order.totalAmount);
-  });
-
-  const values = Array.from(customerOrders.values());
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-}
-
-function getDateRange(timeframe, date) {
-  const result = new Date(date);
-  switch (timeframe) {
-    case '7d':
-      result.setDate(result.getDate() - 7);
-      break;
-    case '90d':
-      result.setDate(result.getDate() - 90);
-      break;
-    case '1y':
-      result.setFullYear(result.getFullYear() - 1);
-      break;
-    case 'all':
-      result.setFullYear(2000);
-      break;
-    default: // 30d
-      result.setDate(result.getDate() - 30);
-  }
-  return result;
-}
-
-function calculateRevenueByPaymentMethod(orders) {
-  return orders.reduce((acc, order) => {
-    const method = order.paymentMethod || 'unknown';
-    acc[method] = (acc[method] || 0) + order.totalAmount;
-    return acc;
-  }, {});
-}
-
-function calculateRevenueByCategory(orders) {
-  const categoryRevenue = {};
-  
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      if (item.product && item.product.category) {
-        const category = item.product.category;
-        const revenue = item.price * item.quantity;
-        categoryRevenue[category] = (categoryRevenue[category] || 0) + revenue;
-      }
-    });
-  });
-
-  return categoryRevenue;
-}
-
-function calculatePerformanceMetrics(orders, products) {
-  const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.status === 'active').length;
-  const totalOrders = orders.length;
-  
-  return {
-    productUtilization: totalProducts ? (activeProducts / totalProducts) * 100 : 0,
-    averageOrderProcessingTime: calculateAverageProcessingTime(orders),
-    orderCompletionRate: calculateOrderCompletionRate(orders),
-    stockEfficiency: calculateStockEfficiency(products)
-  };
-}
-
-function calculateCategoryAnalysis(products, orders) {
-  const categories = {};
-  
-  // Aggregate product data by category
-  products.forEach(product => {
-    if (!product.category) return;
-    
-    if (!categories[product.category]) {
-      categories[product.category] = {
-        totalProducts: 0,
-        activeProducts: 0,
-        totalRevenue: 0,
-        totalOrders: 0,
-        averagePrice: 0
-      };
-    }
-    
-    categories[product.category].totalProducts++;
-    if (product.status === 'active') {
-      categories[product.category].activeProducts++;
-    }
-  });
-
-  // Add order data to categories
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      if (item.product && item.product.category) {
-        const category = item.product.category;
-        if (categories[category]) {
-          categories[category].totalRevenue += item.price * item.quantity;
-          categories[category].totalOrders++;
-        }
-      }
-    });
-  });
-
-  // Calculate averages and percentages
-  Object.keys(categories).forEach(category => {
-    const cat = categories[category];
-    cat.averagePrice = cat.totalProducts ? cat.totalRevenue / cat.totalProducts : 0;
-    cat.utilizationRate = cat.totalProducts ? (cat.activeProducts / cat.totalProducts) * 100 : 0;
-  });
-
-  return categories;
-}
-
-function calculateProfitabilityMetrics(orders) {
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const platformFees = totalRevenue * 0.08; // 8% platform fee
-  
-  return {
-    totalRevenue,
-    platformFees,
-    netRevenue: totalRevenue - platformFees,
-    profitMargin: totalRevenue ? ((totalRevenue - platformFees) / totalRevenue) * 100 : 0
-  };
-}
-
-function calculateMarketingMetrics(orders, products) {
-  const productViews = products.reduce((sum, product) => sum + (product.views || 0), 0);
-  const totalOrders = orders.length;
-  
-  return {
-    conversionRate: productViews ? (totalOrders / productViews) * 100 : 0,
-    averageOrderValue: totalOrders ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / totalOrders : 0,
-    productViews,
-    totalOrders
-  };
-}
-
-function calculateOperationalMetrics(orders, returns) {
-  const totalOrders = orders.length;
-  const returnRate = totalOrders ? (returns.length / totalOrders) * 100 : 0;
-  
-  return {
-    orderFulfillmentRate: calculateOrderFulfillmentRate(orders),
-    returnRate,
-    averageProcessingTime: calculateAverageProcessingTime(orders),
-    deliveryPerformance: calculateDeliveryPerformance(orders)
-  };
-}
-
-function calculateTrends(currentOrders, previousOrders, products) {
-  return {
-    orderGrowth: calculateGrowthRate(currentOrders.length, previousOrders.length),
-    revenueGrowth: calculateGrowthRate(
-      currentOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-      previousOrders.reduce((sum, order) => sum + order.totalAmount, 0)
-    ),
-    productGrowth: calculateProductGrowthTrends(products)
-  };
-}
-
-// Additional helper functions
-function calculateGrowthRate(current, previous) {
-  return previous ? ((current - previous) / previous) * 100 : 100;
-}
-
-function calculateAverageProcessingTime(orders) {
-  const processingTimes = orders
-    .filter(order => order.status !== 'pending')
-    .map(order => {
-      const created = new Date(order.createdAt);
-      const processed = new Date(order.updatedAt);
-      return (processed - created) / (1000 * 60 * 60); // Convert to hours
-    });
-
-  return processingTimes.length ? 
-    processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length : 
-    0;
-}
-
-function calculateOrderCompletionRate(orders) {
-  const completedOrders = orders.filter(order => order.status === 'delivered').length;
-  return orders.length ? (completedOrders / orders.length) * 100 : 0;
-}
-
-function calculateStockEfficiency(products) {
-  const efficiency = products.map(product => {
-    const turnoverRate = product.inventory.quantity > 0 ? 
-      (product.soldCount || 0) / product.inventory.quantity : 0;
-    return turnoverRate;
-  });
-
-  return efficiency.length ? 
-    efficiency.reduce((sum, rate) => sum + rate, 0) / efficiency.length : 
-    0;
-}
-
-function calculateOrderFulfillmentRate(orders) {
-  const fulfilledOrders = orders.filter(order => 
-    order.status === 'delivered' || order.status === 'completed'
-  ).length;
-  return orders.length ? (fulfilledOrders / orders.length) * 100 : 0;
-}
-
-function calculateDeliveryPerformance(orders) {
-  const deliveredOrders = orders.filter(order => order.status === 'delivered');
-  const onTimeDeliveries = deliveredOrders.filter(order => {
-    const deliveryDate = new Date(order.deliveredAt);
-    const expectedDate = new Date(order.expectedDeliveryDate);
-    return deliveryDate <= expectedDate;
-  }).length;
-
-  return deliveredOrders.length ? 
-    (onTimeDeliveries / deliveredOrders.length) * 100 : 
-    0;
-}
-
-function calculateProductGrowthTrends(products) {
-  const activeProducts = products.filter(p => p.status === 'active').length;
-  const newProducts = products.filter(p => {
-    const createdDate = new Date(p.createdAt);
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    return createdDate >= thirtyDaysAgo;
-  }).length;
-
-  return {
-    activeProducts,
-    newProducts,
-    growthRate: activeProducts ? (newProducts / activeProducts) * 100 : 0
-  };
-}
-
-function generateRecommendations({ orders, products, returns, customerData }) {
-  const recommendations = [];
-
-  // Inventory recommendations
-  const lowStockProducts = products.filter(p => 
-    p.inventory && p.inventory.quantity <= (p.inventory.lowStockThreshold || 5)
-  );
-  if (lowStockProducts.length > 0) {
-    recommendations.push({
-      type: 'inventory',
-      priority: 'high',
-      message: `${lowStockProducts.length} products are running low on stock. Consider restocking soon.`,
-      affectedProducts: lowStockProducts.map(p => ({
-        id: p._id,
-        name: p.name,
-        currentStock: p.inventory.quantity
-      }))
-    });
-  }
-
-  // Sales performance recommendations
-  const salesData = calculateSalesPerformance(orders);
-  if (salesData.trend === 'decreasing') {
-    recommendations.push({
-      type: 'sales',
-      priority: 'medium',
-      message: 'Sales have decreased compared to the previous period. Consider running promotions or reviewing pricing strategy.',
-      data: salesData
-    });
-  }
-
-  // Return rate recommendations
-  const returnRate = calculateReturnRate(orders, returns);
-  if (returnRate > 10) { // If return rate is above 10%
-    recommendations.push({
-      type: 'returns',
-      priority: 'high',
-      message: `Your return rate of ${returnRate.toFixed(1)}% is above average. Review product descriptions and quality control.`,
-      data: { returnRate }
-    });
-  }
-
-  // Product performance recommendations
-  const productPerformance = analyzeProductPerformance(products, orders);
-  recommendations.push(...productPerformance);
-
-  // Customer engagement recommendations
-  const customerEngagement = analyzeCustomerEngagement(customerData, orders);
-  if (customerEngagement.recommendations.length > 0) {
-    recommendations.push(...customerEngagement.recommendations);
-  }
-
-  return recommendations;
-}
-
-// Helper functions for recommendations
-
-function calculateSalesPerformance(orders) {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-  const sixtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-
-  const recentOrders = orders.filter(order => 
-    new Date(order.createdAt) >= thirtyDaysAgo
-  );
-  const previousOrders = orders.filter(order => 
-    new Date(order.createdAt) >= sixtyDaysAgo && 
-    new Date(order.createdAt) < thirtyDaysAgo
-  );
-
-  const recentSales = recentOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const previousSales = previousOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-
-  return {
-    trend: recentSales < previousSales ? 'decreasing' : 'increasing',
-    percentageChange: previousSales ? ((recentSales - previousSales) / previousSales) * 100 : 0,
-    recentSales,
-    previousSales
-  };
-}
-
-function calculateReturnRate(orders, returns) {
-  if (!orders.length) return 0;
-  return (returns.length / orders.length) * 100;
-}
-
-function analyzeProductPerformance(products, orders) {
-  const recommendations = [];
-  
-  // Create a map of product sales
-  const productSales = new Map();
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      if (!item.product) return;
-      const productId = item.product._id.toString();
-      const currentSales = productSales.get(productId) || 0;
-      productSales.set(productId, currentSales + (item.quantity || 0));
-    });
-  });
-
-  // Find non-performing products
-  const nonPerformingProducts = products.filter(product => {
-    const sales = productSales.get(product._id.toString()) || 0;
-    return sales === 0 && product.status === 'active';
-  });
-
-  if (nonPerformingProducts.length > 0) {
-    recommendations.push({
-      type: 'product_performance',
-      priority: 'medium',
-      message: `${nonPerformingProducts.length} active products have no sales. Consider updating listings or running promotions.`,
-      affectedProducts: nonPerformingProducts.map(p => ({
-        id: p._id,
-        name: p.name,
-        daysListed: Math.floor((new Date() - new Date(p.createdAt)) / (1000 * 60 * 60 * 24))
-      }))
-    });
-  }
-
-  return recommendations;
-}
-
-function analyzeCustomerEngagement(customerData, orders) {
-  console.log('Starting analyzeCustomerEngagement...');
-  console.log('Customer data:', customerData?.length);
-  console.log('Orders:', orders?.length);
-
-  const recommendations = [];
-  
-  // Analyze customer repeat purchase rate
-  const customerOrders = new Map();
-  
-  console.log('Processing orders...');
-  orders.forEach(order => {
-    console.log('Processing order:', order?._id);
-    console.log('Order buyer:', order?.buyer);
-    
-    if (!order?.buyer?._id) {
-      console.log('Skipping order - no valid buyer ID');
-      return;
-    }
-
-    const buyerId = order.buyer._id.toString();
-    const orderCount = customerOrders.get(buyerId) || 0;
-    customerOrders.set(buyerId, orderCount + 1);
-  });
-
-  console.log('Customer orders map size:', customerOrders.size);
-
-  const repeatCustomers = Array.from(customerOrders.values()).filter(count => count > 1).length;
-  const repeatRate = customerOrders.size > 0 ? (repeatCustomers / customerOrders.size) * 100 : 0;
-
-  console.log('Repeat customers:', repeatCustomers);
-  console.log('Repeat rate:', repeatRate);
-
-  if (repeatRate < 20) {
-    recommendations.push({
-      type: 'customer_engagement',
-      priority: 'medium',
-      message: 'Low repeat customer rate. Consider implementing a customer loyalty program or follow-up communications.',
-      data: {
-        repeatRate,
-        totalCustomers: customerOrders.size,
-        repeatCustomers
-      }
-    });
-  }
-
-  console.log('Finished analyzeCustomerEngagement');
-  return {
-    recommendations,
-    metrics: {
-      repeatRate,
-      totalCustomers: customerOrders.size,
-      repeatCustomers
-    }
-  };
-}
 
 // Validate time format (HH:mm)
 const isValidTimeFormat = (time) => {

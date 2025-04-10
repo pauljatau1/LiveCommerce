@@ -86,13 +86,13 @@ exports.createProduct = async (req, res) => {
       for (let image of req.body.images) {
         const buffer = Buffer.from(image.data, 'base64');
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: `${uuidv4()}.jpg`,
           Body: buffer,
           ContentType: image.contentType,
         };
         const data = await s3.upload(params).promise();
-        imagesLinks.push({ url: data.Location });
+        imagesLinks.push({ url: 'https://' + process.env.CDN_URL + `/${data.Key}` });
       }
     }
 
@@ -106,7 +106,7 @@ exports.createProduct = async (req, res) => {
         
         // First upload the video
         const videoParams = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: videoKey,
           Body: buffer,
           ContentType: blip.contentType,
@@ -139,7 +139,7 @@ exports.createProduct = async (req, res) => {
           
           // Upload the thumbnail
           const thumbnailParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: thumbnailKey,
             Body: thumbnailBuffer,
             ContentType: 'image/jpeg',
@@ -151,16 +151,16 @@ exports.createProduct = async (req, res) => {
           await fs.unlink(tempThumbnailPath).catch(() => {});
           
           blipsLinks.push({ 
-            url: videoData.Location,
+            url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
             contentType: blip.contentType,
-            thumbnail: thumbnailData.Location
+            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
           });
         } catch (err) {
           console.error('Error generating thumbnail:', err);
           
           // Fallback to placeholder if ffmpeg fails
           const fallbackThumbnailParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: thumbnailKey,
             Body: Buffer.from(
               '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
@@ -175,9 +175,9 @@ exports.createProduct = async (req, res) => {
           const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
           
           blipsLinks.push({ 
-            url: videoData.Location,
+            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
             contentType: blip.contentType,
-            thumbnail: fallbackData.Location
+            thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
           });
         }
       }
@@ -204,7 +204,7 @@ exports.createProduct = async (req, res) => {
 
             const buffer = Buffer.from(base64Data, 'base64');
             const params = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
               Body: buffer,
               ContentType: image.contentType,
@@ -212,7 +212,7 @@ exports.createProduct = async (req, res) => {
             
             const data = await s3.upload(params).promise();
             variantImages.push({
-              data: data.Location,
+              data: `https://` + process.env.CDN_URL + `/${data.Key}`,
               contentType: image.contentType,
               isDefault: image.isDefault || false
             });
@@ -237,7 +237,7 @@ exports.createProduct = async (req, res) => {
 
               const buffer = Buffer.from(base64Data, 'base64');
               const params = {
-                Bucket: 'auqli-uploads',
+                Bucket: process.env.CDN_S3_BUCKET,
                 Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                 Body: buffer,
                 ContentType: image.contentType,
@@ -245,7 +245,7 @@ exports.createProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               subVariantImages.push({
-                data: data.Location,
+                data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -270,7 +270,7 @@ exports.createProduct = async (req, res) => {
 
                 const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
-                  Bucket: 'auqli-uploads',
+                  Bucket: process.env.CDN_S3_BUCKET,
                   Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                   Body: buffer,
                   ContentType: image.contentType,
@@ -278,7 +278,7 @@ exports.createProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subSubVariantImages.push({
-                  data: data.Location,
+                  data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -383,7 +383,7 @@ async function processImages(images) {
       
       // Upload to S3
       await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: key,
         Body: Buffer.from(image.data, 'base64'),
         ContentType: image.contentType,
@@ -391,7 +391,7 @@ async function processImages(images) {
       }).promise();
 
       return {
-        data: `https://auqli-uploads.s3.amazonaws.com/${key}`,
+        data: `https://`+ process.env.CDN_URL +`/${key}`,
         contentType: image.contentType,
         isDefault: image.isDefault || false
       };
@@ -919,19 +919,19 @@ exports.updateProduct = async (req, res) => {
     if (updates.images && Array.isArray(updates.images)) {
       const imagesLinks = [];
       for (let image of updates.images) {
-        if (image.data.startsWith('https://auqli-uploads.s3')) {
+        if (image.data.startsWith('https://'+ process.env.CDN_URL)) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
           // Process new base64 image
           const buffer = Buffer.from(image.data, 'base64');
           const params = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: `${uuidv4()}.jpg`,
             Body: buffer,
             ContentType: image.contentType,
           };
           const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: data.Location });
+          imagesLinks.push({ url: `https://` + process.env.CDN_URL + `/${data.Key}`});
         }
       }
       updates.images = imagesLinks;
@@ -957,7 +957,7 @@ exports.updateProduct = async (req, res) => {
           
           // First upload the video
           const videoParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: videoKey,
             Body: buffer,
             ContentType: blip.contentType,
@@ -990,7 +990,7 @@ exports.updateProduct = async (req, res) => {
             
             // Upload the thumbnail
             const thumbnailParams = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: thumbnailKey,
               Body: thumbnailBuffer,
               ContentType: 'image/jpeg',
@@ -1002,16 +1002,16 @@ exports.updateProduct = async (req, res) => {
             await fs.unlink(tempThumbnailPath).catch(() => {});
             
             blipsLinks.push({ 
-              url: videoData.Location,
+              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
-              thumbnail: thumbnailData.Location
+              thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
             });
           } catch (err) {
             console.error('Error generating thumbnail:', err);
             
             // Fallback to placeholder if ffmpeg fails
             const fallbackThumbnailParams = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: thumbnailKey,
               Body: Buffer.from(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
@@ -1026,9 +1026,9 @@ exports.updateProduct = async (req, res) => {
             const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
             
             blipsLinks.push({ 
-              url: videoData.Location,
+              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
-              thumbnail: fallbackData.Location
+              thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
             });
           }
         }
@@ -1060,7 +1060,7 @@ exports.updateProduct = async (req, res) => {
 
               const buffer = Buffer.from(base64Data, 'base64');
               const params = {
-                Bucket: 'auqli-uploads',
+                Bucket: process.env.CDN_S3_BUCKET,
                 Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
                 Body: buffer,
                 ContentType: image.contentType,
@@ -1068,7 +1068,7 @@ exports.updateProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               variantImages.push({
-                data: data.Location,
+                data: 'https://' + process.env.CDN_URL + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -1097,7 +1097,7 @@ exports.updateProduct = async (req, res) => {
 
                 const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
-                  Bucket: 'auqli-uploads',
+                  Bucket: process.env.CDN_S3_BUCKET,
                   Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                   Body: buffer,
                   ContentType: image.contentType,
@@ -1105,7 +1105,7 @@ exports.updateProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
-                  data: data.Location,
+                  data:`https://` + process.env.CDN_URL + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -1134,7 +1134,7 @@ exports.updateProduct = async (req, res) => {
 
                   const buffer = Buffer.from(base64Data, 'base64');
                   const params = {
-                    Bucket: 'auqli-uploads',
+                    Bucket: process.env.CDN_S3_BUCKET,
                     Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                     Body: buffer,
                     ContentType: image.contentType,
@@ -1142,7 +1142,7 @@ exports.updateProduct = async (req, res) => {
                   
                   const data = await s3.upload(params).promise();
                   subSubVariantImages.push({
-                    data: data.Location,
+                    data: `https://` + process.env.CDN_URL + `/${data.Key}`,
                     contentType: image.contentType,
                     isDefault: image.isDefault || false
                   });
@@ -1230,7 +1230,7 @@ exports.deleteProduct = async (req, res) => {
       for (const image of product.images) {
         const key = image.url.split('/').pop();
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: key
         }).promise();
       }
@@ -2873,7 +2873,7 @@ exports.bulkDelete = async (req, res) => {
       for (const image of product.images) {
         const key = image.url.split('/').pop();
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: key
         }).promise();
       }
@@ -2991,14 +2991,14 @@ exports.addReview = async (req, res) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: `reviews/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
         };
         const uploadResult = await s3.upload(params).promise();
         reviewImages.push({
-          url: uploadResult.Location,
+          url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
           contentType: file.mimetype
         });
       }
@@ -6941,7 +6941,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Upload the video to S3
       const videoParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: videoKey,
         Body: req.file.buffer,
         ContentType: req.file.mimetype,
@@ -6966,7 +6966,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Upload the thumbnail to S3
       const thumbnailParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
         Body: thumbnailBuffer,
         ContentType: 'image/jpeg',
@@ -6975,9 +6975,9 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Create the new blip object
       const newBlip = {
-        url: videoData.Location,
+        url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
         contentType: req.file.mimetype,
-        thumbnail: thumbnailData.Location,
+        thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
         createdAt: new Date()
       };
       
@@ -7001,7 +7001,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Create a fallback thumbnail if ffmpeg fails
       const fallbackThumbnailParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
         Body: Buffer.from(
           '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
@@ -7021,7 +7021,7 @@ exports.addBlipToProduct = async (req, res) => {
         const newBlip = {
           url: videoData ? videoData.Location : null,
           contentType: req.file.mimetype,
-          thumbnail: fallbackData.Location,
+          thumbnail: 'https://' + process.env.CDN_URL + `/${fallbackData.Key}`,
           createdAt: new Date()
         };
         
@@ -7053,6 +7053,112 @@ exports.addBlipToProduct = async (req, res) => {
       success: false,
       message: 'Failed to add blip to product', 
       error: error.message 
+    });
+  }
+};
+
+/**
+ * Search seller's products
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} - JSON response with products
+ */
+exports.searchSellerProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { 
+      query, 
+      category,
+      minPrice, 
+      maxPrice,
+      sortBy = 'createdAt',
+      order = 'desc',
+      page = 1, 
+      limit = 20 
+    } = req.query;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid seller ID format' 
+      });
+    }
+
+    // Build search query
+    const searchQuery = {
+      seller: sellerId,
+      status: 'active',
+      visibility: 'visible'
+    };
+
+    // Add text search if query provided
+    if (query) {
+      searchQuery.$or = [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
+      ];
+    }
+
+    // Add category filter if provided
+    if (category) {
+      searchQuery.category = category;
+    }
+
+    // Add price range if provided
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      searchQuery.price = {};
+      if (minPrice !== undefined) searchQuery.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) searchQuery.price.$lte = Number(maxPrice);
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price':
+        sortOptions.price = order === 'asc' ? 1 : -1;
+        break;
+      case 'name':
+        sortOptions.name = order === 'asc' ? 1 : -1;
+        break;
+      case 'popularity':
+        sortOptions['stats.views'] = order === 'asc' ? 1 : -1;
+        break;
+      case 'rating':
+        sortOptions['stats.averageRating'] = order === 'asc' ? 1 : -1;
+        break;
+      default:
+        sortOptions[sortBy] = order === 'asc' ? 1 : -1;
+    }
+
+    // Execute query with pagination
+    const products = await Product.find(searchQuery)
+      .sort(sortOptions)
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore');
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(searchQuery);
+
+    return res.status(200).json({
+      success: true,
+      data: products,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalProducts: total,
+        hasMore: page * limit < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error searching seller products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
     });
   }
 };

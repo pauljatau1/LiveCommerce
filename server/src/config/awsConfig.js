@@ -1,9 +1,16 @@
 const AWS = require('aws-sdk');
 
-AWS.config.update({
-  accessKeyId: 'AKIA_REDACTED',
-  secretAccessKey: 'REDACTED',
-  region: 'us-east-1',
+
+// Uncomment for local development
+// AWS.config.update({
+//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//   region: process.env.AWS_REGION,
+// });
+
+AWS.config.credentials = new AWS.ECSCredentials({
+  httpOptions: {timeout: 5000}, // 5 second timeout
+  maxRetries: 10, // retry 10 times
 });
 
 const s3 = new AWS.S3();

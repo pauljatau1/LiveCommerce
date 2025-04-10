@@ -17,8 +17,8 @@ const connectDB = async () => {
         const conn = await mongoose.connect('mongodb+srv://REDACTED@cluster0.wnkd5.mongodb.net/dev2', {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds instead of 30
-        heartbeatFrequencyMS: 30000, // Default is 10000
+        serverSelectionTimeoutMS: 10000,
+        heartbeatFrequencyMS: 30000,
       });
       
       // Adding multiple console logs for visibility

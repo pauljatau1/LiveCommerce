@@ -1083,34 +1083,6 @@ router.get('/orders',
   sellerController.getOrders
 );
 
-/**
- * @swagger
- * /api/seller/analytics:
- *   get:
- *     summary: Get seller's sales analytics
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *           format: date
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *           format: date
- *     responses:
- *       200:
- *         description: Seller's analytics data
- */
-router.get('/analytics', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isSeller, 
-  sellerController.getSalesAnalytics
-);
 
 /**
  * @swagger
@@ -1571,6 +1543,84 @@ router.get('/top-sold-products',
 
 /**
  * @swagger
+ * /api/seller/analytics:
+ *   get:
+ *     summary: Get seller analytics data
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [week, month, year]
+ *           default: month
+ *         description: Time period for analytics (week, month, year)
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for custom date range (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for custom date range (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Analytics data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                     totalRevenue:
+ *                       type: number
+ *                     averageOrderValue:
+ *                       type: number
+ *                     uniqueBuyers:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *                     totalStreams:
+ *                       type: integer
+ *                     storeVisits:
+ *                       type: integer
+ *                     walletBalance:
+ *                       type: number
+ *                     followersCount:
+ *                       type: integer
+ *                 ordersData:
+ *                   type: object
+ *                 productsData:
+ *                   type: object
+ *                 streamsData:
+ *                   type: object
+ *                 followersData:
+ *                   type: object
+ *                 chartData:
+ *                   type: array
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/analytics', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getSellerAnalytics
+);
+
+/**
+ * @swagger
  * /api/seller/withdrawals:
  *   post:
  *     summary: Create a withdrawal request
@@ -1633,83 +1683,6 @@ router.get('/withdrawals',
 );
 
 
-/**
- * @swagger
- * /api/seller/analytics/metrics:
- *   get:
- *     summary: Get seller's comprehensive analytics and metrics
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Analytics metrics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 revenue:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: number
- *                     lastMonth:
- *                       type: number
- *                     growth:
- *                       type: number
- *                 orders:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: number
- *                     completed:
- *                       type: number
- *                     pending:
- *                       type: number
- *                     cancelled:
- *                       type: number
- *                 customers:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: number
- *                     returning:
- *                       type: number
- *                     averageOrderValue:
- *                       type: number
- *                 storeMetrics:
- *                   type: object
- *                   properties:
- *                     visits:
- *                       type: number
- *                     conversionRate:
- *                       type: number
- *                     averageOrderValue:
- *                       type: number
- *                 keyInsights:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       metric:
- *                         type: string
- *                       value:
- *                         type: number
- *                       trend:
- *                         type: string
- *                       percentageChange:
- *                         type: number
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.get('/analytics/metrics', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isSeller, 
-  sellerController.getAnalyticsMetrics
-);
 
 /**
  * @swagger
@@ -2577,30 +2550,7 @@ router.delete('/unfollow/:buyerId', authMiddleware.verifyToken, authMiddleware.i
  */
 router.get('/following/buyers', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.getFollowedBuyers);
 
-/**
- * @swagger
- * /api/seller/advanced-analytics:
- *   get:
- *     summary: Get comprehensive seller analytics and insights
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: timeframe
- *         schema:
- *           type: string
- *           enum: [7d, 30d, 90d, 1y, all]
- *           default: 30d
- *     responses:
- *       200:
- *         description: Detailed analytics retrieved successfully
- */
-router.get('/advanced-analytics',
-  authMiddleware.verifyToken,
-  authMiddleware.isSeller,
-  sellerController.getAdvancedAnalytics
-);
+
 
 /**
  * @swagger

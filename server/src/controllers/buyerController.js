@@ -463,7 +463,7 @@ exports.uploadProfileImage = async (req, res) => {
     let data;
     if (avatarFile) {
       const params = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: `${uuidv4()}-${avatarFile.originalname}`,
         Body: avatarFile.buffer,
         ContentType: avatarFile.mimetype,
@@ -1203,7 +1203,7 @@ exports.uploadIdentityDocument = async (req, res) => {
     // Delete old document from S3 if it exists
     if (buyer.identityDocument && buyer.identityDocument.public_id) {
       await s3.deleteObject({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: buyer.identityDocument.public_id
       }).promise();
     }
@@ -1211,7 +1211,7 @@ exports.uploadIdentityDocument = async (req, res) => {
     // Upload new document to S3
     const key = `verification/buyers/${req.user.id}/identity-${Date.now()}-${req.file.originalname}`;
     const uploadResult = await s3.upload({
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype
@@ -1219,7 +1219,7 @@ exports.uploadIdentityDocument = async (req, res) => {
 
     // Update buyer document
     buyer.identityDocument = {
-      url: uploadResult.Location,
+      url: 'https://'+ process.env.CDN_URL + "/" + uploadResult.Key,
       public_id: key,
       uploadedAt: new Date(),
       status: 'pending'

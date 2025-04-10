@@ -379,7 +379,7 @@ exports.createCategory = async (req, res) => {
     // Upload image to S3
     const imageKey = `categories/${uuidv4()}-${imageFile.originalname}`;
     const uploadParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: imageKey,
       Body: imageFile.buffer,
       ContentType: imageFile.mimetype,
@@ -390,7 +390,7 @@ exports.createCategory = async (req, res) => {
     const newCategory = new Category({
       name,
       image: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key,
       },
       subCategories,
@@ -550,7 +550,7 @@ exports.updateCategory = async (req, res) => {
       // Delete old image from S3 if exists
       if (category.image?.public_id) {
         const deleteParams = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: category.image.public_id,
         };
         await s3.deleteObject(deleteParams).promise();
@@ -559,7 +559,7 @@ exports.updateCategory = async (req, res) => {
       // Upload new image
       const imageKey = `categories/${uuidv4()}-${imageFile.originalname}`;
       const uploadParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: imageKey,
         Body: imageFile.buffer,
         ContentType: imageFile.mimetype,
@@ -567,7 +567,7 @@ exports.updateCategory = async (req, res) => {
 
       const uploadResult = await s3.upload(uploadParams).promise();
       category.image = {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key,
       };
     }
@@ -594,7 +594,7 @@ exports.deleteCategory = async (req, res) => {
     // Delete image from S3 if exists
     if (category.image?.public_id) {
       const deleteParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: category.image.public_id,
       };
       await s3.deleteObject(deleteParams).promise();
@@ -665,7 +665,7 @@ exports.createBanner = async (req, res) => {
     // Upload image to S3
     const imageKey = `banners/${uuidv4()}-${imageFile.originalname}`;
     const uploadParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: imageKey,
       Body: imageFile.buffer,
       ContentType: imageFile.mimetype,
@@ -677,7 +677,7 @@ exports.createBanner = async (req, res) => {
       title,
       description,
       mainImage: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       },
       category: categoryDoc._id,
@@ -723,7 +723,7 @@ exports.updateBanner = async (req, res) => {
       // Delete old image from S3
       if (banner.mainImage?.public_id) {
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: banner.mainImage.public_id
         }).promise();
       }
@@ -731,14 +731,14 @@ exports.updateBanner = async (req, res) => {
       // Upload new image
       const imageKey = `banners/${uuidv4()}-${imageFile.originalname}`;
       const uploadResult = await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: imageKey,
         Body: imageFile.buffer,
         ContentType: imageFile.mimetype,
       }).promise();
 
       banner.mainImage = {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       };
     }
@@ -772,7 +772,7 @@ exports.deleteBanner = async (req, res) => {
     // Delete image from S3
     if (banner.mainImage?.public_id) {
       await s3.deleteObject({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: banner.mainImage.public_id
       }).promise();
     }
@@ -1568,7 +1568,7 @@ exports.createResource = async (req, res) => {
     // Upload banner image
     const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
     const bannerParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: bannerKey,
       Body: bannerFile.buffer,
       ContentType: bannerFile.mimetype,
@@ -1590,7 +1590,7 @@ exports.createResource = async (req, res) => {
     if (mediaFile) {
       const mediaKey = `resources/${uuidv4()}-${mediaFile.originalname}`;
       const mediaParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: mediaKey,
         Body: mediaFile.buffer,
         ContentType: mediaFile.mimetype,
@@ -1644,7 +1644,7 @@ exports.updateResource = async (req, res) => {
       // Delete old media from S3
       if (resource.media.public_id) {
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: resource.media.public_id
         }).promise();
       }
@@ -1652,7 +1652,7 @@ exports.updateResource = async (req, res) => {
       // Upload new media
       const mediaKey = `resources/${uuidv4()}-${mediaFile.originalname}`;
       const mediaUpload = await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: mediaKey,
         Body: mediaFile.buffer,
         ContentType: mediaFile.mimetype,
@@ -1673,7 +1673,7 @@ exports.updateResource = async (req, res) => {
       // Delete old banner from S3
       if (resource.banner.public_id) {
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: resource.banner.public_id
         }).promise();
       }
@@ -1681,7 +1681,7 @@ exports.updateResource = async (req, res) => {
       // Upload new banner
       const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
       const bannerUpload = await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: bannerKey,
         Body: bannerFile.buffer,
         ContentType: bannerFile.mimetype,
@@ -1718,7 +1718,7 @@ exports.deleteResource = async (req, res) => {
     // Delete media from S3
     if (resource.media.public_id) {
       await s3.deleteObject({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: resource.media.public_id
       }).promise();
     }
@@ -1726,7 +1726,7 @@ exports.deleteResource = async (req, res) => {
     // Delete banner from S3
     if (resource.banner.public_id) {
       await s3.deleteObject({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: resource.banner.public_id
       }).promise();
     }
