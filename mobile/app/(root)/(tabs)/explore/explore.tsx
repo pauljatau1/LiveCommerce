@@ -78,8 +78,7 @@ const Explore = () => {
                 /> */}
                 <Text className="text-[9px] text-[#3A3A3A] font-LexendDecaMedium">
                   {formatNumber(category?.statistics?.streams?.active)} Streams
-                  | {formatNumber(category?.statistics?.streams?.active)}{" "}
-                  Products
+                  | {formatNumber(category?.statistics?.totalProducts)} Products
                 </Text>
               </View>
             </View>
