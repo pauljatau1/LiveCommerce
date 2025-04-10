@@ -157,7 +157,7 @@ exports.createStream = async (req, res) => {
 
           const uploadResult = await s3.upload(params).promise();
           videoData = {
-            url: 'https://'+ process.env.CDN_URL + "/",
+            url: 'https://'+ process.env.CDN_URL + "/" + fileKey,
             key: fileKey
           };
         }
