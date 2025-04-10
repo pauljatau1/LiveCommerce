@@ -1,0 +1,1264 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image, Dimensions, Pressable, RefreshControl, TextInput } from 'react-native';
+import { AntDesign, Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { MotiView } from 'moti';
+import { Tabs } from 'expo-router';
+import * as Animatable from 'react-native-animatable';
+
+const { width } = Dimensions.get('window');
+const cardWidth = (width - 40) / 2; // 2 cards per row with padding
+
+// Types for the auction products
+interface AuctionProduct {
+  _id: string;
+  name: string;
+  description: string;
+  images: {
+    url: string;
+    _id: string;
+    id: string;
+  }[];
+  auction: {
+    currentHighestBid: {
+      amount: number | null;
+      buyer: string | null;
+    };
+    winner: {
+      buyer: string | null;
+      bidAmount: number | null;
+      winningDate: string | null;
+    };
+    minBid: number;
+    maxBid: number;
+    endOnMaxBid: boolean;
+    startDate: string;
+    endDate: string;
+    status: string;
+    daysLeft: number;
+    bids: any[];
+  };
+  seller: {
+    _id: string;
+    storeName: string;
+    storeAvatar?: {
+      url: string;
+    };
+  };
+  id: string;
+}
+
+// Types for the live stream products (Buy Now)
+interface StreamProduct {
+  product: {
+    productId: string;
+    name: string;
+    quantity: number;
+    description?: string;
+    price: number;
+    discountedPrice?: number;
+    images: {
+      url: string;
+      _id: string;
+    }[];
+    seller?: {
+      storeName: string;
+      businessName: string;
+      storeAvatar?: {
+        url: string;
+      };
+    };
+    id?: string;
+  };
+  currentBid?: number;
+  bidStatus?: string;
+  orderCreated?: boolean;
+  _id: string;
+}
+
+interface ShopBottomSheetProps {
+  sellerId: string;
+  streamProducts: StreamProduct[];
+  closeSheet: () => void;
+}
+
+// Adding animation to the components when they appear
+// const AnimatedCard = Animatable.createAnimatableComponent(TouchableOpacity);
+
+const SkeletonLoader = () => (
+  <View style={styles.skeletonContainer}>
+    {[1, 2, 3].map((_, index) => (
+      <MotiView
+        key={`skeleton-${index}`}
+        style={styles.card}
+        from={{ opacity: 0.5 }}
+        animate={{ opacity: 1 }}
+        transition={{
+          type: 'timing',
+          duration: 1000,
+          loop: true,
+        }}
+      >
+        <View style={styles.cardLeft}>
+          <View style={styles.skeletonImage} />
+        </View>
+        <View style={styles.cardContent}>
+          <View style={[styles.skeletonText, { width: '90%', height: 16, marginBottom: 8 }]} />
+          <View style={[styles.skeletonText, { width: '40%', height: 20, marginBottom: 8 }]} />
+          <View style={styles.cardFooter}>
+            <View style={[styles.skeletonText, { width: '45%', height: 14 }]} />
+            <View style={[styles.skeletonButton, { width: 80, height: 32 }]} />
+          </View>
+        </View>
+      </MotiView>
+    ))}
+  </View>
+);
+
+const ShopBottomSheet = ({ sellerId, streamProducts, closeSheet }: ShopBottomSheetProps) => {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('Auction');
+  const [auctionProducts, setAuctionProducts] = useState<AuctionProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (activeTab === 'Auction') {
+      fetchOfflineAuctions();
+    }
+  }, [activeTab, sellerId]);
+
+  const fetchOfflineAuctions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const token = await AsyncStorage.getItem('token');
+      const userToken = JSON.parse(token || '""');
+      
+      if (!userToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}api/products/seller/${sellerId}/auctions?status=ongoing&sort=startDate&page=1&limit=10`);
+
+      if (response.status === 200) {
+        setAuctionProducts(response.data.products || []);
+        console.log('Fetched auction products:', response.data.products.length);
+      }
+    } catch (error: any) {
+      console.error('Error fetching offline auctions:', error);
+      setError(error.message || 'Failed to load auctions');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    return `₦${price.toLocaleString()}`;
+  };
+
+  // Render empty state for auctions
+  const renderEmptyAuctions = () => (
+    <View style={styles.emptyState}>
+      <MaterialCommunityIcons name="gavel" size={64} color="#444" />
+      <Text style={styles.emptyStateTitle}>No Auctions Available</Text>
+      <Text style={styles.emptyStateDescription}>
+        The seller doesn't have any active offline auctions at the moment.
+      </Text>
+    </View>
+  );
+
+  // Render error state
+  const renderError = () => (
+    <View style={styles.emptyState}>
+      <MaterialIcons name="error-outline" size={64} color="#ff5252" />
+      <Text style={styles.emptyStateTitle}>Something Went Wrong</Text>
+      <Text style={styles.emptyStateDescription}>{error}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={fetchOfflineAuctions}>
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render an auction product card
+  const renderAuctionCard = ({ item, index }: { item: AuctionProduct, index: number }) => (
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={() => {
+        router.push(`/product/${item._id}`);
+        closeSheet();
+      }}
+      activeOpacity={0.8}
+    >
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Image 
+            source={{ uri: item.images[0]?.url }} 
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
+          {item.auction.bids && item.auction.bids.length > 0 && (
+            <View style={styles.bidBadge}>
+              <MaterialCommunityIcons name="gavel" size={13} color="white" />
+              <Text style={styles.bidBadgeText}>{item.auction.bids.length}</Text>
+            </View>
+          )}
+          {item.auction.status === 'ended' && (
+            <LinearGradient
+              colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']}
+              style={styles.cardOverlay}
+            >
+              <Text style={styles.overlayLabel}>AUCTION ENDED</Text>
+            </LinearGradient>
+          )}
+        </View>
+        
+        <View style={styles.cardContent}>
+          <View>
+            <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+            
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceText}>{formatPrice(item.auction.currentHighestBid?.amount || item.auction.minBid)}</Text>
+              {item.auction.maxBid > 0 && item.auction.maxBid > item.auction.minBid && (
+                <View style={styles.discount}>
+                  <Text style={styles.discountText}>
+                    {Math.round(((item.auction.maxBid - item.auction.minBid) / item.auction.maxBid) * 100)}% off
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          
+          <View style={styles.cardFooter}>
+            <View style={styles.metaInfo}>
+              {item.auction.daysLeft > 0 ? (
+                <View style={styles.statusBadge}>
+                  <Ionicons name="time-outline" size={12} color="#16783A" />
+                  <Text style={styles.statusText}>{item.auction.daysLeft}d left</Text>
+                </View>
+              ) : (
+                <View style={[styles.statusBadge, styles.urgentBadge]}>
+                  <Ionicons name="time-outline" size={12} color="#FF9800" />
+                  <Text style={[styles.statusText, styles.urgentText]}>Ends today</Text>
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => {
+                router.push(`/product/${item._id}`);
+                closeSheet();
+              }}
+            >
+              <Text style={styles.actionButtonText}>Bid Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      
+      {/* Additional auction details section */}
+      <View style={styles.auctionDetails}>
+        <View style={styles.auctionDetailRow}>
+          <View style={styles.auctionDetailItem}>
+            <Text style={styles.auctionDetailLabel}>Starting Bid</Text>
+            <Text style={styles.auctionDetailValue}>{formatPrice(item.auction.minBid)}</Text>
+          </View>
+          
+          <View style={styles.auctionDetailItem}>
+            <Text style={styles.auctionDetailLabel}>Current Bid</Text>
+            <Text style={styles.auctionDetailValue}>
+              {item.auction.currentHighestBid?.amount 
+                ? formatPrice(item.auction.currentHighestBid.amount) 
+                : 'No bids yet'}
+            </Text>
+          </View>
+          
+          <View style={styles.auctionDetailItem}>
+            <Text style={styles.auctionDetailLabel}>Bids</Text>
+            <Text style={styles.auctionDetailValue}>{item.auction.bids?.length || 0}</Text>
+          </View>
+        </View>
+        
+        {item.seller && (
+          <View style={styles.sellerInfo}>
+            <MaterialIcons name="store" size={14} color="#888" />
+            <Text style={styles.sellerName}>{item.seller.storeName}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render empty state for Buy Now
+  const renderEmptyBuyNow = () => (
+    <View style={styles.emptyState}>
+      <MaterialCommunityIcons name="shopping-outline" size={64} color="#444" />
+      <Text style={styles.emptyStateTitle}>No Products Available</Text>
+      <Text style={styles.emptyStateDescription}>
+        There are no products available to purchase directly.
+      </Text>
+    </View>
+  );
+
+  // Render a Buy Now product card
+  const renderBuyNowCard = ({ item, index }: { item: StreamProduct, index: number }) => (
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={() => {
+        router.push(`/product/${item.product.productId}`);
+        closeSheet();
+      }}
+      activeOpacity={0.8}
+    >
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Image 
+            source={{ uri: item.product.images[0]?.url }} 
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
+          {item.product.quantity <= 0 && (
+            <LinearGradient
+              colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']}
+              style={styles.cardOverlay}
+            >
+              <Text style={styles.overlayLabel}>SOLD OUT</Text>
+            </LinearGradient>
+          )}
+        </View>
+        
+        <View style={styles.cardContent}>
+          <View>
+            <Text style={styles.cardTitle} numberOfLines={1}>{item.product.name}</Text>
+            
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceText}>{formatPrice(item.product.price)}</Text>
+              {item.product.discountedPrice && item.product.discountedPrice > item.product.price && (
+                <View style={styles.discount}>
+                  <Text style={styles.discountText}>
+                    {Math.round(((item.product.discountedPrice - item.product.price) / item.product.discountedPrice) * 100)}% off
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          
+          <View style={styles.cardFooter}>
+            <View style={styles.metaInfo}>
+              {item.product.quantity <= 0 ? (
+                <View style={[styles.statusBadge, styles.soldOutBadge]}>
+                  <Ionicons name="alert-circle-outline" size={12} color="#F44336" />
+                  <Text style={[styles.statusText, styles.soldOutText]}>Sold out</Text>
+                </View>
+              ) : item.product.quantity <= 3 ? (
+                <View style={[styles.statusBadge, styles.lowStockBadge]}>
+                  <Ionicons name="alert-circle-outline" size={12} color="#FF9800" />
+                  <Text style={[styles.statusText, styles.lowStockText]}>Only {item.product.quantity} left</Text>
+                </View>
+              ) : (
+                <View style={styles.statusBadge}>
+                  <Ionicons name="checkmark-circle-outline" size={12} color="#16783A" />
+                  <Text style={styles.statusText}>In stock</Text>
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.actionButton, item.product.quantity <= 0 ? styles.disabledButton : {}]}
+              onPress={() => {
+                router.push(`/product/${item.product.productId}`);
+                closeSheet();
+              }}
+              disabled={item.product.quantity <= 0}
+            >
+              <Text style={styles.actionButtonText}>Buy Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      
+      {/* Additional product details section */}
+      <View style={styles.productDetails}>
+        {item.product.description && (
+          <View style={styles.productDescription}>
+            <Text 
+              style={styles.descriptionText} 
+              numberOfLines={2} 
+              ellipsizeMode="tail"
+            >
+              {item.product.description}
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.productDetailRow}>
+          <View style={styles.productDetailItem}>
+            <Text style={styles.productDetailLabel}>Stock</Text>
+            <Text style={[
+              styles.productDetailValue, 
+              item.product.quantity <= 0 ? styles.soldOutText : 
+              item.product.quantity <= 3 ? styles.lowStockText : 
+              styles.inStockText
+            ]}>
+              {item.product.quantity <= 0 ? 'Out of stock' : `${item.product.quantity} available`}
+            </Text>
+          </View>
+          
+          {item.orderCreated && (
+            <View style={styles.orderCreatedBadge}>
+              <MaterialIcons name="local-shipping" size={12} color="#16783A" />
+              <Text style={styles.orderCreatedText}>Order placed</Text>
+            </View>
+          )}
+        </View>
+        
+        {item.product.seller && (
+          <View style={styles.sellerInfo}>
+            <MaterialIcons name="store" size={14} color="#888" />
+            <Text style={styles.sellerName}>{item.product.seller.storeName || item.product.seller.businessName}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render loading state for the auction tab
+  const renderAuctionLoading = () => (
+    <FlatList
+      data={[1, 2, 3, 4, 5]}
+      renderItem={renderAuctionSkeleton}
+      keyExtractor={(item) => `auction-skeleton-${item}`}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ padding: 16 }}
+    />
+  );
+
+  // Render loading state for the buy now tab
+  const renderBuyNowLoading = () => (
+    <FlatList
+      data={[1, 2, 3, 4, 5]}
+      renderItem={renderBuyNowSkeleton}
+      keyExtractor={(item) => `buynow-skeleton-${item}`}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ padding: 16 }}
+    />
+  );
+
+  // Render categories empty state
+  const renderCategoriesEmptyState = () => (
+    <View style={styles.emptyState}>
+      <MaterialIcons name="category" size={64} color="#444" />
+      <Text style={styles.emptyStateTitle}>Categories Coming Soon</Text>
+      <Text style={styles.emptyStateDescription}>
+        Browse by categories feature is under development.
+      </Text>
+    </View>
+  );
+
+  // Render a skeleton loader for auction products
+  const renderAuctionSkeleton = ({ item }: { item: number }) => (
+    <View style={styles.card}>
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Animatable.View 
+            animation="pulse" 
+            easing="ease-in-out" 
+            iterationCount="infinite" 
+            duration={8500}
+            style={[styles.cardImage, styles.skeletonBox]} 
+          />
+        </View>
+        <View style={styles.cardContent}>
+          <View>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '80%', height: 18, borderRadius: 4 }]} 
+            />
+            <View style={{ height: 8 }} />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 16, borderRadius: 4 }]} 
+            />
+          </View>
+          
+          <View style={styles.cardFooter}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '40%', height: 16, borderRadius: 8 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: 70, height: 32, borderRadius: 8 }]} 
+            />
+          </View>
+        </View>
+      </View>
+      
+      {/* Skeleton for additional auction details */}
+      <View style={styles.auctionDetails}>
+        <View style={styles.auctionDetailRow}>
+          <View style={styles.auctionDetailItem}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
+            />
+          </View>
+          
+          <View style={styles.auctionDetailItem}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
+            />
+          </View>
+          
+          <View style={styles.auctionDetailItem}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
+            />
+          </View>
+        </View>
+        
+        <Animatable.View 
+          animation="pulse" 
+          easing="ease-in-out" 
+          iterationCount="infinite" 
+          duration={8500}
+          style={[styles.skeletonBox, { width: '40%', height: 14, borderRadius: 4, marginTop: 8 }]} 
+        />
+      </View>
+    </View>
+  );
+
+  // Render a skeleton loader for Buy Now products
+  const renderBuyNowSkeleton = ({ item }: { item: number }) => (
+    <View style={styles.card}>
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Animatable.View 
+            animation="pulse" 
+            easing="ease-in-out" 
+            iterationCount="infinite" 
+            duration={8500}
+            style={[styles.cardImage, styles.skeletonBox]} 
+          />
+        </View>
+        <View style={styles.cardContent}>
+          <View>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '80%', height: 18, borderRadius: 4 }]} 
+            />
+            <View style={{ height: 8 }} />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 16, borderRadius: 4 }]} 
+            />
+          </View>
+          
+          <View style={styles.cardFooter}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '40%', height: 16, borderRadius: 8 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: 70, height: 32, borderRadius: 8 }]} 
+            />
+          </View>
+        </View>
+      </View>
+      
+      {/* Skeleton for additional product details */}
+      <View style={styles.productDetails}>
+        <Animatable.View 
+          animation="pulse" 
+          easing="ease-in-out" 
+          iterationCount="infinite" 
+          duration={8500}
+          style={[styles.skeletonBox, { width: '100%', height: 32, borderRadius: 4, marginBottom: 8 }]} 
+        />
+        
+        <View style={styles.productDetailRow}>
+          <View style={styles.productDetailItem}>
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
+            />
+            <Animatable.View 
+              animation="pulse" 
+              easing="ease-in-out" 
+              iterationCount="infinite" 
+              duration={8500}
+              style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
+            />
+          </View>
+          
+          <Animatable.View 
+            animation="pulse" 
+            easing="ease-in-out" 
+            iterationCount="infinite" 
+            duration={8500}
+            style={[styles.skeletonBox, { width: '30%', height: 18, borderRadius: 12 }]} 
+          />
+        </View>
+        
+        <Animatable.View 
+          animation="pulse" 
+          easing="ease-in-out" 
+          iterationCount="infinite" 
+          duration={8500}
+          style={[styles.skeletonBox, { width: '40%', height: 14, borderRadius: 4, marginTop: 8 }]} 
+        />
+      </View>
+    </View>
+  );
+
+  // Function to handle refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (activeTab === 'Auction') {
+      await fetchOfflineAuctions();
+    }
+    setRefreshing(false);
+  };
+
+  // Function to filter products based on search query
+  const filteredAuctionProducts = searchQuery 
+    ? auctionProducts.filter(item => 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : auctionProducts;
+
+  const filteredBuyNowProducts = searchQuery && streamProducts
+    ? streamProducts.filter(item => 
+        item.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.product.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : streamProducts;
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Shop</Text>
+        {/*<TouchableOpacity onPress={closeSheet} style={styles.closeButton}>
+          <AntDesign name="close" size={24} color="#fff" />
+        </TouchableOpacity>*/}
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <AntDesign name="search1" size={18} color="#777" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          placeholderTextColor="#777"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+        />
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+            <AntDesign name="close" size={16} color="#777" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'Auction' && styles.activeTab]}
+          onPress={() => setActiveTab('Auction')}
+        >
+          <Text style={[styles.tabText, activeTab === 'Auction' && styles.activeTabText]}>Auction</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'Buy Now' && styles.activeTab]}
+          onPress={() => setActiveTab('Buy Now')}
+        >
+          <Text style={[styles.tabText, activeTab === 'Buy Now' && styles.activeTabText]}>Buy Now</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'Categories' && styles.activeTab]}
+          onPress={() => setActiveTab('Categories')}
+        >
+          <Text style={[styles.tabText, activeTab === 'Categories' && styles.activeTabText]}>Categories</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.tabContent}>
+        {activeTab === 'Auction' && (
+          <>
+            {isLoading ? (
+              renderAuctionLoading()
+            ) : error ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="error-outline" size={48} color="#888" />
+                <Text style={styles.emptyStateText}>Failed to load auctions</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchOfflineAuctions}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : filteredAuctionProducts.length === 0 ? (
+              <View style={styles.emptyState}>
+                {searchQuery ? (
+                  <>
+                    <MaterialIcons name="search-off" size={48} color="#888" />
+                    <Text style={styles.emptyStateText}>No auctions found for "{searchQuery}"</Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcons name="local-offer" size={48} color="#888" />
+                    <Text style={styles.emptyStateText}>No auctions available</Text>
+                  </>
+                )}
+              </View>
+            ) : (
+              <FlatList
+                data={filteredAuctionProducts}
+                renderItem={({ item, index }) => (
+                  <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', delay: index * 100, duration: 500 }}
+                  >
+                    {renderAuctionCard({ item, index })}
+                  </MotiView>
+                )}
+                keyExtractor={(item) => item._id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 16 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#16783A"
+                    colors={["#16783A"]}
+                    progressBackgroundColor="#1E1E1E"
+                  />
+                }
+              />
+            )}
+          </>
+        )}
+
+        {activeTab === 'Buy Now' && (
+          <>
+            {isLoading ? (
+              renderBuyNowLoading()
+            ) : error ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="error-outline" size={48} color="#888" />
+                <Text style={styles.emptyStateText}>Failed to load products</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={() => {}}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (filteredBuyNowProducts?.length === 0 || !filteredBuyNowProducts) ? (
+              <View style={styles.emptyState}>
+                {searchQuery ? (
+                  <>
+                    <MaterialIcons name="search-off" size={48} color="#888" />
+                    <Text style={styles.emptyStateText}>No products found for "{searchQuery}"</Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcons name="shopping-bag" size={48} color="#888" />
+                    <Text style={styles.emptyStateText}>No products available</Text>
+                  </>
+                )}
+              </View>
+            ) : (
+              <FlatList
+                data={filteredBuyNowProducts}
+                renderItem={({ item, index }) => (
+                  <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', delay: index * 100, duration: 500 }}
+                  >
+                    {renderBuyNowCard({ item, index })}
+                  </MotiView>
+                )}
+                keyExtractor={(item) => item.product.productId}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 16 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#16783A"
+                    colors={["#16783A"]}
+                    progressBackgroundColor="#1E1E1E"
+                  />
+                }
+              />
+            )}
+          </>
+        )}
+
+        {activeTab === 'Categories' && renderCategoriesEmptyState()}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    height: 600,
+    backgroundColor: '#121212',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#1E1E1E',
+    paddingVertical: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  activeTab: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  tabText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#16783A',
+    fontWeight: 'bold',
+  },
+  tabContent: {
+    flex: 1,
+  },
+  // Modern card styles
+  card: {
+    flexDirection: 'column',
+    backgroundColor: '#1A1A1A',
+
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    padding: 12,
+  },
+  cardLeft: {
+    width: 100,
+    height: 100,
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cardTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
+    fontFamily: 'LexendDecaSemiBold',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  priceText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginRight: 8,
+    fontFamily: 'LexendDecaBold',
+  },
+  discount: {
+    backgroundColor: 'rgba(22, 120, 58, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  discountText: {
+    color: '#16783A',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'LexendDecaSemiBold',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  metaInfo: {
+    flex: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(22, 120, 58, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  statusText: {
+    color: '#16783A',
+    fontSize: 12,
+    marginLeft: 4,
+    fontFamily: 'LexendDecaMedium',
+  },
+  urgentBadge: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+  },
+  urgentText: {
+    color: '#FF9800',
+  },
+  soldOutBadge: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+  },
+  soldOutText: {
+    color: '#F44336',
+  },
+  lowStockBadge: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+  },
+  lowStockText: {
+    color: '#FF9800',
+  },
+  bidBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bidBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginRight: 4,
+    fontFamily: 'LexendDecaBold',
+  },
+  cardOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  overlayLabel: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily: 'LexendDecaBold',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 4,
+  },
+  actionButton: {
+    backgroundColor: '#16783A',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 90,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 13,
+    fontFamily: 'LexendDecaBold',
+  },
+  disabledButton: {
+    backgroundColor: '#444',
+  },
+  // Skeleton loading styles
+  skeletonContainer: {
+    flex: 1,
+    padding: 12,
+  },
+  skeletonImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2A2A2A',
+    borderRadius: 12,
+  },
+  skeletonText: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 4,
+  },
+  skeletonButton: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+  },
+  // Empty states and errors
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyStateTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#16783A',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  emptyStateText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  skeletonBox: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+    height: 40,
+    paddingHorizontal: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    color: '#fff',
+    fontSize: 14,
+  },
+  clearButton: {
+    padding: 5,
+  },
+  auctionDetails: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  auctionDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  auctionDetailItem: {
+    flex: 1,
+    paddingHorizontal: 4,
+  },
+  auctionDetailLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'LexendDecaMedium',
+  },
+  auctionDetailValue: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'LexendDecaSemiBold',
+  },
+  sellerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  sellerName: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 4,
+    fontFamily: 'LexendDecaMedium',
+  },
+  productDetails: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  productDescription: {
+    marginBottom: 8,
+  },
+  descriptionText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'LexendDecaRegular',
+  },
+  productDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  productDetailItem: {
+    flex: 1,
+  },
+  productDetailLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'LexendDecaMedium',
+  },
+  productDetailValue: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'LexendDecaSemiBold',
+  },
+  orderCreatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(22, 120, 58, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  orderCreatedText: {
+    color: '#16783A',
+    fontSize: 12,
+    marginLeft: 4,
+    fontFamily: 'LexendDecaMedium',
+  },
+  inStockText: {
+    color: '#16783A',
+  },
+});
+
+export default ShopBottomSheet; 

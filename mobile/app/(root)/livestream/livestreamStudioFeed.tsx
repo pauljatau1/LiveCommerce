@@ -65,6 +65,7 @@ import StreamViewers from "./streamViewers";
 import StreamInfo from "./StreamInfo";
 import StreamOrders from "./streamOrders";
 import { useToast } from "@/contexts/ToastContext";
+import ShopBottomSheet from "./shopBottomSheet";
 
 const { width, height } = Dimensions.get("window");
 
@@ -151,6 +152,8 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
   const [showStreamInfo, setShowStreamInfo] = useState(false);
   // New state for orders bottom sheet
   const [showOrders, setShowOrders] = useState(false);
+  // New state for shop bottom sheet
+  const [showShop, setShowShop] = useState(false);
   // Add state for menu popover
   const [showMenuPopover, setShowMenuPopover] = useState(false);
   // Add stream details state
@@ -286,7 +289,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
           streamDetails.stream?.products &&
           streamDetails.stream.products.length > 0
         ) {
-          console.log("New Stream products:", streamDetails.stream.products);
+          console.log("New Stream products:", JSON.stringify(streamDetails.stream.products));
           setStreamProducts(streamDetails.stream.products);
         }
 
@@ -1067,6 +1070,14 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
     setComments(comments + 1);
   };
 
+  const handleShowOrders = () => {
+    setShowOrders(true);
+  };
+
+  const handleShowShop = () => {
+    setShowShop(true);
+  };
+
   const handleCantComment = () => {
     setShowComments(false);
     // Handle auth flow if needed
@@ -1482,7 +1493,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                     <View style={styles.actionItem}>
                       <TouchableOpacity 
                         style={styles.actionButton}
-                        onPress={() => setShowOrders(true)}
+                        onPress={handleShowOrders}
                       >
                         <MaterialCommunityIcons
                           name="package-variant-closed"
@@ -1494,7 +1505,10 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleShowShop}
+                      >
                         <MaterialCommunityIcons
                           name="storefront-outline"
                           size={24}
@@ -1766,7 +1780,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         showCloseIcon={false}
         title=""
         show={showOrders}
-        snapPoints={["100%"]}
+        snapPoints={["70%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowOrders(false)}
         keyboardBehavior="interactive"
@@ -1774,6 +1788,25 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
         <StreamOrders
           streamId={id}
           closeSheet={() => setShowOrders(false)}
+        />
+      </BottomSheet>
+
+      {/* Shop Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showShop}
+        snapPoints={["70%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowShop(false)}
+        keyboardBehavior="interactive"
+      >
+        <ShopBottomSheet
+          sellerId={sellerId}
+          streamProducts={streamProducts}
+          closeSheet={() => setShowShop(false)}
         />
       </BottomSheet>
     </>
