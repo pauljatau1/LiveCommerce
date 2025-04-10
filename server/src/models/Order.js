@@ -31,6 +31,9 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true
   },
+  productImages: [{
+    url: { type: String },
+  }],
   quantity: {
     type: Number,
     required: true
@@ -76,6 +79,25 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Buyer',
     required: true
+  },
+  buyerDetails: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer',
+      required: true
+    },  
+    firstName: {
+      type: String,
+    },
+    lastName: {
+      type: String,
+    },
+    username: {
+      type: String,
+    },  
+    profileImage: [{
+      url: { type: String },
+    }]
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,

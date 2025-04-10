@@ -347,6 +347,7 @@ exports.createOrder = async (req, res) => {
       
       sellerItems[sellerId].items.push({
         product: product._id,
+        productImages: product.images,
         productName: product.name,
         seller: product.seller._id,
         quantity: item.quantity,
@@ -477,6 +478,13 @@ exports.createOrder = async (req, res) => {
       const order = new Order({
         order_id: uniqueOrderId,
         buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          username: buyer.username,
+          profileImage: buyer.profileImage
+        },
         seller: sellerId,
         channel: req.body.channel || 'marketplace',
         items: sellerItemsList,
@@ -823,7 +831,7 @@ exports.createOrder = async (req, res) => {
             // Add to the stream's orders array
             stream.orders.push({
               orderId: order.order_id,
-              buyer: order.buyer,
+              buyer: order.buyerDetails,
               orderDetails: {
                 _id: order._id,
                 order_id: order.order_id,

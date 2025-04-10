@@ -945,7 +945,7 @@ exports.joinStream = async (req, res) => {
       _id: req.params.streamId,
       status: 'live'
     })
-      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('seller', 'storeName businessName storeAvatar rating followers')
       .populate('products.product', 'name description images price stock sku variants')
       .populate('products.currentBidder', 'firstName lastName username email')
       .populate('viewers', 'firstName lastName username avatarUrl')
@@ -1029,7 +1029,8 @@ exports.joinStream = async (req, res) => {
           maxBid: product.maxBid,
           currentBidder: product.currentBidder
         })),
-        viewers: detailedViewers
+        viewers: detailedViewers,
+        sellerFollowers: stream.seller.followers.length
       }
     });
   } catch (error) {
@@ -3328,6 +3329,42 @@ exports.isSubscribedToStream = async (req, res) => {
     res.status(500).json({
       message: 'Failed to check subscription status, stream not found',
      
+    });
+  }
+};
+
+/**
+ * Get all orders for a specific stream
+ * @route GET /api/streams/:streamId/orders
+ * @access Public
+ */
+exports.getStreamOrders = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+
+    // Find the stream by ID
+    const stream = await Stream.findById(streamId)
+      .populate({
+        path: 'orders.buyer', 
+        select: 'firstName lastName username profileImage'
+      });
+
+    if (!stream) {
+      return res.status(404).json({
+        message: 'Stream not found'
+      });
+    }
+
+    // Return the orders
+    res.status(200).json({
+      message: 'Stream orders retrieved successfully',
+      orders: stream.orders
+    });
+  } catch (error) {
+    console.error('Error fetching stream orders:', error);
+    res.status(500).json({
+      message: 'Failed to fetch stream orders',
+      error: error.message
     });
   }
 };
