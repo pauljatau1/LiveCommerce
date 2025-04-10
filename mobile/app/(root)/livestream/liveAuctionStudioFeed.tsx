@@ -76,6 +76,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import OrderCreatedNotification from "./OrderCreatedNotification";
 import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
 import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
+import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 
 const { width, height } = Dimensions.get("window");
 
@@ -101,6 +102,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   const [showViewers, setShowViewers] = useState(false);
   const [showStreamInfo, setShowStreamInfo] = useState(false);
   const [showOrders, setShowOrders] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const [status, setStatus] = useState("Initializing...");
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowingLoading, setIsFollowingLoading] = useState(false);
@@ -313,7 +315,8 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
         // Set products from stream data
         if (streamDetails.products && streamDetails.products.length > 0) {
-          //console.log('Setting products from streamDetails.products:', streamDetails.products);
+          console.log('Setting products from streamDetails.products:', JSON.stringify(streamDetails.products));
+
           // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
           const productsWithStatus = streamDetails.products.map((product) => ({
             ...product,
@@ -348,7 +351,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
           //console.log('productsWithStatus', productsWithStatus);
           setStreamProducts(productsWithStatus);
-          //console.log('streamProductsFirstAllocation', streamProducts);
+          console.log('streamProductsFirstAllocation', streamProducts);
 
           // Find if there's an active product for bidding and set it as current
           const activeProductIndex = productsWithStatus.findIndex(
@@ -1486,6 +1489,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     setShowOrders(true);
   };
 
+  const handleShowShop = () => {
+    setShowShop(true);
+  };
+
   // Update handleLeaveStream function to actually leave the stream
   const handleLeaveStream = async (backButton: boolean) => {
     if (!id) return;
@@ -1998,7 +2005,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleShowShop}
+                      >
                         <MaterialCommunityIcons
                           name="storefront-outline"
                           size={24}
@@ -2436,13 +2446,32 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           <OrderCreatedNotification
             order={activeOrderCreated}
             closeSheet={() => setShowOrderCreatedNotification(false)}
-            onViewOrder={(orderId) => {
+            onViewOrder={() => {
               setShowOrderCreatedNotification(false);
               router.push(`/orders/orders`);
             }}
             formatPrice={formatPrice}
           />
         )}
+      </BottomSheet>
+
+      {/* Shop Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showShop}
+        snapPoints={["80%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowShop(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuctionShopBottomSheet
+          streamProducts={streamProducts}
+          closeSheet={() => setShowShop(false)}
+          isLoading={isLoading}
+        />
       </BottomSheet>
 
       {/* Add the FloatingHeartsAnimation component */}
