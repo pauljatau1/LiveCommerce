@@ -510,7 +510,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     const certUpload = await s3.upload(certParams).promise();
     documents.push({
       documentType: 'certificateOfIncorporation',
-      fileUrl: certUpload.Location,
+      fileUrl: `https://` + process.env.CDN_URL + `/${certUpload.Key}`,
       public_id: certUpload.Key
     });
 
@@ -525,7 +525,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     const taxUpload = await s3.upload(taxParams).promise();
     documents.push({
       documentType: 'businessTaxId',
-      fileUrl: taxUpload.Location,
+      fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`,
       public_id: taxUpload.Key
     });
 
@@ -576,7 +576,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     const taxUpload = await s3.upload(taxParams).promise();
     documents.push({
       documentType: 'individualTaxId',
-      fileUrl: taxUpload.Location,
+      fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`, 
       public_id: taxUpload.Key
     });
 
@@ -591,7 +591,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     const govUpload = await s3.upload(govParams).promise();
     documents.push({
       documentType: 'governmentId',
-      fileUrl: govUpload.Location,
+      fileUrl: `https://` + process.env.CDN_URL + `/${govUpload.Key}`,
       public_id: govUpload.Key
     });
 
@@ -606,7 +606,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     const addressUpload = await s3.upload(addressParams).promise();
     documents.push({
       documentType: 'proofOfAddress',
-      fileUrl: addressUpload.Location,
+      fileUrl: `https://` + process.env.CDN_URL + `/${addressUpload.Key}`,
       public_id: addressUpload.Key
     });
 
@@ -654,7 +654,7 @@ exports.uploadStoreAvatar = async (req, res) => {
     const data = await s3.upload(params).promise();
 
     seller.storeAvatar = {
-      url: data.Location,
+      url: `https://` + process.env.CDN_URL + `/${data.Key}`,
       public_id: data.Key,
     };
 
@@ -690,7 +690,7 @@ exports.uploadStoreBanner = async (req, res) => {
     const data = await s3.upload(params).promise();
 
     seller.storeBanner = {
-      url: data.Location,
+      url: `https://` + process.env.CDN_URL + `/${data.Key}`,
       public_id: data.Key,
     };
 
@@ -919,7 +919,7 @@ exports.requestBankAccountChange = async (req, res) => {
       currentBankDetails: seller.bankDetails,
       newBankDetails: newBankDetails,
       proofDocument: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       }
     });

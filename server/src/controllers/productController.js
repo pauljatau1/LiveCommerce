@@ -153,7 +153,7 @@ exports.createProduct = async (req, res) => {
           blipsLinks.push({ 
             url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
             contentType: blip.contentType,
-            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
+            thumbnail: `https://` + process.env.CDN_URL + `/${videoData.Key}`
           });
         } catch (err) {
           console.error('Error generating thumbnail:', err);
