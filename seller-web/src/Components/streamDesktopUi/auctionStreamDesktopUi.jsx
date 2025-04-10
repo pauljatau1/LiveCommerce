@@ -123,23 +123,30 @@ const AuctionStreamDesktopUi = ({
             if (updateProductStatus) {
                 console.log(`Immediately updating product ${selectedProduct.product.name} status to 'active' in socket context`);
                 
+                // FIRST: Directly check and end all ongoing products in productStatuses
+                Object.entries(productStatuses).forEach(([pid, status]) => {
+                    if (pid !== selectedProduct.product.productId && (status === 'active' || status === 'ongoing')) {
+                        console.log(`Pre-emptively changing product ${pid} with socket status ${status} to 'ended'`);
+                        updateProductStatus(pid, 'ended');
+                    }
+                });
+                
                 // Set the newly activated product to active
                 updateProductStatus(selectedProduct.product.productId, 'active');
                 
-                // Set all other active and ongoing products to ended
-                // This ensures only one product is active at a time
+                // THEN: Handle any products whose state might not be reflected in productStatuses yet
                 if (products) {
                     products.forEach(product => {
                         const pid = product.product.productId;
                         // Skip the newly activated product
                         if (pid === selectedProduct.product.productId) return;
                         
-                        const currentStatus = productStatuses[pid];
-                        
-                        // Change both 'active' and 'ongoing' products to 'ended'
-                        if (product.bidStatus === 'active' || product.bidStatus === 'ongoing' || 
-                            currentStatus === 'active' || currentStatus === 'ongoing') {
-                            console.log(`Changing product ${pid} with status ${currentStatus || product.bidStatus} to 'ended' due to new activation`);
+                        // Force update the local bidStatus to 'ended' for all other products
+                        if (product.bidStatus === 'active' || product.bidStatus === 'ongoing') {
+                            console.log(`Forcing local product ${pid} bidStatus from ${product.bidStatus} to 'ended'`);
+                            product.bidStatus = 'ended';
+                            
+                            // Also ensure the socket context is updated
                             updateProductStatus(pid, 'ended');
                         }
                     });

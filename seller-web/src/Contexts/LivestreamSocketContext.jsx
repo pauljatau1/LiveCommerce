@@ -262,11 +262,82 @@ export function LivestreamSocketProvider({ children }) {
   const updateProductStatus = (productId, status) => {
     if (!productId || !status) return;
     
-    // Only update if the status is actually different from current status
+    // Special case: When setting a status to 'active', automatically end other active/ongoing items
+    if (status === 'active') {
+      console.log(`Setting ${productId} to active, will check for other active/ongoing products to end`);
+      
+      // First update this product to active
+      setProductStatuses(prev => {
+        // If status is the same, return the previous state unchanged
+        if (prev[productId] === status) {
+          return prev;
+        }
+        
+        // Set this product to active
+        console.log(`Updating product ${productId} status from ${prev[productId] || 'none'} to ${status}`);
+        const updated = { ...prev, [productId]: status };
+        
+        // Now check for other active/ongoing products that need to be ended
+        Object.entries(updated).forEach(([pid, currentStatus]) => {
+          if (pid !== productId && (currentStatus === 'active' || currentStatus === 'ongoing')) {
+            console.log(`Auto-ending product ${pid} with status ${currentStatus} when setting ${productId} to active`);
+            updated[pid] = 'ended';
+          }
+        });
+        
+        return updated;
+      });
+      
+      return; // Exit early - we've handled everything in one update
+    }
+    
+    // Special case for 'ongoing' to 'ended' transitions - add a delay to keep the OngoingBidProductCard visible
+    if (status === 'ended') {
+      const currentStatus = productStatuses[productId];
+      if (currentStatus === 'ongoing') {
+        // Check if this is a very recent transition to 'ongoing' (within the last 30 seconds)
+        // to ensure we show the OngoingBidProductCard for a minimum amount of time
+        console.log(`Request to set ${productId} from 'ongoing' to 'ended', adding a delay for better UX`);
+        
+        // Delay the transition to 'ended' by 30 seconds
+        setTimeout(() => {
+          console.log(`Now setting ${productId} from 'ongoing' to 'ended' after delay`);
+          setProductStatuses(prev => {
+            // Only proceed if it's still 'ongoing'
+            if (prev[productId] !== 'ongoing') {
+              console.log(`Status already changed from ongoing, now: ${prev[productId]}, skipping update`);
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [productId]: 'ended'
+            };
+          });
+        }, 30000); // 30-second delay
+        
+        return; // Exit early
+      }
+    }
+    
+    // For other status transitions, use the standard update
     setProductStatuses(prev => {
       // If status is the same, return the previous state unchanged
       if (prev[productId] === status) {
         return prev;
+      }
+      
+      // If trying to set status to 'ongoing' but another product is already 'active', prevent it
+      if (status === 'ongoing') {
+        // Check if another product is active
+        const isAnotherProductActive = Object.entries(prev).some(
+          ([pid, pStatus]) => pid !== productId && pStatus === 'active'
+        );
+        
+        if (isAnotherProductActive) {
+          console.log(`Not setting ${productId} to 'ongoing' because another product is still 'active'`);
+          return prev;
+        }
       }
       
       // Only if status is different, update it

@@ -35,6 +35,24 @@ const ActiveBidProductCard = ({ product, formatCurrency }) => {
             return; // Don't proceed further
         }
         
+        // Check if another product is already active or ongoing
+        const otherActiveProduct = Object.entries(productStatuses).find(
+            ([pid, status]) => pid !== productId && (status === 'active' || status === 'ongoing')
+        );
+        
+        if (otherActiveProduct) {
+            console.log(`Found another active or ongoing product ${otherActiveProduct[0]} with status ${otherActiveProduct[1]}, may need to resolve conflict`);
+            // If this product should be active based on local state but there's a conflict
+            if (product.bidStatus === 'active') {
+                console.log(`Resolving conflict: Setting product ${productId} as active and ending ${otherActiveProduct[0]}`);
+                // End the other product first
+                updateProductStatus(otherActiveProduct[0], 'ended');
+                // Then set this one to active
+                updateProductStatus(productId, 'active');
+            }
+            return;
+        }
+        
         if (product.bidStatus === 'active' && !productStatuses[productId]) {
             console.log('Ensuring product is marked as active:', productId);
             updateProductStatus(productId, 'active');
