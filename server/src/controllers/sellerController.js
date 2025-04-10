@@ -3230,6 +3230,8 @@ exports.getTransactions = async (req, res) => {
       };
     }));
 
+
+
     // Calculate summary with more detailed breakdown
     const summary = await calculateTransactionSummary(sellerId);
 
@@ -3266,6 +3268,34 @@ const isValidTimeFormat = (time) => {
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   return timeRegex.test(time);
 };
+
+async function calculateTransactionSummary(sellerId) {
+  const [orderPayments, platformFees, processingFees, withdrawals] = await Promise.all([
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'order_payment' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'platform_fee' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'processing_fee' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'withdrawal' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ])
+  ]);
+
+  return {
+    totalEarnings: orderPayments[0]?.total || 0,
+    totalPlatformFees: platformFees[0]?.total || 0,
+    totalProcessingFees: processingFees[0]?.total || 0,
+    totalWithdrawals: withdrawals[0]?.total || 0
+  };
+}
 
 // Update operating hours
 exports.updateOperatingHours = async (req, res) => {
