@@ -1044,7 +1044,8 @@ exports.followSeller = async (req, res) => {
 
     res.json({
       message: 'Successfully followed seller',
-      followData: seller.followers[seller.followers.length - 1]
+      followData: seller.followers[seller.followers.length - 1],
+      sellerFollowCount: seller.followers.length
     });
   } catch (error) {
     console.error('Follow seller error:', error);
@@ -1073,7 +1074,7 @@ exports.unfollowSeller = async (req, res) => {
 
     await seller.save();
 
-    res.json({ message: 'Successfully unfollowed seller' });
+    res.json({ message: 'Successfully unfollowed seller', sellerFollowCount: seller.followers.length });
   } catch (error) {
     res.status(500).json({
       message: 'Failed to unfollow seller',

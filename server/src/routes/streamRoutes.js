@@ -1862,4 +1862,37 @@ router.get('/:streamId/is-subscribed',
   streamController.isSubscribedToStream
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/orders:
+ *   get:
+ *     summary: Get all orders for a specific stream
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Stream orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/orders', streamController.getStreamOrders);
+
 module.exports = router; 
