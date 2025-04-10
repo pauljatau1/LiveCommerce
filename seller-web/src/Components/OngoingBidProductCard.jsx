@@ -20,12 +20,37 @@ const OngoingBidProductCard = ({ product, formatCurrency }) => {
         return bidTimers[productId];
     }, [productId, bidTimers]);
     
-    // When component mounts, ensure this product is marked as ongoing in the socket context
+    // Ensure this card is displayed when bidStatus is ongoing
     useEffect(() => {
-        if (productId && product.bidStatus === 'ongoing' && productStatuses[productId] !== 'ongoing') {
+        if (!productId || !updateProductStatus) return;
+        
+        // Force log whenever this component renders to help debug visibility issues
+        console.log(`OngoingBidProductCard mounted/updated for product ${productId}, bidStatus=${product.bidStatus}, socketStatus=${productStatuses[productId]}`);
+        
+        // If socket status shows 'ended', respect that and don't try to change it back to ongoing
+        if (productStatuses[productId] === 'ended') {
+            console.log(`Socket status is 'ended' for ${productId}, updating local product bidStatus to match`);
+            // Update local bidStatus to match
+            if (product.bidStatus !== 'ended') {
+                product.bidStatus = 'ended';
+            }
+            return; // Don't proceed further
+        }
+        
+        // If socket status shows 'ongoing', this is the authoritative status
+        if (productStatuses[productId] === 'ongoing') {
+            // Update local product bidStatus to match if needed
+            if (product.bidStatus !== 'ongoing') {
+                console.log(`Updating local product bidStatus to match socket 'ongoing' status`);
+                product.bidStatus = 'ongoing'; // Local sync (doesn't trigger re-render)
+            }
+        } 
+        // Otherwise, if local status is 'ongoing', update socket status to match
+        else if (product.bidStatus === 'ongoing' && productStatuses[productId] !== 'ongoing') {
+            console.log('Ensuring product is marked as ongoing in socket context:', productId);
             updateProductStatus(productId, 'ongoing');
         }
-    }, [productId, product.bidStatus, productStatuses, updateProductStatus]);
+    }, [productId, product, productStatuses, updateProductStatus]); // Full dependencies
     
     // Use the latest bid amount if available, otherwise fall back to the product's current bid
     const currentBid = latestBidData?.currentBid || product?.currentBid || product?.minBid;
@@ -34,10 +59,11 @@ const OngoingBidProductCard = ({ product, formatCurrency }) => {
     useEffect(() => {
         // If we have timer data from the socket, use that
         if (timerData?.secondsLeft !== undefined) {
+            console.log(`Ongoing card setting timeLeft to ${timerData.secondsLeft} for ${productId}`);
             setTimeLeft(timerData.secondsLeft);
             return;
         }
-    }, [timerData]);
+    }, [timerData, productId]);
 
     // Format time as MM:SS
     const formatTime = (seconds) => {

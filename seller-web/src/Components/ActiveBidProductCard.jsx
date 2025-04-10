@@ -21,18 +21,25 @@ const ActiveBidProductCard = ({ product, formatCurrency }) => {
     
     // When component mounts, ensure this product is marked as active in the socket context
     useEffect(() => {
-        if (productId && product.bidStatus === 'active' && !productStatuses[productId]) {
+        if (!productId || !updateProductStatus) return;
+        
+        console.log(`ActiveBidProductCard mounted/updated for ${productId}, bidStatus=${product.bidStatus}, socketStatus=${productStatuses[productId]}`);
+        
+        // If socket status shows 'ended' or 'ongoing', respect that and don't try to change it
+        if (productStatuses[productId] === 'ended' || productStatuses[productId] === 'ongoing') {
+            console.log(`Socket status is '${productStatuses[productId]}' for ${productId}, respecting this status`);
+            // Update local bidStatus to match if needed
+            if (product.bidStatus !== productStatuses[productId]) {
+                product.bidStatus = productStatuses[productId];
+            }
+            return; // Don't proceed further
+        }
+        
+        if (product.bidStatus === 'active' && !productStatuses[productId]) {
+            console.log('Ensuring product is marked as active:', productId);
             updateProductStatus(productId, 'active');
         }
-    }, [productId, product.bidStatus, productStatuses, updateProductStatus]);
-    
-    // Monitor timer and change status to 'ended' when timer reaches zero
-    useEffect(() => {
-        if (productId && timerData && timerData.secondsLeft <= 0) {
-            // Timer has expired, change status to 'ended'
-            updateProductStatus(productId, 'ended');
-        }
-    }, [productId, timerData, updateProductStatus]);
+    }, [productId, product.bidStatus, updateProductStatus, productStatuses]);
     
     // Use the latest bid amount if available, otherwise fall back to the product's current bid
     const currentBid = latestBidData?.currentBid || product?.currentBid || product?.minBid;

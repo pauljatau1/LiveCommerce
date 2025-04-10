@@ -409,10 +409,7 @@ export const LivestreamProvider = ({ children }) => {
                 });
 
                 dispatch({ type: 'UPDATE_PRODUCT_BID_STATUS', payload: updatedProducts });
-                
-                // Also emit a socket event to notify clients of bid activation
-                // The socket connection might be available in the main component
-                // Or we could expose a notification through the context
+            
                 
                 toast.success('Product bidding activated successfully', {
                     style: {
