@@ -24,6 +24,7 @@ import {
   ShoppingBag,
   Banknote,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
@@ -261,13 +262,29 @@ export default function ChatInterface() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Add product list state
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productPagination, setProductPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0
+  });
+  const [productParams, setProductParams] = useState({
+    page: 1,
+    limit: 8,
+    search: ""
+  });
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
 
   useEffect(() => {
     setHeaderName('Messages')
     setNavName('')
   }, [])
 
-  // Fetch seller profile and products
+  // Fetch seller profile and products with pagination support
   useEffect(() => {
     const fetchSellerProfile = async () => {
       try {
@@ -281,20 +298,231 @@ export default function ChatInterface() {
         setSellerId(profileData._id);
 
         // Fetch products once we have the seller ID
-        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        const productsData = await productsResponse.json();
-        setSellerProducts(productsData.products);
+        fetchSellerProductsWithParams(profileData._id);
       } catch (error) {
-        console.error('Error fetching seller profile and products:', error);
-        toast.error('Failed to load products');
+        console.error('Error fetching seller profile:', error);
+        toast.error('Failed to load seller profile');
       }
     };
     fetchSellerProfile();
   }, []);
+
+  // Separate function to fetch products with pagination
+  const fetchSellerProductsWithParams = async (sellerId, params = productParams, append = false) => {
+    if (append) {
+      setLoadingMoreProducts(true);
+    } else {
+      setIsLoadingProducts(true);
+    }
+    
+    try {
+      const queryParams = new URLSearchParams({
+        page: params.page,
+        limit: params.limit,
+        ...(params.search && { search: params.search })
+      });
+      
+      const response = await fetch(`${BASE_URL}/products/seller/${sellerId}?${queryParams}`);
+      const data = await response.json();
+      
+      if (append) {
+        // Append new products to existing ones
+        setSellerProducts(prev => [...prev, ...data.products]);
+      } else {
+        // Replace products
+        setSellerProducts(data.products);
+      }
+      
+      setProductPagination({
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
+        totalProducts: data.totalProducts
+      });
+      
+      // Check if there are more products to load
+      setHasMoreProducts(data.currentPage < data.totalPages);
+      
+      // Update the page in productParams to reflect the current page
+      setProductParams(prev => ({
+        ...prev,
+        page: data.currentPage
+      }));
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Failed to load products');
+    } finally {
+      if (append) {
+        setLoadingMoreProducts(false);
+      } else {
+        setIsLoadingProducts(false);
+      }
+    }
+  };
+
+  // Load more products - Fixed to properly increment page
+  const handleLoadMoreProducts = () => {
+    if (loadingMoreProducts || !hasMoreProducts) return;
+    
+    // Calculate next page based on current state
+    const nextPage = productParams.page + 1;
+    
+    // Create new params with next page
+    const newParams = {
+      ...productParams,
+      page: nextPage
+    };
+    
+    // Log for debugging
+    console.log('Loading more products, page:', nextPage);
+    
+    // Fetch more products and append them
+    fetchSellerProductsWithParams(sellerId, newParams, true);
+  };
+
+  // Handle product search
+  const handleProductSearch = (e) => {
+    e.preventDefault();
+    if (!productSearchQuery.trim()) {
+      return;
+    }
+    
+    setIsLoadingProducts(true);
+    
+    // Use the dedicated search endpoint
+    searchSellerProducts(productSearchQuery);
+  };
+
+  // Clear product search
+  const handleClearProductSearch = () => {
+    setProductSearchQuery("");
+    
+    // Reset to regular product fetching when clearing search
+    const newParams = {
+      ...productParams,
+      page: 1,
+      search: ""
+    };
+    
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams, false);
+  };
+
+  // New dedicated function for product search using the correct endpoint
+  const searchSellerProducts = async (query) => {
+    if (!sellerId) return;
+    
+    setIsLoadingProducts(true);
+    
+    try {
+      // Use the correct search endpoint with the query parameter
+      const queryParams = new URLSearchParams({
+        query: query,
+        page: 1,
+        limit: productParams.limit
+      });
+      
+      console.log('Searching products with query:', query);
+      
+      const response = await fetch(`${BASE_URL}/products/seller/${sellerId}/search?${queryParams}`);
+      const data = await response.json();
+      
+      // The response structure might be different for the search endpoint
+      if (data.data && Array.isArray(data.data)) {
+        setSellerProducts(data.data);
+        
+        if (data.pagination) {
+          setProductPagination({
+            currentPage: data.pagination.currentPage,
+            totalPages: data.pagination.totalPages,
+            totalProducts: data.pagination.totalProducts
+          });
+          
+          setHasMoreProducts(data.pagination.hasMore || data.pagination.currentPage < data.pagination.totalPages);
+        }
+      } else {
+        console.error('Unexpected search response format:', data);
+        toast.error('Error in search response format');
+      }
+    } catch (error) {
+      console.error('Error searching products:', error);
+      toast.error('Failed to search products');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+  
+  // Load more products after search
+  const handleLoadMoreProductsAfterSearch = () => {
+    if (loadingMoreProducts || !hasMoreProducts) return;
+    
+    // If we're in search mode and have a query
+    if (productSearchQuery.trim()) {
+      setLoadingMoreProducts(true);
+      
+      const nextPage = productPagination.currentPage + 1;
+      
+      // Use the search endpoint with the next page
+      const queryParams = new URLSearchParams({
+        query: productSearchQuery,
+        page: nextPage,
+        limit: productParams.limit
+      });
+      
+      console.log('Loading more search results, page:', nextPage);
+      
+      fetch(`${BASE_URL}/products/seller/${sellerId}/search?${queryParams}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.data && Array.isArray(data.data)) {
+            // Append new search results
+            setSellerProducts(prev => [...prev, ...data.data]);
+            
+            if (data.pagination) {
+              setProductPagination({
+                currentPage: data.pagination.currentPage,
+                totalPages: data.pagination.totalPages,
+                totalProducts: data.pagination.totalProducts
+              });
+              
+              setHasMoreProducts(data.pagination.hasMore || data.pagination.currentPage < data.pagination.totalPages);
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error loading more search results:', error);
+          toast.error('Failed to load more search results');
+        })
+        .finally(() => {
+          setLoadingMoreProducts(false);
+        });
+    } else {
+      // Regular load more for non-search mode
+      handleLoadMoreProducts();
+    }
+  };
+
+  // Handle product pagination
+  const handleProductPageChange = (newPage) => {
+    if (newPage < 1 || newPage > productPagination.totalPages) return;
+    
+    const newParams = {
+      ...productParams,
+      page: newPage
+    };
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams);
+  };
+
+  // Handle changing products per page
+  const handleProductsPerPageChange = (newLimit) => {
+    const newParams = {
+      ...productParams,
+      page: 1, // Reset to first page
+      limit: newLimit
+    };
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams);
+  };
 
   // Fetch conversations
   useEffect(() => {
@@ -1136,7 +1364,7 @@ export default function ChatInterface() {
     </div>
   );
 
-  // Update Quick Tools with improved styling
+  // Update Quick Tools with improved styling and product search/pagination
   const renderQuickTools = () => (
     <div className={`
       ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
@@ -1147,6 +1375,7 @@ export default function ChatInterface() {
       md:right-auto md:top-auto md:bottom-auto
       w-[280px]
       border-l bg-white
+      block sm:hidden
       z-50
       md:flex
       flex-col
@@ -1160,41 +1389,138 @@ export default function ChatInterface() {
             Quick Replies
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="products" className="flex-1 m-0 p-0">
-          <ScrollArea className="h-full">
-            <div className="p-3 space-y-2">
-              {sellerProducts.map((product) => (
-                <Card key={product._id} className="p-2 hover:shadow-sm transition-shadow border rounded-md">
-                  <div className="flex gap-2">
-                    <img
-                      src={product.images[0]?.url}
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
-                      <p className="text-xs text-gray-600 mt-0.5">
-                        {new Intl.NumberFormat('en-NG', {
-                          style: 'currency',
-                          currency: 'NGN'
-                        }).format(product.price)}
-                      </p>
-                      <div className="flex gap-1 mt-1">
-                        <Button
-                          size="sm"
-                          className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                          onClick={() => handleSendProduct(product)}
-                          disabled={!currentConversation}
-                        >
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+        <TabsContent value="products" className="flex-1 m-0 p-0 flex flex-col">
+          {/* Products Search */}
+          <div className="p-3 border-b">
+            <form onSubmit={handleProductSearch} className="flex gap-1">
+              <Input 
+                placeholder="Search products..." 
+                value={productSearchQuery}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Button type="submit" size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700">
+                <Search className="h-4 w-4" />
+              </Button>
+            </form>
+            {productSearchQuery && (
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {productSearchQuery ? `Search: "${productSearchQuery}"` : ''}
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 px-2 text-xs flex items-center gap-1"
+                  onClick={handleClearProductSearch}
+                >
+                  <X className="h-3 w-3" />
+                  <span>Clear</span>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Products List */}
+          {isLoadingProducts ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-green-600" />
             </div>
-          </ScrollArea>
+          ) : (
+            <>
+              <div className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+                <div className="p-3 space-y-2">
+                  {sellerProducts.length > 0 ? (
+                    sellerProducts.map((product) => (
+                      <Card key={product._id} className="p-2 hover:shadow-sm transition-shadow border rounded-md">
+                        <div className="flex gap-2">
+                          <img
+                            src={product.images[0]?.url}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded-md"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              {new Intl.NumberFormat('en-NG', {
+                                style: 'currency',
+                                currency: 'NGN'
+                              }).format(product.price)}
+                            </p>
+                            <div className="flex gap-1 mt-1">
+                              <Button
+                                size="sm"
+                                className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                                onClick={() => handleSendProduct(product)}
+                                disabled={!currentConversation}
+                              >
+                                Send
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center">
+                      <p className="text-gray-500 text-sm">No products found</p>
+                      {productSearchQuery && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2 flex items-center gap-1"
+                          onClick={handleClearProductSearch}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          <span>Show all products</span>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Load More Button - Sticky at bottom */}
+              <div className="p-3 border-t sticky bottom-0 bg-white">
+                {productSearchQuery && sellerProducts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-medium mb-2"
+                    onClick={handleClearProductSearch}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Show all products
+                  </Button>
+                )}
+                {hasMoreProducts ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-medium bg-green-50 hover:bg-green-100"
+                    onClick={productSearchQuery.trim() ? handleLoadMoreProductsAfterSearch : handleLoadMoreProducts}
+                    disabled={loadingMoreProducts}
+                  >
+                    {loadingMoreProducts ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <span>Load More (8)</span>
+                        <span className="ml-1 text-gray-500">({sellerProducts.length}/{productPagination.totalProducts})</span>
+                      </>
+                    )}
+                  </Button>
+                ) : sellerProducts.length > 0 ? (
+                  <p className="text-xs text-gray-500 text-center">
+                    All products loaded ({sellerProducts.length})
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
         </TabsContent>
         <TabsContent value="replies" className="flex-1 p-4 m-0">
           <QuickReplyDialog 
