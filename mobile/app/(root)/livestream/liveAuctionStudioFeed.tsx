@@ -74,6 +74,8 @@ import StreamOrders from "./streamOrders";
 import BidErrorMessage from "./BidErrorMessage";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import OrderCreatedNotification from "./OrderCreatedNotification";
+import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
+import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 
 const { width, height } = Dimensions.get("window");
 
@@ -194,6 +196,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   // Add state for host presence
   const [isHostPresent, setIsHostPresent] = useState(true);
   const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+
+  // Add ref for heart animation
+  const heartsRef = useRef<FloatingHeartsRef>(null);
 
   // Update detailedViewers when activeStreamDetails changes
   useEffect(() => {
@@ -1671,6 +1676,23 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     }
   };
 
+  // Add handler for heart reaction
+  const handleReactWithHeart = useCallback(() => {
+    // Trigger the heart animation
+    if (heartsRef.current) {
+      heartsRef.current.generateHearts();
+    }
+    
+    // Send the reaction to the server via socket
+    const socketInstance = getSocket();
+    if (socketInstance) {
+      socketInstance.emit("stream_reaction", {
+        streamId: id,
+        type: "heart",
+      });
+    }
+  }, [id]);
+
   return (
     <GestureHandlerRootView style={{ height }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -1987,10 +2009,13 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
-                        <AntDesign name="like2" size={24} color="white" />
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleReactWithHeart}
+                      >
+                        <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>React</Text>
+                      <Text style={styles.actionText}>Like</Text>
                     </View>
                   </ScrollView>
                 )}
@@ -2419,6 +2444,13 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           />
         )}
       </BottomSheet>
+
+      {/* Add the FloatingHeartsAnimation component */}
+      <FloatingHeartsAnimation 
+        ref={heartsRef}
+        count={15}
+        color="#16783A"
+      />
     </GestureHandlerRootView>
   );
 };
