@@ -919,7 +919,7 @@ exports.requestBankAccountChange = async (req, res) => {
       currentBankDetails: seller.bankDetails,
       newBankDetails: newBankDetails,
       proofDocument: {
-        url: uploadResult.Location,
+        url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
         public_id: uploadResult.Key
       }
     });

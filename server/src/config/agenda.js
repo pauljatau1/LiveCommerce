@@ -1552,6 +1552,38 @@ agenda.define('delete_unpaid_orders', async (job) => {
   }
 });
 
+// Define job to delete expired streams after 1 hour
+agenda.define('delete_expired_streams', async (job) => {
+  try {
+    console.log('Starting job to delete expired streams');
+    
+    const Stream = mongoose.model('Stream');
+    
+    // Find streams that have been expired for at least 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    // Find all streams with 'expired' status
+    const expiredStreams = await Stream.find({ 
+      status: 'expired',
+      updatedAt: { $lte: oneHourAgo } // Only delete streams that have been expired for at least 1 hour
+    });
+    
+    console.log(`Found ${expiredStreams.length} expired streams to delete`);
+    
+    if (expiredStreams.length > 0) {
+      // Delete all expired streams
+      const result = await Stream.deleteMany({ 
+        status: 'expired',
+        updatedAt: { $lte: oneHourAgo }
+      });
+      
+      console.log(`Successfully deleted ${result.deletedCount} expired streams`);
+    }
+  } catch (error) {
+    console.error('Error in delete_expired_streams job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
@@ -1560,6 +1592,10 @@ const startAgenda = async () => {
   // Schedule the pending message notifications job to run every 5 minutes
   await agenda.every('5 minutes', 'process-pending-message-notifications');
   console.log('Scheduled message notification job to run every 5 minutes');
+  
+  // Schedule the delete expired streams job to run every 15 minutes
+  await agenda.every('15 minutes', 'delete_expired_streams');
+  console.log('Scheduled expired streams cleanup job to run every 15 minutes');
 };
 
 module.exports = { agenda, startAgenda }; 
