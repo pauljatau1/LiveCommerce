@@ -2579,7 +2579,9 @@ exports.endProductBidding = async (req, res) => {
           
           // Add order to stream's orders array
           const order = orderResult.orders[0];
+          console.log('[END_BID] 32a. Order created successfully', order);
           const firstItem = order.items[0];
+          console.log('[END_BID] 32b. First item', firstItem);
           
           // Add to the stream's orders array
           stream.orders.push({
