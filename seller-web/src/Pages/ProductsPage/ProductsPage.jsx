@@ -31,6 +31,10 @@ import {
 } from "../../Components/ui/dialog";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { useAuthContext } from "../../Hooks/useAuthContext";
+import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
+import { BASE_URL } from "../../Constants/Server";
+import axios from 'axios';
+import { toast } from "react-hot-toast";
 
 import React from 'react';
 
@@ -43,7 +47,7 @@ const ProductsPage = () => {
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); 
     const [sortType, setSortType] = useState('newest-to-oldest'); 
-    const { seller } = useAuthContext();
+    const { seller, fetchSellerDetails } = useAuthContext();
     const [showVerificationDialog, setShowVerificationDialog] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -64,11 +68,41 @@ const ProductsPage = () => {
     const [openAuctionModal, setOpenAuctionModal] = useState(false);
     const [showRerunDialog, setShowRerunDialog] = useState(false);
     const [openBlipUploadModal, setOpenBlipUploadModal] = useState(false);
+    
+    // Delete confirmation dialog state
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [productToDelete, setProductToDelete] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setHeaderName('Products')
         setNavName('')
+        
+        // If seller is null, fetch seller details
+        if (!seller) {
+            fetchSellerDetails();
+        }
+        
+        console.log("Full authentication context:", { seller })
+        console.log("Verification states:", { 
+            isVerified: seller?.isVerified, 
+            accountPending: seller?.accountPending,
+            shouldShowVerificationDialog: seller !== null && seller.isVerified === false
+        })
     }, [])
+
+    // Check if seller is verified whenever seller value changes
+    useEffect(() => {
+        console.log("Seller verification check:", { 
+            seller, 
+            isVerified: seller?.isVerified
+        });
+        
+        // Only show verification dialog if seller has loaded and is not verified
+        if (seller && seller.isVerified === false) {
+            setShowVerificationDialog(true);
+        }
+    }, [seller]);
 
     // Reset page when sort type or tab changes
     useEffect(() => {
@@ -174,21 +208,6 @@ const ProductsPage = () => {
         }
     };
 
-    // Check if seller is verified
-    useEffect(() => {
-        if (seller && seller.isVerified === false) {
-            setShowVerificationDialog(true);
-        }
-    }, [seller]);
-
-    // Handle add product click for unverified sellers
-    const handleAddProductClick = (e) => {
-        if (seller && !seller.isVerified) {
-            e.preventDefault();
-            setShowVerificationDialog(true);
-        }
-    };
-
     // Map UI sort type to API sortBy parameter
     const mapSortTypeToAPI = (uiSortType) => {
         switch (uiSortType) {
@@ -265,8 +284,10 @@ const ProductsPage = () => {
         };
         
         window.deleteProduct = (productId) => {
-            if (productId) {
-                dispatch(deleteProduct(productId));
+            const foundProduct = displayedProducts.find(p => p._id === productId);
+            if (foundProduct) {
+                setProductToDelete(foundProduct);
+                setShowDeleteDialog(true);
             }
         };
         
@@ -287,7 +308,7 @@ const ProductsPage = () => {
             delete window.deleteProduct;
             delete window.uploadBlipOpen;
         };
-    }, [displayedProducts, dispatch, setSelectedProduct, setOpenProductDetails, setOpenStockModal, setOpenAuctionModal, setShowRerunDialog, setOpenBlipUploadModal]);
+    }, [displayedProducts, dispatch, setSelectedProduct, setOpenProductDetails, setOpenStockModal, setOpenAuctionModal, setShowRerunDialog, setOpenBlipUploadModal, setProductToDelete, setShowDeleteDialog]);
 
     // Handle page navigation
     const handlePreviousPage = () => {
@@ -412,6 +433,54 @@ const ProductsPage = () => {
         setShowFilterMenu(!showFilterMenu);
     };
 
+    // Handle product deletion
+    const handleDeleteProduct = () => {
+        if (productToDelete) {
+            dispatch(deleteProduct(productToDelete._id));
+            setShowDeleteDialog(false);
+            setProductToDelete(null);
+            // If we're viewing the product details, close that modal too
+            if (selectedProduct && selectedProduct._id === productToDelete._id) {
+                setOpenProductDetails(false);
+            }
+        }
+    };
+
+    // Handle stock update
+    const handleStockUpdate = async (quantity, operation) => {
+        if (!selectedProduct) return;
+        
+        setIsSubmitting(true);
+        try {
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            
+            // Using the same endpoint pattern as in ProductCard.jsx
+            const response = await axios.put(`${BASE_URL}/products/${selectedProduct._id}/inventory`, {
+                quantity: quantity,
+                operation: operation // "add" or "subtract"
+            }, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`
+                }
+            });
+            
+            if (response.status === 200) {
+                // Refresh products to show updated stock
+                setIsStockUpdated(prev => !prev);
+                setOpenStockModal(false);
+                toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
+            }
+        } catch (error) {
+            console.error('Error updating stock:', error);
+            toast.error("Failed to update stock", {
+                description: error.response?.data?.message || "Please try again"
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <>
             {/* Verification Dialog */}
@@ -459,29 +528,24 @@ const ProductsPage = () => {
                                 </div>
 
                                 {/* Add Product Button - Always visible */}
-                                {seller?.isVerified ? (
-                                    <NavLink 
-                                        to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
-                                        className="flex items-center gap-1 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-1.5 sm:py-2 px-2.5 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
-                                    >
-                                        <Icon icon="tabler:plus" width="16" height="16" color="#FFFFFF" />
-                                        <span className="hidden sm:inline">
-                                            {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
-                                        </span>
-                                        <span className="sm:hidden">Add</span>
-                                    </NavLink>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowVerificationDialog(true)}
-                                        className="flex items-center gap-1 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-1.5 sm:py-2 px-2.5 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
-                                    >
-                                        <Icon icon="tabler:plus" width="16" height="16" color="#FFFFFF" />
-                                        <span className="hidden sm:inline">
-                                            {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
-                                        </span>
-                                        <span className="sm:hidden">Add</span>
-                                    </button>
-                                )}
+                                {console.log("Render-time seller check:", { seller, isVerified: seller?.isVerified })}
+                                <NavLink 
+                                    to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
+                                    className="flex items-center gap-1 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-1.5 sm:py-2 px-2.5 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
+                                    onClick={(e) => {
+                                        // Strictly compare with boolean false to avoid undefined comparison issues
+                                        if (seller && seller.isVerified === false) {
+                                            e.preventDefault();
+                                            setShowVerificationDialog(true);
+                                        }
+                                    }}
+                                >
+                                    <Icon icon="tabler:plus" width="16" height="16" color="#FFFFFF" />
+                                    <span className="hidden sm:inline">
+                                        {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
+                                    </span>
+                                    <span className="sm:hidden">Add</span>
+                                </NavLink>
                             </div>
                             
                             {/* Search and filter row */}
@@ -885,7 +949,7 @@ const ProductsPage = () => {
                                                     
                                                     {/* Action Buttons */}
                                                     <div className="flex justify-between items-center border-t border-gray-100 pt-3 mt-1">
-                                                        <div className="flex gap-2">
+                                                        <div className="flex flex-wrap gap-2 max-w-[70%]">
                                                             {activeTab === 'auctions' ? (
                                                                 <>
                                                                     <button 
@@ -894,7 +958,7 @@ const ProductsPage = () => {
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`auction-performance-${item._id}`)?.dispatchEvent(event);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1.5 rounded-md"
+                                                                        className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
                                                                         <Icon icon="solar:graph-bold" className="w-3.5 h-3.5" />
                                                                         <span>Performance</span>
@@ -906,7 +970,7 @@ const ProductsPage = () => {
                                                                                 event.initEvent('click', true, true);
                                                                                 document.getElementById(`rerun-auction-${item._id}`)?.dispatchEvent(event);
                                                                             }}
-                                                                            className="inline-flex items-center gap-1 text-xs bg-[#05031F] text-white px-2 py-1.5 rounded-md"
+                                                                            className="inline-flex items-center gap-1 text-xs bg-[#05031F] text-white px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                         >
                                                                             <Icon icon="solar:restart-bold" className="w-3.5 h-3.5" />
                                                                             <span>Rerun</span>
@@ -921,7 +985,7 @@ const ProductsPage = () => {
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`product-details-${item._id}`)?.dispatchEvent(event);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1.5 rounded-md"
+                                                                        className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
                                                                         <Icon icon="solar:eye-bold" className="w-3.5 h-3.5" />
                                                                         <span>Details</span>
@@ -932,7 +996,7 @@ const ProductsPage = () => {
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`update-stock-${item._id}`)?.dispatchEvent(event);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1.5 rounded-md"
+                                                                        className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
                                                                         <Icon icon="fluent:box-edit-24-filled" className="w-3.5 h-3.5" />
                                                                         <span>Stock</span>
@@ -943,7 +1007,7 @@ const ProductsPage = () => {
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`upload-blip-${item._id}`)?.dispatchEvent(event);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-md"
+                                                                        className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
                                                                         <Icon icon="solar:video-frame-bold" className="w-3.5 h-3.5" />
                                                                         <span>Blip</span>
@@ -951,7 +1015,7 @@ const ProductsPage = () => {
                                                                 </>
                                                             )}
                                                         </div>
-                                                        <div className="flex gap-2">
+                                                        <div className="flex flex-col gap-2">
                                                             <Link 
                                                                 to={`/dashboard/edit-product/${item._id}`}
                                                                 className="inline-flex items-center gap-1 text-xs bg-[#05031F]/10 text-[#05031F] px-2 py-1.5 rounded-md"
@@ -971,16 +1035,16 @@ const ProductsPage = () => {
                                                                 <span>Delete</span>
                                                             </button>
                                                         </div>
-                                                        
-                                                        {/* Hidden buttons that will be triggered programmatically */}
-                                                        <div className="hidden">
-                                                            <button id={`product-details-${item._id}`} onClick={() => window.productDetailsOpen(item._id)}></button>
-                                                            <button id={`update-stock-${item._id}`} onClick={() => window.stockModalOpen(item._id)}></button>
-                                                            <button id={`auction-performance-${item._id}`} onClick={() => window.auctionModalOpen(item._id)}></button>
-                                                            <button id={`rerun-auction-${item._id}`} onClick={() => window.rerunAuctionOpen(item._id)}></button>
-                                                            <button id={`delete-product-${item._id}`} onClick={() => window.deleteProduct(item._id)}></button>
-                                                            <button id={`upload-blip-${item._id}`} onClick={() => window.uploadBlipOpen(item._id)}></button>
-                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Hidden buttons that will be triggered programmatically */}
+                                                    <div className="hidden">
+                                                        <button id={`product-details-${item._id}`} onClick={() => window.productDetailsOpen(item._id)}></button>
+                                                        <button id={`update-stock-${item._id}`} onClick={() => window.stockModalOpen(item._id)}></button>
+                                                        <button id={`auction-performance-${item._id}`} onClick={() => window.auctionModalOpen(item._id)}></button>
+                                                        <button id={`rerun-auction-${item._id}`} onClick={() => window.rerunAuctionOpen(item._id)}></button>
+                                                        <button id={`delete-product-${item._id}`} onClick={() => window.deleteProduct(item._id)}></button>
+                                                        <button id={`upload-blip-${item._id}`} onClick={() => window.uploadBlipOpen(item._id)}></button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1357,7 +1421,8 @@ const ProductsPage = () => {
                                         <button
                                             onClick={() => {
                                                 setOpenProductDetails(false);
-                                                dispatch(deleteProduct(selectedProduct._id));
+                                                setProductToDelete(selectedProduct);
+                                                setShowDeleteDialog(true);
                                             }}
                                             className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-all duration-200 flex items-center gap-2"
                                         >
@@ -1373,53 +1438,13 @@ const ProductsPage = () => {
             )}
             
             {/* Stock Update Modal */}
-            {selectedProduct && (
-                <Dialog open={openStockModal} onOpenChange={setOpenStockModal}>
-                    <DialogContent className="sm:max-w-[425px] max-w-[90vw] mx-auto">
-                        <DialogHeader>
-                            <DialogTitle className="text-base sm:text-lg">Update Stock</DialogTitle>
-                            <DialogDescription className="text-xs sm:text-sm">
-                                Update stock quantity for {selectedProduct?.name}
-                            </DialogDescription>
-                        </DialogHeader>
-                        
-                        <div className="py-4 space-y-4">
-                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-                                <img
-                                    src={selectedProduct?.images[0]?.url}
-                                    alt={selectedProduct?.name}
-                                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
-                                />
-                                <div>
-                                    <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{selectedProduct?.name}</h3>
-                                    <p className="text-xs sm:text-sm text-gray-500">Current Stock: {selectedProduct?.stock}</p>
-                                </div>
-                            </div>
-                            
-                            {/* Stock update functionality would go here */}
-                            <div className="text-center text-sm text-gray-500">
-                                This is a placeholder for the stock update functionality. 
-                                In a real implementation, this would include input fields and buttons to adjust stock levels.
-                            </div>
-                            
-                            <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-4">
-                                <button
-                                    className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-2 rounded-md text-sm"
-                                    onClick={() => setOpenStockModal(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="flex-1 text-white px-2 py-2 rounded-md transition-all duration-200 text-sm bg-[#0BB248] hover:bg-[#0BB248]/80"
-                                    onClick={() => setOpenStockModal(false)}
-                                >
-                                    Update Stock
-                                </button>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            )}
+            <StockUpdateModal
+                open={openStockModal}
+                onClose={() => setOpenStockModal(false)}
+                item={selectedProduct}
+                onUpdate={handleStockUpdate}
+                isSubmitting={isSubmitting}
+            />
             
             {/* Auction Performance Modal */}
             {selectedProduct && activeTab === 'auctions' && (
@@ -1490,6 +1515,63 @@ const ProductsPage = () => {
                     product={selectedProduct}
                 />
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent className="sm:max-w-[500px] max-w-[90vw] mx-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg sm:text-xl text-red-600">Confirm Product Deletion</DialogTitle>
+                        <DialogDescription className="text-sm sm:text-base">
+                            Are you sure you want to delete this product? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 space-y-4">
+                        {productToDelete && (
+                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                                <img
+                                    src={productToDelete?.images[0]?.url}
+                                    alt={productToDelete?.name}
+                                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
+                                />
+                                <div>
+                                    <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{productToDelete?.name}</h3>
+                                    <p className="text-xs sm:text-sm text-gray-500">SKU: {productToDelete?.sku || 'N/A'}</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+                            <h4 className="font-medium text-yellow-800 mb-2">What happens when you delete this product?</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-yellow-700">
+                                <li>The product will be permanently removed from your inventory</li>
+                                <li>Any active orders containing this product will not be affected</li>
+                                <li>Product analytics and historical data will be lost</li>
+                                <li>The product will no longer appear in your store</li>
+                                {activeTab === 'auctions' && (
+                                    <li>All auction data and bids associated with this product will be lost</li>
+                                )}
+                            </ul>
+                        </div>
+                        
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setShowDeleteDialog(false)}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-all duration-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteProduct}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 flex items-center gap-2"
+                            >
+                                <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                Delete Product
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }
