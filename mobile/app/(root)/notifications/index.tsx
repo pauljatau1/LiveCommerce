@@ -76,13 +76,12 @@ const Notifications = () => {
       }
       if (page == 1) {
         setFilteredData(notifications);
+        handleMarkAllRead();
       } else {
         setFilteredData((prevData) => {
           return [...prevData, ...notifications];
         });
       }
-
-      handleMarkAllRead();
     } catch (error) {
       console.error("Error fetching more notifications:", error);
     } finally {
@@ -96,7 +95,8 @@ const Notifications = () => {
       const token = await getToken();
 
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL + `api/notifications/mark-all-read`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/notifications/buyer/mark-all-read`,
         {},
         {
           headers: {
@@ -104,6 +104,7 @@ const Notifications = () => {
           },
         },
       );
+      console.log("marking read ", response.data);
     } catch (error) {
       console.error("Error marking notifications as read:", error);
     }

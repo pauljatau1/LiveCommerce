@@ -63,8 +63,6 @@ const CheckoutSummary = () => {
           },
         },
       );
-      console.log(response.data?.data?.publicKey);
-
       setPaystackKey(response.data?.data);
     } catch (e) {
       console.log("error getting keys");
@@ -150,13 +148,15 @@ const CheckoutSummary = () => {
         method: "PATCH",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/order/${order?._id}/mark-as-paid`,
+          `api/order/${order?._id || orderId}/mark-as-paid`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
         },
         data: payload,
       };
+
+      console.log(config);
 
       const response = await axios(config);
       console.log("order payment Response ==> ", response.data);
@@ -171,7 +171,7 @@ const CheckoutSummary = () => {
       if (e?.response.status == 400) {
         return router.replace("/(root)/orders/orders");
       }
-      console.log("could not Pay for  order", e?.response?.message);
+      console.log("could not Pay for  order", e);
       toast.error("Could not Pay for order");
     } finally {
       setPayLoading(false);
