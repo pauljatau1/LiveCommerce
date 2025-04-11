@@ -1672,7 +1672,7 @@ function initializeSocket(server) {
 
               console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
                 streamOrdersCount: stream.orders.length,
-                latestOrderId: order[0].order._id
+                latestOrderId: order[0].orderId
               });
 
               await stream.save();

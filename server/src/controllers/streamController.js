@@ -2568,7 +2568,7 @@ exports.endProductBidding = async (req, res) => {
         // Update stream product with order information
         if (orderResult && orderResult.success !== false && orderResult.liveShowOrders && orderResult.liveShowOrders.length > 0) {
           console.log('[END_BID] 32. Order created successfully', {
-            orderId: orderResult.liveShowOrders[0].orderId,
+            orderId: orderResult.liveShowOrders.orderId,
             orderTotal: orderResult.totals.grandTotal
           });
 
@@ -2583,7 +2583,7 @@ exports.endProductBidding = async (req, res) => {
           
           console.log('[END_BID] 32a. Added order to stream\'s orders array', {
             streamOrdersCount: stream.orders.length,
-            latestOrderId: order[0].order._id
+            latestOrderId: order[0].orderId
           });
           
 
