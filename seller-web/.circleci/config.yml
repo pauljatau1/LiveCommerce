@@ -141,19 +141,28 @@ jobs:
       - build_backend_image:
           account_id: "298884149618"
 
+  build-and-push-backend-image-production:
+    executor: docker-machine
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - build_backend_image:
+          account_id: "090877363449"
+
 workflows:
   build-test-and-approval-deploy:
     jobs:
       - build
 
-      - approve-build-backend-image:
+      - approve-build-backend-image-staging:
           type: approval
           requires:
             - build
 
       - build-and-push-backend-image-staging:
           requires:
-          - approve-build-backend-image
+          - approve-build-backend-image-staging
           context:
             - foundations_auqli_staging
 
@@ -175,5 +184,37 @@ workflows:
           service-name: 'staging-auqli-seller-dashboard'
           container-image-name-updates: 'container=staging-auqli-seller,tag=$CIRCLE_SHA1'
           container-env-var-updates: 'container=staging-auqli-seller,name=APP_ENV,value=staging,container=staging-auqli-seller,name=BRANCH,value=$CIRCLE_BRANCH'
+          verify-revision-is-deployed: true
+          docker-image-for-job: << pipeline.parameters.docker_job_image >>
+
+      - approve-build-backend-image-production:
+          type: approval
+          requires:
+            - build
+
+      - build-and-push-backend-image-production:
+          requires:
+          - approve-build-backend-image-production
+          context:
+            - foundations_auqli_production
+
+      - approve-production-backend-deploy:
+          type: approval
+          requires:
+            - build-and-push-backend-image-production
+          context:
+            - foundations_auqli_production
+
+      - aws-ecs/deploy-service-update:
+          name: deploy-to-production-backend
+          context:
+            - foundations_auqli_production
+          requires:
+            - approve-production-backend-deploy
+          cluster-name: 'production-auqli'
+          family: 'production-auqli-seller-dashboard'
+          service-name: 'production-auqli-seller-dashboard'
+          container-image-name-updates: 'container=production-auqli-seller,tag=$CIRCLE_SHA1'
+          container-env-var-updates: 'container=production-auqli-seller,name=APP_ENV,value=production,container=production-auqli-seller,name=BRANCH,value=$CIRCLE_BRANCH'
           verify-revision-is-deployed: true
           docker-image-for-job: << pipeline.parameters.docker_job_image >>
