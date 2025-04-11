@@ -958,7 +958,9 @@ exports.createOrder = async (req, res) => {
                 fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
                 items: order.items
               },
-              amount: order.totalAmount
+              product: firstItem.product,
+              amount: order.totalAmount,
+              createdAt: new Date()
             });
           }
           
@@ -1028,6 +1030,7 @@ exports.createOrder = async (req, res) => {
     return res.status(201).json({
       message: 'Orders created successfully',
       orders: orderDetails,
+      liveShowOrders: orders,
       totals: responseTotals,
       fezResponse: fezResponse.data
     });

@@ -2578,34 +2578,29 @@ exports.endProductBidding = async (req, res) => {
           stream.products[productIndex].bidStatus = 'ongoing';
           
           // Add order to stream's orders array
-          const order = orderResult.orders[0];
+          const order = orderResult.liveShowOrders[0];
           console.log('[END_BID] 32a. Order created successfully', order);
           const firstItem = order.items[0];
           console.log('[END_BID] 32b. First item', firstItem);
           
           // Add to the stream's orders array
           stream.orders.push({
-            orderId: order.orderId,
-            buyer: {
-              _id: stream.products[productIndex].currentBidder._id,
-              firstName: stream.products[productIndex].currentBidder.firstName,
-              lastName: stream.products[productIndex].currentBidder.lastName,
-              username: stream.products[productIndex].currentBidder.username,
-              profileImage: stream.products[productIndex].currentBidder.profileImage
-            },
-            orderDetails: {
-              _id: order._id,
-              order_id: order.orderId,
-              itemsCount: order.items.length,
-              totalAmount: order.totalAmount,
-              shippingFee: orderResult.totals.shippingTotal,
-              orderTotal: orderResult.totals.grandTotal,
-              seller: stream.seller._id,
-              fezOrderNo: orderResult.fezResponse?.orderNos?.[order.orderId] || null,
-              items: order.items
-            },
-            amount: order.totalAmount,
-            createdAt: new Date()
+            orderId: order.order_id,
+              buyer: order.buyerDetails,
+              orderDetails: {
+                _id: order._id,
+                order_id: order.order_id,
+                itemsCount: order.items.length,
+                totalAmount: order.totalAmount,
+                shippingFee: sellerItems[order.seller.toString()].shippingFee,
+                orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+                seller: order.seller,
+                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
+                items: order.items
+              },
+              product: firstItem.product,
+              amount: order.totalAmount,
+              createdAt: new Date()
           });
           
           console.log('[END_BID] 32a. Added order to stream\'s orders array', {

@@ -19,7 +19,7 @@ function initializeSocket(server) {
   console.log('Initializing socket server...');
   const io = socketIO(server, {
     cors: {
-      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174", "https://seller.staging.auqli.live/api"],
+      origin: ["*", "http://localhost:5173", "http://localhost:5173/", "https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174", "https://seller.staging.auqli.live/api"],
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]
@@ -31,42 +31,42 @@ function initializeSocket(server) {
 
   // Save the io instance
   ioInstance = io;
-  
+
   // Create a public namespace that doesn't require authentication
   const publicIO = io.of('/public');
-  
+
   // Set up dedicated namespaces 
   const streamNotifications = io.of('/stream_notifications');
   const auctionBidding = io.of('/stream_auction_bidding');
-  
+
   // Set up public auction events that don't require authentication
   publicIO.on('connection', async (socket) => {
     console.log('New public socket connection:', {
       socketId: socket.id
     });
-    
+
     // Public access to auction lists
     socket.on('join_auction_lists', async () => {
       try {
         socket.join('auction_lists');
         console.log(`Public user joined auction lists room`);
-        
+
         // Send initial data about active auctions
         const activeAuctions = await Product.find({
           status: 'offline_auction',
           'auction.status': { $in: ['scheduled', 'ongoing'] }
         })
-        .select('_id name auction.status auction.startDate auction.endDate auction.minBid auction.currentHighestBid auction.bids')
-        .populate({
-          path: 'auction.currentHighestBid.buyer',
-          select: 'firstName lastName profileImage'
-        })
-        .populate({
-          path: 'auction.bids.buyer',
-          select: 'firstName lastName profileImage'
-        })
-        .limit(20); // Limit to avoid large payloads
-        
+          .select('_id name auction.status auction.startDate auction.endDate auction.minBid auction.currentHighestBid auction.bids')
+          .populate({
+            path: 'auction.currentHighestBid.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .populate({
+            path: 'auction.bids.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .limit(20); // Limit to avoid large payloads
+
         // Format the data for the client
         const formattedAuctions = activeAuctions.map(auction => ({
           _id: auction._id,
@@ -85,33 +85,33 @@ function initializeSocket(server) {
               profileImage: auction.auction.currentHighestBid.buyer.profileImage
             } : null
           } : null,
-          timeRemaining: auction.auction.status === 'scheduled' 
-            ? auction.auction.startDate - new Date() 
+          timeRemaining: auction.auction.status === 'scheduled'
+            ? auction.auction.startDate - new Date()
             : auction.auction.endDate - new Date()
         }));
-        
+
         socket.emit('auction_lists_data', {
           auctions: formattedAuctions
         });
-        
+
       } catch (error) {
         console.error('Error joining auction lists room:', error);
         socket.emit('auction_error', { message: 'Failed to join auction lists room' });
       }
     });
-    
+
     // Leave auction lists room
     socket.on('leave_auction_lists', () => {
       socket.leave('auction_lists');
       console.log(`Public user left auction lists room`);
     });
-    
+
     // Join to watch a specific auction product details (read-only)
     socket.on('join_auction_details', async (productId) => {
       try {
         socket.join(`auction_details_${productId}`);
         console.log(`Public user joined auction details room for product ${productId}`);
-        
+
         // Get current auction data and send to the user
         const product = await Product.findById(productId)
           .populate({
@@ -119,18 +119,18 @@ function initializeSocket(server) {
             select: 'firstName lastName profileImage'
           })
           .select('name auction status');
-        
+
         if (product && product.status === 'offline_auction') {
           // Calculate time remaining
           const now = new Date();
           let timeRemaining = null;
-          
+
           if (product.auction.status === 'scheduled') {
             timeRemaining = product.auction.startDate - now;
           } else if (product.auction.status === 'ongoing') {
             timeRemaining = product.auction.endDate - now;
           }
-          
+
           // Send auction details to the user
           socket.emit('auction_details_data', {
             productId: product._id,
@@ -158,7 +158,7 @@ function initializeSocket(server) {
         socket.emit('auction_error', { message: 'Failed to join auction details room' });
       }
     });
-    
+
     // Leave auction details room
     socket.on('leave_auction_details', (productId) => {
       socket.leave(`auction_details_${productId}`);
@@ -172,7 +172,7 @@ function initializeSocket(server) {
       hasToken: !!socket.handshake.auth.token,
       socketId: socket.id
     });
-    
+
     const token = socket.handshake.auth.token;
     if (!token) {
       console.log('Authentication failed: No token provided');
@@ -201,7 +201,7 @@ function initializeSocket(server) {
       userId: socket.user.id,
       userRole: socket.user.role
     });
-    
+
     // Add user to active users
     activeUsers.set(socket.user.id, {
       socketId: socket.id,
@@ -212,26 +212,28 @@ function initializeSocket(server) {
 
     // Update user's online status in all their conversations
     await Conversation.updateMany(
-      { 'participants': { 
-        $elemMatch: { 
-          id: socket.user.id, 
-          model: socket.user.role 
-        } 
-      }},
-      { 
-        $set: { 
+      {
+        'participants': {
+          $elemMatch: {
+            id: socket.user.id,
+            model: socket.user.role
+          }
+        }
+      },
+      {
+        $set: {
           'participants.$.isOnline': true,
           'participants.$.lastActive': new Date()
-        } 
+        }
       }
     );
 
     // Emit user online status to relevant conversations
     const userConversations = await Conversation.find({
       'participants': {
-        $elemMatch: { 
-          id: socket.user.id, 
-          model: socket.user.role 
+        $elemMatch: {
+          id: socket.user.id,
+          model: socket.user.role
         }
       }
     });
@@ -263,10 +265,10 @@ function initializeSocket(server) {
         userId: socket.user.id,
         productId
       });
-      
+
       try {
         socket.join(`auction_${productId}`);
-        
+
         // Log room members
         const room = io.sockets.adapter.rooms.get(`auction_${productId}`);
         console.log('Current auction room members:', {
@@ -427,7 +429,7 @@ function initializeSocket(server) {
       // Remove user from auction watchers
       if (auctionWatchers.has(productId)) {
         auctionWatchers.get(productId).delete(socket.user.id);
-        
+
         // If there are still watchers, notify them about the count change
         if (auctionWatchers.get(productId).size > 0) {
           io.to(`auction_${productId}`).emit('auction_watcher_left', {
@@ -469,7 +471,7 @@ function initializeSocket(server) {
           productStatus: product?.status,
           auctionStatus: product?.auction?.status
         });
-        
+
         if (!product) {
           console.log('Bid rejected: Product not found', { productId });
           socket.emit('bid_error', { message: 'Product not found' });
@@ -527,8 +529,8 @@ function initializeSocket(server) {
             bidAmount: amount,
             minBid: product.auction.minBid
           });
-          socket.emit('bid_error', { 
-            message: `Bid amount must be at least ${product.auction.minBid}` 
+          socket.emit('bid_error', {
+            message: `Bid amount must be at least ${product.auction.minBid}`
           });
           return;
         }
@@ -539,8 +541,8 @@ function initializeSocket(server) {
             bidAmount: amount,
             currentHighestBid: product.auction.currentHighestBid.amount
           });
-          socket.emit('bid_error', { 
-            message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
+          socket.emit('bid_error', {
+            message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}`
           });
           return;
         }
@@ -592,7 +594,7 @@ function initializeSocket(server) {
             winningDate: new Date()
           };
           newBid.status = 'won';
-          
+
           // Update all other bids to 'lost'
           product.auction.bids.forEach(bid => {
             if (bid.buyer && bid.buyer.toString() !== buyerObjectId.toString()) {
@@ -602,7 +604,7 @@ function initializeSocket(server) {
 
           // Save the changes first
           await product.save();
-          
+
           // Verify the save was successful
           const verifyProduct = await Product.findById(productId);
           console.log('Verifying auction end:', {
@@ -630,7 +632,7 @@ function initializeSocket(server) {
         }
 
         await product.save();
-        
+
         // Reload the product with populated buyer details
         const updatedProduct = await Product.findById(productId)
           .populate({
@@ -657,7 +659,7 @@ function initializeSocket(server) {
 
         // Check if this is a winning bid that ended the auction
         const auctionEnded = updatedProduct.auction.status === 'ended';
-        
+
         // Prepare bid notification data
         const bidData = {
           productId: updatedProduct._id,
@@ -705,21 +707,21 @@ function initializeSocket(server) {
         });
 
         io.to(`auction_${productId}`).emit('bid_update', bidData);
-        
+
         // If auction has ended, emit the auction_ended event to both namespaces
         if (auctionEnded && updatedProduct?.auction?.winner) {
           const auctionEndedData = {
             productId: updatedProduct._id,
             winner: bidData.winner
           };
-          
+
           // Emit to authenticated namespace
           io.to(`auction_${productId}`).emit('auction_ended', auctionEndedData);
-          
+
           // Emit to public namespace
           publicIO.to(`auction_details_${productId}`).emit('auction_ended', auctionEndedData);
         }
-        
+
         // Create list update data that will be sent to both authenticated and public namespaces
         const listUpdateData = {
           productId: updatedProduct._id,
@@ -737,13 +739,13 @@ function initializeSocket(server) {
           status: updatedProduct?.auction?.status,
           timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
         };
-        
+
         // Send to authenticated namespace
         io.to('auction_lists').emit('auction_list_update', listUpdateData);
-        
+
         // Send to public namespace
         publicIO.to('auction_lists').emit('auction_list_update', listUpdateData);
-        
+
         // Create details update data
         const detailsUpdateData = {
           productId: updatedProduct._id,
@@ -760,10 +762,10 @@ function initializeSocket(server) {
           status: updatedProduct?.auction?.status,
           timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
         };
-        
+
         // Send to authenticated namespace
         io.to(`auction_details_${productId}`).emit('auction_details_update', detailsUpdateData);
-        
+
         // Send to public namespace
         publicIO.to(`auction_details_${productId}`).emit('auction_details_update', detailsUpdateData);
 
@@ -772,7 +774,7 @@ function initializeSocket(server) {
           socketId: socket.id,
           buyerId
         });
-        socket.emit('bid_placed', { 
+        socket.emit('bid_placed', {
           success: true,
           message: 'Bid placed successfully',
           ...bidData
@@ -790,14 +792,14 @@ function initializeSocket(server) {
       }
     });
 
-    
+
 
     // Request auction timer update
     socket.on('request_auction_timer', async (productId) => {
       try {
         const product = await Product.findById(productId)
           .select('auction.status auction.startDate auction.endDate');
-        
+
         if (!product) {
           socket.emit('auction_timer_error', { message: 'Product not found' });
           return;
@@ -809,7 +811,7 @@ function initializeSocket(server) {
 
         if (product.auction.status === 'scheduled') {
           timeRemaining = product.auction.startDate - now;
-          
+
           // Check if auction should start now
           if (timeRemaining <= 0) {
             // Update auction status to ongoing
@@ -821,7 +823,7 @@ function initializeSocket(server) {
           }
         } else if (product.auction.status === 'ongoing') {
           timeRemaining = product.auction.endDate - now;
-          
+
           // Check if auction should end now
           if (timeRemaining <= 0) {
             // End the auction
@@ -854,22 +856,22 @@ function initializeSocket(server) {
 
         // Update last active timestamp
         await Conversation.updateOne(
-          { 
+          {
             _id: conversationId,
             'participants.id': socket.user.id,
             'participants.model': socket.user.role
           },
-          { 
-            $set: { 
+          {
+            $set: {
               'participants.$.lastActive': new Date()
-            } 
+            }
           }
         );
 
         // Emit to all participants except sender
         conversation.participants.forEach(participant => {
           if (participant.id._id.toString() !== socket.user.id) {
-            console.log(socket.user.id+" sent message "+message.content+" to "+participant.id._id);
+            console.log(socket.user.id + " sent message " + message.content + " to " + participant.id._id);
             io.to(participant.id._id.toString()).emit('receive_message', {
               ...message,
               sender: {
@@ -891,16 +893,18 @@ function initializeSocket(server) {
       if (user) {
         user.lastActive = new Date();
         await Conversation.updateMany(
-          { 'participants': { 
-            $elemMatch: { 
-              id: socket.user.id, 
-              model: socket.user.role 
-            } 
-          }},
-          { 
-            $set: { 
+          {
+            'participants': {
+              $elemMatch: {
+                id: socket.user.id,
+                model: socket.user.role
+              }
+            }
+          },
+          {
+            $set: {
               'participants.$.lastActive': new Date()
-            } 
+            }
           }
         );
       }
@@ -912,7 +916,7 @@ function initializeSocket(server) {
         userId: socket.user?.id,
         reason: socket.disconnectReason
       });
-      
+
       // Remove user from active users
       activeUsers.delete(socket.user.id);
 
@@ -920,7 +924,7 @@ function initializeSocket(server) {
       for (const [productId, watchers] of auctionWatchers.entries()) {
         if (watchers.has(socket.user.id)) {
           watchers.delete(socket.user.id);
-          
+
           // Notify remaining watchers about the count change
           if (watchers.size > 0) {
             io.to(`auction_${productId}`).emit('auction_watcher_left', {
@@ -932,26 +936,28 @@ function initializeSocket(server) {
 
       // Update user's offline status in conversations
       await Conversation.updateMany(
-        { 'participants': { 
-          $elemMatch: { 
-            id: socket.user.id, 
-            model: socket.user.role 
-          } 
-        }},
-        { 
-          $set: { 
+        {
+          'participants': {
+            $elemMatch: {
+              id: socket.user.id,
+              model: socket.user.role
+            }
+          }
+        },
+        {
+          $set: {
             'participants.$.isOnline': false,
             'participants.$.lastActive': new Date()
-          } 
+          }
         }
       );
 
       // Notify other users about status change
       const userConversations = await Conversation.find({
         'participants': {
-          $elemMatch: { 
-            id: socket.user.id, 
-            model: socket.user.role 
+          $elemMatch: {
+            id: socket.user.id,
+            model: socket.user.role
           }
         }
       });
@@ -978,7 +984,7 @@ function initializeSocket(server) {
 
     socket.on('stream_connection_update', (data) => {
       console.log(`Stream ${data.channelName}: ${data.prevState} → ${data.curState}`);
-      
+
       // Broadcast to all clients monitoring this stream
       io.to(`stream_${data.streamId}`).emit('connection_state', data);
     });
@@ -992,7 +998,7 @@ function initializeSocket(server) {
         console.log(`User ${socket.user.id} subscribed to notifications for stream ${data.streamId}`);
       } else {
         // Join the general notification room for backward compatibility
-      socket.join('stream_notifications');
+        socket.join('stream_notifications');
         console.log(`User ${socket.user.id} subscribed to general stream notifications`);
       }
     });
@@ -1001,7 +1007,7 @@ function initializeSocket(server) {
     socket.on('stream_comment', async (data) => {
       try {
         console.log(`Received comment from ${socket.user.id} for stream ${data.streamId}`);
-        
+
         // Ensure streamId is provided
         if (!data.streamId) {
           console.error('Missing streamId in stream_comment event');
@@ -1021,7 +1027,7 @@ function initializeSocket(server) {
 
         if (userRole === 'Seller') {
           userDetails = await Seller.findById(socket.user.id).select('storeName storeAvatar');
-          
+
           if (!userDetails) {
             console.error(`Seller not found: ${socket.user.id}`);
             return;
@@ -1051,14 +1057,14 @@ function initializeSocket(server) {
 
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
-          
+
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
-          io.to(streamRoom).emit('stream_notification', notificationObj);       
+          io.to(streamRoom).emit('stream_notification', notificationObj);
         } else {
           // Assume buyer
           userDetails = await Buyer.findById(socket.user.id).select('firstName lastName username profileImage avatarUrl');
-          
+
           if (!userDetails) {
             console.error(`Buyer not found: ${socket.user.id}`);
             return;
@@ -1089,17 +1095,17 @@ function initializeSocket(server) {
 
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
-          
+
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
           io.to(streamRoom).emit('stream_notification', notificationObj);
         }
-        
+
       } catch (error) {
         console.error('Error handling stream comment:', error);
       }
     });
-    
+
     // Handler for product bidding actions in stream
     socket.on('product_bidding_update', async (data) => {
       try {
@@ -1108,39 +1114,39 @@ function initializeSocket(server) {
           console.error('Missing streamId or productId in product_bidding_update event');
           return;
         }
-        
+
         // Find the stream
         const stream = await Stream.findById(data.streamId)
           .populate('seller', 'storeName storeAvatar')
           .populate('products.product', 'name images');
-          
+
         if (!stream) {
           console.error(`Stream not found: ${data.streamId}`);
           return;
         }
-        
+
         // Find the product
-        const productIndex = stream.products.findIndex(p => 
+        const productIndex = stream.products.findIndex(p =>
           p.product._id && p.product._id.toString() === data.productId ||
           p.product && p.product.toString() === data.productId
         );
-        
+
         if (productIndex === -1) {
           console.error(`Product not found in stream: ${data.productId}`);
           return;
         }
-        
+
         const product = stream.products[productIndex];
-        
+
         // Log the product bidding update
         console.log(`Product bidding update for ${product.product.name || 'a product'} in stream ${data.streamId}`);
         console.log(`Status: ${product.bidStatus}, Current bid: ${product.currentBid}`);
-        
+
         // Create an update notification if requested
         if (data.createNotification && data.notificationType) {
           // Default content based on notification type
           let content = 'Product bidding updated';
-          
+
           if (data.notificationType === 'auction_start') {
             content = `Bidding started for ${product.product.name || 'a product'}`;
           } else if (data.notificationType === 'auction_end') {
@@ -1148,7 +1154,7 @@ function initializeSocket(server) {
           } else if (data.notificationType === 'new_bid') {
             content = `New bid for ${product.product.name || 'a product'}: $${product.currentBid}`;
           }
-          
+
           // Create notification object
           const notificationObj = {
             id: Date.now().toString(),
@@ -1165,7 +1171,7 @@ function initializeSocket(server) {
             },
             timestamp: new Date()
           };
-          
+
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
           io.to(streamRoom).emit('stream_notification', notificationObj);
@@ -1183,7 +1189,7 @@ function initializeSocket(server) {
           productId: data.productId,
           bidAmount: data.bidAmount
         });
-        
+
         // Ensure required data is provided
         if (!data.streamId || !data.productId || !data.bidAmount) {
           console.error('[BID] 2. FAILED: Missing required bid data');
@@ -1204,7 +1210,7 @@ function initializeSocket(server) {
         });
 
         // Validate user is a buyer (more lenient check)
-        const userRole = socket.user.role ; // Default to buyer if role not specified
+        const userRole = socket.user.role; // Default to buyer if role not specified
         if (userRole !== 'Buyer') {
           console.log('[BID] 4. FAILED: User role validation', {
             socketId: socket.id,
@@ -1281,7 +1287,7 @@ function initializeSocket(server) {
 
         // Find the product in the stream's products array
         console.log('[BID] 15. Looking for product in stream products array with ID:', productId);
-        const productIndex = stream.products.findIndex(p => 
+        const productIndex = stream.products.findIndex(p =>
           p.product && p.product.productId && p.product.productId.toString() === productId
         );
 
@@ -1307,7 +1313,7 @@ function initializeSocket(server) {
         console.log('[BID] 18. Fetching full product details from database');
         const Product = mongoose.model('Product');
         const fullProductDetails = await Product.findById(productDetails.productId);
-        
+
         if (!fullProductDetails) {
           console.warn('[BID] 19. WARNING: Could not retrieve full product details, using default weight');
         } else {
@@ -1317,7 +1323,7 @@ function initializeSocket(server) {
             weight: fullProductDetails.weight || 1
           });
         }
-        
+
         // Calculate shipping fee
         console.log('[BID] 21. Preparing shipping fee calculation payload');
         const payload = [
@@ -1371,10 +1377,10 @@ function initializeSocket(server) {
           totalRequired: bidAmount + shippingFee,
           available: walletToUse
         });
-        
+
         if (bidAmount + shippingFee > walletToUse) {
           console.error('[BID] 27. FAILED: Insufficient funds in wallet');
-          socket.emit('bid_error', { 
+          socket.emit('bid_error', {
             message: 'Insufficient funds in your wallet. Please top up your wallet.',
             details: {
               bidAmount,
@@ -1448,11 +1454,11 @@ function initializeSocket(server) {
         // Helper function to format product name to max 3 words
         const formatProductName = (name) => {
           if (!name) return 'a product';
-          
+
           // Split by spaces and take first 3 words
           const words = name.split(' ');
           const truncatedName = words.slice(0, 3).join(' ');
-          
+
           // Add ellipsis if there were more than 3 words
           return words.length > 3 ? `${truncatedName}...` : truncatedName;
         };
@@ -1508,17 +1514,17 @@ function initializeSocket(server) {
           // Add the notification to stream chat interactions
           stream.chatInteractions.push(winnerNotification);
           console.log('[BID] 38. Added winner notification to stream chat interactions');
-          
+
           // Save the stream
           console.log('[BID] 39. Saving stream with updated bid information');
           await stream.save();
           console.log('[BID] 40. Stream saved successfully');
-          
+
           // Broadcast to all subscribers
           console.log('[BID] 41. Broadcasting winner notification to subscribers');
           const streamRoom = `stream_notifications_${stream._id.toString()}`;
           io.to(streamRoom).emit('stream_notification', winnerNotification);
-          
+
           try {
             // Fetch full product details
             console.log('[BID] 42. Fetching full product details for order creation');
@@ -1657,48 +1663,43 @@ function initializeSocket(server) {
               stream.products[productIndex].orderCreated = true;
               stream.products[productIndex].orderId = orderResult.orders[0].orderId;
               stream.products[productIndex].bidStatus = 'ended';
-              
+
               // Add order to stream's orders array
-              const order = orderResult.orders[0];
+              const order = orderResult.liveShowOrders[0];
               const firstItem = order.items[0];
-              
+
               // Add to the stream's orders array
               stream.orders.push({
-                orderId: order.orderId,
-                buyer: {
-                  _id: stream.products[productIndex].currentBidder._id,
-                  firstName: stream.products[productIndex].currentBidder.firstName,
-                  lastName: stream.products[productIndex].currentBidder.lastName,
-                  username: stream.products[productIndex].currentBidder.username,
-                  profileImage: stream.products[productIndex].currentBidder.profileImage
-                },
+                orderId: order.order_id,
+                buyer: order.buyerDetails,
                 orderDetails: {
                   _id: order._id,
-                  order_id: order.orderId,
+                  order_id: order.order_id,
                   itemsCount: order.items.length,
                   totalAmount: order.totalAmount,
-                  shippingFee: orderResult.totals.shippingTotal,
-                  orderTotal: orderResult.totals.grandTotal,
-                  seller: stream.seller._id,
-                  fezOrderNo: orderResult.fezResponse?.orderNos?.[order.orderId] || null,
+                  shippingFee: sellerItems[order.seller.toString()].shippingFee,
+                  orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+                  seller: order.seller,
+                  fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
                   items: order.items
                 },
+                product: firstItem.product,
                 amount: order.totalAmount,
                 createdAt: new Date()
               });
-              
+
               console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
                 streamOrdersCount: stream.orders.length,
                 latestOrderId: order.orderId
               });
 
 
-              
+
               await stream.save();
 
               // Create a stream-specific room name
               const streamRoom = `stream_notifications_${stream._id.toString()}`;
-              
+
               // Emit socket notification about order creation
               io.to(streamRoom).emit('auction_order_created', {
                 success: true,
@@ -1738,7 +1739,7 @@ function initializeSocket(server) {
               productName: product.product.name || 'Unknown product'
             });
           }
-          
+
           // Send success message to bidder
           console.log('[BID] 53. Sending success response to bidder (auction won)');
           socket.emit('bid_placed', {
@@ -1748,7 +1749,7 @@ function initializeSocket(server) {
             product: stream.products[productIndex],
             isWinner: true
           });
-          
+
           return;
         }
 
@@ -1782,12 +1783,12 @@ function initializeSocket(server) {
         // Add the notification to stream chat interactions
         stream.chatInteractions.push(bidNotification);
         console.log('[BID] 44. Added bid notification to stream chat interactions');
-        
+
         // Save the stream
         console.log('[BID] 45. Saving stream with updated bid information');
         await stream.save();
         console.log('[BID] 46. Stream saved successfully');
-        
+
         // Broadcast to all subscribers
         console.log('[BID] 47. Broadcasting bid notification to subscribers');
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
@@ -1829,33 +1830,35 @@ function initializeSocket(server) {
   // Periodic cleanup of inactive users (5 minutes of inactivity)
   setInterval(async () => {
     const inactivityThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
-    
+
     for (const [userId, userData] of activeUsers.entries()) {
       if (userData.lastActive < inactivityThreshold) {
         activeUsers.delete(userId);
-        
+
         // Update user's status in conversations
         await Conversation.updateMany(
-          { 'participants': { 
-            $elemMatch: { 
-              id: userId, 
-              model: userData.userModel 
-            } 
-          }},
-          { 
-            $set: { 
+          {
+            'participants': {
+              $elemMatch: {
+                id: userId,
+                model: userData.userModel
+              }
+            }
+          },
+          {
+            $set: {
               'participants.$.isOnline': false,
               'participants.$.lastActive': userData.lastActive
-            } 
+            }
           }
         );
 
         // Notify other users
         const userConversations = await Conversation.find({
           'participants': {
-            $elemMatch: { 
-              id: userId, 
-              model: userData.userModel 
+            $elemMatch: {
+              id: userId,
+              model: userData.userModel
             }
           }
         });
