@@ -17,6 +17,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
 import { Icon } from "@iconify/react";
+import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
@@ -28,6 +29,8 @@ const CreateLiveShow = () => {
     const [startDate, setStartDate] = useState(dayjs());
     const [startTime, setStartTime] = useState(dayjs());
     const [startImmediately, setStartImmediately] = useState(false);
+    const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
+    const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
     
     // Blips related state
     const [videos, setVideos] = useState([]);
@@ -419,6 +422,20 @@ const CreateLiveShow = () => {
 
     const handleContinue = () => {
         if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
+            // Check for products with zero or negative quantity
+            // For live shows, we check all products since they're all included
+            if (livestream.products && livestream.products.length > 0) {
+                const invalidProducts = livestream.products.filter(product => 
+                    product.quantity <= 0 || !product.quantity
+                );
+    
+                if (invalidProducts.length > 0) {
+                    setZeroQuantityProducts(invalidProducts);
+                    setShowZeroQuantityModal(true);
+                    return;
+                }
+            }
+
             navigate('/dashboard/live-streams/submit-live-show');
         } else {
             toast.error('Please fill all fields', {
@@ -1081,6 +1098,13 @@ const CreateLiveShow = () => {
                     </div>
                 </div>
             </div>
+
+            {showZeroQuantityModal && (
+                <ZeroQuantityProductsModal
+                    products={zeroQuantityProducts}
+                    onClose={() => setShowZeroQuantityModal(false)}
+                />
+            )}
         </div>
     );
 };
