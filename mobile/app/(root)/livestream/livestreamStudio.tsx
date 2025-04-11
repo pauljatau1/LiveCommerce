@@ -79,7 +79,7 @@ const LivestreamStudio = () => {
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
-        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
+        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'liveshow_order';
         user: string;
         avatar?: any;
         content: string;
@@ -369,7 +369,7 @@ const LivestreamStudio = () => {
             // Initialize socket connection for real-time chat
             const userToken = await getToken();
             if (userToken) {
-                initializeSocket(userToken, handleStreamNotification);
+                initializeSocket(userToken, handleStreamNotification, id as string);
             }
         } catch (error) {
             console.error('Error setting up livestream:', error);
@@ -485,6 +485,27 @@ const LivestreamStudio = () => {
                         console.log('Updated viewers from server data:', notification.data.viewers);
                     }*/}
                 }
+                break;
+                
+            case 'liveshow_order':
+                console.log('New order received:', notification.content);
+                
+                // Show a brief toast notification with the order details
+                if (notification.data?.orders) {
+                    const orderCount = Array.isArray(notification.data.orders) ? 
+                        notification.data.orders.length : 1;
+                    
+                    show({
+                        text1: "💰 New Order Placed!",
+                        text2: `${orderCount} item(s) ordered from this stream`,
+                        type: "success",
+                        duration: 3000,
+                        topPosition: insets.top + 10,
+                    });
+                }
+                
+                // Update UI to show order event in chat
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
 
             default:
@@ -789,6 +810,16 @@ const LivestreamStudio = () => {
                     <View style={styles.purchaseCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
                         <Text style={styles.purchaseCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        } else if (item.type === 'liveshow_order') {
+            return (
+                <View style={styles.liveshowOrderCommentItem}>
+                    {renderAvatar()}
+                    <View style={styles.liveshowOrderCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.liveshowOrderCommentText}>{item.content}</Text>
                     </View>
                 </View>
             );
@@ -1862,6 +1893,27 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 14,
         fontWeight: 'bold',
+    },
+    liveshowOrderCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+        flex: 1,
+    },
+    liveshowOrderCommentContent: {
+        flexDirection: 'column',
+        flex: 1,
+    },
+    liveshowOrderCommentText: {
+        color: '#A020F0', // Purple text for "New order received"
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+        fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
 });
 

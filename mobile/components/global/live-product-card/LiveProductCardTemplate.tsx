@@ -1,10 +1,8 @@
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
-import { icons, images } from "@/constants";
-import CustomButton from "../button/CustomButton";
-import { AntDesign } from "@expo/vector-icons";
+import { images } from "@/constants";
 import { useLivestream } from "../../../contexts/livestreamContext";
-import { Link } from "expo-router";
+
 
 const LiveProductCardTemplate = ({ item, showBtn, showLive }: any) => {
   const { joinStream } = useLivestream();

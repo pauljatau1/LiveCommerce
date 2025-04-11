@@ -1,13 +1,16 @@
 import { getToken } from "@/store/features/auth/utils";
 import { useToast } from '@/contexts/ToastContext';
 import { createContext, useContext, useReducer } from "react";
+import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 export const LivestreamContext = createContext({});
 
 export const LivestreamProvider = ({ children }) => {
   const { show } = useToast();
+  const router = useRouter();
   const initialState = {
     activeLivestream: [],
     isLoading: false,
@@ -55,6 +58,13 @@ export const LivestreamProvider = ({ children }) => {
       const userToken = JSON.parse(token);
 
       if (!userToken) {
+        router.push("/(root)/(auth)/sign-in");
+        show({
+          text1: "Error",
+          text2: "You must be logged in to join a stream",
+          type: "error",
+          topPosition: 18
+        });
         throw new Error("No authentication token found");
       }
 
@@ -236,6 +246,35 @@ export const LivestreamProvider = ({ children }) => {
     }
   }
 
+  const fetchStreamOrders = async (streamId) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/${streamId}/orders`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+
+      if (response.status === 200) {
+        console.log("Successfully fetched stream orders:", response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error fetching stream orders:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to fetch stream orders"
+      );
+    }
+  }
+
   return (
     <LivestreamContext.Provider
       value={{
@@ -247,6 +286,7 @@ export const LivestreamProvider = ({ children }) => {
         followSellerThroughStream,
         unfollowSellerThroughStream,
         checkIfSellerIsFollowedFromSellerProfile,
+        fetchStreamOrders,
         dispatch,
       }}
     >

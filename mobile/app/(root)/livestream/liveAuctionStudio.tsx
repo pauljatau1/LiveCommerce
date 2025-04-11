@@ -438,6 +438,7 @@ const LiveAuctionStudio = () => {
                 initializeSocket(
                     userToken,
                     handleStreamNotification,
+                    id as string, // Add streamId parameter
                     setIsBidSending,
                     handleBidTimerUpdate,
                     handleBidTimerComplete,
