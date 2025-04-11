@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // This needs to be imported before nanoid
 import React, { useCallback, useEffect, useState, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Platform, View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
@@ -12,75 +13,7 @@ import Animated, {
   withDelay
 } from 'react-native-reanimated';
 import { AntDesign } from '@expo/vector-icons';
-
-// Create a globally unique ID generator that doesn't rely on external packages
-const generateUniqueId = (() => {
-  // Counter to ensure uniqueness even if timestamps are identical
-  let counter = 0;
-  // Last timestamp to detect collisions
-  let lastTimestamp = 0;
-  // Node IDs to ensure uniqueness across component instances
-  let nodeId = Math.floor(Math.random() * 1000000);
-  
-  return () => {
-    const timestamp = Date.now();
-    
-    // If we're generating IDs within the same millisecond, increment counter
-    if (timestamp === lastTimestamp) {
-      counter++;
-    } else {
-      // Reset counter for new millisecond
-      counter = 0;
-      lastTimestamp = timestamp;
-    }
-    
-    // Use a combination of timestamp, counter, nodeId and random string for guaranteed uniqueness
-    return `${timestamp}-${counter}-${nodeId}-${Math.random().toString(36).substring(2, 10)}`;
-  };
-})();
-
-// Create a completely collision-proof ID generator that handles extreme rapid tapping
-const createSequentialIdGenerator = () => {
-  // Start with current timestamp for uniqueness across app restarts
-  const startTime = Date.now();
-  // Global counter that only increments, never resets
-  let counter = 0;
-  // Instance ID to guarantee uniqueness across different component instances
-  const instanceId = Math.floor(Math.random() * 1000000).toString(36);
-  
-  // Map to track all generated IDs to guarantee no collisions
-  const generatedIds = new Set();
-  
-  return () => {
-    counter++;
-    
-    // Create base ID from key components that should be unique
-    let id = `heart-${startTime}-${instanceId}-${counter}`;
-    
-    // Add randomness if needed to ensure uniqueness
-    if (generatedIds.has(id)) {
-      // If collision detected (shouldn't happen), add randomness
-      id = `${id}-${Math.random().toString(36).substring(2, 6)}`;
-    }
-    
-    // Track this ID
-    generatedIds.add(id);
-    
-    // Clean up set periodically to prevent memory growth
-    if (generatedIds.size > 1000) {
-      // When we reach 1000 IDs, clean up the oldest ones
-      // This is safe because hearts are typically removed quickly
-      const idsArray = Array.from(generatedIds);
-      const toRemove = idsArray.slice(0, 500);
-      toRemove.forEach(oldId => generatedIds.delete(oldId));
-    }
-    
-    return id;
-  };
-};
-
-// Create our sequential ID generator instance
-const heartIdGenerator = createSequentialIdGenerator();
+import { nanoid } from 'nanoid/non-secure'; // Using non-secure for better performance
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -259,10 +192,12 @@ export const FloatingHeartsAnimation = forwardRef<FloatingHeartsRef, FloatingHea
     const heartLimitPerMS = useRef(3); // Maximum hearts to process per millisecond
     const animationFrameRef = useRef<number | null>(null);
     const queuedTaps = useRef(0);
+    const sequenceCounter = useRef(0); // Add a sequence counter for unique IDs
     
-    // Function to get a unique ID efficiently
+    // Function to get a unique ID efficiently - ensure uniqueness with sequence number
     const getNextId = useCallback(() => {
-      return heartIdGenerator();
+      sequenceCounter.current = (sequenceCounter.current + 1) % Number.MAX_SAFE_INTEGER;
+      return `${nanoid()}_${sequenceCounter.current}`;
     }, []);
     
     // Pool index for faster generation
@@ -347,10 +282,16 @@ export const FloatingHeartsAnimation = forwardRef<FloatingHeartsRef, FloatingHea
     
     // Efficient heart removal with batch processing
     const removeHeart = useCallback((id: string) => {
+      // Add safety check for the heart being removed
       setVisibleHearts(prev => {
-        // Use filter for individual heart removal as it's more efficient
-        // for single item removal than creating new arrays with splice
-        return prev.filter(h => h.id !== id);
+        // Find the first occurrence of the heart with this ID
+        const index = prev.findIndex(h => h.id === id);
+        if (index === -1) return prev; // Heart not found, return unchanged
+
+        // Create new array without mutating the previous state
+        const newHearts = [...prev];
+        newHearts.splice(index, 1);
+        return newHearts;
       });
     }, []);
     
@@ -366,14 +307,25 @@ export const FloatingHeartsAnimation = forwardRef<FloatingHeartsRef, FloatingHea
         // Process buffer hearts in chunks for better performance
         const toAdd = [...heartBuffer];
         
-        // If adding would exceed max, remove oldest hearts first (more efficient than sorting)
+        // If adding would exceed max, remove oldest hearts first
         if (newHearts.length + toAdd.length > maxHearts) {
           const excessCount = newHearts.length + toAdd.length - maxHearts;
           newHearts.splice(0, excessCount);
         }
+
+        // Add safety check for duplicate IDs
+        const existingIds = new Set(newHearts.map(h => h.id));
+        const uniqueNewHearts = toAdd.filter(heart => {
+          if (existingIds.has(heart.id)) {
+            // If duplicate, generate a new unique ID
+            heart.id = `${heart.id}_${Date.now()}_${Math.random()}`;
+          }
+          existingIds.add(heart.id);
+          return true;
+        });
         
         // Add all new hearts
-        return [...newHearts, ...toAdd];
+        return [...newHearts, ...uniqueNewHearts];
       });
       
       // Clear buffer after applying

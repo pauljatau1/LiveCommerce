@@ -204,21 +204,21 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
     if (isVisible) {
       setupLivestream();
 
-      // Scroll to the end to show new comment
-      if (commentsListRef.current) {
-        commentsListRef.current.scrollToEnd({ animated: true });
-      }
+    // Scroll to the end to show new comment
+    if (commentsListRef.current) {
+      commentsListRef.current.scrollToEnd({ animated: true });
+    }
 
       // Cleanup function - will run when:
       // 1. Component unmounts
       // 2. isVisible changes from true to false
       // 3. id changes (which should disconnect and reconnect)
-      return () => {
+    return () => {
         // Since we only run the effect when isVisible is true,
         // this cleanup will only run when we're either unmounting
         // or isVisible is changing to false, both cases where we want to leave
-        handleLeaveStream(true);
-      };
+      handleLeaveStream(true);
+    };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
@@ -520,9 +520,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] &&
+                      notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -618,15 +618,15 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
             }
           }
           break;
-
+          
         case "liveshow_order":
           console.log("New order received:", notification.content);
-
+          
           // Show a brief toast notification with the order details
           if (notification.data?.orders) {
-            const orderCount = Array.isArray(notification.data.orders) ?
+            const orderCount = Array.isArray(notification.data.orders) ? 
               notification.data.orders.length : 1;
-
+            
             show({
               text1: "💰 New Order Placed!",
               text2: `${orderCount} item(s) ordered from this stream`,
@@ -635,7 +635,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
               topPosition: 18,
             });
           }
-
+          
           // Update UI to show order event in chat
           setLiveComments((prev) => [...prev, notification as any]);
           break;
@@ -1063,7 +1063,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       } else {
         console.error("Socket not connected, comment only saved locally");
       }
-
+      
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -1129,6 +1129,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       }
     } catch (error) {
       console.error("Error leaving stream:", error);
+      router.back();
       // Show error message to user if needed
     } finally {
       setIsLeavingStream(false);
@@ -1210,7 +1211,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       heartsRef.current.generateHearts();
     }
     
-    // Optionally send the reaction to the server via socket
+    // Send the reaction to the server via socket
     const socketInstance = getSocket();
     if (socketInstance) {
       socketInstance.emit("stream_reaction", {
@@ -1220,24 +1221,21 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
     }
   }, [id]);
 
-  // Gesture handler for rapid heart taps with extreme performance optimization
+  // Gesture handler for rapid heart taps with improved state management
   const tapCount = useRef(0);
   const lastTapTime = useRef(0);
-  const isInContinuousMode = useRef(false);
-  const TAP_THRESHOLD = 150; // Further reduced from 200ms for faster response
+  const isAnimating = useRef(false);
+  const TAP_THRESHOLD = 150;
   const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
-  const lastHeartGenTime = useRef(0);
-  const queuedTaps = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   
-  // Debounced socket event emitter with exponential backoff
+  // Debounced socket event emitter
   const debouncedSocketEmit = useCallback((eventType: string) => {
     if (socketThrottleTimeout.current) {
       clearTimeout(socketThrottleTimeout.current);
     }
     
-    // Exponential backoff for socket events to prevent network flooding
     socketThrottleTimeout.current = setTimeout(() => {
       const socketInstance = getSocket();
       if (socketInstance) {
@@ -1247,134 +1245,85 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         });
       }
       socketThrottleTimeout.current = null;
-    }, 1000); // Only send at most 1 socket event per second
+    }, 1000);
   }, [id]);
   
-  // Ultra-optimized heart press handler for extreme rapid tapping
+  // Improved heart press handler with better state management
   const handleHeartPress = useCallback(() => {
-    // Get current timestamp with high precision
     const now = performance.now ? performance.now() : Date.now();
+    const elapsed = now - lastTapTime.current;
+    lastTapTime.current = now;
     
-    // Always clear any existing timeout to prevent buildup
+    // Clear any existing timeouts
     if (heartPressTimeout.current) {
       clearTimeout(heartPressTimeout.current);
       heartPressTimeout.current = null;
     }
-    
-    // If we're already in continuous mode, just reset the timer
-    if (isInContinuousMode.current) {
-      // Extend continuous mode duration
-      heartPressTimeout.current = setTimeout(() => {
-        isInContinuousMode.current = false;
-        heartPressTimeout.current = null;
-        
-        // Stop the continuous hearts when timeout expires
-        if (heartsRef.current) {
-          heartsRef.current.stopContinuousHearts();
-        }
-      }, 5000); // Keep animation going for 5 seconds
-      
-      // Increment queued taps for batch processing
-      queuedTaps.current++;
-      
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // If we're already animating, just queue up more hearts
+    if (isAnimating.current) {
+      if (heartsRef.current) {
+        heartsRef.current.generateHearts();
+      }
       return;
     }
-    
-    // Check if this is a rapid tap
-    const elapsed = now - lastTapTime.current;
-    lastTapTime.current = now;
-    
-    // Queue the tap for processing
-    queuedTaps.current++;
-    
-    // Process queued taps with request animation frame to stay in sync with display refresh rate
-    if (!animationFrameRef.current) {
-      animationFrameRef.current = requestAnimationFrame(() => {
-        // Generate hearts based on queued taps (immediate feedback)
-        if (heartsRef.current) {
-          if (queuedTaps.current > 2 || elapsed < TAP_THRESHOLD) {
-            // If many rapid taps or this is a rapid tap after previous one
-            if (!isInContinuousMode.current) {
-              // Switch to continuous mode
-              isInContinuousMode.current = true;
-              tapCount.current = 0;
-              
-              // Start the continuous heart animation
-              heartsRef.current.startContinuousHearts();
-              
-              // Send a single heart_burst event to the server
-              debouncedSocketEmit("heart_burst");
-              
-              // Set a timeout to exit continuous mode
-              heartPressTimeout.current = setTimeout(() => {
-                isInContinuousMode.current = false;
-                
-                // Stop the continuous hearts when timeout expires
-                if (heartsRef.current) {
-                  heartsRef.current.stopContinuousHearts();
-                }
-                
-                heartPressTimeout.current = null;
-              }, 5000); // Keep going for 5 seconds
-            }
-          } else {
-            // Single tap - generate one batch of hearts
-            heartsRef.current.generateHearts();
-            
-            // Increment tap counter
-            tapCount.current++;
-            
-            // Send regular heart reaction (but throttled)
-            debouncedSocketEmit("heart");
-            
-            // If we've reached the continuous threshold, switch modes
-            if (tapCount.current >= 2) {
-              isInContinuousMode.current = true;
-              tapCount.current = 0;
-              
-              // Start the continuous heart animation
-              heartsRef.current.startContinuousHearts();
-              
-              // Send heart_burst event
-              debouncedSocketEmit("heart_burst");
-              
-              // Set a timeout to exit continuous mode
-              heartPressTimeout.current = setTimeout(() => {
-                isInContinuousMode.current = false;
-                
-                // Stop the continuous hearts when timeout expires
-                if (heartsRef.current) {
-                  heartsRef.current.stopContinuousHearts();
-                }
-                
-                heartPressTimeout.current = null;
-              }, 5000); // Keep going for 5 seconds
-            }
-          }
-        }
+
+    // Start new animation sequence
+    animationFrameRef.current = requestAnimationFrame(() => {
+      if (!heartsRef.current) return;
+
+      // Check if this is a rapid tap
+      if (elapsed < TAP_THRESHOLD) {
+        tapCount.current++;
         
-        // Reset queued taps and animation frame ref
-        queuedTaps.current = 0;
-        animationFrameRef.current = null;
-      });
-    }
+        // If we've detected rapid taps, start continuous animation
+        if (tapCount.current >= 2) {
+          isAnimating.current = true;
+          heartsRef.current.startContinuousHearts();
+          debouncedSocketEmit("heart_burst");
+          
+          // Set timeout to stop continuous animation
+          heartPressTimeout.current = setTimeout(() => {
+            if (heartsRef.current) {
+              heartsRef.current.stopContinuousHearts();
+            }
+            isAnimating.current = false;
+            tapCount.current = 0;
+          }, 3000); // Reduced from 5000ms to 3000ms for better control
+        } else {
+          // Single rapid tap
+          heartsRef.current.generateHearts();
+          debouncedSocketEmit("heart");
+        }
+      } else {
+        // Normal tap
+        tapCount.current = 1;
+        heartsRef.current.generateHearts();
+        debouncedSocketEmit("heart");
+      }
+      
+      animationFrameRef.current = null;
+    });
   }, [debouncedSocketEmit]);
 
-  // Clean up any timeouts and animation frames when component unmounts
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (heartPressTimeout.current) {
         clearTimeout(heartPressTimeout.current);
-        heartPressTimeout.current = null;
       }
       if (socketThrottleTimeout.current) {
         clearTimeout(socketThrottleTimeout.current);
-        socketThrottleTimeout.current = null;
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
       }
+      isAnimating.current = false;
+      tapCount.current = 0;
     };
   }, []);
 
@@ -1725,15 +1674,15 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <Text style={styles.actionText}>Shop</Text>
                     </View>
 
-                    <View style={styles.actionItem}>
+                    {<View style={styles.actionItem}>
                       <TouchableOpacity 
                         style={styles.actionButton}
                         onPress={handleHeartPress}
                       >
                         <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>Like</Text>
-                    </View>
+                      <Text style={styles.actionText2}>Like</Text>
+                    </View>}
                   </ScrollView>
                 )}
 
@@ -1860,9 +1809,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                   !keyboardVisibleRef.current && (
                     <View style={styles.bottomProductCardContainer}>
                       <Carousel
-                        loop
-                        autoPlay={true}
-                        autoPlayInterval={15000}
+                        loop={true}
+                        autoPlay={false}
+                        
                         width={screenWidth - 32}
                         height={110}
                         data={streamProducts}
@@ -1880,8 +1829,8 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       />
                     </View>
                   )}
-              </View>
-            </View>
+                                        </View>
+                                        </View>
           </View>
         </View>
       </View>
@@ -1965,7 +1914,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
+        //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -2223,6 +2172,11 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: "white",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  actionText2: {
+    color: "#16783A",
     fontSize: 12,
     marginTop: 4,
   },

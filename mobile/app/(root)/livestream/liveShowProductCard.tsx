@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Product } from '@/types/streams/livestreamStudio';
+import { GlassImage } from './components';
 
 interface LiveShowProductCardProps {
     item: {
@@ -45,9 +46,13 @@ export const LiveShowProductCard: React.FC<LiveShowProductCardProps> = ({
             className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center mx-1"
             onPress={handleCardPress}
         >
-            <Image
+            <GlassImage
                 source={{ uri: product.images[0]?.url }}
-                className="w-16 h-16 rounded-lg"
+                imageClassName="w-16 h-16 rounded-lg"
+                glassClassName="rounded-lg"
+                placeholderColor="rgba(255, 255, 255, 0.1)"
+                tint="dark"
+                blurIntensity={25}
                 resizeMode="cover"
             />
             <View className="flex-1 ml-3">

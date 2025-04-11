@@ -1,7 +1,5 @@
-import { View, Text, Image, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, Dimensions } from "react-native";
 import React, { useState } from "react";
-import { icons, images } from "@/constants";
-import CustomButton from "../button/CustomButton";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { Link, useRouter } from "expo-router";
@@ -9,6 +7,7 @@ import BottomSheet from "../bottom-sheet";
 import RsvpSheet from "@/components/livestream/rsvpSheet";
 import { formatDate } from "@/helpers/helpers";
 import { toast } from "@/core/toast";
+import { GlassImage } from "@/app/(root)/livestream/components";
 
 const { width } = Dimensions.get("window");
 
@@ -46,11 +45,17 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
 
         <View className="flex-row items-center mb-2 justify-between ">
           <View className="flex-row items-center gap-2">
-            <Image
-              source={{ uri: item?.seller?.storeAvatar?.url }}
-              className="w-8 h-8 rounded-full"
-              resizeMode="cover"
-            />
+            <View className="w-8 h-8 rounded-full overflow-hidden">
+              <GlassImage
+                source={{ uri: item?.seller?.storeAvatar?.url }}
+                imageClassName="w-full h-full"
+                containerClassName="w-full h-full"
+                placeholderColor="rgba(100, 100, 100, 0.3)"
+                tint="dark"
+                blurIntensity={15}
+                resizeMode="cover"
+              />
+            </View>
             <Text
               numberOfLines={1}
               className="text-gray-200 text-sm font-medium capitalize font-LexendDecaMedium"
@@ -61,11 +66,19 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         </View>
         {/* Main Product Image */}
         <View className="relative">
-          <Image
-            source={{ uri: item?.coverImage?.url }}
-            resizeMode="cover"
-            className="h-[240px] w-[100%] rounded-lg"
-          />
+          <View className="h-[240px] w-[100%] rounded-lg overflow-hidden">
+            <GlassImage
+              source={{ uri: item?.coverImage?.url }}
+              imageClassName="w-full h-full"
+              containerClassName="w-full h-full"
+              placeholderColor="rgba(30, 30, 30, 0.5)"
+              tint="dark"
+              blurIntensity={25}
+              showActivityIndicator={true}
+              indicatorColor="#16783A"
+              resizeMode="cover"
+            />
+          </View>
           <View className="absolute top-2 left-2">
             {item?.status === "scheduled" ? (
               <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 py-1 rounded-md">
