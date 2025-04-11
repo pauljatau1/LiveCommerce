@@ -1663,17 +1663,22 @@ function initializeSocket(server) {
               stream.products[productIndex].orderCreated = true;
               stream.products[productIndex].orderId = orderResult.orders[0].orderId;
               stream.products[productIndex].bidStatus = 'ended';
-
+              
               // Add order to stream's orders array
-              const order = orderResult.liveShowOrders;
-
-              // Add to the stream's orders array
-              stream.orders.push(order);
-
-              console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
-                streamOrdersCount: stream.orders.length,
-                latestOrderId: order[0].orderId
-              });
+              const orders = orderResult.liveShowOrders || [];
+              
+              // Add each order individually to the stream's orders array
+              if (Array.isArray(orders) && orders.length > 0) {
+                for (const order of orders) {
+                  stream.orders.push(order);
+                }
+                console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
+                  streamOrdersCount: stream.orders.length,
+                  latestOrderId: orders[0].orderId
+                });
+              } else {
+                console.error('[BID] 52a. No valid orders to add to stream');
+              }
 
               await stream.save();
 

@@ -2568,7 +2568,7 @@ exports.endProductBidding = async (req, res) => {
         // Update stream product with order information
         if (orderResult && orderResult.success !== false && orderResult.liveShowOrders && orderResult.liveShowOrders.length > 0) {
           console.log('[END_BID] 32. Order created successfully', {
-            orderId: orderResult.liveShowOrders.orderId,
+            orderId: orderResult.liveShowOrders[0].orderId,
             orderTotal: orderResult.totals.grandTotal
           });
 
@@ -2578,16 +2578,24 @@ exports.endProductBidding = async (req, res) => {
           stream.products[productIndex].bidStatus = 'ongoing';
           
           // Add order to stream's orders array
-          const order = orderResult.liveShowOrders;
-          console.log('[END_BID] 32a. Order created successfully', order);
+          const orders = orderResult.liveShowOrders;
+          console.log('[END_BID] 32a. Order created successfully', orders);
           
-          console.log('[END_BID] 32a. Added order to stream\'s orders array', {
+          // Add each order individually to the stream's orders array
+          // (instead of pushing the entire array as one element)
+          if (Array.isArray(orders)) {
+            for (const order of orders) {
+              stream.orders.push(order);
+            }
+          } else {
+            console.error('[END_BID] 32b. Expected orders to be an array but got:', typeof orders);
+          }
+          
+          console.log('[END_BID] 32c. Added order to stream\'s orders array', {
             streamOrdersCount: stream.orders.length,
-            latestOrderId: order[0].orderId
+            latestOrderId: orders[0].orderId
           });
           
-
-          stream.orders.push(order)
           await stream.save();
 
           // Emit socket notification about order creation
