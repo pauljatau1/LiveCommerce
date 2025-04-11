@@ -925,6 +925,32 @@ exports.createOrder = async (req, res) => {
         fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
       };
     });
+
+    const liveShowOrders = [];
+
+    for (const order of orders) {
+      const firstItem = order.items[0];
+
+      liveShowOrders.push({
+        orderId: order.order_id,
+        buyer: order.buyerDetails,
+        orderDetails: {
+          _id: order._id,
+          order_id: order.order_id,
+          itemsCount: order.items.length,
+          totalAmount: order.totalAmount,
+          shippingFee: sellerItems[order.seller.toString()].shippingFee,
+          orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+          seller: order.seller,
+          fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
+          items: order.items
+        },
+        product: firstItem.product,
+        amount: order.totalAmount,
+        createdAt: new Date()
+      });
+    }
+    
     
     // Check if the order is from a liveshow and update the stream with order information
     if (req.body.channel === "liveshow" && req.body.streamId) {
@@ -966,6 +992,7 @@ exports.createOrder = async (req, res) => {
           
           // Save the stream with updated orders
           await stream.save();
+          
           
           // Send a socket notification about the order for the stream
           if (req.app && req.app.get('io')) {

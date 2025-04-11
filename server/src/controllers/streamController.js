@@ -2566,48 +2566,28 @@ exports.endProductBidding = async (req, res) => {
         await orderController.createOrder(mockReq, mockRes);
 
         // Update stream product with order information
-        if (orderResult && orderResult.success !== false && orderResult.orders && orderResult.orders.length > 0) {
+        if (orderResult && orderResult.success !== false && orderResult.liveShowOrders && orderResult.liveShowOrders.length > 0) {
           console.log('[END_BID] 32. Order created successfully', {
-            orderId: orderResult.orders[0].orderId,
+            orderId: orderResult.liveShowOrders[0].orderId,
             orderTotal: orderResult.totals.grandTotal
           });
 
           // Update stream product to mark order as created and set bid status to ongoing
           stream.products[productIndex].orderCreated = true;
-          stream.products[productIndex].orderId = orderResult.orders[0].orderId;
+          stream.products[productIndex].orderId = orderResult.liveShowOrders[0].orderId;
           stream.products[productIndex].bidStatus = 'ongoing';
           
           // Add order to stream's orders array
-          const order = orderResult.liveShowOrders[0];
+          const order = orderResult.liveShowOrders;
           console.log('[END_BID] 32a. Order created successfully', order);
-          const firstItem = order.items[0];
-          console.log('[END_BID] 32b. First item', firstItem);
-          
-          // Add to the stream's orders array
-          stream.orders.push({
-            orderId: order.order_id,
-              buyer: order.buyerDetails,
-              orderDetails: {
-                _id: order._id,
-                order_id: order.order_id,
-                itemsCount: order.items.length,
-                totalAmount: order.totalAmount,
-                shippingFee: sellerItems[order.seller.toString()].shippingFee,
-                orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
-                seller: order.seller,
-                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
-                items: order.items
-              },
-              product: firstItem.product,
-              amount: order.totalAmount,
-              createdAt: new Date()
-          });
           
           console.log('[END_BID] 32a. Added order to stream\'s orders array', {
             streamOrdersCount: stream.orders.length,
-            latestOrderId: order.orderId
+            latestOrderId: order[0].order._id
           });
           
+
+          stream.orders.push(order)
           await stream.save();
 
           // Emit socket notification about order creation

@@ -1665,35 +1665,15 @@ function initializeSocket(server) {
               stream.products[productIndex].bidStatus = 'ended';
 
               // Add order to stream's orders array
-              const order = orderResult.liveShowOrders[0];
-              const firstItem = order.items[0];
+              const order = orderResult.liveShowOrders;
 
               // Add to the stream's orders array
-              stream.orders.push({
-                orderId: order.order_id,
-                buyer: order.buyerDetails,
-                orderDetails: {
-                  _id: order._id,
-                  order_id: order.order_id,
-                  itemsCount: order.items.length,
-                  totalAmount: order.totalAmount,
-                  shippingFee: sellerItems[order.seller.toString()].shippingFee,
-                  orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
-                  seller: order.seller,
-                  fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
-                  items: order.items
-                },
-                product: firstItem.product,
-                amount: order.totalAmount,
-                createdAt: new Date()
-              });
+              stream.orders.push(order);
 
               console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
                 streamOrdersCount: stream.orders.length,
-                latestOrderId: order.orderId
+                latestOrderId: order[0].order._id
               });
-
-
 
               await stream.save();
 
