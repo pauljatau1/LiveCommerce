@@ -1683,7 +1683,6 @@ function initializeSocket(server) {
                   fezOrderNo: orderResult.fezResponse?.orderNos?.[order.orderId] || null,
                   items: order.items
                 },
-                product: firstItem.product,
                 amount: order.totalAmount,
                 createdAt: new Date()
               });

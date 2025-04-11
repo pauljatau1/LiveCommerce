@@ -958,7 +958,6 @@ exports.createOrder = async (req, res) => {
                 fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
                 items: order.items
               },
-              product: firstItem.product,
               amount: order.totalAmount
             });
           }
