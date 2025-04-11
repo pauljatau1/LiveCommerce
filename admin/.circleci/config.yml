@@ -210,3 +210,4 @@ workflows:
           container-env-var-updates: 'container=production-auqli-admin,name=APP_ENV,value=production,container=production-auqli-admin,name=BRANCH,value=$CIRCLE_BRANCH'
           verify-revision-is-deployed: true
           docker-image-for-job: << pipeline.parameters.docker_job_image >>
+
