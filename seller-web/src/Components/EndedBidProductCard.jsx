@@ -15,10 +15,16 @@ const EndedBidProductCard = ({ product, formatCurrency }) => {
     
     // When component mounts, ensure this product is marked as ended in the socket context
     useEffect(() => {
-        if (productId && product.bidStatus === 'ended' && productStatuses[productId] !== 'ended') {
+        if (!productId || !updateProductStatus) return;
+        
+        console.log(`EndedBidProductCard mounted for product ${productId}, bidStatus=${product.bidStatus}, socketStatus=${productStatuses[productId]}`);
+        
+        // Only update if current bidStatus is 'ended' and socket status isn't already 'ended'
+        if (product.bidStatus === 'ended' && productStatuses[productId] !== 'ended') {
+            console.log('Ensuring product is marked as ended:', productId);
             updateProductStatus(productId, 'ended');
         }
-    }, [productId, product.bidStatus, productStatuses, updateProductStatus]);
+    }, [productId, product.bidStatus, updateProductStatus, productStatuses]); // Added productStatuses back for consistency
     
     // Use the latest bid amount and bidder if available
     const finalBid = latestBidData?.currentBid || product?.currentBid || product?.minBid;

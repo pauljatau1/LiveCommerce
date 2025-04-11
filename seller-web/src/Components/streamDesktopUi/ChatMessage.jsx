@@ -257,7 +257,7 @@ ChatMessage.propTypes = {
   message: PropTypes.shape({
     id: PropTypes.string,
     _id: PropTypes.string,
-    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner', 'liveshow_order', 'start']),
+    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner', 'liveshow_order', 'start', 'auction_end', 'auction_start']),
     user: PropTypes.string,
     avatar: PropTypes.oneOfType([
       PropTypes.string,

@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
@@ -31,6 +31,8 @@ const AuctionStreamDesktopUi = ({
     const [showBidModal, setShowBidModal] = useState(false);
     const { activateProductBidding, isActivatingBid } = useLivestreamContext();
     const { productStatuses = {}, socket = null, updateProductStatus } = useLivestreamSocket();
+    // Ref to track which products we've processed to prevent infinite loops
+    const processedProductsRef = useRef({});
 
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
@@ -50,17 +52,43 @@ const AuctionStreamDesktopUi = ({
 
     // Add useEffect to synchronize productStatuses with the products from liveStreamDetails
     useEffect(() => {
-        if (products && products.length > 0) {
-            // Set initial status in socket context for each product
-            products.forEach(product => {
-                const productId = product.product.productId;
-                // Only set the status if it doesn't already exist in productStatuses
-                if (product.bidStatus && !productStatuses[productId]) {
-                    updateProductStatus(productId, product.bidStatus);
-                }
-            });
-        }
-    }, [products, productStatuses, updateProductStatus]);
+        if (!products || products.length === 0 || !updateProductStatus) return;
+        
+        const updatedProducts = {};
+        
+        // Create a new processed tracking object when products change
+        processedProductsRef.current = {};
+
+        // Set initial status in socket context for each product
+        products.forEach(product => {
+            const productId = product.product.productId;
+            
+            // Only update if:
+            // 1. The product has a bidStatus AND
+            // 2. The socket status is not 'ongoing' (to prevent overriding timer-based status changes) AND
+            // 3. We haven't processed this product with this status yet (to prevent infinite loops)
+            const productKey = `${productId}-${product.bidStatus}`;
+            
+            if (product.bidStatus &&
+                productStatuses[productId] !== 'ongoing' &&
+                !processedProductsRef.current[productKey]) {
+                
+                // Mark this product-status as processed
+                processedProductsRef.current[productKey] = true;
+                updatedProducts[productId] = product.bidStatus;
+            }
+        });
+        
+        // Only proceed if we have actual updates to make
+        if (Object.keys(updatedProducts).length === 0) return;
+        
+        console.log('Batch updating product statuses:', updatedProducts);
+        
+        // Make a single batch update for all products that need updating
+        Object.entries(updatedProducts).forEach(([productId, status]) => {
+            updateProductStatus(productId, status);
+        });
+    }, [products, updateProductStatus]);
 
     // When a bid is successfully started, notify all clients via socket
     useEffect(() => {
@@ -95,16 +123,30 @@ const AuctionStreamDesktopUi = ({
             if (updateProductStatus) {
                 console.log(`Immediately updating product ${selectedProduct.product.name} status to 'active' in socket context`);
                 
+                // FIRST: Directly check and end all ongoing products in productStatuses
+                Object.entries(productStatuses).forEach(([pid, status]) => {
+                    if (pid !== selectedProduct.product.productId && (status === 'active' || status === 'ongoing')) {
+                        console.log(`Pre-emptively changing product ${pid} with socket status ${status} to 'ended'`);
+                        updateProductStatus(pid, 'ended');
+                    }
+                });
+                
                 // Set the newly activated product to active
                 updateProductStatus(selectedProduct.product.productId, 'active');
                 
-                // Set all other active or ongoing products to ended (mirroring the backend logic)
+                // THEN: Handle any products whose state might not be reflected in productStatuses yet
                 if (products) {
                     products.forEach(product => {
                         const pid = product.product.productId;
-                        if (pid !== selectedProduct.product.productId && 
-                            (product.bidStatus === 'active' || product.bidStatus === 'ongoing' || 
-                             productStatuses[pid] === 'active' || productStatuses[pid] === 'ongoing')) {
+                        // Skip the newly activated product
+                        if (pid === selectedProduct.product.productId) return;
+                        
+                        // Force update the local bidStatus to 'ended' for all other products
+                        if (product.bidStatus === 'active' || product.bidStatus === 'ongoing') {
+                            console.log(`Forcing local product ${pid} bidStatus from ${product.bidStatus} to 'ended'`);
+                            product.bidStatus = 'ended';
+                            
+                            // Also ensure the socket context is updated
                             updateProductStatus(pid, 'ended');
                         }
                     });
@@ -118,25 +160,39 @@ const AuctionStreamDesktopUi = ({
         }
     };
 
-    // Function to determine the effective status of a product - using regular function instead of useMemo
-    const getEffectiveStatus = (product) => {
-        const productId = product.product.productId;
-        // Socket status takes precedence over local status if available
-        const socketStatus = productStatuses[productId];
-        if (socketStatus) {
-            return socketStatus;
-        }
-        return product.bidStatus;
-    };
+    // Function to determine the effective status of a product - using memoized function for performance
+    const getEffectiveStatus = useMemo(() => {
+        return (product) => {
+            if (!product?.product?.productId) return product?.bidStatus || 'pending';
+            
+            const productId = product.product.productId;
+            // Socket status takes precedence over local status if available
+            const socketStatus = productStatuses[productId];
+            const localStatus = product.bidStatus;
+            
+            console.log(`GetEffectiveStatus for ${product.product.name} (${productId}): socket status = ${socketStatus}, product status = ${localStatus}`);
+            
+            // If a new bid was just started, ensure 'active' status is shown for this product
+            if (selectedProduct && selectedProduct.product.productId === productId && !showBidModal && !isActivatingBid) {
+                console.log(`Selected product just had bid confirmed, ensuring 'active' status`);
+                return 'active';
+            }
+            
+            if (socketStatus) {
+                return socketStatus;
+            }
+            return localStatus;
+        };
+    }, [productStatuses, selectedProduct, showBidModal, isActivatingBid]); // Added dependencies for selected product tracking
 
     // Check if any product has active bidding by using getEffectiveStatus
     const hasActiveBidding = useMemo(() => {
         return products?.some(product => {
             return getEffectiveStatus(product) === 'active';
         });
-    }, [products, productStatuses]);
+    }, [products, getEffectiveStatus]); // depends on getEffectiveStatus which depends on productStatuses
 
-    console.log('hasActiveBidding', hasActiveBidding, 'productStatuses', productStatuses);
+    console.log('Product statuses:', productStatuses, 'Has active bidding:', hasActiveBidding);
 
     return (
         <div className="hidden xl:block">

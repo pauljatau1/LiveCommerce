@@ -736,22 +736,7 @@ const LivestreamStudio = () => {
         }
     };
 
-   useEffect(() => {
-        let interval;
-        if (isStreaming) {
-            interval = setInterval(() => {
-                setStreamDuration(prev => prev + 1);
-            }, 1000);
-            setTimerInterval(interval);
-        }
 
-        return () => {
-            if (interval) {
-                clearInterval(interval);
-                setTimerInterval(null);
-            }
-        };
-    }, [isStreaming]);
 
     useEffect(() => {
         // Handle user joining

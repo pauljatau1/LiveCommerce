@@ -21,18 +21,43 @@ const ActiveBidProductCard = ({ product, formatCurrency }) => {
     
     // When component mounts, ensure this product is marked as active in the socket context
     useEffect(() => {
-        if (productId && product.bidStatus === 'active' && !productStatuses[productId]) {
+        if (!productId || !updateProductStatus) return;
+        
+        console.log(`ActiveBidProductCard mounted/updated for ${productId}, bidStatus=${product.bidStatus}, socketStatus=${productStatuses[productId]}`);
+        
+        // If socket status shows 'ended' or 'ongoing', respect that and don't try to change it
+        if (productStatuses[productId] === 'ended' || productStatuses[productId] === 'ongoing') {
+            console.log(`Socket status is '${productStatuses[productId]}' for ${productId}, respecting this status`);
+            // Update local bidStatus to match if needed
+            if (product.bidStatus !== productStatuses[productId]) {
+                product.bidStatus = productStatuses[productId];
+            }
+            return; // Don't proceed further
+        }
+        
+        // Check if another product is already active or ongoing
+        const otherActiveProduct = Object.entries(productStatuses).find(
+            ([pid, status]) => pid !== productId && (status === 'active' || status === 'ongoing')
+        );
+        
+        if (otherActiveProduct) {
+            console.log(`Found another active or ongoing product ${otherActiveProduct[0]} with status ${otherActiveProduct[1]}, may need to resolve conflict`);
+            // If this product should be active based on local state but there's a conflict
+            if (product.bidStatus === 'active') {
+                console.log(`Resolving conflict: Setting product ${productId} as active and ending ${otherActiveProduct[0]}`);
+                // End the other product first
+                updateProductStatus(otherActiveProduct[0], 'ended');
+                // Then set this one to active
+                updateProductStatus(productId, 'active');
+            }
+            return;
+        }
+        
+        if (product.bidStatus === 'active' && !productStatuses[productId]) {
+            console.log('Ensuring product is marked as active:', productId);
             updateProductStatus(productId, 'active');
         }
-    }, [productId, product.bidStatus, productStatuses, updateProductStatus]);
-    
-    // Monitor timer and change status to 'ended' when timer reaches zero
-    useEffect(() => {
-        if (productId && timerData && timerData.secondsLeft <= 0) {
-            // Timer has expired, change status to 'ended'
-            updateProductStatus(productId, 'ended');
-        }
-    }, [productId, timerData, updateProductStatus]);
+    }, [productId, product.bidStatus, updateProductStatus, productStatuses]);
     
     // Use the latest bid amount if available, otherwise fall back to the product's current bid
     const currentBid = latestBidData?.currentBid || product?.currentBid || product?.minBid;

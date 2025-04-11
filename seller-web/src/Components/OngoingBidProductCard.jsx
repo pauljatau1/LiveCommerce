@@ -20,12 +20,55 @@ const OngoingBidProductCard = ({ product, formatCurrency }) => {
         return bidTimers[productId];
     }, [productId, bidTimers]);
     
-    // When component mounts, ensure this product is marked as ongoing in the socket context
+    // Ensure this card is displayed when bidStatus is ongoing
     useEffect(() => {
-        if (productId && product.bidStatus === 'ongoing' && productStatuses[productId] !== 'ongoing') {
+        if (!productId || !updateProductStatus) return;
+        
+        // Force log whenever this component renders to help debug visibility issues
+        console.log(`OngoingBidProductCard mounted/updated for product ${productId}, bidStatus=${product.bidStatus}, socketStatus=${productStatuses[productId]}`);
+        
+        // If socket status shows 'ended', FORCEFULLY respect that and update the local product object
+        if (productStatuses[productId] === 'ended') {
+            console.log(`Socket status is 'ended' for ${productId}, FORCING local product bidStatus to match`);
+            // Force update local bidStatus to match
+            product.bidStatus = 'ended';
+            return; // Don't proceed further - this is critical
+        }
+        
+        // If the socket status is different from 'ongoing', don't try to change it back
+        // This prevents us from overriding statuses like 'active' or 'ended'
+        if (productStatuses[productId] && productStatuses[productId] !== 'ongoing') {
+            console.log(`Respecting socket status ${productStatuses[productId]} for ${productId}, not changing to ongoing`);
+            product.bidStatus = productStatuses[productId]; // Sync local status with socket
+            return;
+        }
+        
+        // If socket status shows 'ongoing', this is the authoritative status
+        if (productStatuses[productId] === 'ongoing') {
+            // Check if there's another product that's also 'ongoing' in productStatuses
+            const otherOngoingProduct = Object.entries(productStatuses).find(
+                ([pid, status]) => pid !== productId && status === 'ongoing'
+            );
+            
+            if (otherOngoingProduct) {
+                console.log(`Found another ongoing product ${otherOngoingProduct[0]}, ending this one to avoid conflicts`);
+                updateProductStatus(productId, 'ended');
+                product.bidStatus = 'ended';
+                return;
+            }
+            
+            // Update local product bidStatus to match if needed
+            if (product.bidStatus !== 'ongoing') {
+                console.log(`Updating local product bidStatus to match socket 'ongoing' status`);
+                product.bidStatus = 'ongoing'; // Local sync (doesn't trigger re-render)
+            }
+        } 
+        // Otherwise, if local status is 'ongoing', update socket status to match
+        else if (product.bidStatus === 'ongoing' && !productStatuses[productId]) {
+            console.log('Ensuring product is marked as ongoing in socket context:', productId);
             updateProductStatus(productId, 'ongoing');
         }
-    }, [productId, product.bidStatus, productStatuses, updateProductStatus]);
+    }, [productId, product, productStatuses, updateProductStatus]); // Full dependencies
     
     // Use the latest bid amount if available, otherwise fall back to the product's current bid
     const currentBid = latestBidData?.currentBid || product?.currentBid || product?.minBid;
@@ -34,10 +77,18 @@ const OngoingBidProductCard = ({ product, formatCurrency }) => {
     useEffect(() => {
         // If we have timer data from the socket, use that
         if (timerData?.secondsLeft !== undefined) {
-            setTimeLeft(timerData.secondsLeft);
+            console.log(`Ongoing card setting timeLeft to ${timerData.secondsLeft} for ${productId}`);
+            // Ensure we don't set negative values
+            setTimeLeft(Math.max(0, timerData.secondsLeft));
+            
+            // If timer has reached 0, we want to keep the card visible with a "bidding concluded" message
+            // The transition to "ended" status will be handled after a delay by LivestreamSocketContext
+            if (timerData.secondsLeft <= 0) {
+                console.log(`Timer is at 0 for ${productId}, showing concluded state`);
+            }
             return;
         }
-    }, [timerData]);
+    }, [timerData, productId]);
 
     // Format time as MM:SS
     const formatTime = (seconds) => {
@@ -64,7 +115,10 @@ const OngoingBidProductCard = ({ product, formatCurrency }) => {
                 <div className="flex items-center gap-2 mb-1">
                     <Icon icon="solar:clock-circle-bold" className="w-4 h-4" color="#C74E5B" />
                     <p className="text-sm text-[#C74E5B] font-inter font-medium">
-                        Ended: {formatTime(timeLeft)}
+                        {timeLeft > 0 ? 
+                            `Time left: ${formatTime(timeLeft)}` : 
+                            "Bidding concluded"
+                        }
                     </p>
                 </div>
                 
