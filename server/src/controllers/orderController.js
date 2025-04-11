@@ -1057,7 +1057,7 @@ exports.createOrder = async (req, res) => {
     return res.status(201).json({
       message: 'Orders created successfully',
       orders: orderDetails,
-      liveShowOrders: orders,
+      liveShowOrders: liveShowOrders,
       totals: responseTotals,
       fezResponse: fezResponse.data
     });
