@@ -2576,6 +2576,42 @@ exports.endProductBidding = async (req, res) => {
           stream.products[productIndex].orderCreated = true;
           stream.products[productIndex].orderId = orderResult.orders[0].orderId;
           stream.products[productIndex].bidStatus = 'ongoing';
+          
+          // Add order to stream's orders array
+          const order = orderResult.orders[0];
+          const firstItem = order.items[0];
+          
+          // Add to the stream's orders array
+          stream.orders.push({
+            orderId: order.orderId,
+            buyer: {
+              _id: winningBuyer._id,
+              firstName: winningBuyer.firstName,
+              lastName: winningBuyer.lastName,
+              username: winningBuyer.username,
+              profileImage: winningBuyer.profileImage
+            },
+            orderDetails: {
+              _id: order._id,
+              order_id: order.orderId,
+              itemsCount: order.items.length,
+              totalAmount: order.totalAmount,
+              shippingFee: orderResult.totals.shippingTotal,
+              orderTotal: orderResult.totals.grandTotal,
+              seller: stream.seller._id,
+              fezOrderNo: orderResult.fezResponse?.orderNos?.[order.orderId] || null,
+              items: order.items
+            },
+            product: firstItem.product,
+            amount: order.totalAmount,
+            createdAt: new Date()
+          });
+          
+          console.log('[END_BID] 32a. Added order to stream\'s orders array', {
+            streamOrdersCount: stream.orders.length,
+            latestOrderId: order.orderId
+          });
+          
           await stream.save();
 
           // Emit socket notification about order creation

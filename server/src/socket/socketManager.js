@@ -1657,6 +1657,42 @@ function initializeSocket(server) {
               stream.products[productIndex].orderCreated = true;
               stream.products[productIndex].orderId = orderResult.orders[0].orderId;
               stream.products[productIndex].bidStatus = 'ended';
+              
+              // Add order to stream's orders array
+              const order = orderResult.orders[0];
+              const firstItem = order.items[0];
+              
+              // Add to the stream's orders array
+              stream.orders.push({
+                orderId: order.orderId,
+                buyer: {
+                  _id: buyer._id,
+                  firstName: buyer.firstName,
+                  lastName: buyer.lastName,
+                  username: buyer.username,
+                  profileImage: buyer.profileImage
+                },
+                orderDetails: {
+                  _id: order._id,
+                  order_id: order.orderId,
+                  itemsCount: order.items.length,
+                  totalAmount: order.totalAmount,
+                  shippingFee: orderResult.totals.shippingTotal,
+                  orderTotal: orderResult.totals.grandTotal,
+                  seller: stream.seller._id,
+                  fezOrderNo: orderResult.fezResponse?.orderNos?.[order.orderId] || null,
+                  items: order.items
+                },
+                product: firstItem.product,
+                amount: order.totalAmount,
+                createdAt: new Date()
+              });
+              
+              console.log('[BID] 52a. Added order to stream\'s orders array', {
+                streamOrdersCount: stream.orders.length,
+                latestOrderId: order.orderId
+              });
+              
               await stream.save();
 
               // Create a stream-specific room name
