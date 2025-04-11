@@ -80,7 +80,7 @@ import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 
 const { width, height } = Dimensions.get("window");
 
-const LiveAuctionStudio = ({ id, isVisible }: any) => {
+const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
@@ -698,7 +698,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           break;
 
         case "auction_start":
-          //console.log('Auction started for product:', notification);
+          console.log('Auction started for product:', notification);
           // Update UI to show auction start event
           setLiveComments((prev) => [...prev, notification]);
 
@@ -709,7 +709,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
             // Find the product in streamProducts and update it
             const productId = notification.data.product.product?.productId;
-            //console.log('realtime bid productId:', productId);
+            console.log('realtime bid productId:', productId);
 
             if (productId) {
               setStreamProducts((prevProducts) => {
@@ -719,12 +719,25 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                 const productIndex = prevProducts.findIndex(
                   (p) => p.product.productId === productId,
                 );
-                //console.log('realtime bid productIndex:', productIndex);
+                console.log('realtime bid productIndex:', productIndex);
 
                 // If product found, set it as the current product
                 if (productIndex !== -1) {
                   setCurrentProductIndex(productIndex);
-                  //console.log('Setting current product index to:', productIndex);
+                  console.log('Setting current product index to:', productIndex);
+                  
+                  // IMPORTANT: Also update the selectedBidProduct to prevent race condition
+                  // when user clicks bid before the UI fully updates
+                  setTimeout(() => {
+                    const updatedProduct = {
+                      ...prevProducts[productIndex],
+                      bidStatus: "active" as const,
+                      currentBid: notification.data?.product.currentBid,
+                      minBid: notification.data?.product.minBid,
+                      maxBid: notification.data?.product.maxBid,
+                    };
+                    setSelectedBidProduct(updatedProduct);
+                  }, 0);
                 }
 
                 // Update the product status to active
@@ -739,7 +752,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     };
                   }
                   // Mark other products as 'ended' if they were 'active'
-                  if (p.bidStatus === "active") {
+                  if (p.bidStatus === "active" || p.bidStatus === "ongoing") {
                     return {
                       ...p,
                       bidStatus: "ended",
@@ -750,6 +763,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
               });
             }
 
+            // Clear any previous bid winner and selected product
             setCurrentBidWinner(null);
           }
           break;
@@ -1370,21 +1384,25 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
   // Function to handle bid submissions
   const handleSubmitBid = (bidAmount: number) => {
-    // Get current product if not already selected
-    const product =
-      selectedBidProduct ||
-      (currentProductIndex !== null &&
-        streamProducts &&
-        streamProducts.length > 0
-        ? streamProducts[currentProductIndex]
-        : null);
-    console.log("current bid product", product?.product?.name);
+    if (!id) return;
 
+    // Get the most current product information - using currentProductIndex to ensure
+    // we always use the latest product data even if selectedBidProduct hasn't updated yet
+    const product = streamProducts[currentProductIndex] || selectedBidProduct;
+    console.log("current bid product", JSON.stringify(product));
+    
     if (!product) {
-      console.error("No product selected for bid");
+      console.error("No product selected for bidding");
       return;
     }
 
+    // Ensure this is an active auction and not already closed
+    if (product.bidStatus !== "active") {
+      setBidErrorMessage("Bidding is now closed for this product");
+      setShowBidError(true);
+      return;
+    }
+    
     try {
       // Validate the bid amount
       if (product.currentBid && bidAmount <= product.currentBid) {
@@ -1515,6 +1533,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     } catch (error) {
       //console.error('Error leaving stream:', error);
       // Show error message to user if needed
+      router.back();
     } finally {
       setIsLeavingStream(false);
       setShowMenuPopover(false);
@@ -1767,6 +1786,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                           }}
                         >
                           <Text style={styles.leaveButtonText}>Leave</Text>
+                          {isLeavingStream && (
+                            <ActivityIndicator size={12} color="white" style={{marginLeft: 5}} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1954,6 +1976,21 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                   <ScrollView
                     showsVerticalScrollIndicator={false}
                     style={styles.rightActionsContainer}
+                    nestedScrollEnabled={true}
+                    onTouchStart={(e) => {
+                      // Prevent event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    onScrollBeginDrag={(e) => {
+                      // Prevent scroll event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={{ paddingBottom: 20 }}
                   >
                     <View style={styles.actionItem}>
                       <TouchableOpacity
@@ -1970,17 +2007,13 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity
+                      <TouchableOpacity 
                         style={styles.actionButton}
-                        onPress={handleShowStreamInfo}
+                        onPress={handleReactWithHeart}
                       >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={24}
-                          color="white"
-                        />
+                        <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>Info</Text>
+                      <Text style={styles.actionText}>Like</Text>
                     </View>
 
                     {/*<View style={styles.actionItem}>
@@ -2019,13 +2052,17 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={handleReactWithHeart}
+                        onPress={handleShowStreamInfo}
                       >
-                        <AntDesign name="hearto" size={24} color="#16783A" />
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={24}
+                          color="white"
+                        />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>Like</Text>
+                      <Text style={styles.actionText}>Info</Text>
                     </View>
                   </ScrollView>
                 )}
@@ -2974,6 +3011,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     flex: 1,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
   leaveButtonText: {
     color: "#FFFFFF",

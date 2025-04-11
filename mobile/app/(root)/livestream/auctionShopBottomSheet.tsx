@@ -116,13 +116,8 @@ const AuctionShopBottomSheet = ({ streamProducts, closeSheet, isLoading = false 
     const bidAmount = item.currentBid || item.minBid || item.product.price;
     
     return (
-      <TouchableOpacity 
+      <View 
         style={styles.card}
-        onPress={() => {
-          router.push(`/product/${item.product.productId}`);
-          closeSheet();
-        }}
-        activeOpacity={0.8}
       >
         <View style={styles.cardRow}>
           <View style={styles.cardLeft}>
@@ -149,17 +144,6 @@ const AuctionShopBottomSheet = ({ streamProducts, closeSheet, isLoading = false 
           <View style={styles.cardContent}>
             <View>
               <Text style={styles.cardTitle} numberOfLines={1}>{item.product.name}</Text>
-              
-              <View style={styles.priceContainer}>
-                <Text style={styles.priceText}>{formatPrice(bidAmount)}</Text>
-                {item.maxBid > 0 && item.maxBid > item.minBid && (
-                  <View style={styles.discount}>
-                    <Text style={styles.discountText}>
-                      {Math.round(((item.maxBid - item.minBid) / item.maxBid) * 100)}% off
-                    </Text>
-                  </View>
-                )}
-              </View>
             </View>
             
             <View style={styles.cardFooter}>
@@ -228,7 +212,7 @@ const AuctionShopBottomSheet = ({ streamProducts, closeSheet, isLoading = false 
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 

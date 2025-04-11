@@ -13,6 +13,9 @@ import {
   Platform,
   Keyboard,
   ScrollView,
+  Alert,
+  BackHandler,
+  ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -31,7 +34,6 @@ import {
 } from "@expo/vector-icons";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import BottomSheet from "@/components/global/bottom-sheet";
-import { ActivityIndicator, BackHandler } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import axios from "axios";
@@ -71,7 +73,7 @@ import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 
 const { width, height } = Dimensions.get("window");
 
-const LivestreamStudioFeed = ({ id, isVisible }: any) => {
+const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
@@ -1285,6 +1287,9 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                           }}
                         >
                           <Text style={styles.leaveButtonText}>Leave</Text>
+                          {isLeavingStream && (
+                            <ActivityIndicator size={12} color="white" style={{marginLeft: 5}} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1483,6 +1488,21 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
                   <ScrollView
                     showsVerticalScrollIndicator={false}
                     style={styles.rightActionsContainer}
+                    nestedScrollEnabled={true}
+                    onTouchStart={(e) => {
+                      // Prevent event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    onScrollBeginDrag={(e) => {
+                      // Prevent scroll event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={{ paddingBottom: 20 }}
                   >
                     <View style={styles.actionItem}>
                       <TouchableOpacity
@@ -2251,6 +2271,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     flex: 1,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
   leaveButtonText: {
     color: "#FFFFFF",
