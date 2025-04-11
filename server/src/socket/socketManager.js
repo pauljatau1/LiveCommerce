@@ -1666,11 +1666,11 @@ function initializeSocket(server) {
               stream.orders.push({
                 orderId: order.orderId,
                 buyer: {
-                  _id: buyer._id,
-                  firstName: buyer.firstName,
-                  lastName: buyer.lastName,
-                  username: buyer.username,
-                  profileImage: buyer.profileImage
+                  _id: stream.products[productIndex].currentBidder._id,
+                  firstName: stream.products[productIndex].currentBidder.firstName,
+                  lastName: stream.products[productIndex].currentBidder.lastName,
+                  username: stream.products[productIndex].currentBidder.username,
+                  profileImage: stream.products[productIndex].currentBidder.profileImage
                 },
                 orderDetails: {
                   _id: order._id,

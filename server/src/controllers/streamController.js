@@ -2585,11 +2585,11 @@ exports.endProductBidding = async (req, res) => {
           stream.orders.push({
             orderId: order.orderId,
             buyer: {
-              _id: winningBuyer._id,
-              firstName: winningBuyer.firstName,
-              lastName: winningBuyer.lastName,
-              username: winningBuyer.username,
-              profileImage: winningBuyer.profileImage
+              _id: stream.products[productIndex].currentBidder._id,
+              firstName: stream.products[productIndex].currentBidder.firstName,
+              lastName: stream.products[productIndex].currentBidder.lastName,
+              username: stream.products[productIndex].currentBidder.username,
+              profileImage: stream.products[productIndex].currentBidder.profileImage
             },
             orderDetails: {
               _id: order._id,
