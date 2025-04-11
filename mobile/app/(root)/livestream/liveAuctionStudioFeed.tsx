@@ -1719,6 +1719,164 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
     }
   }, [id]);
 
+  // Gesture handler for rapid heart taps with extreme performance optimization
+  const tapCount = useRef(0);
+  const lastTapTime = useRef(0);
+  const isInContinuousMode = useRef(false);
+  const TAP_THRESHOLD = 150; // Further reduced from 200ms for faster response
+  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
+  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastHeartGenTime = useRef(0);
+  const queuedTaps = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+  
+  // Debounced socket event emitter with exponential backoff
+  const debouncedSocketEmit = useCallback((eventType: string) => {
+    if (socketThrottleTimeout.current) {
+      clearTimeout(socketThrottleTimeout.current);
+    }
+    
+    // Exponential backoff for socket events to prevent network flooding
+    socketThrottleTimeout.current = setTimeout(() => {
+      const socketInstance = getSocket();
+      if (socketInstance) {
+        socketInstance.emit("stream_reaction", {
+          type: eventType,
+          streamId: id,
+        });
+      }
+      socketThrottleTimeout.current = null;
+    }, 1000); // Only send at most 1 socket event per second
+  }, [id]);
+  
+  // Ultra-optimized heart press handler for extreme rapid tapping
+  const handleHeartPress = useCallback(() => {
+    // Get current timestamp with high precision
+    const now = performance.now ? performance.now() : Date.now();
+    
+    // Always clear any existing timeout to prevent buildup
+    if (heartPressTimeout.current) {
+      clearTimeout(heartPressTimeout.current);
+      heartPressTimeout.current = null;
+    }
+    
+    // If we're already in continuous mode, just reset the timer
+    if (isInContinuousMode.current) {
+      // Extend continuous mode duration
+      heartPressTimeout.current = setTimeout(() => {
+        isInContinuousMode.current = false;
+        heartPressTimeout.current = null;
+        
+        // Stop the continuous hearts when timeout expires
+        if (heartsRef.current) {
+          heartsRef.current.stopContinuousHearts();
+        }
+      }, 5000); // Keep animation going for 5 seconds
+      
+      // Increment queued taps for batch processing
+      queuedTaps.current++;
+      
+      return;
+    }
+    
+    // Check if this is a rapid tap
+    const elapsed = now - lastTapTime.current;
+    lastTapTime.current = now;
+    
+    // Queue the tap for processing
+    queuedTaps.current++;
+    
+    // Process queued taps with request animation frame to stay in sync with display refresh rate
+    if (!animationFrameRef.current) {
+      animationFrameRef.current = requestAnimationFrame(() => {
+        // Generate hearts based on queued taps (immediate feedback)
+        if (heartsRef.current) {
+          if (queuedTaps.current > 2 || elapsed < TAP_THRESHOLD) {
+            // If many rapid taps or this is a rapid tap after previous one
+            if (!isInContinuousMode.current) {
+              // Switch to continuous mode
+              isInContinuousMode.current = true;
+              tapCount.current = 0;
+              
+              // Start the continuous heart animation
+              heartsRef.current.startContinuousHearts();
+              
+              // Send a single heart_burst event to the server
+              debouncedSocketEmit("heart_burst");
+              
+              // Set a timeout to exit continuous mode
+              heartPressTimeout.current = setTimeout(() => {
+                isInContinuousMode.current = false;
+                
+                // Stop the continuous hearts when timeout expires
+                if (heartsRef.current) {
+                  heartsRef.current.stopContinuousHearts();
+                }
+                
+                heartPressTimeout.current = null;
+              }, 5000); // Keep going for 5 seconds
+            }
+          } else {
+            // Single tap - generate one batch of hearts
+            heartsRef.current.generateHearts();
+            
+            // Increment tap counter
+            tapCount.current++;
+            
+            // Send regular heart reaction (but throttled)
+            debouncedSocketEmit("heart");
+            
+            // If we've reached the continuous threshold, switch modes
+            if (tapCount.current >= 2) {
+              isInContinuousMode.current = true;
+              tapCount.current = 0;
+              
+              // Start the continuous heart animation
+              heartsRef.current.startContinuousHearts();
+              
+              // Send heart_burst event
+              debouncedSocketEmit("heart_burst");
+              
+              // Set a timeout to exit continuous mode
+              heartPressTimeout.current = setTimeout(() => {
+                isInContinuousMode.current = false;
+                
+                // Stop the continuous hearts when timeout expires
+                if (heartsRef.current) {
+                  heartsRef.current.stopContinuousHearts();
+                }
+                
+                heartPressTimeout.current = null;
+              }, 5000); // Keep going for 5 seconds
+            }
+          }
+        }
+        
+        // Reset queued taps and animation frame ref
+        queuedTaps.current = 0;
+        animationFrameRef.current = null;
+      });
+    }
+  }, [debouncedSocketEmit]);
+
+  // Clean up any timeouts and animation frames when component unmounts
+  useEffect(() => {
+    return () => {
+      if (heartPressTimeout.current) {
+        clearTimeout(heartPressTimeout.current);
+        heartPressTimeout.current = null;
+      }
+      if (socketThrottleTimeout.current) {
+        clearTimeout(socketThrottleTimeout.current);
+        socketThrottleTimeout.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ height }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -2009,7 +2167,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                     <View style={styles.actionItem}>
                       <TouchableOpacity 
                         style={styles.actionButton}
-                        onPress={handleReactWithHeart}
+                        onPress={handleHeartPress}
                       >
                         <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
@@ -2106,45 +2264,6 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                       <View key={index}>{renderCommentItem({ item })}</View>
                     ))}
                   </ScrollView>
-                  // <View style={styles.commentsContainer}>
-                  //   <FlatList
-                  //     ref={commentsListRef}
-                  //     data={liveComments}
-                  //     renderItem={renderCommentItem}
-                  //     keyExtractor={(item) => item.id}
-                  //     showsVerticalScrollIndicator={false}
-                  //     contentContainerStyle={styles.commentsList}
-                  //     fadingEdgeLength={350}
-                  //     onLayout={() => {
-                  //       // Scroll to end on initial layout
-                  //       if (commentsListRef.current && liveComments.length > 0) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: true,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     onContentSizeChange={() => {
-                  //       // Scroll to end when content size changes
-                  //       if (commentsListRef.current && liveComments.length > 0) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: true,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     maintainVisibleContentPosition={{
-                  //       minIndexForVisible: 0,
-                  //       autoscrollToTopThreshold: 10,
-                  //     }}
-                  //     removeClippedSubviews={false}
-                  //     initialNumToRender={20}
-                  //     maxToRenderPerBatch={20}
-                  //     windowSize={21}
-                  //   />
-                  // </View>
                 )}
               </View>
 

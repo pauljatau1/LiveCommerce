@@ -1,13 +1,16 @@
 import { getToken } from "@/store/features/auth/utils";
 import { useToast } from '@/contexts/ToastContext';
 import { createContext, useContext, useReducer } from "react";
+import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 export const LivestreamContext = createContext({});
 
 export const LivestreamProvider = ({ children }) => {
   const { show } = useToast();
+  const router = useRouter();
   const initialState = {
     activeLivestream: [],
     isLoading: false,
@@ -55,6 +58,13 @@ export const LivestreamProvider = ({ children }) => {
       const userToken = JSON.parse(token);
 
       if (!userToken) {
+        router.push("/(root)/(auth)/sign-in");
+        show({
+          text1: "Error",
+          text2: "You must be logged in to join a stream",
+          type: "error",
+          topPosition: 18
+        });
         throw new Error("No authentication token found");
       }
 
