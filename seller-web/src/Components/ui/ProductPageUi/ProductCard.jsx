@@ -32,6 +32,9 @@ import {
     DialogTitle, 
     DialogDescription 
 } from "../../ui/dialog";
+import { Calendar } from "../calendar";
+import { Input } from "../input";
+import { Progress } from "../progress";
 
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
@@ -422,18 +425,10 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
     }, []);
 
     const handleStockIncreaseButton = () => {
-        setStockChange((prev) => prev + 1);
         setOperation('add');
     }
 
     const handleStockDecreaseButton = () => {
-        setStockChange((prev) => {
-            if (prev > 0) {
-                return prev + 1;
-            } else {
-                return 1;
-            }
-        });
         setOperation('subtract');
     }
 
@@ -457,30 +452,30 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                             <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </button>
-                    <div className="flex flex-col gap-4 sm:gap-6 pt-4">
+                    <div className="flex flex-col gap-6 pt-4">
                         <div className="text-center">
-                            <h1 className="text-lg sm:text-xl font-bold text-[#05031F]">Update Stock</h1>
-                            <p className="text-xs sm:text-sm text-gray-500 mt-1">Update stock quantity for {item?.name}</p>
+                            <h1 className="text-xl xl:text-2xl font-bold text-[#05031F]">Update Stock</h1>
+                            <p className="text-sm text-gray-500 mt-2">Update stock quantity for {item?.name}</p>
                         </div>
 
-                        <div className="flex flex-col gap-3 sm:gap-4">
-                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
                                 <img
                                     src={item?.images[0]?.url}
                                     alt={item?.name}
-                                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
+                                    className="w-16 h-16 rounded-lg object-contain bg-white"
                                 />
                                 <div>
-                                    <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{item?.name}</h3>
-                                    <p className="text-xs sm:text-sm text-gray-500">Current Stock: {item?.stock}</p>
+                                    <h3 className="font-medium text-[#05031F]">{item?.name}</h3>
+                                    <p className="text-sm text-gray-500">Current Stock: {item?.stock}</p>
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-3">
-                                <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="flex items-center gap-3">
                                     <button 
-                                        onClick={() => setOperation('add')}
-                                        className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium text-center text-sm ${
+                                        onClick={handleStockIncreaseButton}
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
                                             operation === 'add' 
                                                 ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]' 
                                                 : 'bg-gray-100 text-gray-600'
@@ -489,8 +484,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                         Add Stock
                                     </button>
                                     <button 
-                                        onClick={() => setOperation('subtract')}
-                                        className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-medium text-center text-sm ${
+                                        onClick={handleStockDecreaseButton}
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
                                             operation === 'subtract' 
                                                 ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]' 
                                                 : 'bg-gray-100 text-gray-600'
@@ -500,22 +495,20 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     </button>
                                 </div>
 
-                                <p className="text-xs sm:text-sm text-gray-500 text-center">
+                                <p className="text-sm text-gray-500 text-center">
                                     {operation === 'add' 
                                         ? `Adding stock will increase total to: ${item?.stock + stockChange}` 
                                         : `Removing stock will decrease total to: ${Math.max(0, item?.stock - stockChange)}`
                                     }
                                 </p>
 
-                                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                                <div className="flex items-center justify-between gap-4">
                                     <TextField
                                         label={`${operation === 'add' ? 'Add' : 'Remove'} Quantity`}
                                         type="number"
                                         value={stockChange}
                                         onChange={handleStockChange}
                                         variant="outlined"
-                                        fullWidth
-                                        size="small"
                                         InputProps={{
                                             inputProps: { min: 0 }
                                         }}
@@ -532,42 +525,42 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                             },
                                         }}
                                     />
-                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <div className="flex items-center gap-2">
                                         <button 
                                             onClick={() => setStockChange(prev => prev + 1)} 
-                                            className={`h-10 sm:h-14 flex-1 sm:w-14 rounded-md flex items-center justify-center ${
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
                                                 operation === 'add' 
                                                     ? 'bg-[#0BB248] text-white' 
                                                     : 'bg-[#DF0707] text-white'
                                             }`}
                                         >
-                                            <Icon icon="solar:add-circle-bold" className="w-5 sm:w-6 h-5 sm:h-6" />
+                                            <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
                                         </button>
                                         <button 
                                             onClick={() => setStockChange(prev => Math.max(0, prev - 1))} 
-                                            className={`h-10 sm:h-14 flex-1 sm:w-14 rounded-md flex items-center justify-center ${
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
                                                 operation === 'add' 
                                                     ? 'bg-[#0BB248] text-white' 
                                                     : 'bg-[#DF0707] text-white'
                                             }`}
                                             disabled={stockChange <= 0}
                                         >
-                                            <Icon icon="solar:minus-circle-bold" className="w-5 sm:w-6 h-5 sm:h-6" />
+                                            <Icon icon="solar:minus-circle-bold" className="w-6 h-6" />
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-4">
+                        <div className="flex gap-3 mt-4">
                             <button
-                                className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-10 sm:h-14 rounded-md text-sm"
+                                className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 rounded-md"
                                 onClick={onClose}
                             >
                                 Cancel
                             </button>
                             <button
-                                className={`flex-1 text-white px-2 py-1 h-10 sm:h-14 rounded-md transition-all duration-200 text-sm ${
+                                className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${
                                     operation === 'add' 
                                         ? 'bg-[#0BB248] hover:bg-[#0BB248]/80' 
                                         : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
@@ -1308,6 +1301,8 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isRerunLoading, setIsRerunLoading] = useState(false);
     const [showRerunDialog, setShowRerunDialog] = useState(false);
+    // Add the missing state declaration for delete confirmation dialog
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
@@ -1537,272 +1532,232 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     <PopoverTrigger asChild>
                         <button 
                             className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200"
-                            title="Edit product options"
+                            title="More actions"
                         >
-                            <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
+                            <Icon icon="solar:menu-dots-bold" width="18" height="18" color="#05031F" />
                         </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[200px] p-0" align="end">
-                        <Command>
-                            <CommandList>
-                                <CommandGroup>
-                                    <CommandItem onSelect={() => {
-                                        setIsDesktopPopoverOpen(false)
-                                        setOpenStockModal(true)
-                                    }} className="cursor-pointer">
-                                        <Icon icon="fluent:box-edit-24-filled" className="w-6 h-6 text-[#05031F]" />
-                                        <span className="ml-2 text-[#05031F]">Change Stock</span>
-                                    </CommandItem>
-                                    <CommandItem onSelect={() => setIsDesktopPopoverOpen(false)} className="cursor-pointer">
-                                        <Icon icon="clarity:clipboard-solid" className="w-6 h-6 text-[#05031F]" />
-                                        <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
-                                    </CommandItem>
-                                    {!isAuction && (
-                                        <CommandItem onSelect={() => {
-                                            setIsDesktopPopoverOpen(false);
-                                            setOpenBlipUploadModal(true);
-                                        }} className="cursor-pointer">
-                                            <Icon icon="solar:video-frame-bold" className="w-6 h-6 text-green-600" />
-                                            <span className="ml-2 text-green-600">Add Blip Video</span>
-                                        </CommandItem>
-                                    )}
-                                    {isAuction && (
-                                        <CommandItem onSelect={() => {
-                                            setIsDesktopPopoverOpen(false);
-                                            setOpenAuctionModal(true);
-                                        }} className="cursor-pointer">
-                                            <Icon icon="solar:graph-bold" className="w-6 h-6 text-purple-700" />
-                                            <span className="ml-2 text-purple-700">Auction Performance</span>
-                                        </CommandItem>
-                                    )}
-                                    {canRerunAuction && (
-                                        <CommandItem onSelect={() => {
-                                            setIsDesktopPopoverOpen(false);
-                                            setShowRerunDialog(true);
-                                        }} className="cursor-pointer">
-                                            <Icon icon="solar:restart-bold" className="w-6 h-6 text-[#05031F]" />
-                                            <span className="ml-2 text-[#05031F]">Rerun Auction ...</span>
-                                        </CommandItem>
-                                    )}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
+                    <PopoverContent className="w-48" align="end">
+                        <div className="flex flex-col">
+                            <Link
+                                to={`/dashboard/edit-product/${item._id}`}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200"
+                            >
+                                <Icon icon="solar:pen-bold" width="14" height="14" />
+                                <span className="text-sm">Edit Product</span>
+                            </Link>
+                            {!isAuction && (
+                                <button
+                                    onClick={() => setOpenStockModal(true)}
+                                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                >
+                                    <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
+                                    <span className="text-sm">Update Stock</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowDeleteDialog(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-600 rounded-md transition-all duration-200 text-left"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {
+                                    handleDeleteStatusLoading() ? (
+                                        <Icon icon="mdi:loader" className="animate-spin" width="14" height="14" />
+                                    ) : (
+                                        <Icon icon="solar:trash-bin-trash-bold" width="14" height="14" />
+                                    )
+                                }
+                                <span className="text-sm">{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
                     </PopoverContent>
                 </Popover>
-                <button 
-                    onClick={() => handleProductDelete(item._id)} 
-                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
-                    title="Permanently delete this product"
-                >
-                    {
-                        SpecificDeletedProduct ? (
-                            handleDeleteStatusLoading() ? <CircularProgress color="#DF0707" size={16} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
-                        ) : (
-                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
-                        )
-                    }
-                </button>
             </div>
         </div>
     );
 
     // Mobile Card Layout
     const MobileCard = () => (
-        <div className="flex flex-col gap-3 p-3 sm:p-4">
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                    <img
-                        src={item?.images[0]?.url}
-                        alt={item?.name}
-                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
-                    />
-                    <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                        <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
-                            <h3 className="font-medium text-[#05031F] line-clamp-2 text-sm sm:text-base">{item?.name}</h3>
-                        </Link>
-                        <p className="text-xs sm:text-sm text-gray-500 truncate">{item?.category}</p>
-                        {isAuction ? (
-                            <>
-                                <p className="text-xs sm:text-sm font-medium text-[#05031F]">
-                                    Current Bid: {formatCurrency(item.auction?.currentHighestBid?.amount || 0)}
-                                </p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${status.class}`}>
-                                        {status.text}
-                                    </div>
-                                    {canRerunAuction && (
-                                        <button
-                                            onClick={handleRerunClick}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
-                                            title="Schedule a new auction with this product"
-                                        >
-                                            <Icon icon="solar:restart-bold" className="w-3 h-3" />
-                                            <span className="text-xs">Rerun</span>
-                                        </button>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex items-center gap-3">
-                                    <p className="text-xs sm:text-sm font-medium text-[#05031F]">{formatCurrency(item?.price)}</p>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${uploadStatus?.class}`}>
-                                        {uploadStatus?.text}
-                                    </span>
-                                </div>
-                                <div className="flex gap-3 text-xs text-gray-500">
-                                    <p>Stock: {item?.stock}</p>
-                                    <p>Sold: {item?.stats?.soldCount || 0}</p>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
-                <div className="flex items-center gap-1 sm:gap-2">
-                    {!isAuction && (
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 relative">
+            <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                <img
+                    src={item?.images[0]?.url}
+                    alt={item?.name}
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
+                />
+                <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                    <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
+                        <h3 className="font-medium text-[#05031F] line-clamp-2 text-sm sm:text-base">{item?.name}</h3>
+                    </Link>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{item?.category}</p>
+                    {isAuction ? (
                         <>
-                            <button 
-                                onClick={() => setOpenProductDetails(true)}
-                                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
-                                title="View detailed information about this product"
-                            >
-                                <Icon icon="solar:eye-bold" className="w-4 h-4" />
-                            </button>
-                            <button 
-                                onClick={() => setOpenBlipUploadModal(true)}
-                                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200" 
-                                title="Upload a short promotional video for this product"
-                            >
-                                <Icon icon="solar:video-frame-bold" className="w-4 h-4" />
-                            </button>
+                            <p className="text-xs sm:text-sm font-medium text-[#05031F]">
+                                Current Bid: {formatCurrency(item.auction?.currentHighestBid?.amount || 0)}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${status.class}`}>
+                                    {status.text}
+                                </div>
+                                {canRerunAuction && (
+                                    <button
+                                        onClick={handleRerunClick}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
+                                        title="Schedule a new auction with this product"
+                                    >
+                                        <Icon icon="solar:restart-bold" className="w-3 h-3" />
+                                        <span className="text-xs">Rerun</span>
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-3">
+                                <p className="text-xs sm:text-sm font-medium text-[#05031F]">{formatCurrency(item?.price)}</p>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${uploadStatus?.class}`}>
+                                    {uploadStatus?.text}
+                                </span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-gray-500">
+                                <p>Stock: {item?.stock}</p>
+                                <p>Sold: {item?.stats?.soldCount || 0}</p>
+                            </div>
                         </>
                     )}
-                    {isAuction && (
-                        <button 
-                            onClick={() => setOpenAuctionModal(true)}
-                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200" 
-                            title="View auction statistics and bidding history"
-                        >
-                            <Icon icon="solar:graph-bold" className="w-4 h-4" />
-                        </button>
-                    )}
-                    <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <button 
-                                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200"
-                                title="Edit product options"
-                            >
-                                <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0" align="end">
-                            <Command>
-                                <CommandList>
-                                    <CommandGroup>
-                                        <CommandItem onSelect={() => {
-                                            setIsMobilePopoverOpen(false)
-                                            setOpenStockModal(true)
-                                        }}>
-                                            <Icon icon="fluent:box-edit-24-filled" className="w-5 h-5 text-[#05031F]" />
-                                            <span className="ml-2 text-[#05031F] text-sm">Change Stock</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => setIsMobilePopoverOpen(false)} className="cursor-pointer">
-                                            <Icon icon="clarity:clipboard-solid" className="w-5 h-5 text-[#05031F]" />
-                                            <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F] text-sm">Edit Product</Link>
-                                        </CommandItem>
-                                        {!isAuction && (
-                                            <CommandItem onSelect={() => {
-                                                setIsMobilePopoverOpen(false);
-                                                setOpenBlipUploadModal(true);
-                                            }} className="cursor-pointer">
-                                                <Icon icon="solar:video-frame-bold" className="w-5 h-5 text-green-600" />
-                                                <span className="ml-2 text-green-600 text-sm">Add Blip Video</span>
-                                            </CommandItem>
-                                        )}
-                                        {isAuction && (
-                                            <CommandItem onSelect={() => {
-                                                setIsMobilePopoverOpen(false);
-                                                setOpenAuctionModal(true);
-                                            }} className="cursor-pointer">
-                                                <Icon icon="solar:graph-bold" className="w-5 h-5 text-purple-700" />
-                                                <span className="ml-2 text-purple-700 text-sm">Auction Performance</span>
-                                            </CommandItem>
-                                        )}
-                                        {canRerunAuction && (
-                                            <CommandItem onSelect={() => {
-                                                setIsMobilePopoverOpen(false);
-                                                setShowRerunDialog(true);
-                                            }} className="cursor-pointer">
-                                                <Icon icon="solar:restart-bold" className="w-5 h-5 text-[#05031F]" />
-                                                <span className="ml-2 text-[#05031F] text-sm">Rerun Auction</span>
-                                            </CommandItem>
-                                        )}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                    <button 
-                        onClick={() => handleProductDelete(item._id)} 
-                        className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
-                        title="Permanently delete this product"
-                    >
-                        {handleDeleteStatusLoading() ? 
-                            <CircularProgress color="#DF0707" size={16} /> : 
-                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
-                        }
-                    </button>
                 </div>
-                {isAuction && (
-                    <div className="flex items-center text-xs text-gray-500 gap-1">
-                        <Icon icon="heroicons:clock" className="w-3.5 h-3.5" />
-                        <span>{getTimeLeft(item.auction)}</span>
-                    </div>
-                )}
+            </div>
+            <div className="absolute right-4 top-4">
+                <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                            <Icon icon="solar:menu-dots-bold" width="16" height="16" color="#05031F" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48" align="end">
+                        <div className="flex flex-col">
+                            <Link
+                                to={`/dashboard/edit-product/${item._id}`}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200"
+                            >
+                                <Icon icon="solar:pen-bold" width="14" height="14" />
+                                <span className="text-sm">Edit Product</span>
+                            </Link>
+                            {!isAuction ? (
+                                <>
+                                    <button
+                                        id={`product-details-${item._id}`}
+                                        onClick={() => setOpenProductDetails(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="solar:eye-bold" width="14" height="14" />
+                                        <span className="text-sm">View Details</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setOpenStockModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
+                                        <span className="text-sm">Update Stock</span>
+                                    </button>
+                                    <button
+                                        id={`upload-blip-${item._id}`}
+                                        onClick={() => setOpenBlipUploadModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="solar:video-frame-bold" width="14" height="14" />
+                                        <span className="text-sm">Upload Blip</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        id={`auction-performance-${item._id}`}
+                                        onClick={() => setOpenAuctionModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="solar:graph-bold" width="14" height="14" />
+                                        <span className="text-sm">Auction Performance</span>
+                                    </button>
+                                    {canRerunAuction && (
+                                        <button
+                                            id={`rerun-auction-${item._id}`}
+                                            onClick={() => setShowRerunDialog(true)}
+                                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                        >
+                                            <Icon icon="solar:restart-bold" width="14" height="14" />
+                                            <span className="text-sm">Rerun Auction</span>
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <button
+                                id={`delete-product-${item._id}`}
+                                onClick={() => setShowDeleteDialog(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-600 rounded-md transition-all duration-200 text-left"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {
+                                    handleDeleteStatusLoading() ? (
+                                        <Icon icon="mdi:loader" className="animate-spin" width="14" height="14" />
+                                    ) : (
+                                        <Icon icon="solar:trash-bin-trash-bold" width="14" height="14" />
+                                    )
+                                }
+                                <span className="text-sm">{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
         </div>
     );
 
     return (
         <>
-            <div className="lg:hidden border-b border-[#E5E7EB] bg-white">
-                <MobileCard />
+            <div className="bg-white">
+                {DesktopCard()}
+                {MobileCard()}
             </div>
-            <DesktopCard />
             
-            {/* Modals */}
-            <StockUpdateModal
-                open={openStockModal}
-                onClose={() => setOpenStockModal(false)}
+            {/* Stock Update Modal */}
+            <StockUpdateModal 
+                open={openStockModal} 
+                onClose={() => setOpenStockModal(false)} 
                 item={item}
                 onUpdate={handleStockUpdate}
                 isSubmitting={isSubmitting}
             />
             
-            <AuctionPerformanceModal
-                open={openAuctionModal}
+            {/* Product Details Modal */}
+            <ProductDetailsModal 
+                open={openProductDetails} 
+                onClose={() => setOpenProductDetails(false)}
+                productId={item._id}
+                handleDelete={() => setShowDeleteDialog(true)}
+            />
+            
+            {/* Auction Performance Modal */}
+            <AuctionPerformanceModal 
+                open={openAuctionModal} 
                 onClose={() => setOpenAuctionModal(false)}
                 auctionId={item._id}
                 setShowRerunDialog={setShowRerunDialog}
             />
-
-            <ProductDetailsModal
-                open={openProductDetails}
-                onClose={() => setOpenProductDetails(false)}
-                productId={item._id}
-                handleDelete={handleProductDelete}
-            />
-
-            <RerunAuctionDialog
+            
+            {/* Rerun Auction Dialog */}
+            <RerunAuctionDialog 
                 open={showRerunDialog}
                 onClose={() => setShowRerunDialog(false)}
                 onSubmit={handleRerunAuction}
                 isLoading={isRerunLoading}
-                defaultValues={item.auction}
+                defaultValues={{
+                    startDate: new Date(),
+                    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+                    startingBid: item.auction?.startingBid || item.price
+                }}
             />
-
+            
             {/* Blip Upload Modal */}
             <BlipUploadModal
                 open={openBlipUploadModal}
@@ -1810,18 +1765,71 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 productId={item._id}
                 product={item}
             />
+            
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent className="sm:max-w-[500px] max-w-[90vw] mx-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg sm:text-xl text-red-600">Confirm Product Deletion</DialogTitle>
+                        <DialogDescription className="text-sm sm:text-base">
+                            Are you sure you want to delete this product? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 space-y-4">
+                        <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                            <img
+                                src={item?.images[0]?.url}
+                                alt={item?.name}
+                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
+                            />
+                            <div>
+                                <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{item?.name}</h3>
+                                <p className="text-xs sm:text-sm text-gray-500">SKU: {item?.sku || 'N/A'}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+                            <h4 className="font-medium text-yellow-800 mb-2">What happens when you delete this product?</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-yellow-700">
+                                <li>The product will be permanently removed from your inventory</li>
+                                <li>Any active orders containing this product will not be affected</li>
+                                <li>Product analytics and historical data will be lost</li>
+                                <li>The product will no longer appear in your store</li>
+                                {isAuction && (
+                                    <li>All auction data and bids associated with this product will be lost</li>
+                                )}
+                            </ul>
+                        </div>
+                        
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setShowDeleteDialog(false)}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-all duration-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleProductDelete(item._id);
+                                    setShowDeleteDialog(false);
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 flex items-center gap-2"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {handleDeleteStatusLoading() ? (
+                                    <Icon icon="mdi:loader" className="animate-spin w-4 h-4" />
+                                ) : (
+                                    <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                )}
+                                <span>{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
-    );
-};
+    )
+}
 
-ProductCard.propTypes = {
-    item: PropTypes.object.isRequired,
-    setIsStockUpdated: PropTypes.func.isRequired,
-    isAuction: PropTypes.bool
-};
-
-// Memoize the entire ProductCard component
-export default React.memo(ProductCard, (prevProps, nextProps) => {
-    return prevProps.item._id === nextProps.item._id &&
-        prevProps.item.stock === nextProps.item.stock;
-});
+export default ProductCard;
