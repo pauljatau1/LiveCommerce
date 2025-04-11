@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   server: {
     host: "0.0.0.0",
-    allowedHosts: ["seller.staging.auqli.live", "seller.production.auqli.live"]
+    allowedHosts: ["seller.staging.auqli.live", "seller.production.auqli.live", "seller.auqli.live"]
   },
   plugins: [react()],
   resolve: {
