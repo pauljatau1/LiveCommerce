@@ -1688,10 +1688,12 @@ function initializeSocket(server) {
                 createdAt: new Date()
               });
               
-              console.log('[BID] 52a. Added order to stream\'s orders array', {
+              console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
                 streamOrdersCount: stream.orders.length,
                 latestOrderId: order.orderId
               });
+
+
               
               await stream.save();
 
@@ -1701,7 +1703,7 @@ function initializeSocket(server) {
               // Emit socket notification about order creation
               io.to(streamRoom).emit('auction_order_created', {
                 success: true,
-                message: 'Order created for auction win',
+                message: 'Order created for bid win',
                 orderId: orderResult.orders[0].orderId,
                 streamId: stream._id,
                 orderDetails: orderResult.orders[0],
