@@ -56,7 +56,7 @@ const DashboardLayout = () => {
         />
   
         {/* Main Content */}
-        <div className={displayScreenMode()}>
+        <div className={`flex-1 ${displayScreenMode()}`}>
           <Header
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
@@ -65,7 +65,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode || isMessagesPage ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
+          <div className={`${fullScreenMode || isMessagesPage ? 'mt-[88px]' : 'mt-[88px] px-5 md:px-8 pb-7 lg:pb-14'}`}>
             <Outlet context={outletContext} />
           </div>
         </div>

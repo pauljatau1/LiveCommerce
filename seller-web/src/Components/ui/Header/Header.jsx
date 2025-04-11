@@ -276,8 +276,15 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   )
 
   return (
-    <header className={`${fullScreenMode ? 'hidden' : 'block bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]' }`}>
-      <div className="mx-auto py-3">
+    <header className={`${
+      fullScreenMode 
+        ? 'hidden' 
+        : `block bg-white border-b border-[#EDF2F7] fixed top-0 z-50 
+           ${isSidebarOpen ? 'left-[257px]' : 'left-0'} right-0 
+           md:left-[257px] xl:left-[307px] 
+           w-full md:w-[calc(100%-257px)] xl:w-[calc(100%-307px)]`
+    }`}>
+      <div className="py-3 px-5 md:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             {!isSidebarOpen && (

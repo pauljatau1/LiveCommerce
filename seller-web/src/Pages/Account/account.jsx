@@ -333,17 +333,17 @@ export default function AccountPage() {
         <>
           {profile.accountPending ? (
             // Account under review banner
-            <div className="bg-blue-50 mt-10 border-l-4 border-blue-500 p-4 mb-6 shadow-sm">
-              <div className="flex items-start md:items-center flex-col md:flex-row gap-3 md:gap-6">
+            <div className="bg-blue-50 mt-6 sm:mt-10 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+              <div className="flex items-start flex-col gap-3 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center gap-2">
-                  <Icon icon="solar:clock-circle-bold" className="h-6 w-6 text-blue-500 flex-shrink-0" />
-                  <h3 className="text-lg font-semibold text-blue-800">Your account is under review</h3>
+                  <Icon icon="solar:clock-circle-bold" className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
+                  <h3 className="text-base sm:text-lg font-semibold text-blue-800">Your account is under review</h3>
                 </div>
-                <div className="flex-1 text-blue-700 text-sm md:ml-2">
+                <div className="flex-1 text-blue-700 text-xs sm:text-sm md:ml-2">
                   Your verification information has been submitted and is currently being reviewed. You'll be notified when your account is either approved or declined.
                 </div>
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700 font-medium py-2 px-5 text-white rounded-md shadow whitespace-nowrap"
+                  className="bg-blue-600 hover:bg-blue-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
                   onClick={handleShowVerificationDialog}
                 >
                   View Details
@@ -352,17 +352,17 @@ export default function AccountPage() {
             </div>
           ) : (
             // Account needs verification banner
-            <div className="bg-amber-50 mt-10 border-l-4 border-amber-500 p-4 mb-6 shadow-sm">
-              <div className="flex items-start md:items-center flex-col md:flex-row gap-3 md:gap-6">
+            <div className="bg-amber-50 mt-6 sm:mt-10 border-l-4 border-amber-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+              <div className="flex items-start flex-col gap-3 md:flex-row md:items-center md:gap-6">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />
-                  <h3 className="text-lg font-semibold text-amber-800">Your account is not verified</h3>
+                  <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 flex-shrink-0" />
+                  <h3 className="text-base sm:text-lg font-semibold text-amber-800">Your account is not verified</h3>
                 </div>
-                <div className="flex-1 text-amber-700 text-sm md:ml-2">
+                <div className="flex-1 text-amber-700 text-xs sm:text-sm md:ml-2">
                   Complete your account verification to unlock all seller features including adding products and livestreaming.
                 </div>
                 <Button 
-                  className="bg-amber-600 hover:bg-amber-700 font-medium py-2 px-5 text-white rounded-md shadow whitespace-nowrap"
+                  className="bg-amber-600 hover:bg-amber-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
                   onClick={handleCompleteVerification}
                 >
                   Complete Verification
@@ -374,7 +374,7 @@ export default function AccountPage() {
       )}
 
       {/* Cover Image Section */}
-      <div className="relative h-24 sm:h-36 w-full overflow-hidden mt-4 sm:mt-6 rounded-lg">
+      <div className="relative h-24 sm:h-36 w-full overflow-hidden mt-2 sm:mt-4 rounded-lg">
         <input
           type="file"
           id="banner-upload"
@@ -389,16 +389,16 @@ export default function AccountPage() {
             alt="Cover"
             className="h-full w-full object-cover"
           />
-          <div className="absolute right-4 top-4 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-            <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+          <div className="absolute right-3 top-3 p-1.5 sm:right-4 sm:top-4 sm:p-2 bg-black/50 rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <Camera className="h-3 w-3 sm:h-5 sm:w-5 text-white" />
           </div>
         </label>
       </div>
 
       {/* Profile Content */}
-      <div className="mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative -mt-12 sm:-mt-16 mb-6 sm:mb-8">
-          <div className="relative mb-6 sm:mb-8 z-20">
+      <div className="mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="relative -mt-10 sm:-mt-16 mb-4 sm:mb-8">
+          <div className="relative mb-4 sm:mb-8 z-20">
             <input
               type="file"
               id="avatar-upload"
@@ -407,26 +407,26 @@ export default function AccountPage() {
               className="hidden"
             />
             <label htmlFor="avatar-upload" className="cursor-pointer block relative group">
-              <Avatar className="h-20 w-20 sm:h-28 sm:w-28 border-4 border-background rounded-full ring-4 ring-green-600/20">
+              <Avatar className="h-16 w-16 sm:h-24 sm:w-24 md:h-28 md:w-28 border-4 border-background rounded-full ring-2 sm:ring-4 ring-green-600/20">
                 <AvatarImage src={profile?.storeAvatar?.url || "/placeholder.svg"} />
-                <AvatarFallback>{`${profile?.firstName?.[0]}${profile?.lastName?.[0]}`}</AvatarFallback>
+                <AvatarFallback>{`${profile?.firstName?.[0] || ''}${profile?.lastName?.[0] || ''}`}</AvatarFallback>
               </Avatar>
-              <div className="absolute right-0 bottom-0 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+              <div className="absolute right-0 bottom-0 p-1 sm:p-1.5 md:p-2 bg-black/50 rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <Camera className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-4 md:w-4 text-white" />
               </div>
             </label>
           </div>
 
           {/* Rest of the content */}
-          <div className="space-y-4 sm:space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-0">
+          <div className="space-y-3 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-0">
               <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{profile?.storeName || `${profile?.firstName} ${profile?.lastName}`}</h1>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
+                  <h1 className="text-lg sm:text-2xl font-bold tracking-tight">{profile?.storeName || `${profile?.firstName} ${profile?.lastName}`}</h1>
                   {profile?.isVerified && (
                     <Badge
                       variant="secondary"
-                      className="font-medium bg-green-600/10 text-green-600 px-2 sm:px-3 py-1 flex items-center gap-1 rounded-full text-xs sm:text-sm"
+                      className="font-medium bg-green-600/10 text-green-600 px-1.5 sm:px-3 py-0.5 sm:py-1 flex items-center gap-1 rounded-full text-xs"
                     >
                       <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       Verified
@@ -435,13 +435,20 @@ export default function AccountPage() {
                 </div>
 
                 {/* Contact info */}
-                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                  <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent hover:text-green-600">
-                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                    {profile?.businessEmail || profile?.email}
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="p-0 h-auto hover:bg-transparent hover:text-green-600 truncate max-w-full"
+                    title={profile?.businessEmail || profile?.email}
+                  >
+                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0" />
+                    <span className="truncate">
+                      {profile?.businessEmail || profile?.email}
+                    </span>
                   </Button>
                   <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent hover:text-green-600">
-                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0" />
                     {profile?.businessAddress ?
                       `${profile.businessAddress.city}, ${profile.businessAddress.country}` :
                       profile?.warehouseAddress ?
@@ -451,13 +458,13 @@ export default function AccountPage() {
                       'Address not available'
                     }
                   </Button>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                     <span className="flex items-center sm:border-l sm:pl-4">
-                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-2 text-green-600" />
+                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0 text-green-600" />
                       Joined {format(new Date(profile?.createdAt), 'MMMM yyyy')}
                     </span>
                     <span className="flex items-center sm:border-l sm:pl-4">
-                      <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-2 text-green-600" />
+                      <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0 text-green-600" />
                       {profile?.businessNumber || profile?.phoneNumber}
                     </span>
                   </div>
@@ -467,23 +474,23 @@ export default function AccountPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="hover:bg-green-600/10 hover:text-green-600"
+                className="mt-2 sm:mt-0 hover:bg-green-600/10 hover:text-green-600 text-xs sm:text-sm self-start h-8 sm:h-9"
                 onClick={() => navigate('/dashboard/settings')}
               >
-                <Edit className="h-4 w-4 mr-2" />
+                <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Edit Profile
               </Button>
             </div>
 
             {/* Description */}
-            <div className="space-y-3 text-sm max-w-3xl mb-6 sm:mb-8">
+            <div className="space-y-2 text-xs sm:text-sm max-w-3xl mb-4 sm:mb-6">
               <p className="leading-relaxed text-sm sm:text-base">
                 {profile?.aboutStore || "No store description available"}
               </p>
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
               {[
                 { 
                   label: "Streams", 
@@ -522,7 +529,7 @@ export default function AccountPage() {
                         {[...Array(5)].map((_, index) => (
                           <svg
                             key={index}
-                            className={`w-3 h-3 sm:w-4 sm:h-4 ${
+                            className={`w-2.5 h-2.5 sm:w-4 sm:h-4 ${
                               index < Math.floor(reviewStats.averageRating || 0.0)
                                 ? "text-yellow-400"
                                 : "text-gray-300"
@@ -538,7 +545,7 @@ export default function AccountPage() {
                           </svg>
                         ))}
                       </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         ({reviewStats.totalReviews || "0"})
                       </span>
                     </div>
@@ -553,22 +560,22 @@ export default function AccountPage() {
                   className="hover:border-green-600/50 transition-colors cursor-pointer"
                   onClick={stat.onClick}
                 >
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
+                  <CardContent className="p-2 sm:p-4">
+                    <div className="flex items-center justify-between mb-1 sm:mb-2">
+                      <span className="text-2xs sm:text-xs font-medium text-muted-foreground">{stat.label}</span>
                       <stat.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
                     </div>
-                    <div className="text-lg sm:text-2xl font-bold">{stat.value}</div>
+                    <div className="text-sm sm:text-lg md:text-2xl font-bold">{stat.value}</div>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
             {/* Tabs Navigation */}
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <div className="min-w-[500px] px-4 sm:px-0">
-                <Tabs defaultValue="reviews" className="space-y-4">
-                  <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <div className="border-b sm:mb-2">
+              <Tabs defaultValue="reviews" className="space-y-4 mt-4">
+                <div className="overflow-x-auto">
+                  <TabsList className="w-max sm:w-full justify-start rounded-none h-auto p-0 bg-transparent flex">
                     {[
                       { value: "reviews", label: "Reviews", icon: MessageSquare },
                       { value: "shop", label: "Shop", icon: ShoppingBag },
@@ -579,71 +586,71 @@ export default function AccountPage() {
                       <TabsTrigger
                         key={tab.value}
                         value={tab.value}
-                        className="px-4 sm:px-6 py-2 sm:py-3 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none text-sm sm:text-base"
+                        className="px-3 sm:px-6 py-2 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none text-xs sm:text-sm whitespace-nowrap"
                       >
-                        <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                         {tab.label}
                       </TabsTrigger>
                     ))}
                   </TabsList>
-                  <TabsContent value="reviews" className="min-h-[400px]">
-                    <ReviewsTab sellerId={profile?._id} />
-                  </TabsContent>
-                  <TabsContent value="shop" className="min-h-[400px]">
-                    <ShopTab sellerId={profile?._id} />
-                  </TabsContent>
-                  <TabsContent value="blips" className="min-h-[400px]">
-                    <BlipsTab sellerId={profile?._id} />
-                  </TabsContent>
-                  <TabsContent value="shows" className="min-h-[400px]">
-                    <ShowsTab sellerId={profile?._id} />
-                  </TabsContent>
-                  <TabsContent value="posts" className="min-h-[400px]">
-                    <div className="flex flex-col items-center justify-center h-full py-16">
-                      <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg text-center max-w-md">
-                        <UserSquareIcon className="h-12 w-12 mx-auto text-green-600 mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Coming Soon</h3>
-                        <p className="text-muted-foreground mb-4">Post feature is currently under development and will be available soon!</p>
-                        <Badge className="mx-auto bg-green-600 hover:bg-green-700">Stay tuned</Badge>
-                      </div>
+                </div>
+                <TabsContent value="reviews" className="min-h-[400px] pt-4">
+                  <ReviewsTab sellerId={profile?._id} />
+                </TabsContent>
+                <TabsContent value="shop" className="min-h-[400px] pt-4">
+                  <ShopTab sellerId={profile?._id} />
+                </TabsContent>
+                <TabsContent value="blips" className="min-h-[400px] pt-4">
+                  <BlipsTab sellerId={profile?._id} />
+                </TabsContent>
+                <TabsContent value="shows" className="min-h-[400px] pt-4">
+                  <ShowsTab sellerId={profile?._id} />
+                </TabsContent>
+                <TabsContent value="posts" className="min-h-[400px] pt-4">
+                  <div className="flex flex-col items-center justify-center h-full py-8 sm:py-16">
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 sm:p-6 rounded-lg text-center max-w-md">
+                      <UserSquareIcon className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-green-600 mb-3 sm:mb-4" />
+                      <h3 className="text-lg sm:text-xl font-semibold mb-2">Coming Soon</h3>
+                      <p className="text-muted-foreground mb-4 text-sm sm:text-base">Post feature is currently under development and will be available soon!</p>
+                      <Badge className="mx-auto bg-green-600 hover:bg-green-700">Stay tuned</Badge>
                     </div>
-                    {/* <PostsTab sellerId={profile?._id} /> */}
-                  </TabsContent>
-                </Tabs>
-              </div>
+                  </div>
+                  {/* <PostsTab sellerId={profile?._id} /> */}
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
       </div>
 
       {/* Followers Dialog */}
-      <Dialog open={followersDialogOpen} onOpenChange={setFollowersDialogOpen} size="3xl">
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={followersDialogOpen} onOpenChange={setFollowersDialogOpen}>
+        <DialogContent className="max-w-[92vw] sm:max-w-2xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <Heart className="h-5 w-5 text-rose-500" />
+            <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
+              <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-rose-500" />
               Followers
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               People who are following your store
             </DialogDescription>
           </DialogHeader>
           
-          <div className="max-h-[60vh] overflow-y-auto mt-4">
+          <div className="max-h-[60vh] overflow-y-auto mt-3 sm:mt-4">
             {followersLoading && followers.length === 0 ? (
-              <div className="py-8 flex justify-center">
+              <div className="py-6 sm:py-8 flex justify-center">
                 <LinearProgress color="success" className="w-3/4" />
               </div>
             ) : followers.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-6 sm:py-8 text-muted-foreground text-sm">
                 No followers yet
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {followers.map((follower) => (
-                  <div key={follower._id} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border border-muted">
+                  <div key={follower._id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg border">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-muted">
                         <AvatarImage src={follower.profileImageUrl || "/placeholder.svg"} />
                         <AvatarFallback>
                           {follower.name && follower.name !== "undefined undefined" 
@@ -652,16 +659,16 @@ export default function AccountPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">
+                        <p className="font-medium text-sm sm:text-base truncate max-w-[120px] sm:max-w-full">
                           {follower.name && follower.name !== "undefined undefined" 
                             ? follower.name 
                             : "Anonymous User"}
                         </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-2xs sm:text-xs text-muted-foreground">
                           <span>Followed: {new Date(follower.followedAt).toLocaleDateString()}</span>
                           {follower.totalOrders > 0 && (
                             <span className="flex items-center gap-1">
-                              <ShoppingBag className="h-3 w-3" />
+                              <ShoppingBag className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                               {follower.totalOrders} orders
                             </span>
                           )}
@@ -672,26 +679,28 @@ export default function AccountPage() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        className="flex items-center gap-1 text-xs"
+                        className="flex items-center gap-1 text-2xs sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
                         onClick={() => {
                           setFollowersDialogOpen(false);
                           navigate(`/dashboard/customer/${follower.buyerId}`);
                         }}
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        View Profile
+                        <ExternalLink className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                        <span className="hidden sm:inline">View Profile</span>
+                        <span className="sm:hidden">View</span>
                       </Button>
                     )}
                   </div>
                 ))}
                 
                 {followersPagination.hasMore && (
-                  <div className="flex justify-center pt-4">
+                  <div className="flex justify-center pt-3 sm:pt-4">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={loadMoreFollowers}
                       disabled={followersLoading}
+                      className="text-xs sm:text-sm h-7 sm:h-8"
                     >
                       {followersLoading ? "Loading..." : "Load More"}
                     </Button>
@@ -704,33 +713,33 @@ export default function AccountPage() {
       </Dialog>
 
       {/* Following Dialog */}
-      <Dialog open={followingDialogOpen} onOpenChange={setFollowingDialogOpen} size="3xl">
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={followingDialogOpen} onOpenChange={setFollowingDialogOpen}>
+        <DialogContent className="max-w-[92vw] sm:max-w-2xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <Users className="h-5 w-5 text-purple-500" />
+            <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
               Following
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               People you are following
             </DialogDescription>
           </DialogHeader>
           
-          <div className="max-h-[60vh] overflow-y-auto mt-4">
+          <div className="max-h-[60vh] overflow-y-auto mt-3 sm:mt-4">
             {followingLoading ? (
-              <div className="py-8 flex justify-center">
+              <div className="py-6 sm:py-8 flex justify-center">
                 <LinearProgress color="success" className="w-3/4" />
               </div>
             ) : following.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-6 sm:py-8 text-muted-foreground text-sm">
                 You're not following anyone yet
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {following.map((user) => (
-                  <div key={user.buyerId} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border border-muted">
+                  <div key={user.buyerId} className="flex items-center justify-between p-2 sm:p-3 rounded-lg border">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-muted">
                         <AvatarFallback>
                           {user.firstName && user.lastName 
                             ? `${user.firstName[0]}${user.lastName[0]}`
@@ -738,28 +747,29 @@ export default function AccountPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">
+                        <p className="font-medium text-sm sm:text-base truncate max-w-[120px] sm:max-w-full">
                           {user.firstName && user.lastName 
                             ? `${user.firstName} ${user.lastName}` 
                             : "Anonymous User"}
                         </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-2xs sm:text-xs text-muted-foreground">
                           <span>Following since: {new Date(user.followDate).toLocaleDateString()}</span>
-                          <span>{user.email}</span>
+                          <span className="truncate max-w-[150px] sm:max-w-[200px]">{user.email}</span>
                         </div>
                       </div>
                     </div>
                     <Button 
                       variant="outline" 
                       size="sm"
-                      className="flex items-center gap-1 text-xs"
+                      className="flex items-center gap-1 text-2xs sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
                       onClick={() => {
                         setFollowingDialogOpen(false);
                         navigate(`/dashboard/customer/${user.buyerId}`);
                       }}
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      View Profile
+                      <ExternalLink className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                      <span className="hidden sm:inline">View Profile</span>
+                      <span className="sm:hidden">View</span>
                     </Button>
                   </div>
                 ))}

@@ -279,27 +279,27 @@ export default function Payout() {
 
   // Add empty state components
   const EmptyTransactions = () => (
-    <div className="text-center py-12">
-      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900">No transactions yet</h3>
-      <p className="text-gray-500 mt-2">Your transactions will appear here once you start making sales.</p>
+    <div className="text-center py-8 sm:py-12">
+      <FileText className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+      <h3 className="text-base sm:text-lg font-medium text-gray-900">No transactions yet</h3>
+      <p className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2 max-w-xs mx-auto">Your transactions will appear here once you start making sales.</p>
     </div>
   );
 
   const EmptyWithdrawals = () => (
-    <div className="text-center py-12">
-      <ArrowDownToLine className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900">No withdrawals yet</h3>
-      <p className="text-gray-500 mt-2">Your withdrawal history will appear here once you make your first withdrawal.</p>
+    <div className="text-center py-8 sm:py-12">
+      <ArrowDownToLine className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+      <h3 className="text-base sm:text-lg font-medium text-gray-900">No withdrawals yet</h3>
+      <p className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2 max-w-xs mx-auto">Your withdrawal history will appear here once you make your first withdrawal.</p>
     </div>
   );
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50/30 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50/30 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">Loading...</p>
         </div>
       </div>
     );
@@ -308,116 +308,116 @@ export default function Payout() {
   return (
     <>
       <div className="min-h-screen bg-gray-50/30">
-        <div className="container mx-auto px-4 py-6 space-y-4">
+        <div className="container mx-auto sm:px-4 py-4 sm:py-6 space-y-4">
           {/* Financial Cards - Enhanced Design */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100">
-                  <CircleDollarSign className="h-6 w-6 text-blue-600" />
+            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100">
+                  <CircleDollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Earnings</p>
-                  <h3 className="text-xl font-bold text-gray-900 truncate">
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">Total Earnings</p>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
                     {formatCurrency(transactionSummary.totalEarnings)}
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center text-sm text-green-600 mb-3">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
+              <div className="flex items-center text-xs sm:text-sm text-green-600 mb-3">
+                <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                 <span className="font-medium">+12.5%</span>
                 <span className="text-gray-500 ml-1">from last month</span>
               </div>
               <Button 
                 variant="outline" 
-                className="w-full"
+                className="w-full text-xs sm:text-sm py-1.5 sm:py-2"
                 onClick={() => setActiveTab("transactions")}
               >
                 View Transactions
               </Button>
             </Card>
 
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100">
-                  <Clock className="h-6 w-6 text-yellow-600" />
+            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Pending Payouts</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">Pending Payouts</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
                     {formatCurrency(financialData.amountOnHold)}
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <BanknoteIcon className="h-4 w-4 mr-1" />
+              <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <BanknoteIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                 <span className="text-gray-500">
                   {withdrawals.filter(w => w.status === 'pending').length} pending requests
                 </span>
               </div>
             </Card>
 
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100">
-                  <ArrowDownToLine className="h-6 w-6 text-purple-600" />
+            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100">
+                  <ArrowDownToLine className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Withdrawals</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">Total Withdrawals</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
                     {formatCurrency(transactionSummary.totalWithdrawals)}
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Clock className="h-4 w-4 mr-1" />
+              <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                 <span className="text-gray-500">Last withdrawal 2 days ago</span>
               </div>
             </Card>
 
-            <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
+            <Card className="p-4 sm:p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
               <div className="relative z-10">
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="p-3 rounded-xl bg-white/10 backdrop-blur-sm">
-                    <Wallet className="h-6 w-6 text-white" />
+                <div className="flex items-center gap-3 sm:gap-4 mb-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-white/10 backdrop-blur-sm">
+                    <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-300">Available Balance</p>
-                    <h3 className="text-2xl font-bold text-white">
+                    <p className="text-xs sm:text-sm font-medium text-gray-300">Available Balance</p>
+                    <h3 className="text-lg sm:text-2xl font-bold text-white">
                       {formatCurrency(transactionSummary.currentBalance)}
                     </h3>
                   </div>
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0">
+                    <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0 text-xs sm:text-sm py-1.5 sm:py-2">
                       <ArrowDownToLine className="h-4 w-4 mr-2" />
                       Withdraw Funds
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogTitle>Create Withdrawal Request</DialogTitle>
-                    <DialogDescription className="py-4">
-                      <div className="space-y-4">
-                        <div className="p-4 bg-gray-50 rounded-lg mb-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Current Bank Details</h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between">
+                  <DialogContent className="w-[95%] sm:max-w-md rounded-lg">
+                    <DialogTitle className="text-base sm:text-lg">Create Withdrawal Request</DialogTitle>
+                    <DialogDescription className="py-3 sm:py-4">
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
+                          <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Current Bank Details</h4>
+                          <div className="space-y-1 sm:space-y-2">
+                            <div className="flex justify-between text-xs sm:text-sm">
                               <span className="text-gray-600">Bank:</span>
                               <span className="font-medium">{bankDetails.bankName}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-xs sm:text-sm">
                               <span className="text-gray-600">Account:</span>
                               <span className="font-medium">{bankDetails.accountNumber}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-xs sm:text-sm">
                               <span className="text-gray-600">Name:</span>
                               <span className="font-medium">{bankDetails.accountName}</span>
                             </div>
                           </div>
                           <Button
                             variant="link"
-                            className="mt-2 h-auto p-0 text-blue-600"
+                            className="mt-1 sm:mt-2 h-auto p-0 text-blue-600 text-xs sm:text-sm"
                             onClick={() => {
                               document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
                               window.location.href = "/dashboard/settings?tab=payment";
@@ -428,38 +428,38 @@ export default function Payout() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                             Available Balance: {formatCurrency(financialData.availableForWithdrawal)}
                           </label>
                           <input
                             type="number"
                             value={withdrawalAmount || ''}
                             onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
-                            className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                            className="w-full p-2 sm:p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
                             placeholder="Enter amount"
                             min="1000"
                             max={financialData.availableForWithdrawal}
                           />
                         </div>
                         {error && (
-                          <p className="text-red-500 text-sm">{error}</p>
+                          <p className="text-red-500 text-xs sm:text-sm">{error}</p>
                         )}
-                        <div className="text-sm text-gray-500">
-                          <Info className="h-4 w-4 inline mr-1" />
+                        <div className="text-xs sm:text-sm text-gray-500">
+                          <Info className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                           Minimum withdrawal amount is ₦1,000
                         </div>
                       </div>
                     </DialogDescription>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-end">
                       <Button
                         onClick={handleWithdrawalRequest}
                         disabled={loading || !withdrawalAmount}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm"
                       >
                         {loading ? 'Processing...' : 'Withdraw'}
                       </Button>
                       <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
+                        <Button variant="outline" className="w-full sm:w-auto text-sm">Cancel</Button>
                       </DialogClose>
                     </DialogFooter>
                   </DialogContent>
@@ -479,7 +479,7 @@ export default function Payout() {
                 <h3 className="font-medium text-gray-800">Withdrawal Method</h3>
               </div>
               <Link to="/dashboard/settings?tab=payment">
-                <Button variant="outline" className="border-2 w-full sm:w-auto">
+                <Button variant="outline" className="border-2 w-full sm:w-auto text-xs sm:text-sm py-1.5 sm:py-2">
                   Go To Bank Settings
                 </Button>
               </Link>
@@ -488,22 +488,22 @@ export default function Payout() {
               <div className="flex items-center p-3 bg-gray-50 rounded-lg">
                 <Building2 className="h-5 w-5 text-gray-500 mr-3" />
                 <div>
-                  <p className="text-sm text-gray-500">Bank Name</p>
-                  <p className="font-medium">{bankDetails.bankName}</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Bank Name</p>
+                  <p className="font-medium text-sm sm:text-base">{bankDetails.bankName}</p>
                 </div>
               </div>
               <div className="flex items-center p-3 bg-gray-50 rounded-lg">
                 <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">#</span>
                 <div>
-                  <p className="text-sm text-gray-500">Account Number</p>
-                  <p className="font-medium">{bankDetails.accountNumber}</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Account Number</p>
+                  <p className="font-medium text-sm sm:text-base">{bankDetails.accountNumber}</p>
                 </div>
               </div>
               <div className="flex items-center p-3 bg-gray-50 rounded-lg">
                 <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">@</span>
                 <div>
-                  <p className="text-sm text-gray-500">Account Name</p>
-                  <p className="font-medium">{bankDetails.accountName}</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Account Name</p>
+                  <p className="font-medium text-sm sm:text-base">{bankDetails.accountName}</p>
                 </div>
               </div>
             </div>
@@ -518,50 +518,50 @@ export default function Payout() {
                     <Receipt className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Financial History</h3>
-                    <p className="text-sm text-gray-500">Track all your financial activities</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">Financial History</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Track all your financial activities</p>
                   </div>
                 </div>
                 <TabsList className="grid w-full sm:w-[400px] grid-cols-2">
-                <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                
+                  <TabsTrigger value="withdrawals" className="text-xs sm:text-sm">Withdrawals</TabsTrigger>
+                  <TabsTrigger value="transactions" className="text-xs sm:text-sm">Transactions</TabsTrigger>
                 </TabsList>
               </div>
 
               <TabsContent value="transactions" className="mt-4">
                 <div className="bg-white rounded-lg shadow-sm border">
                   <div className="p-4 border-b">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-blue-50">
-                          <ArrowDownUp className="h-5 w-5 text-blue-600" />
+                        <div className="p-2 sm:p-2.5 rounded-lg bg-blue-50">
+                          <ArrowDownUp className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Transaction History</h3>
-                          <p className="text-sm text-gray-500">View all your financial transactions</p>
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Transaction History</h3>
+                          <p className="text-xs sm:text-sm text-gray-500">View all your financial transactions</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Select defaultValue="all">
-                          <SelectTrigger className="w-[180px]">
+                          <SelectTrigger className="w-full sm:w-[180px] text-xs sm:text-sm">
                             <SelectValue placeholder="Filter by type" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Transactions</SelectItem>
                             <SelectItem value="order_payment">Order Payments</SelectItem>
-                            {/* <SelectItem value="platform_fee">Platform Fees</SelectItem> */}
                             <SelectItem value="withdrawal">Withdrawals</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" className="gap-2">
-                          <Calendar className="h-4 w-4" />
+                        <Button variant="outline" className="gap-2 text-xs sm:text-sm w-full sm:w-auto">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                           Date Range
                         </Button>
                       </div>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
+                  
+                  {/* Desktop Transaction Table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     {transactions && transactions.length > 0 ? (
                       <Table>
                         <TableHeader>
@@ -699,25 +699,119 @@ export default function Payout() {
                       <EmptyTransactions />
                     )}
                   </div>
+                  
+                  {/* Mobile Transaction Cards */}
+                  <div className="sm:hidden">
+                    {transactions && transactions.length > 0 ? (
+                      <div className="divide-y">
+                        {transactions.map((transaction) => (
+                          <div key={transaction._id} className="p-4 hover:bg-gray-50">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className={`p-1.5 rounded-md ${
+                                  transaction.type === 'order_payment' ? 'bg-green-50' :
+                                  transaction.type === 'platform_fee' ? 'bg-orange-50' :
+                                  transaction.type === 'processing_fee' ? 'bg-red-50' :
+                                  'bg-gray-50'
+                                }`}>
+                                  {getTransactionTypeIcon(transaction.type)}
+                                </div>
+                                <div>
+                                  <span className="font-medium text-sm">
+                                    {getTransactionLabel(transaction.type)}
+                                  </span>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(transaction.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                transaction.status === 'completed' ? 'bg-green-50 text-green-700' :
+                                transaction.status === 'pending' ? 'bg-yellow-50 text-yellow-700' :
+                                transaction.status === 'failed' ? 'bg-red-50 text-red-700' :
+                                'bg-gray-50 text-gray-700'
+                              }`}>
+                                {transaction.status}
+                              </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mb-2 text-sm">
+                              <div>
+                                <p className="text-xs text-gray-500">Order ID</p>
+                                <p className="font-medium">#{transaction.orderId}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Net Amount</p>
+                                <p className={`font-medium ${getTransactionColor(transaction.type, transaction.netAmount)}`}>
+                                  {transaction.netAmount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(transaction.netAmount))}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="text-xs text-gray-600 mt-1">
+                              {transaction.description}
+                            </div>
+                            
+                            {transaction.breakdown && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="w-full mt-2 text-xs text-gray-500 hover:text-gray-700 justify-start p-0 h-auto">
+                                    <Info className="h-3 w-3 mr-1" />
+                                    View Breakdown
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="w-[90%] rounded-lg">
+                                  <DialogTitle className="text-sm">Transaction Breakdown</DialogTitle>
+                                  <div className="space-y-2 py-4">
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600">Gross Amount</span>
+                                      <span className="font-medium">{formatCurrency(transaction.breakdown.grossAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-red-600 text-sm">
+                                      <span>Platform Fee</span>
+                                      <span>-{formatCurrency(transaction.breakdown.platformFee)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-red-600 text-sm">
+                                      <span>Processing Fee</span>
+                                      <span>-{formatCurrency(transaction.breakdown.processingFee)}</span>
+                                    </div>
+                                    <div className="border-t pt-2 flex justify-between font-medium text-sm">
+                                      <span>Net Amount</span>
+                                      <span className="text-green-600">{formatCurrency(transaction.breakdown.netAmount)}</span>
+                                    </div>
+                                  </div>
+                                  <Button size="sm" className="w-full mt-2 bg-gray-100 text-gray-700">Close</Button>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <EmptyTransactions />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="withdrawals" className="mt-4">
                 <div className="bg-white rounded-lg shadow-sm border">
                   <div className="p-4 border-b">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-green-50">
-                          <ArrowDownToLine className="h-5 w-5 text-green-600" />
+                        <div className="p-2 sm:p-2.5 rounded-lg bg-green-50">
+                          <ArrowDownToLine className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Withdrawal History</h3>
-                          <p className="text-sm text-gray-500">Track all your withdrawal requests</p>
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Withdrawal History</h3>
+                          <p className="text-xs sm:text-sm text-gray-500">Track all your withdrawal requests</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Select defaultValue="all">
-                          <SelectTrigger className="w-[180px]">
+                          <SelectTrigger className="w-full sm:w-[180px] text-xs sm:text-sm">
                             <SelectValue placeholder="Filter by status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -727,14 +821,16 @@ export default function Payout() {
                             <SelectItem value="failed">Failed</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" className="gap-2">
-                          <Calendar className="h-4 w-4" />
+                        <Button variant="outline" className="gap-2 text-xs sm:text-sm w-full sm:w-auto">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                           Date Range
                         </Button>
                       </div>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
+                  
+                  {/* Desktop Withdrawals Table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     {withdrawals && withdrawals.length > 0 ? (
                       <Table>
                         <TableHeader>
@@ -805,6 +901,55 @@ export default function Payout() {
                       <EmptyWithdrawals />
                     )}
                   </div>
+                  
+                  {/* Mobile Withdrawals Cards */}
+                  <div className="sm:hidden">
+                    {withdrawals && withdrawals.length > 0 ? (
+                      <div className="divide-y">
+                        {withdrawals.map((withdrawal) => (
+                          <div key={withdrawal._id} className="p-4 hover:bg-gray-50">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <div className="font-medium text-sm">{withdrawal.reference}</div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(withdrawal.requestDate).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getTransactionStatusColor(withdrawal.status)}`}>
+                                {withdrawal.status}
+                              </span>
+                            </div>
+                            
+                            <div className="mt-3 flex justify-between items-center">
+                              <div className="text-sm font-medium text-green-600">
+                                {formatCurrency(withdrawal.amount)}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Building2 className="h-3 w-3 text-gray-500" />
+                                <span>{withdrawal.bankDetails.bankName} • {withdrawal.bankDetails.accountNumber.slice(-4)}</span>
+                              </div>
+                            </div>
+                            
+                            {withdrawal.status === 'completed' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewReceipt(withdrawal)}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 mt-2 w-full justify-center"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Download Receipt
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <EmptyWithdrawals />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -815,14 +960,14 @@ export default function Payout() {
             <DialogTrigger asChild>
               <button id="withdrawalSuccessDialog" className="hidden">Withdrawal Success</button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogTitle className="text-green-600">Success!</DialogTitle>
-              <DialogDescription className="py-4">
+            <DialogContent className="w-[90%] sm:max-w-md rounded-lg">
+              <DialogTitle className="text-green-600 text-base sm:text-lg">Success!</DialogTitle>
+              <DialogDescription className="py-3 sm:py-4 text-sm sm:text-base">
                 Your withdrawal request has been created successfully.
               </DialogDescription>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm">
                     Close
                   </Button>
                 </DialogClose>
