@@ -79,7 +79,7 @@ const Connect = () => {
           }}
         >
           <View className="h-full pt-[20px]">
-            <View style={styles.header}>
+            {/* <View style={styles.header}>
               <Text className="text-[24px] font-LexendDecaSemiBold text-[#ccc]">
                 Auqli Connect
               </Text>
@@ -92,7 +92,7 @@ const Connect = () => {
                   gap: 20,
                 }}
               >
-                {/* <Pressable style={styles.headerBtn}>
+                <Pressable style={styles.headerBtn}>
                   <Image
                     source={require("../../../assets/icons/connect-search.png")}
                     style={{
@@ -101,10 +101,7 @@ const Connect = () => {
                     }}
                     resizeMode="cover"
                   />
-                  <Text className="text-[7px] text-[#94A3B1] font-LexendDeca">
-                    Search
-                  </Text>
-                </Pressable> */}
+                </Pressable>
                 <Pressable style={styles.headerBtn}>
                   <Image
                     source={
@@ -119,12 +116,12 @@ const Connect = () => {
                     }}
                     resizeMode="cover"
                   />
-                  {/* <Text className="text-[7px] text-[#94A3B1] ">Profile</Text> */}
+                  
                 </Pressable>
               </View>
-            </View>
+            </View> */}
 
-            <View style={styles.searchSection}>
+            {/* <View style={styles.searchSection}>
               <Pressable
                 style={styles.inputContainer}
                 onPress={() => {
@@ -155,9 +152,9 @@ const Connect = () => {
                   Post
                 </Text>
               </View>
-            </View>
+            </View> */}
 
-            <View className="flex-row items-center justify-between border-b-[1px] border-b-[#888787 px-[16px]">
+            {/* <View className="flex-row items-center justify-between border-b-[1px] border-b-[#888787 px-[16px]">
               {tabs?.map((tab, index) => (
                 <TouchableOpacity
                   style={[styles.tab, activeTab == tab && styles.activeTab]}
@@ -176,7 +173,7 @@ const Connect = () => {
               ))}
             </View>
 
-            {renderContent()}
+            {renderContent()} */}
             {/* <Tab.Navigator
               screenOptions={{
                 lazy: true,
@@ -194,6 +191,8 @@ const Connect = () => {
                 component={TrendingPostsList}
               />
             </Tab.Navigator> */}
+
+            <EmptyConnect />
 
             <BottomSheet
               bgColor="#121212"
@@ -213,6 +212,41 @@ const Connect = () => {
         </SafeAreaView>
       </KeyboardAvoidingView>
     </>
+  );
+};
+
+const EmptyConnect = () => {
+  return (
+    <View className="relative justify-center items-center flex-1">
+      <Image
+        source={require("../../../assets/images/connect-coming-soon.png")}
+        resizeMode="contain"
+        style={{
+          width: 300,
+          height: 300,
+          marginBottom: 24,
+        }}
+      />
+      <Text className="self-center text-[#ccc] text-[24px] mb-[24px] font-LexendDecaBold">
+        Get ready to vibe with your audience like never before.
+      </Text>
+      <Text className="self-center text-[#ccc] text-[14px] font-LexendDecaLight">
+        Launching soon inside Auqli, Stay tuned!
+      </Text>
+
+      <View className="gap-[24px] p-[30px]">
+        <View className="flex-row items-center justify-center relative shrink">
+          <TouchableOpacity
+            className="justify-center items-center p-[10.5px] rounded-[30px] border-[1px] border-[#16783A] bg-[#16783A]"
+            onPress={() => router.push("/(root)/(tabs)/home/home")}
+          >
+            <Text className="text-white text-[12px] font-LexendDeca">
+              Back to Homepage
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 };
 

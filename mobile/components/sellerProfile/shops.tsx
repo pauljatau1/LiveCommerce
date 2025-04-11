@@ -18,25 +18,16 @@ import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import ShopCard from "./shopItem";
 import FilterSheet from "../catalog/filterSheet";
 
-const Shops = ({
-  sellerId,
-  scrollY,
-  headerHeight,
-  index,
-}: {
-  sellerId: string;
-  scrollY: any;
-  headerHeight: any;
-  index: any;
-}) => {
+const Shops = ({ sellerId, headerHeight, index }: any) => {
   const [page, setPage] = useState<number>(1);
-  const { data, isLoading, isFetching, isError } = useGetSellerProductsQuery({
-    id: sellerId,
-    page: page,
-    visibility: "visible",
-    status: "active",
-    limit: 10,
-  });
+  const { data, isLoading, isFetching, isError, refetch } =
+    useGetSellerProductsQuery({
+      id: sellerId,
+      page: page,
+      visibility: "visible",
+      status: "active",
+      limit: 30,
+    });
   const [filter, setFilter] = useState<string>("None");
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -72,7 +63,7 @@ const Shops = ({
     setSelectedFilters(filters);
   };
 
-  const renderProducts = (item: any) => {
+  const renderProducts = useCallback(({ item }: any) => {
     return (
       <View
         className="w-[100%] basis-[45%]"
@@ -105,26 +96,40 @@ const Shops = ({
         />
       </View>
     );
+  }, []);
+
+  const fetchMoreProducts = () => {
+    if (isFetching || hasReachedEnd) {
+      return;
+    }
+    if (!isFetching && !hasReachedEnd) {
+      console.log("catalog pagination ", {
+        isFetching,
+        hasReachedEnd,
+        page,
+      });
+      setPage((prevPage) => prevPage + 1);
+    }
   };
 
-  const fetchMoreProducts = useCallback(() => {
-    if (!isFetching && !hasReachedEnd) {
-      setPage((prev) => prev + 1);
-    }
-  }, [isFetching, hasReachedEnd]);
-
   useEffect(() => {
-    if (data?.products) {
-      setProducts([...products, ...data.products]);
-      setFilteredProducts([...filteredProducts, ...data.products]);
+    if (data) {
+      if (data?.products) {
+        setProducts([...products, ...data.products]);
+        setFilteredProducts([...filteredProducts, ...data.products]);
+      }
+
+      if (data?.currentPage == data?.totalPages || data?.totalPages == 0) {
+        setHasReachedEnd(true);
+      }
     }
   }, [data]);
 
-  useEffect(() => {
-    if (flatListRef.current) {
-      flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
-    }
-  }, [index]);
+  // useEffect(() => {
+  //   if (flatListRef.current) {
+  //     flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
+  //   }
+  // }, [index]);
 
   const renderListHeader = useCallback(() => {
     return (
@@ -173,14 +178,15 @@ const Shops = ({
         </View>
       ) : (
         <View>
-          <Animated.FlatList
+          <FlatList
             ref={flatListRef}
             data={filteredProducts}
-            renderItem={({ item, index }) => renderProducts(item)}
-            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderProducts}
+            keyExtractor={(item, index) => item?._id || index.toString()}
             numColumns={2}
             onEndReached={fetchMoreProducts}
-            onEndReachedThreshold={0.5}
+            // nestedScrollEnabled={true}
+            // onEndReachedThreshold={0.5}
             columnWrapperStyle={{
               justifyContent: "space-between",
               marginBottom: 20,
@@ -190,10 +196,10 @@ const Shops = ({
             }}
             ListHeaderComponent={renderListHeader}
             showsVerticalScrollIndicator={false}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true },
-            )}
+            // onScroll={Animated.event(
+            //   [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            //   { useNativeDriver: true },
+            // )}
           />
         </View>
       )}

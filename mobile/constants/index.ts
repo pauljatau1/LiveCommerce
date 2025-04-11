@@ -34,6 +34,7 @@ import onboarding3 from "@/assets/images/onboarding3.jpg";
 import signUpCar from "@/assets/images/signup-car.png";
 import waving from "@/assets/icons/waving.png";
 import sadEmoji from "@/assets/icons/emoji-sad.png";
+import auqliLogo from "@/assets/icons/auqli-logo.png";
 import circleBackArrow from "@/assets/icons/circle-back-arrow.png";
 import sneaker from "@/assets/images/sneaker.png";
 import pant from "@/assets/images/pant.png";
@@ -137,6 +138,7 @@ export const icons = {
   radio_buttonIcon,
   verifyBadge,
   sadEmoji,
+  auqliLogo,
 };
 
 export const productsData = [
