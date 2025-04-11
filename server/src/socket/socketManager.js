@@ -1489,7 +1489,7 @@ function initializeSocket(server) {
             type: 'auction_winner',
             user: buyer.username || buyer.firstName || 'Buyer',
             avatar: buyer.profileImage?.url || '',
-            content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
+            content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()} higher than the max bid`,
             data: {
               message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()} higher than the max bid`,
               streamId: stream._id.toString(),
