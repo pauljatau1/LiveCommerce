@@ -193,8 +193,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     productImage: {
-        width: 70,
-        height: '100%',
+        width: 60,
+        height: 60,
         borderRadius: 6,
         marginRight: 12,
     },
