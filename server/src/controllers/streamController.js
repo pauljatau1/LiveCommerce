@@ -3092,9 +3092,12 @@ exports.getRelatedStreams = async (req, res) => {
       });
     }
 
+    // Convert streamId to ObjectId to ensure proper comparison
+    const sourceObjectId = new mongoose.Types.ObjectId(streamId);
+
     // Build query to find related streams
     const query = {
-      _id: { $ne: streamId } // Exclude the source stream
+      _id: { $ne: sourceObjectId } // Exclude the source stream using ObjectId
     };
 
     // Add status filter if provided
@@ -3106,9 +3109,6 @@ exports.getRelatedStreams = async (req, res) => {
     if (excludeSeller === 'true' || excludeSeller === true) {
       query.seller = { $ne: sourceStream.seller };
     }
-
-    // Build the base aggregation pipeline to find related streams
-    const aggregationPipeline = [];
 
     // Match based on category and tags first (highest relevance)
     const categoryTagsQuery = {
@@ -3148,7 +3148,12 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching category
     const categoryMatch = await Stream.find({
       ...categoryQuery,
-      _id: { $nin: categoryAndTagMatch.map(stream => stream._id) }
+      _id: { 
+        $nin: [
+          ...categoryAndTagMatch.map(stream => stream._id),
+          sourceObjectId // Make sure to exclude source stream here too
+        ] 
+      }
     })
       .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price')
@@ -3159,7 +3164,13 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching tags
     const tagMatch = await Stream.find({
       ...tagsQuery,
-      _id: { $nin: [...categoryAndTagMatch.map(stream => stream._id), ...categoryMatch.map(stream => stream._id)] }
+      _id: { 
+        $nin: [
+          ...categoryAndTagMatch.map(stream => stream._id), 
+          ...categoryMatch.map(stream => stream._id),
+          sourceObjectId // Make sure to exclude source stream here too
+        ] 
+      }
     })
       .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price')
@@ -3171,7 +3182,8 @@ exports.getRelatedStreams = async (req, res) => {
     const existingIds = [
       ...categoryAndTagMatch.map(stream => stream._id),
       ...categoryMatch.map(stream => stream._id),
-      ...tagMatch.map(stream => stream._id)
+      ...tagMatch.map(stream => stream._id),
+      sourceObjectId // Make sure to exclude source stream here too
     ];
 
     const newestStreams = await Stream.find({
@@ -3184,16 +3196,37 @@ exports.getRelatedStreams = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Combine all results in order of relevance
-    const allResults = [
+    // Double check: filter out the source stream ID from all results
+    const filteredResults = [
       ...categoryAndTagMatch,
       ...categoryMatch,
       ...tagMatch,
       ...newestStreams
-    ];
+    ].filter(stream => stream._id.toString() !== streamId);
+
+    // If we didn't find any related streams and the status is 'live',
+    // it's better to return an empty array than potentially showing the source stream
+    if (filteredResults.length === 0) {
+      return res.json({
+        streams: [],
+        sourceStream: {
+          _id: sourceStream._id,
+          title: sourceStream.title,
+          category: sourceStream.category,
+          tags: sourceStream.tags,
+          type: sourceStream.type
+        },
+        pagination: {
+          total: 0,
+          pages: 0,
+          currentPage: parsedPage,
+          hasMore: false
+        }
+      });
+    }
 
     // Apply pagination to the combined results
-    const paginatedResults = allResults.slice(skip, skip + parsedLimit);
+    const paginatedResults = filteredResults.slice(skip, skip + parsedLimit);
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = paginatedResults.map(stream => {
@@ -3205,7 +3238,7 @@ exports.getRelatedStreams = async (req, res) => {
     });
 
     // Calculate total number of related streams
-    const total = allResults.length;
+    const total = filteredResults.length;
 
     // Return the related streams along with source stream info and pagination
     res.json({
