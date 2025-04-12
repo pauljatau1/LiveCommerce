@@ -16,6 +16,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
+import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
 
 const CreateLiveAuction = () => {
   const { setHeaderName, setNavName } = useOutletContext()
@@ -26,6 +27,8 @@ const CreateLiveAuction = () => {
   const [dragActive, setDragActive] = useState(false);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
+  const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
 
   // Date and time picker states
   const [startDate, setStartDate] = useState(dayjs());
@@ -443,6 +446,17 @@ const CreateLiveAuction = () => {
 
   const handleContinue = () => {
     if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.products.some(product => product.selected) && livestream?.scheduledStartTime) {
+      // Check for products with zero or negative quantity
+      const invalidProducts = livestream.products.filter(product => 
+        product.selected && (product.quantity <= 0 || !product.quantity)
+      );
+
+      if (invalidProducts.length > 0) {
+        setZeroQuantityProducts(invalidProducts);
+        setShowZeroQuantityModal(true);
+        return;
+      }
+
       navigate('/dashboard/live-streams/submit-live-auction');
     } else {
       toast.error('Please fill all fields', {
@@ -1182,6 +1196,14 @@ const CreateLiveAuction = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal for zero quantity products */}
+      {showZeroQuantityModal && (
+        <ZeroQuantityProductsModal
+          products={zeroQuantityProducts}
+          onClose={() => setShowZeroQuantityModal(false)}
+        />
+      )}
     </div>
   );
 };
