@@ -305,6 +305,10 @@ exports.startStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
+        
+        // Define the stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
         io.to(streamRoom).emit('stream_notification', notificationObj);
       }
 
