@@ -1,7 +1,8 @@
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import React, { useEffect } from 'react';
 import { Product } from '@/types/streams/livestreamStudio';
 import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { GlassImage } from './components';
 
 interface LiveAuctionProductCardProps {
     product: {
@@ -85,9 +86,13 @@ const LiveAuctionProductCard = ({
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={styles.contentRow}>
                     {/* Product Image */}
-                    <Image
+                    <GlassImage
                         source={product?.images?.[0]?.url ? { uri: product?.images[0].url } : require('@/assets/icons/animoji.png')}
-                        style={styles.productImage}
+                        imageStyle={styles.productImage}
+                        glassStyle={{borderRadius: 6}}
+                        placeholderColor="rgba(255, 255, 255, 0.1)"
+                        blurIntensity={20}
+                        tint="dark"
                         resizeMode="cover"
                     />
 
@@ -188,8 +193,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     productImage: {
-        width: 70,
-        height: '100%',
+        width: 60,
+        height: 60,
         borderRadius: 6,
         marginRight: 12,
     },

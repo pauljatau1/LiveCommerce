@@ -30,7 +30,11 @@ const ExploreMarket = ({ name, switchMode }: any) => {
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const { data, isFetching, refetch, error, isLoading } =
-    useGetAllProductsQuery({ category: name, page, limit: 10 });
+    useGetAllProductsQuery({
+      category: encodeURIComponent(name),
+      page,
+      limit: 10,
+    });
   const [filter, setFilter] = useState<string>("None");
   const [selectedFilters, setSelectedFilters] = useState<any>();
   const [products, setProducts] = useState<any[]>([]);

@@ -50,6 +50,7 @@ interface Props {
   productId: string;
   closeSheet: () => void;
   channel: string;
+  streamId?: string;
 }
 
 const CheckoutNow = ({
@@ -57,6 +58,7 @@ const CheckoutNow = ({
   sellerId,
   closeSheet,
   channel = "marketplace",
+  streamId,
 }: Props) => {
   const {
     data: product,
@@ -311,6 +313,7 @@ const CheckoutNow = ({
       additionalDetails: "Please handle with care",
       paidFromWallet: selectedPayment == 1,
       channel,
+      streamId,
     };
     const token = await getToken();
     try {
@@ -358,7 +361,14 @@ const CheckoutNow = ({
       console.log("order payment Response ==> ", response.data);
       closeSheet();
 
-      return router.push("/(root)/orders/orders");
+      // Only navigate to orders page if not in a livestream
+      if (!channel || channel !== "liveshow") {
+        return router.push("/(root)/orders/orders");
+      } else {
+        // For livestream purchases, just show success toast and stay on stream
+        toast.success("Order placed successfully!");
+        return;
+      }
 
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
@@ -369,7 +379,11 @@ const CheckoutNow = ({
       if (e?.response.status == 400) {
         closeSheet();
         toast.success("Order Placed successfully");
-        return router.push("/(root)/orders/orders");
+        
+        // Only navigate to orders page if not in a livestream
+        if (!channel || channel !== "liveshow") {
+          return router.push("/(root)/orders/orders");
+        }
       }
       console.log("could not Pay for  order", e?.response?.message);
       toast.error("Could not Pay for order");

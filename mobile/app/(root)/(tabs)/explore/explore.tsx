@@ -17,9 +17,11 @@ import { useGetAllCategoriesQuery } from "@/services/categories";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { SimpleLineIcons } from "@expo/vector-icons";
 import { formatNumber } from "@/helpers/helpers";
+import { useIsFocused } from "@react-navigation/native";
 
 const Explore = () => {
-  const { data, isLoading } = useGetAllCategoriesQuery({});
+  const isFocused = useIsFocused();
+  const { data, isLoading, refetch } = useGetAllCategoriesQuery({});
   const [categoriesData, setCategoriesData] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("Popular");
 
@@ -78,8 +80,7 @@ const Explore = () => {
                 /> */}
                 <Text className="text-[9px] text-[#3A3A3A] font-LexendDecaMedium">
                   {formatNumber(category?.statistics?.streams?.active)} Streams
-                  | {formatNumber(category?.statistics?.streams?.active)}{" "}
-                  Products
+                  | {formatNumber(category?.statistics?.totalProducts)} Products
                 </Text>
               </View>
             </View>
@@ -90,6 +91,12 @@ const Explore = () => {
       </Pressable>
     );
   };
+
+  useEffect(() => {
+    if (isFocused) {
+      refetch();
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     if (filter == "Popular") {

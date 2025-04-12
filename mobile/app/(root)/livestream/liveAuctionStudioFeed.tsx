@@ -70,13 +70,17 @@ import LiveAuctionProductCard from "./liveAuctionProductCard";
 import BidVariationSelector from "@/app/(root)/livestream/bidVariationSelector";
 import StreamViewers from "./streamViewers";
 import StreamInfo from "./StreamInfo";
+import StreamOrders from "./streamOrders";
 import BidErrorMessage from "./BidErrorMessage";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import OrderCreatedNotification from "./OrderCreatedNotification";
+import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
+import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
+import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 
 const { width, height } = Dimensions.get("window");
 
-const LiveAuctionStudio = ({ id, isVisible }: any) => {
+const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
@@ -90,10 +94,19 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
   } = useLivestream() as LivestreamContextType;
-  const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
+  const [streamConfig, setStreamConfig] = useState<any>(null);
+  const [streamData, setStreamData] = useState<any>(null);
+  const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
+  const [showStreamInfo, setShowStreamInfo] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const [status, setStatus] = useState("Initializing...");
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+  const [isFollowingLoading2, setIsFollowingLoading2] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [sellerId, setSellerId] = useState<string>("");
 
@@ -128,7 +141,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   // Array of live comments
   const [liveComments, setLiveComments] = useState<StreamNotification[]>([]);
   const [commentInput, setCommentInput] = useState("");
-  const commentsListRef = useRef<any>(null);
+  const commentsListRef = useRef<ScrollView>(null);
   // Add a new state to track if video is actually playing
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   // Replace standard state with refs for instant updates
@@ -137,10 +150,6 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   const [, forceUpdate] = useState({});
   const { width: screenWidth } = Dimensions.get("window");
 
-  // Add new state for viewers bottom sheet
-  const [showViewers, setShowViewers] = useState(false);
-  // Add new state for stream info bottom sheet
-  const [showStreamInfo, setShowStreamInfo] = useState(false);
   // Add state for menu popover
   const [showMenuPopover, setShowMenuPopover] = useState(false);
   // Add stream details state
@@ -154,6 +163,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     actualStartTime: "",
     status: "live",
     type: "auction",
+    sellerFollowers: 0,
   });
 
   // Add state for leave stream loading
@@ -188,6 +198,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   // Add state for host presence
   const [isHostPresent, setIsHostPresent] = useState(true);
   const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+
+  // Add ref for heart animation
+  const heartsRef = useRef<FloatingHeartsRef>(null);
 
   // Update detailedViewers when activeStreamDetails changes
   useEffect(() => {
@@ -302,7 +315,8 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
         // Set products from stream data
         if (streamDetails.products && streamDetails.products.length > 0) {
-          //console.log('Setting products from streamDetails.products:', streamDetails.products);
+          console.log('Setting products from streamDetails.products:', JSON.stringify(streamDetails.products));
+
           // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
           const productsWithStatus = streamDetails.products.map((product) => ({
             ...product,
@@ -337,7 +351,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
           //console.log('productsWithStatus', productsWithStatus);
           setStreamProducts(productsWithStatus);
-          //console.log('streamProductsFirstAllocation', streamProducts);
+          console.log('streamProductsFirstAllocation', streamProducts);
 
           // Find if there's an active product for bidding and set it as current
           const activeProductIndex = productsWithStatus.findIndex(
@@ -451,6 +465,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
             actualStartTime: stream.startTime || new Date().toISOString(),
             status: stream.status || "live",
             type: "auction",
+            sellerFollowers: stream.sellerFollowers || 0,
           });
         }
       }
@@ -523,10 +538,11 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         initializeSocket(
           userToken,
           handleStreamNotification,
+          id as string, // Add streamId parameter as the third argument
           setIsBidSending,
           handleBidTimerUpdate,
           handleBidTimerComplete,
-          handleAuctionOrderCreated,
+          handleAuctionOrderCreated
         );
       }
     } catch (error) {
@@ -682,7 +698,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           break;
 
         case "auction_start":
-          //console.log('Auction started for product:', notification);
+          console.log('Auction started for product:', notification);
           // Update UI to show auction start event
           setLiveComments((prev) => [...prev, notification]);
 
@@ -693,7 +709,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
             // Find the product in streamProducts and update it
             const productId = notification.data.product.product?.productId;
-            //console.log('realtime bid productId:', productId);
+            console.log('realtime bid productId:', productId);
 
             if (productId) {
               setStreamProducts((prevProducts) => {
@@ -703,12 +719,25 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                 const productIndex = prevProducts.findIndex(
                   (p) => p.product.productId === productId,
                 );
-                //console.log('realtime bid productIndex:', productIndex);
+                console.log('realtime bid productIndex:', productIndex);
 
                 // If product found, set it as the current product
                 if (productIndex !== -1) {
                   setCurrentProductIndex(productIndex);
-                  //console.log('Setting current product index to:', productIndex);
+                  console.log('Setting current product index to:', productIndex);
+                  
+                  // IMPORTANT: Also update the selectedBidProduct to prevent race condition
+                  // when user clicks bid before the UI fully updates
+                  setTimeout(() => {
+                    const updatedProduct = {
+                      ...prevProducts[productIndex],
+                      bidStatus: "active" as const,
+                      currentBid: notification.data?.product.currentBid,
+                      minBid: notification.data?.product.minBid,
+                      maxBid: notification.data?.product.maxBid,
+                    };
+                    setSelectedBidProduct(updatedProduct);
+                  }, 0);
                 }
 
                 // Update the product status to active
@@ -723,7 +752,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     };
                   }
                   // Mark other products as 'ended' if they were 'active'
-                  if (p.bidStatus === "active") {
+                  if (p.bidStatus === "active" || p.bidStatus === "ongoing") {
                     return {
                       ...p,
                       bidStatus: "ended",
@@ -734,6 +763,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
               });
             }
 
+            // Clear any previous bid winner and selected product
             setCurrentBidWinner(null);
           }
           break;
@@ -1354,18 +1384,22 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
 
   // Function to handle bid submissions
   const handleSubmitBid = (bidAmount: number) => {
-    // Get current product if not already selected
-    const product =
-      selectedBidProduct ||
-      (currentProductIndex !== null &&
-        streamProducts &&
-        streamProducts.length > 0
-        ? streamProducts[currentProductIndex]
-        : null);
-    console.log("current bid product", product?.product?.name);
+    if (!id) return;
+
+    // Get the most current product information - using currentProductIndex to ensure
+    // we always use the latest product data even if selectedBidProduct hasn't updated yet
+    const product = streamProducts[currentProductIndex] || selectedBidProduct;
+    console.log("current bid product", JSON.stringify(product));
 
     if (!product) {
-      console.error("No product selected for bid");
+      console.error("No product selected for bidding");
+      return;
+    }
+
+    // Ensure this is an active auction and not already closed
+    if (product.bidStatus !== "active") {
+      setBidErrorMessage("Bidding is now closed for this product");
+      setShowBidError(true);
       return;
     }
 
@@ -1469,6 +1503,14 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     setShowStreamInfo(true);
   };
 
+  const handleShowOrders = () => {
+    setShowOrders(true);
+  };
+
+  const handleShowShop = () => {
+    setShowShop(true);
+  };
+
   // Update handleLeaveStream function to actually leave the stream
   const handleLeaveStream = async (backButton: boolean) => {
     if (!id) return;
@@ -1491,6 +1533,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     } catch (error) {
       //console.error('Error leaving stream:', error);
       // Show error message to user if needed
+      router.back();
     } finally {
       setIsLeavingStream(false);
       setShowMenuPopover(false);
@@ -1597,16 +1640,24 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
   );
 
   // Add follow/unfollow handler functions
-  const handleFollowSeller = async () => {
+  const handleFollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await followSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await followSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(true);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error following seller:", error);
       show({
@@ -1616,20 +1667,28 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
 
-  const handleUnfollowSeller = async () => {
+  const handleUnfollowSeller = async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
     }
 
     try {
-      setIsFollowingLoading(true);
-      await unfollowSellerThroughStream(sellerId, storeInfo.name);
+      isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
+      const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(false);
+      
+      // Update the follow count with the latest from API
+      if (response && response.sellerFollowCount !== undefined) {
+        setStreamDetails(prev => ({
+          ...prev,
+          sellerFollowers: response.sellerFollowCount
+        }));
+      }
     } catch (error) {
       console.error("Error unfollowing seller:", error);
       show({
@@ -1639,9 +1698,132 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         topPosition: 18,
       });
     } finally {
-      setIsFollowingLoading(false);
+      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
     }
   };
+
+  // Handle sending heart reaction
+  const handleReactWithHeart = useCallback(() => {
+    // Trigger the heart animation
+    if (heartsRef.current) {
+      heartsRef.current.generateHearts();
+    }
+    
+    // Send the reaction to the server via socket
+    const socketInstance = getSocket();
+    if (socketInstance) {
+      socketInstance.emit("stream_reaction", {
+        streamId: id,
+        type: "heart",
+      });
+    }
+  }, [id]);
+
+  // Gesture handler for rapid heart taps with improved state management
+  const tapCount = useRef(0);
+  const lastTapTime = useRef(0);
+  const isAnimating = useRef(false);
+  const TAP_THRESHOLD = 150;
+  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
+  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  
+  // Debounced socket event emitter
+  const debouncedSocketEmit = useCallback((eventType: string) => {
+    if (socketThrottleTimeout.current) {
+      clearTimeout(socketThrottleTimeout.current);
+    }
+    
+    socketThrottleTimeout.current = setTimeout(() => {
+      const socketInstance = getSocket();
+      if (socketInstance) {
+        socketInstance.emit("stream_reaction", {
+          type: eventType,
+          streamId: id,
+        });
+      }
+      socketThrottleTimeout.current = null;
+    }, 1000);
+  }, [id]);
+  
+  // Improved heart press handler with better state management
+  const handleHeartPress = useCallback(() => {
+    const now = performance.now ? performance.now() : Date.now();
+    const elapsed = now - lastTapTime.current;
+    lastTapTime.current = now;
+    
+    // Clear any existing timeouts
+    if (heartPressTimeout.current) {
+      clearTimeout(heartPressTimeout.current);
+      heartPressTimeout.current = null;
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // If we're already animating, just queue up more hearts
+    if (isAnimating.current) {
+      if (heartsRef.current) {
+        heartsRef.current.generateHearts();
+      }
+      return;
+    }
+
+    // Start new animation sequence
+    animationFrameRef.current = requestAnimationFrame(() => {
+      if (!heartsRef.current) return;
+
+      // Check if this is a rapid tap
+      if (elapsed < TAP_THRESHOLD) {
+        tapCount.current++;
+        
+        // If we've detected rapid taps, start continuous animation
+        if (tapCount.current >= 2) {
+          isAnimating.current = true;
+          heartsRef.current.startContinuousHearts();
+          debouncedSocketEmit("heart_burst");
+          
+          // Set timeout to stop continuous animation
+          heartPressTimeout.current = setTimeout(() => {
+            if (heartsRef.current) {
+              heartsRef.current.stopContinuousHearts();
+            }
+            isAnimating.current = false;
+            tapCount.current = 0;
+          }, 3000); // Reduced from 5000ms to 3000ms for better control
+        } else {
+          // Single rapid tap
+          heartsRef.current.generateHearts();
+          debouncedSocketEmit("heart");
+        }
+      } else {
+        // Normal tap
+        tapCount.current = 1;
+        heartsRef.current.generateHearts();
+        debouncedSocketEmit("heart");
+      }
+      
+      animationFrameRef.current = null;
+    });
+  }, [debouncedSocketEmit]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (heartPressTimeout.current) {
+        clearTimeout(heartPressTimeout.current);
+      }
+      if (socketThrottleTimeout.current) {
+        clearTimeout(socketThrottleTimeout.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      isAnimating.current = false;
+      tapCount.current = 0;
+    };
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ height }}>
@@ -1710,6 +1892,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                           }}
                         >
                           <Text style={styles.leaveButtonText}>Leave</Text>
+                          {isLeavingStream && (
+                            <ActivityIndicator size={12} color="white" style={{marginLeft: 5}} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1752,19 +1937,19 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
                         disabled
                       >
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size={17} color="#FFFFFF" />
                       </TouchableOpacity>
                     ) : isFollowing ? (
                       <TouchableOpacity
                         className="bg-[#444444] h-full px-4 py-1 rounded-full"
-                        onPress={handleUnfollowSeller}
+                        onPress={() => handleUnfollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Unfollow</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
-                        onPress={handleFollowSeller}
+                        onPress={() => handleFollowSeller(false)}
                       >
                         <Text className="text-white text-sm">Follow</Text>
                       </TouchableOpacity>
@@ -1897,6 +2082,21 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                   <ScrollView
                     showsVerticalScrollIndicator={false}
                     style={styles.rightActionsContainer}
+                    nestedScrollEnabled={true}
+                    onTouchStart={(e) => {
+                      // Prevent event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    onScrollBeginDrag={(e) => {
+                      // Prevent scroll event from propagating to parent
+                      e.stopPropagation();
+                      // Notify parent to temporarily disable scrolling
+                      onInteractionStart?.();
+                    }}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={{ paddingBottom: 20 }}
                   >
                     <View style={styles.actionItem}>
                       <TouchableOpacity
@@ -1915,15 +2115,11 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     <View style={styles.actionItem}>
                       <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={handleShowStreamInfo}
+                        onPress={handleHeartPress}
                       >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={24}
-                          color="white"
-                        />
+                        <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>Info</Text>
+                      <Text style={styles.actionText2}>Like</Text>
                     </View>
 
                     {/*<View style={styles.actionItem}>
@@ -1934,7 +2130,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                                     </View>*/}
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleShowOrders}
+                      >
                         <MaterialCommunityIcons
                           name="package-variant-closed"
                           size={24}
@@ -1945,7 +2144,10 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={handleShowShop}
+                      >
                         <MaterialCommunityIcons
                           name="storefront-outline"
                           size={24}
@@ -1956,10 +2158,17 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity style={styles.actionButton}>
-                        <AntDesign name="like2" size={24} color="white" />
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleShowStreamInfo}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={24}
+                          color="white"
+                        />
                       </TouchableOpacity>
-                      <Text style={styles.actionText}>React</Text>
+                      <Text style={styles.actionText}>Info</Text>
                     </View>
                   </ScrollView>
                 )}
@@ -2003,45 +2212,6 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                       <View key={index}>{renderCommentItem({ item })}</View>
                     ))}
                   </ScrollView>
-                  // <View style={styles.commentsContainer}>
-                  //   <FlatList
-                  //     ref={commentsListRef}
-                  //     data={liveComments}
-                  //     renderItem={renderCommentItem}
-                  //     keyExtractor={(item) => item.id}
-                  //     showsVerticalScrollIndicator={false}
-                  //     contentContainerStyle={styles.commentsList}
-                  //     fadingEdgeLength={350}
-                  //     onLayout={() => {
-                  //       // Scroll to end on initial layout
-                  //       if (commentsListRef.current && liveComments.length > 0) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: true,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     onContentSizeChange={() => {
-                  //       // Scroll to end when content size changes
-                  //       if (commentsListRef.current && liveComments.length > 0) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: true,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     maintainVisibleContentPosition={{
-                  //       minIndexForVisible: 0,
-                  //       autoscrollToTopThreshold: 10,
-                  //     }}
-                  //     removeClippedSubviews={false}
-                  //     initialNumToRender={20}
-                  //     maxToRenderPerBatch={20}
-                  //     windowSize={21}
-                  //   />
-                  // </View>
                 )}
               </View>
 
@@ -2311,13 +2481,38 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
       >
         <StreamInfo
-          storeInfo={storeInfo}
+          storeInfo={{
+            ...storeInfo,
+            following: isFollowing
+          }}
           streamInfo={streamDetails}
           isLoading={isLoading}
           closeSheet={() => setShowStreamInfo(false)}
+          sellerId={sellerId}
+          isFollowing={isFollowing}
+          isFollowingLoading={isFollowingLoading2}
+          onFollow={() => handleFollowSeller(true)}
+          onUnfollow={() => handleUnfollowSeller(true)}
+        />
+      </BottomSheet>
+
+      {/* Orders Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showOrders}
+        snapPoints={["100%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowOrders(false)}
+        keyboardBehavior="interactive"
+      >
+        <StreamOrders
+          streamId={id}
+          closeSheet={() => setShowOrders(false)}
         />
       </BottomSheet>
 
@@ -2355,7 +2550,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           <OrderCreatedNotification
             order={activeOrderCreated}
             closeSheet={() => setShowOrderCreatedNotification(false)}
-            onViewOrder={(orderId) => {
+            onViewOrder={() => {
               setShowOrderCreatedNotification(false);
               router.push(`/orders/orders`);
             }}
@@ -2363,6 +2558,32 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
           />
         )}
       </BottomSheet>
+
+      {/* Shop Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-0"
+        showCloseIcon={false}
+        title=""
+        show={showShop}
+        snapPoints={["80%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowShop(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuctionShopBottomSheet
+          streamProducts={streamProducts}
+          closeSheet={() => setShowShop(false)}
+          isLoading={isLoading}
+        />
+      </BottomSheet>
+
+      {/* Add the FloatingHeartsAnimation component */}
+      <FloatingHeartsAnimation 
+        ref={heartsRef}
+        count={15}
+        color="#16783A"
+      />
     </GestureHandlerRootView>
   );
 };
@@ -2567,6 +2788,11 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: "white",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  actionText2: {
+    color: "#16783A",
     fontSize: 12,
     marginTop: 4,
   },
@@ -2857,6 +3083,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     flex: 1,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
   leaveButtonText: {
     color: "#FFFFFF",
