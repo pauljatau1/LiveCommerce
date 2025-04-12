@@ -293,24 +293,25 @@ exports.startStream = async (req, res) => {
       // timestamp will be added automatically by the schema default
     };
 
+    // Send WebSocket notification if IO is available
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      // Add timestamp for the WebSocket payload
+      notificationObj.timestamp = new Date();
+
+      // Define the stream-specific room name
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+    }
+
+
     try {
       // Create a new chat interaction document
       await Stream.findByIdAndUpdate(
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
-      // Send WebSocket notification if IO is available
-      if (req.app && req.app.get('io')) {
-        const io = req.app.get('io');
-        // Add timestamp for the WebSocket payload
-        notificationObj.timestamp = new Date();
-        
-        // Define the stream-specific room name
-        const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
-        io.to(streamRoom).emit('stream_notification', notificationObj);
-      }
 
       // Send push notifications to all followers
       if (seller.followers && seller.followers.length > 0) {
@@ -3152,11 +3153,11 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching category
     const categoryMatch = await Stream.find({
       ...categoryQuery,
-      _id: { 
+      _id: {
         $nin: [
           ...categoryAndTagMatch.map(stream => stream._id),
           sourceObjectId // Make sure to exclude source stream here too
-        ] 
+        ]
       }
     })
       .populate('seller', 'storeName businessName storeAvatar')
@@ -3168,12 +3169,12 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching tags
     const tagMatch = await Stream.find({
       ...tagsQuery,
-      _id: { 
+      _id: {
         $nin: [
-          ...categoryAndTagMatch.map(stream => stream._id), 
+          ...categoryAndTagMatch.map(stream => stream._id),
           ...categoryMatch.map(stream => stream._id),
           sourceObjectId // Make sure to exclude source stream here too
-        ] 
+        ]
       }
     })
       .populate('seller', 'storeName businessName storeAvatar')
