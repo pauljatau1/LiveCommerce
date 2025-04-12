@@ -1,28 +1,29 @@
+import { toast } from 'sonner';
+import { Icon } from "@iconify/react";
 import { useState, useEffect, useRef } from 'react';
 import { BASE_URL } from '../../Constants/Server';
-import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
-import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
-import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import { useNavigate } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom';
-import axios from 'axios';
-import CreateAuctionIcon from '../../assets/Upload icon.png';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { useNavigate } from 'react-router-dom';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { useOutletContext } from 'react-router-dom';
+import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
+import axios from 'axios';
 import dayjs from 'dayjs';
-import { Icon } from "@iconify/react";
+import CreateAuctionIcon from '../../assets/Upload icon.png';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const { products, message } = useSelector((state) => state.product);
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
     const [dragActive, setDragActive] = useState(false);
     const [categories, setCategories] = useState([]);
@@ -121,6 +122,33 @@ const CreateLiveShow = () => {
     useEffect(() => {
         setFilteredTags(allTags);
     }, []);
+
+    useEffect(() => {
+        dispatch(fetchSellerProducts());
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (message === 'Products fetched successfully') {
+          livestreamDispatch({
+            type: 'SET_LIVESTREAM_DATA',
+            payload: {
+              products: products.map(product => {
+                return {
+                  productId: product?._id,
+                  name: product?.name,
+                  category: product?.category,
+                  images: product?.images,
+                  sku: product?.sku,
+                  quantity: product?.stock,
+                  minBid: product?.price,
+                  maxBid: 0,
+                  selected: true
+                }
+              })
+            }
+          });
+        }
+      }, [message, products, livestreamDispatch])
 
     // Initialize tags if they're undefined
     useEffect(() => {
