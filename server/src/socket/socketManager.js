@@ -1225,7 +1225,7 @@ function initializeSocket(server) {
         // Get buyer details including shipping address
         console.log('[BID] 6. Retrieving buyer details for ID:', buyerId);
         const Buyer = mongoose.model('Buyer');
-        const buyer = await Buyer.findById(buyerId).select('firstName lastName username profileImage wallet shippingAddresses');
+        const buyer = await Buyer.findById(buyerId).select('firstName lastName username email phoneNumber profileImage wallet shippingAddresses');
 
         if (!buyer) {
           console.error('[BID] 7. FAILED: Buyer not found in database');
