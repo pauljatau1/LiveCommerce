@@ -83,7 +83,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[305px]"
+      className=" bg-black rounded-lg p-[11.85px]  w-[100%]"
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
@@ -103,14 +103,14 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Details */}
       <View className="gap-[2px]">
         <Text
-          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 h-[44px]"
-          numberOfLines={2}
+          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
+          numberOfLines={1}
         >
           {title}
         </Text>
         {moreDetails?.discount?.isActive ? (
           <View className="flex-row items-center gap-[4px] flex-wrap">
-            <Text className="text-white text-[10px] font-LexendDecaMedium">
+            <Text className="text-white text-[12px] font-LexendDecaMedium">
               ₦
               {moreDetails?.discount?.isActive
                 ? moreDetails?.discount?.discountedPrice?.toLocaleString()
@@ -125,7 +125,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
             </Text> */}
           </View>
         ) : (
-          <Text className="text-white font-LexendDecaBold  text-[10px]">
+          <Text className="text-white font-LexendDecaBold  text-[12px]">
             ₦{price?.toLocaleString()}
           </Text>
         )}
@@ -218,7 +218,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       <CustomButton
         textStyle="!text-[8px] !font-semibold  !py-0"
         title="Add to cart"
-        className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px] absolute bottom-2 self-center"
+        className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px] self-center"
         onPress={() => {
           if (token) {
             return setShowCartSheet(true);

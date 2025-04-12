@@ -181,34 +181,35 @@ const CollapsibleHeader = memo(
               />
               <Text style={styles.infoBubbleText}>Lagos, Nigeria</Text>
             </View>
+
+            {seller?.storeInfo?.socialMedia?.instagram ||
+            seller?.storeInfo?.socialMedia?.facebook ||
+            seller?.storeInfo?.socialMedia?.tiktok ? (
+              <View style={styles.socialContainer}>
+                {seller?.storeInfo?.socialMedia?.facebook && (
+                  <Link href={`${seller?.storeInfo?.socialMedia?.facebook}`}>
+                    <View style={[styles.socialCard]}>
+                      <MaterialIcons name="facebook" size={12} color="white" />
+                    </View>
+                  </Link>
+                )}
+                {seller?.storeInfo?.socialMedia?.instagram && (
+                  <Link href={`${seller?.storeInfo?.socialMedia?.instagram}`}>
+                    <View style={[styles.socialCard]}>
+                      <AntDesign name="instagram" size={12} color="white" />
+                    </View>
+                  </Link>
+                )}
+                {seller?.storeInfo?.socialMedia?.tiktok && (
+                  <Link href={`${seller?.storeInfo?.socialMedia?.tiktok}`}>
+                    <View style={[styles.socialCard]}>
+                      <MaterialIcons name="tiktok" size={12} color="white" />
+                    </View>
+                  </Link>
+                )}
+              </View>
+            ) : null}
           </View>
-          {seller?.storeInfo?.socialMedia?.instagram ||
-          seller?.storeInfo?.socialMedia?.facebook ||
-          seller?.storeInfo?.socialMedia?.tiktok ? (
-            <View style={styles.socialContainer}>
-              {seller?.storeInfo?.socialMedia?.facebook && (
-                <Link href={`${seller?.storeInfo?.socialMedia?.facebook}`}>
-                  <View style={[styles.socialCard]}>
-                    <MaterialIcons name="facebook" size={18} color="white" />
-                  </View>
-                </Link>
-              )}
-              {seller?.storeInfo?.socialMedia?.instagram && (
-                <Link href={`${seller?.storeInfo?.socialMedia?.instagram}`}>
-                  <View style={[styles.socialCard]}>
-                    <AntDesign name="instagram" size={18} color="white" />
-                  </View>
-                </Link>
-              )}
-              {seller?.storeInfo?.socialMedia?.tiktok && (
-                <Link href={`${seller?.storeInfo?.socialMedia?.tiktok}`}>
-                  <View style={[styles.socialCard]}>
-                    <MaterialIcons name="tiktok" size={18} color="white" />
-                  </View>
-                </Link>
-              )}
-            </View>
-          ) : null}
 
           <View style={styles.statsContainer}>
             <View style={styles.stat}>
@@ -742,10 +743,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 8,
+    // paddingHorizo/ntal: 8,
     paddingVertical: 15,
-    gap: 10,
+    gap: 5,
     flexWrap: "wrap",
+    // backgroundColor: "red",
   },
   infoBubble: {
     borderRadius: 15,
@@ -833,7 +835,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 32,
+    // paddingHorizontal: 32,
     marginBottom: 15,
     // flexWrap: "wrap",
   },

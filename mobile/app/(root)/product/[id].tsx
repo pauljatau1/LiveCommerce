@@ -799,11 +799,9 @@ const ProductDescription = () => {
                         className={`flex flex-row ${productDetails?.stats?.averageRating ? "gap-[6px]" : ""}  items-center justify-center`}
                       >
                         <Text className="text-[14px] text-white font-LexendDecaMedium">
-                          {productDetails?.stats?.averageRating
-                            ? parseFloat(
-                                productDetails?.stats?.averageRating,
-                              ).toFixed(1)
-                            : null}
+                          {parseFloat(
+                            productDetails?.stats?.averageRating || 0,
+                          ).toFixed(1)}
                         </Text>
                         <AntDesign name="star" size={14} color="#FFD700" />
                       </View>

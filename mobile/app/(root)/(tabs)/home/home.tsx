@@ -43,7 +43,6 @@ const Homepage = () => {
 
     async function checkIfLoggedIn() {
       const token = await AsyncStorage.getItem("token");
-      console.log("getting token home", token);
       if (!token && tries?.current == 0) {
         setTimeout(() => setIsVisible(true), 3000);
         tries.current = 1;

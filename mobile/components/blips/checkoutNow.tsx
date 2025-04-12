@@ -379,13 +379,13 @@ const CheckoutNow = ({
       if (e?.response.status == 400) {
         closeSheet();
         toast.success("Order Placed successfully");
-        
+
         // Only navigate to orders page if not in a livestream
         if (!channel || channel !== "liveshow") {
           return router.push("/(root)/orders/orders");
         }
       }
-      console.log("could not Pay for  order", e?.response?.message);
+      console.log("could not Pay for  order", e);
       toast.error("Could not Pay for order");
     } finally {
       setPayLoading(false);
@@ -534,12 +534,12 @@ const CheckoutNow = ({
     [selectedPayment, walletBalance],
   );
   return (
-    <View className="p-[8px] pb-[16px]">
+    <View className="p-[8px] pb-[16px] h-full">
       <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator
             size={"small"}
-            color={"#16783A"}
+            color={"#fff"}
             style={{ marginTop: 30 }}
           />
         ) : (
