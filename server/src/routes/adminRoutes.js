@@ -7,32 +7,32 @@ const upload = multer({ storage: multer.memoryStorage() });
 const bankService = require('../services/bankService');
 
 
-// /**
-//  * @swagger
-//  * /api/admin/register:
-//  *   post:
-//  *     summary: Register a new admin
-//  *     tags: [Admin]
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             type: object
-//  *             properties:
-//  *               username:
-//  *                 type: string
-//  *               email:
-//  *                 type: string
-//  *               password:
-//  *                 type: string
-//  *     responses:
-//  *       201:
-//  *         description: Admin registered successfully
-//  *       400:
-//  *         description: Bad request
-//  */
-// router.post('/register', adminController.register);
+/**
+ * @swagger
+ * /api/admin/register:
+ *   post:
+ *     summary: Register a new admin
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Admin registered successfully
+ *       400:
+ *         description: Bad request
+ */
+router.post('/register', adminController.register);
 
 /**
  * @swagger
