@@ -1533,8 +1533,10 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
     } catch (error) {
       //console.error('Error leaving stream:', error);
       // Show error message to user if needed
+      disconnectSocket();
       router.back();
     } finally {
+      disconnectSocket();
       setIsLeavingStream(false);
       setShowMenuPopover(false);
     }
