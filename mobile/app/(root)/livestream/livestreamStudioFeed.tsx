@@ -1129,9 +1129,11 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       }
     } catch (error) {
       console.error("Error leaving stream:", error);
+      disconnectSocket();
       router.back();
       // Show error message to user if needed
     } finally {
+      disconnectSocket();
       setIsLeavingStream(false);
       setShowMenuPopover(false);
     }

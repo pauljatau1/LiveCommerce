@@ -89,7 +89,7 @@ const LiveAuctionProductCard = ({
                     <GlassImage
                         source={product?.images?.[0]?.url ? { uri: product?.images[0].url } : require('@/assets/icons/animoji.png')}
                         imageStyle={styles.productImage}
-                        glassStyle={{borderRadius: 6}}
+                        glassStyle={styles.productImage}
                         placeholderColor="rgba(255, 255, 255, 0.1)"
                         blurIntensity={20}
                         tint="dark"
