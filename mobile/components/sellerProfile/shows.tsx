@@ -28,7 +28,12 @@ const Shows = ({
   const [fetching, setFetching] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
-  const fetchSpotlightLiveStreams = useCallback(async () => {
+  const fetchSpotlightLiveStreams = async () => {
+    console.log("page : ", page);
+
+    if (fetching || hasReachedEnd) {
+      return;
+    }
     if (page > 1) {
       setFetching(true);
     }
@@ -39,8 +44,8 @@ const Shows = ({
       );
       if (response.status === 200) {
         if (response.data?.streams?.length > 0) {
-          setSpotLight([...spotLight, ...response.data?.streams]);
           setPage((prevPage) => prevPage + 1);
+          setSpotLight([...spotLight, ...response.data?.streams]);
         }
         if (!response.data?.pagination?.hasMore) {
           setHasReachedEnd(true);
@@ -52,7 +57,7 @@ const Shows = ({
       setLoading(false);
       setFetching(false);
     }
-  }, [page, sellerId]);
+  };
 
   useEffect(() => {
     fetchSpotlightLiveStreams();
@@ -101,11 +106,11 @@ const Shows = ({
     }
   }, [fetching, hasReachedEnd]);
 
-  useEffect(() => {
-    if (flatListRef.current) {
-      flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
-    }
-  }, [index]);
+  // useEffect(() => {
+  //   if (flatListRef.current) {
+  //     flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
+  //   }
+  // }, [index]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -128,6 +133,7 @@ const Shows = ({
               </View>
             )}
             keyExtractor={(item, index) => item?._id || index.toString()}
+            nestedScrollEnabled={true}
             numColumns={2}
             contentContainerStyle={{
               justifyContent: "space-between",
@@ -137,10 +143,10 @@ const Shows = ({
             }}
             onEndReached={fetchSpotlightLiveStreams}
             ListFooterComponent={renderListFooter}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true },
-            )}
+            // onScroll={Animated.event(
+            //   [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            //   { useNativeDriver: true },
+            // )}
           />
         </View>
       ) : (

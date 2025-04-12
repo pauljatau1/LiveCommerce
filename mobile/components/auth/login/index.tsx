@@ -177,22 +177,26 @@ const Login = () => {
       <SafeAreaView className="bg-black h-full">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
           <ScrollView showsVerticalScrollIndicator={false}>
             <View className="container h-full w-full justify-between px-[21px]">
               <View className="w-full">
                 <View className="my-10 items-center  mx-auto">
                   <Image
-                    source={icons.waving}
+                    source={icons.auqliLogo}
                     resizeMode="contain"
                     className="mb-[18px]"
+                    style={{
+                      width: 50,
+                      height: 50,
+                    }}
                   />
-                  <Text className="mb-2.5 text-center font-SfPro text-xl font-semibold text-white">
-                    Welcome back!!
+                  <Text className="mb-2.5 text-center text-xl font-LexendDecaBold text-white">
+                    Welcome back!
                   </Text>
-                  <Text className="text-center font-SfPro text-base text-[#425466]">
-                    Let's build something great
+                  <Text className="text-center font-LexendDecaMedium text-base text-[#425466]">
+                    Making live shopping a daily experience
                   </Text>
                 </View>
                 <View className="gap-y-4 rounded-[8px] border border-[#C6C6C640] p-8">
@@ -202,12 +206,14 @@ const Login = () => {
                       label="Email"
                       placeholder="Enter your email"
                       keyboardType="email-address"
+                      className="!font-LexendDeca"
                       rules={["required", "email"]}
                     />
                     <Input
                       name="password"
                       label="Password"
                       placeholder="Enter your password"
+                      className="!font-LexendDeca"
                       secureTextEntry
                       rules={["required"]}
                     />
