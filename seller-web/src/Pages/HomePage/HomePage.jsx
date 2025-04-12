@@ -362,24 +362,66 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 mt-6 xl:mt-9 w-full">
-                  {
-                    homeAnalyticsCardData.map((card) => (
-                      <HomeAnalyticsCard key={card.id} card={card} />
-                    ))
-                  }
+                <div className="w-full">
+                  {/* Mobile scrollable cards */}
+                  <div className="sm:hidden w-full overflow-x-auto pb-4 pt-2 -mx-4 px-4 scrollbar-hide">
+                    <div className="flex space-x-3 min-w-max">
+                      {
+                        homeAnalyticsCardData.map((card) => (
+                          <div key={card.id} className="w-[260px] flex-shrink-0">
+                            <HomeAnalyticsCard card={card} />
+                          </div>
+                        ))
+                      }
+                    </div>
+                    <div className="flex justify-center mt-3">
+                      <div className="flex space-x-1">
+                        {
+                          homeAnalyticsCardData.map((_, index) => (
+                            <div 
+                              key={index} 
+                              className={`w-1.5 h-1.5 rounded-full ${index === 0 ? 'bg-green-500' : 'bg-gray-300'}`}
+                            />
+                          ))
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Desktop grid layout */}
+                  <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 mt-6 xl:mt-9 w-full">
+                    {
+                      homeAnalyticsCardData.map((card) => (
+                        <HomeAnalyticsCard key={card.id} card={card} />
+                      ))
+                    }
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
-                  {[...Array(5)].map((_, index) => (
-                    <Skeleton key={index} height={150} />
-                  ))}
+                <div className="w-full">
+                  {/* Mobile skeleton */}
+                  <div className="sm:hidden w-full overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+                    <div className="flex space-x-3 min-w-max">
+                      {[...Array(5)].map((_, index) => (
+                        <div key={index} className="w-[260px] flex-shrink-0">
+                          <Skeleton height={120} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Desktop skeleton */}
+                  <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
+                    {[...Array(5)].map((_, index) => (
+                      <Skeleton key={index} height={150} />
+                    ))}
+                  </div>
                 </div>
               )
             }
           </div>
           {/* Stuff to do 1 */}
-          <div className="mt-10 flex flex-col lg:flex-row lg:align-center lg:justify-between gap-14 lg:gap-4">
+          <div className="mt-10 hidden sm:flex flex-col lg:flex-row lg:align-center lg:justify-between gap-14 lg:gap-4">
             {/* Notifications Section */}
             <div className="w-full bg-[#FFFFFF] rounded-xl border border-gray-200 p-6 flex flex-col">
               <div className="mb-6">

@@ -32,6 +32,13 @@ const DashboardLayout = () => {
 
   console.log('Outlet context:', outletContext); // Debug log
 
+
+
+  // Get current location to check if we're on messages page
+  const location = useLocation();
+  const isMessagesPage = location.pathname.includes('/messages');
+  const isLiveStreamPage = location.pathname.includes('/live-stream-studio');
+
   const displayScreenMode = () => {
     if (fullScreenMode) {
       return "scroll-container relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden";
@@ -39,10 +46,6 @@ const DashboardLayout = () => {
       return "scroll-container relative bg-[#F7FAFC] h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden";
     }
   }
-
-  // Get current location to check if we're on messages page
-  const location = useLocation();
-  const isMessagesPage = location.pathname.includes('/messages');
 
   return (
     <>
@@ -54,9 +57,9 @@ const DashboardLayout = () => {
           setIsSidebarOpen={setIsSidebarOpen}
           hideSidebar={hideSidebar}
         />
-  
+
         {/* Main Content */}
-        <div className={displayScreenMode()}>
+        <div className={`flex-1 ${displayScreenMode()}`}>
           <Header
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
@@ -65,7 +68,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode || isMessagesPage ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
+          <div className={`${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : 'mt-[88px] px-5 md:px-8 pb-7 lg:pb-14'}`}>
             <Outlet context={outletContext} />
           </div>
         </div>

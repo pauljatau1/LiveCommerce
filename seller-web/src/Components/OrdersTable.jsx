@@ -3,12 +3,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, ShoppingBag, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingBag } from "lucide-react"
 
 const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
@@ -38,19 +37,19 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-      <div className="bg-white border-b border-gray-200 p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div className="bg-white border-b border-gray-200 p-4 md:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Latest Orders</h2>
-          <p className="text-sm text-gray-500 mt-1">Manage and track your recent orders</p>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">Latest Orders</h2>
+          <p className="text-xs md:text-sm text-gray-500 mt-1">Manage and track your recent orders</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap w-full sm:w-auto gap-2 md:gap-3">
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                className={cn("w-full sm:w-[240px] justify-start text-left font-normal text-xs md:text-sm", !date && "text-muted-foreground")}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
+                <CalendarIcon className="mr-2 h-3 w-3 md:h-4 md:w-4" />
                 {date?.from ? (
                   date.to ? (
                     <>
@@ -71,17 +70,31 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
                 defaultMonth={date?.from}
                 selected={date}
                 onSelect={setDate}
+                numberOfMonths={1}
+                className="md:hidden"
+              />
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={date?.from}
+                selected={date}
+                onSelect={setDate}
                 numberOfMonths={2}
+                className="hidden md:block"
               />
             </PopoverContent>
           </Popover>
-          <Button className="bg-green-600 text-white hover:bg-green-700">
-            <Link to="/dashboard/orders">View All Orders</Link>
+          <Button className="bg-green-600 text-white hover:bg-green-700 text-xs md:text-sm w-full sm:w-auto">
+            <Link to="/dashboard/orders" className="flex items-center">
+              View All Orders
+              <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
+            </Link>
           </Button>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Desktop Table View - Hidden on mobile */}
+      <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
@@ -209,6 +222,114 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile Card View - Visible only on mobile */}
+      <div className="md:hidden">
+        {filteredOrders.length > 0 ? (
+          filteredOrders
+            ?.slice(0, 10)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .map((order) => (
+              <div key={order?._id} className="border-b border-gray-200 p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <span className="text-sm font-medium">{order?.order_id}</span>
+                    <p className="text-xs text-gray-500">
+                      {new Date(order.createdAt).toLocaleDateString("en-US", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <Badge
+                    className={
+                      order.isOpen
+                        ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
+                        : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
+                    }
+                  >
+                    {order.isOpen ? "Open" : "Closed"}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Customer</p>
+                    <p className="text-sm font-medium capitalize truncate">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Amount</p>
+                    <p className="text-sm font-medium">₦{order.totalAmount.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Shipping</p>
+                    <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(order.shipping.tracking.status)}`}>
+                      {order.shipping.tracking.status.replace("_", " ")}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Payment</p>
+                    <Badge
+                      className={`text-xs px-2 py-0.5 ${
+                        order.paymentInfo.status === "paid"
+                          ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
+                          : order.paymentInfo.status === "pending"
+                            ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
+                            : order.paymentInfo.status === "awaiting_cod"
+                              ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
+                              : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
+                      }`}
+                    >
+                      {order.paymentInfo.status === "awaiting_cod" ? "COD" : order.paymentInfo.status}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-1">Items</p>
+                  <div className="space-y-1">
+                    {order.items.slice(0, 2).map((item, index) => (
+                      <div key={index} className="capitalize text-xs">
+                        {item?.productName?.length > 25
+                          ? `${item?.productName?.slice(0, 25)}...`
+                          : item?.productName}
+                      </div>
+                    ))}
+                    {order.items.length > 2 && (
+                      <div className="text-xs text-gray-500">+{order.items.length - 2} more items</div>
+                    )}
+                  </div>
+                </div>
+                
+                <Link to={`/dashboard/order/${order._id}`} className="block w-full">
+                  <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50 w-full text-xs py-1">
+                    View Order Details
+                  </Button>
+                </Link>
+              </div>
+            ))
+        ) : (
+          <div className="p-6 text-center">
+            <div className="flex flex-col items-center justify-center">
+              <div className="bg-slate-50 p-4 rounded-full mb-4">
+                <ShoppingBag className="w-6 h-6 text-slate-400" />
+              </div>
+              <h3 className="text-base font-medium text-slate-800 mb-1">No Orders Found</h3>
+              <p className="text-slate-500 text-xs mb-4">
+                There are no orders matching your filters. Try adjusting your search criteria.
+              </p>
+              <Button 
+                variant="outline" 
+                className="border-slate-300 hover:bg-slate-100 text-xs"
+                onClick={() => setDate(null)}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

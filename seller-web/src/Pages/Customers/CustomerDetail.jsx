@@ -174,7 +174,7 @@ function CustomerDetail() {
   return (
     <>
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] pt-4 mx-auto sm:px-6 lg:px-8">
        
         {/* Customer Header - More compact and refined */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">

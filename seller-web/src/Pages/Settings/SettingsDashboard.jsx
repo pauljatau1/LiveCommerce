@@ -30,7 +30,7 @@ export default function SettingsDashboard() {
   }, [location.search]);
 
   return (
-    <div className="w-full px-2 sm:px-4 py-4 sm:py-6">
+    <div className="w-full sm:px-4 py-4 sm:py-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto">
           <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent min-w-[600px]">

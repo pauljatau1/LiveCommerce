@@ -276,31 +276,33 @@ export default function OrderDetails() {
   };
 
   return (
-    <div className="container mx-auto p-4 py-10 space-y-6 min-h-screen">
+    <div className="container mx-auto sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6 min-h-screen">
       {/* Order Header - More subtle design */}
       <Card className="border border-gray-100 -sm bg-white overflow-hidden">
-        <div className="bg-gradient-to-r from-green-50/90 to-green-100/90 p-6 text-gray-800">
+        <div className="bg-gradient-to-r from-green-50/90 to-green-100/90 p-4 sm:p-6 text-gray-800">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="bg-white p-2 rounded-full -sm">
                     <ShoppingBag className="h-5 w-5 text-green-600" />
                   </div>
-                  <h1 className="text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
-                  <Badge variant="outline" className="bg-blue-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
-                    {order?.channel}
-                  </Badge>
-                  <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
-                    {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
-                  </Badge>
-                  {orderData?.order?.orderStatus?.hasReturn && (
-                    <Badge variant="outline" className="bg-orange-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
-                      Return Requested
+                  <h1 className="text-lg sm:text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-blue-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                      {order?.channel}
                     </Badge>
-                  )}
+                    <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
+                      {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
+                    </Badge>
+                    {orderData?.order?.orderStatus?.hasReturn && (
+                      <Badge variant="outline" className="bg-orange-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                        Return Requested
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col md:flex-row md:items-center gap-3 text-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-700">
                   <p className="flex items-center gap-2 text-xs">
                     <Calendar className="h-3.5 w-3.5" />
                     Placed on {new Date(order?.createdAt).toLocaleDateString()} at {new Date(order?.createdAt).toLocaleTimeString()}
@@ -314,10 +316,10 @@ export default function OrderDetails() {
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 mt-2">
                 <Button
                   variant="outline"
-                  className="flex-1 bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
+                  className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
                   onClick={getManifestUrl}
                 >
                   <svg
@@ -342,7 +344,7 @@ export default function OrderDetails() {
                   <Button
                     onClick={() => navigate(`/dashboard/return/${orderData.order.orderStatus.returnRequestId}`)}
                     size="lg"
-                    className="bg-orange-600 hover:bg-orange-700 capitalize transition-all duration-300 text-white text-sm h-10"
+                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 capitalize transition-all duration-300 text-white text-sm h-10"
                   >
                     <ArrowUpRight className="mr-2 h-3 w-3" />
                     View Return Request
@@ -354,7 +356,7 @@ export default function OrderDetails() {
                     onClick={() => setConfirmCancelDialogOpen(true)}
                     variant="destructive"
                     size="lg"
-                    className="bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
                   >
                     <XCircle className="mr-2 h-3 w-3" />
                     Cancel Order
@@ -383,7 +385,7 @@ export default function OrderDetails() {
         </div>
 
         <CardContent className="p-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-x divide-y md:divide-y-0 divide-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
             <div className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-full bg-blue-50">
                 <User className="h-5 w-5 text-blue-500" />
@@ -418,7 +420,7 @@ export default function OrderDetails() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-1 xl:grid-cols-3 w-full">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3 w-full">
         <div className="xl:col-span-2 space-y-6">
           {/* Order Items - More subtle design */}
           <Card className="border border-gray-100 -sm bg-white">
@@ -432,8 +434,8 @@ export default function OrderDetails() {
               <div className="divide-y divide-gray-100">
                 {items?.map((item) => (
                   <div key={item._id} className="p-4 hover:bg-gray-50 transition-colors duration-150">
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="h-32 w-32 bg-white rounded-md overflow-hidden border border-gray-100 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="h-32 w-32 mx-auto sm:mx-0 bg-white rounded-md overflow-hidden border border-gray-100 flex-shrink-0">
                         <img
                           src={item?.product?.images?.[0]?.url || "/placeholder.svg"}
                           alt={item?.product?.name}
@@ -442,9 +444,9 @@ export default function OrderDetails() {
                       </div>
                       <div className="flex flex-1 flex-col justify-between">
                         <div className="space-y-2">
-                          <div>
+                          <div className="text-center sm:text-left">
                             <h3 className="text-sm font-medium line-clamp-2">{item?.product?.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 mt-1">
                               <Badge variant="outline" className="text-xs capitalize px-2 py-0.5">
                                 <Box className="h-3 w-3 mr-1" />
                                 {item?.product?.condition || 'New'}
@@ -1047,7 +1049,7 @@ export default function OrderDetails() {
                     </svg>
                     Shipping Documents
                   </h4>
-                  <div className="flex flex-col md:flex-row gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     {shipping.documents.shippingLabel && (
                       <Button
                         className="flex-1 flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"

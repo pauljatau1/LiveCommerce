@@ -20,7 +20,9 @@ import {
   FiMapPin, 
   FiDollarSign,
   FiEye,
-  FiSearch
+  FiSearch,
+  FiChevronDown,
+  FiFilter
 } from "react-icons/fi"
 import { BiSortAlt2 } from "react-icons/bi"
 import { motion } from "framer-motion"
@@ -28,6 +30,8 @@ import { useOutletContext } from "react-router-dom"
 import { Icon } from "@iconify/react"
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
 
 
 function Customers() {
@@ -37,6 +41,7 @@ function Customers() {
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' })
   const [filteredFollowers, setFilteredFollowers] = useState([])
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const { setHeaderName, setNavName } = useOutletContext()
 
@@ -162,6 +167,58 @@ function Customers() {
     doc.save('customers-report.pdf')
   }
 
+  // Mobile filter drawer component
+  const MobileFilters = () => {
+    return (
+      <Drawer open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <DrawerContent className="px-4 pb-6">
+          <DrawerHeader>
+            <DrawerTitle>Sort Customers</DrawerTitle>
+          </DrawerHeader>
+          <div className="space-y-4 p-1">
+            <div>
+              <p className="text-sm font-medium mb-2">Sort by</p>
+              <Select 
+                value={sortConfig.key} 
+                onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="totalOrders">Total Orders</SelectItem>
+                  <SelectItem value="totalSpent">Total Spent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium mb-2">Direction</p>
+              <Select 
+                value={sortConfig.direction} 
+                onValueChange={(value) => setSortConfig(prev => ({ ...prev, direction: value }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Direction..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DrawerFooter className="pt-2">
+            <DrawerClose asChild>
+              <Button className="w-full bg-green-600 hover:bg-green-700">Apply Sort</Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+  };
+
   return (
     <>
     <div className="min-h-screen bg-gray-50/30 py-6">
@@ -198,7 +255,9 @@ function Customers() {
                   className="w-full pl-10 pr-4 py-2 font-inter rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-4">
+              
+              {/* Desktop Filter/Sort Buttons */}
+              <div className="hidden md:flex flex-wrap items-center gap-4">
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => handleSort('name')}
@@ -232,8 +291,28 @@ function Customers() {
                   Export Data
                 </Button>
               </div>
+              
+              {/* Mobile Filter/Sort Buttons */}
+              <div className="flex md:hidden gap-2 w-full">
+                <Button 
+                  onClick={() => setIsFilterOpen(true)}
+                  className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                >
+                  <FiFilter className="mr-2 h-4 w-4" /> 
+                  Sort
+                </Button>
+                <Button 
+                  onClick={exportToPDF}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Export
+                </Button>
+              </div>
             </div>
           </div>
+
+          {/* Mobile Filters Drawer */}
+          <MobileFilters />
 
           {filteredFollowers.length === 0 ? (
             <motion.div 
@@ -246,94 +325,156 @@ function Customers() {
               <p className="text-gray-400 mt-2">Your customer list will appear here</p>
             </motion.div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50 hover:bg-gray-50/80">
-                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Customer</TableHead>
-                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
-                      <div className="flex items-center gap-2">
-                        <FiMapPin className="w-4 h-4" />
-                        Location
-                      </div>
-                    </TableHead>
-                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
-                      <div className="flex items-center gap-2">
-                        <FiShoppingBag className="w-4 h-4" />
-                        Orders
-                      </div>
-                    </TableHead>
-                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
-                      <div className="flex items-center gap-2">
-                      <Icon icon="mdi:naira" width="17" height="17"  style={{color: '#8492A6'}} />
-                        Amount spent
-                      </div>
-                    </TableHead>
-                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredFollowers.map((follower) => (
-                    <TableRow key={follower._id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="bg-green-50 border-2 border-green-100">
-                            {follower.profileImageUrl ? (
-                              <img 
-                                src={follower.profileImageUrl} 
-                                alt={follower.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <AvatarFallback className="text-green-600 font-medium">
-                                {follower.firstName ? follower.firstName[0] : follower.name[0]}
-                              </AvatarFallback>
-                            )}
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold font-inter text-[#27272E]">
-                              {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
-                            </p>
-                            {/* <p className="text-sm text-gray-500">ID: {follower._id.slice(-6)}</p> */}
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50/80">
+                      <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Customer</TableHead>
+                      <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
+                        <div className="flex items-center gap-2">
+                          <FiMapPin className="w-4 h-4" />
+                          Location
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
+                        <div className="flex items-center gap-2">
+                          <FiShoppingBag className="w-4 h-4" />
+                          Orders
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
+                        <div className="flex items-center gap-2">
+                        <Icon icon="mdi:naira" width="17" height="17"  style={{color: '#8492A6'}} />
+                          Amount spent
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredFollowers.map((follower) => (
+                      <TableRow key={follower._id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="bg-green-50 border-2 border-green-100">
+                              {follower.profileImageUrl ? (
+                                <img 
+                                  src={follower.profileImageUrl} 
+                                  alt={follower.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <AvatarFallback className="text-green-600 font-medium">
+                                  {follower.firstName ? follower.firstName[0] : follower.name[0]}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold font-inter text-[#27272E]">
+                                {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
+                              </p>
+                              {/* <p className="text-sm text-gray-500">ID: {follower._id.slice(-6)}</p> */}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FiMapPin className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-600">
+                              {follower.mainAddress ? 
+                                `${follower.mainAddress.city || 'Unknown City'}, ${follower.mainAddress.country === 'NG' ? 'Nigeria' : follower.mainAddress.country}` :
+                                'Location not set'
+                              }
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
+                              {follower?.totalOrders || 0}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium font-inter text-[#27272E]">
+                            ₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
+                            <Button className="bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-2">
+                              <FiEye className="w-4 h-4" />
+                              View Details
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {filteredFollowers.map((follower) => (
+                  <div key={follower._id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="bg-green-50 border-2 border-green-100 h-10 w-10">
+                          {follower.profileImageUrl ? (
+                            <img 
+                              src={follower.profileImageUrl} 
+                              alt={follower.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <AvatarFallback className="text-green-600 text-sm font-medium">
+                              {follower.firstName ? follower.firstName[0] : follower.name[0]}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold font-inter text-[#27272E] text-sm">
+                            {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
+                          </p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <FiMapPin className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-600 text-xs truncate max-w-[150px]">
+                              {follower.mainAddress ? 
+                                `${follower.mainAddress.city || 'Unknown'}, ${follower.mainAddress.country === 'NG' ? 'NG' : follower.mainAddress.country}` :
+                                'Location not set'
+                              }
+                            </span>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FiMapPin className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">
-                            {follower.mainAddress ? 
-                              `${follower.mainAddress.city || 'Unknown City'}, ${follower.mainAddress.country === 'NG' ? 'Nigeria' : follower.mainAddress.country}` :
-                              'Location not set'
-                            }
-                          </span>
+                      </div>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                        {follower?.totalOrders || 0} orders
+                      </span>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-3 pb-1">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-xs text-gray-500">Total spent</p>
+                          <p className="font-medium font-inter text-[#27272E] text-sm">
+                            ₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}
+                          </p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
-                            {follower?.totalOrders || 0}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium font-inter text-[#27272E]">
-                          ₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
                         <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
-                          <Button className="bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-2">
-                            <FiEye className="w-4 h-4" />
-                            View Details
+                          <Button size="sm" className="bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-1 h-8 px-3 text-xs">
+                            <FiEye className="w-3 h-3" />
+                            View
                           </Button>
                         </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </motion.div>
       )}

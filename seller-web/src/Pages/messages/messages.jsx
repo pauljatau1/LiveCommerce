@@ -25,6 +25,7 @@ import {
   Banknote,
   Loader2,
   RefreshCw,
+  Package
 } from 'lucide-react';
 import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
@@ -38,6 +39,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/Components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/Components/ui/drawer";
 import {
   Select,
   SelectContent,
@@ -278,6 +286,7 @@ export default function ChatInterface() {
   });
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
+  const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
 
   useEffect(() => {
     setHeaderName('Messages')
@@ -1447,22 +1456,23 @@ export default function ChatInterface() {
                                 currency: 'NGN'
                               }).format(product.price)}
                             </p>
-                            <div className="flex gap-1 mt-1">
-                              <Button
-                                size="sm"
-                                className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                                onClick={() => handleSendProduct(product)}
-                                disabled={!currentConversation}
-                              >
-                                Send
-                              </Button>
-                            </div>
+                            <Button
+                              size="sm"
+                              className="mt-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                              onClick={() => {
+                                handleSendProduct(product);
+                                setIsProductDrawerOpen(false);
+                              }}
+                              disabled={!currentConversation}
+                            >
+                              Send
+                            </Button>
                           </div>
                         </div>
                       </Card>
                     ))
                   ) : (
-                    <div className="py-8 text-center">
+                    <div className="text-center py-8">
                       <p className="text-gray-500 text-sm">No products found</p>
                       {productSearchQuery && (
                         <Button 
@@ -1853,7 +1863,7 @@ export default function ChatInterface() {
             
             {/* Show buyer details once loaded */}
             {buyerDetails && (
-              <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+              <div className=" hidden sm:flex items-center gap-4 text-sm text-gray-600 mt-1">
                 {primaryAddress && (
                   <div className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
@@ -1895,14 +1905,23 @@ export default function ChatInterface() {
             value={messageInput}
             onChange={(e) => setMessageInput(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 text-sm rounded-full bg-gray-50 pr-24"
+            className="flex-1 text-base md:text-sm rounded-full bg-gray-50 pr-24"
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            enterKeyHint="send"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 rounded-full md:hidden"
+              onClick={() => setIsProductDrawerOpen(true)}
+            >
+              <Package className="h-5 w-5 text-gray-500" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hidden md:block"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
               <SmileIcon className="h-5 w-5 text-gray-500" />
@@ -1943,6 +1962,8 @@ export default function ChatInterface() {
       {showEmojiPicker && (
         <EmojiPicker onEmojiSelect={handleEmojiSelect} />
       )}
+
+      <ProductsDrawer />
     </div>
   );
 
@@ -2053,6 +2074,98 @@ export default function ChatInterface() {
     
     return date.toLocaleDateString();
   };
+
+  // Add the ProductsDrawer component definition
+  const ProductsDrawer = () => (
+    <Drawer open={isProductDrawerOpen} onOpenChange={setIsProductDrawerOpen}>
+      <DrawerContent className="h-[85vh]">
+        <DrawerHeader>
+          <DrawerTitle>Products</DrawerTitle>
+        </DrawerHeader>
+        <div className="p-4 space-y-4">
+          {/* Search */}
+          <form onSubmit={handleProductSearch} className="flex gap-1">
+            <Input 
+              placeholder="Search products..." 
+              value={productSearchQuery}
+              onChange={(e) => setProductSearchQuery(e.target.value)}
+              className="h-9 text-sm"
+            />
+            <Button type="submit" size="sm" className="h-9 px-2 bg-green-600 hover:bg-green-700">
+              <Search className="h-4 w-4" />
+            </Button>
+          </form>
+
+          {/* Products List */}
+          <div className="space-y-3 overflow-y-auto max-h-[60vh]">
+            {isLoadingProducts ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+              </div>
+            ) : sellerProducts.length > 0 ? (
+              sellerProducts.map((product) => (
+                <Card key={product._id} className="p-2">
+                  <div className="flex gap-2">
+                    <img
+                      src={product.images[0]?.url}
+                      alt={product.name}
+                      className="w-12 h-12 object-cover rounded-md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        {product.name}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {new Intl.NumberFormat('en-NG', {
+                          style: 'currency',
+                          currency: 'NGN'
+                        }).format(product.price)}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                        onClick={() => {
+                          handleSendProduct(product);
+                          setIsProductDrawerOpen(false);
+                        }}
+                        disabled={!currentConversation}
+                      >
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No products found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Load More Button */}
+          {hasMoreProducts && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs font-medium"
+              onClick={handleLoadMoreProducts}
+              disabled={loadingMoreProducts}
+            >
+              {loadingMoreProducts ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Loading...
+                </>
+              ) : (
+                'Load More Products'
+              )}
+            </Button>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">

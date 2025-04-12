@@ -84,7 +84,7 @@ const MarketingPage = () => {
   }, [setHeaderName, setNavName]) // Added dependencies to useEffect
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto pt-4 sm:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
         {marketingFeatures.map((feature, index) => (
           <Card

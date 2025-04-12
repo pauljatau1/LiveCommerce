@@ -215,26 +215,36 @@ const LiveStream = () => {
                                         {/* Start Stream Button */}
                                         {seller?.isVerified ? (
                                             <NavLink
-                                                to={`/dashboard/livestreaming/studio/${stream._id}`}
-                                                className="absolute bottom-4 left-0 right-0 mx-auto w-[85%] bg-[#16783A] text-white text-xs font-medium font-inter py-2 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
-                                            >
-                                                <button className="flex items-center justify-center gap-1.5 w-full">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                                    </svg>
-                                                    Start Stream
-                                                </button>
-                                            </NavLink>
-                                        ) : (
-                                            <button
-                                                onClick={handleStreamActionClick}
-                                                className="absolute bottom-4 left-0 right-0 mx-auto w-[85%] bg-[#16783A] text-white text-xs font-medium font-inter py-2 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
+                                                to={timeRemaining.isPast ? '#' : `/dashboard/live-streams/live-stream-studio/${stream._id}`}
+                                                className={`absolute bottom-4 left-0 right-0 mx-auto w-[85%] text-xs font-medium font-inter py-2 rounded-lg transition-all duration-300 text-center ${
+                                                    timeRemaining.isPast 
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                                    : 'bg-[#16783A] text-white hover:bg-[#16783A]/90'
+                                                }`}
+                                                onClick={(e) => timeRemaining.isPast && e.preventDefault()}
                                             >
                                                 <div className="flex items-center justify-center gap-1.5 w-full">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                                                     </svg>
-                                                    Start Stream
+                                                    {timeRemaining.isPast ? 'Stream Expired' : 'Start Stream'}
+                                                </div>
+                                            </NavLink>
+                                        ) : (
+                                            <button
+                                                onClick={handleStreamActionClick}
+                                                className={`absolute bottom-4 left-0 right-0 mx-auto w-[85%] text-xs font-medium font-inter py-2 rounded-lg transition-all duration-300 text-center ${
+                                                    timeRemaining.isPast 
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                                    : 'bg-[#16783A] text-white hover:bg-[#16783A]/90'
+                                                }`}
+                                                disabled={timeRemaining.isPast}
+                                            >
+                                                <div className="flex items-center justify-center gap-1.5 w-full">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                                    </svg>
+                                                    {timeRemaining.isPast ? 'Stream Expired' : 'Start Stream'}
                                                 </div>
                                             </button>
                                         )}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ShoppingBag, Video, Gavel, Radio, Tv, FilterX } from "lucide-react";
+import { CalendarIcon, ShoppingBag, Video, Gavel, Radio, Tv, FilterX, Filter, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ import { BASE_URL } from "@/Constants/Server";
 import Header from "@/Components/ui/Header/Header";
 import { Input } from "@/components/ui/input";
 import { useOutletContext } from "react-router-dom";
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 
 const OrderSkeleton = () => {
   return (
@@ -170,6 +171,7 @@ export default function OrdersDashboard() {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState("-createdAt");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     setHeaderName("Orders");
@@ -281,9 +283,151 @@ export default function OrdersDashboard() {
     return statusColors[status] || "bg-gray-100 text-gray-700";
   };
 
+  // Mobile version of tabs
+  const MobileTabs = () => {
+    return (
+      <div className="mb-4 sm:hidden">
+        <Select value={activeTab} onValueChange={setActiveTab}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Orders</SelectItem>
+            <SelectItem value="process">To Process</SelectItem>
+            <SelectItem value="transit">Transit</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
+  // Mobile filters drawer
+  const MobileFilters = () => {
+    return (
+      <Drawer open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <DrawerContent className="px-4 pb-6">
+          <DrawerHeader>
+            <DrawerTitle>Filter Orders</DrawerTitle>
+          </DrawerHeader>
+          <div className="space-y-4 p-1">
+            <div>
+              <p className="text-sm font-medium mb-2">Date Range</p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start bg-[#0BB24817] hover:bg-[#DEFFEE] transition-all duration-300 text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date?.from ? (
+                      date.to ? (
+                        <>
+                          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(date.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={date?.from}
+                    selected={date}
+                    onSelect={setDate}
+                    numberOfMonths={1}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium mb-2">Search</p>
+              <Input
+                placeholder="Search orders..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium mb-2">Payment Status</p>
+              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Payment Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Payments</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium mb-2">Channel</p>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Channels</SelectItem>
+                  <SelectItem value="marketplace">Marketplace</SelectItem>
+                  <SelectItem value="live">liveshow</SelectItem>
+                  <SelectItem value="auction">auction</SelectItem>
+                  <SelectItem value="blips">Blips</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DrawerFooter className="pt-2">
+            <Button 
+              variant="outline" 
+              className="w-full border-slate-300 hover:bg-slate-100"
+              onClick={() => {
+                setDate(null);
+                setSearchTerm("");
+                setPaymentFilter("all");
+                setChannelFilter("all");
+              }}
+            >
+              <FilterX className="w-4 h-4 mr-2" />
+              Clear Filters
+            </Button>
+            <DrawerClose asChild>
+              <Button className="w-full bg-green-600 hover:bg-green-700">Apply Filters</Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+  };
+
   return (
     <>
       <div className="relative">
+        <div className="sm:hidden flex justify-between items-center sm:px-4 py-3">
+          <h2 className="text-lg font-semibold font-inter">Orders</h2>
+          <Link to="/dashboard/returns">
+            <Button
+              variant="outline"
+              className="border-green-600 text-green-600 font-inter px-2 text-xs hover:bg-green-600 hover:text-white"
+            >
+              Returns Center
+            </Button>
+          </Link>
+        </div>
+        
         <Link to="/dashboard/returns" className="hidden sm:block">
           <Button
             variant="outline"
@@ -292,7 +436,12 @@ export default function OrdersDashboard() {
             Returns Center
           </Button>
         </Link>
-        <div className="py-6">
+        
+        <div className="py-3 sm:py-6">
+          {/* Mobile Tabs */}
+          <MobileTabs />
+          
+          {/* Desktop Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8 hidden sm:block">
             <TabsList className="border-b gap-6 h-auto p-0 bg-transparent">
               <TabsTrigger
@@ -328,10 +477,27 @@ export default function OrdersDashboard() {
             </TabsList>
           </Tabs>
 
-          <div className="bg-[#F8FAF9] rounded-lg p-6 shadow-sm">
+          <div className="bg-[#F8FAF9] rounded-lg sm:p-6 shadow-sm">
             <div className="flex flex-col xl:flex-row justify-between gap-4 xl:items-center mb-6">
-              <h2 className="text-xl lg:text-2xl font-semibold font-inter">Latest Orders</h2>
-              <div className="mb-4 flex flex-wrap gap-4">
+              <div className="flex justify-between items-center w-full xl:w-auto">
+                <h2 className="text-xl lg:text-2xl font-semibold font-inter">Latest Orders</h2>
+                
+                {/* Mobile Filter Button */}
+                <Button 
+                  variant="outline" 
+                  className="sm:hidden border-green-600 text-green-600"
+                  onClick={() => setIsFilterOpen(true)}
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                </Button>
+              </div>
+              
+              {/* Mobile Filters Drawer */}
+              <MobileFilters />
+              
+              {/* Desktop Filters */}
+              <div className="hidden sm:flex flex-wrap gap-4">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -399,8 +565,9 @@ export default function OrdersDashboard() {
                 </Select>
               </div>
             </div>
-
-            <div className="bg-white rounded-lg overflow-hidden border border-gray-100">
+          
+            {/* Desktop Table */}
+            <div className="hidden sm:block bg-white rounded-lg overflow-hidden border border-gray-100">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
@@ -440,7 +607,7 @@ export default function OrdersDashboard() {
                         <TableCell>
                           <div className="space-y-1">
                             {order.items.map((item, index) => (
-                              <div key={index} className=" capitalize text-sm">
+                              <div key={index} className="capitalize text-sm">
                                 {item?.productName?.length > 20
                                   ? `${item?.productName?.slice(0, 20)}...`
                                   : item?.productName}
@@ -575,9 +742,161 @@ export default function OrdersDashboard() {
               </Table>
             </div>
 
-            <div className="flex justify-between items-center mt-6">
+            {/* Mobile Card View */}
+            <div className="sm:hidden">
+              {orders.length > 0 ? (
+                <div className="space-y-3">
+                  {orders.map((order) => (
+                    <div key={order._id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="font-medium">{order?.order_id}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(order.createdAt).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </div>
+                          </div>
+                          <Badge
+                            className={
+                              order.isOpen
+                                ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
+                                : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
+                            }
+                          >
+                            {order.isOpen ? "Open" : "Closed"}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                          <div>
+                            <p className="text-xs text-gray-500">Customer</p>
+                            <p className="text-sm font-medium capitalize truncate">
+                              {`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Amount</p>
+                            <p className="text-sm font-medium">₦{order.totalAmount.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Shipping</p>
+                            <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(order.shipping.tracking.status)}`}>
+                              {order.shipping.tracking.status.replace("_", " ")}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Payment</p>
+                            <Badge
+                              className={`text-xs px-2 py-0.5 ${
+                                order.paymentInfo.status === "paid"
+                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
+                                  : order.paymentInfo.status === "pending"
+                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
+                                    : order.paymentInfo.status === "awaiting_cod"
+                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
+                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
+                              }`}
+                            >
+                              {order.paymentInfo.status === "awaiting_cod" ? "COD" : order.paymentInfo.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mb-3">
+                          <p className="text-xs text-gray-500">Channel:</p>
+                          <div className="flex items-center gap-1 text-xs">
+                            {order.channel === "marketplace" ? (
+                              <>
+                                <ShoppingBag className="h-3 w-3 text-blue-600" />
+                                <span className="text-blue-600">Marketplace</span>
+                              </>
+                            ) : order.channel === "live" ? (
+                              <>
+                                <Video className="h-3 w-3 text-purple-600" />
+                                <span className="text-purple-600">Liveshow</span>
+                              </>
+                            ) : order.channel === "liveshow" ? (
+                              <>
+                                <Tv className="h-3 w-3 text-green-600" />
+                                <span className="text-green-600">Live Show</span>
+                              </>
+                            ) : order.channel === "auction" ? (
+                              <>
+                                <Gavel className="h-3 w-3 text-orange-600" />
+                                <span className="text-orange-600">Auction</span>
+                              </>
+                            ) : order.channel === "blips" ? (
+                              <>
+                                <Radio className="h-3 w-3 text-pink-600" />
+                                <span className="text-pink-600">Blips</span>
+                              </>
+                            ) : (
+                              order.channel.charAt(0).toUpperCase() + order.channel.slice(1)
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <p className="text-xs text-gray-500 mb-1">Items</p>
+                          <div className="space-y-1">
+                            {order.items.slice(0, 2).map((item, index) => (
+                              <div key={index} className="capitalize text-xs">
+                                {item?.productName?.length > 25
+                                  ? `${item?.productName?.slice(0, 25)}...`
+                                  : item?.productName}
+                              </div>
+                            ))}
+                            {order.items.length > 2 && (
+                              <div className="text-xs text-gray-500">+{order.items.length - 2} more items</div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Link to={`/dashboard/order/${order._id}`} className="block w-full">
+                          <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700 w-full text-xs py-1">
+                            View Order Details
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 bg-white rounded-lg border border-gray-200 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="bg-slate-50 p-4 rounded-full mb-4">
+                      <ShoppingBag className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h3 className="text-base font-medium text-slate-800 mb-1">No Orders Found</h3>
+                    <p className="text-slate-500 text-xs mb-4">
+                      There are no orders matching your filters. Try adjusting your search criteria.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="border-slate-300 hover:bg-slate-100 text-xs"
+                      onClick={() => {
+                        setDate(null);
+                        setSearchTerm("");
+                        setPaymentFilter("all");
+                        setChannelFilter("all");
+                        setActiveTab("all");
+                      }}
+                    >
+                      <FilterX className="w-3 h-3 mr-2" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-3 sm:gap-0">
               <Select value={ordersPerPage.toString()} onValueChange={handleOrdersPerPageChange}>
-                <SelectTrigger className="bg-white w-[140px] tex-base">
+                <SelectTrigger className="bg-white w-full sm:w-[140px] text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -586,17 +905,22 @@ export default function OrdersDashboard() {
                   <SelectItem value="40">40 PER PAGE</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-inter text-gray-500">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <span className="text-xs sm:text-sm font-inter text-gray-500">
                   Page {pagination.currentPage} of {pagination.pages}
                 </span>
-                <div className="flex gap-4">
-                  <Button variant="outline" className="bg-white" onClick={handlePrevPage} disabled={currentPage === 1}>
+                <div className="flex gap-2 sm:gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="bg-white text-xs sm:text-sm px-2 sm:px-3 py-1 h-8 sm:h-10" 
+                    onClick={handlePrevPage} 
+                    disabled={currentPage === 1}
+                  >
                     ← Back
                   </Button>
                   <Button
                     variant="outline"
-                    className="bg-white"
+                    className="bg-white text-xs sm:text-sm px-2 sm:px-3 py-1 h-8 sm:h-10"
                     onClick={handleNextPage}
                     disabled={currentPage === pagination.pages}
                   >
