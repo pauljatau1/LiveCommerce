@@ -1,5 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+import { useSidebar } from '@/context/sidebarContext';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import {
   LayoutDashboard,
@@ -45,52 +48,87 @@ const bottomLinks = [
 
 function Sidebar() {
   const location = useLocation();
+  const { isOpen, close } = useSidebar();
 
   return (
-    <aside className="fixed w-64 bg-card h-[calc(100vh-4rem)] border-r flex flex-col justify-between">
-      <nav className="p-4 pt-10 space-y-2 flex-grow overflow-y-auto">
-        {mainLinks.map((link) => {
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                "hover:bg-secondary hover:text-primary",
-                location.pathname === link.path ?
-                  "bg-secondary text-primary" :
-                  "text-muted-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{link.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-      <nav className="p-4 space-y-2">
-        {bottomLinks.map((link) => {
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                "hover:bg-secondary hover:text-primary",
-                location.pathname === link.path ?
-                  "bg-secondary text-primary" :
-                  "text-muted-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{link.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </aside>
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={close}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside 
+        className={cn(
+          "fixed z-50 bg-card h-[calc(100vh-4rem)] border-r flex flex-col justify-between transition-all duration-300",
+          "md:w-64 md:translate-x-0 md:z-30",
+          isOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between p-4 md:hidden">
+          <h2 className="font-bold text-primary">Menu</h2>
+          <Button variant="ghost" size="icon" onClick={close}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        <nav className="p-4 pt-6 md:pt-10 space-y-2 flex-grow overflow-y-auto">
+          {mainLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                  "hover:bg-secondary hover:text-primary",
+                  location.pathname === link.path ?
+                    "bg-secondary text-primary" :
+                    "text-muted-foreground"
+                )}
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    close();
+                  }
+                }}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <nav className="p-4 space-y-2">
+          {bottomLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                  "hover:bg-secondary hover:text-primary",
+                  location.pathname === link.path ?
+                    "bg-secondary text-primary" :
+                    "text-muted-foreground"
+                )}
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    close();
+                  }
+                }}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
 

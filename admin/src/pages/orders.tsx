@@ -90,17 +90,17 @@ function Orders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white">Orders</h2>
           <p className="text-muted-foreground">Manage and track customer orders</p>
         </div>
         <div className="flex gap-4">
-          <Button variant="outline">
+          <Button variant="outline" className="shrink-0">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button className="bg-primary">
+          <Button className="bg-primary shrink-0">
             <ShoppingCart className="h-4 w-4 mr-2" />
             New Order
           </Button>
@@ -108,7 +108,7 @@ function Orders() {
       </div>
 
       {/* Order Stats */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <Card className="p-6">
           <div className="flex items-center gap-4">
             <div className="bg-primary/10 p-3 rounded-lg">
@@ -147,63 +147,65 @@ function Orders() {
       </div>
 
       {/* Orders Table */}
-      <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+      <Card className="p-6 overflow-auto">
+        <div className="w-full min-w-max md:min-w-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="hidden md:table-cell">Date</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : ordersData?.orders && ordersData.orders.length > 0 ? (
-              ordersData.orders.map((order) => (
-                <TableRow key={order._id}>
-                  <TableCell className="font-medium">{order.order_id}</TableCell>
-                  <TableCell>
-                    {order.buyer.firstName} {order.buyer.lastName}
-                  </TableCell>
-                  <TableCell>
-                    <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
-                      ${order.isOpen 
-                        ? "bg-green-100 text-green-700" 
-                        : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      <div className={`h-1.5 w-1.5 rounded-full
-                        ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} 
-                      />
-                      {order.isOpen ? "Open" : "Closed"}
-                    </div>
-                  </TableCell>
-                  <TableCell>₦{order.totalAmount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {new Date(order.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Link to={`/dashboard/order-detail/${order._id}`}>
-                    <Button variant="ghost" size="icon">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    </Link>
-                  </TableCell>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center">Loading...</TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">No orders found</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ) : ordersData?.orders && ordersData.orders.length > 0 ? (
+                ordersData.orders.map((order) => (
+                  <TableRow key={order._id}>
+                    <TableCell className="font-medium">{order.order_id}</TableCell>
+                    <TableCell>
+                      {order.buyer ? `${order.buyer.firstName || ''} ${order.buyer.lastName || ''}` : 'Unknown Buyer'}
+                    </TableCell>
+                    <TableCell>
+                      <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
+                        ${order.isOpen 
+                          ? "bg-green-100 text-green-700" 
+                          : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        <div className={`h-1.5 w-1.5 rounded-full
+                          ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} 
+                        />
+                        {order.isOpen ? "Open" : "Closed"}
+                      </div>
+                    </TableCell>
+                    <TableCell>₦{(order.totalAmount || 0).toLocaleString()}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/dashboard/order-detail/${order._id}`}>
+                      <Button variant="ghost" size="icon">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center">No orders found</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
     </div>
   )

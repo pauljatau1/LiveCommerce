@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,17 +12,64 @@ import {
 } from "@/components/ui/table"
 import { api } from "@/api/axios"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
+interface Seller {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  businessName?: string;
+  storeName?: string;
+  email: string;
+}
+
+interface ProductStats {
+  views?: number;
+  soldCount?: number;
+  averageRating?: number;
+  reviewCount?: number;
+}
+
+interface ProductDiscount {
+  isActive: boolean;
+  type: string;
+  value: number;
+  discountedPrice?: number;
+}
+
+interface ProductInventory {
+  quantity?: number;
+  lowStockThreshold?: number;
+  sku?: string;
+}
 
 interface Product {
-  _id: string
-  name: string
-  category: string
-  price: number
-  stock: number
-  status: string
+  _id: string;
+  id?: string;
+  name: string;
+  brand?: string;
+  category: string;
+  subCategory?: string;
+  price: number;
+  discountedPrice?: number;
+  stock: number;
+  status: string;
+  sku?: string;
+  upc?: string;
+  visibility?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  condition?: string;
+  discount?: ProductDiscount;
+  seller?: Seller;
+  stats?: ProductStats;
+  inventory?: ProductInventory;
   images: {
-    url: string
-  }[]
+    url: string;
+    _id?: string;
+  }[];
+  reviews?: any[];
 }
 
 function Products() {
@@ -30,9 +77,9 @@ function Products() {
   const [loading, setLoading] = useState(true)
   const [showImportModal, setShowImportModal] = useState(false)
   const [sellerId, setSellerId] = useState('')
-  const [csvFile, setCsvFile] = useState(null)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [sellers, setSellers] = useState([])
+  const [sellers, setSellers] = useState<Seller[]>([])
   const [loadingSellers, setLoadingSellers] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [uploadStats, setUploadStats] = useState({
@@ -69,11 +116,13 @@ function Products() {
     }
   }
 
-  const handleFileChange = (e) => {
-    setCsvFile(e.target.files[0])
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setCsvFile(e.target.files[0])
+    }
   }
 
-  const handleSellerChange = (e) => {
+  const handleSellerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSellerId(e.target.value)
   }
 
@@ -98,7 +147,7 @@ function Products() {
     }
   }
 
-  const handleImport = async (e) => {
+  const handleImport = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!sellerId) {
@@ -143,7 +192,7 @@ function Products() {
       setUploadSuccess(true)
       
       fetchProducts() // Refresh products list
-    } catch (error) {
+    } catch (error: any) {
       toast.error("Failed to import products: " + (error.response?.data?.message || error.message))
     } finally {
       setUploading(false)
@@ -162,6 +211,27 @@ function Products() {
     })
   }
 
+  // Format price to readable format with currency
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  }
+
+  // Function to get the product discount percentage
+  const getDiscountPercentage = (product: Product) => {
+    if (product.discount?.isActive && product.discount.type === 'percentage') {
+      return product.discount.value;
+    }
+    if (product.price && product.discountedPrice && product.discountedPrice < product.price) {
+      return Math.round(((product.price - product.discountedPrice) / product.price) * 100);
+    }
+    return 0;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -175,7 +245,7 @@ function Products() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-white">Products</h2>
-          <p className="text-muted-foreground">Manage your product inventory</p>
+          <p className="text-muted-foreground">Manage your product inventory ({products.length} products)</p>
         </div>
         <div className="flex space-x-3">
           <Button 
@@ -194,63 +264,186 @@ function Products() {
       </div>
 
       <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Product Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((product) => (
-              <TableRow key={product._id}>
-                <TableCell>
-                  {product.images && product.images.length > 0 && (
-                    <img 
-                      src={product.images[0].url} 
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-md"
-                    />
-                  )}
-                </TableCell>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>NGN {product.price.toFixed(2)}</TableCell>
-                <TableCell>{product.stock}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    product.stock > 20 
-                      ? 'bg-green-100 text-green-800'
-                      : product.stock > 0
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {product.stock > 20 
-                      ? 'In Stock' 
-                      : product.stock > 0 
-                      ? 'Low Stock'
-                      : 'Out of Stock'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Image</TableHead>
+                <TableHead>Product Details</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Inventory</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Sales & Analytics</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {products.map((product) => (
+                <TableRow key={product._id || product.id} className="hover:bg-slate-50/5">
+                  <TableCell className="align-top">
+                    {product.images && product.images.length > 0 && (
+                      <div className="relative group">
+                        <div className="relative">
+                          <img 
+                            src={product.images[0].url} 
+                            alt={product.name}
+                            className="w-16 h-16 object-cover rounded-md"
+                          />
+                          {product.images.length > 1 && (
+                            <Badge className="absolute -top-2 -right-2 bg-slate-700 text-white text-xs">
+                              +{product.images.length - 1}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-md align-top">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm mb-1">{product.name}</span>
+                      <div className="flex flex-col text-xs text-muted-foreground">
+                        <span>ID: {product._id || product.id}</span>
+                        {product.sku && <span>SKU: {product.sku}</span>}
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700">
+                            {product.category}
+                          </Badge>
+                          {product.subCategory && (
+                            <Badge variant="outline" className="text-xs">
+                              {product.subCategory}
+                            </Badge>
+                          )}
+                        </div>
+                        {product.brand && (
+                          <span className="mt-1 text-xs">Brand: {product.brand}</span>
+                        )}
+                        {product.seller && (
+                          <div className="mt-1 flex items-center">
+                            <span className="text-xs inline-flex items-center gap-1">
+                              <Store className="h-3 w-3" />
+                              {product.seller.storeName || product.seller.businessName || `${product.seller.firstName} ${product.seller.lastName}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{formatPrice(product.price)}</span>
+                        {product.discount?.isActive && (
+                          <Badge className="bg-red-100 text-red-800 text-xs">
+                            -{getDiscountPercentage(product)}%
+                          </Badge>
+                        )}
+                      </div>
+                      {product.discount?.isActive && product.discount.discountedPrice && (
+                        <span className="text-xs text-muted-foreground line-through">
+                          {formatPrice(product.price)}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{product.stock}</span>
+                        <span className="text-xs text-muted-foreground">units</span>
+                      </div>
+                      {product.inventory?.lowStockThreshold && (
+                        <span className="text-xs text-muted-foreground">
+                          Low stock alert: {product.inventory.lowStockThreshold}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex flex-col gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit ${
+                        product.stock > 20 
+                          ? 'bg-green-100 text-green-800'
+                          : product.stock > 0
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.stock > 20 
+                          ? 'In Stock' 
+                          : product.stock > 0 
+                          ? 'Low Stock'
+                          : 'Out of Stock'}
+                      </span>
+                      {product.visibility && (
+                        <Badge variant="outline" className="text-xs w-fit">
+                          {product.visibility.charAt(0).toUpperCase() + product.visibility.slice(1)}
+                        </Badge>
+                      )}
+                      {product.condition && (
+                        <Badge variant="outline" className="text-xs capitalize w-fit">
+                          {product.condition}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex flex-col text-xs gap-1">
+                      <div className="flex items-center gap-1">
+                        <Package2 className="h-3 w-3 text-blue-500" />
+                        <span>{product.stats?.soldCount || 0} sold</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Eye className="h-3 w-3 text-purple-500" />
+                        <span>{product.stats?.views || 0} views</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 text-amber-500" />
+                        <span>{product.stats?.averageRating || 0} rating ({product.stats?.reviewCount || 0})</span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex space-x-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit Product</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View Details</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete Product</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       {/* CSV Import Modal */}
@@ -288,7 +481,7 @@ function Products() {
                 <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
                   <h4 className="font-medium mb-2">Product Preview</h4>
                   <ul className="space-y-2">
-                    {uploadStats.createdProducts.slice(0, 5).map((product) => (
+                    {uploadStats.createdProducts.slice(0, 5).map((product: any) => (
                       <li key={product.id} className="flex items-center gap-2 border-b pb-2">
                         {product.image && (
                           <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
