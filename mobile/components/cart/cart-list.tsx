@@ -118,10 +118,11 @@ const CartItem = memo(
                   params: {
                     name:
                       cartItem.seller?.storeName ||
+                      cartItem?.seller?.storeInfo?.storeName ||
                       cartItem.seller?.personalInfo?.firstName +
                         " " +
                         cartItem.seller?.personalInfo?.lastName ||
-                      "Default",
+                      "Store",
                     avatar: cartItem.seller?.storeAvatar?.url,
                     conversationId:
                       conversations?.find(

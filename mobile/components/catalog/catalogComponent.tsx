@@ -45,8 +45,8 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
       console.log("catalog pagination ", {
         isFetching,
         hasReachedEnd,
+        page,
       });
-
       setPage((prev) => prev + 1);
     }
   };
