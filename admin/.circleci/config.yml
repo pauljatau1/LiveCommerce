@@ -1,0 +1,213 @@
+version: 2.1
+parameters:
+  working_dir:
+    type: string
+    default: "/tmp/project"
+  vendor_path:
+    type: string
+    default: "node_modules"
+  docker_base_image_version:
+    type: string
+    default: "node:20"
+  docker_job_image:
+    type: string
+    default: "cimg/python:3.9.1"
+
+executors:
+  docker-machine:
+    working_directory: << pipeline.parameters.working_dir >>
+    machine:
+      image: "ubuntu-2004:2024.05.1"
+      docker_layer_caching: true
+  build:
+    working_directory: << pipeline.parameters.working_dir >>
+    docker:
+      - image: << pipeline.parameters.docker_base_image_version >>
+    resource_class: "medium"
+
+orbs:
+  aws-ecr: circleci/aws-ecr@9.3.4
+  aws-ecs: circleci/aws-ecs@2.2.1
+
+commands:
+  login_with_web_identity:
+    description: Login using AWS IAM Identity provider via CircleCI OIDC
+    parameters:
+      account_id:
+        type: string
+        default: "298884149618"
+    steps:
+      - run:
+          name: Login web identity
+          command: |
+            if ! dpkg -s jq &>/dev/null; then
+              if [[ $(whoami) == "root" ]]; then
+                apt-get update && apt-get install jq -y
+              else
+                sudo apt-get update && sudo apt-get install jq -y
+              fi
+            fi
+            AWS_STS_CREDENTIALS=$(aws sts assume-role-with-web-identity \
+                  --duration-seconds 3600 \
+                  --output "json" \
+                  --query "Credentials" \
+                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/circleci-oidc" \
+                  --role-session-name "<< parameters.account_id >>-oidc-credentials" \
+                  --web-identity-token "${CIRCLE_OIDC_TOKEN}")
+            export AWS_ACCESS_KEY_ID=$(echo $AWS_STS_CREDENTIALS | jq .AccessKeyId | xargs)
+            export AWS_SECRET_ACCESS_KEY=$(echo $AWS_STS_CREDENTIALS | jq .SecretAccessKey | xargs)
+            export AWS_SESSION_TOKEN=$(echo $AWS_STS_CREDENTIALS | jq .SessionToken | xargs)
+
+            echo "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$BASH_ENV"
+            echo "export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> "$BASH_ENV"
+            source "$BASH_ENV"
+  vendor_install_with_cache:
+    description: Install npm vendor dependencies
+    steps:
+      - restore_cache:
+          name: Restore existing vendor cache
+          key: v1-seller-{{ .Revision }}
+      - run:
+          name: Install dependencies
+          command: |
+            npm install
+            npx vite build
+      - store_artifacts:
+          path: package-lock.json
+      - save_cache:
+          name: Save vendor cache
+          key: v1-seller-{{ .Revision }}
+          paths:
+            - << pipeline.parameters.vendor_path >>
+  vendor_restore_cache:
+    description: Restore vendor cache
+    steps:
+      - restore_cache:
+          name: Restore vendor cache
+          keys:
+            - v1-seller-{{ .Revision }}
+  build_backend_image:
+    description: Build backend image (nodejs)
+    parameters:
+      account_id:
+        type: string
+        default: "298884149618"
+    steps:
+      - login_with_web_identity:
+          account_id: << parameters.account_id >>
+      - aws-ecr/build_and_push_image:
+          container_registry_login: false
+          auth:
+            - run:
+                name: Login to ECR
+                command: aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin << parameters.account_id >>.dkr.ecr.eu-central-1.amazonaws.com
+          checkout: true
+          account_id: << parameters.account_id >>
+          repo: auqli_admin
+          region: eu-central-1
+          tag: 'latest,$CIRCLE_SHA1'
+          extra_build_args: >
+            --build-arg ACCOUNT_ID=<< parameters.account_id >> 
+  add_deploy_key:
+    description: Add circleci ssh key
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+
+jobs:
+  build:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_install_with_cache
+
+  build-and-push-backend-image-staging:
+    executor: docker-machine
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - build_backend_image:
+          account_id: "298884149618"
+
+  build-and-push-backend-image-production:
+    executor: docker-machine
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - build_backend_image:
+          account_id: "090877363449"
+
+workflows:
+  build-test-and-approval-deploy:
+    jobs:
+      - build
+
+      - approve-build-backend-image-staging:
+          type: approval
+          requires:
+            - build
+
+      - build-and-push-backend-image-staging:
+          requires:
+          - approve-build-backend-image-staging
+          context:
+            - foundations_auqli_staging
+
+      - approve-staging-backend-deploy:
+          type: approval
+          requires:
+            - build-and-push-backend-image-staging
+          context:
+            - foundations_auqli_staging
+
+      - aws-ecs/deploy-service-update:
+          name: deploy-to-staging-backend
+          context:
+            - foundations_auqli_staging
+          requires:
+            - approve-staging-backend-deploy
+          cluster-name: 'staging-auqli'
+          family: 'staging-auqli-admin'
+          service-name: 'staging-auqli-admin'
+          container-image-name-updates: 'container=staging-auqli-admin,tag=$CIRCLE_SHA1'
+          container-env-var-updates: 'container=staging-auqli-admin,name=APP_ENV,value=staging,container=staging-auqli-admin,name=BRANCH,value=$CIRCLE_BRANCH'
+          verify-revision-is-deployed: true
+          docker-image-for-job: << pipeline.parameters.docker_job_image >>
+
+      - approve-build-backend-image-production:
+          type: approval
+          requires:
+            - build
+
+      - build-and-push-backend-image-production:
+          requires:
+          - approve-build-backend-image-production
+          context:
+            - foundations_auqli_production
+
+      - approve-production-backend-deploy:
+          type: approval
+          requires:
+            - build-and-push-backend-image-production
+          context:
+            - foundations_auqli_production
+
+      - aws-ecs/deploy-service-update:
+          name: deploy-to-production-backend
+          context:
+            - foundations_auqli_production
+          requires:
+            - approve-production-backend-deploy
+          cluster-name: 'production-auqli'
+          family: 'production-auqli-admin'
+          service-name: 'production-auqli-admin'
+          container-image-name-updates: 'container=production-auqli-admin,tag=$CIRCLE_SHA1'
+          container-env-var-updates: 'container=production-auqli-admin,name=APP_ENV,value=production,container=production-auqli-admin,name=BRANCH,value=$CIRCLE_BRANCH'
+          verify-revision-is-deployed: true
+          docker-image-for-job: << pipeline.parameters.docker_job_image >>
+
