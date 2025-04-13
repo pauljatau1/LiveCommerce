@@ -114,7 +114,7 @@ exports.createStream = async (req, res) => {
 
         const uploadResult = await s3.upload(uploadParams).promise();
         imageData = {
-          url: 'https://'+ process.env.CDN_URL + "/" + fileKey,
+          url: 'https://' + process.env.CDN_URL + "/" + fileKey,
           key: fileKey
         };
       } catch (uploadError) {
@@ -157,7 +157,7 @@ exports.createStream = async (req, res) => {
 
           const uploadResult = await s3.upload(params).promise();
           videoData = {
-            url: 'https://'+ process.env.CDN_URL + "/" + fileKey,
+            url: 'https://' + process.env.CDN_URL + "/" + fileKey,
             key: fileKey
           };
         }
@@ -293,20 +293,25 @@ exports.startStream = async (req, res) => {
       // timestamp will be added automatically by the schema default
     };
 
+    // Send WebSocket notification if IO is available
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      // Add timestamp for the WebSocket payload
+      notificationObj.timestamp = new Date();
+
+      // Define the stream-specific room name
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+    }
+
+
     try {
       // Create a new chat interaction document
       await Stream.findByIdAndUpdate(
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
-      // Send WebSocket notification if IO is available
-      if (req.app && req.app.get('io')) {
-        const io = req.app.get('io');
-        // Add timestamp for the WebSocket payload
-        notificationObj.timestamp = new Date();
-        io.to(streamRoom).emit('stream_notification', notificationObj);
-      }
 
       // Send push notifications to all followers
       if (seller.followers && seller.followers.length > 0) {
@@ -357,7 +362,7 @@ exports.startStream = async (req, res) => {
             try {
               // Get the buyer details
               const buyer = await Buyer.findById(subscriber.buyer);
-              
+
               if (buyer) {
                 // Create in-app notification for the buyer
                 await notificationController.createBuyerNotification(
@@ -374,17 +379,17 @@ exports.startStream = async (req, res) => {
                   message: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now!`,
                   data: notificationData
                 };
-                
+
                 await notificationController.sendEmailToBuyer(buyer, emailNotification);
-                
+
                 // Mark the subscriber as notified
                 await Stream.updateOne(
-                  { 
+                  {
                     _id: stream._id,
-                    "subscribers.buyer": subscriber.buyer 
+                    "subscribers.buyer": subscriber.buyer
                   },
-                  { 
-                    $set: { "subscribers.$.notified": true } 
+                  {
+                    $set: { "subscribers.$.notified": true }
                   }
                 );
               }
@@ -996,10 +1001,10 @@ exports.joinStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        
+
         // Create a stream-specific room name
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
+
         // Emit to stream-specific room
         io.to(streamRoom).emit('viewer_joined_stream', notificationObj);
       }
@@ -1101,10 +1106,10 @@ exports.joinStreamSeller = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        
+
         // Create a stream-specific room name
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
+
         // Emit to stream-specific room
         io.to(streamRoom).emit('seller_rejoined_stream', notificationObj);
       }
@@ -1281,7 +1286,7 @@ exports.createOpenLiveShow = async (req, res) => {
 
         const uploadResult = await s3.upload(uploadParams).promise();
         imageData = {
-          url: 'https://'+ process.env.CDN_URL + "/" + fileKey,
+          url: 'https://' + process.env.CDN_URL + "/" + fileKey,
           key: fileKey
         };
       } catch (uploadError) {
@@ -1324,7 +1329,7 @@ exports.createOpenLiveShow = async (req, res) => {
 
           const uploadResult = await s3.upload(params).promise();
           videoData = {
-            url: 'https://'+ process.env.CDN_URL + "/" + fileKey,
+            url: 'https://' + process.env.CDN_URL + "/" + fileKey,
             key: fileKey
           };
         }
@@ -1428,7 +1433,7 @@ exports.getStreamsByStatus = async (req, res) => {
     const streamsWithSubscriberCount = streams.map(stream => {
       // Convert to plain object first
       const streamObj = stream.toObject();
-      
+
       // Add the subscribers count property
       return {
         ...streamObj,
@@ -1961,10 +1966,10 @@ exports.leaveStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        
+
         // Create a stream-specific room name
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
+
         // Emit to stream-specific room
         io.to(streamRoom).emit('viewer_left_stream', notificationObj);
       }
@@ -2044,10 +2049,10 @@ exports.leaveStreamSeller = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        
+
         // Create a stream-specific room name
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
+
         // Emit to stream-specific room
         io.to(streamRoom).emit('seller_left_stream', notificationObj);
       }
@@ -2157,15 +2162,15 @@ exports.activateProductBidding = async (req, res) => {
 
     await stream.save();
     console.log('[ACTIVATE_BID] 13. Stream saved successfully');
-    
+
     // Helper function to format product name to max 3 words
     const formatProductName = (name) => {
       if (!name) return 'a product';
-      
+
       // Split by spaces and take first 3 words
       const words = name.split(' ');
       const truncatedName = words.slice(0, 3).join(' ');
-      
+
       // Add ellipsis if there were more than 3 words
       return words.length > 3 ? `${truncatedName}...` : truncatedName;
     };
@@ -2193,10 +2198,10 @@ exports.activateProductBidding = async (req, res) => {
     // Send WebSocket notification
     console.log('[ACTIVATE_BID] 14. Broadcasting start notification to subscribers');
     const io = req.app.get('io');
-    
+
     // Create a stream-specific room name
     const streamRoom = `stream_notifications_${stream._id.toString()}`;
-    
+
     // Emit to stream-specific room
     io.to(streamRoom).emit('stream_notification', notificationObj);
 
@@ -2378,10 +2383,10 @@ exports.endProductBidding = async (req, res) => {
       // Broadcast to all subscribers of stream notifications
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
-        
+
         // Create a stream-specific room name
         const streamRoom = `stream_notifications_${stream._id.toString()}`;
-        
+
         // Emit to stream-specific room
         io.to(streamRoom).emit('stream_notification', winnerNotification);
       }
@@ -2576,11 +2581,11 @@ exports.endProductBidding = async (req, res) => {
           stream.products[productIndex].orderCreated = true;
           stream.products[productIndex].orderId = orderResult.liveShowOrders[0].orderId;
           stream.products[productIndex].bidStatus = 'ongoing';
-          
+
           // Add order to stream's orders array
           const orders = orderResult.liveShowOrders;
           console.log('[END_BID] 32a. Order created successfully', orders);
-          
+
           // Add each order individually to the stream's orders array
           // (instead of pushing the entire array as one element)
           if (Array.isArray(orders)) {
@@ -2590,32 +2595,58 @@ exports.endProductBidding = async (req, res) => {
           } else {
             console.error('[END_BID] 32b. Expected orders to be an array but got:', typeof orders);
           }
-          
+
           console.log('[END_BID] 32c. Added order to stream\'s orders array', {
             streamOrdersCount: stream.orders.length,
             latestOrderId: orders[0].orderId
           });
-          
+
           await stream.save();
 
           // Emit socket notification about order creation
           const io = req.app.get('io');
-          
+
           // Create a stream-specific room name
           const streamRoom = `stream_notifications_${stream._id.toString()}`;
-          
-          // Emit to stream-specific room
-          io.to(streamRoom).emit('auction_order_created', {
-            success: true,
-            message: 'Order created for auction win',
-            orderId: orderResult.orders[0].orderId,
-            streamId: stream._id,
-            orderDetails: orderResult.orders[0],
-            productName: fullProductDetails.name,
-            amount: stream.products[productIndex].currentBid,
-            shippingFee: shippingFee,
-            total: stream.products[productIndex].currentBid + shippingFee
-          });
+
+          // Get winning bidder ID
+          const winningBidderId = stream.products[productIndex].currentBidder._id.toString();
+          console.log(`[END_BID] Winning bidder ID: ${winningBidderId}`);
+
+          // Find all sockets in the stream room and send notification only to the winning bidder
+          const sockets = await io.in(streamRoom).fetchSockets();
+          console.log(`[END_BID] Found ${sockets.length} sockets in room ${streamRoom}`);
+
+          let winnerSocketFound = false;
+
+          // Loop through all sockets in the room to find the winning bidder
+          for (const socket of sockets) {
+            // Check if this socket belongs to the winning bidder
+            if (socket.user && socket.user.id === winningBidderId) {
+              console.log(`[END_BID] Found winning bidder's socket: ${socket.id}`);
+
+              // Send order confirmation only to this socket
+              io.to(socket.id).emit('auction_order_created', {
+                success: true,
+                message: 'Order created for auction win',
+                orderId: orderResult.orders[0].orderId,
+                streamId: stream._id,
+                orderDetails: orderResult.orders[0],
+                productName: fullProductDetails.name,
+                amount: stream.products[productIndex].currentBid,
+                shippingFee: shippingFee,
+                total: stream.products[productIndex].currentBid + shippingFee
+              });
+
+              winnerSocketFound = true;
+              console.log(`[END_BID] Order confirmation sent to winning bidder's socket ID: ${socket.id}`);
+              break;
+            }
+          }
+
+          if (!winnerSocketFound) {
+            console.log(`[END_BID] Warning: Winning bidder (${winningBidderId}) not found in room ${streamRoom}`);
+          }
         } else {
           console.error('[END_BID] 32. Failed to create order',
             orderResult?.message || 'Unknown error');
@@ -2626,10 +2657,10 @@ exports.endProductBidding = async (req, res) => {
 
           // Emit error notification to buyer
           const io = req.app.get('io');
-          
+
           // Create a stream-specific room name
           const streamRoom = `stream_notifications_${stream._id.toString()}`;
-          
+
           // Emit to stream-specific room
           io.to(streamRoom).emit('auction_order_error', {
             success: false,
@@ -2649,10 +2680,10 @@ exports.endProductBidding = async (req, res) => {
         if (stream.products[productIndex].currentBidder?._id) {
           const buyerId = stream.products[productIndex].currentBidder._id;
           const io = req.app.get('io');
-          
+
           // Create a stream-specific room name
           const streamRoom = `stream_notifications_${stream._id.toString()}`;
-          
+
           // Emit to stream-specific room
           io.to(streamRoom).emit('auction_order_error', {
             success: false,
@@ -2676,11 +2707,11 @@ exports.endProductBidding = async (req, res) => {
     // Helper function to format product name to max 3 words
     const formatProductName = (name) => {
       if (!name) return 'a product';
-      
+
       // Split by spaces and take first 3 words
       const words = name.split(' ');
       const truncatedName = words.slice(0, 3).join(' ');
-      
+
       // Add ellipsis if there were more than 3 words
       return words.length > 3 ? `${truncatedName}...` : truncatedName;
     };
@@ -2708,10 +2739,10 @@ exports.endProductBidding = async (req, res) => {
     // Send WebSocket notification
     console.log('[END_BID] 35. Broadcasting end notification to subscribers');
     const io = req.app.get('io');
-    
+
     // Create a stream-specific room name
     const streamRoom = `stream_notifications_${stream._id.toString()}`;
-    
+
     // Emit to stream-specific room
     io.to(streamRoom).emit('stream_notification', notificationObj);
 
@@ -2944,8 +2975,8 @@ exports.subscribeToStream = async (req, res) => {
     }
 
     // Check if buyer is already subscribed
-    const alreadySubscribed = stream.subscribers && 
-      stream.subscribers.some(subscriber => 
+    const alreadySubscribed = stream.subscribers &&
+      stream.subscribers.some(subscriber =>
         subscriber.buyer.toString() === buyerId.toString());
 
     if (alreadySubscribed) {
@@ -3002,8 +3033,8 @@ exports.unsubscribeFromStream = async (req, res) => {
     }
 
     // Check if buyer is subscribed
-    const isSubscribed = stream.subscribers && 
-      stream.subscribers.some(subscriber => 
+    const isSubscribed = stream.subscribers &&
+      stream.subscribers.some(subscriber =>
         subscriber.buyer.toString() === buyerId.toString());
 
     if (!isSubscribed) {
@@ -3044,11 +3075,11 @@ exports.unsubscribeFromStream = async (req, res) => {
 exports.getRelatedStreams = async (req, res) => {
   try {
     const { streamId } = req.params;
-    const { 
-      status, 
-      limit = 10, 
+    const {
+      status,
+      limit = 10,
       page = 1,
-      excludeSeller = false 
+      excludeSeller = false
     } = req.query;
 
     // Parse pagination parameters
@@ -3122,11 +3153,11 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching category
     const categoryMatch = await Stream.find({
       ...categoryQuery,
-      _id: { 
+      _id: {
         $nin: [
           ...categoryAndTagMatch.map(stream => stream._id),
           sourceObjectId // Make sure to exclude source stream here too
-        ] 
+        ]
       }
     })
       .populate('seller', 'storeName businessName storeAvatar')
@@ -3138,12 +3169,12 @@ exports.getRelatedStreams = async (req, res) => {
     // Next, find streams with matching tags
     const tagMatch = await Stream.find({
       ...tagsQuery,
-      _id: { 
+      _id: {
         $nin: [
-          ...categoryAndTagMatch.map(stream => stream._id), 
+          ...categoryAndTagMatch.map(stream => stream._id),
           ...categoryMatch.map(stream => stream._id),
           sourceObjectId // Make sure to exclude source stream here too
-        ] 
+        ]
       }
     })
       .populate('seller', 'storeName businessName storeAvatar')
@@ -3281,11 +3312,11 @@ exports.getNextStream = async (req, res) => {
         ...query,
         scheduledStartTime: { $gt: currentStream.scheduledStartTime }
       })
-      .populate('seller', 'storeName businessName storeAvatar')
-      .populate('products.product', 'name description images price')
-      .populate('viewers')
-      .sort({ scheduledStartTime: 1 }) // Get the soonest one
-      .lean();
+        .populate('seller', 'storeName businessName storeAvatar')
+        .populate('products.product', 'name description images price')
+        .populate('viewers')
+        .sort({ scheduledStartTime: 1 }) // Get the soonest one
+        .lean();
     }
 
     // If no next stream found with later start time, or if current stream has no start time,
@@ -3368,8 +3399,8 @@ exports.isSubscribedToStream = async (req, res) => {
     }
 
     // Check if buyer is subscribed
-    const isSubscribed = stream.subscribers && 
-      stream.subscribers.some(subscriber => 
+    const isSubscribed = stream.subscribers &&
+      stream.subscribers.some(subscriber =>
         subscriber.buyer.toString() === buyerId.toString());
 
     // Return subscription status
@@ -3381,7 +3412,7 @@ exports.isSubscribedToStream = async (req, res) => {
     console.error('Check stream subscription error:', error);
     res.status(500).json({
       message: 'Failed to check subscription status, stream not found',
-     
+
     });
   }
 };
@@ -3398,7 +3429,7 @@ exports.getStreamOrders = async (req, res) => {
     // Find the stream by ID
     const stream = await Stream.findById(streamId)
       .populate({
-        path: 'orders.buyer', 
+        path: 'orders.buyer',
         select: 'firstName lastName username profileImage'
       });
 

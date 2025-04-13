@@ -1225,7 +1225,7 @@ function initializeSocket(server) {
         // Get buyer details including shipping address
         console.log('[BID] 6. Retrieving buyer details for ID:', buyerId);
         const Buyer = mongoose.model('Buyer');
-        const buyer = await Buyer.findById(buyerId).select('firstName lastName username profileImage wallet shippingAddresses');
+        const buyer = await Buyer.findById(buyerId).select('firstName lastName username email phoneNumber profileImage wallet shippingAddresses');
 
         if (!buyer) {
           console.error('[BID] 7. FAILED: Buyer not found in database');
@@ -1685,10 +1685,17 @@ function initializeSocket(server) {
               // Create a stream-specific room name
               const streamRoom = `stream_notifications_${stream._id.toString()}`;
 
-              // Emit socket notification about order creation
-              io.to(streamRoom).emit('auction_order_created', {
+              // Send general winner notification to all subscribers
+              io.to(streamRoom).emit('stream_notification', winnerNotification);
+              
+              // Since we're already in the socket handler for the winning bidder,
+              // we can just use socket.emit to send directly to this socket
+              console.log(`[BID] 52b. Sending order confirmation directly to the winning bidder's socket ID: ${socket.id}`);
+              
+              // Send order confirmation only to the current socket (winning bidder)
+              socket.emit('auction_order_created', {
                 success: true,
-                message: 'Order created for bid win',
+                message: 'Order created for your winning bid',
                 orderId: orderResult.orders[0].orderId,
                 streamId: stream._id,
                 orderDetails: orderResult.orders[0],
@@ -1697,6 +1704,8 @@ function initializeSocket(server) {
                 shippingFee: shippingFee,
                 total: stream.products[productIndex].currentBid + shippingFee
               });
+              
+              console.log(`[BID] 52c. Order confirmation sent to winning bidder: ${buyer._id.toString()}, Socket ID: ${socket.id}`);
             } else {
               console.error('[BID] 52. Failed to create order',
                 orderResult?.message || 'Unknown error');
