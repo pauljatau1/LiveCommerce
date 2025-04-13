@@ -1,5 +1,5 @@
 import { View, Text, Pressable, TouchableOpacity } from "react-native";
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import axios from "axios";
 import { router } from "expo-router";
@@ -15,10 +15,10 @@ interface Props {
 const cancellationReasons = [
   "I changed my mind",
   "Delivery time is too long",
-  "Found better price elsewhere",
+  // "Found better price elsewhere",
   "Shipping cost too high",
   "Change Payment method",
-  "I want to change shipping info",
+  // "I want to change shipping info",
   "Seller request to cancel",
   "Duplicate Order",
 ];
@@ -102,7 +102,7 @@ const CancelSheet = ({
     );
   };
   return (
-    <View>
+    <View className="pb-[20px]">
       <View className="flex-row justify-center items-center mb-[23px] w-full mt-[10px]">
         <View className="">
           <Text className="text-[18px] text-[#ccc] font-LexendDecaBold">
@@ -156,4 +156,4 @@ const CancelSheet = ({
   );
 };
 
-export default CancelSheet;
+export default memo(CancelSheet);

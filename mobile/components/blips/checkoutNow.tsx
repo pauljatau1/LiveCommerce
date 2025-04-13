@@ -534,7 +534,7 @@ const CheckoutNow = ({
     [selectedPayment, walletBalance],
   );
   return (
-    <View className="p-[8px] pb-[16px] h-full">
+    <View className="p-[8px] pb-[16px]">
       <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator

@@ -116,6 +116,14 @@ const Notifications = () => {
     setTab(tabVal);
   };
 
+  const handleClickNotification = (item: any) => {
+    if (item?.data?.orderId) {
+      return router.push(`/orders/${item?.data?.orderId}`);
+    }
+    setActiveNoti(item);
+    setShowSheet(true);
+  };
+
   const renderNotification = useCallback(
     ({ item }: { item: any }) => {
       return (
@@ -123,8 +131,7 @@ const Notifications = () => {
           style={styles.section}
           activeOpacity={0.7}
           onPress={() => {
-            setActiveNoti(item);
-            setShowSheet(true);
+            handleClickNotification(item);
           }}
         >
           <View style={styles.notiImage}>
