@@ -36,9 +36,12 @@ const handleShipmentUpdate = async (shipmentData) => {
   await notificationController.createNotification(
     order.buyer,
     'shipping_update',
-    'Shipping Update',
-    `Your order #${order._id} is now ${shipmentData.status}`,
-    { orderId: order._id }
+    {
+      orderId: order._id,
+      order_id: order.order_id,
+      status: shipmentData.status,
+      location: shipmentData.location
+    }
   );
 };
 
@@ -59,9 +62,11 @@ const handleDeliveryException = async (exceptionData) => {
   await notificationController.createNotification(
     order.buyer,
     'shipping_exception',
-    'Delivery Exception',
-    `There's an issue with your order #${order._id}: ${exceptionData.reason}`,
-    { orderId: order._id }
+    {
+      orderId: order._id,
+      order_id: order.order_id,
+      reason: exceptionData.reason
+    }
   );
 };
 
@@ -174,16 +179,24 @@ const handleShipmentCreated = async (data) => {
       notificationController.createNotification(
         order.buyer,
         'shipment_created',
-        'Shipment Created',
-        `Your shipment for order #${order._id} has been created. Tracking number: ${data.tracking_number}`,
-        { orderId: order._id }
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          trackingNumber: data.tracking_number,
+          trackingUrl: data.carrier_tracking_url,
+          carrier: data.carrier_name
+        }
       ),
       notificationController.createNotification(
         order.seller,
         'shipment_created',
-        'Shipment Created',
-        `Shipment created for order #${order._id}. Tracking number: ${data.tracking_number}`,
-        { orderId: order._id }
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          trackingNumber: data.tracking_number,
+          trackingUrl: data.carrier_tracking_url,
+          carrier: data.carrier_name
+        }
       ),
       notificationController.createBuyerNotification(
         order.buyer._id,
@@ -396,9 +409,13 @@ const handleShipmentDelivered = async (data) => {
       notificationController.createNotification(
         order.seller._id,
         'shipment_delivered',
-        'Shipment Delivered',
-        `Order #${order._id} has been delivered`,
-        { orderId: order._id }
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          trackingNumber: data.tracking_number,
+          deliveryLocation: data.events[0]?.location || 'Unknown',
+          signedBy: data.events[0]?.description?.match(/signed by (.*)/i)?.[1] || 'Unknown'
+        }
       ),
       notificationController.createBuyerNotification(
         order.buyer._id,

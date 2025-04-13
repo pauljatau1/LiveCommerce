@@ -254,7 +254,18 @@ const handleOrderStatusUpdate = async (webhookData) => {
 const sendStatusNotifications = async (order, status, webhookData) => {
   try {
     // Create notification type based on status
-    const notificationType = `order_${status}`;
+    let notificationType;
+    
+    // Use specific notification types for different statuses
+    if (status === 'picked_up') {
+      notificationType = 'order_picked_up';
+    } else if (status === 'in_transit') {
+      notificationType = 'order_in_transit';
+    } else if (status === 'delivered') {
+      notificationType = 'order_delivered';
+    } else {
+      notificationType = `order_${status}`;
+    }
     
     // Create notification for buyer
     await notificationController.createBuyerNotification(

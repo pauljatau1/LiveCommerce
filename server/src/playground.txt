@@ -358,9 +358,9 @@ JWT_REDACTED\
     "recipientAddress": "123 Main Street, Lekki",
     "recipientState": "Lagos"
   },
-  "paymentMethod": "paystack",
+  "paymentMethod": "wallet",
   "isItemCod": false,
   "shippingFee": 3500,
   "additionalDetails": "Please handle with care",
-  "paidFromWallet": false
+  "paidFromWallet": true
 }

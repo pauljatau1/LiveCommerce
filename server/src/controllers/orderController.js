@@ -1362,6 +1362,7 @@ exports.updateOrder = async (req, res) => {
         order.seller,
         'order_status_update',
         {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status
         }
@@ -1371,7 +1372,7 @@ exports.updateOrder = async (req, res) => {
         order.buyer,
         'order_status_update',
         {
-          orderId: order._id,
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status,
           message: statusMessage,
@@ -1487,6 +1488,7 @@ exports.updateOrderStatus = async (req, res) => {
         order.seller,
         'order_status_update',
         {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status
         }
@@ -1496,7 +1498,7 @@ exports.updateOrderStatus = async (req, res) => {
         order.buyer,
         'order_status_update',
         {
-          orderId: order._id,
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status,
           message: statusMessage,
@@ -2474,11 +2476,13 @@ exports.updateOrderOpenStatus = async (req, res) => {
       // Create notifications for both parties
       await Promise.all([
         createNotification(order.seller._id, 'order_status_update', {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: 'closed',
           reason: order.closedReason
         }),
         createBuyerNotification(order.buyer._id, 'order_status_update', {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: 'closed',
           reason: order.closedReason
@@ -2529,6 +2533,13 @@ exports.cancelShipment = async (req, res) => {
       
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if the order is from an auction
+    if (order.channel && (order.channel.toLowerCase() === 'auction')) {
+      return res.status(400).json({ 
+        message: 'Orders created from auctions cannot be cancelled' 
+      });
     }
 
     // Check if shipment can be cancelled (only before pickup)
@@ -2717,10 +2728,12 @@ exports.cancelShipment = async (req, res) => {
     await Promise.all([
       createNotification(order.buyer._id, 'shipment_cancelled', {
         orderId: order._id,
+        order_id: order.order_id,
         sellerName: order.seller.storeName
       }),
       createNotification(order.seller._id, 'shipment_cancelled', {
         orderId: order._id,
+        order_id: order.order_id,
         buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`
       })
     ]);
