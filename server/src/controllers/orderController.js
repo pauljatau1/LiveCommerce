@@ -1904,8 +1904,6 @@ exports.getOrderDetails = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-
-
     // Calculate payment breakdown
     let paymentBreakdown = null;
     if (order.paid || !order.isOpen || order.paymentInfo.status === 'awaiting_cod') {  // Calculate if paid or closed
@@ -2010,7 +2008,7 @@ exports.getOrderDetails = async (req, res) => {
          buyer: order.buyer,
          seller: order.seller,
          items: order.items.map(item => ({
-           product: {
+           product: item.product ? {
              _id: item.product._id,
              name: item.product.name,
              category: item.product.category,
@@ -2019,14 +2017,18 @@ exports.getOrderDetails = async (req, res) => {
              discount: item.product.discount,
              seller: item.product.seller,
              brand: item.product.brand,
-             variants: item.product.variants, // Add variants
+             variants: item.product.variants,
              shippingInfo: item.product.shippingInfo,
              returnPolicy: item.product.returnPolicy,
-             // Include any other product fields you want
              stock: item.product.stock,
              sku: item.product.sku,
              status: item.product.status,
              condition: item.product.condition
+           } : {
+             _id: null,
+             name: item.productName || 'Product no longer available',
+             images: [],
+             status: 'unavailable'
            },
            productName: item.productName,
            seller: item.seller,
@@ -2040,29 +2042,41 @@ exports.getOrderDetails = async (req, res) => {
            delivery: order.delivery_address,
            pickup: order.pickup_address
          },
-
-         
-         shipping: {
-        method: order.shipping.method,
-        carrier: order.shipping.carrier,
-        fee: order.shipping.fee,
-        rate_id: order.shipping.rate_id,
-        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
-        estimatedPickupDate: order.shipping.estimatedPickupDate,
-        tracking: {
-          number: order.shipping.tracking.number,
-          carrier: order.shipping.tracking.carrier,
-          status: order.shipping.tracking.status,
-          lastUpdate: order.shipping.tracking.lastUpdate,
-          history: order.shipping.tracking.history
-        },
-        shipment_id: order.shipping.shipment_id,
-        shipment_purpose: order.shipping.shipment_purpose,
-        documents: {
-          shippingLabel: order.shipping?.documents?.shippingLabel,
-          commercialInvoice: order.shipping?.documents?.commercialInvoice
-        },
-      },
+         shipping: order.shipping ? {
+           method: order.shipping.method,
+           carrier: order.shipping.carrier,
+           fee: order.shipping.fee,
+           rate_id: order.shipping.rate_id,
+           estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
+           estimatedPickupDate: order.shipping.estimatedPickupDate,
+           tracking: order.shipping.tracking ? {
+             number: order.shipping.tracking.number,
+             carrier: order.shipping.tracking.carrier,
+             status: order.shipping.tracking.status,
+             lastUpdate: order.shipping.tracking.lastUpdate,
+             history: order.shipping.tracking.history || []
+           } : {
+             number: null,
+             carrier: null,
+             status: 'unknown',
+             lastUpdate: null,
+             history: []
+           },
+           shipment_id: order.shipping.shipment_id,
+           shipment_purpose: order.shipping.shipment_purpose,
+           documents: order.shipping.documents ? {
+             shippingLabel: order.shipping.documents.shippingLabel,
+             commercialInvoice: order.shipping.documents.commercialInvoice
+           } : {}
+         } : {
+           method: null,
+           carrier: null,
+           fee: null,
+           tracking: {
+             status: 'unknown',
+             history: []
+           }
+         },
          discount: order.discount || {},
          notes: order.notes || [],
          timeline: order.timeline || []
@@ -4372,6 +4386,14 @@ exports.processRefundRequest = async (req, res) => {
         // Also save the refund details in the order for reference
         order.refundRequest.refundAmount = refundAmount;
         order.refundRequest.paymentReference = paymentReference;
+
+        // Ensure buyerDetails._id is set
+        if (!order.buyerDetails || !order.buyerDetails._id) {
+          if (!order.buyerDetails) {
+            order.buyerDetails = {};
+          }
+          order.buyerDetails._id = order.buyer._id;
+        }
       } catch (refundError) {
         console.error('Error processing refund to wallet:', refundError);
         // Continue with the approval but note the error
@@ -4380,6 +4402,26 @@ exports.processRefundRequest = async (req, res) => {
           content: `Error processing refund: ${refundError.message}`,
           createdAt: new Date()
         });
+      }
+    }
+    
+    // Ensure all required buyerDetails fields are set before saving
+    if (!order.buyerDetails || !order.buyerDetails._id) {
+      if (!order.buyerDetails) {
+        order.buyerDetails = {};
+      }
+      order.buyerDetails._id = order.buyer._id;
+      
+      // Set other buyerDetails fields
+      if (order.buyer) {
+        order.buyerDetails.firstName = order.buyer.firstName || '';
+        order.buyerDetails.lastName = order.buyer.lastName || '';
+        order.buyerDetails.username = order.buyer.username || '';
+        if (order.buyer.profileImage && order.buyer.profileImage.url) {
+          order.buyerDetails.profileImage = [{url: order.buyer.profileImage.url}];
+        } else {
+          order.buyerDetails.profileImage = [];
+        }
       }
     }
     

@@ -1553,38 +1553,61 @@ exports.getSubSubCategories = async (req, res) => {
 // Create a resource
 exports.createResource = async (req, res) => {
   try {
-    const { title, description, link } = req.body;
+    const { title, description, link, resourceType, category } = req.body;
     const mediaFile = req.files?.['media']?.[0];
     const bannerFile = req.files?.['banner']?.[0];
 
-    if (!bannerFile) {
-      return res.status(400).json({ message: 'Banner image is required' });
+    if (resourceType === 'file' && !bannerFile) {
+      return res.status(400).json({ message: 'Banner image is required for file resources' });
     }
 
-    if (!mediaFile && !link) {
-      return res.status(400).json({ message: 'Either media file or link must be provided' });
+    if (!resourceType || !['youtube', 'file'].includes(resourceType)) {
+      return res.status(400).json({ message: 'Valid resource type is required (youtube or file)' });
     }
 
-    // Upload banner image
-    const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
-    const bannerParams = {
-      Bucket: process.env.CDN_S3_BUCKET,
-      Key: bannerKey,
-      Body: bannerFile.buffer,
-      ContentType: bannerFile.mimetype,
-    };
-    const bannerUpload = await s3.upload(bannerParams).promise();
+    if (!category || !['auqli_university', 'other'].includes(category)) {
+      return res.status(400).json({ message: 'Valid category is required (auqli_university or other)' });
+    }
+
+    if (resourceType === 'youtube' && !link) {
+      return res.status(400).json({ message: 'Link is required for YouTube resources' });
+    }
+
+    if (resourceType === 'file' && !mediaFile) {
+      return res.status(400).json({ message: 'Media file is required for file resources' });
+    }
 
     // Initialize resource data
     const resourceData = {
       title,
       description,
-      banner: {
-        url: bannerUpload.Location,
-        public_id: bannerUpload.Key
-      },
+      resourceType,
+      category,
       link
     };
+
+    // Handle banner image if provided
+    if (bannerFile) {
+      const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
+      const bannerParams = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: bannerKey,
+        Body: bannerFile.buffer,
+        ContentType: bannerFile.mimetype,
+      };
+      const bannerUpload = await s3.upload(bannerParams).promise();
+
+      resourceData.banner = {
+        url: bannerUpload.Location,
+        public_id: bannerUpload.Key
+      };
+    } else if (resourceType === 'youtube') {
+      // For YouTube resources without a banner, use a default placeholder
+      resourceData.banner = {
+        url: 'https://placehold.co/600x400?text=YouTube+Video',
+        public_id: 'default-youtube-banner'
+      };
+    }
 
     // Handle media file if provided
     if (mediaFile) {
@@ -1619,7 +1642,19 @@ exports.createResource = async (req, res) => {
 // Get all resources (admin)
 exports.getAllResources = async (req, res) => {
   try {
-    const resources = await Resource.find().sort({ createdAt: -1 });
+    // Extract query parameters for filtering
+    const { resourceType, category } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    if (resourceType && ['youtube', 'file'].includes(resourceType)) {
+      filter.resourceType = resourceType;
+    }
+    if (category && ['auqli_university', 'other'].includes(category)) {
+      filter.category = category;
+    }
+    
+    const resources = await Resource.find(filter).sort({ createdAt: -1 });
     res.json(resources);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1630,7 +1665,7 @@ exports.getAllResources = async (req, res) => {
 exports.updateResource = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, link } = req.body;
+    const { title, description, link, resourceType, category } = req.body;
     const mediaFile = req.files['media']?.[0];
     const bannerFile = req.files['banner']?.[0];
 
@@ -1639,10 +1674,30 @@ exports.updateResource = async (req, res) => {
       return res.status(404).json({ message: 'Resource not found' });
     }
 
+    // Validate resource type if updating
+    if (resourceType && !['youtube', 'file'].includes(resourceType)) {
+      return res.status(400).json({ message: 'Valid resource type is required (youtube or file)' });
+    }
+
+    // Validate category if updating
+    if (category && !['auqli_university', 'other'].includes(category)) {
+      return res.status(400).json({ message: 'Valid category is required (auqli_university or other)' });
+    }
+
+    // Check if resource type changes from file to youtube and there's no link
+    if (resourceType === 'youtube' && resource.resourceType !== 'youtube' && !link && !resource.link) {
+      return res.status(400).json({ message: 'Link is required when changing resource type to YouTube' });
+    }
+
+    // Check if resource type changes from youtube to file and there's no media
+    if (resourceType === 'file' && resource.resourceType !== 'file' && !mediaFile && !resource.media?.url) {
+      return res.status(400).json({ message: 'Media file is required when changing resource type to file' });
+    }
+
     // Handle media file update
     if (mediaFile) {
       // Delete old media from S3
-      if (resource.media.public_id) {
+      if (resource.media?.public_id) {
         await s3.deleteObject({
           Bucket: process.env.CDN_S3_BUCKET,
           Key: resource.media.public_id
@@ -1696,6 +1751,8 @@ exports.updateResource = async (req, res) => {
     resource.title = title || resource.title;
     resource.description = description || resource.description;
     resource.link = link || resource.link;
+    if (resourceType) resource.resourceType = resourceType;
+    if (category) resource.category = category;
     resource.updatedAt = Date.now();
 
     await resource.save();
