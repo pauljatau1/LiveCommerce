@@ -29,7 +29,6 @@ import CustomerDetail from './Pages/Customers/CustomerDetail';
 import ProductsPage from './Pages/ProductsPage/ProductsPage';
 import AddProduct from './Pages/ProductsPage/AddProduct';
 import Drafts from './Pages/ProductsPage/Drafts';
-import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
@@ -280,11 +279,6 @@ const router = createBrowserRouter([
           {
             path: 'drafts',
             element: <Drafts />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'inactive',
-            element: <Inactive />,
             errorElement: <NotFoundPage />
           },
           {

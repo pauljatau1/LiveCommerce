@@ -275,6 +275,80 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     </CommandItem>
   )
 
+  // Mobile inline header actions
+  const mobileHeaderActions = (
+    <div className="flex items-center gap-1 md:hidden">
+      <button
+        onClick={() => navigate('/dashboard/live-streams/live-stream')}
+        className="p-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition-all duration-300"
+      >
+        <Icon icon="material-symbols:screen-record" className="h-5 w-5 animate-pulse" />
+      </button>
+      
+      <button
+        onClick={handleMessagesClick}
+        className="relative p-2 rounded-full text-[#757575] hover:bg-gray-100"
+      >
+        <Icon icon="solar:chat-line-bold" className="h-5 w-5" />
+        {unreadMessages > 0 && (
+          <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-4 h-4 flex items-center justify-center rounded-full text-xs">
+            {unreadMessages}
+          </span>
+        )}
+      </button>
+      
+      <Dialog open={notificationDialogOpen} onOpenChange={async (isOpen) => {
+        setNotificationDialogOpen(isOpen);
+        if (isOpen && calculateNewNotifications() > 0) {
+          try {
+            const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+            if (!sellerToken) return;
+
+            // Update local state immediately
+            const updatedNotifications = stuffToDo.notifications.map(notification => ({
+              ...notification,
+              isRead: true
+            }));
+            stuffToDo.notifications = updatedNotifications;
+
+            // Make API call to mark all notifications as read
+            await fetch(`${BASE_URL}/notifications/mark-all-read`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${sellerToken}`,
+                'accept': '*/*'
+              }
+            });
+          } catch (error) {
+            console.error('Error marking notifications as read:', error);
+          }
+        }
+      }}>
+        <DialogTrigger asChild>
+          <button className="relative p-2 rounded-full text-[#757575] hover:bg-gray-100">
+            <Icon icon="ion:notifications-outline" className="h-5 w-5" />
+            {calculateNewNotifications() > 0 && (
+              <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-4 h-4 flex items-center justify-center rounded-full text-xs">
+                {calculateNewNotifications()}
+              </span>
+            )}
+          </button>
+        </DialogTrigger>
+        <NotificationsDialog 
+          notifications={stuffToDo?.notifications || []} 
+          onClose={() => setNotificationDialogOpen(false)}
+        />
+      </Dialog>
+
+      <div 
+        onClick={() => navigate('/dashboard/account')}
+        className="ml-1 cursor-pointer hover:opacity-80 transition-all duration-300"
+      >
+        {renderAvatar()}
+      </div>
+    </div>
+  )
+
   return (
     <header className={`${
       fullScreenMode 
@@ -302,42 +376,19 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
                     <Icon icon="ep:back" className="h-6 w-6" />
                   </button>
                 )}
-                <h1 className="ml-2 lg:ml-0 text-lg xl:text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
+                <h1 className="ml-2 lg:ml-0 text-base md:text-lg xl:text-xl font-inter font-semibold text-[#27272E] truncate max-w-[150px] md:max-w-full">{name}</h1>
               </div>
               {navName !== "" && (
                 <div className="flex items-center gap-10">
                   <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
-                  <h1 className="ml-2 lg:ml-0 capitalize text-lg xl:text-xl font-inter font-semibold text-[#16783A] ">{navName}</h1>
+                  <h1 className="ml-2 lg:ml-0 capitalize text-base md:text-lg xl:text-xl font-inter font-semibold text-[#16783A] truncate max-w-[100px] md:max-w-full">{navName}</h1>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Mobile Menu */}
-          <Popover open={open} onOpenChange={setOpen} className="md:hidden">
-            <PopoverTrigger asChild>
-              <button className="inline-flex items-center justify-center p-3 md:hidden rounded-full bg-[#DEFFEE] text-[#66CB9F] hover:[#66CB9F]/80">
-                <Icon icon="fluent:live-24-regular" className="h-5 w-5 animate-pulse " />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 mt-2 p-2 bg-white rounded-md shadow-lg border border-gray-200">
-              <Command>
-                <CommandList>
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => setOpen(false)}
-                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-                    >
-                      <Icon icon="fluent:live-20-filled" className="mr-2 h-5 w-5 text-gray-400" />
-                      <span>Go Live</span>
-                    </CommandItem>
-                    {mobileMessagesItem}
-                    {mobileNotificationsItem}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          {/* Mobile Menu - replaced dropdown with inline icons */}
+          {mobileHeaderActions}
 
           {/* Desktop Menu */}
           {desktopMenuItems}

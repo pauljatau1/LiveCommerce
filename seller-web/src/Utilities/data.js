@@ -127,10 +127,6 @@ export const sideBarNavData = [
                 id: ObjectID().toHexString(),
                 name: 'Drafts',
                 path: 'drafts'
-            }, {
-                id: ObjectID().toHexString(),
-                name: 'Inactive',
-                path: 'inactive'
             }
         ]
     },

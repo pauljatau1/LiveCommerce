@@ -1128,7 +1128,9 @@ const VerificationModal = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {apiCategories.map(category => (
+              {apiCategories
+                .sort((a, b) => a.name.localeCompare(b.name)) // Sort categories alphabetically
+                .map(category => (
                 <div 
                   key={category._id}
                   className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
@@ -1182,7 +1184,9 @@ const VerificationModal = ({ isOpen, onClose }) => {
                 Selected Categories ({formData.categories.length})
               </h4>
               <div className="flex flex-wrap gap-2">
-                {formData.categories.map(cat => (
+                {formData.categories
+                  .sort((a, b) => a.localeCompare(b)) // Sort selected categories alphabetically
+                  .map(cat => (
                   <div key={cat} className="bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 text-xs px-2 py-1 rounded-full border border-green-200 dark:border-green-700 flex items-center gap-1.5">
                     <CheckCircle className="h-3 w-3" /> {cat}
                   </div>
@@ -1885,7 +1889,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
   return (
     <>
       <Dialog open={internalIsOpen} onOpenChange={handleCloseAttempt} className="max-h-[90vh]">
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto overflow-x-hidden bg-white dark:bg-gray-900 rounded-xl shadow-xl border-0 p-0">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden bg-white dark:bg-gray-900 rounded-xl shadow-xl border-0 p-0 flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-2 bg-gradient-to-r from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 border-b">
             <div className="flex items-center gap-2 mb-1">
               {currentStepData.id === 'account-type' && <Sparkles className="h-5 w-5 text-green-600" />}
@@ -1933,12 +1937,12 @@ const VerificationModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Step Content */}
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 flex-1 overflow-y-auto">
             {currentStepData.content}
           </div>
 
           {/* Navigation Buttons */}
-          <DialogFooter className="flex justify-between sm:justify-between px-6 py-4 border-t bg-gray-50 dark:bg-gray-900">
+          <DialogFooter className="flex justify-between sm:justify-between px-6 py-4 border-t bg-gray-50 dark:bg-gray-900 sticky bottom-0 left-0 right-0 z-10 shadow-md">
             {currentStep > 0 && currentStepData.id !== 'application-submitted' ? (
               <Button 
                 variant="outline" 

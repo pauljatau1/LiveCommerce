@@ -373,6 +373,8 @@ export default function AccountPage() {
         </>
       )}
 
+      
+
       {/* Cover Image Section */}
       <div className="relative h-24 sm:h-36 w-full overflow-hidden mt-2 sm:mt-4 rounded-lg">
         <input

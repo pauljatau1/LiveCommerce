@@ -95,7 +95,14 @@ function NotificationsDialog({ notifications, onClose }) {
       case 'order_status_update':
       case 'order_shipped':
       case 'order_reminder':
-        navigate('/dashboard/orders');
+      case 'order_picked_up':
+      case 'order_in_transit':
+        // Navigate to the specific order if orderId is available in the notification data
+        if (notification.data && notification.data.orderId) {
+          navigate(`/dashboard/order/${notification.data.orderId}`);
+        } else {
+          navigate('/dashboard/orders');
+        }
         break;
 
       case 'return_request':
