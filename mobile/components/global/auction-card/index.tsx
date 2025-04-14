@@ -123,7 +123,10 @@ const AuctionCard = ({ item, closeSheet }: any) => {
 
       <CustomButton
         textStyle="!text-[8px] !font-semibold  !py-0"
-        title="Bid"
+        title={item?.auction?.status == "ended" ? "Auction Ended" : "Bid"}
+        style={{
+          opacity: item?.auction?.status == "ended" ? 0.5 : 1,
+        }}
         className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
         onPress={() => {
           if (closeSheet) {

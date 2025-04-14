@@ -23,6 +23,7 @@ import { Paystack } from "react-native-paystack-webview";
 import { toast } from "@/core/toast";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import TransactionDetails from "@/components/wallet/transaction-details";
 
 const paymentOptions = [
   {
@@ -51,6 +52,8 @@ const Wallet = () => {
   const [showPaymentMethodSheet, setShowPaymentMethodSheet] = useState(false);
   const [showSelectAmount, setShowSelectAmount] = useState(false);
   const [payLoading, setPayLoading] = useState<boolean>(false);
+  const [showTransaction, setShowTransaction] = useState<boolean>(false);
+  const [index, setIndex] = useState<number>();
 
   const [paystackKey, setPaystackKey] = useState<any>();
 
@@ -106,7 +109,7 @@ const Wallet = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/wallet/transactions?limit=30`,
+          `api/buyer/wallet/transactions?limit=10`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -189,28 +192,53 @@ const Wallet = () => {
   const renderTransactions = useCallback(
     ({ item, index }: any) => {
       return (
-        <View
+        <Pressable
           key={index}
           className={`flex-row justify-between items-end gap-[12px] p-[12px] ${index + 1 < walletTransactions?.length ? "border-b-[#ccc] border-b-[1px]" : ""}`}
+          onPress={() => {
+            setIndex(index);
+            setShowTransaction(true);
+          }}
         >
-          <View
-            className="items-start justify-between gap-[6px] shrink"
-            // style={{ flexBasis: "33%" }}
-          >
-            <Text
-              className="text-[#fff] text-[12px] font-LexendDeca "
-              numberOfLines={3}
+          <View className="flex-row items-center justify-between gap-[8px] shrink">
+            <View
+              style={{
+                backgroundColor: item.type == "credit" ? "#DEFFEE" : "#fae4e7",
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {item.description}
-            </Text>
-            <Text className="text-white text-[12px] font-LexendDecaMedium ">
-              {item?.type == "debit" && "-"}
-              {"₦" +
-                item.amount?.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-            </Text>
+              {}
+              <Feather
+                name={
+                  item.type == "credit" ? "arrow-down-left" : "arrow-up-right"
+                }
+                size={18}
+                color={item.type == "credit" ? "#16783A" : "#cd000f"}
+              />
+            </View>
+            <View
+              className="items-start justify-between gap-[6px] shrink"
+              // style={{ flexBasis: "33%" }}
+            >
+              <Text
+                className="text-[#fff] text-[12px] font-LexendDeca "
+                numberOfLines={1}
+              >
+                {item.description}
+              </Text>
+              <Text className="text-white text-[12px] font-LexendDecaMedium ">
+                {item?.type == "debit" && "-"}
+                {"₦" +
+                  item.amount?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+              </Text>
+            </View>
           </View>
 
           <View
@@ -242,19 +270,19 @@ const Wallet = () => {
             <Text
               className="text-[#16783A] text-[12px] font-LexendDecaMedium "
               style={{
-                color: item?.type == "debit" ? "#FF0A0A" : "#16783A",
+                color: item?.type == "debit" ? "#cd000f" : "#16783A",
               }}
             >
               {item.type}
             </Text>
             <Text
-              className="text-white text-[10px] font-LexendDecaMedium text-center"
+              className="text-[#ccc] text-[10px] font-LexendDecaMedium text-center"
               style={{ flexBasis: "33%" }}
             >
               {formatDate(item?.createdAt, "MMM DD YYYY, HH:mm:ss")}
             </Text>
           </View>
-        </View>
+        </Pressable>
       );
     },
     [walletTransactions, isFocused],
@@ -446,9 +474,26 @@ const Wallet = () => {
           </Pressable>
         </View>
         <View className="gap-[20px] px-[16px]">
-          <Text className="text-white text-[20px] font-LexendDecaMedium">
-            Transaction History
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-white text-[18px] font-LexendDecaMedium">
+              Transaction History
+            </Text>
+            <TouchableOpacity
+              className="flex-row items-center gap-[2px]"
+              onPress={() => router.push("/wallet/transactions")}
+            >
+              <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium">
+                View More
+              </Text>
+              <Entypo
+                name="chevron-right"
+                size={14}
+                color="#16783A"
+                style={{ marginTop: 3 }}
+              />
+            </TouchableOpacity>
+          </View>
+
           <View className="bg-[#404040] rounded-[8px] overflow-hidden">
             {walletLoading && (
               <ActivityIndicator
@@ -529,6 +574,19 @@ const Wallet = () => {
         keyboardBehavior="interactive"
       >
         <TopUpSuccess closeSheet={() => setShowSuccessSheet(false)} />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showTransaction}
+        onRequestClose={() => setShowTransaction(false)}
+        // snapPoints={["35%"]}
+        // enableDynamicSizing={false}
+        keyboardBehavior={"interactive"}
+      >
+        <TransactionDetails item={walletTransactions[index!]} />
       </BottomSheet>
     </SafeAreaView>
   );
