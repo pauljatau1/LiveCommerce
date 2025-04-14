@@ -28,8 +28,6 @@ const Home = () => {
     SplashScreen.hideAsync();
   }, []);
   return <View className="h-full w-full bg-[#121212]" />;
-  return null;
-  return <Redirect href={"../(root)/(tabs)/home"} />;
 };
 
 export default Home;

@@ -54,6 +54,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
                 tint="dark"
                 blurIntensity={15}
                 resizeMode="cover"
+                showActivityIndicator={false}
               />
             </View>
             <Text
@@ -74,7 +75,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
               placeholderColor="rgba(30, 30, 30, 0.5)"
               tint="dark"
               blurIntensity={25}
-              showActivityIndicator={true}
+              showActivityIndicator={false}
               indicatorColor="#16783A"
               resizeMode="cover"
             />
