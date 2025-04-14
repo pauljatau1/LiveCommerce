@@ -3,7 +3,9 @@ const Seller = require('../models/Seller');
 const sgMail = require('@sendgrid/mail');
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
-const notificationController = require('./notificationController');
+const { createMessageNotifications, createNotification } = require('./notificationController');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -153,6 +155,137 @@ async function sendCampaignEmails(campaign, seller, recipients) {
     return results;
   } catch (error) {
     console.error('Error in sendCampaignEmails:', error);
+    throw error;
+  }
+}
+
+// Helper function to send campaign messages to conversations
+async function sendCampaignMessages(campaign, seller, recipients) {
+  console.log('Starting to send campaign messages to conversations...');
+  try {
+    if (!recipients || recipients.length === 0) {
+      console.log('No recipients found for campaign messages');
+      return [];
+    }
+
+    const validRecipients = recipients.filter(r => r.buyer);
+    console.log(`Found ${validRecipients.length} valid recipients for messages`);
+
+    const messagePromises = validRecipients.map(async (recipient) => {
+      try {
+        // Find or create conversation
+        let conversation = await Conversation.findOne({
+          'participants': {
+            $all: [
+              { $elemMatch: { id: seller._id, model: 'Seller' } },
+              { $elemMatch: { id: recipient.buyer._id, model: 'Buyer' } }
+            ]
+          }
+        });
+
+        if (!conversation) {
+          conversation = new Conversation({
+            participants: [
+              { id: seller._id, model: 'Seller' },
+              { id: recipient.buyer._id, model: 'Buyer' }
+            ]
+          });
+          await conversation.save();
+        }
+
+        // Create campaign message content with formatting
+        let messageContent = `📢 *${campaign.title}*\n\n${campaign.message}\n\n`;
+        
+        // Add products count if any
+        if (campaign.selectedProducts && campaign.selectedProducts.length > 0) {
+          messageContent += `🛍️ *Featured Products (${campaign.selectedProducts.length})*\n`;
+        }
+
+        // Create the message
+        const message = new Message({
+          conversation: conversation._id,
+          sender: { id: seller._id, model: 'Seller' },
+          recipient: { id: recipient.buyer._id, model: 'Buyer' },
+          content: messageContent,
+          messageType: 'campaign', // New message type for campaigns
+          media: campaign.media, // Include campaign media if any
+          campaign: {
+            id: campaign._id,
+            title: campaign.title,
+            message: campaign.message,
+            products: campaign.selectedProducts.map(product => ({
+              id: product._id,
+              name: product.name,
+              price: product.price,
+              description: product.description,
+              image: product.images?.[0]?.url || '',
+              category: product.category,
+              sku: product.inventory?.sku
+            })),
+            scheduledFor: campaign.scheduledFor,
+            audienceType: campaign.audienceType,
+            media: campaign.media
+          }
+        });
+
+        await message.save();
+
+        // Update conversation
+        conversation.lastMessage = {
+          content: `Campaign: ${campaign.title}`,
+          sender: { id: seller._id, model: 'Seller' },
+          messageType: 'campaign',
+          createdAt: message.createdAt
+        };
+
+        // Increment unread count for recipient
+        const recipientKey = recipient.buyer._id.toString();
+        const currentCount = conversation.unreadCount.get(recipientKey) || 0;
+        conversation.unreadCount.set(recipientKey, currentCount + 1);
+
+        await conversation.save();
+
+        // Create notification for the message
+        try {
+          const senderName = seller.businessName || seller.storeName || seller.firstName;
+          const recipientName = recipient.buyer.firstName;
+          await createMessageNotifications(message, senderName, recipientName);
+        } catch (notificationError) {
+          console.error('Error creating message notification:', notificationError);
+          // Continue execution even if notification fails
+        }
+
+        console.log(`Successfully sent campaign message to buyer ${recipient.buyer._id}`);
+        return { success: true, buyerId: recipient.buyer._id };
+      } catch (error) {
+        console.error(`Failed to send campaign message to buyer ${recipient.buyer._id}:`, error);
+        return { 
+          success: false, 
+          buyerId: recipient.buyer._id,
+          error: error.message
+        };
+      }
+    });
+
+    const results = await Promise.all(messagePromises);
+    const successCount = results.filter(r => r.success).length;
+    const failedCount = results.filter(r => !r.success).length;
+
+    console.log('Campaign messages sending completed:', {
+      total: results.length,
+      successful: successCount,
+      failed: failedCount
+    });
+
+    // Log details of failed messages
+    const failures = results.filter(r => !r.success);
+    if (failures.length > 0) {
+      console.log('Failed message details:', failures);
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Error in sendCampaignMessages:', error);
     throw error;
   }
 }
@@ -308,6 +441,13 @@ exports.createCampaign = async (req, res) => {
         populatedCampaign.recipients
       );
 
+      // Also send campaign messages to conversations
+      const messageResults = await sendCampaignMessages(
+        populatedCampaign,
+        seller,
+        populatedCampaign.recipients
+      );
+
       // Update campaign with email status
       campaign.emailStatus = {
         sent: emailResults.filter(r => r.success).length,
@@ -319,7 +459,7 @@ exports.createCampaign = async (req, res) => {
 
     // Create notification for seller
     console.log('Creating seller notification...');
-    await notificationController.createNotification(
+    await createNotification(
       sellerId,
       scheduledFor ? 'campaign_scheduled' : 'new_campaign',
       {

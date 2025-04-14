@@ -47,7 +47,7 @@ const conversationSchema = new mongoose.Schema({
     },
     messageType: { 
       type: String, 
-      enum: ['text', 'image', 'video', 'audio', 'product', 'order']
+      enum: ['text', 'image', 'video', 'audio', 'product', 'order', 'campaign']
     },
     createdAt: { type: Date }
   },

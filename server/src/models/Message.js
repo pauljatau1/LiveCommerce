@@ -33,7 +33,7 @@ const messageSchema = new mongoose.Schema({
   content: String,
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'product', 'order'],
+    enum: ['text', 'image', 'video', 'audio', 'product', 'order', 'campaign'],
     required: true
   },
   media: [{
@@ -83,6 +83,27 @@ const messageSchema = new mongoose.Schema({
       enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
       default: 'pending'
     }
+  },
+  campaign: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign' },
+    title: String,
+    message: String,
+    products: [{
+      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+      name: String,
+      price: Number,
+      description: String,
+      image: String,
+      category: String,
+      sku: String
+    }],
+    scheduledFor: Date,
+    audienceType: String,
+    media: [{
+      url: String,
+      public_id: String,
+      type: String
+    }]
   },
   isRead: {
     type: Boolean,
