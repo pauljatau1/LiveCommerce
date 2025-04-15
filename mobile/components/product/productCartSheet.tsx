@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Image, Pressable } from "react-native";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
+import { toast } from "@/core/toast";
 
 const CartSheet = ({
   productDetails,
@@ -193,7 +194,12 @@ const CartSheet = ({
           </Text>
           <TouchableOpacity
             className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
-            onPress={() => setQuantity(quantity + 1)}
+            onPress={() => {
+              if (quantity >= productDetails?.stock) {
+                return toast.error("max stock reached");
+              }
+              setQuantity(quantity + 1);
+            }}
           >
             <AntDesign name="plus" size={14} color="white" />
           </TouchableOpacity>

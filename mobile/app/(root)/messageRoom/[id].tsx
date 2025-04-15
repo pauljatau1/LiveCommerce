@@ -339,7 +339,7 @@ const MessageRoom = () => {
     try {
       const token = await getToken();
       const formData = new FormData();
-      formData.append("recipientId", id.toString());
+      formData.append("recipientId", id?.toString());
       formData.append("recipientModel", model.toString());
       formData.append("messageType", "image");
       formData.append("content", "");
@@ -530,7 +530,7 @@ const MessageRoom = () => {
     ({ item }: { item: any }) => (
       <MessageItem
         message={item}
-        userId={userId.toString()}
+        userId={userId?.toString()}
         senderId={item?.sender?.id}
         messageType={item?.messageType || "text"}
         media={item?.media || null}
@@ -539,7 +539,7 @@ const MessageRoom = () => {
     [selectedProduct],
   );
   const keyExtractor = useCallback(
-    (item: any, index: number) => item?._id || index.toString(),
+    (item: any, index: number) => item?._id || index?.toString(),
     [],
   );
 
@@ -1237,7 +1237,7 @@ const ProductsSheet = ({
               </TouchableOpacity>
             )}
             keyExtractor={(item, index) =>
-              item?.id.toString() || index?.toString()
+              item?.id?.toString() || index?.toString()
             }
             numColumns={2}
             columnWrapperStyle={{
