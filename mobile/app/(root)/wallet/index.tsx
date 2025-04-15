@@ -13,7 +13,13 @@ import {
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
-import { AntDesign, Entypo, Feather, FontAwesome6 } from "@expo/vector-icons";
+import {
+  AntDesign,
+  Entypo,
+  Feather,
+  FontAwesome6,
+  Octicons,
+} from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import axios from "axios";
@@ -42,7 +48,7 @@ const statusColor = {
 const Wallet = () => {
   const isFocused = useIsFocused();
   const [userInfo, setUserInfo] = useState<any>();
-  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<any>();
   const [walletTransactions, setWalletTransactions] = useState<any>([]);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [paymentReference, setPaymentReference] = useState<string>("");
@@ -54,6 +60,7 @@ const Wallet = () => {
   const [payLoading, setPayLoading] = useState<boolean>(false);
   const [showTransaction, setShowTransaction] = useState<boolean>(false);
   const [index, setIndex] = useState<number>();
+  const [showBalance, setShowBalance] = useState<boolean>(false);
 
   const [paystackKey, setPaystackKey] = useState<any>();
 
@@ -369,22 +376,35 @@ const Wallet = () => {
           />
           <View className="p-[14px] flex-row items-center justify-between gap-[10px]">
             <View className="gap-[5px]">
-              <Text className="text-[14px] font-LexendDeca text-[#fff] opacity-70">
-                My Balance
-              </Text>
+              <View className="flex-row items-center gap-[8px]">
+                <Text className="text-[14px] font-LexendDeca text-[#fff] opacity-70">
+                  My Balance
+                </Text>
 
-              {
-                walletBalance?.toString() ? (
-                  <Text className="text-[18px] font-LexendDeca text-[#fff] ">
-                    {"₦" +
-                      walletBalance?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                  </Text>
-                ) : null
-                // <ActivityIndicator size={"small"} color={"white"} />
-              }
+                <Pressable onPress={() => setShowBalance(!showBalance)}>
+                  {showBalance ? (
+                    <Octicons name="eye" size={18} color="white" />
+                  ) : (
+                    <Octicons name="eye-closed" size={18} color="white" />
+                  )}
+                </Pressable>
+              </View>
+
+              {!showBalance ? (
+                <Text className="text-[18px] font-LexendDeca text-[#fff] ">
+                  ******
+                </Text>
+              ) : walletBalance?.toString() ? (
+                <Text className="text-[18px] font-LexendDeca text-[#fff] ">
+                  {"₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                </Text>
+              ) : (
+                <ActivityIndicator size={"small"} color={"white"} />
+              )}
             </View>
             <View className="flex-row gap-[10px] items-center">
               <Text className="text-[14px] font-LexendDecaMedium text-[#fff]">
