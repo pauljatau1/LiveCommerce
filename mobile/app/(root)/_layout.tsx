@@ -309,7 +309,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
-
+      <Stack.Screen
+        name="settings/support-chat"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />  
       <Stack.Screen
         name="wallet/index"
         options={{

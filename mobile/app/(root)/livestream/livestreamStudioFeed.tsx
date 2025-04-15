@@ -1681,7 +1681,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                         style={styles.actionButton}
                         onPress={handleHeartPress}
                       >
-                        <AntDesign name="hearto" size={24} color="#16783A" />
+                        <AntDesign name="hearto" size={24} color="Support chat error tracked in analytics" />
                       </TouchableOpacity>
                       <Text style={styles.actionText2}>Like</Text>
                     </View>}

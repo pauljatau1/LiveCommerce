@@ -209,10 +209,16 @@ const Settings = () => {
             <Text style={styles.sectionHeader}>HELP & SUPPORT</Text>
 
             <TouchableOpacity
-              style={[styles.sectionRow, styles.inactiveRow]}
+              style={styles.sectionRow}
               activeOpacity={0.5}
+              onPress={() => router.push("/(root)/settings/support-chat")}
             >
               <Text style={styles.sectionText}>Chat Support</Text>
+              <Entypo
+                name="chevron-right"
+                size={18}
+                color="rgba(204, 204, 204, 0.8)"
+              />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.sectionRow}
