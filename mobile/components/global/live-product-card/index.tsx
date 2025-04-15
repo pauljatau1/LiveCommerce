@@ -112,9 +112,12 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
               href={`${item.type === "auction" ? "/livestream/liveAuctionStudio" : "/livestream/livestreamStudio"}?id=${item?._id}`}
               asChild
             > */}
-            <View className="bg-black/30 rounded-full p-4">
-              <Ionicons name="play" size={25} color="white" />
-            </View>
+            {item?.status == "live" && (
+              <View className="bg-black/30 rounded-full p-4">
+                <Ionicons name="play" size={25} color="white" />
+              </View>
+            )}
+
             {/* </Link> */}
           </View>
         </View>
@@ -151,6 +154,8 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         showCloseIcon={false}
         show={rsvpSheet}
         onRequestClose={() => showRsvpSheet(false)}
+        snapPoints={["35%"]}
+        enableDynamicSizing={false}
         keyboardBehavior={"interactive"}
       >
         <RsvpSheet

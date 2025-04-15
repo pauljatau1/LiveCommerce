@@ -82,7 +82,7 @@ const ExploreMarket = ({ name, switchMode }: any) => {
 
   const renderProducts = (item: any) => {
     return (
-      <View className="w-[100%] basis-[49%] h-[299px]">
+      <View className="w-[100%] basis-[49%]">
         {item?.status == "offline_auction" ? (
           <MainAuctionCard item={item} closeSheet={() => null} />
         ) : (

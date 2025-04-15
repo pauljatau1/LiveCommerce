@@ -23,6 +23,7 @@ import { toast } from "@/core/toast";
 import * as Clipboard from "expo-clipboard";
 import CancelledOrders from "@/components/orders/cancelledOrders";
 import ReturnedOrders from "@/components/orders/ReturnedOrders";
+import { MaterialCommunityIcons, SimpleLineIcons } from "@expo/vector-icons";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -31,6 +32,15 @@ const statusColor = {
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
   returned: { name: "refund request", color: "rgba(238, 87, 28, 0.85)" },
+} as any;
+
+const statusIcons = {
+  pending: <Feather name="box" size={14} color="#fff" />,
+  picked_up: <MaterialCommunityIcons name="forklift" size={18} color="#fff" />,
+  in_transit: <Feather name="truck" size={18} color="#fff" />,
+  delivered: <SimpleLineIcons name="home" size={18} color="#fff" />,
+  cancelled: <SimpleLineIcons name="home" size={18} color="#fff" />,
+  returned: <SimpleLineIcons name="home" size={18} color="#fff" />,
 } as any;
 
 const { width, height } = Dimensions.get("window");
@@ -358,6 +368,41 @@ const SingleOrder = () => {
                       )}
                     </View>
 
+                    <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Order Total:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          ₦{order?.order?.totalAmount.toLocaleString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Shipping Total:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          ₦{order?.shipping?.fee?.amount.toLocaleString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Channel:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          {order?.order?.channel}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Payment Method:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          {order?.order?.paymentInfo?.method}
+                        </Text>
+                      </View>
+                    </View>
+
                     <View
                       className="flex-row items-center"
                       style={{ marginBottom: 36 }}
@@ -385,7 +430,8 @@ const SingleOrder = () => {
                       style={{
                         justifyContent: "center",
                         gap: 14,
-                        paddingHorizontal: 30,
+                        paddingHorizontal: 16,
+                        paddingLeft: 30,
                         paddingBottom: 40,
                       }}
                     >
@@ -402,322 +448,6 @@ const SingleOrder = () => {
                           <OrderHistory history={data} key={index} />
                         ),
                       )}
-                      {/* <View className="flex-row">
-                        <View
-                          style={{
-                            gap: 8,
-                            marginRight: 21,
-                            width: 60,
-                          }}
-                        >
-                          <Text
-                            className={`text-[16px] text-[#ccc] font-LexendDecaSemiBold`}
-                          >
-                            {formatDate(order?.createdAt, "MMM DD")}
-                          </Text>
-                          <Text
-                            className={`text-[12px] text-[#ccc] font-LexendDecaLight`}
-                          >
-                            {formatDate(order?.createdAt, "HH:mm")}
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            gap: 5,
-                            flexShrink: 1,
-                          }}
-                        >
-                          <View
-                            className="flex-row items-center"
-                            style={{ gap: 11 }}
-                          >
-                            <View
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: 10,
-                                ...([
-                                  "pending",
-                                  "pickup_arranged",
-                                  "delivered",
-                                ].includes(order.shipping?.tracking?.status)
-                                  ? {
-                                      backgroundColor: "#16783A",
-                                    }
-                                  : {
-                                      backgroundColor: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            ></View>
-                            <Text
-                              style={{
-                                fontSize: 16,
-                                fontFamily: "LexendDeca-SemiBold",
-                                ...([
-                                  "pending",
-                                  "pickup_arranged",
-                                  "delivered",
-                                ].includes(order.shipping?.tracking?.status)
-                                  ? {
-                                      color: "#16783A",
-                                    }
-                                  : {
-                                      color: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            >
-                              Order Placed
-                            </Text>
-                          </View>
-                          <View
-                            style={{
-                              ...([
-                                "pending",
-                                "pickup_arranged",
-                                "delivered",
-                              ].includes(order.shipping?.tracking?.status)
-                                ? {
-                                    borderLeftColor: "#16783A",
-                                  }
-                                : {
-                                    borderLeftColor: "#ccc",
-                                    opacity: 0.4,
-                                  }),
-                              borderLeftWidth: 1,
-                              paddingLeft: 16,
-                              paddingVertical: 10,
-                              marginLeft: 4.5,
-                            }}
-                          >
-                            <Text
-                              className={`text-[12px] text-[#ccc] font-LexendDecaSemiBold shrink ${["pending", "pickup_arranged", "delivered"].includes(order?.shipping?.tracking?.status) ? "" : "opacity-10"}`}
-                            >
-                              The seller has prepared your order and is sending
-                              to dispatch company
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      <View className="flex-row">
-                        <View
-                          style={{
-                            gap: 8,
-                            marginRight: 21,
-                            width: 60,
-                          }}
-                        >
-                          {["pickup_arranged", "delivered"].includes(
-                            order.shipping?.tracking?.status,
-                          ) && (
-                            <>
-                              <Text
-                                className={`text-[16px] text-[#ccc] font-LexendDecaSemiBold`}
-                              >
-                                {formatDate(
-                                  order?.shipping?.tracking?.history?.find(
-                                    (od: any) => od.status == "in-transit",
-                                  )?.timestamp,
-                                  "MMM DD",
-                                )}
-                              </Text>
-                              <Text
-                                className={`text-[12px] text-[#ccc] font-LexendDecaLight`}
-                              >
-                                {formatDate(
-                                  order?.shipping?.tracking?.history?.find(
-                                    (od: any) => od.status == "in-transit",
-                                  )?.timestamp,
-                                  "HH:mm",
-                                )}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                        <View
-                          style={{
-                            gap: 5,
-                            flexShrink: 1,
-                          }}
-                        >
-                          <View
-                            className="flex-row items-center"
-                            style={{ gap: 11 }}
-                          >
-                            <View
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: 10,
-                                ...(["pickup_arranged", "delivered"].includes(
-                                  order.shipping?.tracking?.status,
-                                )
-                                  ? {
-                                      backgroundColor: "#16783A",
-                                    }
-                                  : {
-                                      backgroundColor: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            ></View>
-                            <Text
-                              style={{
-                                fontSize: 16,
-                                fontFamily: "LexendDeca-SemiBold",
-                                ...(["pickup_arranged", "delivered"].includes(
-                                  order.shipping?.tracking?.status,
-                                )
-                                  ? {
-                                      color: "#16783A",
-                                    }
-                                  : {
-                                      color: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            >
-                              Shipped
-                            </Text>
-                          </View>
-                          <View
-                            style={{
-                              ...(["pickup_arranged", "delivered"].includes(
-                                order.shipping?.tracking?.status,
-                              )
-                                ? {
-                                    borderLeftColor: "#16783A",
-                                  }
-                                : {
-                                    borderLeftColor: "#ccc",
-                                    opacity: 0.4,
-                                  }),
-                              borderLeftWidth: 1,
-                              paddingLeft: 16,
-                              paddingVertical: 10,
-                              marginLeft: 4.5,
-                            }}
-                          >
-                            <Text
-                              className={`text-[12px] text-[#ccc] font-LexendDecaSemiBold shrink ${["pickup_arranged", "delivered"].includes(order?.shipping?.tracking?.status) ? "" : "opacity-10"}`}
-                            >
-                              The seller has prepared your order and is sending
-                              to dispatch company
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      <View className="flex-row">
-                        <View
-                          style={{
-                            gap: 8,
-                            marginRight: 21,
-                            width: 60,
-                          }}
-                        >
-                          {["delivered"].includes(
-                            order.shipping?.tracking?.status,
-                          ) && (
-                            <>
-                              <Text
-                                className={`text-[16px] text-[#ccc] font-LexendDecaSemiBold`}
-                              >
-                                {formatDate(
-                                  order?.shipping?.tracking?.history?.find(
-                                    (od: any) => od.status == "delivered",
-                                  )?.timestamp,
-                                  "MMM DD",
-                                )}
-                              </Text>
-                              <Text
-                                className={`text-[12px] text-[#ccc] font-LexendDecaLight`}
-                              >
-                                {formatDate(
-                                  order?.shipping?.tracking?.history?.find(
-                                    (od: any) => od.status == "delivered",
-                                  )?.timestamp,
-                                  "HH:mm",
-                                )}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                        <View
-                          style={{
-                            gap: 5,
-                            flexShrink: 1,
-                          }}
-                        >
-                          <View
-                            className="flex-row items-center"
-                            style={{ gap: 11 }}
-                          >
-                            <View
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: 10,
-                                ...(["delivered"].includes(
-                                  order.shipping?.tracking?.status,
-                                )
-                                  ? {
-                                      backgroundColor: "#16783A",
-                                    }
-                                  : {
-                                      backgroundColor: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            ></View>
-                            <Text
-                              style={{
-                                fontSize: 16,
-                                fontFamily: "LexendDeca-SemiBold",
-                                ...(["delivered"].includes(
-                                  order.shipping?.tracking?.status,
-                                )
-                                  ? {
-                                      color: "#16783A",
-                                    }
-                                  : {
-                                      color: "#ccc",
-                                      opacity: 0.4,
-                                    }),
-                              }}
-                            >
-                              Delivered
-                            </Text>
-                          </View>
-                          <View
-                            style={{
-                              ...(["delivered"].includes(
-                                order.shipping?.tracking?.status,
-                              )
-                                ? {
-                                    borderLeftColor: "#16783A",
-                                  }
-                                : {
-                                    borderLeftColor: "#ccc",
-                                    opacity: 0.4,
-                                  }),
-                              borderLeftWidth: 1,
-                              paddingLeft: 16,
-                              paddingVertical: 10,
-                              marginLeft: 4.5,
-                            }}
-                          >
-                            <Text
-                              className={`text-[12px] text-[#ccc] font-LexendDecaSemiBold shrink ${["delivered"].includes(order?.shipping?.tracking?.status) ? "" : "opacity-10"}`}
-                            >
-                              The seller has prepared your order and is sending
-                              to dispatch company
-                            </Text>
-                          </View>
-                        </View>
-                      </View> */}
                     </View>
                   </View>
                 )}
@@ -755,13 +485,21 @@ const OrderHistory = ({ history }: any) => {
         <View className="flex-row items-center" style={{ gap: 11 }}>
           <View
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: 10,
+              width: 35,
+              height: 35,
+              borderRadius: 35 / 2,
+              alignItems: "center",
+              justifyContent: "center",
+              // padding: 10,
 
               backgroundColor: "#16783A",
             }}
-          ></View>
+          >
+            {statusIcons[history?.status] || (
+              <Feather name="box" size={18} color="#fff" />
+            )}
+            {/* <Feather name="box" size={14} color="#fff" /> */}
+          </View>
           <Text
             style={{
               fontSize: 16,
@@ -778,9 +516,9 @@ const OrderHistory = ({ history }: any) => {
             borderLeftColor: "#16783A",
 
             borderLeftWidth: 1,
-            paddingLeft: 16,
+            paddingLeft: 30,
             paddingVertical: 10,
-            marginLeft: 4.5,
+            marginLeft: 35 / 2,
           }}
         >
           <Text
@@ -816,7 +554,8 @@ const OrderItem = ({
     const type = findVariantType(orderItem?.specifications);
     if (type) {
       const variant = orderItem?.product?.variants?.find(
-        (vr: any) => vr.name == type,
+        (vr: any) =>
+          vr.name == type && vr.value == orderItem.specifications[type],
       );
       if (variant) {
         setVariant({
@@ -833,7 +572,7 @@ const OrderItem = ({
   }, [orderItem]);
   return (
     <View
-      className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
+      className="border-b-[1px] py-[14px] pb-[25px] flex-row justify-center"
       style={{
         borderColor: "rgba(242, 242, 242, 0.50)",
         marginBottom: 15,

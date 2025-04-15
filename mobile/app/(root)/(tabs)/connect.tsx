@@ -217,7 +217,7 @@ const Connect = () => {
 
 const EmptyConnect = () => {
   return (
-    <View className="relative justify-center items-center flex-1">
+    <View className="relative justify-center items-center flex-1 px-[16px]">
       <Image
         source={require("../../../assets/images/connect-coming-soon.png")}
         resizeMode="contain"
@@ -227,10 +227,10 @@ const EmptyConnect = () => {
           marginBottom: 24,
         }}
       />
-      <Text className="self-center text-[#ccc] text-[24px] mb-[24px] font-LexendDecaBold">
+      <Text className="self-center text-[#ccc] text-[24px] mb-[24px] font-LexendDecaBold text-center">
         Get ready to vibe with your audience like never before.
       </Text>
-      <Text className="self-center text-[#ccc] text-[14px] font-LexendDecaLight">
+      <Text className="self-center text-[#ccc] text-[14px] font-LexendDecaLight text-center">
         Launching soon inside Auqli, Stay tuned!
       </Text>
 

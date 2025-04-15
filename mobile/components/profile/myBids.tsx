@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import MainAuctionCard from "../global/auction-card/main";
 import ProductSkeleton from "../skeleton/productSkeleton";
+import { FontAwesome } from "@expo/vector-icons";
 
 const tabs = ["ongoing", "ended"];
 
@@ -39,7 +40,7 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
   } = useGetAllBuyerAuctionProductsQuery({
     status,
     page,
-    limit: 5,
+    limit: 20,
   });
   const flatListRef = useRef<FlatList>(null);
 
@@ -76,10 +77,20 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
         style={{
           marginVertical: 40,
           width: "100%",
+          alignItems: "center",
+          gap: 10,
         }}
       >
+        <FontAwesome
+          name="money"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          You are not participating in any auctions right now
+          {tab == "ongoing"
+            ? "You have no ongoing Auctions"
+            : "You haven't participated in any Auctions"}
         </Text>
       </View>
     );
@@ -87,7 +98,7 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
 
   const renderMyBids = useCallback(({ item }: any) => {
     return (
-      <View className="shrink basis-[49%] h-[299px] shrink">
+      <View className="shrink basis-[49%]">
         <MainAuctionCard item={item} closeSheet={() => null} />
       </View>
     );
@@ -153,7 +164,6 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
             }}
             columnWrapperStyle={{
               justifyContent: "space-between",
-              marginBottom: 16,
             }}
             ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyAuctions}

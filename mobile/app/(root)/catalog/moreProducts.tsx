@@ -108,7 +108,7 @@ const MoreProducts = () => {
 
   const renderProducts = (item: any) => {
     return (
-      <View className="w-[100%] basis-[49%] h-[299px]">
+      <View className="w-[100%] basis-[49%]">
         <CatalogCard
           key={item.id}
           id={item._id}

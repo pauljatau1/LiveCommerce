@@ -39,7 +39,7 @@ const HomeHeader = () => {
   }, []);
 
   useEffect(() => {
-    if (isFocused) handleGetNotifications();
+    handleGetNotifications();
   }, [isFocused]);
 
   const { top } = useSafeAreaInsets();

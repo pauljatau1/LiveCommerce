@@ -207,7 +207,7 @@ const Message = () => {
       {loading ? (
         <ActivityIndicator size={"small"} color="#16783A" />
       ) : conversations?.length > 0 ? (
-        <>
+        <View style={{ flex: 1 }}>
           <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">
             <TouchableOpacity
               className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
@@ -246,7 +246,7 @@ const Message = () => {
               showsVerticalScrollIndicator={false}
             />
           </View>
-        </>
+        </View>
       ) : null}
 
       {!loading && conversations?.length < 1 ? <EmptyMessages /> : null}
