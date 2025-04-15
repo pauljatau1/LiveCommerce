@@ -1,11 +1,7 @@
-import { UserAttributes } from "@/hooks/useClarity";
+{/*import { UserAttributes } from "@/hooks/useClarity";
 import { getUser } from "@/store/features/auth/utils";
 
-/**
- * Extracts user attributes from the authenticated user for Clarity tracking
- * Call this function after login to identify the user in Clarity
- * @param userParam Optional user object. If not provided, will fetch from storage.
- */
+
 export const getUserAttributesForClarity = async (userParam?: any): Promise<UserAttributes | null> => {
   try {
     const user = userParam || await getUser();
@@ -68,9 +64,6 @@ export const getUserAttributesForClarity = async (userParam?: any): Promise<User
   }
 };
 
-/**
- * Calculate account age in days from creation date
- */
 const getAccountAgeInDays = (createdAt: string | Date): string => {
   try {
     const createDate = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
@@ -81,4 +74,4 @@ const getAccountAgeInDays = (createdAt: string | Date): string => {
   } catch (e) {
     return '0';
   }
-}; 
+}; */}

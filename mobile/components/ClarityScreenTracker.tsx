@@ -1,11 +1,8 @@
-import React, { useEffect } from 'react';
+{/*import React, { useEffect } from 'react';
 import { usePathname } from 'expo-router';
 import useClarity from '@/hooks/useClarity';
 
-/**
- * Component to track screen views in Clarity
- * Place this component in your layout file(s) to automatically track screen changes
- */
+
 export default function ClarityScreenTracker() {
   const pathname = usePathname();
   const { setScreenName, sendCustomEvent, isInitialized } = useClarity();
@@ -32,10 +29,7 @@ export default function ClarityScreenTracker() {
   return null;
 }
 
-/**
- * Converts a route path to a readable screen name
- * Example: /users/123 -> Users Detail
- */
+
 function getScreenNameFromPath(path: string): string {
   if (!path) return 'Unknown';
   
@@ -64,4 +58,4 @@ function getScreenNameFromPath(path: string): string {
   });
   
   return cleanedSegments.join(' ');
-} 
+} */}
