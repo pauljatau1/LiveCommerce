@@ -18,7 +18,7 @@ const AuctionCard = ({ item, closeSheet }: any) => {
   }, []);
   return (
     <Pressable
-      className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]"
+      className=" bg-black rounded-lg p-[11.85px]  w-[173px] "
       onPress={() => {
         if (closeSheet) {
           closeSheet();
@@ -40,16 +40,13 @@ const AuctionCard = ({ item, closeSheet }: any) => {
         }}
       >
         <Text
-          className="text-white text-[10px] font-LexendDecaSemiBold  text-normal pt-3"
-          numberOfLines={2}
-          style={{
-            height: 40,
-          }}
+          className="text-white text-[10px] font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
+          numberOfLines={1}
         >
           {item?.name}
         </Text>
         <View className="relative flex-row items-center gap-x-2">
-          <Text className="text-white font-LexendDecaSemiBold text-[10px]">
+          <Text className="text-white font-LexendDecaSemiBold text-[12px]">
             ₦
             {(
               item?.auction?.currentHighestBid?.amount || item?.auction?.minBid
@@ -91,11 +88,25 @@ const AuctionCard = ({ item, closeSheet }: any) => {
             {item?.seller?.storeName}
           </Text>
           <View className="flex-row items-center gap-x-1">
-            <View className="flex-row items-center gap-x-2">
-              {/* <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDecaBold">
-                Top seller
-              </Text> */}
-            </View>
+            {item?.seller?.isVerified && (
+              <View
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 1,
+                  borderRadius: 1.5,
+                  backgroundColor: "#A0EEBD",
+                }}
+              >
+                <Text
+                  className="font-LexendDecaMedium text-[4px] "
+                  style={{
+                    fontSize: 5,
+                  }}
+                >
+                  Verified
+                </Text>
+              </View>
+            )}
             <View className="flex-row items-center">
               <Image source={icons.starIcon} />
               <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
@@ -112,7 +123,10 @@ const AuctionCard = ({ item, closeSheet }: any) => {
 
       <CustomButton
         textStyle="!text-[8px] !font-semibold  !py-0"
-        title="Bid"
+        title={item?.auction?.status == "ended" ? "Auction Ended" : "Bid"}
+        style={{
+          opacity: item?.auction?.status == "ended" ? 0.5 : 1,
+        }}
         className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
         onPress={() => {
           if (closeSheet) {

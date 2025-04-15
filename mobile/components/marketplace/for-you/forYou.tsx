@@ -27,7 +27,7 @@ const ForYouSection = () => {
   const renderContent = useCallback(({ item }: any) => {
     return (
       <View
-        className="w-[100%] basis-[49%] h-[299px]"
+        className="w-[100%] basis-[49%]"
         style={{
           flexShrink: 1,
         }}

@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image, Pressable } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -74,4 +74,4 @@ const AddedToCart = ({
   );
 };
 
-export default AddedToCart;
+export default memo(AddedToCart);

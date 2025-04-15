@@ -170,9 +170,10 @@ const MessageRoom = () => {
   };
 
   const getAllMessages = async () => {
-    if (!conversationId) {
+    if (!conversationId && messages?.length < 1) {
       setMessages([]);
       setLoading(false);
+      setMessagesLoading(false);
       setIsFirstTimer(true);
       return;
     }
@@ -207,8 +208,8 @@ const MessageRoom = () => {
   };
 
   const fetchMoreMessages = () => {
-    console.log("fetching more. current page", page);
-    if (!hasReachedEnd && !messagesLoading) {
+    console.log("fetching more. current page", page + " " + conversationId);
+    if (!hasReachedEnd && !messagesLoading && conversationId) {
       setPage((prevPage) => prevPage + 1);
     }
   };
@@ -271,6 +272,12 @@ const MessageRoom = () => {
 
     setMessages([...messages, socketPayload]);
     scrollToBottom();
+    console.log({
+      recipientId: id,
+      recipientModel: model || "Seller",
+      content: newMessage || newMessageParam,
+    });
+
     try {
       const token = await getToken();
       const response = await axios.post(
@@ -326,6 +333,7 @@ const MessageRoom = () => {
       error: "",
       conversationId: conversationId,
     };
+    setIsFirstTimer(false);
     setMessages([...messages, mediaPayload]);
     scrollToBottom();
     try {
@@ -394,7 +402,7 @@ const MessageRoom = () => {
       conversationId: conversationId,
     };
     // return console.log(selectedProduct);
-
+    setIsFirstTimer(false);
     setMessages([...messages, productPayload]);
     scrollToBottom();
     try {
@@ -535,6 +543,12 @@ const MessageRoom = () => {
     [],
   );
 
+  const renderListHeader = useCallback(() => {
+    if (messagesLoading) {
+      return <ActivityIndicator size={"small"} color="#16783a" />;
+    }
+  }, [messagesLoading]);
+
   const handleShowReportUser = () => {
     setShowChatSettings(false);
     setShowReportUser(true);
@@ -645,9 +659,7 @@ const MessageRoom = () => {
               keyExtractor={keyExtractor}
               onStartReached={fetchMoreMessages}
               onStartReachedThreshold={0.5}
-              ListHeaderComponent={
-                messagesLoading ? <ActivityIndicator /> : null
-              }
+              ListHeaderComponent={renderListHeader}
               maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
                 // autoscrollToTopThreshold: 0,
@@ -981,16 +993,17 @@ const ProductItem = memo(({ item, isMyMessage }: any) => {
         <Text
           className="text-[14px] text-[#111] font-LexendDecaMedium"
           style={isMyMessage ? [styles.messageText, { fontSize: 14 }] : null}
+          numberOfLines={4}
         >
           {item?.name}
         </Text>
         {<DeterminePrice productDetails={item} />}
-        <Text
+        {/* <Text
           className="text-[10px] text-[#111] font-LexendDecaLight"
           style={isMyMessage ? [styles.messageText, { fontSize: 10 }] : null}
         >
           {item?.description?.slice(0, 40)}
-        </Text>
+        </Text> */}
       </View>
     </TouchableOpacity>
   );
@@ -1087,7 +1100,7 @@ const MessageItem = memo(
 const DeterminePrice = memo(({ productDetails }: { productDetails: any }) => {
   return (
     <View className="flex-row items-center gap-[8px]">
-      <Text className="text-[12px] text-[#16783A]  font-LexendDecaMedium leading-[18px]">
+      <Text className="text-[16px] text-[#16783A]  font-LexendDecaMedium leading-[18px]">
         ₦
         {productDetails?.discount?.isActive
           ? productDetails?.discount?.discountedPrice?.toLocaleString()

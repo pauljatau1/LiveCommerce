@@ -3,9 +3,10 @@ import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
-import { FontAwesome6 } from "@expo/vector-icons";
+import { FontAwesome6, Fontisto } from "@expo/vector-icons";
 import CatalogCard from "../catalog/catalogCard";
 import ProductSkeleton from "../skeleton/productSkeleton";
+import { opacity } from "react-native-reanimated/lib/typescript/Colors";
 
 interface Props {
   scrollY: any;
@@ -44,7 +45,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
 
   const renderProducts = ({ item }: any) => {
     return (
-      <View className="w-[100%] basis-[49%] h-[299px]">
+      <View className="w-[100%] basis-[49%]">
         <CatalogCard
           key={item.id}
           id={item._id}
@@ -72,9 +73,25 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
 
   const renderEmptyPlaceholder = useCallback(() => {
     return (
-      <View className="">
-        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Fontisto
+          name="favorite"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5, marginBottom: 20 }}
+        />
+        <Text className="text-[#ccc] font-LexendDecaMedium text-[16px] text-center">
           No Favorites
+        </Text>
+        <Text className="text-[#ccc] font-LexendDecaMedium text-[14px] text-center opacity-50">
+          Items in your wishlist will appear here
         </Text>
       </View>
     );

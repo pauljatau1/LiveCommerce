@@ -327,6 +327,15 @@ const Layout = () => {
       />
 
       <Stack.Screen
+        name="wallet/transactions"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="singleBlip/index"
         options={{
           headerTitle: "",

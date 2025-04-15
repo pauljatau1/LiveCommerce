@@ -1,9 +1,17 @@
-import { View, Text, TouchableOpacity, Pressable, Image } from "react-native";
-import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Pressable,
+  Image,
+  FlatList,
+} from "react-native";
+import React, { useCallback, useState } from "react";
 import { Link, router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BottomSheet from "../global/bottom-sheet";
 import CancelSheet from "./cancelSheet";
+import { ScrollView } from "react-native-gesture-handler";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -24,9 +32,25 @@ const OrderItem = ({
   token: string;
 }) => {
   const [showCancelSheet, setShowCancelSheet] = useState<boolean>(false);
+
+  const renderImages = useCallback(({ item }: any) => {
+    return (
+      <Image
+        source={{ uri: item?.product?.images[0].url }}
+        resizeMode="cover"
+        style={{
+          width: 115,
+          height: 103,
+          borderRadius: 14,
+          // backgroundColor: "#2a2a2a",
+        }}
+      />
+    );
+  }, []);
   return (
-    <TouchableOpacity
-      activeOpacity={0.5}
+    <Pressable
+      // activeOpacity={0.5}
+
       className="border-b-[1px] p-[16px] pb-[25px] flex-row justify-center"
       style={{
         borderColor: "rgba(242, 242, 242, 0.50)",
@@ -94,23 +118,45 @@ const OrderItem = ({
             </Text>
           </View>
         </View>
-        <View className="gap-[16px]">
-          <View>
-            <Image
-              source={{ uri: orderItem?.items[0]?.product?.images[0].url }}
-              resizeMode="cover"
-              style={{
-                width: 115,
-                height: 103,
-                borderRadius: 14,
-              }}
-            />
-          </View>
+        <View className="gap-[16px] w-full">
+          <ScrollView
+            horizontal
+            nestedScrollEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              gap: 12,
+            }}
+          >
+            {orderItem?.items?.map((item: any, index: number) => (
+              <View key={item?._id || index}>{renderImages({ item })}</View>
+            ))}
+          </ScrollView>
+          {/* <FlatList
+            data={orderItem?.items}
+            renderItem={renderImages}
+            nestedScrollEnabled={true}
+            keyExtractor={(item, index) =>
+              item?._id || item?.id || index.toString()
+            }
+            horizontal
+            contentContainerStyle={{
+              gap: 12,
+            }}
+            showsHorizontalScrollIndicator={false}
+          /> */}
           <View className="gap-[8px] relative shrink">
             <View className="flex-row items-center justify-between gap-[11px]">
-              <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold shrink">
+              {/* <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold shrink">
                 {orderItem?.items[0]?.productName?.length > 50
                   ? orderItem?.items[0]?.productName?.slice(0, 50) + "..."
+                  : orderItem?.items[0]?.productName}
+              </Text> */}
+              <Text
+                className="text-[14px] text-[#fff] font-LexendDecaMedium shrink"
+                numberOfLines={1}
+              >
+                {orderItem?.items?.length > 1
+                  ? orderItem?.items?.length + " Items"
                   : orderItem?.items[0]?.productName}
               </Text>
               <View
@@ -235,7 +281,7 @@ const OrderItem = ({
           token={token}
         />
       </BottomSheet>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
