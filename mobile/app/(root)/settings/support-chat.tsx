@@ -6,7 +6,7 @@ import { getUser } from "@/store/features/auth/utils";
 import Entypo from "@expo/vector-icons/Entypo";
 import { useRouter } from "expo-router";
 import { Platform } from 'react-native';
-import useClarity from "@/hooks/useClarity";
+//import useClarity from "@/hooks/useClarity";
 import Constants from 'expo-constants';
 
 // Get Intercom config from environment variables
@@ -18,14 +18,14 @@ const SupportChat = () => {
   const [loading, setLoading] = useState(true);
   const [webViewKey, setWebViewKey] = useState(1);
   const webViewRef = useRef<WebView>(null);
-  const clarityHook = useClarity();
+  //const clarityHook = useClarity();
   
   // Track if Intercom has been opened
   const [intercomOpened, setIntercomOpened] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Track support chat in analytics
-  const trackSupportChat = (action: string, details?: Record<string, any>) => {
+  {/*const trackSupportChat = (action: string, details?: Record<string, any>) => {
     try {
       // Track in Clarity
       if (clarityHook.isInitialized) {
@@ -42,7 +42,7 @@ const SupportChat = () => {
     } catch (error) {
       console.error('Failed to track support chat in analytics:', error);
     }
-  };
+  };*/}
 
   useEffect(() => {
     // Validate Intercom app ID
@@ -109,7 +109,7 @@ const SupportChat = () => {
       console.log('Manually triggering Intercom open');
       webViewRef.current.injectJavaScript(openIntercomJS);
       setIntercomOpened(true);
-      trackSupportChat('opened', { method: 'manual' });
+      //trackSupportChat('opened', { method: 'manual' });
     }
   };
 
@@ -136,7 +136,7 @@ const SupportChat = () => {
   // Handle when WebView is loaded
   const handleWebViewLoad = () => {
     console.log('Intercom WebView loaded successfully');
-    trackSupportChat('webview_loaded');
+    //trackSupportChat('webview_loaded');
     
     // Auto-open attempt when WebView is fully loaded
     if (webViewRef.current) {
@@ -166,25 +166,25 @@ const SupportChat = () => {
         if (data.message && data.message.includes('cookie')) {
           console.warn('Cookie error detected, will use alternative approach');
           // We'll rely on the cookie workaround in the HTML
-          trackSupportChat('cookie_error', { message: data.message });
+          //trackSupportChat('cookie_error', { message: data.message });
           return;
         }
         
         setError(data.message || 'Unknown error in Intercom');
-        trackSupportChat('error', { errorMessage: data.message });
+        //trackSupportChat('error', { errorMessage: data.message });
         return;
       }
       
       switch (data.type) {
         case 'intercomReady':
           setIntercomOpened(true);
-          trackSupportChat('ready');
+          //trackSupportChat('ready');
           break;
           
         case 'intercomHidden':
           // When Intercom is hidden/closed, go back to previous screen
           console.log('Intercom messenger closed, navigating back');
-          trackSupportChat('closed');
+          //trackSupportChat('closed');
           // Short delay to ensure smooth transition
           router.back();
           break;
@@ -192,13 +192,13 @@ const SupportChat = () => {
         case 'autoOpenAttempted':
           console.log('Auto-open was attempted');
           setIntercomOpened(true);
-          trackSupportChat('auto_opened');
+          //trackSupportChat('auto_opened');
           break;
           
         case 'intercomEvent':
           // Track Intercom-specific events
           console.log('Intercom event:', data.eventName);
-          trackSupportChat(`intercom_${data.eventName}`, data.details || {});
+          //trackSupportChat(`intercom_${data.eventName}`, data.details || {});
           break;
           
         default:
@@ -539,7 +539,7 @@ const SupportChat = () => {
     const { nativeEvent } = syntheticEvent;
     console.error('WebView error:', nativeEvent);
     setError(`Error loading chat: ${nativeEvent.description || 'Unknown error'}`);
-    trackSupportChat('webview_error', { error: nativeEvent.description });
+    //trackSupportChat('webview_error', { error: nativeEvent.description });
   };
 
   // Retry loading the WebView
@@ -628,7 +628,7 @@ const SupportChat = () => {
           mediaPlaybackRequiresUserAction={false}
           onHttpError={(e) => {
             console.error('WebView HTTP error:', e.nativeEvent);
-            trackSupportChat('http_error', { statusCode: e.nativeEvent.statusCode });
+            //trackSupportChat('http_error', { statusCode: e.nativeEvent.statusCode });
           }}
           renderLoading={() => (
             <View style={{ 
