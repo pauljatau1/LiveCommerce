@@ -169,7 +169,7 @@ const Login = () => {
   //   }
   // };
 
-  useEffect(() => {}, []);
+  useEffect(() => { }, []);
 
   return (
     <>

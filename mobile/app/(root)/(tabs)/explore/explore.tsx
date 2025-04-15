@@ -18,6 +18,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { SimpleLineIcons } from "@expo/vector-icons";
 import { formatNumber } from "@/helpers/helpers";
 import { useIsFocused } from "@react-navigation/native";
+import { GlassImage } from "../../livestream/components";
 
 const Explore = () => {
   const isFocused = useIsFocused();
@@ -46,17 +47,32 @@ const Explore = () => {
           marginBottom: 12,
         }}
       >
-        <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
-          <Image
+        <View className="relative flex-row h-[70px] items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
+          <GlassImage
             source={{ uri: category?.image?.url }}
             resizeMode="cover"
-            style={{
+            imageStyle={{
               width: 70,
               height: "100%",
               borderTopLeftRadius: 4,
               borderBottomLeftRadius: 4,
             }}
+            glassStyle={{
+              width: 70,
+              height: "100%",
+              borderTopLeftRadius: 4,
+              borderBottomLeftRadius: 4,
+            }}
+            containerStyle={{
+              width: 70,
+              height: "100%",
+            }}
+            placeholderColor="rgba(255, 255, 255, 0.1)"
+            tint="dark"
+            blurIntensity={25}
+            showActivityIndicator={false}
           />
+
           <View className="bg-[#f2f2f2] w-full shrink flex-row items-center justify-between p-[15px]">
             <View className="gap-[2px]">
               <Text className="text-[#3A3A3A] text-[13px] font-LexendDecaSemiBold">
