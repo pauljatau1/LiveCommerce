@@ -3207,18 +3207,67 @@ exports.handleFezWebhook = async (req, res) => {
 // Verify Paystack transaction status
 const verifyPaystackTransaction = async (reference) => {
   try {
-    const response = await paystack.get(`/transaction/verify/${reference}`);
-    return {
-      // Fix: Paystack returns status as boolean (true) not string ("success")
-      success: response.data.status === true && response.data.data.status === 'success',
-      data: response.data.data
-    };
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+        }
+      }
+    );
+
+    const { data } = response.data;
+    console.log('Paystack verification response:', data);
+
+    if (data.status === 'success') {
+      // Find all unpaid orders with this payment reference
+      const orders = await Order.find({
+        'paymentInfo.paymentReference': reference,
+        'paymentInfo.status': { $ne: 'paid' },
+        paid: false
+      });
+
+      console.log(`Found ${orders.length} unpaid orders with reference ${reference}`);
+
+      if (orders.length === 0) {
+        console.log('No unpaid orders found for reference:', reference);
+        return { success: false, message: 'No unpaid orders found for this reference' };
+      }
+
+      // Update all orders
+      const updatePromises = orders.map(async (order) => {
+        order.paid = true;
+        order.paymentInfo.status = 'paid';
+        order.paymentInfo.transactionId = data.id;
+        order.paymentInfo.paidAt = new Date();
+
+        // Save the order
+        await order.save();
+
+        // Send notifications
+        try {
+          await notificationController.sendOrderNotification(order);
+        } catch (notifError) {
+          console.error('Error sending notification:', notifError);
+        }
+
+        return order;
+      });
+
+      const updatedOrders = await Promise.all(updatePromises);
+      console.log(`Successfully updated ${updatedOrders.length} orders for reference ${reference}`);
+
+      return {
+        success: true,
+        message: 'Payment verified successfully',
+        orders: updatedOrders
+      };
+    }
+
+    return { success: false, message: 'Payment verification failed' };
   } catch (error) {
     console.error('Error verifying Paystack transaction:', error);
-    return {
-      success: false,
-      error: error.response?.data || error.message
-    };
+    throw error;
   }
 };
 
