@@ -446,7 +446,7 @@ const AddProduct = () => {
                 price: Number(shippingDetails.pricing),
                 salePrice: Number(shippingDetails.salePrice),
                 weight: Number(shippingDetails.weight) || 10,
-                stock: Number(shippingDetails.inventory),
+                stock: productStatus === 'offline_auction' ? 1 : Number(shippingDetails.inventory),
                 condition: shippingDetails.condition,
                 status: productStatus,
                 category: selectedCategory,
