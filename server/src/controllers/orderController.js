@@ -3207,6 +3207,8 @@ exports.handleFezWebhook = async (req, res) => {
 // Verify Paystack transaction status
 const verifyPaystackTransaction = async (reference) => {
   try {
+    console.log('Verifying Paystack transaction with reference:', reference);
+    
     const response = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
@@ -3231,7 +3233,16 @@ const verifyPaystackTransaction = async (reference) => {
 
       if (orders.length === 0) {
         console.log('No unpaid orders found for reference:', reference);
-        return { success: false, message: 'No unpaid orders found for this reference' };
+        return { 
+          success: false, 
+          message: 'No unpaid orders found for this payment reference. This could mean the orders are already paid or the payment reference is incorrect.',
+          error: 'NO_ORDERS_FOUND',
+          details: {
+            reference,
+            paymentStatus: data.status,
+            gatewayResponse: data.gateway_response
+          }
+        };
       }
 
       // Update all orders
@@ -3260,14 +3271,69 @@ const verifyPaystackTransaction = async (reference) => {
       return {
         success: true,
         message: 'Payment verified successfully',
-        orders: updatedOrders
+        orders: updatedOrders,
+        details: {
+          reference,
+          amount: data.amount,
+          paymentStatus: data.status,
+          gatewayResponse: data.gateway_response,
+          ordersUpdated: updatedOrders.length
+        }
       };
     }
 
-    return { success: false, message: 'Payment verification failed' };
+    return { 
+      success: false, 
+      message: `Payment verification failed: ${data.gateway_response || 'Unknown error'}`,
+      error: 'PAYMENT_VERIFICATION_FAILED',
+      details: {
+        reference,
+        paymentStatus: data.status,
+        gatewayResponse: data.gateway_response
+      }
+    };
   } catch (error) {
     console.error('Error verifying Paystack transaction:', error);
-    throw error;
+    
+    // Handle specific error cases
+    if (error.response) {
+      // Paystack API error response
+      const errorData = error.response.data;
+      return {
+        success: false,
+        message: `Payment verification failed: ${errorData.message || error.message}`,
+        error: 'PAYSTACK_API_ERROR',
+        details: {
+          reference,
+          statusCode: error.response.status,
+          errorMessage: errorData.message,
+          errorData: errorData
+        }
+      };
+    }
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      return {
+        success: false,
+        message: 'Unable to connect to payment gateway. Please try again.',
+        error: 'CONNECTION_ERROR',
+        details: {
+          reference,
+          errorCode: error.code
+        }
+      };
+    }
+
+    // Generic error
+    return {
+      success: false,
+      message: 'An unexpected error occurred while verifying the payment',
+      error: 'INTERNAL_SERVER_ERROR',
+      details: {
+        reference,
+        errorMessage: error.message
+      }
+    };
   }
 };
 
@@ -3284,8 +3350,9 @@ exports.markOrderAsPaid = async (req, res) => {
       
       if (!verificationResult.success) {
         return res.status(400).json({ 
-          message: 'Payment verification failed', 
-          error: verificationResult.error 
+          message: verificationResult.message,
+          error: verificationResult.error,
+          details: verificationResult.details
         });
       }
     }
@@ -3300,7 +3367,14 @@ exports.markOrderAsPaid = async (req, res) => {
 
     // Check if order is already paid
     if (order.paid) {
-      return res.status(400).json({ message: 'Order is already marked as paid' });
+      return res.status(400).json({ 
+        message: 'Order is already marked as paid',
+        details: {
+          orderId: order.order_id,
+          paidAt: order.paymentInfo.paidAt,
+          transactionId: order.paymentInfo.transactionId
+        }
+      });
     }
 
     // Add a flag to track if notifications have been sent
@@ -3350,8 +3424,7 @@ exports.markOrderAsPaid = async (req, res) => {
       console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
     }
 
-    // Always send order confirmation email for paid Paystack order, regardless of notification status
-    // This ensures the buyer gets their confirmation email that was skipped at order creation
+    // Always send order confirmation email for paid Paystack order
     try {
       const Buyer = mongoose.model('Buyer');
       const buyer = await Buyer.findById(order.buyer);
@@ -3367,10 +3440,18 @@ exports.markOrderAsPaid = async (req, res) => {
     res.status(200).json({ 
       message: 'Order marked as paid successfully', 
       order: updatedOrder,
-      verificationDetails: paymentReference ? verificationResult.data : null
+      verificationDetails: verificationResult ? verificationResult.details : null
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to mark order as paid', error: error.message });
+    console.error('Error marking order as paid:', error);
+    res.status(500).json({ 
+      message: 'Failed to mark order as paid', 
+      error: error.message,
+      details: {
+        orderId: id,
+        paymentReference: paymentReference
+      }
+    });
   }
 };
 
