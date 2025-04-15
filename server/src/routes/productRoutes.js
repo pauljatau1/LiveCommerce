@@ -3621,4 +3621,58 @@ router.post('/:productId/blips',
  */
 router.get('/seller/:sellerId/search', productController.searchSellerProducts);
 
+/**
+ * @swagger
+ * /api/products/blips/{blipId}/related:
+ *   get:
+ *     summary: Get related blips based on a specific blip
+ *     description: Returns blips related to the specified blip. If no related blips are found, returns random blips.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip to get related content for
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of blips to return
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved related blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       blip:
+ *                         type: object
+ *                       productId:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       category:
+ *                         type: string
+ *                       slug:
+ *                         type: string
+ *       404:
+ *         description: Blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/blips/:blipId/related', optionalAuthMiddleware, productController.getRelatedBlips);
+
 module.exports = router;

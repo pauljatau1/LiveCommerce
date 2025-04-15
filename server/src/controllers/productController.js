@@ -7156,3 +7156,218 @@ exports.searchSellerProducts = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get related blips based on a specific blip ID
+ * If no related blips are found, it returns random blips
+ * @param {Object} req - request object with blipId
+ * @param {Object} res - response object
+ * @returns {Object} related or random blips
+ */
+exports.getRelatedBlips = async (req, res) => {
+  try {
+    const { blipId } = req.params;
+    const { limit = 10 } = req.query;
+    const userId = req.user ? req.user._id : null;
+    
+    // Find the product that contains the reference blip
+    const product = await Product.findOne({ 'blips._id': blipId })
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+      });
+    
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Blip not found' });
+    }
+    
+    // Get the source blip
+    const sourceBlip = product.blips.id(blipId);
+    
+    if (!sourceBlip) {
+      return res.status(404).json({ success: false, message: 'Blip not found' });
+    }
+    
+    // Find products with blips in the same category
+    // Excluding the current product to ensure we don't get the same blips
+    const relatedProducts = await Product.find({
+      _id: { $ne: product._id },
+      category: product.category
+    })
+    .populate({
+      path: 'seller',
+      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+    })
+    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
+    .limit(20); // fetch more than needed to have a pool to select from
+    
+    // Extract all blips from related products
+    let relatedBlips = [];
+    
+    relatedProducts.forEach(prod => {
+      if (prod.blips && prod.blips.length > 0) {
+        prod.blips.forEach(blip => {
+          // Check if the current user has liked this blip
+          const isLiked = userId ? blip.likes.includes(userId) : false;
+          
+          // Get product image URL
+          const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+          
+          // Calculate discounted price
+          let discountedPrice = prod.price;
+          if (prod.discount && prod.discount.isActive) {
+            if (prod.discount.type === 'percentage') {
+              discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
+            } else {
+              discountedPrice = Math.max(0, prod.price - prod.discount.value);
+            }
+          }
+          
+          relatedBlips.push({
+            discount: {
+              isActive: prod.discount ? prod.discount.isActive : false,
+              type: prod.discount ? prod.discount.type : 'percentage',
+              value: prod.discount ? prod.discount.value : 0,
+              discountedPrice: discountedPrice
+            },
+            _id: prod._id,
+            blipId: blip._id,
+            blipUrl: blip.url,
+            thumbnail: blip.thumbnail || null,
+            productId: prod._id,
+            productName: prod.name,
+            price: prod.price,
+            stock: prod.stock || 0,
+            status: prod.status || 'active',
+            auctionInfo: null, // Not handling auction info for now
+            images: productImage,
+            blipEngagement: {
+              likesCount: blip.likesCount || blip.likes.length || 0,
+              commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+              viewCount: blip.viewCount || 0,
+              isLiked: isLiked
+            },
+            averageRating: prod.stats && prod.stats.averageRating ? prod.stats.averageRating : null,
+            reviewCount: prod.stats && prod.stats.totalReviews ? prod.stats.totalReviews : 0,
+            createdAt: blip.createdAt,
+            seller: {
+              _id: prod.seller._id,
+              firstName: prod.seller.firstName,
+              lastName: prod.seller.lastName,
+              storeName: prod.seller.storeName,
+              storeAvatar: prod.seller.storeAvatar,
+              aboutStore: prod.seller.aboutStore || '',
+              storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
+              totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
+              isFollowing: false, // Would need to check buyer's following list to determine this
+              isFeatured: prod.seller.isVerified || false
+            }
+          });
+        });
+      }
+    });
+    
+    // If we don't have enough related blips, fetch random blips
+    if (relatedBlips.length < parseInt(limit)) {
+      const randomProducts = await Product.find({
+        _id: { $ne: product._id },
+        'blips.0': { $exists: true } // ensure the product has at least one blip
+      })
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+      })
+      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
+      .limit(20);
+      
+      randomProducts.forEach(prod => {
+        if (prod.blips && prod.blips.length > 0) {
+          prod.blips.forEach(blip => {
+            // Avoid duplicates
+            const exists = relatedBlips.some(
+              item => item.blipId.toString() === blip._id.toString()
+            );
+            
+            if (!exists) {
+              // Check if the current user has liked this blip
+              const isLiked = userId ? blip.likes.includes(userId) : false;
+              
+              // Get product image URL
+              const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+              
+              // Calculate discounted price
+              let discountedPrice = prod.price;
+              if (prod.discount && prod.discount.isActive) {
+                if (prod.discount.type === 'percentage') {
+                  discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
+                } else {
+                  discountedPrice = Math.max(0, prod.price - prod.discount.value);
+                }
+              }
+              
+              relatedBlips.push({
+                discount: {
+                  isActive: prod.discount ? prod.discount.isActive : false,
+                  type: prod.discount ? prod.discount.type : 'percentage',
+                  value: prod.discount ? prod.discount.value : 0,
+                  discountedPrice: discountedPrice
+                },
+                _id: prod._id,
+                blipId: blip._id,
+                blipUrl: blip.url,
+                thumbnail: blip.thumbnail || null,
+                productId: prod._id,
+                productName: prod.name,
+                price: prod.price,
+                stock: prod.stock || 0,
+                status: prod.status || 'active',
+                auctionInfo: null, // Not handling auction info for now
+                images: productImage,
+                blipEngagement: {
+                  likesCount: blip.likesCount || blip.likes.length || 0,
+                  commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+                  viewCount: blip.viewCount || 0,
+                  isLiked: isLiked
+                },
+                averageRating: prod.stats && prod.stats.averageRating ? prod.stats.averageRating : null,
+                reviewCount: prod.stats && prod.stats.totalReviews ? prod.stats.totalReviews : 0,
+                createdAt: blip.createdAt,
+                seller: {
+                  _id: prod.seller._id,
+                  firstName: prod.seller.firstName,
+                  lastName: prod.seller.lastName,
+                  storeName: prod.seller.storeName,
+                  storeAvatar: prod.seller.storeAvatar,
+                  aboutStore: prod.seller.aboutStore || '',
+                  storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
+                  totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
+                  isFollowing: false, // Would need to check buyer's following list to determine this
+                  isFeatured: prod.seller.isVerified || false
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Shuffle the array for better variety
+    relatedBlips = relatedBlips.sort(() => 0.5 - Math.random());
+    
+    // Limit the number of returned blips
+    relatedBlips = relatedBlips.slice(0, parseInt(limit));
+    
+    return res.status(200).json({
+      success: true,
+      count: relatedBlips.length,
+      data: relatedBlips
+    });
+  } catch (error) {
+    console.error('Error fetching related blips:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};

@@ -164,6 +164,31 @@ router.get('/blocked-users', authMiddleware.verifyToken, conversationController.
 
 /**
  * @swagger
+ * /api/conversations/unread/count:
+ *   get:
+ *     summary: Get total unread messages count for the logged in user
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Total unread messages count
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalUnreadCount:
+ *                   type: integer
+ *                   minimum: 0
+ *                   description: Total count of unread messages across all conversations
+ *       500:
+ *         description: Server error
+ */
+router.get('/unread/count', authMiddleware.verifyToken, conversationController.getTotalUnreadCount);
+
+/**
+ * @swagger
  * /api/conversations:
  *   get:
  *     summary: Get all conversations for the current user

@@ -451,4 +451,34 @@ exports.getBlockedUsers = async (req, res) => {
   }
 };
 
+exports.getTotalUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userModel = req.user.role;
+    
+    // Find all conversations where the current user is a participant with the correct role
+    const conversations = await Conversation.find({
+      'participants': {
+        $elemMatch: { id: userId, model: userModel }
+      }
+    });
+    
+    // Calculate total unread count across all conversations
+    let totalUnreadCount = 0;
+    conversations.forEach(conversation => {
+      const unreadCount = conversation.unreadCount.get(userId.toString()) || 0;
+      totalUnreadCount += unreadCount;
+    });
+    
+    res.json({ totalUnreadCount });
+  } catch (error) {
+    console.error('Get total unread count error:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve total unread count', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
 module.exports = exports; 
