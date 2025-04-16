@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import axios from "axios";
 import LiveProductCard from "@/components/global/live-product-card";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
+import { Ionicons } from "@expo/vector-icons";
 
 const ExploreMoreSection = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -32,8 +33,16 @@ const ExploreMoreSection = () => {
         style={{
           marginVertical: 40,
           width: "100%",
+          alignItems: "center",
+          gap: 10,
         }}
       >
+        <Ionicons
+          name="videocam-outline"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
           No Streams
         </Text>

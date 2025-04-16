@@ -26,6 +26,7 @@ import { Video } from "expo-av";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BlipItem from "./blipItem";
+import { Entypo } from "@expo/vector-icons";
 
 const Blips = ({
   sellerId,
@@ -99,8 +100,28 @@ const Blips = ({
       }
     } catch (error) {
       console.error("Error fetching more blips:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const renderEmptyBlips = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Entypo name="video" size={35} color="#ccc" style={{ opacity: 0.5 }} />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Suggested Blips
+        </Text>
+      </View>
+    );
+  }, [videos, hasReachedEnd, isLoading]);
 
   // const generateThumbnail = async (newVideos: any[]) => {
   //   try {
@@ -147,29 +168,28 @@ const Blips = ({
         </View>
       ) : (
         <View>
-          {videos?.length > 0 && (
-            <Animated.FlatList
-              ref={flatListRef}
-              data={videos}
-              renderItem={({ item, index }) => renderBlips(item)}
-              keyExtractor={(item, index) => index.toString()}
-              numColumns={2}
-              onEndReached={fetchMoreVideos}
-              onEndReachedThreshold={0.5}
-              columnWrapperStyle={{
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-              contentContainerStyle={{
-                paddingTop: headerHeight + 12,
-              }}
-              showsVerticalScrollIndicator={false}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: true },
-              )}
-            />
-          )}
+          <Animated.FlatList
+            ref={flatListRef}
+            data={videos}
+            renderItem={({ item, index }) => renderBlips(item)}
+            keyExtractor={(item, index) => index.toString()}
+            numColumns={2}
+            onEndReached={fetchMoreVideos}
+            onEndReachedThreshold={0.5}
+            columnWrapperStyle={{
+              justifyContent: "space-between",
+              marginBottom: 16,
+            }}
+            contentContainerStyle={{
+              paddingTop: headerHeight + 12,
+            }}
+            showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true },
+            )}
+            ListEmptyComponent={renderEmptyBlips}
+          />
         </View>
       )}
     </View>

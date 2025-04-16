@@ -4,6 +4,7 @@ import SectionHeader from "@/components/global/section-header";
 import FollowCard from "../../global/followers-card/followers-card";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
+import { Entypo } from "@expo/vector-icons";
 
 const Sellers = () => {
   const [sellers, setSellers] = useState<any[]>([]);
@@ -47,8 +48,11 @@ const Sellers = () => {
         style={{
           marginVertical: 40,
           width: "100%",
+          alignItems: "center",
+          gap: 10,
         }}
       >
+        <Entypo name="shop" size={35} color="#ccc" style={{ opacity: 0.5 }} />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
           No Sellers to Follow
         </Text>

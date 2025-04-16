@@ -202,6 +202,11 @@ const Checkout = () => {
 
         setSelectedAddress(delivery_address);
         // await getShippingFee();
+      } else {
+        router.replace({
+          pathname: "/addresses/addAddress",
+          params: { prevRoute: "checkout" },
+        });
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);

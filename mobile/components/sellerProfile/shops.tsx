@@ -166,6 +166,29 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
     );
   }, [filter]);
 
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <MaterialIcons
+          name="inventory"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+          No Products for this seller
+        </Text>
+      </View>
+    );
+  }, [filter, filteredProducts, products]);
+
   return (
     <View style={{ flex: 1, paddingHorizontal: 16 }}>
       {isLoading ? (
@@ -195,6 +218,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
               paddingTop: headerHeight + 12,
             }}
             ListHeaderComponent={renderListHeader}
+            ListEmptyComponent={renderEmptyPlaceholder}
             showsVerticalScrollIndicator={false}
             // onScroll={Animated.event(
             //   [{ nativeEvent: { contentOffset: { y: scrollY } } }],

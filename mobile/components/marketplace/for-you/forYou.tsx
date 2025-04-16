@@ -1,4 +1,10 @@
-import { View, Text, FlatList, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  Pressable,
+} from "react-native";
 import React, { useCallback, useEffect, useMemo } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
@@ -7,6 +13,8 @@ import { data } from "@/constants";
 import { useGetAllProductsQuery, useGetForYouQuery } from "@/services/products";
 import { Skeleton } from "@rneui/themed";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
+import { Entypo, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 const ForYouSection = () => {
   const { data: products, error, isLoading } = useGetForYouQuery({ limit: 10 });
@@ -50,13 +58,34 @@ const ForYouSection = () => {
 
   const renderEmptyPlaceholder = useCallback(() => {
     return (
-      <View className="">
-        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
-          No Products
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <MaterialIcons
+          name="inventory"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+          Add more categories to get personalized products
         </Text>
+        <Pressable
+          className="rounded-[50px] px-[20px] py-[8px] bg-[#16783A]"
+          onPress={() => router.push("/settings/updateCategories")}
+        >
+          <Text className="font-LexendDecaMedium text-[11px] text-[#fff]">
+            Add a Category
+          </Text>
+        </Pressable>
       </View>
     );
-  }, []);
+  }, [products]);
 
   return (
     <View className="w-[100%]">

@@ -169,6 +169,9 @@ const CheckoutNow = ({
         };
 
         setSelectedAddress(delivery_address);
+      } else {
+        closeSheet();
+        router.push("/addresses/addAddress");
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
