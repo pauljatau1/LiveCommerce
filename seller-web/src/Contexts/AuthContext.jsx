@@ -1,4 +1,4 @@
-import { createContext, useEffect, useReducer } from "react";
+import { createContext, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { toast } from "sonner";
 import axios from 'axios';
@@ -12,7 +12,7 @@ const AuthContext = createContext();
 
 function AuthProvider({ children }) {
     const navigate = useNavigate();
-    const { initUser, shutdown } = useIntercomChat();
+    const { shutdown } = useIntercomChat();
     const initialState = {
         seller: null,
         signUpSellerDetails: null,
@@ -479,6 +479,17 @@ function AuthProvider({ children }) {
                     "Total Wallet Balance": response.data.user?.walletBalance || 0,
                     "IP Address": clientIP,
                 });
+
+                // Also identify the user in Microsoft Clarity
+                if (window.initClarity) {
+                    // If clarity isn't directly available but initClarity is, use that
+                    window.initClarity({
+                        id: response.data.user?._id,
+                        email: response.data.user?.email,
+                        firstName: response.data.user?.firstName,
+                        lastName: response.data.user?.lastName
+                    });
+                }
 
                 // Track login event with device context and IP
                 mixpanel.track("Login", {

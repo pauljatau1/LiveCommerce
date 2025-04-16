@@ -67,7 +67,6 @@ import { ThemeProvider } from '@mui/material/styles';
 import theme from './lib/theme';
 import mixpanel from "mixpanel-browser";
 import IntercomWrapper from './Components/IntercomProvider';
-import IntercomInitializer from './Components/IntercomInitializer';
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -435,9 +434,21 @@ function App() {
       track_pageview: true,
       persistence: "localStorage",
       autocapture: true,
-
     });
 
+    // Get user data if available and initialize Clarity with user info
+    const seller = JSON.parse(localStorage.getItem('seller'));
+    console.log('analytics seller', seller);
+    if (seller) {
+      window.initClarity?.({
+        id: seller._id,
+        email: seller.email,
+        firstName: seller.firstName,
+        lastName: seller.lastName
+      });
+    } else {
+      window.initClarity?.();
+    }
   };
 
   const handleConsentDecline = () => {
@@ -452,6 +463,20 @@ function App() {
       persistence: "localStorage",
       autocapture: true,
     });
+
+    // Get user data if available and initialize Clarity with user info
+    const seller = JSON.parse(localStorage.getItem('seller'));
+    console.log('analytics seller', seller);
+    if (seller) {
+      window.initClarity?.({
+        id: seller._id,
+        email: seller.email,
+        firstName: seller.firstName,
+        lastName: seller.lastName
+      });
+    } else {
+      window.initClarity?.();
+    }
   };
 
   return (
