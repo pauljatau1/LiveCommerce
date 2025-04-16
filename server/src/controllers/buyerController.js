@@ -333,17 +333,9 @@ exports.getProfile = async (req, res) => {
         role: 1,
         wallet: 1,
         bio: 1,
-        
-        notificationPreferences: {
-          orderUpdates: 1,
-          liveShows: 1,
-          messages: 1,
-          communityActivity: 1,
-          promotionsAndSales: 1
-        },
+        notificationPreferences: 1,
         isActive: 1  
       })
-
       .lean();
 
     if (!buyer) {
