@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // const BASE_URL = 'http://localhost:8000';
-const BASE_URL = 'https://api.staging.auqli.live';
+const BASE_URL = 'https://api.auqli.live';
 
 
 export const api = axios.create({
