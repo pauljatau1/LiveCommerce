@@ -36,6 +36,10 @@ const getNotificationTitle = (type) => {
       return 'Order Status Update';
     case 'order_shipped':
       return 'Order Shipped';
+    case 'order_picked_up':
+      return 'Order Picked Up';
+    case 'order_in_transit':
+      return 'Order In Transit';
     case 'coupon_received':
       return 'New Coupon Available';
     case 'price_drop':
@@ -134,6 +138,10 @@ const getNotificationMessage = (type, data) => {
       return `Your order #${data.order_id} status has been updated to ${data.status}.`;
     case 'order_shipped':
       return `Your order #${data.order_id} has been shipped! Track your package with ${data.carrier}.`;
+    case 'order_picked_up': 
+      return `Your order #${data.order_id} has been picked up and is being processed for delivery.`;
+    case 'order_in_transit':
+      return `Order #${data.order_id} is now in transit and on its way to the delivery address.`;
     case 'coupon_received':
       return `${data.sellerName || 'A seller'} has sent you a ${data.discount}% discount coupon valid until ${data.validUntil ? new Date(data.validUntil).toLocaleDateString() : 'soon'}.`;
     case 'price_drop':
@@ -580,6 +588,7 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       seller._id,
       'new_order',
       {
+        orderId: order._id,
         order_id: order.order_id,
         amount: `₦${order.totalAmount.toLocaleString()}`,
         items: items,
@@ -598,6 +607,7 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       buyer._id,
       'order_placed',
       {
+        orderId: order._id,
         order_id: order.order_id,
         amount: `₦${order.totalAmount.toLocaleString()}`,
         items: items,
@@ -1292,6 +1302,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             seller._id,
             'new_order',
             {
+              orderId: order._id,
               order_id: order.order_id,
               amount: `₦${order.totalAmount.toLocaleString()}`,
               items: order.items.map(item => ({
@@ -1340,6 +1351,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           buyer._id,
           'order_placed',
           {
+            orderId: order._id,
             order_id: order.order_id,
             amount: `₦${order.totalAmount.toLocaleString()}`,
             items: order.items.map(item => ({
@@ -1382,6 +1394,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             buyer._id,
             'order_placed',
             {
+              orderId: order._id,
               order_id: order.order_id,
               amount: `₦${order.totalAmount.toLocaleString()}`,
               items: order.items.map(item => ({

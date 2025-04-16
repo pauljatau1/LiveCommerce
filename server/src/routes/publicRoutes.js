@@ -267,8 +267,21 @@ router.get('/announcements', async (req, res) => {
  * @swagger
  * /api/public/resources:
  *   get:
- *     summary: Get all resources
+ *     summary: Get all resources with filtering options
  *     tags: [Public]
+ *     parameters:
+ *       - in: query
+ *         name: resourceType
+ *         schema:
+ *           type: string
+ *           enum: [youtube, file]
+ *         description: Filter by resource type
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [auqli_university, other]
+ *         description: Filter by category
  *     responses:
  *       200:
  *         description: List of resources retrieved successfully
@@ -283,6 +296,12 @@ router.get('/announcements', async (req, res) => {
  *                     type: string
  *                   description:
  *                     type: string
+ *                   resourceType:
+ *                     type: string
+ *                     enum: [youtube, file]
+ *                   category:
+ *                     type: string
+ *                     enum: [auqli_university, other]
  *                   media:
  *                     type: object
  *                     properties:
@@ -306,7 +325,133 @@ router.get('/announcements', async (req, res) => {
  */
 router.get('/resources', async (req, res) => {
   try {
-    const resources = await Resource.find().sort({ createdAt: -1 });
+    // Extract query parameters for filtering
+    const { resourceType, category } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    if (resourceType && ['youtube', 'file'].includes(resourceType)) {
+      filter.resourceType = resourceType;
+    }
+    if (category && ['auqli_university', 'other'].includes(category)) {
+      filter.category = category;
+    }
+    
+    const resources = await Resource.find(filter).sort({ createdAt: -1 });
+    res.json(resources);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/public/resources/category/{category}:
+ *   get:
+ *     summary: Get resources by category
+ *     tags: [Public]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [auqli_university, other]
+ *         required: true
+ *         description: Category name
+ *       - in: query
+ *         name: resourceType
+ *         schema:
+ *           type: string
+ *           enum: [youtube, file]
+ *         description: Filter by resource type
+ *     responses:
+ *       200:
+ *         description: List of resources for the specified category
+ *       404:
+ *         description: No resources found for this category
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/resources/category/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { resourceType } = req.query;
+    
+    if (!['auqli_university', 'other'].includes(category)) {
+      return res.status(400).json({ 
+        message: 'Invalid category. Must be either "auqli_university" or "other"' 
+      });
+    }
+    
+    // Build filter object
+    const filter = { category };
+    if (resourceType && ['youtube', 'file'].includes(resourceType)) {
+      filter.resourceType = resourceType;
+    }
+    
+    const resources = await Resource.find(filter).sort({ createdAt: -1 });
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ message: 'No resources found for this category' });
+    }
+    
+    res.json(resources);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/public/resources/type/{resourceType}:
+ *   get:
+ *     summary: Get resources by type
+ *     tags: [Public]
+ *     parameters:
+ *       - in: path
+ *         name: resourceType
+ *         schema:
+ *           type: string
+ *           enum: [youtube, file]
+ *         required: true
+ *         description: Resource type
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [auqli_university, other]
+ *         description: Filter by category
+ *     responses:
+ *       200:
+ *         description: List of resources for the specified type
+ *       404:
+ *         description: No resources found for this type
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/resources/type/:resourceType', async (req, res) => {
+  try {
+    const { resourceType } = req.params;
+    const { category } = req.query;
+    
+    if (!['youtube', 'file'].includes(resourceType)) {
+      return res.status(400).json({ 
+        message: 'Invalid resource type. Must be either "youtube" or "file"' 
+      });
+    }
+    
+    // Build filter object
+    const filter = { resourceType };
+    if (category && ['auqli_university', 'other'].includes(category)) {
+      filter.category = category;
+    }
+    
+    const resources = await Resource.find(filter).sort({ createdAt: -1 });
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ message: 'No resources found for this type' });
+    }
+    
     res.json(resources);
   } catch (error) {
     res.status(500).json({ error: error.message });

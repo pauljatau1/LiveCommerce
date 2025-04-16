@@ -289,7 +289,7 @@ exports.createOrder = async (req, res) => {
       
       if (product.stock < item.quantity) {
         return res.status(400).json({ 
-          message: `Insufficient stock for product "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`
+          message: `Insufficient stock ${product.name} (${product.stock})`
         });
       }
     }
@@ -1362,6 +1362,7 @@ exports.updateOrder = async (req, res) => {
         order.seller,
         'order_status_update',
         {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status
         }
@@ -1371,7 +1372,7 @@ exports.updateOrder = async (req, res) => {
         order.buyer,
         'order_status_update',
         {
-          orderId: order._id,
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status,
           message: statusMessage,
@@ -1487,6 +1488,7 @@ exports.updateOrderStatus = async (req, res) => {
         order.seller,
         'order_status_update',
         {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status
         }
@@ -1496,7 +1498,7 @@ exports.updateOrderStatus = async (req, res) => {
         order.buyer,
         'order_status_update',
         {
-          orderId: order._id,
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: status,
           message: statusMessage,
@@ -1902,8 +1904,6 @@ exports.getOrderDetails = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-
-
     // Calculate payment breakdown
     let paymentBreakdown = null;
     if (order.paid || !order.isOpen || order.paymentInfo.status === 'awaiting_cod') {  // Calculate if paid or closed
@@ -2008,7 +2008,7 @@ exports.getOrderDetails = async (req, res) => {
          buyer: order.buyer,
          seller: order.seller,
          items: order.items.map(item => ({
-           product: {
+           product: item.product ? {
              _id: item.product._id,
              name: item.product.name,
              category: item.product.category,
@@ -2017,14 +2017,18 @@ exports.getOrderDetails = async (req, res) => {
              discount: item.product.discount,
              seller: item.product.seller,
              brand: item.product.brand,
-             variants: item.product.variants, // Add variants
+             variants: item.product.variants,
              shippingInfo: item.product.shippingInfo,
              returnPolicy: item.product.returnPolicy,
-             // Include any other product fields you want
              stock: item.product.stock,
              sku: item.product.sku,
              status: item.product.status,
              condition: item.product.condition
+           } : {
+             _id: null,
+             name: item.productName || 'Product no longer available',
+             images: [],
+             status: 'unavailable'
            },
            productName: item.productName,
            seller: item.seller,
@@ -2038,29 +2042,41 @@ exports.getOrderDetails = async (req, res) => {
            delivery: order.delivery_address,
            pickup: order.pickup_address
          },
-
-         
-         shipping: {
-        method: order.shipping.method,
-        carrier: order.shipping.carrier,
-        fee: order.shipping.fee,
-        rate_id: order.shipping.rate_id,
-        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
-        estimatedPickupDate: order.shipping.estimatedPickupDate,
-        tracking: {
-          number: order.shipping.tracking.number,
-          carrier: order.shipping.tracking.carrier,
-          status: order.shipping.tracking.status,
-          lastUpdate: order.shipping.tracking.lastUpdate,
-          history: order.shipping.tracking.history
-        },
-        shipment_id: order.shipping.shipment_id,
-        shipment_purpose: order.shipping.shipment_purpose,
-        documents: {
-          shippingLabel: order.shipping?.documents?.shippingLabel,
-          commercialInvoice: order.shipping?.documents?.commercialInvoice
-        },
-      },
+         shipping: order.shipping ? {
+           method: order.shipping.method,
+           carrier: order.shipping.carrier,
+           fee: order.shipping.fee,
+           rate_id: order.shipping.rate_id,
+           estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
+           estimatedPickupDate: order.shipping.estimatedPickupDate,
+           tracking: order.shipping.tracking ? {
+             number: order.shipping.tracking.number,
+             carrier: order.shipping.tracking.carrier,
+             status: order.shipping.tracking.status,
+             lastUpdate: order.shipping.tracking.lastUpdate,
+             history: order.shipping.tracking.history || []
+           } : {
+             number: null,
+             carrier: null,
+             status: 'unknown',
+             lastUpdate: null,
+             history: []
+           },
+           shipment_id: order.shipping.shipment_id,
+           shipment_purpose: order.shipping.shipment_purpose,
+           documents: order.shipping.documents ? {
+             shippingLabel: order.shipping.documents.shippingLabel,
+             commercialInvoice: order.shipping.documents.commercialInvoice
+           } : {}
+         } : {
+           method: null,
+           carrier: null,
+           fee: null,
+           tracking: {
+             status: 'unknown',
+             history: []
+           }
+         },
          discount: order.discount || {},
          notes: order.notes || [],
          timeline: order.timeline || []
@@ -2474,11 +2490,13 @@ exports.updateOrderOpenStatus = async (req, res) => {
       // Create notifications for both parties
       await Promise.all([
         createNotification(order.seller._id, 'order_status_update', {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: 'closed',
           reason: order.closedReason
         }),
         createBuyerNotification(order.buyer._id, 'order_status_update', {
+          orderId: order._id, // Add MongoDB ObjectId
           order_id: order.order_id,
           status: 'closed',
           reason: order.closedReason
@@ -2529,6 +2547,13 @@ exports.cancelShipment = async (req, res) => {
       
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if the order is from an auction
+    if (order.channel && (order.channel.toLowerCase() === 'auction')) {
+      return res.status(400).json({ 
+        message: 'Orders created from auctions cannot be cancelled' 
+      });
     }
 
     // Check if shipment can be cancelled (only before pickup)
@@ -2717,10 +2742,12 @@ exports.cancelShipment = async (req, res) => {
     await Promise.all([
       createNotification(order.buyer._id, 'shipment_cancelled', {
         orderId: order._id,
+        order_id: order.order_id,
         sellerName: order.seller.storeName
       }),
       createNotification(order.seller._id, 'shipment_cancelled', {
         orderId: order._id,
+        order_id: order.order_id,
         buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`
       })
     ]);
@@ -3224,6 +3251,67 @@ exports.markOrderAsPaid = async (req, res) => {
 
     // Check if order is already paid
     if (order.paid) {
+      // If this order is already paid, check if there are other unpaid orders from the same purchase
+      const buyer = order.buyer;
+      const createdAt = order.createdAt;
+      
+      if (buyer && createdAt) {
+        const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
+        const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+        
+        // Find other unpaid orders from the same buyer created around the same time
+        const otherUnpaidOrders = await Order.find({
+          _id: { $ne: order._id }, // Exclude the current order
+          buyer: buyer, 
+          paid: false,
+          createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
+        }).populate('seller');
+        
+        if (otherUnpaidOrders.length > 0) {
+          // Update each order's payment status and save
+          const updatePromises = otherUnpaidOrders.map(async (otherOrder) => {
+            // Update the payment info
+            otherOrder.paid = true;
+            otherOrder.paymentInfo.status = 'paid';
+            otherOrder.paymentInfo.transactionId = transactionId;
+            otherOrder.paymentInfo.paymentReference = paymentReference || null;
+            otherOrder.paymentInfo.paidAt = new Date();
+            otherOrder.notificationsSent = true;
+            
+            const updatedOtherOrder = await otherOrder.save();
+            
+            // Cancel any scheduled job to delete this order
+            try {
+              const jobs = await agenda.jobs({
+                name: 'delete_unpaid_orders',
+                'data.orderId': otherOrder._id.toString()
+              });
+              
+              if (jobs.length > 0) {
+                console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id}`);
+                await jobs[0].remove();
+              }
+            } catch (jobError) {
+              console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
+            }
+            
+            return updatedOtherOrder;
+          });
+          
+          // Wait for all updates to complete
+          const updatedOtherOrders = await Promise.all(updatePromises);
+          
+          return res.status(200).json({ 
+            message: `Original order already paid. ${updatedOtherOrders.length} related orders marked as paid.`, 
+            orders: updatedOtherOrders.map(o => ({
+              orderId: o._id,
+              order_id: o.order_id,
+              paid: o.paid
+            }))
+          });
+        }
+      }
+      
       return res.status(400).json({ message: 'Order is already marked as paid' });
     }
 
@@ -3241,6 +3329,61 @@ exports.markOrderAsPaid = async (req, res) => {
     order.paymentInfo.paidAt = new Date();
 
     const updatedOrder = await order.save();
+
+    // Check for other orders from the same buyer in the same time window
+    const buyer = order.buyer;
+    const createdAt = order.createdAt;
+    let otherOrdersUpdated = [];
+    
+    if (buyer && createdAt) {
+      const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
+      const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+      
+      // Find other unpaid orders from the same buyer created around the same time
+      const otherOrders = await Order.find({
+        _id: { $ne: order._id }, // Exclude the current order
+        buyer: buyer, 
+        paid: false,
+        createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
+      }).populate('seller');
+      
+      if (otherOrders.length > 0) {
+        console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
+        
+        // Update each order's payment status and save
+        const updatePromises = otherOrders.map(async (otherOrder) => {
+          // Update the payment info
+          otherOrder.paid = true;
+          otherOrder.paymentInfo.status = 'paid';
+          otherOrder.paymentInfo.transactionId = transactionId;
+          otherOrder.paymentInfo.paymentReference = paymentReference || null;
+          otherOrder.paymentInfo.paidAt = new Date();
+          otherOrder.notificationsSent = true;
+          
+          const updatedOtherOrder = await otherOrder.save();
+          
+          // Cancel any scheduled job to delete this order
+          try {
+            const jobs = await agenda.jobs({
+              name: 'delete_unpaid_orders',
+              'data.orderId': otherOrder._id.toString()
+            });
+            
+            if (jobs.length > 0) {
+              console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id}`);
+              await jobs[0].remove();
+            }
+          } catch (jobError) {
+            console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
+          }
+          
+          return updatedOtherOrder;
+        });
+        
+        // Wait for all updates to complete
+        otherOrdersUpdated = await Promise.all(updatePromises);
+      }
+    }
 
     // Cancel any scheduled job to delete this order
     try {
@@ -3291,6 +3434,12 @@ exports.markOrderAsPaid = async (req, res) => {
     res.status(200).json({ 
       message: 'Order marked as paid successfully', 
       order: updatedOrder,
+      otherOrdersUpdated: otherOrdersUpdated.length > 0 ? 
+        otherOrdersUpdated.map(o => ({
+          orderId: o._id,
+          order_id: o.order_id,
+          paid: o.paid
+        })) : [],
       verificationDetails: paymentReference ? verificationResult.data : null
     });
   } catch (error) {
@@ -3361,6 +3510,75 @@ exports.verifyPaymentByReference = async (req, res) => {
 
       // Check if this is a Paystack order that's not already paid
       if (order.paymentInfo.method !== 'paystack' || order.paid) {
+        // If this order is already paid but there are other unpaid orders from the same buyer/purchase,
+        // try to mark those as paid instead
+        if (order.paid) {
+          const buyer = order.buyer;
+          const createdAt = order.createdAt;
+          
+          if (buyer && createdAt) {
+            const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
+            const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+            
+            // Find other unpaid orders from the same buyer created around the same time
+            const otherUnpaidOrders = await Order.find({
+              _id: { $ne: order._id }, // Exclude the current order
+              buyer: buyer, 
+              paid: false,
+              'paymentInfo.method': 'paystack',
+              createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
+            }).populate('seller');
+            
+            if (otherUnpaidOrders.length > 0) {
+              console.log(`Found ${otherUnpaidOrders.length} other unpaid orders from the same buyer for payment reference: ${reference}`);
+              
+              // Update each order's payment status and save
+              const updatedOrders = [];
+              
+              for (const otherOrder of otherUnpaidOrders) {
+                // Update order payment status
+                otherOrder.paid = true;
+                otherOrder.paymentInfo.status = 'paid';
+                otherOrder.paymentInfo.transactionId = verificationResult.data.id.toString();
+                otherOrder.paymentInfo.paymentReference = reference;
+                otherOrder.paymentInfo.paidAt = new Date();
+                
+                const updatedOtherOrder = await otherOrder.save();
+                updatedOrders.push(updatedOtherOrder);
+                
+                // Cancel any scheduled job to delete this order
+                try {
+                  const jobs = await agenda.jobs({
+                    name: 'delete_unpaid_orders',
+                    'data.orderId': otherOrder._id.toString()
+                  });
+                  
+                  if (jobs.length > 0) {
+                    console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id} (reference verification)`);
+                    await jobs[0].remove();
+                  }
+                } catch (jobError) {
+                  console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
+                }
+              }
+              
+              return res.status(200).json({ 
+                message: `Current order already paid. Marked ${updatedOrders.length} related orders as paid.`,
+                orders: updatedOrders.map(o => ({
+                  orderId: o._id,
+                  order_id: o.order_id,
+                  paid: o.paid
+                })),
+                verificationDetails: verificationResult.data
+              });
+            }
+          }
+          
+          return res.status(400).json({ 
+            message: 'Invalid order status. This order is already paid and no related unpaid orders were found.' 
+          });
+        }
+        
         return res.status(400).json({ 
           message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
         });
@@ -3375,7 +3593,58 @@ exports.verifyPaymentByReference = async (req, res) => {
 
       const updatedOrder = await order.save();
 
-      // Cancel any scheduled job to delete this order
+      // Now check for other unpaid orders from the same buyer created within 2 minutes
+      const buyer = order.buyer;
+      const createdAt = order.createdAt;
+      let otherOrdersUpdated = [];
+      
+      if (buyer && createdAt) {
+        const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
+        const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+        
+        // Find other unpaid orders from the same buyer created around the same time
+        const otherOrders = await Order.find({
+          _id: { $ne: order._id }, // Exclude the current order
+          buyer: buyer, 
+          paid: false,
+          'paymentInfo.method': 'paystack',
+          createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
+        }).populate('seller');
+        
+        if (otherOrders.length > 0) {
+          console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
+          
+          // Update each order's payment status and save
+          for (const otherOrder of otherOrders) {
+            // Update order payment status
+            otherOrder.paid = true;
+            otherOrder.paymentInfo.status = 'paid';
+            otherOrder.paymentInfo.transactionId = verificationResult.data.id.toString();
+            otherOrder.paymentInfo.paymentReference = reference;
+            otherOrder.paymentInfo.paidAt = new Date();
+            
+            const updatedOtherOrder = await otherOrder.save();
+            otherOrdersUpdated.push(updatedOtherOrder);
+            
+            // Cancel any scheduled job to delete this order
+            try {
+              const jobs = await agenda.jobs({
+                name: 'delete_unpaid_orders',
+                'data.orderId': otherOrder._id.toString()
+              });
+              
+              if (jobs.length > 0) {
+                console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id} (reference verification)`);
+                await jobs[0].remove();
+              }
+            } catch (jobError) {
+              console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
+            }
+          }
+        }
+      }
+
+      // Cancel any scheduled job to delete the main order
       try {
         const jobs = await agenda.jobs({
           name: 'delete_unpaid_orders',
@@ -3391,64 +3660,48 @@ exports.verifyPaymentByReference = async (req, res) => {
         // Continue processing even if job cancellation fails
       }
 
-      // Create notifications
-      const notificationData = {
-        orderId: order._id,
-        buyerId: order.buyer,
-        sellerId: order.seller._id
-      };
+      // Schedule notification for this order and any other orders that were updated
+      const orderIds = [order._id, ...otherOrdersUpdated.map(o => o._id)];
       
-      agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
-
-      // Always send order confirmation email for paid Paystack order, regardless of notification status
-      // This ensures the buyer gets their confirmation email that was skipped at order creation
-      try {
-        const Buyer = mongoose.model('Buyer');
-        const buyer = await Buyer.findById(order.buyer);
-        if (buyer) {
-          console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id} (reference verification)`);
-          await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
+      for (const orderId of orderIds) {
+        try {
+          const currentOrder = orderId.equals(order._id) ? order : 
+            otherOrdersUpdated.find(o => o._id.equals(orderId));
+          
+          if (!currentOrder) continue;
+          
+          // Create notifications
+          const notificationData = {
+            orderId: currentOrder._id,
+            buyerId: currentOrder.buyer,
+            sellerId: currentOrder.seller._id
+          };
+          
+          agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+        } catch (notifError) {
+          console.error(`Error scheduling notification for order ${orderId}:`, notifError);
         }
-      } catch (emailError) {
-        console.error('Error sending order confirmation email for reference verified payment:', emailError);
-        // Continue processing even if email fails
       }
 
-      // Create transaction record for seller earnings
-      // const Transaction = mongoose.model('Transaction');
-      // const transaction = new Transaction({
-      //   seller: order.seller._id,
-      //   orderId: order._id,
-      //   amount: order.totalAmount,
-      //   type: 'order_payment',
-      //   status: 'completed',
-      //   description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-      //   metadata: {
-      //     itemTotal: order.totalAmount,
-      //     processingFeePercent: 0,
-      //     categoryName: order.items[0]?.productName || 'Mixed',
-      //     categoryFee: 0,
-      //     paymentReference: reference
-      //   }
-      // });
-      
-      // await transaction.save();
-      
-      // Update seller's balance
-      // await Seller.findByIdAndUpdate(
-      //   order.seller._id,
-      //   { $inc: { 'wallet.balance': order.totalAmount } }
-      // );
-
-
-      return res.status(200).json({ 
-        message: 'Order marked as paid successfully', 
-        order: updatedOrder,
+      return res.status(200).json({
+        message: 'Order(s) marked as paid successfully',
+        orders: [
+          {
+            orderId: updatedOrder._id,
+            order_id: updatedOrder.order_id,
+            paid: updatedOrder.paid
+          },
+          ...otherOrdersUpdated.map(o => ({
+            orderId: o._id,
+            order_id: o.order_id,
+            paid: o.paid
+          }))
+        ],
         verificationDetails: verificationResult.data
       });
     }
 
-    // If no order ID is provided, just return the verification result
+    // If no order ID is provided, just return verification success
     return res.status(200).json({
       message: 'Payment verification successful',
       verificationDetails: verificationResult.data
@@ -3557,114 +3810,6 @@ exports.handlePaystackWebhook = async (req, res) => {
   // For other events, just acknowledge receipt
   return res.status(200).json({ message: 'Webhook received' });
 };
-
-// Helper function to handle order payments
-async function handleOrderPayment(paymentData, res) {
-  const { reference, metadata } = paymentData;
-  const orderId = metadata.orderId;
-  
-  const order = await Order.findById(orderId).populate('seller');
-  
-  if (!order) {
-    return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
-  }
-
-  // Check if order is already paid
-  if (order.paid) {
-    return res.status(200).json({ message: 'Order already marked as paid' });
-  }
-
-  // Update order payment status
-  order.paid = true;
-  order.paymentInfo.status = 'paid';
-  order.paymentInfo.transactionId = paymentData.id.toString();
-  order.paymentInfo.paymentReference = reference;
-  order.paymentInfo.paidAt = new Date();
-
-  // Add a flag to track if notifications have been sent
-  order.notificationsSent = order.notificationsSent || false;
-  const notificationsAlreadySent = order.notificationsSent;
-  
-  // Mark notifications as sent
-  order.notificationsSent = true;
-  
-  const updatedOrder = await order.save();
-
-  // Cancel any scheduled job to delete this order
-  try {
-    // Find and cancel any delete_unpaid_orders job for this order
-    const jobs = await agenda.jobs({
-      name: 'delete_unpaid_orders',
-      'data.orderId': order._id.toString()
-    });
-    
-    if (jobs.length > 0) {
-      console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id}`);
-      await jobs[0].remove();
-    }
-  } catch (jobError) {
-    console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
-    // Continue processing even if job cancellation fails
-  }
-
-  // Create transaction record for seller earnings
-  const Transaction = mongoose.model('Transaction');
-  const transaction = new Transaction({
-    seller: order.seller._id,
-    orderId: order._id,
-    amount: order.totalAmount,
-    type: 'order_payment',
-    status: 'completed',
-    description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-    metadata: {
-      itemTotal: order.totalAmount,
-      processingFeePercent: 0,
-      categoryName: order.items[0]?.productName || 'Mixed',
-      categoryFee: 0,
-      paymentReference: reference
-    }
-  });
-  
-  await transaction.save();
-  
-  // Update seller's balance
-  await Seller.findByIdAndUpdate(
-    order.seller._id,
-    { $inc: { 'wallet.balance': order.totalAmount } }
-  );
-
-  // Only schedule notifications if they haven't been sent yet
-  if (!notificationsAlreadySent) {
-    console.log(`Scheduling order notifications for order ${order.order_id} after Paystack payment`);
-    
-    // Create notifications
-    const notificationData = {
-      orderId: order._id,
-      buyerId: order.buyer,
-      sellerId: order.seller._id
-    };
-    
-    agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
-  } else {
-    console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
-  }
-
-  // Always send order confirmation email for paid Paystack order, regardless of notification status
-  // This ensures the buyer gets their confirmation email that was skipped at order creation
-  try {
-    const Buyer = mongoose.model('Buyer');
-    const buyer = await Buyer.findById(order.buyer);
-    if (buyer) {
-      console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id} (webhook)`);
-      await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
-    }
-  } catch (emailError) {
-    console.error('Error sending order confirmation email for Paystack webhook payment:', emailError);
-    // Continue processing even if email fails
-  }
-
-  return res.status(200).json({ message: 'Order marked as paid via webhook' });
-}
 
 // Helper function to handle wallet top-ups
 async function handleWalletTopUp(paymentData, res) {
@@ -4359,6 +4504,14 @@ exports.processRefundRequest = async (req, res) => {
         // Also save the refund details in the order for reference
         order.refundRequest.refundAmount = refundAmount;
         order.refundRequest.paymentReference = paymentReference;
+
+        // Ensure buyerDetails._id is set
+        if (!order.buyerDetails || !order.buyerDetails._id) {
+          if (!order.buyerDetails) {
+            order.buyerDetails = {};
+          }
+          order.buyerDetails._id = order.buyer._id;
+        }
       } catch (refundError) {
         console.error('Error processing refund to wallet:', refundError);
         // Continue with the approval but note the error
@@ -4367,6 +4520,26 @@ exports.processRefundRequest = async (req, res) => {
           content: `Error processing refund: ${refundError.message}`,
           createdAt: new Date()
         });
+      }
+    }
+    
+    // Ensure all required buyerDetails fields are set before saving
+    if (!order.buyerDetails || !order.buyerDetails._id) {
+      if (!order.buyerDetails) {
+        order.buyerDetails = {};
+      }
+      order.buyerDetails._id = order.buyer._id;
+      
+      // Set other buyerDetails fields
+      if (order.buyer) {
+        order.buyerDetails.firstName = order.buyer.firstName || '';
+        order.buyerDetails.lastName = order.buyer.lastName || '';
+        order.buyerDetails.username = order.buyer.username || '';
+        if (order.buyer.profileImage && order.buyer.profileImage.url) {
+          order.buyerDetails.profileImage = [{url: order.buyer.profileImage.url}];
+        } else {
+          order.buyerDetails.profileImage = [];
+        }
       }
     }
     

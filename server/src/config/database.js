@@ -13,8 +13,7 @@ const connectDB = async () => {
         logger.info(`MongoDB connection retry attempt ${retries}/${maxRetries}`);
       }
 
-      // const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://REDACTED@cluster0.wnkd5.mongodb.net/dev2', {
-        const conn = await mongoose.connect('mongodb+srv://REDACTED@cluster0.wnkd5.mongodb.net/dev2', {
+      const conn = await mongoose.connect(process.env.MONGODB_URI,{
         useNewUrlParser: true,
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 10000,

@@ -6931,29 +6931,29 @@ exports.addBlipToProduct = async (req, res) => {
     const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
     const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
     
-    // Create temporary files for ffmpeg processing
+    // Upload the video to S3
+    const videoParams = {
+      Bucket: process.env.CDN_S3_BUCKET,
+      Key: videoKey,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
+    const videoData = await s3.upload(videoParams).promise();
+    
+    // Create temporary files for ffmpeg
     const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
     const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
     
     try {
-      // Write the uploaded video buffer to a temporary file
+      // Write video buffer to temp file
       await fs.writeFile(tempVideoPath, req.file.buffer);
       
-      // Upload the video to S3
-      const videoParams = {
-        Bucket: process.env.CDN_S3_BUCKET,
-        Key: videoKey,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-      };
-      const videoData = await s3.upload(videoParams).promise();
-      
-      // Generate a thumbnail using ffmpeg
+      // Extract thumbnail using ffmpeg
       await new Promise((resolve, reject) => {
         ffmpeg(tempVideoPath)
           .screenshots({
             timestamps: ['00:00:01.000'],
-            filename: path.basename(tempThumbnailPath),
+            filename: path.basename(thumbnailKey),
             folder: path.dirname(tempThumbnailPath),
             size: '180x320'
           })
@@ -6961,10 +6961,10 @@ exports.addBlipToProduct = async (req, res) => {
           .on('error', reject);
       });
       
-      // Read the generated thumbnail file
+      // Read the generated thumbnail
       const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
       
-      // Upload the thumbnail to S3
+      // Upload the thumbnail
       const thumbnailParams = {
         Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
@@ -6972,6 +6972,10 @@ exports.addBlipToProduct = async (req, res) => {
         ContentType: 'image/jpeg',
       };
       const thumbnailData = await s3.upload(thumbnailParams).promise();
+      
+      // Clean up temp files
+      await fs.unlink(tempVideoPath).catch(() => {});
+      await fs.unlink(tempThumbnailPath).catch(() => {});
       
       // Create the new blip object
       const newBlip = {
@@ -6985,10 +6989,6 @@ exports.addBlipToProduct = async (req, res) => {
       product.blips.push(newBlip);
       await product.save();
       
-      // Clean up temporary files
-      await fs.unlink(tempVideoPath).catch(() => {});
-      await fs.unlink(tempThumbnailPath).catch(() => {});
-      
       // Return the updated product with the new blip
       return res.status(201).json({
         success: true,
@@ -6996,10 +6996,10 @@ exports.addBlipToProduct = async (req, res) => {
         blip: product.blips[product.blips.length - 1]
       });
       
-    } catch (error) {
-      console.error('Error processing blip video:', error);
+    } catch (err) {
+      console.error('Error generating thumbnail:', err);
       
-      // Create a fallback thumbnail if ffmpeg fails
+      // Fallback to placeholder if ffmpeg fails
       const fallbackThumbnailParams = {
         Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
@@ -7014,36 +7014,30 @@ exports.addBlipToProduct = async (req, res) => {
       };
       
       try {
-        // If video was already uploaded but thumbnail generation failed
         const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
         
         // Create blip with fallback thumbnail
         const newBlip = {
-          url: videoData ? videoData.Location : null,
+          url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
           contentType: req.file.mimetype,
-          thumbnail: 'https://' + process.env.CDN_URL + `/${fallbackData.Key}`,
+          thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`,
           createdAt: new Date()
         };
         
-        // Only add blip if video was successfully uploaded
-        if (videoData) {
-          product.blips.push(newBlip);
-          await product.save();
-          
-          return res.status(201).json({
-            success: true,
-            message: 'Blip video added with fallback thumbnail',
-            blip: product.blips[product.blips.length - 1]
-          });
-        } else {
-          throw new Error('Failed to upload video');
-        }
+        product.blips.push(newBlip);
+        await product.save();
+        
+        return res.status(201).json({
+          success: true,
+          message: 'Blip video added with fallback thumbnail',
+          blip: product.blips[product.blips.length - 1]
+        });
       } catch (fallbackError) {
         console.error('Fallback thumbnail creation failed:', fallbackError);
         return res.status(500).json({ 
           success: false,
           message: 'Failed to process blip video', 
-          error: error.message 
+          error: err.message 
         });
       }
     }
@@ -7155,6 +7149,221 @@ exports.searchSellerProducts = async (req, res) => {
 
   } catch (error) {
     console.error('Error searching seller products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get related blips based on a specific blip ID
+ * If no related blips are found, it returns random blips
+ * @param {Object} req - request object with blipId
+ * @param {Object} res - response object
+ * @returns {Object} related or random blips
+ */
+exports.getRelatedBlips = async (req, res) => {
+  try {
+    const { blipId } = req.params;
+    const { limit = 10 } = req.query;
+    const userId = req.user ? req.user._id : null;
+    
+    // Find the product that contains the reference blip
+    const product = await Product.findOne({ 'blips._id': blipId })
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+      });
+    
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Blip not found' });
+    }
+    
+    // Get the source blip
+    const sourceBlip = product.blips.id(blipId);
+    
+    if (!sourceBlip) {
+      return res.status(404).json({ success: false, message: 'Blip not found' });
+    }
+    
+    // Find products with blips in the same category
+    // Excluding the current product to ensure we don't get the same blips
+    const relatedProducts = await Product.find({
+      _id: { $ne: product._id },
+      category: product.category
+    })
+    .populate({
+      path: 'seller',
+      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+    })
+    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
+    .limit(20); // fetch more than needed to have a pool to select from
+    
+    // Extract all blips from related products
+    let relatedBlips = [];
+    
+    relatedProducts.forEach(prod => {
+      if (prod.blips && prod.blips.length > 0) {
+        prod.blips.forEach(blip => {
+          // Check if the current user has liked this blip
+          const isLiked = userId ? blip.likes.includes(userId) : false;
+          
+          // Get product image URL
+          const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+          
+          // Calculate discounted price
+          let discountedPrice = prod.price;
+          if (prod.discount && prod.discount.isActive) {
+            if (prod.discount.type === 'percentage') {
+              discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
+            } else {
+              discountedPrice = Math.max(0, prod.price - prod.discount.value);
+            }
+          }
+          
+          relatedBlips.push({
+            discount: {
+              isActive: prod.discount ? prod.discount.isActive : false,
+              type: prod.discount ? prod.discount.type : 'percentage',
+              value: prod.discount ? prod.discount.value : 0,
+              discountedPrice: discountedPrice
+            },
+            _id: prod._id,
+            blipId: blip._id,
+            blipUrl: blip.url,
+            thumbnail: blip.thumbnail || null,
+            productId: prod._id,
+            productName: prod.name,
+            price: prod.price,
+            stock: prod.stock || 0,
+            status: prod.status || 'active',
+            auctionInfo: null, // Not handling auction info for now
+            images: productImage,
+            blipEngagement: {
+              likesCount: blip.likesCount || blip.likes.length || 0,
+              commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+              viewCount: blip.viewCount || 0,
+              isLiked: isLiked
+            },
+            averageRating: prod.stats && prod.stats.averageRating ? prod.stats.averageRating : null,
+            reviewCount: prod.stats && prod.stats.totalReviews ? prod.stats.totalReviews : 0,
+            createdAt: blip.createdAt,
+            seller: {
+              _id: prod.seller._id,
+              firstName: prod.seller.firstName,
+              lastName: prod.seller.lastName,
+              storeName: prod.seller.storeName,
+              storeAvatar: prod.seller.storeAvatar,
+              aboutStore: prod.seller.aboutStore || '',
+              storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
+              totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
+              isFollowing: false, // Would need to check buyer's following list to determine this
+              isFeatured: prod.seller.isVerified || false
+            }
+          });
+        });
+      }
+    });
+    
+    // If we don't have enough related blips, fetch random blips
+    if (relatedBlips.length < parseInt(limit)) {
+      const randomProducts = await Product.find({
+        _id: { $ne: product._id },
+        'blips.0': { $exists: true } // ensure the product has at least one blip
+      })
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+      })
+      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
+      .limit(20);
+      
+      randomProducts.forEach(prod => {
+        if (prod.blips && prod.blips.length > 0) {
+          prod.blips.forEach(blip => {
+            // Avoid duplicates
+            const exists = relatedBlips.some(
+              item => item.blipId.toString() === blip._id.toString()
+            );
+            
+            if (!exists) {
+              // Check if the current user has liked this blip
+              const isLiked = userId ? blip.likes.includes(userId) : false;
+              
+              // Get product image URL
+              const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+              
+              // Calculate discounted price
+              let discountedPrice = prod.price;
+              if (prod.discount && prod.discount.isActive) {
+                if (prod.discount.type === 'percentage') {
+                  discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
+                } else {
+                  discountedPrice = Math.max(0, prod.price - prod.discount.value);
+                }
+              }
+              
+              relatedBlips.push({
+                discount: {
+                  isActive: prod.discount ? prod.discount.isActive : false,
+                  type: prod.discount ? prod.discount.type : 'percentage',
+                  value: prod.discount ? prod.discount.value : 0,
+                  discountedPrice: discountedPrice
+                },
+                _id: prod._id,
+                blipId: blip._id,
+                blipUrl: blip.url,
+                thumbnail: blip.thumbnail || null,
+                productId: prod._id,
+                productName: prod.name,
+                price: prod.price,
+                stock: prod.stock || 0,
+                status: prod.status || 'active',
+                auctionInfo: null, // Not handling auction info for now
+                images: productImage,
+                blipEngagement: {
+                  likesCount: blip.likesCount || blip.likes.length || 0,
+                  commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+                  viewCount: blip.viewCount || 0,
+                  isLiked: isLiked
+                },
+                averageRating: prod.stats && prod.stats.averageRating ? prod.stats.averageRating : null,
+                reviewCount: prod.stats && prod.stats.totalReviews ? prod.stats.totalReviews : 0,
+                createdAt: blip.createdAt,
+                seller: {
+                  _id: prod.seller._id,
+                  firstName: prod.seller.firstName,
+                  lastName: prod.seller.lastName,
+                  storeName: prod.seller.storeName,
+                  storeAvatar: prod.seller.storeAvatar,
+                  aboutStore: prod.seller.aboutStore || '',
+                  storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
+                  totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
+                  isFollowing: false, // Would need to check buyer's following list to determine this
+                  isFeatured: prod.seller.isVerified || false
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Shuffle the array for better variety
+    relatedBlips = relatedBlips.sort(() => 0.5 - Math.random());
+    
+    // Limit the number of returned blips
+    relatedBlips = relatedBlips.slice(0, parseInt(limit));
+    
+    return res.status(200).json({
+      success: true,
+      count: relatedBlips.length,
+      data: relatedBlips
+    });
+  } catch (error) {
+    console.error('Error fetching related blips:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
