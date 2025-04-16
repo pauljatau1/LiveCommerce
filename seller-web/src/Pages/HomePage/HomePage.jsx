@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Icon } from "@iconify/react";
-import { orderTempData, toDoCardTempData, suggestVideosData } from "../../Utilities/data";
+import { orderTempData, toDoCardTempData } from "../../Utilities/data";
 import { useNavigate, useNavigation } from "react-router-dom";
 import { useSidebar } from '../../Hooks/useSideBar';
 import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
@@ -13,7 +13,6 @@ import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
 import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
-import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
 import AnnouncementCard from "../../Components/AnnouncementCard";
 import DashboardSkeleton from "../../Components/ui/DashboardSkeleton";
 import axios from "axios";
@@ -30,15 +29,9 @@ import NoOrderFound from "../../assets/no-order-found.png";
 import { useIntercomChat } from "../../Hooks/useIntercom";
 import Skeleton from 'react-loading-skeleton';
 import VerificationDialog from "../../Components/VerificationDialog";
+import AuqliUniversity from "../../Components/AuqliUniversity";
 
 
-// Helper function: Formats numbers with K/M suffix and handles pluralization
-// Example: formatNumber(1500, "view") returns "1.5K views"
-const formatNumber = (number, label) => {
-  if (number > 1000000) return `${number}M ${label}s`;
-  if (number > 1000) return `${number}K ${label}s`;
-  return `${number} ${number === 1 ? label : label + 's'}`;
-};
 
 // Add this helper function for number formatting
 const formatMetricValue = (value) => {
@@ -324,7 +317,7 @@ const HomePage = () => {
       },
       {
         id: ObjectID().toHexString(),
-        title: 'New Customers',
+        title: 'Customers',
         icon: FiUserPlus,
         current: formatMetricValue(analytics.newCustomers.count),
         percentage: `${analytics.newCustomers.changePercentage}%`,
@@ -400,7 +393,7 @@ const HomePage = () => {
               ) : (
                 <div className="w-full">
                   {/* Mobile skeleton */}
-                  <div className="sm:hidden w-full overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+                  <div className="sm:hidden w-full  overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
                     <div className="flex space-x-3 min-w-max">
                       {[...Array(5)].map((_, index) => (
                         <div key={index} className="w-[260px] flex-shrink-0">
@@ -411,7 +404,7 @@ const HomePage = () => {
                   </div>
                   
                   {/* Desktop skeleton */}
-                  <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
+                  <div className="hidden  sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
                     {[...Array(5)].map((_, index) => (
                       <Skeleton key={index} height={150} />
                     ))}
@@ -457,14 +450,87 @@ const HomePage = () => {
                           <h4 className="text-sm xl:text-base font-inter font-semibold text-[#27272E]">{notification.title}</h4>
                           <p className="text-sm text-[#425466] max-w-[420px] font-inter mt-1">{notification.message.slice(0, 70)}...</p>
                         </div>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <button className="border border-[#0BB248] text-sm text-[#0BB248] font-cabin whitespace-nowrap hover:bg-[#DEFFEE] px-3 py-1 rounded-lg transition-all duration-300 ease-in-out " >
-                              Check It
-                            </button>
-                          </DialogTrigger>
-                          <NotificationsDialog notifications={stuffToDo?.notifications.filter(notification => notification.type !== 'buyer_message')} />
-                        </Dialog>
+                        <button 
+                          onClick={() => {
+                            // Mark notification as read if it isn't already
+                            if (!notification.isRead) {
+                              const markNotificationAsRead = async (notificationId) => {
+                                try {
+                                  const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+                                  if (!sellerToken) return;
+                                  
+                                  const response = await fetch(`${BASE_URL}/notifications/${notificationId}/mark-read`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Authorization': `Bearer ${sellerToken}`,
+                                      'accept': '*/*'
+                                    }
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error('Failed to mark notification as read');
+                                  }
+                                } catch (error) {
+                                  console.error('Error marking notification as read:', error);
+                                }
+                              };
+                              
+                              markNotificationAsRead(notification._id);
+                            }
+                            
+                            // Route based on notification type
+                            switch (notification.type) {
+                              case 'low_stock':
+                              case 'back_in_stock':
+                                navigate(`/dashboard/products`);
+                                break;
+                              
+                              case 'new_follower':
+                                navigate('/dashboard/customers');
+                                break;
+                              
+                              case 'new_order':
+                              case 'order_paid':
+                              case 'order_delivered':
+                              case 'order_cancelled':
+                              case 'order_status_update':
+                              case 'order_shipped':
+                              case 'order_reminder':
+                              case 'order_picked_up':
+                              case 'order_in_transit':
+                                // Navigate to the specific order if orderId is available in the notification data
+                                if (notification.data && notification.data.orderId) {
+                                  navigate(`/dashboard/order/${notification.data.orderId}`);
+                                } else {
+                                  navigate('/dashboard/orders');
+                                }
+                                break;
+                              
+                              case 'return_request':
+                              case 'return_created':
+                              case 'return_approved':
+                              case 'return_rejected':
+                              case 'return_info_needed':
+                              case 'return_partial_refund':
+                              case 'return_label_created':
+                              case 'return_pickup_arranged':
+                                navigate('/dashboard/returns');
+                                break;
+                              
+                              case 'new_campaign':
+                              case 'campaign_scheduled':
+                                navigate('/dashboard/marketing/inbox-campaigns/list');
+                                break;
+                              
+                              default:
+                                // Default to dashboard if no specific route
+                                navigate('/dashboard/home');
+                            }
+                          }}
+                          className="border border-[#0BB248] text-sm text-[#0BB248] font-cabin whitespace-nowrap hover:bg-[#DEFFEE] px-3 py-1 rounded-lg transition-all duration-300 ease-in-out"
+                        >
+                          Check It
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -487,7 +553,7 @@ const HomePage = () => {
                   <p className="text-sm text-[#425466] font-inter mt-0.5">Best performing items this month</p>
                 </div>
                 <Link
-                  to="/dashboard/products"
+                  to="/dashboard/analytics-insights"
                   className="flex items-center w-fit px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow"
                 >
                   View all
@@ -525,33 +591,15 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-          <div className=" bg-white mt-5">
+          <div className=" bg-white mt-1.5 sm:mt-5">
             {isLoading ? (
               <Skeleton height={400} />
             ) : (
               <OrdersTable orders={orders} />
             )}
           </div>
-          <div className="mt-10 border border-gray-200 rounded-[10px] px-4 py-3 lg:px-8 lg:py-7">
-            <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Auqli Seller University</h1>
-            <p className="text-sm lg:text-base font-cabin font-normal text-[#05031F]">Get tips and best practices to grow your business on Auqli using Auqli marketing tools</p>
-            <div className="relative">
-              <div className="flex gap-4 lg:gap-8 overflow-x-scroll pb-4 mt-5 scroll-smooth
-              [&::-webkit-scrollbar]:h-2
-              [&::-webkit-scrollbar-track]:rounded-full
-              [&::-webkit-scrollbar-track]:bg-gray-100
-              [&::-webkit-scrollbar-thumb]:rounded-full
-              [&::-webkit-scrollbar-thumb]:bg-gray-300
-              hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
-                {
-                  suggestVideosData?.map((video) => (
-                    <div key={video.id} className="flex-none">
-                      <SuggestedVideoCard video={video} />
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
+          <div className="mt-10">
+            <AuqliUniversity />
           </div>
           <div className="mt-5">
             <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Platform Announcements</h1>

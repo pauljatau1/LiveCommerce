@@ -32,8 +32,6 @@ const DashboardLayout = () => {
 
   console.log('Outlet context:', outletContext); // Debug log
 
-
-
   // Get current location to check if we're on messages page
   const location = useLocation();
   const isMessagesPage = location.pathname.includes('/messages');
@@ -68,7 +66,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : 'mt-[88px] px-5 md:px-8 pb-7 lg:pb-14'}`}>
+          <div className={`${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : isMessagesPage ? 'mt-[90px]' : 'mt-[88px] px-5 md:px-8'}`}>
             <Outlet context={outletContext} />
           </div>
         </div>

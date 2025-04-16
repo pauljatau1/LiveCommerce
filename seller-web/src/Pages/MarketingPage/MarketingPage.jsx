@@ -13,9 +13,9 @@ import { BiMessageRoundedDots } from "react-icons/bi"
 import { PiUsersThreeFill } from "react-icons/pi"
 import { LuMessageSquareMore } from "react-icons/lu"
 import { BsQuestionCircleFill } from "react-icons/bs"
-import SuggestedVideoCard from "@/Components/SuggestedVideoCard"
-import { marketingAdsData, suggestVideosData } from "../../Utilities/data";
+import { marketingAdsData } from "../../Utilities/data";
 import ComingSoonTag from "@/Components/ComingSoonTag";
+import AuqliUniversity from "@/Components/AuqliUniversity";
 
 // Marketing features data
 const marketingFeatures = [
@@ -140,27 +140,7 @@ const MarketingPage = () => {
         ))}
       </div>
 
-      <div className="mt-10 bg-[#E7F7ED] rounded-[10px] px-4 py-3 lg:px-8 lg:py-7">
-                <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Marketing Resources</h1>
-                <p className="text-sm lg:text-base font-cabin font-normal text-[#05031F]">Get tips and best practices to grow your business on Auqli using Auqli marketing tools</p>
-                <div className="relative">
-                    <div className="flex gap-4 lg:gap-8 overflow-x-scroll pb-4 mt-5 scroll-smooth
-                [&::-webkit-scrollbar]:h-2
-                [&::-webkit-scrollbar-track]:rounded-full
-                [&::-webkit-scrollbar-track]:bg-gray-100
-                [&::-webkit-scrollbar-thumb]:rounded-full
-                [&::-webkit-scrollbar-thumb]:bg-gray-300
-                hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
-                        {
-                            suggestVideosData.map((video) => (
-                                <div key={video.id} className="flex-none">
-                                    <SuggestedVideoCard video={video} />
-                                </div>
-                            ))
-                        }
-                    </div>
-                </div>
-      </div>
+      <AuqliUniversity className="mt-10 bg-[#E7F7ED] rounded-[10px]" />
     </div>
   )
 }

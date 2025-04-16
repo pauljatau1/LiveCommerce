@@ -151,87 +151,114 @@ const QuickReplyDialog = ({
 
 const OrderMessage = ({ order }) => {
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-NG', {
+    return amount ? amount.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN'
-    }).format(amount);
+    }) : '₦0';
   };
 
   const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      shipped: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'shipped': return 'bg-purple-100 text-purple-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
-    <div className="flex flex-col space-y-3 bg-white rounded-lg border p-4 max-w-sm">
+    <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Order Details</h3>
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+        <h4 className="text-sm font-medium">Order #{order.id}</h4>
+        <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
+          {order.status}
         </span>
       </div>
-      
-      <div className="space-y-3">
+      <div className="space-y-2">
         {order.items.map((item, index) => (
-          <div key={index} className="flex items-center space-x-3 border-b pb-3 last:border-0">
-            <div className="h-16 w-16 flex-shrink-0">
-              <img 
-                src={item.image} 
-                alt={item.name}
-                className="h-full w-full object-cover rounded-md"
-              />
+          <div key={index} className="flex items-center gap-2">
+            <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{item.name}</p>
+              <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-              <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-              <p className="text-sm font-medium text-gray-900">{formatCurrency(item.price)}</p>
-            </div>
+            <p className="text-sm font-medium">{formatCurrency(item.price)}</p>
           </div>
         ))}
       </div>
-
-      <div className="border-t pt-3 space-y-2">
+      <div className="mt-2 pt-2 border-t">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Shipping Fee:</span>
-          <span className="font-medium">{formatCurrency(order.shippingFee)}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Total Amount:</span>
+          <span className="text-gray-500">Total</span>
           <span className="font-medium">{formatCurrency(order.totalAmount)}</span>
         </div>
       </div>
+    </div>
+  );
+};
 
-      <div className="border-t pt-3">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Shipping Details</h4>
-        {order.tracking && (
-          <div className="mb-3 space-y-1">
-            <div>
-              <span className="text-sm text-gray-500">Tracking Number: </span>
-              <span className="text-sm font-medium">{order.tracking.number}</span>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Carrier: </span>
-              <span className="text-sm font-medium">{order.tracking.carrier}</span>
-            </div>
-          </div>
-        )}
-        <div className="text-sm text-gray-500 space-y-1">
-         
-          <p>{order.delivery_address?.line1}</p>
-          {order.delivery_address?.city && <p>{order.delivery_address?.city}</p>}
-          <p>
-            {order.delivery_address?.state}
-            {order.delivery_address?.zip && `, ${order.delivery_address?.zip}`}
-          </p>
-          <p>{order.delivery_address?.country}</p>
-        </div>
+// Add CampaignMessage component
+const CampaignMessage = ({ campaign }) => {
+  return (
+    <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-semibold text-green-700">{campaign.title}</h4>
+        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+          Campaign
+        </span>
       </div>
+      
+      <p className="text-sm text-gray-600 mb-3">{campaign.message}</p>
+      
+      {campaign.media && campaign.media.length > 0 && (
+        <div className="mb-3">
+          {campaign.media.map((media, index) => (
+            media.type === 'image' ? (
+              <img
+                key={index}
+                src={media.url}
+                alt="Campaign media"
+                className="w-full h-32 object-cover rounded-lg"
+              />
+            ) : (
+              <video
+                key={index}
+                src={media.url}
+                className="w-full rounded-lg"
+                controls
+              />
+            )
+          ))}
+        </div>
+      )}
+      
+      {campaign.products && campaign.products.length > 0 && (
+        <div className="space-y-2">
+          <h5 className="text-xs font-medium text-gray-500 mb-2">Featured Products</h5>
+          <div className="grid grid-cols-2 gap-2">
+            {campaign.products.map((product, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-2">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-20 object-cover rounded-md mb-2"
+                />
+                <h6 className="text-xs font-medium truncate">{product.name}</h6>
+                <p className="text-xs text-green-600">₦{product.price.toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {campaign.scheduledFor && (
+        <div className="mt-2 pt-2 border-t">
+          <p className="text-xs text-gray-500">
+            Scheduled for: {new Date(campaign.scheduledFor).toLocaleString()}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -1343,7 +1370,15 @@ export default function ChatInterface() {
                       <OrderMessage order={message.order} />
                     )}
 
-                    <p className="text-sm">{message.content}</p>
+                    {message.messageType === 'campaign' && message.campaign && (
+                      <CampaignMessage campaign={message.campaign} />
+                    )}
+
+                    {/* Only show content as text if it's not a campaign message */}
+                    {(!message.messageType || message.messageType === 'text' || 
+                      (message.messageType !== 'campaign' && message.content)) && (
+                      <p className="text-sm">{message.content}</p>
+                    )}
 
                     <div className="flex items-center gap-1 mt-1">
                       <span className="text-[10px] text-gray-500">
@@ -1385,11 +1420,11 @@ export default function ChatInterface() {
       w-[280px]
       border-l bg-white
       block sm:hidden
-      z-50
+      z-20
       md:flex
       flex-col
     `}>
-      <Tabs defaultValue="products" className="flex-1 flex flex-col">
+      <Tabs defaultValue="products" className="flex-1 flex z-20 flex-col">
         <TabsList className="w-full border-b p-0">
           <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
             Products
@@ -2222,7 +2257,7 @@ export default function ChatInterface() {
           w-[280px]
           border-l bg-white
           block sm:hidden
-          z-50
+          z-20
           md:flex
           flex-col
         `}>
