@@ -1074,7 +1074,7 @@ function initializeSocket(server) {
           const notificationObj = {
             id: Date.now().toString(),
             type: 'comment',
-            user: userDetails.firstName || userDetails.username || 'Viewer',
+            user: userDetails.username || userDetails.firstName || 'Viewer',
             avatar: userDetails.profileImage?.url || userDetails.avatarUrl || '',
             content: data.content,
             data: {
