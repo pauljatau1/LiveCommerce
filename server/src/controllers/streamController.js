@@ -922,15 +922,6 @@ exports.joinStream = async (req, res) => {
       RtcRole.SUBSCRIBER
     );
 
-    // Send push notification if token exists
-    const userToken = await getToken(req.user.id);
-    if (userToken) {
-      await expo.sendPushNotificationsAsync([{
-        to: userToken.token,
-        title: `Live Show Activity`,
-        body: `You have successfully joined a stream created by ${stream.seller.storeName || 'the seller'}`
-      }]);
-    }
 
     // Add user to viewers if not already there and remove from departedViewers if they rejoin
     // Important: Update database first before continuing
@@ -960,13 +951,6 @@ exports.joinStream = async (req, res) => {
     const detailedViewers = await Buyer.find(
       { _id: { $in: stream.viewers } }
     ).select('_id firstName lastName username profileImage avatarUrl').lean();
-
-    // Send notification to stream channel
-    req.io?.to(stream.channelName).emit('viewerJoined', {
-      streamId: stream._id,
-      viewer: req.user.id,
-      viewerName: buyer.firstName + " " + buyer.lastName
-    });
 
     // Create notification object for chat interactions
     const notificationObj = {
