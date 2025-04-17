@@ -1920,7 +1920,15 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
               <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                 <View className={`flex-row justify-between items-center px-4`}>
                   <View className="flex-row items-center gap-4 ">
-                    <View className="flex-row items-center gap-2">
+                    <TouchableOpacity className="flex-row items-center gap-2" onPress={() => {
+                      router.push({
+                        pathname: "/sellerProfile",
+                        params: {
+                          sellerId: sellerId,
+                          sellerAvatar: storeInfo?.avatar,
+                        }
+                      })
+                    }}>
                       <Image
                         source={storeInfo.avatar}
                         className="w-10 h-10 rounded-full"
@@ -1933,7 +1941,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                           {storeInfo.username}
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     {isFollowingLoading ? (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"

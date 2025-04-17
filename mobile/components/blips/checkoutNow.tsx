@@ -19,6 +19,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
+import { useToast } from "@/contexts/ToastContext";
 
 const mockDeliveryOtions = [
   {
@@ -88,6 +89,7 @@ const CheckoutNow = ({
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+  const { show } = useToast();
 
   const [paystackKey, setPaystackKey] = useState<any>();
 
@@ -261,23 +263,41 @@ const CheckoutNow = ({
       return;
     }
     if (!selectedAddress) {
-      return toast.info("Please add a delivery address");
+      return show({
+        text2: "Please add a delivery address",
+        type: "info",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
     if (!deliveryFee) {
-      return toast.error("error getting delivery fee");
+      return show({
+        text2: "error getting delivery fee",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
     if (selectedPayment == 1) {
       if (walletBalance < deliveryFee + productTotal) {
-        return toast.error("Insufficient Wallet Balance");
+        return show({
+          text2: "Insufficient Wallet Balance",
+          type: "error",
+          duration: 3000,
+          topPosition: 18,
+        });
       }
     }
 
     if (deliveryFee + productTotal > 50000 && selectedPayment == 2) {
-      return toast.info(
-        "Cash on Delivery is unavailable for orders over ₦50,000",
-      );
+      return show({
+        text2: "Cash on Delivery is unavailable for orders over ₦50,000",
+        type: "info",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
     const order = {
@@ -335,7 +355,12 @@ const CheckoutNow = ({
     } catch (e: any) {
       console.log("could not create order", e?.response);
       setOrderloading(false);
-      toast.error("Could not create order");
+      show({
+        text2: "Could not create order",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
   };
 
@@ -362,23 +387,38 @@ const CheckoutNow = ({
       closeSheet();
 
       // Only navigate to orders page if not in a livestream
-      if (!channel || channel !== "liveshow") {
+      if (channel !== "liveshow") {
         return router.push("/(root)/orders/orders");
       } else {
         // For livestream purchases, just show success toast and stay on stream
-        toast.success("Order placed successfully!");
+        show({
+          text2: "Order placed successfully!",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
         return;
       }
 
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
-        toast.success("Order paid successfully");
+        show({
+          text2: "Order paid successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
         router.replace(`/`);
       }
     } catch (e: any) {
       if (e?.response.status == 400) {
         closeSheet();
-        toast.success("Order Placed successfully");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
 
         // Only navigate to orders page if not in a livestream
         if (!channel || channel !== "liveshow") {
@@ -386,7 +426,12 @@ const CheckoutNow = ({
         }
       }
       console.log("could not Pay for  order", e);
-      toast.error("Could not Pay for order");
+      show({
+        text2: "Could not Pay for order",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     } finally {
       setPayLoading(false);
     }
@@ -395,7 +440,12 @@ const CheckoutNow = ({
   const onPaystackClose = () => {
     setShowPaystack(false);
     setPayLoading(false);
-    toast.info("Payment Cancelled");
+    show({
+      text2: "Payment Cancelled",
+      type: "info",
+      duration: 3000,
+      topPosition: 18,
+    });
   };
   useEffect(() => {
     async function getUserInfo() {
@@ -418,12 +468,26 @@ const CheckoutNow = ({
         }, 500);
       } else if (selectedPayment == 2) {
         closeSheet();
-        toast.success("Order Placed successfully");
-        router.push("/(root)/orders/orders");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
+        if (channel !== "liveshow") {
+          router.push("/(root)/orders/orders");
+        }
       } else {
         closeSheet();
-        toast.success("Order Placed successfully");
-        router.push("/(root)/orders/orders");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
+        if (channel !== "liveshow") {
+          router.push("/(root)/orders/orders");
+        }
       }
       setOrderloading(false);
     }

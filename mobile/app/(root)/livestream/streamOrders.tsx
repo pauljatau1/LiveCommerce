@@ -1,19 +1,12 @@
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Dimensions, Animated, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Dimensions, Animated, ScrollView } from 'react-native';
 import React, { useRef, useEffect, useState } from 'react';
-import { AntDesign, Ionicons, MaterialIcons, Feather, Entypo, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { useLivestream } from '@/contexts/livestreamContext';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import {
-  StreamConfig,
-  ProductImage,
-  Product,
-  StreamProduct,
-  StreamDetails,
-  LivestreamContextType,
-} from "@/types/streams/livestreamStudio";
+import {LivestreamContextType } from "@/types/streams/livestreamStudio";
+import GlassImage from '@/app/(root)/livestream/components/GlassImage';
 
 // Define interface for order item
 interface OrderItem {
@@ -403,9 +396,14 @@ const StreamOrders = ({ streamId, closeSheet }: StreamOrdersProps) => {
           <View style={styles.productImageContainer}>
             {/* If product has images, use the first one, otherwise show default icon */}
             {product.productImages && Array.isArray(product.productImages) && product.productImages[0]?.url ? (
-              <Image 
+              <GlassImage
                 source={{ uri: product.productImages[0].url }} 
-                style={styles.productImage}
+                imageStyle={styles.productImage}
+                glassStyle={styles.productImage}
+                placeholderColor="rgba(255, 255, 255, 0.1)"
+                blurIntensity={20}
+                tint="dark"
+                showActivityIndicator={false}
               />
             ) : (
               <View style={styles.productImage}>
@@ -428,7 +426,7 @@ const StreamOrders = ({ streamId, closeSheet }: StreamOrdersProps) => {
             </Text>
             
             <View style={styles.buyerInfo}>
-              <Image source={{ uri: buyerInfo?.profileImage?.url }} style={styles.buyerImage} />
+              <GlassImage source={{ uri: buyerInfo?.profileImage?.url }} imageStyle={styles.buyerImage} glassStyle={styles.buyerImage} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />
               <Text style={styles.buyerText}>
                 {displayName} bought it
               </Text>

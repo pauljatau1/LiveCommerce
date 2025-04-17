@@ -607,13 +607,13 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
             const orderCount = Array.isArray(notification.data.orders) ?
               notification.data.orders.length : 1;
 
-            show({
+            {/*show({
               text1: "💰 New Order Placed!",
               text2: `${orderCount} item(s) ordered from this stream`,
               type: "success",
               duration: 3000,
               topPosition: 18,
-            });
+            });*/}
           }
 
           // Update UI to show order event in chat
@@ -1402,7 +1402,18 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
               <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                 <View className={`flex-row justify-between items-center px-4`}>
                   <View className="flex-row items-center gap-4 ">
-                    <View className="flex-row items-center gap-2">
+                    <TouchableOpacity
+                      className="flex-row items-center gap-2"
+                      onPress={() => {
+                        router.push({
+                          pathname: "/sellerProfile",
+                          params: {
+                            sellerId: sellerId,
+                            sellerAvatar: storeInfo?.avatar,
+                          }
+                        })
+                      }}
+                    >
                       <GlassImage
                         source={storeInfo?.avatar}
                         containerClassName="w-10 h-10 rounded-full"
@@ -1421,7 +1432,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                           {storeInfo.username}
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     {isFollowingLoading ? (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
@@ -1626,7 +1637,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       </TouchableOpacity>
                       <Text style={styles.actionText}>Info</Text>
                     </View>
-                    
+
                     <View style={styles.actionItem}>
                       <TouchableOpacity
                         style={styles.actionButton}

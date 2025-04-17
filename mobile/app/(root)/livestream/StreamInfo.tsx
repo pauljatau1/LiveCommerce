@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { AntDesign, Ionicons, MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import moment from 'moment';
+import GlassImage from '@/app/(root)/livestream/components/GlassImage';
 
 interface StoreInfo {
   name: string;
@@ -173,9 +174,9 @@ const StreamInfo = ({
         <View style={styles.storeHeader}>
           <View style={styles.avatarContainer}>
             {typeof storeInfo.avatar === 'string' ? (
-              <Image source={{ uri: storeInfo.avatar }} style={styles.avatar} />
+              <GlassImage source={{ uri: storeInfo.avatar }} imageStyle={styles.avatar} glassStyle={styles.avatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark"/>
             ) : (
-              <Image source={storeInfo.avatar} style={styles.avatar} />
+              <GlassImage source={storeInfo.avatar} imageStyle={styles.avatar} glassStyle={styles.avatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark"/>
             )}
           </View>
           <View style={styles.storeInfo}>
