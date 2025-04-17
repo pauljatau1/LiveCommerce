@@ -1264,6 +1264,7 @@ exports.searchProducts = async (req, res) => {
 
   try {
     const queryFilter = {
+      status: 'active',
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1368,6 +1369,7 @@ exports.deepSearchProducts = async (req, res) => {
 
   try {
     const queryFilter = {
+      status: 'active',
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1482,6 +1484,7 @@ exports.getBuyerFeedProducts = async (req, res) => {
     );
 
     const products = await Product.find({
+      status: 'active',
       $or: [
         { category: { $in: buyer.selectedCategories.map(cat => cat.name) } },
         { subCategory: { $in: subcategoryNames } }
@@ -6054,7 +6057,8 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
     const query = { 
       seller: sellerId,
       category,
-      subCategory: subcategory
+      subCategory: subcategory,
+      status: 'active'
     };
     
     // Build sort options
@@ -6109,7 +6113,7 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
       totalPages: Math.ceil(total / parseInt(limit))
     });
   } catch (error) {
-    console.error('Error fetching seller products by category and subcategory:', error);
+    console.error('Error fetching products by category and subcategory:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -6245,6 +6249,7 @@ exports.getPersonalizedBlips = async (req, res) => {
       query = {
         $and: [
           { 'blips.0': { $exists: true } },
+          { status: 'active' }, // Only active products
           {
             $or: [
               { status: { $ne: 'offline_auction' } },
@@ -7171,11 +7176,14 @@ exports.getRelatedBlips = async (req, res) => {
     const userId = req.user ? req.user._id : null;
     
     // Find the product that contains the reference blip
-    const product = await Product.findOne({ 'blips._id': blipId })
-      .populate({
-        path: 'seller',
-        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
-      });
+    const product = await Product.findOne({ 
+      'blips._id': blipId,
+      status: 'active'
+    })
+    .populate({
+      path: 'seller',
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+    });
     
     if (!product) {
       return res.status(404).json({ success: false, message: 'Blip not found' });
@@ -7192,7 +7200,8 @@ exports.getRelatedBlips = async (req, res) => {
     // Excluding the current product to ensure we don't get the same blips
     const relatedProducts = await Product.find({
       _id: { $ne: product._id },
-      category: product.category
+      category: product.category,
+      status: 'active'
     })
     .populate({
       path: 'seller',
@@ -7271,7 +7280,8 @@ exports.getRelatedBlips = async (req, res) => {
     if (relatedBlips.length < parseInt(limit)) {
       const randomProducts = await Product.find({
         _id: { $ne: product._id },
-        'blips.0': { $exists: true } // ensure the product has at least one blip
+        'blips.0': { $exists: true }, // ensure the product has at least one blip
+        status: 'active'
       })
       .populate({
         path: 'seller',
@@ -7292,18 +7302,17 @@ exports.getRelatedBlips = async (req, res) => {
               // Check if the current user has liked this blip
               const isLiked = userId ? blip.likes.includes(userId) : false;
               
-              // Get product image URL
-              const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+              // Get product image (first image or default)
+              const productImage = prod.images && prod.images.length > 0 ? 
+                prod.images : 
+                [{ url: 'https://res.cloudinary.com/dojbazopp/image/upload/v1649179179/no-image-available_ndtdet.png' }];
               
-              // Calculate discounted price
-              let discountedPrice = prod.price;
-              if (prod.discount && prod.discount.isActive) {
-                if (prod.discount.type === 'percentage') {
-                  discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
-                } else {
-                  discountedPrice = Math.max(0, prod.price - prod.discount.value);
-                }
-              }
+              // Calculate discounted price if applicable
+              const discountedPrice = prod.discount && prod.discount.isActive ? 
+                (prod.discount.type === 'percentage' ? 
+                  prod.price * (1 - prod.discount.value/100) : 
+                  prod.price - prod.discount.value) : 
+                prod.price;
               
               relatedBlips.push({
                 discount: {

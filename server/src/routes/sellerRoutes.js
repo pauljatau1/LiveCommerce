@@ -3358,4 +3358,52 @@ router.get('/search', optionalAuthMiddleware, sellerController.searchSellers);
  */
 router.put('/account-pending', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.toggleAccountPending);
 
+/**
+ * @swagger
+ * /api/seller/store-pickup:
+ *   put:
+ *     summary: Toggle store pickup availability
+ *     description: Update whether the seller offers in-store pickup
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - offersStorePickup
+ *             properties:
+ *               offersStorePickup:
+ *                 type: boolean
+ *                 description: Whether to enable or disable store pickup
+ *     responses:
+ *       200:
+ *         description: Store pickup setting updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Store pickup setting updated successfully
+ *                 offersStorePickup:
+ *                   type: boolean
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/store-pickup', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.toggleStorePickup);
+
 module.exports = router;

@@ -335,6 +335,7 @@ const sellerSchema = new mongoose.Schema({
       default: true
     }
   },
+  offersStorePickup: { type: Boolean, default: false },
 });
 
 // Middleware to update isNew property after 3 days

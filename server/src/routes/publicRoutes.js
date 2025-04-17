@@ -230,6 +230,122 @@ router.get('/categories', async (req, res) => {
 
 /**
  * @swagger
+ * /api/public/categories/search:
+ *   get:
+ *     summary: Search categories by name and subcategories
+ *     tags: [Public]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search query for category or subcategory names
+ *     responses:
+ *       200:
+ *         description: List of matching categories
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/categories/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Create case-insensitive search regex
+    const searchRegex = new RegExp(query, 'i');
+
+    // Search categories where:
+    // 1. Main category name matches
+    // 2. Any subcategory name matches
+    // 3. Any sub-subcategory name matches
+    const categories = await Category.find({
+      $or: [
+        { name: searchRegex },
+        { 'subCategories.name': searchRegex },
+        { 'subCategories.subSubCategories.name': searchRegex }
+      ]
+    });
+
+    // Format the response to highlight matching items
+    const formattedResults = categories.map(category => {
+      const result = {
+        _id: category._id,
+        name: category.name,
+        image: category.image,
+        platformFee: category.platformFee,
+        statistics: category.statistics,
+        matchType: [],
+        matchingSubCategories: []
+      };
+
+      // Check if main category matches
+      if (searchRegex.test(category.name)) {
+        result.matchType.push('main');
+      }
+
+      // Check and format matching subcategories
+      if (category.subCategories) {
+        category.subCategories.forEach(subCat => {
+          const subMatches = {
+            name: subCat.name,
+            matches: false,
+            matchingSubSubs: []
+          };
+
+          // Check if subcategory matches
+          if (searchRegex.test(subCat.name)) {
+            subMatches.matches = true;
+            result.matchType.push('sub');
+          }
+
+          // Check if any sub-subcategories match
+          if (subCat.subSubCategories) {
+            subCat.subSubCategories.forEach(subSubCat => {
+              if (searchRegex.test(subSubCat.name)) {
+                subMatches.matchingSubSubs.push(subSubCat.name);
+                result.matchType.push('subsub');
+              }
+            });
+          }
+
+          // Only include subcategory if it or its sub-subcategories match
+          if (subMatches.matches || subMatches.matchingSubSubs.length > 0) {
+            result.matchingSubCategories.push(subMatches);
+          }
+        });
+      }
+
+      return result;
+    });
+
+    // Filter out categories with no matches
+    const finalResults = formattedResults.filter(
+      result => result.matchType.length > 0 || result.matchingSubCategories.length > 0
+    );
+
+    res.json({
+      success: true,
+      count: finalResults.length,
+      results: finalResults
+    });
+  } catch (error) {
+    console.error('Error searching categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search categories',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/public/banners:
  *   get:
  *     summary: Get all banners

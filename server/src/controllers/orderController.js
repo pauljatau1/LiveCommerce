@@ -225,8 +225,33 @@ exports.createOrder = async (req, res) => {
       additionalDetails, 
       pickUpDate,
       senderInfo,
-      paidFromWallet = false // New parameter for wallet payment
+      paidFromWallet = false, // New parameter for wallet payment
+      isStorePickup = false // New parameter for store pickup
     } = req.body;
+    
+    // Validate store pickup request
+    if (isStorePickup) {
+      // Check if COD is requested with store pickup
+      if (isItemCod) {
+        return res.status(400).json({ 
+          message: 'Cash on Delivery is not available with store pickup' 
+        });
+      }
+
+      // Get all unique seller IDs from items
+      const sellerIds = [...new Set(items.map(item => item.seller?.sellerId || productMap[item.productId]?.seller?._id))];
+      
+      // Check if all sellers offer store pickup
+      const sellers = await Seller.find({ _id: { $in: sellerIds } });
+      const ineligibleSellers = sellers.filter(seller => !seller.offersStorePickup);
+      
+      if (ineligibleSellers.length > 0) {
+        return res.status(400).json({
+          message: 'One or more sellers do not offer store pickup',
+          ineligibleSellers: ineligibleSellers.map(s => s.storeName || s.businessName)
+        });
+      }
+    }
     
     // Validate inputs
     const itemsValidation = validateFezItems(items);
@@ -234,13 +259,16 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: itemsValidation.message });
     }
     
-    const addressValidation = validateFezAddress(shippingAddress);
-    if (!addressValidation.valid) {
-      return res.status(400).json({ message: addressValidation.message });
+    // Only validate shipping address if not store pickup
+    if (!isStorePickup) {
+      const addressValidation = validateFezAddress(shippingAddress);
+      if (!addressValidation.valid) {
+        return res.status(400).json({ message: addressValidation.message });
+      }
     }
     
-    // Only validate parcel if it's provided
-    if (Object.keys(parcel).length > 0) {
+    // Only validate parcel if it's provided and not store pickup
+    if (!isStorePickup && Object.keys(parcel).length > 0) {
       const parcelValidation = validateFezParcel(parcel);
       if (!parcelValidation.valid) {
         return res.status(400).json({ message: parcelValidation.message });
@@ -622,7 +650,8 @@ exports.createOrder = async (req, res) => {
         channel: req.body.channel || 'marketplace',
         items: sellerItemsList,
         totalAmount: sellerTotal,
-        delivery_address: {
+        isStorePickup: isStorePickup, // Add store pickup flag
+        delivery_address: isStorePickup ? null : {
           first_name: shippingAddress.recipientName.split(' ')[0],
           last_name: shippingAddress.recipientName.split(' ').slice(1).join(' ') || '',
           email: shippingAddress.recipientEmail,
@@ -633,13 +662,25 @@ exports.createOrder = async (req, res) => {
           country: 'NG',
           zip: ''
         },
+        pickup_address: isStorePickup ? {
+          first_name: seller.firstName,
+          last_name: seller.lastName,
+          email: seller.email,
+          phone: seller.phoneNumber,
+          line1: seller.sellerAddress?.addressLine1 || '',
+          line2: seller.sellerAddress?.addressLine2 || '',
+          city: seller.sellerAddress?.city || '',
+          state: seller.sellerAddress?.state || '',
+          country: seller.sellerAddress?.country || 'NG',
+          zip: seller.sellerAddress?.zipCode || ''
+        } : null,
         shipping: {
-          carrier: {
+          carrier: isStorePickup ? null : {
             name: 'Fez Delivery',
-            reference: sellerBatchId // Use seller-specific batch ID
+            reference: sellerBatchId
           },
           fee: {
-            amount: sellerShippingFee, // Use seller-specific shipping fee
+            amount: isStorePickup ? 0 : sellerShippingFee, // No shipping fee for store pickup
             currency: 'NGN'
           },
           tracking: {
@@ -828,8 +869,7 @@ exports.createOrder = async (req, res) => {
       
       fezRequests.push(fezRequest);
       
-      // Queue the notification for after the transaction is committed
-      // Store the order ID, buyer ID, and seller ID for processing after transaction commit
+     
       const notificationData = {
         orderId: order._id,
         buyerId: buyerId,
@@ -839,32 +879,28 @@ exports.createOrder = async (req, res) => {
       // Add to our local array
       orderNotifications.push(notificationData);
       
-      // // Log the notification data for debugging
-      // console.log('Prepared notification data:', {
-      //   orderId: order._id.toString(),
-      //   buyerId: buyerId,
-      //   sellerId: sellerId,
-      //   orderIdValid: !!order._id,
-      //   buyerIdValid: !!buyerId,
-      //   sellerIdValid: !!sellerId
-      // });
+     
     }
     
     // Get a fresh authentication token for Fez Delivery
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for order creation:', authToken.substring(0, 10) + '...');
     
-    // Make API call to Fez Delivery with fresh token
-    const fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
-        'Content-Type': 'application/json'
-      }
-    });
+    // Skip Fez API call for store pickup orders
+    let fezResponse = { data: { status: 'Success', orderNos: {} } };
+    if (!isStorePickup) {
+      // Make API call to Fez Delivery with fresh token
+      fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'Content-Type': 'application/json'
+        }
+      });
+    }
     
-    // Update orders with Fez tracking information
-    if (fezResponse.data && fezResponse.data.status === 'Success') {
+    // Update orders with Fez tracking information (only for non-store pickup orders)
+    if (!isStorePickup && fezResponse.data && fezResponse.data.status === 'Success') {
       const orderNos = fezResponse.data.orderNos;
       
       for (const order of orders) {
@@ -1975,6 +2011,7 @@ exports.getOrderDetails = async (req, res) => {
            createdAt: order.createdAt,
            totalAmount: order.totalAmount,
            paid: order.paid,
+           isStorePickup: order.isStorePickup,
            paymentInfo: {
              method: order.paymentInfo.method,
              status: order.paymentInfo.status,

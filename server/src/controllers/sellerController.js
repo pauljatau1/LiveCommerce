@@ -178,7 +178,7 @@ exports.register = async (req, res) => {
 
     // After successful seller creation and welcome email
     const adminMsg = {
-      to: ['bolu@auqli.com'],
+      to: ['support@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
       subject: 'New Seller Registration - Auqli',
       html: `
@@ -3394,7 +3394,7 @@ exports.addSpecialDates = async (req, res) => {
 // Update store policy
 exports.updateStorePolicy = async (req, res) => {
   try {
-    const {
+    const { 
       deliveryTimes,
       freeShippingPolicy,
       lostOrDamagedPolicy,
@@ -3405,7 +3405,8 @@ exports.updateStorePolicy = async (req, res) => {
       returnWindow,
       returnCondition,
       returnShipping,
-      exchangePolicy
+      exchangePolicy,
+      allowsCod
     } = req.body;
 
     const seller = await Seller.findById(req.user.id);
@@ -3424,24 +3425,55 @@ exports.updateStorePolicy = async (req, res) => {
       returnWindow,
       returnCondition,
       returnShipping,
-      exchangePolicy
+      exchangePolicy,
+      allowsCod
     };
 
-    await seller.save();
-
-    res.json({ 
-      message: 'Store policy updated successfully',
-      storePolicy: seller.storePolicy 
-    });
+    const updatedSeller = await seller.save();
+    res.json({ message: 'Store policy updated successfully', seller: updatedSeller });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update store policy', 
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Failed to update store policy', error: error.message });
   }
 };
 
+/**
+ * Toggle store pickup availability
+ * @route PUT /api/seller/store-pickup
+ * @access Private
+ */
+exports.toggleStorePickup = async (req, res) => {
+  try {
+    const { offersStorePickup } = req.body;
 
+    if (typeof offersStorePickup !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'offersStorePickup must be a boolean value'
+      });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.offersStorePickup = offersStorePickup;
+    await seller.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Store pickup setting updated successfully',
+      offersStorePickup: seller.offersStorePickup
+    });
+  } catch (error) {
+    console.error('Toggle store pickup error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update store pickup setting',
+      error: error.message
+    });
+  }
+};
 
 /**
  * Update seller's social media information

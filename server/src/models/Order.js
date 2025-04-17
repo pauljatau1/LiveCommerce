@@ -75,6 +75,10 @@ const orderSchema = new mongoose.Schema({
       return result;
     }
   },
+  isStorePickup: {
+    type: Boolean,
+    default: false
+  },
   buyer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Buyer',
