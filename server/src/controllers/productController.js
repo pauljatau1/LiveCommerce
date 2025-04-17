@@ -7172,7 +7172,7 @@ exports.searchSellerProducts = async (req, res) => {
 exports.getRelatedBlips = async (req, res) => {
   try {
     const { blipId } = req.params;
-    const { limit = 10 } = req.query;
+    const { limit = 10, page = 1 } = req.query;
     const userId = req.user ? req.user._id : null;
     
     // Find the product that contains the reference blip
@@ -7207,8 +7207,7 @@ exports.getRelatedBlips = async (req, res) => {
       path: 'seller',
       select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
     })
-    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
-    .limit(20); // fetch more than needed to have a pool to select from
+    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
     
     // Extract all blips from related products
     let relatedBlips = [];
@@ -7287,8 +7286,7 @@ exports.getRelatedBlips = async (req, res) => {
         path: 'seller',
         select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
       })
-      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
-      .limit(20);
+      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
       
       randomProducts.forEach(prod => {
         if (prod.blips && prod.blips.length > 0) {
@@ -7299,20 +7297,21 @@ exports.getRelatedBlips = async (req, res) => {
             );
             
             if (!exists) {
+              // Get product image URL
+              const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
+              
+              // Calculate discounted price
+              let discountedPrice = prod.price;
+              if (prod.discount && prod.discount.isActive) {
+                if (prod.discount.type === 'percentage') {
+                  discountedPrice = Math.ceil((prod.price * (100 - prod.discount.value)) / 100);
+                } else {
+                  discountedPrice = Math.max(0, prod.price - prod.discount.value);
+                }
+              }
+              
               // Check if the current user has liked this blip
               const isLiked = userId ? blip.likes.includes(userId) : false;
-              
-              // Get product image (first image or default)
-              const productImage = prod.images && prod.images.length > 0 ? 
-                prod.images : 
-                [{ url: 'https://res.cloudinary.com/dojbazopp/image/upload/v1649179179/no-image-available_ndtdet.png' }];
-              
-              // Calculate discounted price if applicable
-              const discountedPrice = prod.discount && prod.discount.isActive ? 
-                (prod.discount.type === 'percentage' ? 
-                  prod.price * (1 - prod.discount.value/100) : 
-                  prod.price - prod.discount.value) : 
-                prod.price;
               
               relatedBlips.push({
                 discount: {
@@ -7363,13 +7362,23 @@ exports.getRelatedBlips = async (req, res) => {
     // Shuffle the array for better variety
     relatedBlips = relatedBlips.sort(() => 0.5 - Math.random());
     
-    // Limit the number of returned blips
-    relatedBlips = relatedBlips.slice(0, parseInt(limit));
+    // Calculate total number of blips
+    const total = relatedBlips.length;
+    
+    // Calculate pagination
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    
+    // Get paginated blips
+    const paginatedBlips = relatedBlips.slice(startIndex, endIndex);
     
     return res.status(200).json({
       success: true,
-      count: relatedBlips.length,
-      data: relatedBlips
+      blips: paginatedBlips,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      totalBlips: total,
+      hasMore: endIndex < total
     });
   } catch (error) {
     console.error('Error fetching related blips:', error);
