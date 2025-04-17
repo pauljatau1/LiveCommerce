@@ -1346,7 +1346,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                 )}
 
                 {/* No Host Alert */}
-                {showNoHostAlert && !isLoading && (
+                {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
                   <View style={styles.noHostOverlay}>
                     <View style={styles.noHostAlertContainer}>
                       <View style={styles.noHostIconContainer}>
@@ -1570,12 +1570,12 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
               color="#16783A"
             />
 
-            <View style={{ height: height }}>
+            <View style={{ height: height + 20 }}>
               {/* Main Content Area */}
               <View
                 style={[
                   styles.mainContentArea,
-                  { height: keyboardVisibleRef.current ? "55%" : "67%" },
+                  { height: keyboardVisibleRef.current ? "53%" : "67%" },
                 ]}
               >
                 {/* Right Side Actions */}
@@ -1626,14 +1626,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       </TouchableOpacity>
                       <Text style={styles.actionText}>Info</Text>
                     </View>
-
-                    {/*<View style={styles.actionItem}>
-                                        <TouchableOpacity style={styles.actionButton}>
-                                        <Ionicons name="card-outline" size={24} color="white" />
-                                        </TouchableOpacity>
-                                        <Text style={styles.actionText}>Pay</Text>
-                                    </View>*/}
-
+                    
                     <View style={styles.actionItem}>
                       <TouchableOpacity
                         style={styles.actionButton}
@@ -1713,51 +1706,6 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <View key={index}>{renderCommentItem({ item })}</View>
                     ))}
                   </ScrollView>
-                  // <View style={styles.commentsContainer}>
-                  //   <FlatList
-                  //     ref={commentsListRef}
-                  //     data={liveComments}
-                  //     renderItem={renderCommentItem}
-                  //     keyExtractor={(item) => item.id}
-                  //     showsVerticalScrollIndicator={false}
-                  //     contentContainerStyle={styles.commentsList}
-                  //     fadingEdgeLength={350}
-                  //     onLayout={() => {
-                  //       // Scroll to end on initial layout
-                  //       if (
-                  //         commentsListRef.current &&
-                  //         liveComments.length > 0
-                  //       ) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: false,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     onContentSizeChange={() => {
-                  //       // Scroll to end when content size changes
-                  //       if (
-                  //         commentsListRef.current &&
-                  //         liveComments.length > 0
-                  //       ) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: false,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     maintainVisibleContentPosition={{
-                  //       minIndexForVisible: 0,
-                  //       autoscrollToTopThreshold: 10,
-                  //     }}
-                  //     removeClippedSubviews={false}
-                  //     initialNumToRender={20}
-                  //     maxToRenderPerBatch={20}
-                  //     windowSize={21}
-                  //   />
-                  // </View>
                 )}
               </View>
 
@@ -1797,7 +1745,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                   !keyboardVisibleRef.current && (
                     <View style={styles.bottomProductCardContainer}>
                       <Carousel
-                        loop={true}
+                        loop={false}
                         autoPlay={false}
 
                         width={screenWidth - 32}
@@ -2010,13 +1958,13 @@ const styles = StyleSheet.create({
   rightActionsContainer: {
     position: "absolute",
     right: 13,
-    bottom: 50,
+    bottom: 10,
     maxHeight: 300,
     zIndex: 10,
   },
   commentsContainer: {
     position: "absolute",
-    bottom: 50,
+    bottom: 10,
     left: 0,
     width: "70%",
     maxHeight: 250,
@@ -2110,7 +2058,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   inputWithButtonContainer: {
-    height: 55,
+    height: 47,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -2161,7 +2109,7 @@ const styles = StyleSheet.create({
   actionText: {
     color: "white",
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 2,
   },
   actionText2: {
     color: "#16783A",

@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   streamDetailsSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 23,
     paddingVertical: 20,
   },
   streamTitle: {
@@ -451,6 +451,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 16,
+    textTransform: 'capitalize',
   },
   description: {
     fontSize: 16,

@@ -1864,7 +1864,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                 )}
 
                 {/* No Host Alert */}
-                {showNoHostAlert && !isLoading && (
+                {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
                   <View style={styles.noHostOverlay}>
                     <View style={styles.noHostAlertContainer}>
                       <View style={styles.noHostIconContainer}>
