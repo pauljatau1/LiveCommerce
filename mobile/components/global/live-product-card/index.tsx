@@ -137,7 +137,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
           <View className="flex-row">
             <Text
               numberOfLines={2}
-              className="text-[#027CEC] max-w-[150px] text-xs font-LexendDeca"
+              className="text-primary-200 max-w-[150px] text-xs font-LexendDeca"
             >
               {item?.category} • {item?.tags?.join(", ")}
             </Text>

@@ -6,15 +6,10 @@ import {
   Dimensions,
   SafeAreaView,
   StyleSheet,
-  FlatList,
   TextInput,
-  KeyboardAvoidingView,
-  Animated,
   Platform,
   Keyboard,
   ScrollView,
-  Alert,
-  BackHandler,
   ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useState, useRef, useCallback } from "react";
@@ -23,11 +18,9 @@ import { useLivestream } from "@/contexts/livestreamContext";
 import { WebView } from "react-native-webview";
 import {
   AntDesign,
-  Feather,
   MaterialIcons,
   Ionicons,
   Octicons,
-  FontAwesome,
   Entypo,
   MaterialCommunityIcons,
   SimpleLineIcons,
@@ -36,16 +29,10 @@ import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import BottomSheet from "@/components/global/bottom-sheet";
 import Carousel from "react-native-reanimated-carousel";
 import { getToken, getUser } from "@/store/features/auth/utils";
-import axios from "axios";
-import moment from "moment";
-import { timeFromNow } from "@/helpers/helpers";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import {
   StreamConfig,
-  ProductImage,
   Product,
   StreamProduct,
-  StreamDetails,
   LivestreamContextType,
 } from "@/types/streams/livestreamStudio";
 import { streamEngine } from "./streamEngine";
@@ -56,13 +43,9 @@ import {
   getSocket,
   StreamNotification,
 } from "./socketHandler";
-import { SOCKET_EVENTS } from "@/constants/api";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from "@/components/blips/productPreview";
 import CheckoutNow from "@/components/blips/checkoutNow";
-import LiveAuctionProductCard from "./liveAuctionProductCard";
-import BidVariationSelector from "@/app/(root)/livestream/bidVariationSelector";
 import StreamViewers from "./streamViewers";
 import StreamInfo from "./StreamInfo";
 import StreamOrders from "./streamOrders";
@@ -70,8 +53,9 @@ import { useToast } from "@/contexts/ToastContext";
 import ShopBottomSheet from "./shopBottomSheet";
 import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
 import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
+import { GlassImage } from './components';
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 
 const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
   const insets = useSafeAreaInsets();
@@ -115,24 +99,20 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
   // Bottom sheet state for product preview and checkout
   const [showProductPreview, setShowProductPreview] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [showBidVariation, setShowBidVariation] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedBidProduct, setSelectedBidProduct] =
-    useState<StreamProduct | null>(null);
-  const [bidAmount, setBidAmount] = useState<number | null>(null);
 
   // New state for live comments and events
   const [liveComments, setLiveComments] = useState<
     Array<{
       id: string;
       type:
-        | "comment"
-        | "join"
-        | "purchase"
-        | "hostLeft"
-        | "hostRejoin"
-        | "leave"
-        | "liveshow_order";
+      | "comment"
+      | "join"
+      | "purchase"
+      | "hostLeft"
+      | "hostRejoin"
+      | "leave"
+      | "liveshow_order";
       user: string;
       avatar?: any;
       content: string;
@@ -204,21 +184,21 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
     if (isVisible) {
       setupLivestream();
 
-    // Scroll to the end to show new comment
-    if (commentsListRef.current) {
-      commentsListRef.current.scrollToEnd({ animated: true });
-    }
+      // Scroll to the end to show new comment
+      if (commentsListRef.current) {
+        commentsListRef.current.scrollToEnd({ animated: true });
+      }
 
       // Cleanup function - will run when:
       // 1. Component unmounts
       // 2. isVisible changes from true to false
       // 3. id changes (which should disconnect and reconnect)
-    return () => {
+      return () => {
         // Since we only run the effect when isVisible is true,
         // this cleanup will only run when we're either unmounting
         // or isVisible is changing to false, both cases where we want to leave
-      handleLeaveStream(true);
-    };
+        handleLeaveStream(true);
+      };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
@@ -520,9 +500,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] &&
+                    notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -618,24 +598,24 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
             }
           }
           break;
-          
+
         case "liveshow_order":
           console.log("New order received:", notification.content);
-          
+
           // Show a brief toast notification with the order details
           if (notification.data?.orders) {
-            const orderCount = Array.isArray(notification.data.orders) ? 
+            const orderCount = Array.isArray(notification.data.orders) ?
               notification.data.orders.length : 1;
-            
-            show({
+
+            {/*show({
               text1: "💰 New Order Placed!",
               text2: `${orderCount} item(s) ordered from this stream`,
               type: "success",
               duration: 3000,
               topPosition: 18,
-            });
+            });*/}
           }
-          
+
           // Update UI to show order event in chat
           setLiveComments((prev) => [...prev, notification as any]);
           break;
@@ -885,7 +865,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
           avatarSource = item.avatar; // It's already a require() or imported image
         }
 
-        return <Image source={avatarSource} style={styles.commentAvatar} />;
+        return <GlassImage source={avatarSource} imageStyle={styles.commentAvatar} glassStyle={styles.commentAvatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />;
       } else {
         // Use first letter of username with a random background color
         const firstLetter =
@@ -1063,7 +1043,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       } else {
         console.error("Socket not connected, comment only saved locally");
       }
-      
+
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -1154,7 +1134,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
       const response = await followSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(true);
-      
+
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
         setStreamDetails(prev => ({
@@ -1185,7 +1165,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
       const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
       setIsFollowing(false);
-      
+
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
         setStreamDetails(prev => ({
@@ -1212,7 +1192,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
     if (heartsRef.current) {
       heartsRef.current.generateHearts();
     }
-    
+
     // Send the reaction to the server via socket
     const socketInstance = getSocket();
     if (socketInstance) {
@@ -1231,13 +1211,13 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
   const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  
+
   // Debounced socket event emitter
   const debouncedSocketEmit = useCallback((eventType: string) => {
     if (socketThrottleTimeout.current) {
       clearTimeout(socketThrottleTimeout.current);
     }
-    
+
     socketThrottleTimeout.current = setTimeout(() => {
       const socketInstance = getSocket();
       if (socketInstance) {
@@ -1249,13 +1229,13 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       socketThrottleTimeout.current = null;
     }, 1000);
   }, [id]);
-  
+
   // Improved heart press handler with better state management
   const handleHeartPress = useCallback(() => {
     const now = performance.now ? performance.now() : Date.now();
     const elapsed = now - lastTapTime.current;
     lastTapTime.current = now;
-    
+
     // Clear any existing timeouts
     if (heartPressTimeout.current) {
       clearTimeout(heartPressTimeout.current);
@@ -1281,13 +1261,13 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       // Check if this is a rapid tap
       if (elapsed < TAP_THRESHOLD) {
         tapCount.current++;
-        
+
         // If we've detected rapid taps, start continuous animation
         if (tapCount.current >= 2) {
           isAnimating.current = true;
           heartsRef.current.startContinuousHearts();
           debouncedSocketEmit("heart_burst");
-          
+
           // Set timeout to stop continuous animation
           heartPressTimeout.current = setTimeout(() => {
             if (heartsRef.current) {
@@ -1307,7 +1287,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         heartsRef.current.generateHearts();
         debouncedSocketEmit("heart");
       }
-      
+
       animationFrameRef.current = null;
     });
   }, [debouncedSocketEmit]);
@@ -1366,7 +1346,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                 )}
 
                 {/* No Host Alert */}
-                {showNoHostAlert && !isLoading && (
+                {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
                   <View style={styles.noHostOverlay}>
                     <View style={styles.noHostAlertContainer}>
                       <View style={styles.noHostIconContainer}>
@@ -1397,7 +1377,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                         >
                           <Text style={styles.leaveButtonText}>Leave</Text>
                           {isLeavingStream && (
-                            <ActivityIndicator size={12} color="white" style={{marginLeft: 5}} />
+                            <ActivityIndicator size={12} color="white" style={{ marginLeft: 5 }} />
                           )}
                         </TouchableOpacity>
                       </View>
@@ -1422,10 +1402,27 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
               <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                 <View className={`flex-row justify-between items-center px-4`}>
                   <View className="flex-row items-center gap-4 ">
-                    <View className="flex-row items-center gap-2">
-                      <Image
-                        source={storeInfo.avatar}
-                        className="w-10 h-10 rounded-full"
+                    <TouchableOpacity
+                      className="flex-row items-center gap-2"
+                      onPress={() => {
+                        router.push({
+                          pathname: "/sellerProfile",
+                          params: {
+                            sellerId: sellerId,
+                            sellerAvatar: storeInfo?.avatar,
+                          }
+                        })
+                      }}
+                    >
+                      <GlassImage
+                        source={storeInfo?.avatar}
+                        containerClassName="w-10 h-10 rounded-full"
+                        imageClassName="w-full h-full rounded-full"
+                        glassClassName="w-full h-full rounded-full"
+                        placeholderColor="rgba(255, 255, 255, 0.1)"
+                        blurIntensity={20}
+                        tint="dark"
+                        showActivityIndicator={false}
                       />
                       <View>
                         <Text className="text-white font-LexendDecaMedium text-base">
@@ -1435,7 +1432,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                           {storeInfo.username}
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     {isFollowingLoading ? (
                       <TouchableOpacity
                         className="bg-[#16783A] h-full px-4 py-1 rounded-full"
@@ -1578,18 +1575,18 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
             )}
 
             {/* Add the FloatingHeartsAnimation component */}
-            <FloatingHeartsAnimation 
+            <FloatingHeartsAnimation
               ref={heartsRef}
               count={15}
               color="#16783A"
             />
 
-            <View style={{ height: height }}>
+            <View style={{ height: height + 20 }}>
               {/* Main Content Area */}
               <View
                 style={[
                   styles.mainContentArea,
-                  { height: keyboardVisibleRef.current ? "55%" : "67%" },
+                  { height: keyboardVisibleRef.current ? "53%" : "67%" },
                 ]}
               >
                 {/* Right Side Actions */}
@@ -1641,15 +1638,8 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <Text style={styles.actionText}>Info</Text>
                     </View>
 
-                    {/*<View style={styles.actionItem}>
-                                        <TouchableOpacity style={styles.actionButton}>
-                                        <Ionicons name="card-outline" size={24} color="white" />
-                                        </TouchableOpacity>
-                                        <Text style={styles.actionText}>Pay</Text>
-                                    </View>*/}
-
                     <View style={styles.actionItem}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.actionButton}
                         onPress={handleShowOrders}
                       >
@@ -1663,7 +1653,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                     </View>
 
                     <View style={styles.actionItem}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.actionButton}
                         onPress={handleShowShop}
                       >
@@ -1677,11 +1667,11 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                     </View>
 
                     {<View style={styles.actionItem}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.actionButton}
                         onPress={handleHeartPress}
                       >
-                        <AntDesign name="hearto" size={24} color="Support chat error tracked in analytics" />
+                        <AntDesign name="hearto" size={24} color="#16783A" />
                       </TouchableOpacity>
                       <Text style={styles.actionText2}>Like</Text>
                     </View>}
@@ -1727,51 +1717,6 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <View key={index}>{renderCommentItem({ item })}</View>
                     ))}
                   </ScrollView>
-                  // <View style={styles.commentsContainer}>
-                  //   <FlatList
-                  //     ref={commentsListRef}
-                  //     data={liveComments}
-                  //     renderItem={renderCommentItem}
-                  //     keyExtractor={(item) => item.id}
-                  //     showsVerticalScrollIndicator={false}
-                  //     contentContainerStyle={styles.commentsList}
-                  //     fadingEdgeLength={350}
-                  //     onLayout={() => {
-                  //       // Scroll to end on initial layout
-                  //       if (
-                  //         commentsListRef.current &&
-                  //         liveComments.length > 0
-                  //       ) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: false,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     onContentSizeChange={() => {
-                  //       // Scroll to end when content size changes
-                  //       if (
-                  //         commentsListRef.current &&
-                  //         liveComments.length > 0
-                  //       ) {
-                  //         setTimeout(() => {
-                  //           commentsListRef.current?.scrollToEnd({
-                  //             animated: false,
-                  //           });
-                  //         }, 100);
-                  //       }
-                  //     }}
-                  //     maintainVisibleContentPosition={{
-                  //       minIndexForVisible: 0,
-                  //       autoscrollToTopThreshold: 10,
-                  //     }}
-                  //     removeClippedSubviews={false}
-                  //     initialNumToRender={20}
-                  //     maxToRenderPerBatch={20}
-                  //     windowSize={21}
-                  //   />
-                  // </View>
                 )}
               </View>
 
@@ -1811,9 +1756,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                   !keyboardVisibleRef.current && (
                     <View style={styles.bottomProductCardContainer}>
                       <Carousel
-                        loop={true}
+                        loop={false}
                         autoPlay={false}
-                        
+
                         width={screenWidth - 32}
                         height={110}
                         data={streamProducts}
@@ -1831,8 +1776,8 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       />
                     </View>
                   )}
-                                        </View>
-                                        </View>
+              </View>
+            </View>
           </View>
         </View>
       </View>
@@ -1916,7 +1861,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-        //enableContentPanningGesture={true}
+      //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -2024,13 +1969,13 @@ const styles = StyleSheet.create({
   rightActionsContainer: {
     position: "absolute",
     right: 13,
-    bottom: 50,
+    bottom: 10,
     maxHeight: 300,
     zIndex: 10,
   },
   commentsContainer: {
     position: "absolute",
-    bottom: 50,
+    bottom: 10,
     left: 0,
     width: "70%",
     maxHeight: 250,
@@ -2124,7 +2069,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   inputWithButtonContainer: {
-    height: 55,
+    height: 47,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -2175,7 +2120,7 @@ const styles = StyleSheet.create({
   actionText: {
     color: "white",
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 2,
   },
   actionText2: {
     color: "#16783A",

@@ -54,10 +54,10 @@ function RootLayoutNav() {
   return (
     <Provider store={store}>
       {/* <KeyboardProvider> */}
-      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <GestureHandlerRootView>
-          <BottomSheetModalProvider>
-            <ToastProvider>
+      <ToastProvider>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+          <GestureHandlerRootView>
+            <BottomSheetModalProvider>
               <LivestreamProvider>
                 <Stack>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -78,10 +78,10 @@ function RootLayoutNav() {
                 </Stack>
                 <FlashMessage floating style={styles.flashMessage} />
               </LivestreamProvider>
-            </ToastProvider>
-          </BottomSheetModalProvider>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
+            </BottomSheetModalProvider>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </ToastProvider>
 
       {/* </KeyboardProvider> */}
     </Provider>
