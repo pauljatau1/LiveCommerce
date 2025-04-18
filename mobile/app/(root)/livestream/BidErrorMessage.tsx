@@ -1,26 +1,48 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import React from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 interface BidErrorMessageProps {
   errorMessage: string;
   closeSheet: () => void;
 }
 
+
+
 const BidErrorMessage = ({ errorMessage, closeSheet }: BidErrorMessageProps) => {
+  const router = useRouter();
+
+  const buttonDisplayUi = () => {
+    if (errorMessage == "Please add a shipping address to your profile before bidding") {
+      return (
+        <TouchableOpacity style={styles.button} onPress={() => {
+          router.push("/addresses/addAddress")
+          closeSheet()
+        }}>
+          <Text style={styles.buttonText}>Add Shipping Address</Text>
+        </TouchableOpacity>
+      )
+    } else {
+      return (
+        <TouchableOpacity style={styles.button} onPress={closeSheet}>
+          <Text style={styles.buttonText}>Dismiss</Text>
+        </TouchableOpacity>
+      )
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
         <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
       </View>
-      
+
       <Text style={styles.title}>Bid Error</Text>
-      
+
       <Text style={styles.message}>{errorMessage}</Text>
-      
-      <TouchableOpacity style={styles.button} onPress={closeSheet}>
-        <Text style={styles.buttonText}>Dismiss</Text>
-      </TouchableOpacity>
+
+      {buttonDisplayUi()}
     </View>
   );
 };
