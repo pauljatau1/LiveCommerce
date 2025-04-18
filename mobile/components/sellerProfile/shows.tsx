@@ -83,6 +83,7 @@ const Shows = ({
   };
 
   useEffect(() => {
+    fetchActiveLiveStreams();
     fetchSpotlightLiveStreams();
   }, []);
 

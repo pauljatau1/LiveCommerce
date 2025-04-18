@@ -6,10 +6,11 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  Platform,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { Entypo, Feather, FontAwesome5 } from "@expo/vector-icons";
+import { AntDesign, Entypo, Feather, FontAwesome5 } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { formatDate } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
@@ -18,6 +19,10 @@ import axios from "axios";
 import LottieView from "lottie-react-native";
 import BottomSheet from "@/components/global/bottom-sheet";
 import TransactionDetails from "@/components/wallet/transaction-details";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
+import IOSDatePicker from "@/components/wallet/IOSDatePicker";
 
 const Transactions = () => {
   const [page, setPage] = useState<number>(1);
@@ -30,13 +35,43 @@ const Transactions = () => {
   const [index, setIndex] = useState<number>();
   const [walletTransactions, setWalletTransactions] = useState<any>([]);
 
-  const getWalletTransactions = async () => {
-    console.log({
-      page,
-      hasReachedEnd,
-      isFetching,
-    });
+  const [date, setDate] = useState<any>(null);
+  const [endDate, setEndDate] = useState<any>(null);
+  const activeDate = useRef<any>();
+  const [show, setShow] = useState(false);
+  const [showIOSDatePicker, setShowIOSDatePicker] = useState<boolean>(false);
 
+  const onChange = (event: any, selectedDate: any) => {
+    setShowIOSDatePicker(false);
+    if (selectedDate == date) {
+      return;
+    }
+    setPage(1);
+    setHasReachedEnd(false);
+    if (activeDate?.current == "start") {
+      return setDate(selectedDate);
+    }
+    setEndDate(selectedDate);
+  };
+
+  const openDatePicker = () => {
+    if (Platform.OS == "android") {
+      return openDateAndroid();
+    }
+
+    setShowIOSDatePicker(true);
+  };
+
+  const openDateAndroid = () => {
+    DateTimePickerAndroid.open({
+      value: date || new Date(Date.now()),
+      onChange,
+      mode: "date",
+      is24Hour: true,
+    });
+  };
+
+  const getWalletTransactions = async () => {
     if (isFetching || hasReachedEnd) {
       return;
     }
@@ -45,21 +80,26 @@ const Transactions = () => {
     } else {
       setIsFetching(true);
     }
+
     try {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/wallet/transactions?page=${page}&limit=10`,
+          `api/buyer/wallet/transactions?page=${page}&limit=10&startDate=${date ? new Date(date)?.toDateString() : ""}&endDate=${endDate ? new Date(endDate)?.toDateString() : ""}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setWalletTransactions([
-        ...walletTransactions,
-        ...response.data?.transactions,
-      ]);
+      if (page == 1) {
+        setWalletTransactions(response.data?.transactions);
+      } else {
+        setWalletTransactions([
+          ...walletTransactions,
+          ...response.data?.transactions,
+        ]);
+      }
 
       if (response.data.pagination.hasMore) {
         setPage((prevPage) => prevPage + 1);
@@ -76,7 +116,7 @@ const Transactions = () => {
 
   useEffect(() => {
     getWalletTransactions();
-  }, []);
+  }, [date, endDate]);
 
   const renderTransactions = useCallback(({ item, index }: any) => {
     return (
@@ -213,7 +253,8 @@ const Transactions = () => {
 
       <View
         style={{
-          paddingVertical: 20,
+          paddingTop: 20,
+          paddingBottom: 10,
           paddingHorizontal: 16,
           backgroundColor: "#121212",
           flex: 1,
@@ -228,6 +269,65 @@ const Transactions = () => {
             />
           </TouchableOpacity>
           <Text style={styles.userName}>Transaction History</Text>
+        </View>
+
+        <View className="mb-[10px] px-[6px] items-start flex-row gap-[12px]">
+          <View className="gap-[6px]">
+            <Text className="text-[#fff] font-LexendDeca text-[10px]">
+              Start Date
+            </Text>
+            <Pressable
+              className="border-[1px] border-[#ccc] rounded-[6px] flex-row items-center justify-between px-[10px] py-[8px] gap-[8px]"
+              onPress={() => {
+                activeDate.current = "start";
+                openDatePicker();
+              }}
+            >
+              <AntDesign name="calendar" size={14} color="white" />
+              <Text className="text-[#fff] font-LexendDeca text-[12px]">
+                {!date ? "Select Start Date" : formatDate(date, "MMM DD YYYY")}
+              </Text>
+              {date && (
+                <Pressable
+                  onPress={() => {
+                    activeDate.current = "start";
+                    onChange(null, null);
+                  }}
+                >
+                  <AntDesign name="close" size={14} color="#ccc" />
+                </Pressable>
+              )}
+            </Pressable>
+          </View>
+          <View className="gap-[6px]">
+            <Text className="text-[#fff] font-LexendDeca text-[10px]">
+              End Date
+            </Text>
+            <Pressable
+              className="border-[1px] border-[#ccc] rounded-[6px] flex-row items-center justify-between px-[10px] py-[8px] gap-[8px]"
+              onPress={() => {
+                activeDate.current = "end";
+                openDatePicker();
+              }}
+            >
+              <AntDesign name="calendar" size={14} color="white" />
+              <Text className="text-[#fff] font-LexendDeca text-[12px]">
+                {!endDate
+                  ? "Select End Date"
+                  : formatDate(endDate, "MMM DD YYYY")}
+              </Text>
+              {endDate && (
+                <Pressable
+                  onPress={() => {
+                    activeDate.current = "end";
+                    onChange(null, "");
+                  }}
+                >
+                  <AntDesign name="close" size={14} color="#ccc" />
+                </Pressable>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View
@@ -267,6 +367,19 @@ const Transactions = () => {
         keyboardBehavior={"interactive"}
       >
         <TransactionDetails item={walletTransactions[index!]} />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showIOSDatePicker}
+        onRequestClose={() => setShowIOSDatePicker(false)}
+        // snapPoints={["35%"]}
+        // enableDynamicSizing={false}
+        keyboardBehavior={"interactive"}
+      >
+        <IOSDatePicker date={date} onChangeDate={onChange} />
       </BottomSheet>
     </SafeAreaView>
   );

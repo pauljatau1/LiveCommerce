@@ -33,7 +33,7 @@ const Marketplace = () => {
     error,
     isLoading,
   } = useGetAllCategoriesQuery({});
-  const [selected, setSelected] = useState(allCategories[0]?.name);
+  const [selected, setSelected] = useState(allCategories?.[0]?.name);
   const [categories, setCategories] = useState<any[]>([]);
   const tags = ["For You", "Jewellery", "Shoes", "Suits", "Denim"];
   const [refreshing, setRefreshing] = React.useState(false);

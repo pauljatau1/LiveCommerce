@@ -344,11 +344,17 @@ const EmptyOrders = () => {
         </Text>
 
         <View className="flex-row items-center justify-between relative shrink">
-          <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A]">
+          <TouchableOpacity
+            className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A]"
+            onPress={() => router.push("/(root)/(tabs)/home/home")}
+          >
             <Text className="text-white text-[12px]">Watch Live Shows</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A] bg-[#16783A]">
+          <TouchableOpacity
+            className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A] bg-[#16783A]"
+            onPress={() => router.push("/(root)/(tabs)/home/marketplace")}
+          >
             <Text className="text-white text-[12px]">Go to Marketplace</Text>
           </TouchableOpacity>
         </View>

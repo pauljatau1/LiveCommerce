@@ -290,10 +290,10 @@ const SingleOrder = () => {
                       );
                     })}
 
-                    <View className="flex-row justify-between items-center flex-wrap relative mb-[20px]">
+                    <View className="flex-row justify-between items-center gap-[6px] relative mb-[20px]">
                       <Pressable
-                        className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-                        style={{ width: "30%" }}
+                        className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
+                        style={{ width: "100%" }}
                         onPress={() =>
                           router.push({
                             pathname: `../../(root)/messageRoom/${order.seller}`,
@@ -323,8 +323,8 @@ const SingleOrder = () => {
                       {order.shipping.tracking.status == "delivered" &&
                       order?.order?.orderStatus?.isOpen ? (
                         <Pressable
-                          className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-                          style={{ width: "30%" }}
+                          className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
+                          style={{ width: "100%" }}
                           onPress={() =>
                             router.push({
                               pathname: "/(root)/orders/returns",

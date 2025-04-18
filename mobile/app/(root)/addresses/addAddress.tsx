@@ -11,10 +11,10 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Dropdown } from "react-native-element-dropdown";
 import getCities from "../../../helpers/country-state-city/lib/getCities";
 import getStates from "../../../helpers/country-state-city/lib/getStates";
@@ -32,6 +32,7 @@ import {
 const { width, height } = Dimensions.get("window");
 const addressTypes = [{ name: "home" }, { name: "work" }, { name: "other" }];
 const AddAddress = () => {
+  const { prevRoute } = useLocalSearchParams();
   const states = useMemo(() => getStates("nigeria"), []);
   const [cities, setCities] = useState<any>(null);
   const [state, setState] = useState<string>("");
@@ -126,7 +127,12 @@ const AddAddress = () => {
         setLoading(false);
 
         toast.success("Address added successfully");
-        setTimeout(() => router.back(), 2000);
+        setTimeout(() => {
+          if (prevRoute && prevRoute == "checkout") {
+            return router.replace("/checkout/checkout");
+          }
+          router.back();
+        }, 2000);
       }
     } catch (e) {
       console.log("cant create address", e);
@@ -165,7 +171,9 @@ const AddAddress = () => {
           >
             <TouchableOpacity
               style={{ position: "absolute", left: 12 }}
-              onPress={() => router.back()}
+              onPress={() => {
+                router.back();
+              }}
             >
               <Entypo
                 name="chevron-left"

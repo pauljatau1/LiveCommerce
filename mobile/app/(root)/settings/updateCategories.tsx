@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -211,6 +211,52 @@ const Categories = () => {
     getSelectedCategories();
   }, []);
 
+  const renderCategoryCards = useCallback(
+    ({ item }: any) => {
+      return (
+        <TouchableOpacity
+          onPress={() => toggleCategory(item.id, item.name)}
+          className="rounded-md overflow-visible relative w-full shrink h-[173px]"
+          activeOpacity={0.5}
+        >
+          <Image
+            source={{ uri: item.image.url }}
+            className="rounded-md border-[0.6px] border-gray-200 h-full opacity-50"
+            resizeMode="cover"
+          />
+          {selectedCategories.find((val) => val.name == item.name) && (
+            <Image
+              source={images.checkmarkIcon}
+              className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
+            />
+          )}
+          <Text className=" font-LexendDecaSemiBold text-white absolute bottom-3 text-lg px-[8.41px]">
+            {item.name}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [categoriesData, selectedCategories],
+  );
+
+  const renderListHeader = useCallback(() => {
+    return (
+      <View className="flex-row items-center justify-between mb-[36px] mt-[20px]">
+        <TouchableOpacity className="" onPress={() => router.back()}>
+          <Entypo
+            name="chevron-left"
+            size={24}
+            color="rgba(204, 204, 204, 0.8)"
+          />
+        </TouchableOpacity>
+        <Text className="text-gray-200 font-LexendDecaBold text-center text-[20px] self-center">
+          What’s your style ?
+        </Text>
+        <Text> </Text>
+      </View>
+    );
+  }, []);
+
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -221,48 +267,13 @@ const Categories = () => {
             numColumns={2}
             keyExtractor={(item) => item._id}
             ListEmptyComponent={renderSkeletonLoader}
-            ListHeaderComponent={() => (
-              <View className="flex-row items-center justify-between mb-[36px] mt-[20px]">
-                <TouchableOpacity className="" onPress={() => router.back()}>
-                  <Entypo
-                    name="chevron-left"
-                    size={24}
-                    color="rgba(204, 204, 204, 0.8)"
-                  />
-                </TouchableOpacity>
-                <Text className="text-gray-200 font-LexendDecaBold text-center text-[20px] self-center">
-                  What’s your style ?
-                </Text>
-                <Text> </Text>
-              </View>
-            )}
+            ListHeaderComponent={renderListHeader}
             columnWrapperStyle={{
               justifyContent: "center",
               columnGap: 18,
               paddingVertical: 10,
             }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => toggleCategory(item.id, item.name)}
-                className="rounded-md overflow-visible relative w-full shrink h-[173px]"
-                activeOpacity={0.5}
-              >
-                <Image
-                  source={{ uri: item.image.url }}
-                  className="rounded-md border-[0.6px] border-gray-200 h-full opacity-50"
-                  resizeMode="cover"
-                />
-                {selectedCategories.find((val) => val.name == item.name) && (
-                  <Image
-                    source={images.checkmarkIcon}
-                    className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
-                  />
-                )}
-                <Text className=" font-LexendDecaSemiBold text-white absolute bottom-3 text-lg px-[8.41px]">
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            )}
+            renderItem={renderCategoryCards}
             showsVerticalScrollIndicator={false}
           />
           <View className="mx-5 mt-5">

@@ -5,6 +5,7 @@ import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import useCarousel from "@/hooks/useCarousel";
 import { useGetAllAuctionProductsQuery } from "@/services/products";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import React, { useCallback, useEffect } from "react";
 import { FlatList, Text, View } from "react-native";
@@ -47,8 +48,16 @@ const ForYouAuctionSection = () => {
         style={{
           marginVertical: 40,
           width: "100%",
+          alignItems: "center",
+          gap: 10,
         }}
       >
+        <MaterialIcons
+          name="local-offer"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
           No Auctions right now
         </Text>
