@@ -60,10 +60,10 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
  */
 router.get('/categories', async (req, res) => {
   try {
-    // Get all categories first (outside of any transaction)
+    // Get all categories first
     const categories = await Category.find({});
     
-    // Get all necessary data for statistics calculation (outside of any transaction)
+    // Get all necessary data for statistics calculation
     // Get all orders and their items
     const orders = await Order.find({})
       .populate({
@@ -71,7 +71,7 @@ router.get('/categories', async (req, res) => {
         select: 'category'
       });
 
-    // Get product counts per category (this doesn't need a session)
+    // Get product counts per category
     const productCounts = await Product.aggregate([
       {
         $group: {
@@ -81,7 +81,7 @@ router.get('/categories', async (req, res) => {
       }
     ]);
 
-    // Get stream counts per category (this doesn't need a session)
+    // Get stream counts per category
     const Stream = mongoose.model('Stream');
     const streamCounts = await Stream.aggregate([
       {
@@ -141,29 +141,25 @@ router.get('/categories', async (req, res) => {
       }
     }
 
-    // Now update each category individually with its own transaction
-    // This is more reliable than trying to update all categories in a single transaction
-    const MAX_RETRIES = 3;
-    
+    // Update all categories with their statistics
     // Process updates in batches to avoid overwhelming the database
-    const updateBatch = async (category) => {
-      let retryCount = 0;
-      let success = false;
+    const batchSize = 5;
+    const updatePromises = [];
+
+    for (let i = 0; i < categories.length; i += batchSize) {
+      const batch = categories.slice(i, i + batchSize);
       
-      while (retryCount < MAX_RETRIES && !success) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
+      const batchPromises = batch.map(async (category) => {
+        const categoryName = category.name;
+        const stats = categoryStats[categoryName] || { 
+          pending: { orders: 0, items: 0 },
+          completed: { orders: 0, items: 0 }
+        };
         
         try {
-          const categoryName = category.name;
-          const stats = categoryStats[categoryName] || { 
-            pending: { orders: 0, items: 0 },
-            completed: { orders: 0, items: 0 }
-          };
-          
           // Update the category with its statistics
-          await Category.findOneAndUpdate(
-            { _id: category._id },
+          await Category.findByIdAndUpdate(
+            category._id,
             {
               $set: {
                 'statistics.orders.pending': stats.pending.orders,
@@ -175,41 +171,19 @@ router.get('/categories', async (req, res) => {
                 'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
                 'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
               }
-            },
-            { session }
+            }
           );
-          
-          await session.commitTransaction();
-          success = true;
         } catch (error) {
-          await session.abortTransaction();
-          
-          const isTransientError = 
-            (error.name === 'MongoError' || error.name === 'MongoServerError') &&
-            (error.code === 112 || 
-             (error.hasOwnProperty('errorLabels') && 
-              error.errorLabels.includes('TransientTransactionError')));
-          
-          if (isTransientError && retryCount < MAX_RETRIES - 1) {
-            console.log(`Retrying update for category ${category.name}. Attempt: ${retryCount + 1}`);
-            retryCount++;
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
-          } else {
-            console.error(`Failed to update category ${category.name}:`, error);
-            throw error;
-          }
-        } finally {
-          session.endSession();
+          console.error(`Failed to update category ${categoryName}:`, error);
+          // Continue with other updates even if one fails
         }
-      }
-    };
-    
-    // Process categories in batches of 5 to limit concurrency
-    const batchSize = 5;
-    for (let i = 0; i < categories.length; i += batchSize) {
-      const batch = categories.slice(i, i + batchSize);
-      await Promise.all(batch.map(updateBatch));
+      });
+
+      updatePromises.push(...batchPromises);
     }
+
+    // Wait for all updates to complete
+    await Promise.all(updatePromises);
     
     // Get updated categories and sort them
     const updatedCategories = await Category.find().sort({
@@ -223,6 +197,122 @@ router.get('/categories', async (req, res) => {
     console.error('Error retrieving categories:', error);
     res.status(500).json({
       message: 'Failed to retrieve categories',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/public/categories/search:
+ *   get:
+ *     summary: Search categories by name and subcategories
+ *     tags: [Public]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search query for category or subcategory names
+ *     responses:
+ *       200:
+ *         description: List of matching categories
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/categories/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Create case-insensitive search regex
+    const searchRegex = new RegExp(query, 'i');
+
+    // Search categories where:
+    // 1. Main category name matches
+    // 2. Any subcategory name matches
+    // 3. Any sub-subcategory name matches
+    const categories = await Category.find({
+      $or: [
+        { name: searchRegex },
+        { 'subCategories.name': searchRegex },
+        { 'subCategories.subSubCategories.name': searchRegex }
+      ]
+    });
+
+    // Format the response to highlight matching items
+    const formattedResults = categories.map(category => {
+      const result = {
+        _id: category._id,
+        name: category.name,
+        image: category.image,
+        platformFee: category.platformFee,
+        statistics: category.statistics,
+        matchType: [],
+        matchingSubCategories: []
+      };
+
+      // Check if main category matches
+      if (searchRegex.test(category.name)) {
+        result.matchType.push('main');
+      }
+
+      // Check and format matching subcategories
+      if (category.subCategories) {
+        category.subCategories.forEach(subCat => {
+          const subMatches = {
+            name: subCat.name,
+            matches: false,
+            matchingSubSubs: []
+          };
+
+          // Check if subcategory matches
+          if (searchRegex.test(subCat.name)) {
+            subMatches.matches = true;
+            result.matchType.push('sub');
+          }
+
+          // Check if any sub-subcategories match
+          if (subCat.subSubCategories) {
+            subCat.subSubCategories.forEach(subSubCat => {
+              if (searchRegex.test(subSubCat.name)) {
+                subMatches.matchingSubSubs.push(subSubCat.name);
+                result.matchType.push('subsub');
+              }
+            });
+          }
+
+          // Only include subcategory if it or its sub-subcategories match
+          if (subMatches.matches || subMatches.matchingSubSubs.length > 0) {
+            result.matchingSubCategories.push(subMatches);
+          }
+        });
+      }
+
+      return result;
+    });
+
+    // Filter out categories with no matches
+    const finalResults = formattedResults.filter(
+      result => result.matchType.length > 0 || result.matchingSubCategories.length > 0
+    );
+
+    res.json({
+      success: true,
+      count: finalResults.length,
+      results: finalResults
+    });
+  } catch (error) {
+    console.error('Error searching categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search categories',
       error: error.message
     });
   }

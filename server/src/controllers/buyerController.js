@@ -469,7 +469,7 @@ exports.uploadProfileImage = async (req, res) => {
     }
 
     buyer.profileImage = {
-      url: data.Location,
+      url: `https://` + process.env.CDN_URL + `/${data.Key}`,
       public_id: data.Key,
     };
 

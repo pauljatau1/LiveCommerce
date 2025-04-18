@@ -1264,6 +1264,7 @@ exports.searchProducts = async (req, res) => {
 
   try {
     const queryFilter = {
+      status: 'active',
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1368,6 +1369,7 @@ exports.deepSearchProducts = async (req, res) => {
 
   try {
     const queryFilter = {
+      status: 'active',
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1482,6 +1484,7 @@ exports.getBuyerFeedProducts = async (req, res) => {
     );
 
     const products = await Product.find({
+      status: 'active',
       $or: [
         { category: { $in: buyer.selectedCategories.map(cat => cat.name) } },
         { subCategory: { $in: subcategoryNames } }
@@ -6054,7 +6057,8 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
     const query = { 
       seller: sellerId,
       category,
-      subCategory: subcategory
+      subCategory: subcategory,
+      status: 'active'
     };
     
     // Build sort options
@@ -6109,7 +6113,7 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
       totalPages: Math.ceil(total / parseInt(limit))
     });
   } catch (error) {
-    console.error('Error fetching seller products by category and subcategory:', error);
+    console.error('Error fetching products by category and subcategory:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -6245,6 +6249,7 @@ exports.getPersonalizedBlips = async (req, res) => {
       query = {
         $and: [
           { 'blips.0': { $exists: true } },
+          { status: 'active' }, // Only active products
           {
             $or: [
               { status: { $ne: 'offline_auction' } },
@@ -7167,15 +7172,18 @@ exports.searchSellerProducts = async (req, res) => {
 exports.getRelatedBlips = async (req, res) => {
   try {
     const { blipId } = req.params;
-    const { limit = 10 } = req.query;
+    const { limit = 10, page = 1 } = req.query;
     const userId = req.user ? req.user._id : null;
     
     // Find the product that contains the reference blip
-    const product = await Product.findOne({ 'blips._id': blipId })
-      .populate({
-        path: 'seller',
-        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
-      });
+    const product = await Product.findOne({ 
+      'blips._id': blipId,
+      status: 'active'
+    })
+    .populate({
+      path: 'seller',
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+    });
     
     if (!product) {
       return res.status(404).json({ success: false, message: 'Blip not found' });
@@ -7192,14 +7200,14 @@ exports.getRelatedBlips = async (req, res) => {
     // Excluding the current product to ensure we don't get the same blips
     const relatedProducts = await Product.find({
       _id: { $ne: product._id },
-      category: product.category
+      category: product.category,
+      status: 'active'
     })
     .populate({
       path: 'seller',
       select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
     })
-    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
-    .limit(20); // fetch more than needed to have a pool to select from
+    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
     
     // Extract all blips from related products
     let relatedBlips = [];
@@ -7271,14 +7279,14 @@ exports.getRelatedBlips = async (req, res) => {
     if (relatedBlips.length < parseInt(limit)) {
       const randomProducts = await Product.find({
         _id: { $ne: product._id },
-        'blips.0': { $exists: true } // ensure the product has at least one blip
+        'blips.0': { $exists: true }, // ensure the product has at least one blip
+        status: 'active'
       })
       .populate({
         path: 'seller',
         select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
       })
-      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status')
-      .limit(20);
+      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
       
       randomProducts.forEach(prod => {
         if (prod.blips && prod.blips.length > 0) {
@@ -7289,9 +7297,6 @@ exports.getRelatedBlips = async (req, res) => {
             );
             
             if (!exists) {
-              // Check if the current user has liked this blip
-              const isLiked = userId ? blip.likes.includes(userId) : false;
-              
               // Get product image URL
               const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
               
@@ -7304,6 +7309,9 @@ exports.getRelatedBlips = async (req, res) => {
                   discountedPrice = Math.max(0, prod.price - prod.discount.value);
                 }
               }
+              
+              // Check if the current user has liked this blip
+              const isLiked = userId ? blip.likes.includes(userId) : false;
               
               relatedBlips.push({
                 discount: {
@@ -7354,13 +7362,23 @@ exports.getRelatedBlips = async (req, res) => {
     // Shuffle the array for better variety
     relatedBlips = relatedBlips.sort(() => 0.5 - Math.random());
     
-    // Limit the number of returned blips
-    relatedBlips = relatedBlips.slice(0, parseInt(limit));
+    // Calculate total number of blips
+    const total = relatedBlips.length;
+    
+    // Calculate pagination
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    
+    // Get paginated blips
+    const paginatedBlips = relatedBlips.slice(startIndex, endIndex);
     
     return res.status(200).json({
       success: true,
-      count: relatedBlips.length,
-      data: relatedBlips
+      blips: paginatedBlips,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      totalBlips: total,
+      hasMore: endIndex < total
     });
   } catch (error) {
     console.error('Error fetching related blips:', error);

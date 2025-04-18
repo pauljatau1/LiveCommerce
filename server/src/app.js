@@ -21,7 +21,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const postRoutes = require('./routes/postRoutes');
 const returnRoutes = require('./routes/returnRoutes');
-
+const pickupRoutes = require('./routes/pickupRoutes');
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
 
@@ -138,7 +138,7 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/flash-sales', flashSaleRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/returns', returnRoutes);
-
+app.use('/api/pickup', pickupRoutes);
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 

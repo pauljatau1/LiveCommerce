@@ -3636,11 +3636,20 @@ router.get('/seller/:sellerId/search', productController.searchSellerProducts);
  *           type: string
  *         description: ID of the blip to get related content for
  *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *           maximum: 50
  *           default: 10
- *         description: Number of blips to return
+ *         description: Number of blips per page
  *     responses:
  *       200:
  *         description: Successfully retrieved related blips
@@ -3651,23 +3660,77 @@ router.get('/seller/:sellerId/search', productController.searchSellerProducts);
  *               properties:
  *                 success:
  *                   type: boolean
- *                 count:
- *                   type: integer
- *                 data:
+ *                 blips:
  *                   type: array
  *                   items:
  *                     type: object
  *                     properties:
- *                       blip:
- *                         type: object
+ *                       _id:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
  *                       productId:
  *                         type: string
  *                       productName:
  *                         type: string
- *                       category:
+ *                       price:
+ *                         type: number
+ *                       stock:
+ *                         type: number
+ *                       status:
  *                         type: string
- *                       slug:
+ *                       images:
  *                         type: string
+ *                       blipEngagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: number
+ *                           commentsCount:
+ *                             type: number
+ *                           viewCount:
+ *                             type: number
+ *                           isLiked:
+ *                             type: boolean
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           aboutStore:
+ *                             type: string
+ *                           storeRating:
+ *                             type: number
+ *                           totalStoreReviews:
+ *                             type: number
+ *                           isFollowing:
+ *                             type: boolean
+ *                           isFeatured:
+ *                             type: boolean
+ *                 currentPage:
+ *                   type: integer
+ *                   description: Current page number
+ *                 totalPages:
+ *                   type: integer
+ *                   description: Total number of pages
+ *                 totalBlips:
+ *                   type: integer
+ *                   description: Total number of blips
+ *                 hasMore:
+ *                   type: boolean
+ *                   description: Whether there are more pages available
  *       404:
  *         description: Blip not found
  *       500:
