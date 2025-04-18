@@ -1628,7 +1628,7 @@ exports.getSpotlightStreams = async (req, res) => {
 
     // Find streams from featured sellers
     const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName storeAvatar rating isFeatured')
+      .populate('seller', 'storeName businessName storeAvatar rating isFeatured businessAddress')
       .populate('products.product', 'name description images price')
       .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
       .sort({ createdAt: -1 })
