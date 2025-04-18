@@ -368,38 +368,47 @@ const SingleOrder = () => {
                       )}
                     </View>
 
-                    <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-LexendDecaLight text-[12px]">
-                          Order Total:
-                        </Text>
-                        <Text className="text-white font-LexendDecaMedium text-[12px]">
-                          ₦{order?.order?.totalAmount.toLocaleString()}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-LexendDecaLight text-[12px]">
-                          Shipping Total:
-                        </Text>
-                        <Text className="text-white font-LexendDecaMedium text-[12px]">
-                          ₦{order?.shipping?.fee?.amount.toLocaleString()}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-LexendDecaLight text-[12px]">
-                          Channel:
-                        </Text>
-                        <Text className="text-white font-LexendDecaMedium text-[12px]">
-                          {order?.order?.channel}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-LexendDecaLight text-[12px]">
-                          Payment Method:
-                        </Text>
-                        <Text className="text-white font-LexendDecaMedium text-[12px]">
-                          {order?.order?.paymentInfo?.method}
-                        </Text>
+                    {order?.order?.isStorePickup && (
+                      <StorePickupDetails details={order.items[0]} />
+                    )}
+
+                    <View>
+                      <Text className="text-[14px] mb-[10px] font-LexendDecaSemiBold text-white">
+                        Delivery Details
+                      </Text>
+                      <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-white font-LexendDecaLight text-[12px]">
+                            Order Total:
+                          </Text>
+                          <Text className="text-white font-LexendDecaMedium text-[12px]">
+                            ₦{order?.order?.totalAmount.toLocaleString()}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-white font-LexendDecaLight text-[12px]">
+                            Shipping Total:
+                          </Text>
+                          <Text className="text-white font-LexendDecaMedium text-[12px]">
+                            ₦{order?.shipping?.fee?.amount.toLocaleString()}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-white font-LexendDecaLight text-[12px]">
+                            Channel:
+                          </Text>
+                          <Text className="text-white font-LexendDecaMedium text-[12px]">
+                            {order?.order?.channel}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-white font-LexendDecaLight text-[12px]">
+                            Payment Method:
+                          </Text>
+                          <Text className="text-white font-LexendDecaMedium text-[12px]">
+                            {order?.order?.paymentInfo?.method}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
@@ -455,6 +464,48 @@ const SingleOrder = () => {
           </View>
         )}
       </SafeAreaView>
+    </View>
+  );
+};
+
+const StorePickupDetails = ({ details }: any) => {
+  return (
+    <View>
+      <Text className="text-[14px] mb-[10px] font-LexendDecaSemiBold text-white">
+        Store Pickup Details
+      </Text>
+      <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
+            Seller Phone:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px]">
+            {details?.seller?.phoneNumber}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-between">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
+            Seller Email:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px]">
+            {details?.seller?.email}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-between gap-[8px]">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
+            Seller Address:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px] shrink">
+            {details?.product?.seller?.warehouseDetails?.address?.addressLine1}
+          </Text>
+        </View>
+        {/* <View className="flex-row items-center justify-between">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
+            Payment Method:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px]"></Text>
+        </View> */}
+      </View>
     </View>
   );
 };
