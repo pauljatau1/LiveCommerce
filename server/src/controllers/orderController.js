@@ -556,29 +556,34 @@ exports.createOrder = async (req, res) => {
     }
     
     // If a global shipping fee was provided, distribute it proportionally among sellers
-    if (shippingFee) {
-      const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
+    // if (shippingFee) {
+    //   const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
       
-      for (const sellerId in sellerItems) {
-        const sellerData = sellerItems[sellerId];
-        // Distribute the shipping fee proportionally based on weight
-        const weightRatio = sellerData.totalWeight / totalWeight;
-        sellerData.shippingFee = Math.round(shippingFee * weightRatio);
-      }
+    //   for (const sellerId in sellerItems) {
+    //     const sellerData = sellerItems[sellerId];
+    //     // Distribute the shipping fee proportionally based on weight
+    //     const weightRatio = sellerData.totalWeight / totalWeight;
+    //     sellerData.shippingFee = Math.round(shippingFee * weightRatio);
+    //   }
       
-      // Ensure the sum of distributed fees equals the original total
-      // (might be off by a few naira due to rounding)
-      const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
+    //   // Ensure the sum of distributed fees equals the original total
+    //   // (might be off by a few naira due to rounding)
+    //   const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
       
-      // Adjust the first seller's fee to make up any difference
-      if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
-        const firstSellerId = Object.keys(sellerItems)[0];
-        sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
-      }
-    }
+    //   // Adjust the first seller's fee to make up any difference
+    //   if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
+    //     const firstSellerId = Object.keys(sellerItems)[0];
+    //     sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
+    //   }
+    // }
     
     // Calculate grand total (items + shipping)
-    let grandTotal = totalAmount + totalShippingFee;
+    // let grandTotal = totalAmount + totalShippingFee;
+
+    //new grandTotal Calculation
+    let grandTotal = totalAmount + shippingFee;
+    totalShippingFee = shippingFee
+
     
     // Check wallet balance if using wallet payment
     if (paidFromWallet) {
