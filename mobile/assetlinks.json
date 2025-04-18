@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.auqli.auqliapp",
+      "sha256_cert_fingerprints": [
+        "E0:97:B8:0C:0F:9C:EE:B2:1E:31:B2:32:5B:00:B0:16:CB:BE:82:D4:6F:01:CC:06:4A:82:03:DA:A4:CB:01:B7",
+        "CA:9A:04:A7:62:A9:FC:A5:13:DE:E3:73:F3:80:A4:67:F4:3D:44:53:8A:F9:7B:4C:41:81:CA:02:6D:78:12:EE"
+      ]
+    }
+  }
+]

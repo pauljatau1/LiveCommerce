@@ -11,8 +11,8 @@ const BlipCard = ({ item }: any) => {
       className=" bg-black rounded-[8px] w-[100%] h-[250px]"
       onPress={() =>
         router.push({
-          pathname: "/singleBlip",
-          params: { id: item?._id, blipId: item?.blipId },
+          pathname: "/singleBlip/feed",
+          params: { productId: item?._id, id: item?.blipId },
         })
       }
     >
