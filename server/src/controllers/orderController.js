@@ -348,7 +348,7 @@ exports.createOrder = async (req, res) => {
           // Generate a unique batch ID for each seller
           batchId: `AUQLI-${sellerId.substring(0, 4)}-${uuidv4().substring(0, 8)}`,
           // Initialize shipping fee and weight for each seller
-          shippingFee: 0,
+          shippingFee: item?.seller?.shippingFee,
           totalWeight: 0,
           // Initialize seller-specific parcel information
           parcelInfo: {
@@ -536,7 +536,7 @@ exports.createOrder = async (req, res) => {
       
       // Check all items for this seller to find shipping fee
       for (const itemData of sellerData.items) {
-        const productId = itemData.product.toString();
+        const productId = itemData.productId.toString();
         // Find the original item in the request that has seller info
         const originalItem = items.find(item => item.productId === productId);
         if (originalItem?.seller?.shippingFee) {
