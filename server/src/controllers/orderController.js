@@ -536,7 +536,7 @@ exports.createOrder = async (req, res) => {
       
       // Check all items for this seller to find shipping fee
       for (const itemData of sellerData.items) {
-        const productId = itemData.productId.toString();
+        const productId = itemData.product.toString();
         // Find the original item in the request that has seller info
         const originalItem = items.find(item => item.productId === productId);
         if (originalItem?.seller?.shippingFee) {
