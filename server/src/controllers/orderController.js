@@ -2006,7 +2006,7 @@ exports.getOrderDetails = async (req, res) => {
        const Return = mongoose.model('Return');
        const returnRequest = await Return.findOne({ order: order._id })
          .populate('items.product', 'name')
-         .select('_id status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
+         .select('_id order status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
 
        const response = {
          order: {
@@ -2794,6 +2794,31 @@ exports.cancelShipment = async (req, res) => {
       })
     ]);
 
+    // If order is paid, create a refund request
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      // Create refund request
+      const refundAmount = order.totalAmount; // Full refund for cancellation
+      
+      await Order.findByIdAndUpdate(order._id, {
+        'refundRequest.requested': true,
+        'refundRequest.requestedAt': new Date(),
+        'refundRequest.requestedBy': req.user.role === 'seller' ? 'seller' : 'buyer',
+        'refundRequest.reason': 'Order cancelled',
+        'refundRequest.status': 'pending',
+        'refundRequest.refundAmount': refundAmount
+      });
+
+      // The order will be closed automatically after refund is processed
+    } else {
+      // For unpaid orders, close the order immediately
+      await Order.findByIdAndUpdate(order._id, {
+        isOpen: false,
+        closedAt: new Date(),
+        closedBy: req.user.role === 'seller' ? 'seller' : 'buyer',
+        closedReason: 'Order cancelled'
+      });
+    }
+
     res.json({ 
       message: 'Shipment cancelled successfully',
       order: updatedOrder
@@ -2856,12 +2881,13 @@ const getFezAuthToken = async () => {
   }
 };
 
+
 // Get delivery cost from Fez Delivery
 exports.getDeliveryCost = async (req, res) => {
   try {
     console.log('🚚 Starting delivery cost calculation request...');
     const { state, pickupLocations } = req.body;
-    
+
     // Validate input
     if (!Array.isArray(pickupLocations)) {
       return res.status(400).json({
@@ -2871,39 +2897,56 @@ exports.getDeliveryCost = async (req, res) => {
       });
     }
 
-    // Get a fresh authentication token
+    // Step 1: Group by sellerId and pickupState
+    const sellerGroups = {};
+    for (const location of pickupLocations) {
+      const key = `${location.sellerId}_${location.pickUpState}`;
+      if (!sellerGroups[key]) {
+        sellerGroups[key] = {
+          sellerId: location.sellerId,
+          pickUpState: location.pickUpState,
+          totalWeight: 0,
+        };
+      }
+      sellerGroups[key].totalWeight += location.weight;
+    }
+
+    const mergedPickupLocations = Object.values(sellerGroups);
+
+    console.log('🧹 Merged pickup locations:', mergedPickupLocations);
+
+    // Get fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
-    
-    // Prepare the request URL and headers
+
     const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
     const headers = {
       'Authorization': `Bearer ${authToken}`,
       'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
       'Content-Type': 'application/json'
     };
-    
-    // Make parallel requests for each pickup location
-    const costPromises = pickupLocations.map(async (location) => {
-      const { pickUpState, weight, sellerId } = location;
+
+    // Step 2: Now send request only once per merged seller group
+    const costPromises = mergedPickupLocations.map(async (group) => {
+      const { sellerId, pickUpState, totalWeight } = group;
       
-      console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
+      console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, totalWeight }, null, 2)}`);
       
       try {
         const response = await axios.post(url, {
           state,
           pickUpState,
-          weight
+          weight: totalWeight
         }, { 
           headers,
-          timeout: 30000 // 30 seconds timeout
+          timeout: 30000
         });
 
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           ...response.data
         };
       } catch (error) {
@@ -2911,17 +2954,16 @@ exports.getDeliveryCost = async (req, res) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           error: error.message,
           status: 'Error'
         };
       }
     });
 
-    // Wait for all requests to complete
     const results = await Promise.all(costPromises);
 
-    // Calculate total shipping cost
+    // Step 3: Sum only successful ones
     const successfulResults = results.filter(r => r.status === 'Success');
     const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
 
@@ -2942,7 +2984,6 @@ exports.getDeliveryCost = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error fetching delivery costs:', error);
-    
     return res.status(500).json({
       status: 'Error',
       description: 'Failed to fetch delivery costs',
@@ -2951,6 +2992,8 @@ exports.getDeliveryCost = async (req, res) => {
     });
   }
 };
+
+
 
 /**
  * Internal version of getDeliveryCost that can be called from other controllers
@@ -4191,44 +4234,39 @@ exports.cancelOrderBySeller = async (req, res) => {
         requestedAt: new Date(),
         requestedBy: 'seller',
         reason: reason || 'Order cancelled by seller',
-        status: 'pending'
+        status: 'pending',
+        refundAmount: order.totalAmount
       };
       
-      // Also update the order status to indicate it has a refund
-      order.orderStatus.hasRefund = true;
+      // The order will be closed automatically after refund is processed
+    } else {
+      // For unpaid orders, close the order immediately
+      order.isOpen = false;
+      order.closedAt = new Date();
+      order.closedBy = 'seller';
+      order.closedReason = reason || 'Order cancelled by seller';
     }
 
-    // Only attempt to cancel with Fez if order is paid and has tracking number
-    if (order.paid && order.shipping.tracking.number) {
+    // Only attempt to cancel with Fez if order has tracking number
+    if (order.shipping.tracking.number) {
       try {
-        // Get a fresh authentication token for Fez Delivery
+        // Get a fresh authentication token for Fez
         const authToken = await getFezAuthToken();
-        console.log('Using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
         
-        // Cancel shipment with Fez Delivery
-        const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
-            'Content-Type': 'application/json'
-          },
-          data: {
-            orderNo: order.shipping.tracking.number
+        // Cancel the shipment with Fez
+        await axios.post(
+          `${FEZ_API_URL}/order/cancel/${order.shipping.tracking.number}`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+            }
           }
-        });
-
-        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
-          console.log('Fez API cancellation successful:', cancelResponse.data.description);
-        } else {
-          console.log('Fez API cancellation failed:', cancelResponse.data);
-          // Continue with local cancellation despite Fez API error
-        }
+        );
       } catch (fezError) {
-        console.log('Fez API error:', fezError.message);
-        if (fezError.response) {
-          console.log('Fez API error details:', fezError.response.data);
-        }
-        // Continue with local cancellation despite Fez API error
+        console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
+        // Continue with order cancellation even if Fez cancellation fails
       }
     }
 
@@ -4291,48 +4329,36 @@ exports.cancelOrderBySeller = async (req, res) => {
       const admins = await Admin.find({});
       
       if (admins && admins.length > 0) {
-        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        const adminEmail = {
+          to: admins.map(admin => admin.email),
+          from: 'Auqli Orders <support@auqli.com>',
+          subject: 'New Refund Request - Order Cancelled by Seller',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>New Refund Request</h2>
+              <p>A new refund request has been created due to order cancellation by seller.</p>
+              <p><strong>Order Details:</strong></p>
+              <ul>
+                <li>Order ID: ${order.order_id}</li>
+                <li>Seller: ${order.seller.businessName}</li>
+                <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+                <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
+                <li>Reason: ${reason || 'Order cancelled by seller'}</li>
+              </ul>
+              <p>Please process this refund request promptly.</p>
+            </div>
+          `
+        };
         
-        if (adminEmails.length > 0) {
-          const adminEmail = {
-            to: adminEmails,
-            from: 'Auqli Refunds <support@auqli.com>',
-            subject: `New Refund Request - Order #${order.order_id}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>New Refund Request</h2>
-                <p>A new refund request has been created for a cancelled order.</p>
-                <p><strong>Order Details:</strong></p>
-                <ul>
-                  <li>Order ID: ${order.order_id}</li>
-                  <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
-                  <li>Seller: ${order.seller.businessName}</li>
-                  <li>Amount: ${order.totalAmount}</li>
-                  <li>Payment Method: ${order.paymentInfo?.method || 'Unknown'}</li>
-                  <li>Reason: ${reason || 'Order cancelled by seller'}</li>
-                </ul>
-                <p>Please process this refund request at your earliest convenience.</p>
-              </div>
-            `
-          };
-          
-          try {
-            await sgMail.send(adminEmail);
-          } catch (emailError) {
-            console.error('Error sending admin notification:', emailError);
-          }
-        }
+        await sgMail.send(adminEmail);
       }
     }
 
     try {
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
+      await sgMail.send([buyerEmail, sellerEmail]);
     } catch (emailError) {
-      console.error('Error sending emails:', emailError);
-      // Continue execution despite email error
+      console.error('Error sending cancellation emails:', emailError);
+      // Continue processing even if email sending fails
     }
 
     res.json({ 
@@ -4348,7 +4374,10 @@ exports.cancelOrderBySeller = async (req, res) => {
         shipping: {
           tracking: order.shipping?.tracking
         },
-        refundRequest: order.refundRequest
+        refundRequest: order.refundRequest,
+        closedAt: order.closedAt,
+        closedBy: order.closedBy,
+        closedReason: order.closedReason
       }
     });
 

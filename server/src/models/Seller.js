@@ -164,7 +164,7 @@ const sellerSchema = new mongoose.Schema({
     addressLine2: { type: String },
     zipCode: { type: String },
   },
-  isNew: { type: Boolean, default: true },
+  isNewSeller: { type: Boolean, default: true },
   hasFilledAddress: { type: Boolean, default: false },
   hasFilledWarehouseAddress: { type: Boolean, default: false },
   hasFilledBankDetails: { type: Boolean, default: false },
@@ -345,13 +345,13 @@ sellerSchema.pre('save', async function (next) {
 
   try {
     console.log('Checking isNew status...');
-    if (this.isNew && this.createdAt) {
+    if (this.isNewSeller && this.createdAt) {
       const createdAt = new Date(this.createdAt);
       const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
       console.log('Days difference:', daysDifference);
 
       if (daysDifference >= 3) {
-        this.isNew = false;
+        this.isNewSeller = false;
       }
     }
 
@@ -492,7 +492,7 @@ sellerSchema.methods.updateProductRatingStats = async function() {
 sellerSchema.pre('save', async function(next) {
   // Only update product rating stats if explicitly requested
   // or if this is a new seller (first save)
-  if (this.isNew || this._updateProductRatingStats) {
+  if (this.isNewSeller || this._updateProductRatingStats) {
     this._updateProductRatingStats = false; // Reset flag
     await this.updateProductRatingStats();
   }

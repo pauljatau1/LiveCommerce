@@ -70,7 +70,6 @@ const campaignSchema = new mongoose.Schema({
     },
     trackingId: {
       type: String,
-      unique: true,
       sparse: true
     },
     deliveredAt: Date,

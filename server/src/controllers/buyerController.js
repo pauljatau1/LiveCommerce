@@ -325,7 +325,7 @@ exports.getProfile = async (req, res) => {
         emailVerified: 1,
         phoneVerified: 1,
         isDisabled: 1,
-        isNew: 1,
+        isNewBuyer: 1,
         createdAt: 1,
         isIdentityVerified: 1,
         preferredCurrency: 1,
@@ -980,18 +980,32 @@ exports.followSeller = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Initialize followers array if it doesn't exist
-    if (!seller.followers) {
-      seller.followers = [];
-    }
-
-    // Check if already following
+    // Check if already following in seller's followers list
     const isAlreadyFollowing = seller.followers.some(
       follower => follower.buyerId && follower.buyerId.toString() === buyerId
     );
 
     if (isAlreadyFollowing) {
       return res.status(400).json({ message: 'Already following this seller' });
+    }
+
+    // Also check if there's already a follow activity in buyer's activityFeed
+    const hasFollowActivity = buyer.activityFeed?.some(
+      activity => 
+        activity.type === 'follow' &&
+        activity.referenceModel === 'Seller' &&
+        activity.reference.toString() === sellerId
+    );
+
+    if (hasFollowActivity) {
+      // Remove old follow activity to prevent duplicates
+      buyer.activityFeed = buyer.activityFeed.filter(
+        activity => !(
+          activity.type === 'follow' &&
+          activity.referenceModel === 'Seller' &&
+          activity.reference.toString() === sellerId
+        )
+      );
     }
 
     // Get buyer's main address
@@ -1027,6 +1041,12 @@ exports.followSeller = async (req, res) => {
 
     await buyer.save();
 
+    // Get accurate following count after follow
+    const followingCount = buyer.activityFeed.filter(activity =>
+      activity.type === 'follow' &&
+      activity.referenceModel === 'Seller'
+    ).length;
+
     // Create notification for seller
     await notificationController.createNotification(sellerId, 'new_follower', {
       buyerId: buyerId,
@@ -1037,7 +1057,8 @@ exports.followSeller = async (req, res) => {
     res.json({
       message: 'Successfully followed seller',
       followData: seller.followers[seller.followers.length - 1],
-      sellerFollowCount: seller.followers.length
+      sellerFollowCount: seller.followers.length,
+      buyerFollowingCount: followingCount
     });
   } catch (error) {
     console.error('Follow seller error:', error);
@@ -1054,20 +1075,50 @@ exports.unfollowSeller = async (req, res) => {
     const buyerId = req.user.id;
     const { sellerId } = req.params;
 
-    const seller = await Seller.findById(sellerId);
+    const [buyer, seller] = await Promise.all([
+      Buyer.findById(buyerId),
+      Seller.findById(sellerId)
+    ]);
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Remove from followers list
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove from seller's followers list
     seller.followers = seller.followers.filter(
       follower => follower.buyerId.toString() !== buyerId
     );
 
-    await seller.save();
+    // Remove from buyer's activity feed
+    if (buyer.activityFeed) {
+      buyer.activityFeed = buyer.activityFeed.filter(
+        activity => !(
+          activity.type === 'follow' &&
+          activity.referenceModel === 'Seller' &&
+          activity.reference.toString() === sellerId
+        )
+      );
+    }
 
-    res.json({ message: 'Successfully unfollowed seller', sellerFollowCount: seller.followers.length });
+    await Promise.all([seller.save(), buyer.save()]);
+
+    // Get accurate following count after unfollow
+    const followingCount = buyer.activityFeed?.filter(activity =>
+      activity.type === 'follow' &&
+      activity.referenceModel === 'Seller'
+    ).length || 0;
+
+    res.json({ 
+      message: 'Successfully unfollowed seller', 
+      sellerFollowCount: seller.followers.length,
+      buyerFollowingCount: followingCount 
+    });
   } catch (error) {
+    console.error('Unfollow seller error:', error);
     res.status(500).json({
       message: 'Failed to unfollow seller',
       error: error.message

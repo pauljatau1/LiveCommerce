@@ -37,6 +37,7 @@ export default function OrderDetails() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
   const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -180,78 +181,34 @@ export default function OrderDetails() {
     }
   }
 
-  const confirmDelivery = async () => {
-    if (!proofImage) {
-      toast.error('Please upload proof of delivery')
-      return
-    }
-
-    setConfirmDeliveryLoading(true)
+  const confirmDelivery = async (orderId, proofImage, note) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+      setIsConfirming(true);
       
-      // First upload the proof image
-      const formData = new FormData()
-      formData.append('proof', proofImage)
-      formData.append('note', proofNote)
-      
-      const uploadResponse = await fetch(`${BASE_URL}/pickup/${id}/upload-proof`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`
-        },
-        body: formData
-      })
+      const formData = new FormData();
+      formData.append('proofOfDelivery', proofImage);
+      if (note) formData.append('notes', note);
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload proof')
+      const response = await fetch(`${BASE_URL}/pickup/${orderId}/confirm`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to confirm delivery');
       }
 
-      // Then confirm the delivery
-      const response = await fetch(`${BASE_URL}/pickup/${id}/confirm`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          proofUrl: uploadResponse.data?.url,
-          note: proofNote
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to confirm delivery')
-
-      toast.success('Delivery confirmed successfully')
-      setProofUploadDialogOpen(false)
-      setProofImage(null)
-      setProofNote('')
-      
-      // Refresh order details
-      const fetchOrderDetails = async () => {
-        try {
-          const tokenData = JSON.parse(localStorage.getItem('sellerToken'))
-          const token = tokenData.data
-          const response = await fetch(`${BASE_URL}/order/${id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          const data = await response.json()
-          setOrderData(data)
-          setOrderStatus(data.orderStatus)
-        } catch (error) {
-          console.error('Error fetching order details:', error)
-          toast.error('Failed to refresh order details')
-        }
-      }
-      await fetchOrderDetails()
+      const data = await response.json();
+      setOrderData(data.order);
+      toast.success('Delivery confirmed successfully');
     } catch (error) {
-      toast.error('Failed to confirm delivery: ' + error.message)
+      console.error('Error confirming delivery:', error);
+      toast.error(error.message || 'Failed to confirm delivery');
     } finally {
-      setConfirmDeliveryLoading(false)
+      setIsConfirming(false);
     }
-  }
+  };
 
   const printDocument = (url, documentType) => {
     // Open document in new window/tab
@@ -1481,8 +1438,8 @@ export default function OrderDetails() {
             </Button>
             <Button
               type="button"
-              disabled={!proofImage || confirmDeliveryLoading}
-              onClick={confirmDelivery}
+              disabled={confirmDeliveryLoading}
+              onClick={() => confirmDelivery(id, proofImage, proofNote)}
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               {confirmDeliveryLoading ? 'Confirming...' : 'Confirm Delivery'}

@@ -13,9 +13,7 @@ const connectDB = async () => {
         logger.info(`MongoDB connection retry attempt ${retries}/${maxRetries}`);
       }
 
-      const conn = await mongoose.connect(process.env.MONGODB_URI,{
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+      const conn = await mongoose.connect(process.env.MONGODB_URI, {
         serverSelectionTimeoutMS: 10000,
         heartbeatFrequencyMS: 30000,
       });

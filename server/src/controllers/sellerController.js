@@ -349,7 +349,7 @@ exports.getProfile = async (req, res) => {
         hasFilledCategoryDetails: 1,
         hasFilledVerificationDocuments: 1,
         hasFilledWarehouseAddress: 1,
-        isNew: 1,
+        isNewSeller: 1,
         onboardingProcess: 1,
         notificationPreferences: 1,
         aboutStore: 1,
@@ -366,6 +366,7 @@ exports.getProfile = async (req, res) => {
         timezone: 1,
         storePolicy: 1,
         accountPending: 1,
+        offersStorePickup: 1, // Add this line to include offersStorePickup
       })
       .lean();
 
@@ -405,6 +406,7 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: 'Error fetching seller profile', error: error.message });
   }
 };
+
 
 // Helper function to get current schedule
 const getCurrentSchedule = (seller) => {
