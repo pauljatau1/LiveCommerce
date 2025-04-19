@@ -141,7 +141,7 @@ export default function StoreSettings() {
           Authorization: `Bearer ${sellerToken}`,
         },
       });
-      
+  
       if (response.ok) {
         const data = await response.json();
         setFormData({
@@ -185,7 +185,7 @@ export default function StoreSettings() {
             exchangePolicy: "",
             allowsCod: data.storePolicy?.allowsCod || false
           },
-          offersStorePickup: data.offersStorePickup || false,
+          offersStorePickup: data.offersStorePickup || false, // Set initial value here
           accountType: data.accountType || "",
           businessName: data.businessName || "",
           businessType: data.businessType || "",
@@ -197,12 +197,12 @@ export default function StoreSettings() {
             tiktok: data.socialMedia?.tiktok || ""
           },
         });
-        
+  
         // Set store avatar if exists
         if (data.storeAvatar?.url) {
           setStoreAvatar(data.storeAvatar.url);
         }
-
+  
         // Set store banner if exists
         if (data.storeBanner?.url) {
           setStoreBanner(data.storeBanner.url);
@@ -212,6 +212,7 @@ export default function StoreSettings() {
       toast.error("Failed to fetch store data");
     }
   };
+  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

@@ -37,6 +37,7 @@ export default function OrderDetails() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
   const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -180,78 +181,44 @@ export default function OrderDetails() {
     }
   }
 
-  const confirmDelivery = async () => {
-    // if (!proofImage) {
-    //   toast.error('Please upload proof of delivery')
-    //   return
-    // }
-
-    setConfirmDeliveryLoading(true)
+  const confirmDelivery = async (orderId, proofImage, note) => {
+    const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+  
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
-      
-      // First upload the proof image
-      const formData = new FormData()
-      formData.append('proof', proofImage)
-      formData.append('note', proofNote)
-      
-      const uploadResponse = await fetch(`${BASE_URL}/pickup/${id}/upload-proof`, {
+      setIsConfirming(true);
+      setConfirmDeliveryLoading(true);
+  
+      const formData = new FormData();
+      formData.append('proofOfDelivery', proofImage);
+      if (note) formData.append('notes', note);
+  
+      const response = await fetch(`${BASE_URL}/pickup/${orderId}/confirm`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${sellerToken}`
         },
-        body: formData
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload proof')
-      }
-
-      // Then confirm the delivery
-      const response = await fetch(`${BASE_URL}/pickup/${id}/confirm`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          proofUrl: uploadResponse.data?.url,
-          note: proofNote
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to confirm delivery')
-
-      toast.success('Delivery confirmed successfully')
-      setProofUploadDialogOpen(false)
-      setProofImage(null)
-      setProofNote('')
+        body: formData,
+      });
+  
+      const data = await response.json();
       
-      // Refresh order details
-      const fetchOrderDetails = async () => {
-        try {
-          const tokenData = JSON.parse(localStorage.getItem('sellerToken'))
-          const token = tokenData.data
-          const response = await fetch(`${BASE_URL}/order/${id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          const data = await response.json()
-          setOrderData(data)
-          setOrderStatus(data.orderStatus)
-        } catch (error) {
-          console.error('Error fetching order details:', error)
-          toast.error('Failed to refresh order details')
-        }
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to confirm delivery');
       }
-      await fetchOrderDetails()
+  
+      toast.success('Delivery confirmed successfully');
+      // Close the dialog and reload the page
+      setProofUploadDialogOpen(false);
+      window.location.reload();
     } catch (error) {
-      toast.error('Failed to confirm delivery: ' + error.message)
+      console.error('Error confirming delivery:', error);
+      toast.error(error.message || 'Failed to confirm delivery');
     } finally {
-      setConfirmDeliveryLoading(false)
+      setIsConfirming(false);
+      setConfirmDeliveryLoading(false);
     }
-  }
+  };
+  
 
   const printDocument = (url, documentType) => {
     // Open document in new window/tab
@@ -514,12 +481,22 @@ export default function OrderDetails() {
                     variant="outline"
                     className="w-full sm:w-auto bg-purple-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-purple-700"
                     onClick={() => setProofUploadDialogOpen(true)}
-                    disabled={confirmDeliveryLoading}
+                    disabled={confirmDeliveryLoading || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
                   >
                     {confirmDeliveryLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Confirming...
+                      </>
+                    ) : shipping?.tracking?.status === 'delivered' ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Delivery Confirmed
+                      </>
+                    ) : shipping?.tracking?.status === 'pending_confirmation' ? (
+                      <>
+                        <Clock className="w-4 h-4" />
+                        Confirmation Pending
                       </>
                     ) : (
                       <>
@@ -1403,7 +1380,14 @@ export default function OrderDetails() {
           <DialogHeader>
             <DialogTitle>Upload Delivery Proof</DialogTitle>
             <DialogDescription>
-              Please upload a photo as proof of delivery. This could be a signed receipt or the delivered items with the customer.
+              {shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation' ? (
+                <div className="text-amber-600 mt-2">
+                  A pickup confirmation for this order is already {shipping?.tracking?.status === 'delivered' ? 'confirmed' : 'pending'}. 
+                  You cannot submit another confirmation.
+                </div>
+              ) : (
+                "Please upload a photo as proof of delivery. This could be a signed receipt or the delivered items with the customer."
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1481,11 +1465,18 @@ export default function OrderDetails() {
             </Button>
             <Button
               type="button"
-              disabled={confirmDeliveryLoading}
-              onClick={confirmDelivery}
+              disabled={confirmDeliveryLoading || !proofImage || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+              onClick={() => confirmDelivery(id, proofImage, proofNote)}
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
-              {confirmDeliveryLoading ? 'Confirming...' : 'Confirm Delivery'}
+              {confirmDeliveryLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Confirming...
+                </>
+              ) : (
+                'Confirm Delivery'
+              )}
             </Button>
           </div>
         </DialogContent>
