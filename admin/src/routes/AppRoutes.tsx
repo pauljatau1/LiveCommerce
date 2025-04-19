@@ -21,6 +21,7 @@ import BankRequests from '@/pages/bankrequests';
 import Payments from '@/pages/payments';
 import RefundRequests from '@/pages/refund-requests';
 import ReturnRequests from '@/pages/ReturnRequests';
+import PickupRequests from '@/pages/pickupRequests';
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
             <Route path="/dashboard/payments" element={<Payments />} />
             <Route path="/dashboard/refund-requests" element={<RefundRequests />} />
             <Route path="/dashboard/return-requests" element={<ReturnRequests />} />
+            <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

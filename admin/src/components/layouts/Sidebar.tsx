@@ -19,7 +19,8 @@ import {
   FileText,
   PackageOpen,
   Building2,
-  RotateCcw
+  RotateCcw,
+  Truck
 } from 'lucide-react';
 
 const mainLinks = [
@@ -31,6 +32,7 @@ const mainLinks = [
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: RotateCcw, label: 'Refund Requests', path: '/dashboard/refund-requests' },
+  { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },
   { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals' },
   { icon: DollarSign, label: 'Payments', path: '/dashboard/payments' },
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
