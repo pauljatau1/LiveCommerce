@@ -213,7 +213,7 @@ const cleanupExpiredDiscounts = async () => {
       }
     }
 
-    console.log(`Cleanup completed: ${updatedCount} coupons updated`);
+    // console.log(`Cleanup completed: ${updatedCount} coupons updated`);
   } catch (error) {
     console.error('Error during discount cleanup:', error.message);
   }

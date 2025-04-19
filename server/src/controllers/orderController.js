@@ -117,16 +117,16 @@ const initializeTerminalWebhook = async () => {
         active: true
       };
 
-      console.log(`Creating webhook for event: ${event}`);
+      // console.log(`Creating webhook for event: ${event}`);
 
       try {
         const response = await terminalAPI.post('/webhooks', webhookData);
         
         if (response.data && response.data.status) {
-          console.log(`Successfully created webhook for ${event}:`, {
-            webhookId: response.data.data?.id,
-            event: event
-          });
+          // console.log(`Successfully created webhook for ${event}:`, {
+          //   webhookId: response.data.data?.id,
+          //   event: event
+          // });
         } else {
           console.error(`Failed to create webhook for ${event}:`, response.data);
         }
@@ -143,7 +143,7 @@ const initializeTerminalWebhook = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    console.log('Completed webhook initialization process');
+    // console.log('Completed webhook initialization process');
   } catch (error) {
     console.error('Failed to initialize Terminal webhooks:', {
       error: error.message,
@@ -2994,26 +2994,39 @@ exports.getDeliveryCost = async (req, res) => {
 };
 
 
-
-/**
- * Internal version of getDeliveryCost that can be called from other controllers
- * Returns the cost data directly instead of sending an HTTP response
- */
 exports.calculateDeliveryCostInternal = async (shippingDetails) => {
   try {
     console.log('🚚 Starting internal delivery cost calculation...');
     const { state, pickupLocations } = shippingDetails;
-    
+
     // Validate input
     if (!Array.isArray(pickupLocations)) {
       throw new Error('pickupLocations must be an array');
     }
 
+    // Group items by sellerId and pickUpState
+    const groupedPickups = {};
+    pickupLocations.forEach((location) => {
+      const { pickUpState, weight, sellerId } = location;
+      const key = `${sellerId}_${pickUpState}`;
+
+      if (!groupedPickups[key]) {
+        groupedPickups[key] = {
+          sellerId,
+          pickUpState,
+          totalWeight: 0
+        };
+      }
+      groupedPickups[key].totalWeight += weight;
+    });
+
+    const groupedPickupArray = Object.values(groupedPickups);
+
     // Get a fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
-    
+
     // Prepare the request URL and headers
     const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
     const headers = {
@@ -3021,19 +3034,19 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
       'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
       'Content-Type': 'application/json'
     };
-    
-    // Make parallel requests for each pickup location
-    const costPromises = pickupLocations.map(async (location) => {
-      const { pickUpState, weight, sellerId } = location;
-      
-      console.log(`📤 Internal cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
-      
+
+    // Make parallel requests for each grouped pickup
+    const costPromises = groupedPickupArray.map(async (group) => {
+      const { sellerId, pickUpState, totalWeight } = group;
+
+      console.log(`📤 Internal cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, totalWeight }, null, 2)}`);
+
       try {
         const response = await axios.post(url, {
           state,
           pickUpState,
-          weight
-        }, { 
+          weight: totalWeight
+        }, {
           headers,
           timeout: 30000 // 30 seconds timeout
         });
@@ -3041,7 +3054,7 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           ...response.data
         };
       } catch (error) {
@@ -3049,7 +3062,7 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           error: error.message,
           status: 'Error'
         };

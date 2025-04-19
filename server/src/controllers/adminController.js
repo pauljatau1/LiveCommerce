@@ -43,12 +43,12 @@ const TEST_ACCOUNTS = {
   }
 };
 
-// Add debug logging for Paystack configuration
-console.log('Paystack Configuration:', {
-  secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
-  secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
-  secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
-});
+// // Add debug logging for Paystack configuration
+// console.log('Paystack Configuration:', {
+//   secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
+//   secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
+//   secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
+// });
 
 // Update Paystack configuration with logging
 const paystack = axios.create({

@@ -1200,7 +1200,7 @@ const verifySendGridConfig = () => {
   }
   
   if (apiKey.startsWith('SG.')) {
-    console.log('SendGrid API key appears to be properly formatted');
+    // console.log('SendGrid API key appears to be properly formatted');
     return true;
   } else {
     console.error('SendGrid API key does not appear to be properly formatted. Should start with "SG."');
