@@ -16,9 +16,8 @@ import { toast } from 'sonner';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
 import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
-import { getProductDetailsById, updateProduct } from '../../Redux/Slices/ProductSlice';
-import { useParams } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom'
+import { getProductDetailsById, updateProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
+import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
@@ -57,6 +56,7 @@ const EditProduct = () => {
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
     const { id } = useParams();
+    const navigate = useNavigate();
     const { message, error, isLoading, response, product } = useSelector(state => state.product)
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
@@ -144,6 +144,41 @@ const EditProduct = () => {
 
     const handleShippingChange = (field, value) => {
         setShippingDetails(prev => {
+            // Handle weight unit conversions - always store as kg internally
+            if (field === 'weightUnit') {
+                const currentWeight = prev.weight;
+                let convertedWeight = currentWeight;
+                
+                // Convert from previous unit to kg
+                if (currentWeight) {
+                    if (value === 'g' && prev.weightUnit === 'kg') {
+                        // kg to g
+                        convertedWeight = currentWeight * 1000;
+                    } else if (value === 'lb' && prev.weightUnit === 'kg') {
+                        // kg to lb
+                        convertedWeight = currentWeight * 2.20462;
+                    } else if (value === 'kg' && prev.weightUnit === 'g') {
+                        // g to kg
+                        convertedWeight = currentWeight / 1000;
+                    } else if (value === 'kg' && prev.weightUnit === 'lb') {
+                        // lb to kg
+                        convertedWeight = currentWeight / 2.20462;
+                    } else if (value === 'g' && prev.weightUnit === 'lb') {
+                        // lb to g
+                        convertedWeight = (currentWeight / 2.20462) * 1000;
+                    } else if (value === 'lb' && prev.weightUnit === 'g') {
+                        // g to lb
+                        convertedWeight = (currentWeight / 1000) * 2.20462;
+                    }
+                }
+                
+                return {
+                    ...prev,
+                    weightUnit: value,
+                    weight: convertedWeight ? parseFloat(convertedWeight.toFixed(2)) : currentWeight
+                };
+            }
+            
             if (field.includes('.')) {
                 const [parent, child] = field.split('.');
                 return {
@@ -445,13 +480,21 @@ const EditProduct = () => {
                 }
             }
 
+            // When creating productData, ensure weight is in kg
+            let weightInKg = Number(shippingDetails.weight) || 10;
+            if (shippingDetails.weightUnit === 'g') {
+                weightInKg = Number(shippingDetails.weight) / 1000;
+            } else if (shippingDetails.weightUnit === 'lb') {
+                weightInKg = Number(shippingDetails.weight) / 2.20462;
+            }
+
             // Create the product data object
             const productData = {
                 name: title,
                 description: description,
                 price: Number(shippingDetails.pricing),
                 salePrice: Number(shippingDetails.salePrice),
-                weight: Number(shippingDetails.weight) || 10,
+                weight: weightInKg, // Always store weight in kg
                 stock: Number(shippingDetails.inventory),
                 condition: shippingDetails.condition,
                 status: productStatus,
@@ -459,14 +502,14 @@ const EditProduct = () => {
                 subCategory: selectedSubCategory,
                 sku: skuNumber,
                 upc: upcNumber,
-                brand: brand,
+                brand: brand, // Still include brand even if optional
                 variants: processedVariants,
                 images: processedImages,
                 blips: processedBlips,
                 shippingInfo: {
                     weight: {
-                        value: Number(shippingDetails.weight),
-                        unit: shippingDetails.weightUnit
+                        value: weightInKg, // Weight in kg
+                        unit: 'kg' // Always set to kg
                     },
                     dimensions: {
                         length: Number(shippingDetails.dimensions.length) || 10,
@@ -500,8 +543,7 @@ const EditProduct = () => {
             if (!shippingDetails.inventory) missingFields.push('Inventory quantity');
             if (!shippingDetails.condition) missingFields.push('Product condition');
             if (!selectedCategory) missingFields.push('Product category');
-            if (!selectedSubCategory) missingFields.push('Product subcategory');
-            if (!brand) missingFields.push('Product brand');
+            if (!selectedSubCategory) missingFields.push('Product sub-category');
 
             // Submit if no missing fields, otherwise show specific error messages
             if (missingFields.length === 0) {
@@ -873,6 +915,16 @@ const EditProduct = () => {
             }
         }
     }, [product]);
+
+    // Add effect to handle successful product update
+    useEffect(() => {
+        if (response === 'success') {
+            toast.success("Product updated successfully!");
+            navigate("/dashboard/products");
+            // Reset the response state
+            dispatch(resetResponse());
+        }
+    }, [response, navigate, dispatch]);
 
     return (
         <>
@@ -1384,7 +1436,7 @@ const EditProduct = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <RequiredLabel>Brand Name</RequiredLabel>
+                                            <Label>Brand Name</Label>
                                             <Input
                                                 value={brand}
                                                 onChange={(e) => setBrand(e.target.value)}

@@ -451,16 +451,27 @@ const SignUpPage = () => {
                   id="terms"
                   className="mt-1"
                 />
-                <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
-                  By creating an account means you agree to the{' '}
-                  <Link className="text-[#425466] font-bold hover:underline">
-                    Terms and Conditions
-                  </Link>
-                  , and our{' '}
-                  <Link className="text-[#425466] font-bold hover:underline">
-                    Privacy Policy
-                  </Link>
-                </label>
+               <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
+  By creating an account means you agree to the{' '}
+  <Link
+    to="https://www.auqli.live/privacy-policy"
+    className="text-[#425466] font-bold hover:underline"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Terms and Conditions
+  </Link>
+  , and our{' '}
+  <Link
+    to="https://www.auqli.live/terms"
+    className="text-[#425466] font-bold hover:underline"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Privacy Policy
+  </Link>
+</label>
+
               </div>
 
               <button

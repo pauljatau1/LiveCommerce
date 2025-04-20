@@ -172,6 +172,11 @@ export const searchSellerProducts = createAsyncThunk('product/searchSellerProduc
 const productSlice = createSlice({
     name: "product",
     initialState,
+    reducers: {
+        resetResponse: (state) => {
+            state.response = '';
+        }
+    },
     extraReducers: (builder) => builder.addCase(
         createProduct.pending, (state) => {
             state.isLoading = true;
@@ -331,6 +336,7 @@ const productSlice = createSlice({
     })
 });
 
+export const { resetResponse } = productSlice.actions;
 
 export default productSlice.reducer;
 
