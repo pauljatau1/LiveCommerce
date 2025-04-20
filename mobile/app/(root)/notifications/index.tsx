@@ -95,8 +95,7 @@ const Notifications = () => {
       const token = await getToken();
 
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/notifications/buyer/mark-all-read`,
+        process.env.EXPO_PUBLIC_API_URL + `api/notifications/mark-all-read`,
         {},
         {
           headers: {

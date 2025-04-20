@@ -20,11 +20,24 @@ import { Image } from "expo-image";
 import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 
 const mockDeliveryOtions = [
   {
     name: "Standard Delivery",
     description: "Guaranteed delivery within 2-4 business days",
+    icon: (
+      <MaterialCommunityIcons
+        name="truck-fast-outline"
+        size={24}
+        color="white"
+      />
+    ),
+  },
+  {
+    name: "Store Pickup",
+    description: "Go to the sellers store and pickup your order",
+    icon: <MaterialIcons name="storefront" size={24} color="white" />,
   },
 ];
 
@@ -75,9 +88,7 @@ const CheckoutNow = ({
   const [user, setUser] = useState<any>(null);
   const [cart, setCart] = useState<any[]>([]);
   const [uniqueSellers, setUniqueSellers] = useState<any[]>([]);
-  const [selectedDeliveryOpt, setSelectedDeliveryOpt] = useState<any>(
-    mockDeliveryOtions[0],
-  );
+  const [selectedDeliveryOpt, setSelectedDeliveryOpt] = useState<number>(0);
   const [cartTotal, setCartTotal] = useState<number>(0);
   const [orderLoading, setOrderloading] = useState<boolean>(false);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
@@ -92,6 +103,7 @@ const CheckoutNow = ({
   const { show } = useToast();
 
   const [paystackKey, setPaystackKey] = useState<any>();
+  const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
 
   const getPaystackKey = useCallback(async () => {
     const token = await getToken();
@@ -252,7 +264,8 @@ const CheckoutNow = ({
         },
       );
       setDeliveryFeeObject(response.data?.costs);
-      setDeliveryFee(response.data?.totalCost);
+      setFetchedShippingFee(response.data?.totalCost);
+      // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
     } finally {
@@ -274,7 +287,7 @@ const CheckoutNow = ({
       });
     }
 
-    if (!deliveryFee) {
+    if (!deliveryFee && selectedDeliveryOpt == 0) {
       return show({
         text2: "error getting delivery fee",
         type: "error",
@@ -337,6 +350,7 @@ const CheckoutNow = ({
       paidFromWallet: selectedPayment == 1,
       channel,
       streamId,
+      isStorePickup: selectedDeliveryOpt == 1,
     };
     const token = await getToken();
     try {
@@ -359,7 +373,7 @@ const CheckoutNow = ({
       console.log("could not create order", e?.response);
       setOrderloading(false);
       show({
-        text2: "Could not create order",
+        text2: e?.response?.data?.message || "Could not create order",
         type: "error",
         duration: 3000,
         topPosition: 18,
@@ -450,6 +464,15 @@ const CheckoutNow = ({
       topPosition: 18,
     });
   };
+
+  useEffect(() => {
+    if (selectedDeliveryOpt == 0 && fetchedShippingFee) {
+      setDeliveryFee(fetchedShippingFee);
+    } else {
+      setDeliveryFee(0);
+    }
+  }, [fetchedShippingFee, selectedDeliveryOpt]);
+
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -523,6 +546,7 @@ const CheckoutNow = ({
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
+      if (selectedDeliveryOpt == 1 && index == 2) return null;
       return (
         <Pressable
           key={index}
@@ -598,7 +622,7 @@ const CheckoutNow = ({
         </Pressable>
       );
     },
-    [selectedPayment, walletBalance],
+    [selectedPayment, walletBalance, selectedDeliveryOpt],
   );
   return (
     <View className="p-[8px] pb-[16px]">
@@ -676,40 +700,54 @@ const CheckoutNow = ({
               <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
                 Delivery Options
               </Text>
-              <Pressable
-                className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-              >
-                <View className="flex-row gap-[16px] shrink">
-                  <Image
-                    source={require("../../assets/icons/delivery-icon.png")}
-                    contentFit="contain"
-                    style={{ width: 23, height: 23, marginTop: 4 }}
-                  />
-                  <View className="gap-[16px] shrink">
-                    <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                      {selectedDeliveryOpt.name}
-                    </Text>
-                    <View className="gap-[2px]">
-                      <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                        {selectedDeliveryOpt?.description}
+              {mockDeliveryOtions?.map((item: any, index: number) => (
+                <Pressable
+                  className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
+                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                  key={index}
+                  onPress={() => setSelectedDeliveryOpt(index)}
+                >
+                  <View className="flex-row gap-[16px] shrink items-center">
+                    {/* <Image
+                                      source={require("../../../assets/icons/delivery-icon.png")}
+                                      resizeMode="contain"
+                                      style={{ width: 23, height: 23, marginTop: 4 }}
+                                    /> */}
+                    {item?.icon}
+                    <View className="gap-[4px] shrink">
+                      <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                        {item.name}
                       </Text>
-                      <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
-                        Your order will be processed and shipped with care,
-                        ensuring delivery within the estimated timeframe. Enjoy
-                        a smooth and hassle-free shopping experience!
-                      </Text>
+                      <View className="gap-[2px]">
+                        <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                          {item?.description}
+                        </Text>
+                        {/* <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                                        Your order will be processed and shipped with care,
+                                        ensuring delivery within the estimated timeframe.
+                                        Enjoy a smooth and hassle-free shopping experience!
+                                      </Text> */}
+                      </View>
                     </View>
                   </View>
-                </View>
-                {/* <View>
-                  <Entypo
-                    name="chevron-right"
-                    size={16}
-                    color="rgba(204, 204, 204, 0.8)"
-                  />
-                </View> */}
-              </Pressable>
+                  <View
+                    className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                    style={{
+                      borderColor:
+                        selectedDeliveryOpt == index ? "#16783A" : "#f2f2f2",
+                      borderWidth: 2,
+                    }}
+                  >
+                    <View
+                      className="w-[12px] h-[12px] rounded-[12px]"
+                      style={{
+                        backgroundColor:
+                          selectedDeliveryOpt == index ? "#16783A" : "",
+                      }}
+                    ></View>
+                  </View>
+                </Pressable>
+              ))}
             </View>
 
             <View
@@ -786,7 +824,8 @@ const CheckoutNow = ({
                   <ActivityIndicator size={10} color="white" />
                 ) : (
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    {deliveryFee && productTotal
+                    {(deliveryFee && productTotal) ||
+                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                       ? "₦" +
                         (deliveryFee + productTotal)?.toLocaleString(
                           undefined,
@@ -810,7 +849,8 @@ const CheckoutNow = ({
               ) : (
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
-                  {deliveryFee && productId
+                  {(deliveryFee && productTotal) ||
+                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                     ? "₦" +
                       (deliveryFee + productTotal)?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -829,7 +869,11 @@ const CheckoutNow = ({
         <Paystack
           refNumber={generateReference()}
           paystackKey={paystackKey?.publicKey}
-          amount={deliveryFee! + productTotal}
+          amount={
+            selectedDeliveryOpt == 0
+              ? deliveryFee! + productTotal
+              : productTotal
+          }
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}
           onSuccess={onPaystackSuccess}

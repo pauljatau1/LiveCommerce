@@ -114,8 +114,6 @@ const EditProfile = () => {
   };
 
   const updateAvatar = async () => {
-    setLoading(true);
-
     try {
       const token = await getToken();
       const user = await getUser();
@@ -190,15 +188,16 @@ const EditProfile = () => {
         }),
       );
       router.back();
-
-      setLoading(false);
     } catch (e) {
       console.log(e);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUpdateProfile = () => {
     // setShowPasswordValidation(false);
+    setLoading(true);
 
     if (hasChanged) {
       updateAvatar();

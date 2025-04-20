@@ -47,6 +47,7 @@ import OptionsSheet from "@/components/connect/optionsSheet";
 import ChatSettings from "@/components/messages/optionsSheet";
 import ReportUserSheet from "@/components/connect/reportUserSheet";
 import { toast } from "@/core/toast";
+import CampaignMessageItem from "@/components/messages/campaignMessageItem";
 
 const { width, height } = Dimensions.get("window");
 
@@ -1042,6 +1043,10 @@ const MessageItem = memo(
           );
         case "order":
           return <OrderItem item={message.order} isMyMessage={isMyMessage} />;
+        case "campaign":
+          return (
+            <CampaignMessageItem item={message?.campaign} isMyMessage={false} />
+          );
       }
     };
     return (
