@@ -1,4 +1,4 @@
-import { View, Text, Dimensions, FlatList, Image } from "react-native";
+import { View, Text, Dimensions, FlatList, Image, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import React, { useCallback, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { useSelector } from "react-redux";
@@ -21,6 +21,10 @@ const LivestreamFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(false);
+  const flatlistRef = useRef<FlatList>(null);
+  const scrollBeginOffset = useRef(0);
+  const isScrolling = useRef(false);
+  const scrollThreshold = height * 0.3; // Threshold for deciding if scroll should snap to next or back
 
   // const fetchCurrentLive = async() => {
 
@@ -59,6 +63,63 @@ const LivestreamFeed = () => {
       console.error("Error fetching more liveshows:", error);
     } finally {
       setFetching(false);
+    }
+  };
+
+  const handleScrollBegin = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Save the starting position of the scroll
+    scrollBeginOffset.current = event.nativeEvent.contentOffset.y;
+    isScrolling.current = true;
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // More aggressive tracking during scroll
+    if (isScrolling.current) {
+      const currentOffset = event.nativeEvent.contentOffset.y;
+      const scrollDistance = Math.abs(currentOffset - scrollBeginOffset.current);
+      
+      // If we've scrolled a significant distance but less than the threshold,
+      // prepare for a possible aggressive snap back
+      if (scrollDistance > 20 && scrollDistance < scrollThreshold) {
+        // We'll let the onMomentumScrollEnd handle the actual snap
+      }
+    }
+  };
+
+  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!isScrolling.current) return;
+    
+    isScrolling.current = false;
+    const endOffset = event.nativeEvent.contentOffset.y;
+    const scrollDistance = Math.abs(endOffset - scrollBeginOffset.current);
+    
+    // If scroll didn't move far enough, force snap back to original position
+    if (scrollDistance < scrollThreshold) {
+      // Force snap back to the original position
+      flatlistRef.current?.scrollToOffset({
+        offset: currentIndex * height,
+        animated: true
+      });
+    } else {
+      // Determine if we should move to next or previous
+      const direction = endOffset > scrollBeginOffset.current ? 1 : -1;
+      const targetIndex = currentIndex + direction;
+      
+      // Ensure index is within bounds
+      if (targetIndex >= 0 && targetIndex < lives.length) {
+        flatlistRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: true,
+          viewPosition: 0
+        });
+        setCurrentIndex(targetIndex);
+      } else {
+        // Snap back if out of bounds
+        flatlistRef.current?.scrollToOffset({
+          offset: currentIndex * height,
+          animated: true
+        });
+      }
     }
   };
 
@@ -122,6 +183,7 @@ const LivestreamFeed = () => {
           </View>
         ) : (
           <FlatList
+            ref={flatlistRef}
             data={lives}
             renderItem={renderLive}
             keyExtractor={(item, index) =>
@@ -129,12 +191,18 @@ const LivestreamFeed = () => {
             }
             pagingEnabled
             onEndReached={fetchNextLives}
-            onEndReachedThreshold={0.5}
+            onEndReachedThreshold={0.2}
+            onScroll={handleScroll}
+            onScrollBeginDrag={handleScrollBegin}
+            onMomentumScrollEnd={handleScrollEnd}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={height}
+            snapToAlignment="center"
             initialNumToRender={1}
             maxToRenderPerBatch={1}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
-            // windowSize={0}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
@@ -144,10 +212,6 @@ const LivestreamFeed = () => {
             })}
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={true}
-            // refreshing={refreshing}
-            // onRefresh={refreshBlips}
-            // progressViewOffset={Platform.OS == "ios" ? 120 : 0}
-            // ListHeaderComponent={renderFooter}
           />
         )}
       </View>

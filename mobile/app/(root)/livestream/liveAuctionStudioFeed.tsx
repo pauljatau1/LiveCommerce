@@ -78,6 +78,8 @@ import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
 import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 import GlassImage from "./components/GlassImage";
+// Import the AuctionSkeletonLoader component
+import { AuctionSkeletonLoader } from './components/AuctionSkeletonLoader';
 
 const { width, height } = Dimensions.get("window");
 
@@ -199,6 +201,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
   // Add state for host presence
   const [isHostPresent, setIsHostPresent] = useState(true);
   const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+  const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
 
   // Add ref for heart animation
   const heartsRef = useRef<FloatingHeartsRef>(null);
@@ -966,6 +969,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       // Handle no host present message
       setIsHostPresent(false);
       setShowNoHostAlert(true);
+      setShowNoHostAlert2(true);
       setStatus("No host present");
       setIsLoading(false);
     } else if (
@@ -975,6 +979,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       // Host has joined with video
       setIsHostPresent(true);
       setShowNoHostAlert(false);
+      setShowNoHostAlert2(false);
       setStatus("Host stream playing");
       setIsVideoPlaying(true);
       setIsLoading(false);
@@ -982,6 +987,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       // Host has left
       setIsHostPresent(false);
       setShowNoHostAlert(true);
+      setShowNoHostAlert2(true);
       setStatus("Host left the stream");
     } else if (message.startsWith("user_unpublished:")) {
       const parts = message.split(":");
@@ -1051,6 +1057,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
         setIsVideoPlaying(true);
         setIsHostPresent(true);
         setShowNoHostAlert(false);
+        setShowNoHostAlert2(false);
         setIsLoading(false);
       }
     } else if (message.startsWith("video_playing:")) {
@@ -1058,6 +1065,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       setIsVideoPlaying(true);
       setIsHostPresent(true);
       setShowNoHostAlert(false);
+      setShowNoHostAlert2(false);
       setIsLoading(false);
     } else if (message.startsWith("connection:")) {
       const parts = message.split(":");
@@ -1520,6 +1528,18 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       setIsLeavingStream(true);
       //console.log('User requested to leave the stream');
 
+      // First tell the WebView to leave the Agora channel
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          if (window.leaveChannel) {
+            window.leaveChannel();
+            true;
+          }
+        `);
+        // Give a small delay to allow the WebView to process the leave command
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
       // Call the leaveStream API endpoint
       const result = await leaveStream(id as string);
       //console.log('Leave stream result:', result);
@@ -1856,12 +1876,8 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                 />
 
                 {/* Show play loader while video is loading, but not if we know there's no host */}
-                {(isLoading || (!isVideoPlaying && isHostPresent)) && (
-                  <View style={styles.playButtonOverlay}>
-                    <View style={styles.playButtonContainer}>
-                      <ActivityIndicator size="large" color="#fff" />
-                    </View>
-                  </View>
+                {(isLoading || showNoHostAlert2 || (!isVideoPlaying && isHostPresent)) && (
+                  <AuctionSkeletonLoader type="loading" />
                 )}
 
                 {/* No Host Alert */}
@@ -1905,12 +1921,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                 )}
               </>
             ) : (
-              <View style={styles.fullScreen2}>
-                <Image
-                  source={require("@/assets/icons/auqli-logo.png")}
-                  className="w-20 h-14"
-                />
-              </View>
+              <AuctionSkeletonLoader type="loading" />
             )}
           </View>
 
@@ -2611,6 +2622,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "absolute",
+    backgroundColor: "#000",
   },
   fullScreen2: {
     flex: 1,

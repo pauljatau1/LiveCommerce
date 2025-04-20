@@ -194,6 +194,28 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
       
       // Start everything
       joinAsAudience();
+      
+      // Function to leave the channel
+      window.leaveChannel = async function() {
+        try {
+          if (client) {
+            // Leave the channel
+            await client.leave();
+            window.ReactNativeWebView.postMessage("channel_left");
+            
+            // Clean up resources
+            remoteUsers = {};
+            hasHostVideo = false;
+            
+            if (hostCheckTimeout) {
+              clearTimeout(hostCheckTimeout);
+              hostCheckTimeout = null;
+            }
+          }
+        } catch (err) {
+          window.ReactNativeWebView.postMessage("error:leave_channel:" + err.message);
+        }
+      }
     </script>
   </body>
 </html>
