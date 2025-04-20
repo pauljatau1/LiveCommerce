@@ -95,7 +95,14 @@ exports.register = async (req, res) => {
       phoneNumber,
       password,
       otp,
-      expoPushToken // This will be undefined if not provided, which is fine
+      expoPushToken, 
+      wallet: {
+        balance: 0,
+        onHoldAmount: 0,
+        onHoldItems: [],
+        currency: 'NGN',
+        transactions: []
+      }
     });
 
     await newBuyer.save();

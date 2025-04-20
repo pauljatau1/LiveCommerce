@@ -11,19 +11,19 @@ const { createBuyerNotification, createNotification } = require('./notificationC
 const Buyer = require('../models/Buyer');
 
 // Initialize Fez API configuration
-const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_API_URL = process.env.FEZ_API_URL;
 const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
-const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB";
+const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 
 // Function to get Fez authentication token
 const getFezAuthToken = async () => {
   try {
     console.log('🔑 Attempting to authenticate with Fez Delivery API...');
     
-    const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+    const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
-      user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-      password: process.env.FEZ_PASSWORD || "Bolu@123"
+      user_id: process.env.FEZ_USER_ID,
+      password: process.env.FEZ_PASSWORD
     };
     
     console.log(`📤 Auth request to: ${authUrl}`);

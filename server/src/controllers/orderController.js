@@ -42,7 +42,7 @@ const paystack = axios.create({
 });
 
 // Initialize Fez API configuration
-const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_API_URL = process.env.FEZ_API_URL;
 const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
 const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 
@@ -67,7 +67,7 @@ const initializeFezWebhook = async () => {
       {
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'secret-key': process.env.FEZ_SECRET_KEY,
           'Content-Type': 'application/json'
         }
       }
@@ -401,10 +401,6 @@ exports.createOrder = async (req, res) => {
       });
     });
     
-    console.log('DEBUG - Order Creation - Unique Sellers:', {
-      count: uniqueSellers.size,
-      sellerIds: Array.from(uniqueSellers)
-    });
     
     // Process each seller to check if buyer is already a follower
     // and add if not
@@ -464,7 +460,7 @@ exports.createOrder = async (req, res) => {
         // Save the seller with the new follower
         await seller.save();
         
-        console.log(`DEBUG - Order Creation - Buyer successfully added as follower. New follower count: ${seller.followers.length}`);
+       
         
         // Add to buyer's activity feed if it exists
         if (buyer.activityFeed) {
@@ -478,10 +474,10 @@ exports.createOrder = async (req, res) => {
           
           // Save buyer with updated activity feed
           await buyer.save();
-          console.log(`DEBUG - Order Creation - Added follow activity to buyer's feed`);
+          
         }
       } else {
-        console.log(`DEBUG - Order Creation - Buyer is already a follower of seller: ${sellerId}`);
+        
         
         // Update the existing follower's information
         const followerIndex = seller.followers.findIndex(
@@ -489,7 +485,7 @@ exports.createOrder = async (req, res) => {
         );
         
         if (followerIndex !== -1) {
-          console.log(`DEBUG - Order Creation - Updating existing follower information`);
+         
           
           // Increment order count and update last interaction
           seller.followers[followerIndex].totalOrders = 
@@ -842,7 +838,7 @@ exports.createOrder = async (req, res) => {
         uniqueID: order.order_id, // Unique ID for each order
         BatchID: sellerBatchId, // Seller-specific batch ID
         valueOfItem: sellerParcel.valueOfItem,
-        weight: Math.max(1, Math.round(sellerParcel.weight)), // Ensure minimum weight of 1kg for Fez
+        weight: Math.max(1, Math.round(sellerParcel.weight)),
         itemDescription: sellerParcel.itemDescription,
         additionalDetails: additionalDetails || '',
         isItemCod: isItemCod && !paidFromWallet,
@@ -898,7 +894,7 @@ exports.createOrder = async (req, res) => {
       fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'secret-key': process.env.FEZ_SECRET_KEY,
           'Content-Type': 'application/json'
         }
       });
@@ -2617,7 +2613,7 @@ exports.cancelShipment = async (req, res) => {
         const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'secret-key': process.env.FEZ_SECRET_KEY,
             'Content-Type': 'application/json'
           },
           data: {
@@ -2841,10 +2837,10 @@ const getFezAuthToken = async () => {
   try {
     console.log('🔑 Attempting to authenticate with Fez Delivery API...');
     
-    const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+    const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
-      user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-      password: process.env.FEZ_PASSWORD || "Bolu@123"
+      user_id: process.env.FEZ_USER_ID,
+      password: process.env.FEZ_PASSWORD
     };
     
     console.log(`📤 Auth request to: ${authUrl}`);
@@ -2920,10 +2916,10 @@ exports.getDeliveryCost = async (req, res) => {
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
 
-    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+    const url = `${process.env.FEZ_API_URL}/order/cost`;
     const headers = {
       'Authorization': `Bearer ${authToken}`,
-      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'secret-key': process.env.FEZ_SECRET_KEY,
       'Content-Type': 'application/json'
     };
 
@@ -3028,10 +3024,10 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
 
     // Prepare the request URL and headers
-    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+    const url = `${process.env.FEZ_API_URL}/order/cost`;
     const headers = {
       'Authorization': `Bearer ${authToken}`,
-      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'secret-key': process.env.FEZ_SECRET_KEY,
       'Content-Type': 'application/json'
     };
 
@@ -3121,7 +3117,7 @@ exports.trackOrderFez = async (req, res) => {
     const trackingResponse = await axios.get(`${FEZ_API_URL}/order/track/${orderNo}`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+        'secret-key': process.env.FEZ_SECRET_KEY 
       }
     });
     
@@ -3205,7 +3201,7 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
     }, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'secret-key': process.env.FEZ_SECRET_KEY,
         'Content-Type': 'application/json'
       }
     });
@@ -4273,7 +4269,7 @@ exports.cancelOrderBySeller = async (req, res) => {
           {
             headers: {
               'Authorization': `Bearer ${authToken}`,
-              'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+              'secret-key': process.env.FEZ_SECRET_KEY 
             }
           }
         );
@@ -4832,7 +4828,7 @@ exports.getManifestUrl = async (req, res) => {
     const manifestResponse = await axios.get(`${FEZ_API_URL}/orders/${orderNo}/manifest-url`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+        'secret-key': process.env.FEZ_SECRET_KEY 
       }
     });
     
@@ -4927,10 +4923,10 @@ async function handleFailedPayment(paymentData, res) {
       // Get Fez auth token
       const getFezAuthToken = async () => {
         try {
-          const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+          const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
           const authData = {
-            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-            password: process.env.FEZ_PASSWORD || "Bolu@123"
+            user_id: process.env.FEZ_USER_ID,
+            password: process.env.FEZ_PASSWORD
           };
           
           const response = await axios.post(authUrl, authData);
@@ -4949,14 +4945,14 @@ async function handleFailedPayment(paymentData, res) {
       const authToken = await getFezAuthToken();
       
       // Cancel Fez shipment
-      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      const FEZ_API_URL = process.env.FEZ_API_URL;
       const cancelResponse = await axios.post(
         `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
         {},
         {
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'secret-key': process.env.FEZ_SECRET_KEY,
             'Content-Type': 'application/json'
           }
         }

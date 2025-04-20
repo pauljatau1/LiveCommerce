@@ -879,7 +879,7 @@ agenda.define('create-auction-winner-order', async (job) => {
       });
       
       // Initialize Fez API configuration
-      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      const FEZ_API_URL = process.env.FEZ_API_URL;
       console.log('Using Fez API URL:', FEZ_API_URL);
       
       // Get fresh auth token for Fez
@@ -887,10 +887,10 @@ agenda.define('create-auction-winner-order', async (job) => {
         try {
           console.log('🔑 Attempting to authenticate with Fez Delivery API...');
           
-          const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+          const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
           const authData = {
-            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-            password: process.env.FEZ_PASSWORD || "Bolu@123"
+            user_id: process.env.FEZ_USER_ID,
+            password: process.env.FEZ_PASSWORD
           };
           
           console.log(`📤 Auth request to: ${authUrl}`);
@@ -996,7 +996,7 @@ agenda.define('create-auction-winner-order', async (job) => {
       // Log request headers
       const requestHeaders = {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'secret-key': process.env.FEZ_SECRET_KEY,
         'Content-Type': 'application/json'
       };
       
@@ -1496,10 +1496,10 @@ agenda.define('delete_unpaid_orders', async (job) => {
           // Get Fez auth token
           const getFezAuthToken = async () => {
             try {
-              const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+              const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
               const authData = {
-                user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-                password: process.env.FEZ_PASSWORD || "Bolu@123"
+                user_id: process.env.FEZ_USER_ID,
+                password: process.env.FEZ_PASSWORD
               };
               
               const response = await axios.post(authUrl, authData);
@@ -1518,14 +1518,14 @@ agenda.define('delete_unpaid_orders', async (job) => {
           const authToken = await getFezAuthToken();
           
           // Cancel Fez shipment
-          const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+          const FEZ_API_URL = process.env.FEZ_API_URL;
           const cancelResponse = await axios.post(
             `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
             {},
             {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
-                'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+                'secret-key': process.env.FEZ_SECRET_KEY,
                 'Content-Type': 'application/json'
               }
             }
