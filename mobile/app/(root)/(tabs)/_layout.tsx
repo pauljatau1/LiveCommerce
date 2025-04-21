@@ -1,5 +1,5 @@
 import { View, Text, Image, Platform } from "react-native";
-import { Redirect, SplashScreen, Tabs } from "expo-router";
+import { Redirect, SplashScreen, Tabs, useFocusEffect } from "expo-router";
 import { icons } from "@/constants"; // Ensure only necessary icons are imported
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -10,10 +10,15 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { getUser } from "@/store/features/auth/utils";
+import axios from "axios";
+import { initializeSocket } from "@/core/sockets";
 
 const TabsLayout = () => {
   const status = useSelector((state: RootState) => state.authState.status);
-  const user = useSelector((state: RootState) => state.authState.user);
+  const { user, token } = useSelector((state: RootState) => state.authState);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  // const socket = initializeSocket(token);
+  // socket.connect();
 
   // const [user,setUser] = useState<any>()
 
@@ -21,11 +26,63 @@ const TabsLayout = () => {
     await SplashScreen.hideAsync();
   }, []);
 
+  const handleGetConversations = async () => {
+    try {
+      console.log("trying ", token);
+
+      if (!token) {
+        return;
+      }
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      const conversations = response.data.conversations as any[];
+      setUnreadCount(
+        conversations?.filter((convo: any) => convo.unreadCount > 0)?.length,
+      );
+      console.log(
+        "length ",
+        conversations?.filter((convo: any) => convo.unreadCount > 0)?.length,
+      );
+    } catch (e) {
+      console.log("unable to get conversations ", e);
+    }
+  };
+
   useEffect(() => {
     setTimeout(() => {
       hideSplash();
     }, 1000);
   }, [hideSplash, status]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // console.log("focused tab bar");
+      handleGetConversations();
+      // socket.on("connect", () => {
+      //   console.log("Connected to backend from tabbar");
+      // });
+      // socket.emit("join", user?._id);
+
+      // const messageHandler = (newMessage: any) => {
+      //   const messageData = newMessage.message || newMessage;
+      //   console.log("message recieved =>", messageData);
+      //   setTimeout(() => setUnreadCount((prev) => prev + 1), 1000);
+      // };
+
+      // socket.on("receive_message", messageHandler);
+
+      return () => {
+        // socket.off("receive_message", messageHandler);
+        // socket.disconnect();
+      };
+    }, []),
+  );
 
   // if (status === "signOut") {
   //   return <Redirect href="/(root)/(auth)/sign-in" />;
@@ -181,23 +238,65 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ focused, color }) =>
             focused ? (
-              <Image
-                source={require("../../../assets/icons/messages-fill.png")}
-                resizeMode="cover"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
+              <View>
+                <Image
+                  source={require("../../../assets/icons/messages-fill.png")}
+                  resizeMode="cover"
+                  style={{
+                    width: 22,
+                    height: 22,
+                  }}
+                />
+                {unreadCount > 0 && (
+                  <View
+                    className="absolute top-[-15px]"
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 16,
+                      backgroundColor: "#16783A",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      right: -6,
+                      top: -6,
+                    }}
+                  >
+                    <Text className="text-[#fff] text-[10px] font-[400] font-LexendDeca">
+                      {unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
             ) : (
-              <Image
-                source={require("../../../assets/icons/messages.png")}
-                resizeMode="cover"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
+              <View>
+                <Image
+                  source={require("../../../assets/icons/messages.png")}
+                  resizeMode="cover"
+                  style={{
+                    width: 22,
+                    height: 22,
+                  }}
+                />
+                {unreadCount > 0 && (
+                  <View
+                    className="absolute top-[-15px]"
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 16,
+                      backgroundColor: "#16783A",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      right: -6,
+                      top: -6,
+                    }}
+                  >
+                    <Text className="text-[#fff] text-[10px] font-[400] font-LexendDeca">
+                      {unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
             ),
         }}
       />

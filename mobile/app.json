@@ -19,7 +19,9 @@
       "bundleIdentifier": "com.auqli.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false  
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "This app uses the camera to allow you to upload photos and videos to conversations.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to allow you to record videos for conversations."
       },
       "entitlements": {
         "aps-environment": "production"
@@ -35,7 +37,7 @@
         "backgroundColor": "#ffffff"
       },
       "googleServicesFile": "./google-services.json",
-      "permissions": ["INTERNET", "RECORD_AUDIO"]
+      "permissions": ["INTERNET", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE", "VIBRATE"]
     },
     "web": {
       "bundler": "metro",
@@ -54,7 +56,16 @@
         }
       ],
       "expo-dev-client",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "@intercom/intercom-react-native",
+        {
+          "appId": "s2xos2me",
+          "androidApiKey": "android_sdk-5c2fa08e0ec79ec3f956b6db7425c82d16a5a6aa",
+          "iosApiKey": "ios_sdk-e55985a44a03eb25ff72dd31c4ed3b5538167489",
+          "autoInitialize": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

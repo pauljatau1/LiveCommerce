@@ -12,6 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
 import { router } from "expo-router";
 import { getToken, getUser } from "@/store/features/auth/utils";
+import { toast } from "@/core/toast";
 
 const CartList = ({
   cart,
@@ -205,7 +206,12 @@ const CartItem = memo(
                 </Text>
                 <TouchableOpacity
                   className="w-[24px] h-[24px] bg-white rounded-[24px] items-center justify-center"
-                  onPress={() => setQuantity(quantity + 1)}
+                  onPress={() => {
+                    if (quantity >= cartItem?.stock) {
+                      return toast.error("max stock reached");
+                    }
+                    setQuantity(quantity + 1);
+                  }}
                 >
                   <AntDesign name="plus" size={14} color="black" />
                 </TouchableOpacity>
