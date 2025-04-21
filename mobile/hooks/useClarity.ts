@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+/*(import { useEffect, useState } from 'react';
 import * as Clarity from '@microsoft/react-native-clarity';
 import { LogLevel } from '@microsoft/react-native-clarity';
 import { useNavigation } from '@react-navigation/native';
@@ -326,4 +326,4 @@ export function useClarity() {
   };
 }
 
-export default useClarity; 
+export default useClarity; */

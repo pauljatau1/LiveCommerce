@@ -183,7 +183,7 @@ const Blips = () => {
             }
             pagingEnabled
             onEndReached={fetchMoreVideos}
-            onEndReachedThreshold={1.5}
+            onEndReachedThreshold={1}
             initialNumToRender={5}
             maxToRenderPerBatch={5}
             windowSize={5}

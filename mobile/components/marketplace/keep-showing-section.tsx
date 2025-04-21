@@ -5,8 +5,9 @@ import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import useCarousel from "@/hooks/useCarousel";
 import { useGetAllProductsQuery } from "@/services/products";
-import React from "react";
-import { FlatList, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import React, { useCallback } from "react";
+import { FlatList, View, Text } from "react-native";
 
 const KeepShowingSection = () => {
   const {
@@ -33,6 +34,29 @@ const KeepShowingSection = () => {
       />
     ));
   };
+
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <MaterialIcons
+          name="inventory"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+          No Products
+        </Text>
+      </View>
+    );
+  }, [products]);
   return (
     <View className=" w-[100%] pb-[10px]">
       <View className="flex-row items-center justify-between">
@@ -42,9 +66,11 @@ const KeepShowingSection = () => {
         </View>
       </View>
       <View
-        style={{
-          paddingLeft: 22,
-        }}
+        style={
+          {
+            // paddingLeft: 22,
+          }
+        }
       >
         <FlatList
           data={products?.data?.products}
@@ -64,11 +90,15 @@ const KeepShowingSection = () => {
             </View>
           )}
           keyExtractor={(item) => item.id}
-          horizontal
+          horizontal={products?.data?.products?.length > 0}
           showsHorizontalScrollIndicator={false}
           className="pt-[15px]"
           pagingEnabled
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+          }}
           onScroll={handleScroll}
+          ListEmptyComponent={renderEmptyPlaceholder}
         />
       </View>
     </View>

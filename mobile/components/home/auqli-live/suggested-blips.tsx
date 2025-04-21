@@ -19,6 +19,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import BlipCard from "@/components/blips/blipCard";
 import SuggestedBlipsSkeleton from "@/components/skeleton/suggestedBlipsSkeleton";
+import { Entypo } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
@@ -56,10 +57,13 @@ const SuggestedBlips = () => {
         style={{
           marginVertical: 40,
           width: "100%",
+          alignItems: "center",
+          gap: 10,
         }}
       >
+        <Entypo name="video" size={35} color="#ccc" style={{ opacity: 0.5 }} />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          No Suggested Blips!
+          No Suggested Blips
         </Text>
       </View>
     );

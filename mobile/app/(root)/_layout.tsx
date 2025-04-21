@@ -316,7 +316,7 @@ const Layout = () => {
           headerShadowVisible: false,
           headerShown: false,
         }}
-      />  
+      />
       <Stack.Screen
         name="wallet/index"
         options={{
@@ -337,6 +337,15 @@ const Layout = () => {
 
       <Stack.Screen
         name="singleBlip/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="singleBlip/feed"
         options={{
           headerTitle: "",
           headerShadowVisible: false,

@@ -183,10 +183,10 @@ const OrderItem = ({
             </View>
           </View>
         </View>
-        <View className="flex-row justify-between items-center flex-wrap relative">
+        <View className="flex-row justify-between items-center relative gap-[6px]">
           <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-            style={{ width: "30%" }}
+            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
+            style={{ width: "100%" }}
             onPress={() =>
               router.push({
                 pathname: `../../(root)/messageRoom/${orderItem.seller}`,
@@ -215,8 +215,8 @@ const OrderItem = ({
           </Pressable>
           {orderItem.shipping.tracking.status == "pending" ? (
             <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-              style={{ width: "30%" }}
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A] shrink"
+              style={{ width: "100%" }}
               onPress={() => setShowCancelSheet(true)}
             >
               <Text className="text-white text-[10px]">Cancel Order</Text>
@@ -247,8 +247,8 @@ const OrderItem = ({
           orderItem.shipping.tracking.status !== "cancelled" &&
           orderItem?.paymentInfo?.method == "paystack" ? (
             <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-              style={{ width: "30%" }}
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A] shrink"
+              style={{ width: "100%" }}
               onPress={async () => {
                 console.log(orderItem._id);
                 await AsyncStorage.setItem(

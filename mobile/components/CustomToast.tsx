@@ -1,10 +1,18 @@
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import React, { useEffect, useRef } from 'react';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Dimensions,
+  Platform,
+} from "react-native";
+import React, { useEffect, useRef } from "react";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastProps {
   visible: boolean;
@@ -16,45 +24,46 @@ interface ToastProps {
   topPosition?: number;
 }
 
-const CustomToast = ({ 
-  visible, 
-  type = 'success', 
-  text1, 
-  text2, 
+const CustomToast = ({
+  visible,
+  type = "success",
+  text1,
+  text2,
   onHide,
   duration = 3000,
-  topPosition = 48
+  topPosition = 48,
 }: ToastProps) => {
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   const getIconName = () => {
     switch (type) {
-      case 'success':
-        return 'checkmark-circle';
-      case 'error':
-        return 'close-circle';
-      case 'info':
-        return 'information-circle';
-      case 'warning':
-        return 'warning';
+      case "success":
+        return "checkmark-circle";
+      case "error":
+        return "close-circle";
+      case "info":
+        return "information-circle";
+      case "warning":
+        return "warning";
       default:
-        return 'checkmark-circle';
+        return "checkmark-circle";
     }
   };
 
   const getIconColor = () => {
     switch (type) {
-      case 'success':
-        return '#16783A';
-      case 'error':
-        return '#FF453A';
-      case 'info':
-        return '#16783A';
-      case 'warning':
-        return '#FF9500';
+      case "success":
+        return "#16783A";
+      case "error":
+        return "#FF453A";
+      case "info":
+        return "#16783A";
+      case "warning":
+        return "#FF9500";
       default:
-        return '#16783A';
+        return "#16783A";
     }
   };
 
@@ -107,7 +116,8 @@ const CustomToast = ({
         {
           transform: [{ translateY }],
           opacity,
-          paddingTop: topPosition,
+          paddingTop:
+            Platform.OS == "android" ? topPosition : topPosition + insets.top,
         },
       ]}
     >
@@ -124,7 +134,7 @@ const CustomToast = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -132,14 +142,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   content: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: "#2C2C2E",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -152,15 +162,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   text1: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   text2: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 14,
   },
 });
 
-export default CustomToast; 
+export default CustomToast;

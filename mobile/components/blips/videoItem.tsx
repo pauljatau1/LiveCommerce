@@ -53,6 +53,7 @@ import Comment from "./comment";
 import CommentsSheet from "./commentsSheet";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { EvilIcons, Fontisto } from "@expo/vector-icons";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -457,20 +458,21 @@ const VideoItem = ({
           </View>
         </View>
         <View className="p-[10px]">
-          <View className="gap-2 mb-[16px]">
+          <View className="gap-[16px] mb-[16px]">
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
-                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={handleLike}
+                style={styles.buttonShadow}
               >
                 {liked ? (
-                  <AntDesign name="heart" size={18} color="red" />
+                  <Fontisto name="heart" size={22} color="red" />
                 ) : (
-                  <AntDesign name="hearto" size={18} color="#14AE5C" />
+                  <Fontisto name="heart-alt" size={22} color="white" />
                 )}
               </TouchableOpacity>
               <Text
-                className="text-white text-[12px] font-LexendDecaMedium"
+                className="text-white text-[13px] font-LexendDecaMedium"
                 style={styles.text}
               >
                 {formatNumber(likes)}
@@ -478,13 +480,15 @@ const VideoItem = ({
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
-                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={() => setShowComments(true)}
+                style={styles.buttonShadow}
               >
-                <Octicons name="comment" size={18} color="#14AE5C" />
+                <EvilIcons name="comment" size={36} color="white" />
+                {/* <Octicons name="comment" size={18} color="#14AE5C" /> */}
               </TouchableOpacity>
               <Text
-                className="text-white text-[12px] font-LexendDecaMedium"
+                className="text-white text-[13px] font-LexendDecaMedium"
                 style={styles.text}
               >
                 {formatNumber(comments)}
@@ -492,10 +496,11 @@ const VideoItem = ({
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
-                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={onShare}
+                style={styles.buttonShadow}
               >
-                <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
+                <Ionicons name="arrow-redo-sharp" size={28} color="white" />
               </TouchableOpacity>
               <Text
                 className="text-white text-[12px] font-LexendDecaMedium"
@@ -506,10 +511,11 @@ const VideoItem = ({
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
-                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={() => setShowShop(true)}
+                style={styles.buttonShadow}
               >
-                <SimpleLineIcons name="bag" size={18} color="#14AE5C" />
+                <SimpleLineIcons name="bag" size={24} color="white" />
               </TouchableOpacity>
               <Text
                 className="text-white text-[12px] font-LexendDecaMedium"
@@ -521,39 +527,48 @@ const VideoItem = ({
           </View>
           <View>
             <Pressable
-              className="px-[10px] py-[4px]  bg-[#f2f2f2] mb-[8px] rounded-[5px] "
-              style={{
-                backgroundColor: "rgba(255,255,255,0.6)",
-              }}
+              className=" py-[4px] mb-[16px] rounded-[5px] "
+              style={
+                {
+                  // backgroundColor: "rgba(255,255,255,0.6)",
+                }
+              }
               onPress={() => setShowProduct(true)}
             >
               <View className="flex-row items-center gap-[12px]">
                 <Image
                   source={{ uri: product?.image }}
-                  resizeMode="contain"
+                  resizeMode="cover"
                   style={{
                     width: 40,
                     height: 40,
                     borderRadius: 4,
                   }}
                 />
-                <View className="shrink">
+                <View className="shrink justify-between gap-[4px]">
                   <Text
-                    className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink"
-                    numberOfLines={2}
+                    className="text-[12px] text-[#f2f2f2] font-LexendDecaSemiBold shrink"
+                    numberOfLines={1}
+                    style={styles.text}
                   >
                     {product?.name}
                   </Text>
                   <View className="flex-row items-end gap-[8px] justify-between w-full shrink">
                     <View className="flex-row items-end gap-[8px] flex-wrap shrink">
-                      <Text className="text-[18px] text-[#000] font-LexendDecaMedium">
+                      <Text
+                        className="text-[18px] text-[#fff] font-LexendDecaMedium"
+                        style={styles.text}
+                      >
                         ₦
                         {item?.discount?.isActive
                           ? item?.discount?.discountedPrice?.toLocaleString() ||
                             0
                           : item?.price?.toLocaleString()}
                       </Text>
-                      <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
+                      <Text
+                        className="text-[12px] text-[#000] font-LexendDecaMedium shrink"
+                        style={styles.text}
+                      >
                         {item?.discount?.isActive ? (
                           <Text className="text-[#16783A]">
                             ₦{item?.discount?.value?.toFixed(0)}
@@ -562,13 +577,17 @@ const VideoItem = ({
                         ) : null}
                       </Text>
                       {item?.discount?.isActive ? (
-                        <Text className="text-[12px] text-[#FF0A0A] font-LexendDecaMedium line-through">
+                        <Text
+                          className="text-[12px] text-[#FF0A0A] font-LexendDecaMedium line-through"
+                          style={styles.text}
+                        >
                           ₦{item?.price?.toLocaleString()}
                         </Text>
                       ) : null}
                     </View>
                     <Text
-                      className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#000]"} font-LexendDecaMedium `}
+                      className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#f2f2f2]"} font-LexendDecaMedium `}
+                      style={styles.text}
                     >
                       {item?.stock < 1
                         ? "Out of Stock"
@@ -590,7 +609,7 @@ const VideoItem = ({
               )}
             </Pressable>
             <TouchableOpacity
-              className="p-[12px] rounded-[6px] bg-[#16783A] items-center justify-center"
+              className="p-[12px] rounded-[20px] bg-[#16783A] items-center justify-center"
               onPress={handleActionBtn}
               style={[
                 styles.buttonShadow,

@@ -63,7 +63,7 @@ const UpComing = () => {
     return (
       <View
         style={{
-          paddingHorizontal: 16,
+          // paddingHorizontal: 16,
           alignItems: "center",
         }}
       >
@@ -141,7 +141,7 @@ const UpComing = () => {
               </View>
             )}
             keyExtractor={(item, index) => item?._id || index.toString()}
-            horizontal
+            horizontal={upcoming?.length > 0}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
               paddingTop: 14,

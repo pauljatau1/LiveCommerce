@@ -19,11 +19,25 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
+import { useToast } from "@/contexts/ToastContext";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 
 const mockDeliveryOtions = [
   {
     name: "Standard Delivery",
     description: "Guaranteed delivery within 2-4 business days",
+    icon: (
+      <MaterialCommunityIcons
+        name="truck-fast-outline"
+        size={24}
+        color="white"
+      />
+    ),
+  },
+  {
+    name: "Store Pickup",
+    description: "Go to the sellers store and pickup your order",
+    icon: <MaterialIcons name="storefront" size={24} color="white" />,
   },
 ];
 
@@ -74,9 +88,7 @@ const CheckoutNow = ({
   const [user, setUser] = useState<any>(null);
   const [cart, setCart] = useState<any[]>([]);
   const [uniqueSellers, setUniqueSellers] = useState<any[]>([]);
-  const [selectedDeliveryOpt, setSelectedDeliveryOpt] = useState<any>(
-    mockDeliveryOtions[0],
-  );
+  const [selectedDeliveryOpt, setSelectedDeliveryOpt] = useState<number>(0);
   const [cartTotal, setCartTotal] = useState<number>(0);
   const [orderLoading, setOrderloading] = useState<boolean>(false);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
@@ -88,8 +100,10 @@ const CheckoutNow = ({
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+  const { show } = useToast();
 
   const [paystackKey, setPaystackKey] = useState<any>();
+  const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
 
   const getPaystackKey = useCallback(async () => {
     const token = await getToken();
@@ -169,6 +183,9 @@ const CheckoutNow = ({
         };
 
         setSelectedAddress(delivery_address);
+      } else {
+        closeSheet();
+        router.push("/addresses/addAddress");
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
@@ -247,7 +264,8 @@ const CheckoutNow = ({
         },
       );
       setDeliveryFeeObject(response.data?.costs);
-      setDeliveryFee(response.data?.totalCost);
+      setFetchedShippingFee(response.data?.totalCost);
+      // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
     } finally {
@@ -261,23 +279,41 @@ const CheckoutNow = ({
       return;
     }
     if (!selectedAddress) {
-      return toast.info("Please add a delivery address");
+      return show({
+        text2: "Please add a delivery address",
+        type: "info",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
-    if (!deliveryFee) {
-      return toast.error("error getting delivery fee");
+    if (!deliveryFee && selectedDeliveryOpt == 0) {
+      return show({
+        text2: "error getting delivery fee",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
     if (selectedPayment == 1) {
       if (walletBalance < deliveryFee + productTotal) {
-        return toast.error("Insufficient Wallet Balance");
+        return show({
+          text2: "Insufficient Wallet Balance",
+          type: "error",
+          duration: 3000,
+          topPosition: 18,
+        });
       }
     }
 
     if (deliveryFee + productTotal > 50000 && selectedPayment == 2) {
-      return toast.info(
-        "Cash on Delivery is unavailable for orders over ₦50,000",
-      );
+      return show({
+        text2: "Cash on Delivery is unavailable for orders over ₦50,000",
+        type: "info",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
 
     const order = {
@@ -314,6 +350,7 @@ const CheckoutNow = ({
       paidFromWallet: selectedPayment == 1,
       channel,
       streamId,
+      isStorePickup: selectedDeliveryOpt == 1,
     };
     const token = await getToken();
     try {
@@ -335,7 +372,12 @@ const CheckoutNow = ({
     } catch (e: any) {
       console.log("could not create order", e?.response);
       setOrderloading(false);
-      toast.error("Could not create order");
+      show({
+        text2: e?.response?.data?.message || "Could not create order",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     }
   };
 
@@ -362,23 +404,38 @@ const CheckoutNow = ({
       closeSheet();
 
       // Only navigate to orders page if not in a livestream
-      if (!channel || channel !== "liveshow") {
+      if (channel !== "liveshow") {
         return router.push("/(root)/orders/orders");
       } else {
         // For livestream purchases, just show success toast and stay on stream
-        toast.success("Order placed successfully!");
+        show({
+          text2: "Order placed successfully!",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
         return;
       }
 
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
-        toast.success("Order paid successfully");
+        show({
+          text2: "Order paid successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
         router.replace(`/`);
       }
     } catch (e: any) {
       if (e?.response.status == 400) {
         closeSheet();
-        toast.success("Order Placed successfully");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
 
         // Only navigate to orders page if not in a livestream
         if (!channel || channel !== "liveshow") {
@@ -386,7 +443,12 @@ const CheckoutNow = ({
         }
       }
       console.log("could not Pay for  order", e);
-      toast.error("Could not Pay for order");
+      show({
+        text2: "Could not Pay for order",
+        type: "error",
+        duration: 3000,
+        topPosition: 18,
+      });
     } finally {
       setPayLoading(false);
     }
@@ -395,8 +457,22 @@ const CheckoutNow = ({
   const onPaystackClose = () => {
     setShowPaystack(false);
     setPayLoading(false);
-    toast.info("Payment Cancelled");
+    show({
+      text2: "Payment Cancelled",
+      type: "info",
+      duration: 3000,
+      topPosition: 18,
+    });
   };
+
+  useEffect(() => {
+    if (selectedDeliveryOpt == 0 && fetchedShippingFee) {
+      setDeliveryFee(fetchedShippingFee);
+    } else {
+      setDeliveryFee(0);
+    }
+  }, [fetchedShippingFee, selectedDeliveryOpt]);
+
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -418,12 +494,26 @@ const CheckoutNow = ({
         }, 500);
       } else if (selectedPayment == 2) {
         closeSheet();
-        toast.success("Order Placed successfully");
-        router.push("/(root)/orders/orders");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
+        if (channel !== "liveshow") {
+          router.push("/(root)/orders/orders");
+        }
       } else {
         closeSheet();
-        toast.success("Order Placed successfully");
-        router.push("/(root)/orders/orders");
+        show({
+          text2: "Order Placed successfully",
+          type: "success",
+          duration: 3000,
+          topPosition: 18,
+        });
+        if (channel !== "liveshow") {
+          router.push("/(root)/orders/orders");
+        }
       }
       setOrderloading(false);
     }
@@ -456,6 +546,7 @@ const CheckoutNow = ({
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
+      if (selectedDeliveryOpt == 1 && index == 2) return null;
       return (
         <Pressable
           key={index}
@@ -531,7 +622,7 @@ const CheckoutNow = ({
         </Pressable>
       );
     },
-    [selectedPayment, walletBalance],
+    [selectedPayment, walletBalance, selectedDeliveryOpt],
   );
   return (
     <View className="p-[8px] pb-[16px]">
@@ -609,40 +700,54 @@ const CheckoutNow = ({
               <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
                 Delivery Options
               </Text>
-              <Pressable
-                className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-              >
-                <View className="flex-row gap-[16px] shrink">
-                  <Image
-                    source={require("../../assets/icons/delivery-icon.png")}
-                    contentFit="contain"
-                    style={{ width: 23, height: 23, marginTop: 4 }}
-                  />
-                  <View className="gap-[16px] shrink">
-                    <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                      {selectedDeliveryOpt.name}
-                    </Text>
-                    <View className="gap-[2px]">
-                      <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                        {selectedDeliveryOpt?.description}
+              {mockDeliveryOtions?.map((item: any, index: number) => (
+                <Pressable
+                  className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
+                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                  key={index}
+                  onPress={() => setSelectedDeliveryOpt(index)}
+                >
+                  <View className="flex-row gap-[16px] shrink items-center">
+                    {/* <Image
+                                      source={require("../../../assets/icons/delivery-icon.png")}
+                                      resizeMode="contain"
+                                      style={{ width: 23, height: 23, marginTop: 4 }}
+                                    /> */}
+                    {item?.icon}
+                    <View className="gap-[4px] shrink">
+                      <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                        {item.name}
                       </Text>
-                      <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
-                        Your order will be processed and shipped with care,
-                        ensuring delivery within the estimated timeframe. Enjoy
-                        a smooth and hassle-free shopping experience!
-                      </Text>
+                      <View className="gap-[2px]">
+                        <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                          {item?.description}
+                        </Text>
+                        {/* <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                                        Your order will be processed and shipped with care,
+                                        ensuring delivery within the estimated timeframe.
+                                        Enjoy a smooth and hassle-free shopping experience!
+                                      </Text> */}
+                      </View>
                     </View>
                   </View>
-                </View>
-                {/* <View>
-                  <Entypo
-                    name="chevron-right"
-                    size={16}
-                    color="rgba(204, 204, 204, 0.8)"
-                  />
-                </View> */}
-              </Pressable>
+                  <View
+                    className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                    style={{
+                      borderColor:
+                        selectedDeliveryOpt == index ? "#16783A" : "#f2f2f2",
+                      borderWidth: 2,
+                    }}
+                  >
+                    <View
+                      className="w-[12px] h-[12px] rounded-[12px]"
+                      style={{
+                        backgroundColor:
+                          selectedDeliveryOpt == index ? "#16783A" : "",
+                      }}
+                    ></View>
+                  </View>
+                </Pressable>
+              ))}
             </View>
 
             <View
@@ -719,7 +824,8 @@ const CheckoutNow = ({
                   <ActivityIndicator size={10} color="white" />
                 ) : (
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    {deliveryFee && productTotal
+                    {(deliveryFee && productTotal) ||
+                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                       ? "₦" +
                         (deliveryFee + productTotal)?.toLocaleString(
                           undefined,
@@ -743,7 +849,8 @@ const CheckoutNow = ({
               ) : (
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
-                  {deliveryFee && productId
+                  {(deliveryFee && productTotal) ||
+                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                     ? "₦" +
                       (deliveryFee + productTotal)?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -762,7 +869,11 @@ const CheckoutNow = ({
         <Paystack
           refNumber={generateReference()}
           paystackKey={paystackKey?.publicKey}
-          amount={deliveryFee! + productTotal}
+          amount={
+            selectedDeliveryOpt == 0
+              ? deliveryFee! + productTotal
+              : productTotal
+          }
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}
           onSuccess={onPaystackSuccess}

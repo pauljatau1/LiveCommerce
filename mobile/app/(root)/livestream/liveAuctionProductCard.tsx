@@ -1,8 +1,9 @@
+import { Product } from '@/types/streams/livestreamStudio';
+import { GlassImage } from './components';
+import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import React, { useEffect } from 'react';
-import { Product } from '@/types/streams/livestreamStudio';
-import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { GlassImage } from './components';
+import RenderHtml, { defaultSystemFonts, TBlock, CustomBlockRenderer } from "react-native-render-html";
 
 interface LiveAuctionProductCardProps {
     product: {
@@ -55,7 +56,7 @@ const LiveAuctionProductCard = ({
     // Determine if timer is in critical state (less than 10 seconds)
     const isTimerCritical = () => {
         if (!bidTimeRemaining) return false;
-        
+
         // If format is MM:SS or MM.SS, convert to seconds
         if (bidTimeRemaining.includes(':') || bidTimeRemaining.includes('.')) {
             // Split on either : or . separator
@@ -63,11 +64,11 @@ const LiveAuctionProductCard = ({
             const [minutes, seconds] = bidTimeRemaining.split(separator).map(Number);
             return (minutes * 60 + seconds) < 10;
         }
-        
+
         // If format is just seconds
         return Number(bidTimeRemaining) < 10;
     };
-    
+
     console.log('current bid product image:', product?.images?.[0]?.url);
     console.log('using bid increment:', bidIncrement);
     console.log('bid time remaining:', bidTimeRemaining);
@@ -81,7 +82,7 @@ const LiveAuctionProductCard = ({
         }
     }, [bidTimeRemaining, product.bidStatus]);
 
-  return (
+    return (
         <View style={styles.container}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={styles.contentRow}>
@@ -101,9 +102,19 @@ const LiveAuctionProductCard = ({
                         <Text numberOfLines={2} style={styles.productName}>
                             {product?.name}
                         </Text>
-                        <Text numberOfLines={1} style={styles.productDescription}>
-                            {product?.description || "No description available"}
-                        </Text>
+                        <RenderHtml
+                            source={{ html: product?.description || "" }}
+                            tagsStyles={{
+                                body: {
+                                    color: "#AAAAAA",
+                                    fontSize: 13,
+                                    marginBottom: 4,
+                                },
+                            }}
+                            defaultTextProps={{
+                                numberOfLines: 1
+                            }}
+                        />
                     </View>
                 </View>
 
@@ -124,7 +135,7 @@ const LiveAuctionProductCard = ({
                 ]}>
                     {product.bidStatus === 'active' ? bidTimeRemaining : '00:30'}
                 </Text>
-    </View>
+            </View>
 
             {/* Category and Tags */}
             {

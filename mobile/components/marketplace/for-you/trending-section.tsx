@@ -3,8 +3,9 @@ import ProductCard from "@/components/global/product-card";
 import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import { useGetNewAuqliQuery, useGetTrendingQuery } from "@/services/products";
-import React from "react";
-import { FlatList, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import React, { useCallback } from "react";
+import { FlatList, View, Text } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
 const ForYouTrendingSection = () => {
@@ -14,19 +15,45 @@ const ForYouTrendingSection = () => {
     isLoading,
   } = useGetTrendingQuery({ limit: 10 });
 
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <MaterialIcons
+          name="inventory"
+          size={35}
+          color="#ccc"
+          style={{ opacity: 0.5 }}
+        />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+          No Trending Products right now
+        </Text>
+      </View>
+    );
+  }, [products]);
+
   return (
     <View className="pt-[30px] w-[100%] pb-[8px]">
       <SectionHeader title="Trending" btnText="View All" />
       <View
-        style={{
-          paddingLeft: 16,
-        }}
+        style={
+          {
+            // paddingLeft: 16,
+          }
+        }
       >
         {isLoading ? (
           <ActivityIndicator size={"small"} color={"16783A"} />
         ) : (
           <FlatList
             data={products?.data}
+            // data={[]}
             renderItem={({ item: row }) => (
               <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
                 <ProductCard
@@ -43,9 +70,13 @@ const ForYouTrendingSection = () => {
               </View>
             )}
             keyExtractor={(item, index) => `group-${index}`}
-            horizontal
+            horizontal={products?.data?.length > 0}
             showsHorizontalScrollIndicator={false}
             className="pt-[14px]"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+            }}
+            ListEmptyComponent={renderEmptyPlaceholder}
           />
         )}
       </View>
