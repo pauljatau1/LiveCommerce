@@ -29,7 +29,9 @@ import axios from "axios";
 const { width } = Dimensions.get("window");
 
 const Reply = memo(({ item }: { item: any }) => {
-  const [liked, setLiked] = useState<boolean>(false);
+  console.log(item);
+
+  const [liked, setLiked] = useState<boolean>(item?.isLiked);
   const [likes, setLikes] = useState<number>(item?.likesCount);
 
   const handleLikeReply = useCallback(async () => {
@@ -49,12 +51,11 @@ const Reply = memo(({ item }: { item: any }) => {
       const result = await axios(config);
 
       console.log("like comment result ", result.data);
-      if (result?.data?.liked) {
-        setLiked(result?.data?.liked);
-        setLikes((prevState) =>
-          result?.data?.liked ? prevState + 1 : prevState - 1 || 0,
-        );
-      }
+
+      setLiked(result?.data?.liked);
+      setLikes((prevState) =>
+        result?.data?.liked ? prevState + 1 : prevState - 1 || 0,
+      );
     } catch (e) {
       console.log("error liking reply");
     }
