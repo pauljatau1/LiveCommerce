@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle } from 'lucide-react'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle, Loader2 } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,11 +28,16 @@ export default function OrderDetails() {
   const [orderStatus, setOrderStatus] = useState(null)
   const [deliveryEstimate, setDeliveryEstimate] = useState(null)
   const [orderNotFound, setOrderNotFound] = useState(false)
+  const [confirmDeliveryLoading, setConfirmDeliveryLoading] = useState(false)
+  const [proofUploadDialogOpen, setProofUploadDialogOpen] = useState(false)
+  const [proofImage, setProofImage] = useState(null)
+  const [proofNote, setProofNote] = useState('')
   const navigate = useNavigate()
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
   const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -164,6 +169,56 @@ export default function OrderDetails() {
       setArrangePickupLoading(false)
     }
   }
+
+  const handleProofUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('Image size should be less than 5MB')
+        return
+      }
+      setProofImage(file)
+    }
+  }
+
+  const confirmDelivery = async (orderId, proofImage, note) => {
+    const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+  
+    try {
+      setIsConfirming(true);
+      setConfirmDeliveryLoading(true);
+  
+      const formData = new FormData();
+      formData.append('proofOfDelivery', proofImage);
+      if (note) formData.append('notes', note);
+  
+      const response = await fetch(`${BASE_URL}/pickup/${orderId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        },
+        body: formData,
+      });
+  
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to confirm delivery');
+      }
+  
+      toast.success('Delivery confirmed successfully');
+      // Close the dialog and reload the page
+      setProofUploadDialogOpen(false);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error confirming delivery:', error);
+      toast.error(error.message || 'Failed to confirm delivery');
+    } finally {
+      setIsConfirming(false);
+      setConfirmDeliveryLoading(false);
+    }
+  };
+  
 
   const printDocument = (url, documentType) => {
     // Open document in new window/tab
@@ -353,13 +408,13 @@ export default function OrderDetails() {
     <div className="container mx-auto sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6 min-h-screen">
       {/* Order Header - More subtle design */}
       <Card className="border border-gray-100 -sm bg-white overflow-hidden">
-        <div className="bg-gradient-to-r from-green-50/90 to-green-100/90 p-4 sm:p-6 text-gray-800">
+        <div className={`${order?.isStorePickup ? 'bg-gradient-to-r from-purple-50/90 to-purple-100/90' : 'bg-gradient-to-r from-green-50/90 to-green-100/90'} p-4 sm:p-6 text-gray-800`}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="bg-white p-2 rounded-full -sm">
-                    <ShoppingBag className="h-5 w-5 text-green-600" />
+                  <div className={`bg-white p-2 rounded-full -sm ${order?.isStorePickup ? 'text-purple-600' : 'text-green-600'}`}>
+                    <ShoppingBag className="h-5 w-5" />
                   </div>
                   <h1 className="text-lg sm:text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
                   <div className="flex flex-wrap gap-2">
@@ -369,6 +424,11 @@ export default function OrderDetails() {
                     <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
                       {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
                     </Badge>
+                    {order?.isStorePickup && (
+                      <Badge variant="outline" className="bg-purple-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                        Store Pickup
+                      </Badge>
+                    )}
                     {orderData?.order?.orderStatus?.hasReturn && (
                       <Badge variant="outline" className="bg-orange-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                         Return Requested
@@ -391,29 +451,61 @@ export default function OrderDetails() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
-                  onClick={getManifestUrl}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-white"
+                {!order?.isStorePickup && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
+                    onClick={getManifestUrl}
                   >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  Print Shipping Label
-                </Button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-white"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Print Shipping Label
+                  </Button>
+                )}
+                {order?.isStorePickup && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto bg-purple-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-purple-700"
+                    onClick={() => setProofUploadDialogOpen(true)}
+                    disabled={confirmDeliveryLoading || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+                  >
+                    {confirmDeliveryLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Confirming...
+                      </>
+                    ) : shipping?.tracking?.status === 'delivered' ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Delivery Confirmed
+                      </>
+                    ) : shipping?.tracking?.status === 'pending_confirmation' ? (
+                      <>
+                        <Clock className="w-4 h-4" />
+                        Confirmation Pending
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Confirm Delivery
+                      </>
+                    )}
+                  </Button>
+                )}
                 {orderData?.order?.orderStatus?.hasReturn && (
                   <Button
                     onClick={() => navigate(`/dashboard/return/${orderData.order.orderStatus.returnRequestId}`)}
@@ -861,48 +953,50 @@ export default function OrderDetails() {
             <CardHeader className="border-b border-gray-100 p-4">
               <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
                 <MapPin className="h-4 w-4 text-blue-500" />
-                Delivery & Pickup Information
+                {order?.isStorePickup ? 'Store Pickup Information' : 'Delivery & Pickup Information'}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-6">
-              {/* Delivery Address */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
-                  <MapPin className="h-4 w-4 text-green-600" />
-                  Delivery Address
-                </h3>
-                <div className="text-sm space-y-2">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <p className="font-medium text-gray-800">
-                      {addresses?.delivery?.first_name} {addresses?.delivery?.last_name}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <p className="text-gray-700">{maskPhoneNumber(addresses?.delivery?.phone)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-gray-400" />
-                    <p className="text-gray-700">{maskEmail(addresses?.delivery?.email)}</p>
-                  </div>
-                  <div className="pl-6 text-gray-700 space-y-1 mt-2">
-                    <p>{addresses?.delivery?.line1}</p>
-                    {addresses?.delivery?.line2 && <p>{addresses?.delivery?.line2}</p>}
-                    <p>
-                      {addresses?.delivery?.city && `${addresses?.delivery?.city}, `}
-                      {addresses?.delivery?.state} {addresses?.delivery?.zip}
-                    </p>
-                    <p>{addresses?.delivery?.country === 'NG' ? 'Nigeria' : addresses?.delivery?.country}</p>
+              {/* Only show Delivery Address if not store pickup */}
+              {!order?.isStorePickup && addresses?.delivery && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                  <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
+                    <MapPin className="h-4 w-4 text-green-600" />
+                    Delivery Address
+                  </h3>
+                  <div className="text-sm space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <p className="font-medium text-gray-800">
+                        {addresses?.delivery?.first_name} {addresses?.delivery?.last_name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <p className="text-gray-700">{maskPhoneNumber(addresses?.delivery?.phone)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                      <p className="text-gray-700">{maskEmail(addresses?.delivery?.email)}</p>
+                    </div>
+                    <div className="pl-6 text-gray-700 space-y-1 mt-2">
+                      <p>{addresses?.delivery?.line1}</p>
+                      {addresses?.delivery?.line2 && <p>{addresses?.delivery?.line2}</p>}
+                      <p>
+                        {addresses?.delivery?.city && `${addresses?.delivery?.city}, `}
+                        {addresses?.delivery?.state} {addresses?.delivery?.zip}
+                      </p>
+                      <p>{addresses?.delivery?.country === 'NG' ? 'Nigeria' : addresses?.delivery?.country}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Pickup Address - Using Seller Profile data instead of order data */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+              {/* Store/Pickup Location - Enhanced for store pickup */}
+              <div className={`${order?.isStorePickup ? 'bg-purple-50 border-purple-100' : 'bg-gray-50 border-gray-100'} rounded-lg p-4 border`}>
                 <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  Warehouse/Pickup Location
+                  <Building2 className={`h-4 w-4 ${order?.isStorePickup ? 'text-purple-600' : 'text-blue-600'}`} />
+                  {order?.isStorePickup ? 'Store Pickup Location' : 'Warehouse/Pickup Location'}
                 </h3>
                 <div className="text-sm space-y-2">
                   <div className="flex items-center gap-2">
@@ -935,250 +1029,254 @@ export default function OrderDetails() {
                 </div>
               </div>
 
-              {/* Shipping Method Summary */}
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <Truck className="h-4 w-4 text-blue-500" />
-                  <p>Shipping via {shipping?.carrier?.name || "Standard Shipping"}</p>
-                </div>
-                {order?.paymentInfo?.status === 'paid' && (
-                  <div className="flex items-center gap-2 text-sm mt-2 text-gray-700">
-                    <Check className="h-4 w-4 text-green-500" />
-                    <p>Payment confirmed on {new Date(order?.paymentInfo?.paidAt).toLocaleDateString()}</p>
+              {/* Only show shipping method summary if not store pickup */}
+              {!order?.isStorePickup && (
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <Truck className="h-4 w-4 text-blue-500" />
+                    <p>Shipping via {shipping?.carrier?.name || "Standard Shipping"}</p>
                   </div>
-                )}
-              </div>
+                  {order?.paymentInfo?.status === 'paid' && (
+                    <div className="flex items-center gap-2 text-sm mt-2 text-gray-700">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <p>Payment confirmed on {new Date(order?.paymentInfo?.paidAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Shipping Status */}
-          <Card className="border border-gray-100 -sm bg-white">
-            <CardHeader className="border-b border-gray-100 p-4">
-              <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
-                <Truck className="h-4 w-4 text-blue-500" />
-                Shipping Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-6">
-              {/* Shipping Status Banner */}
-              <div className={`p-4 rounded-lg flex items-center gap-3 ${
-                shipping?.tracking?.status === 'delivered' 
-                  ? 'bg-green-50 border border-green-100' 
-                  : shipping?.tracking?.status === 'in_transit'
-                  ? 'bg-blue-50 border border-blue-100'
-                  : 'bg-yellow-50 border border-yellow-100'
-              }`}>
-                <div className={`p-2 rounded-full ${
+          {!order?.isStorePickup && (
+            <Card className="border border-gray-100 -sm bg-white">
+              <CardHeader className="border-b border-gray-100 p-4">
+                <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  Shipping Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-6">
+                {/* Shipping Status Banner */}
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${
                   shipping?.tracking?.status === 'delivered' 
-                    ? 'bg-green-100' 
+                    ? 'bg-green-50 border border-green-100' 
                     : shipping?.tracking?.status === 'in_transit'
-                    ? 'bg-blue-100'
-                    : 'bg-yellow-100'
+                    ? 'bg-blue-50 border border-blue-100'
+                    : 'bg-yellow-50 border border-yellow-100'
                 }`}>
-                  {shipping?.tracking?.status === 'delivered' ? (
-                    <Check className={`h-5 w-5 text-green-600`} />
-                  ) : shipping?.tracking?.status === 'in_transit' ? (
-                    <Truck className={`h-5 w-5 text-blue-600`} />
-                  ) : (
-                    <Clock className={`h-5 w-5 text-yellow-600`} />
-                  )}
-                </div>
-                <div>
-                  <p className={`font-medium capitalize ${
+                  <div className={`p-2 rounded-full ${
                     shipping?.tracking?.status === 'delivered' 
-                      ? 'text-green-700' 
+                      ? 'bg-green-100' 
                       : shipping?.tracking?.status === 'in_transit'
-                      ? 'text-blue-700'
-                      : 'text-yellow-700'
+                      ? 'bg-blue-100'
+                      : 'bg-yellow-100'
                   }`}>
-                    {shipping?.tracking?.status?.replace(/_/g, ' ')}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Last updated: {shipping?.tracking?.history?.length > 0 
-                      ? new Date(shipping.tracking.history[shipping.tracking.history.length - 1].timestamp).toLocaleString() 
-                      : new Date().toLocaleString()}
-                  </p>
+                    {shipping?.tracking?.status === 'delivered' ? (
+                      <Check className={`h-5 w-5 text-green-600`} />
+                    ) : shipping?.tracking?.status === 'in_transit' ? (
+                      <Truck className={`h-5 w-5 text-blue-600`} />
+                    ) : (
+                      <Clock className={`h-5 w-5 text-yellow-600`} />
+                    )}
+                  </div>
+                  <div>
+                    <p className={`font-medium capitalize ${
+                      shipping?.tracking?.status === 'delivered' 
+                        ? 'text-green-700' 
+                        : shipping?.tracking?.status === 'in_transit'
+                        ? 'text-blue-700'
+                        : 'text-yellow-700'
+                    }`}>
+                      {shipping?.tracking?.status?.replace(/_/g, ' ')}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Last updated: {shipping?.tracking?.history?.length > 0 
+                        ? new Date(shipping.tracking.history[shipping.tracking.history.length - 1].timestamp).toLocaleString() 
+                        : new Date().toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Add discount information if available */}
-              {items[0]?.product?.discount?.isActive && (
-                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                  <h4 className="font-medium text-green-800 flex items-center gap-2 mb-2">
-                    <Tag className="h-4 w-4" />
-                    Applied Discount
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <p className="text-green-700">
-                      {items[0].product.discount.couponName && (
-                        <span className="font-medium">Coupon: {items[0].product.discount.couponName}</span>
+                {/* Add discount information if available */}
+                {items[0]?.product?.discount?.isActive && (
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                    <h4 className="font-medium text-green-800 flex items-center gap-2 mb-2">
+                      <Tag className="h-4 w-4" />
+                      Applied Discount
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-green-700">
+                        {items[0].product.discount.couponName && (
+                          <span className="font-medium">Coupon: {items[0].product.discount.couponName}</span>
+                        )}
+                      </p>
+                      <p className="text-green-700">
+                        Discount: {items[0].product.discount.value}% off
+                      </p>
+                      <p className="text-green-700 font-medium">
+                        Discounted Price: ₦{items[0].price.toLocaleString()}
+                      </p>
+                      {items[0].product.discount.startDate && (
+                        <p className="text-green-700">
+                          Valid from: {new Date(items[0].product.discount.startDate).toLocaleDateString()}
+                        </p>
                       )}
-                    </p>
-                    <p className="text-green-700">
-                      Discount: {items[0].product.discount.value}% off
-                    </p>
-                    <p className="text-green-700 font-medium">
-                      Discounted Price: ₦{items[0].price.toLocaleString()}
-                    </p>
-                    {items[0].product.discount.startDate && (
-                      <p className="text-green-700">
-                        Valid from: {new Date(items[0].product.discount.startDate).toLocaleDateString()}
-                      </p>
-                    )}
-                    {items[0].product.discount.endDate && (
-                      <p className="text-green-700">
-                        Valid until: {new Date(items[0].product.discount.endDate).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Shipping Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Carrier Information</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <Truck className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Carrier</p>
-                        <p className="text-sm font-medium">{shipping?.carrier?.name || "Standard Shipping"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Tag className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Carrier Reference</p>
-                        <p className="text-sm font-medium">{shipping?.carrier?.reference || "N/A"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Box className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Shipment ID</p>
-                        <p className="text-sm font-medium">{shipping?.shipment_id || "N/A"}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Tracking Details</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <Package className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Tracking Number</p>
-                        <p className="text-sm font-medium">{shipping?.tracking?.number || "Not available yet"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Estimated Delivery</p>
-                        <p className="text-sm font-medium">
-                          {deliveryEstimate ? 
-                            `${deliveryEstimate}` : 
-                            shipping?.estimatedDeliveryDate ? 
-                              new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 
-                              'Not available yet'}
+                      {items[0].product.discount.endDate && (
+                        <p className="text-green-700">
+                          Valid until: {new Date(items[0].product.discount.endDate).toLocaleDateString()}
                         </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <DollarSign className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-xs text-gray-500">Shipping Fee</p>
-                        <p className="text-sm font-medium">
-                          ₦{shipping?.fee?.amount?.toLocaleString() || "0"}
-                        </p>
-                      </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* Shipping Documents */}
-              {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && (
-                <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                  <h4 className="font-medium flex items-center gap-2 text-gray-800">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-blue-500"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                      <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    Shipping Documents
-                  </h4>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    {shipping.documents.shippingLabel && (
-                      <Button
-                        className="flex-1 flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
-                        onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                          <rect x="6" y="14" width="12" height="8"></rect>
-                        </svg>
-                        Track Shipment
-                      </Button>
-                    )}
-                    {shipping.documents.commercialInvoice && (
-                      <Button
-                        variant="outline"
-                        className="flex-1 flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
-                        onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-gray-600"
-                        >
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        Print Shipping Label
-                      </Button>
-                    )}
+                {/* Shipping Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Carrier Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Truck className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Carrier</p>
+                          <p className="text-sm font-medium">{shipping?.carrier?.name || "Standard Shipping"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Tag className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Carrier Reference</p>
+                          <p className="text-sm font-medium">{shipping?.carrier?.reference || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Box className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Shipment ID</p>
+                          <p className="text-sm font-medium">{shipping?.shipment_id || "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Tracking Details</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Package className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Tracking Number</p>
+                          <p className="text-sm font-medium">{shipping?.tracking?.number || "Not available yet"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Estimated Delivery</p>
+                          <p className="text-sm font-medium">
+                            {deliveryEstimate ? 
+                              `${deliveryEstimate}` : 
+                              shipping?.estimatedDeliveryDate ? 
+                                new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 
+                                'Not available yet'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <DollarSign className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-500">Shipping Fee</p>
+                          <p className="text-sm font-medium">
+                            ₦{shipping?.fee?.amount?.toLocaleString() || "0"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {/* Shipping Documents */}
+                {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && (
+                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                    <h4 className="font-medium flex items-center gap-2 text-gray-800">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-blue-500"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                      </svg>
+                      Shipping Documents
+                    </h4>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {shipping.documents.shippingLabel && (
+                        <Button
+                          className="flex-1 flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
+                          onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                          </svg>
+                          Track Shipment
+                        </Button>
+                      )}
+                      {shipping.documents.commercialInvoice && (
+                        <Button
+                          variant="outline"
+                          className="flex-1 flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
+                          onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-gray-600"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                          Print Shipping Label
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -1271,6 +1369,114 @@ export default function OrderDetails() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Proof Upload Dialog */}
+      <Dialog open={proofUploadDialogOpen} onOpenChange={setProofUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Upload Delivery Proof</DialogTitle>
+            <DialogDescription>
+              {shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation' ? (
+                <div className="text-amber-600 mt-2">
+                  A pickup confirmation for this order is already {shipping?.tracking?.status === 'delivered' ? 'confirmed' : 'pending'}. 
+                  You cannot submit another confirmation.
+                </div>
+              ) : (
+                "Please upload a photo as proof of delivery. This could be a signed receipt or the delivered items with the customer."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 block">
+                Upload Proof
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 48 48"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="proof-upload"
+                      className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        id="proof-upload"
+                        name="proof-upload"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleProofUpload}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                </div>
+              </div>
+              {proofImage && (
+                <p className="text-sm text-green-600">
+                  Selected file: {proofImage.name}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="note" className="text-sm font-medium text-gray-700">
+                Additional Notes (Optional)
+              </label>
+              <textarea
+                id="note"
+                className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Add any additional notes about the delivery..."
+                value={proofNote}
+                onChange={(e) => setProofNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setProofUploadDialogOpen(false)
+                setProofImage(null)
+                setProofNote('')
+              }}
+              className="border-gray-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={confirmDeliveryLoading || !proofImage || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+              onClick={() => confirmDelivery(id, proofImage, proofNote)}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {confirmDeliveryLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Confirming...
+                </>
+              ) : (
+                'Confirm Delivery'
+              )}
             </Button>
           </div>
         </DialogContent>

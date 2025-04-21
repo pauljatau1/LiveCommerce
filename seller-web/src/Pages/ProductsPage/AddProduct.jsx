@@ -15,8 +15,8 @@ import { toast } from 'sonner';
 //import { useAuthContext } from '../../Hooks/useAuthContext';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
-import { useOutletContext, useLocation } from 'react-router-dom'
-import { createProduct } from '../../Redux/Slices/ProductSlice';
+import { useOutletContext, useLocation, useNavigate } from 'react-router-dom'
+import { createProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
 import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -35,6 +35,7 @@ import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 import { Checkbox } from "../../Components/ui/checkbox";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { debounce } from 'lodash';
 
 // Define the rich text editor toolbar options
 const quillModules = {
@@ -55,6 +56,8 @@ const quillFormats = [
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
     const location = useLocation();
+    // Add navigate hook
+    const navigate = useNavigate();
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
@@ -102,6 +105,9 @@ const AddProduct = () => {
     // Comment out productSpecs state
     // const [productSpecs, setProductSpecs] = useState({});
     const { variantStructure } = useVariants();
+    const [categorySearchQuery, setCategorySearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Check URL parameters for ?type=auction
     useEffect(() => {
@@ -159,6 +165,41 @@ const AddProduct = () => {
 
     const handleShippingChange = (field, value) => {
         setShippingDetails(prev => {
+            // Handle weight unit conversions - always store as kg internally
+            if (field === 'weightUnit') {
+                const currentWeight = prev.weight;
+                let convertedWeight = currentWeight;
+                
+                // Convert from previous unit to kg
+                if (currentWeight) {
+                    if (value === 'g' && prev.weightUnit === 'kg') {
+                        // kg to g
+                        convertedWeight = currentWeight * 1000;
+                    } else if (value === 'lb' && prev.weightUnit === 'kg') {
+                        // kg to lb
+                        convertedWeight = currentWeight * 2.20462;
+                    } else if (value === 'kg' && prev.weightUnit === 'g') {
+                        // g to kg
+                        convertedWeight = currentWeight / 1000;
+                    } else if (value === 'kg' && prev.weightUnit === 'lb') {
+                        // lb to kg
+                        convertedWeight = currentWeight / 2.20462;
+                    } else if (value === 'g' && prev.weightUnit === 'lb') {
+                        // lb to g
+                        convertedWeight = (currentWeight / 2.20462) * 1000;
+                    } else if (value === 'lb' && prev.weightUnit === 'g') {
+                        // g to lb
+                        convertedWeight = (currentWeight / 1000) * 2.20462;
+                    }
+                }
+                
+                return {
+                    ...prev,
+                    weightUnit: value,
+                    weight: convertedWeight ? parseFloat(convertedWeight.toFixed(2)) : currentWeight
+                };
+            }
+            
             if (field.includes('.')) {
                 const [parent, child] = field.split('.');
                 return {
@@ -329,6 +370,45 @@ const AddProduct = () => {
         setUpcNumber(generateUPC());
     }, [generateSKU, generateUPC]);
 
+    // Add search function
+    const searchCategories = async (query) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const response = await axios.get(`${BASE_URL}/public/categories/search`, {
+                params: { query }
+            });
+
+            if (response.data.success) {
+                setSearchResults(response.data.results);
+            }
+        } catch (error) {
+            console.error('Error searching categories:', error);
+            toast.error('Failed to search categories');
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    // Debounce search function
+    const debouncedSearch = useCallback(
+        debounce((query) => {
+            if (query.trim()) {
+                searchCategories(query);
+            }
+        }, 400),
+        []
+    );
+
+    // Update search when query changes
+    useEffect(() => {
+        debouncedSearch(categorySearchQuery);
+    }, [categorySearchQuery, debouncedSearch]);
+
     //submit product
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
@@ -439,13 +519,21 @@ const AddProduct = () => {
                 });
             }
 
+            // When creating productData, ensure weight is in kg
+            let weightInKg = Number(shippingDetails.weight) || 10;
+            if (shippingDetails.weightUnit === 'g') {
+                weightInKg = Number(shippingDetails.weight) / 1000;
+            } else if (shippingDetails.weightUnit === 'lb') {
+                weightInKg = Number(shippingDetails.weight) / 2.20462;
+            }
+            
             // Create the product data object
             const productData = {
                 name: title,
                 description: description,
                 price: Number(shippingDetails.pricing),
                 salePrice: Number(shippingDetails.salePrice),
-                weight: Number(shippingDetails.weight) || 10,
+                weight: weightInKg, // Always store weight in kg
                 stock: productStatus === 'offline_auction' ? 1 : Number(shippingDetails.inventory),
                 condition: shippingDetails.condition,
                 status: productStatus,
@@ -453,14 +541,14 @@ const AddProduct = () => {
                 subCategory: selectedSubCategory,
                 sku: skuNumber,
                 upc: upcNumber,
-                brand: brand,
+                brand: brand, // Still include brand even if optional
                 variants: processedVariants,
                 images: processedImages,
                 blips: processedBlips,
                 shippingInfo: {
                     weight: {
-                        value: Number(shippingDetails.weight),
-                        unit: shippingDetails.weightUnit
+                        value: weightInKg, // Weight in kg
+                        unit: 'kg' // Always set to kg
                     },
                     dimensions: {
                         length: Number(shippingDetails.dimensions.length) || 10,
@@ -507,7 +595,7 @@ const AddProduct = () => {
             if (!shippingDetails.condition) missingFields.push('Product condition');
             if (!selectedCategory) missingFields.push('Product category');
             if (!selectedSubCategory) missingFields.push('Product sub-category');
-            if (!brand) missingFields.push('Product brand');
+            // Removed brand name validation as it's now optional
 
             // Add auction-specific validations
             if (productStatus === 'offline_auction') {
@@ -581,8 +669,15 @@ const AddProduct = () => {
             setVideos([]);
             setProductStatus('active');
             // setProductSpecs({}); // Reset specifications
+            
+            // Add navigation to products page
+            toast.success("Product added successfully!");
+            navigate("/dashboard/products");
+            
+            // Reset the response state so it doesn't trigger again if we come back
+            dispatch(resetResponse());
         }
-    }, [response])
+    }, [response, navigate, dispatch])
 
     const handleRemoveImage = (indexToRemove) => {
         setImages(prev => {
@@ -898,27 +993,137 @@ const AddProduct = () => {
                                 <div className="flex lg:hidden flex-col gap-4">
                                     <div className="space-y-2">
                                         <RequiredLabel>Category</RequiredLabel>
-                                        <Select
-                                            value={selectedCategory}
-                                            onValueChange={(value) => {
-                                                setSelectedCategory(value);
-                                                setSelectedSubCategory(''); // Reset subcategory when category changes
-                                            }}
-                                        >
-                                            <SelectTrigger className="rounded-full">
-                                                <SelectValue placeholder="Choose a category..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {categories.map((category) => (
-                                                    <SelectItem
-                                                        key={category._id}
-                                                        value={category.name}
-                                                    >
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="relative">
+                                            <Select
+                                                value={selectedCategory}
+                                                onValueChange={(value) => {
+                                                    setSelectedCategory(value);
+                                                    setSelectedSubCategory(''); // Reset subcategory when category changes
+                                                }}
+                                            >
+                                                <SelectTrigger className="w-full rounded-full">
+                                                    <SelectValue>
+                                                        {selectedCategory || "Choose a category..."}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent className="w-[var(--radix-select-trigger-width)] max-h-[400px] overflow-hidden">
+                                                    <div className="sticky top-0 bg-white z-50 p-2 border-b shadow-sm">
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                value={categorySearchQuery}
+                                                                onChange={(e) => {
+                                                                    setCategorySearchQuery(e.target.value);
+                                                                    // Don't show loading state for empty queries
+                                                                    if (!e.target.value.trim()) {
+                                                                        setIsSearching(false);
+                                                                        setSearchResults([]);
+                                                                    }
+                                                                }}
+                                                                placeholder="Search categories..."
+                                                                className="w-full px-3 py-2 border border-[#02020238] rounded-full text-sm outline-none focus:border-[#0BB248] focus:ring-1 focus:ring-[#0BB248]"
+                                                            />
+                                                            {isSearching && (
+                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                                    <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
+                                                                </div>
+                                                            )}
+                                                            {!isSearching && categorySearchQuery && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setCategorySearchQuery('');
+                                                                        setSearchResults([]);
+                                                                    }}
+                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded-full p-1"
+                                                                >
+                                                                    <Icon icon="heroicons:x-mark" className="w-4 h-4 text-gray-400" />
+                                                                </button>
+                                                            )}
+                                                            {!isSearching && !categorySearchQuery && (
+                                                                <Icon 
+                                                                    icon="heroicons:magnifying-glass" 
+                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="relative bg-white">
+                                                        <div className="pt-2 overflow-y-auto max-h-[300px]">
+                                                            {categorySearchQuery ? (
+                                                                // Show search results
+                                                                searchResults.length > 0 ? (
+                                                                    searchResults.map((category) => (
+                                                                        <div key={category._id} className="px-2 py-1">
+                                                                            <SelectItem 
+                                                                                value={category.name}
+                                                                                className="rounded-md cursor-pointer hover:bg-gray-50"
+                                                                            >
+                                                                                <div>
+                                                                                    <div className="font-medium">{category.name}</div>
+                                                                                    {category.matchingSubCategories.length > 0 && (
+                                                                                        <div className="text-xs text-gray-500 mt-1">
+                                                                                            <span className="text-gray-400">Subcategories: </span>
+                                                                                            {category.matchingSubCategories.map((sub, index) => (
+                                                                                                <button
+                                                                                                    key={sub.name}
+                                                                                                    className="text-[#0BB248] hover:underline"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.preventDefault();
+                                                                                                        e.stopPropagation();
+                                                                                                        setSelectedCategory(category.name);
+                                                                                                        setSelectedSubCategory(sub.name);
+                                                                                                        setCategorySearchQuery('');
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {sub.name}
+                                                                                                    {index < category.matchingSubCategories.length - 1 ? ', ' : ''}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
+                                                                        {isSearching ? (
+                                                                            <div className="flex items-center justify-center gap-2">
+                                                                                <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
+                                                                                <span>Searching...</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            'No categories found'
+                                                                        )}
+                                                                    </div>
+                                                                )
+                                                            ) : (
+                                                                // Show all categories with sections
+                                                                <div className="space-y-2">
+                                                                    {categories.map((category) => (
+                                                                        <div key={category._id} className="px-2 py-1">
+                                                                            <SelectItem
+                                                                                value={category.name}
+                                                                                className="rounded-md cursor-pointer hover:bg-gray-50"
+                                                                            >
+                                                                                <div className="flex items-center justify-between w-full">
+                                                                                    <span>{category.name}</span>
+                                                                                    {category.subCategories?.length > 0 && (
+                                                                                        <span className="text-xs text-gray-400">
+                                                                                            {category.subCategories.length} subcategories
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2">
@@ -932,14 +1137,17 @@ const AddProduct = () => {
                                                 <SelectValue placeholder="Choose a sub-category..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {getSubCategories(selectedCategory).map((subCategory) => (
-                                                    <SelectItem
-                                                        key={subCategory._id}
-                                                        value={subCategory.name}
-                                                    >
-                                                        {subCategory.name}
-                                                    </SelectItem>
-                                                ))}
+                                                <div className="py-2">
+                                                    {getSubCategories(selectedCategory).map((subCategory) => (
+                                                        <SelectItem
+                                                            key={subCategory._id}
+                                                            value={subCategory.name}
+                                                            className="rounded-md cursor-pointer"
+                                                        >
+                                                            {subCategory.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </div>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1495,27 +1703,137 @@ const AddProduct = () => {
                                         <div className="hidden lg:block space-y-2 ">
                                             <div className="space-y-2">
                                                 <RequiredLabel>Category</RequiredLabel>
-                                                <Select
-                                                    value={selectedCategory}
-                                                    onValueChange={(value) => {
-                                                        setSelectedCategory(value);
-                                                        setSelectedSubCategory(''); // Reset subcategory when category changes
-                                                    }}
-                                                >
-                                                    <SelectTrigger className="rounded-full">
-                                                        <SelectValue placeholder="Choose a category..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {categories.map((category) => (
-                                                            <SelectItem
-                                                                key={category._id}
-                                                                value={category.name}
-                                                            >
-                                                                {category.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <div className="relative">
+                                                    <Select
+                                                        value={selectedCategory}
+                                                        onValueChange={(value) => {
+                                                            setSelectedCategory(value);
+                                                            setSelectedSubCategory(''); // Reset subcategory when category changes
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="w-full rounded-full">
+                                                            <SelectValue>
+                                                                {selectedCategory || "Choose a category..."}
+                                                            </SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent className="w-[var(--radix-select-trigger-width)] max-h-[400px] overflow-hidden">
+                                                            <div className="sticky top-0 bg-white z-50 p-2 border-b shadow-sm">
+                                                                <div className="relative">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={categorySearchQuery}
+                                                                        onChange={(e) => {
+                                                                            setCategorySearchQuery(e.target.value);
+                                                                            // Don't show loading state for empty queries
+                                                                            if (!e.target.value.trim()) {
+                                                                                setIsSearching(false);
+                                                                                setSearchResults([]);
+                                                                            }
+                                                                        }}
+                                                                        placeholder="Search categories..."
+                                                                        className="w-full px-3 py-2 border border-[#02020238] rounded-full text-sm outline-none focus:border-[#0BB248] focus:ring-1 focus:ring-[#0BB248]"
+                                                                    />
+                                                                    {isSearching && (
+                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                                            <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
+                                                                        </div>
+                                                                    )}
+                                                                    {!isSearching && categorySearchQuery && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setCategorySearchQuery('');
+                                                                                setSearchResults([]);
+                                                                            }}
+                                                                            className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded-full p-1"
+                                                                        >
+                                                                            <Icon icon="heroicons:x-mark" className="w-4 h-4 text-gray-400" />
+                                                                        </button>
+                                                                    )}
+                                                                    {!isSearching && !categorySearchQuery && (
+                                                                        <Icon 
+                                                                            icon="heroicons:magnifying-glass" 
+                                                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="relative bg-white">
+                                                                <div className="pt-2 overflow-y-auto max-h-[300px]">
+                                                                    {categorySearchQuery ? (
+                                                                        // Show search results
+                                                                        searchResults.length > 0 ? (
+                                                                            searchResults.map((category) => (
+                                                                                <div key={category._id} className="px-2 py-1">
+                                                                                    <SelectItem 
+                                                                                        value={category.name}
+                                                                                        className="rounded-md cursor-pointer hover:bg-gray-50"
+                                                                                    >
+                                                                                        <div>
+                                                                                            <div className="font-medium">{category.name}</div>
+                                                                                            {category.matchingSubCategories.length > 0 && (
+                                                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                                                    <span className="text-gray-400">Subcategories: </span>
+                                                                                                    {category.matchingSubCategories.map((sub, index) => (
+                                                                                                        <button
+                                                                                                            key={sub.name}
+                                                                                                            className="text-[#0BB248] hover:underline"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.preventDefault();
+                                                                                                                e.stopPropagation();
+                                                                                                                setSelectedCategory(category.name);
+                                                                                                                setSelectedSubCategory(sub.name);
+                                                                                                                setCategorySearchQuery('');
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            {sub.name}
+                                                                                                            {index < category.matchingSubCategories.length - 1 ? ', ' : ''}
+                                                                                                        </button>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </SelectItem>
+                                                                                </div>
+                                                                            ))
+                                                                        ) : (
+                                                                            <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
+                                                                                {isSearching ? (
+                                                                                    <div className="flex items-center justify-center gap-2">
+                                                                                        <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
+                                                                                        <span>Searching...</span>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    'No categories found'
+                                                                                )}
+                                                                            </div>
+                                                                        )
+                                                                    ) : (
+                                                                        // Show all categories with sections
+                                                                        <div className="space-y-2">
+                                                                            {categories.map((category) => (
+                                                                                <div key={category._id} className="px-2 py-1">
+                                                                                    <SelectItem
+                                                                                        value={category.name}
+                                                                                        className="rounded-md cursor-pointer hover:bg-gray-50"
+                                                                                    >
+                                                                                        <div className="flex items-center justify-between w-full">
+                                                                                            <span>{category.name}</span>
+                                                                                            {category.subCategories?.length > 0 && (
+                                                                                                <span className="text-xs text-gray-400">
+                                                                                                    {category.subCategories.length} subcategories
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </SelectItem>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </div>
 
                                             <div className="space-y-2">
@@ -1529,21 +1847,24 @@ const AddProduct = () => {
                                                         <SelectValue placeholder="Choose a sub-category..." />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {getSubCategories(selectedCategory).map((subCategory) => (
-                                                            <SelectItem
-                                                                key={subCategory._id}
-                                                                value={subCategory.name}
-                                                            >
-                                                                {subCategory.name}
-                                                            </SelectItem>
-                                                        ))}
+                                                        <div className="py-2">
+                                                            {getSubCategories(selectedCategory).map((subCategory) => (
+                                                                <SelectItem
+                                                                    key={subCategory._id}
+                                                                    value={subCategory.name}
+                                                                    className="rounded-md cursor-pointer"
+                                                                >
+                                                                    {subCategory.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </div>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <RequiredLabel>Brand Name</RequiredLabel>
+                                            <Label>Brand Name</Label>
                                             <Input
                                                 value={brand}
                                                 onChange={(e) => setBrand(e.target.value)}

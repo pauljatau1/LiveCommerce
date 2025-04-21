@@ -43,7 +43,7 @@ const CreateLiveAuction = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // Comprehensive predefined tags grouped by category
+  // Comprehensive predefined tags grouped by categ
   const [searchTag, setSearchTag] = useState('');
   const [filteredTags, setFilteredTags] = useState([]);
   

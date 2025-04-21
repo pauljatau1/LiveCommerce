@@ -14,6 +14,40 @@ import 'react-phone-input-2/lib/style.css';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 import { TooltipProvider } from '../../Components/ui/tooltip';
 
+// Add phone number validation utilities
+const isValidNigerianPhoneNumber = (phone) => {
+  if (!phone) return false;
+  // Remove any spaces, dashes, or other characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // Check if it starts with Nigeria country code (234) or 0
+  const hasValidPrefix = cleanPhone.startsWith('234') || cleanPhone.startsWith('0');
+  
+  // Check if it has the correct length (13 with 234 prefix, or 11 with 0 prefix)
+  const hasValidLength = (cleanPhone.startsWith('234') && cleanPhone.length === 13) || 
+                        (cleanPhone.startsWith('0') && cleanPhone.length === 11);
+                        
+  return hasValidPrefix && hasValidLength;
+};
+
+// Add a new function to format the phone number for backend
+const formatPhoneForBackend = (phone) => {
+  if (!phone) return '';
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // If starts with 0, replace with 234
+  if (cleanPhone.startsWith('0')) {
+    return '234' + cleanPhone.slice(1);
+  }
+  
+  // If already starts with 234, return as is
+  if (cleanPhone.startsWith('234')) {
+    return cleanPhone;
+  }
+  
+  return cleanPhone;
+};
+
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { createSeller, isLoading, signUpSellerDetails, otpStatus, verifyOtp, requestNewOtp, unverifiedUser, dispatch } = useAuthContext();
@@ -56,6 +90,21 @@ const SignUpPage = () => {
   //function to submit the user data
   const submitUserData = async (event) => {
     event.preventDefault();
+    
+    // Validate phone number first
+    if (!isValidNigerianPhoneNumber(formData.phoneNumber)) {
+      toast.error('Please enter a valid Nigerian phone number', {
+        style: {
+          backgroundColor: '#425466',
+          color: '#F7FAFC',
+          fontFamily: 'Inter',
+          fontSize: '14px',
+          fontWeight: '400',
+        }
+      });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       //if passwords do not match, alert the user
       console.log('Passwords do not match');
@@ -84,8 +133,17 @@ const SignUpPage = () => {
       );
 
     } else {
+      // Format phone number before sending to backend
+      const formattedPhone = formatPhoneForBackend(formData.phoneNumber);
       //if the data is valid, create the seller
-      const result = await createSeller(formData.firstName, formData.lastName, formData.email, formData.password, formData.phoneNumber, formData.storeName);
+      const result = await createSeller(
+        formData.firstName, 
+        formData.lastName, 
+        formData.email, 
+        formData.password, 
+        formattedPhone, 
+        formData.storeName
+      );
       
       if (result !== false) {
         // Show OTP modal immediately after successful registration
@@ -283,23 +341,49 @@ const SignUpPage = () => {
                 <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>
                   Phone Number
                 </label>
-                <PhoneInput
-                  country={'ng'}
-                  value={formData.phoneNumber}
-                  onChange={(phone) => setFormData({ ...formData, phoneNumber: phone })}
-                  inputStyle={{
-                    width: '100%',
-                    height: '48px',
-                    fontSize: '14px',
-                    borderRadius: '6px',
-                    border: 'transparent',
-                    backgroundColor: 'white'
-                  }}
-                  containerStyle={{
-                    width: '100%'
-                  }}
-                  inputClass="focus:outline-none bg-[#FFFFFF] shadow-sm shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <PhoneInput
+                        country={'ng'}
+                        value={formData.phoneNumber}
+                        onChange={(phone) => {
+                          setFormData({ ...formData, phoneNumber: phone });
+                          // Only show validation message when input loses focus and is invalid
+                          if (phone && phone.length >= 13 && !isValidNigerianPhoneNumber(phone)) {
+                            toast.error('Please enter a valid Nigerian phone number', {
+                              style: {
+                                backgroundColor: '#425466',
+                                color: '#F7FAFC',
+                                fontFamily: 'Inter',
+                                fontSize: '14px',
+                                fontWeight: '400',
+                              }
+                            });
+                          }
+                        }}
+                        inputStyle={{
+                          width: '100%',
+                          height: '48px',
+                          fontSize: '14px',
+                          borderRadius: '6px',
+                          border: 'transparent',
+                          backgroundColor: 'white'
+                        }}
+                        containerStyle={{
+                          width: '100%'
+                        }}
+                        inputClass="focus:outline-none bg-[#FFFFFF] shadow-sm shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                        onlyCountries={['ng']}
+                        disableCountryCode={false}
+                        countryCodeEditable={false}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                    <p>Enter a valid Nigerian phone number</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="flex flex-col gap-2 w-full mb-4">
                 <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>
@@ -367,16 +451,27 @@ const SignUpPage = () => {
                   id="terms"
                   className="mt-1"
                 />
-                <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
-                  By creating an account means you agree to the{' '}
-                  <Link className="text-[#425466] font-bold hover:underline">
-                    Terms and Conditions
-                  </Link>
-                  , and our{' '}
-                  <Link className="text-[#425466] font-bold hover:underline">
-                    Privacy Policy
-                  </Link>
-                </label>
+               <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
+  By creating an account means you agree to the{' '}
+  <Link
+    to="https://www.auqli.live/privacy-policy"
+    className="text-[#425466] font-bold hover:underline"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Terms and Conditions
+  </Link>
+  , and our{' '}
+  <Link
+    to="https://www.auqli.live/terms"
+    className="text-[#425466] font-bold hover:underline"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Privacy Policy
+  </Link>
+</label>
+
               </div>
 
               <button

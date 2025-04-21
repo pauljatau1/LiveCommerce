@@ -92,6 +92,7 @@ export default function StoreSettings() {
       exchangePolicy: "",
       allowsCod: false
     },
+    offersStorePickup: false,
     accountType: "",
     businessName: "",
     businessType: "",
@@ -140,7 +141,7 @@ export default function StoreSettings() {
           Authorization: `Bearer ${sellerToken}`,
         },
       });
-      
+  
       if (response.ok) {
         const data = await response.json();
         setFormData({
@@ -184,6 +185,7 @@ export default function StoreSettings() {
             exchangePolicy: "",
             allowsCod: data.storePolicy?.allowsCod || false
           },
+          offersStorePickup: data.offersStorePickup || false, // Set initial value here
           accountType: data.accountType || "",
           businessName: data.businessName || "",
           businessType: data.businessType || "",
@@ -195,12 +197,12 @@ export default function StoreSettings() {
             tiktok: data.socialMedia?.tiktok || ""
           },
         });
-        
+  
         // Set store avatar if exists
         if (data.storeAvatar?.url) {
           setStoreAvatar(data.storeAvatar.url);
         }
-
+  
         // Set store banner if exists
         if (data.storeBanner?.url) {
           setStoreBanner(data.storeBanner.url);
@@ -210,6 +212,7 @@ export default function StoreSettings() {
       toast.error("Failed to fetch store data");
     }
   };
+  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -613,7 +616,9 @@ export default function StoreSettings() {
     setUpdatingSection(prev => ({ ...prev, storePolicy: true }));
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/store-policy`, {
+      
+      // First update store policy
+      const policyResponse = await fetch(`${BASE_URL}/seller/store-policy`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -622,7 +627,22 @@ export default function StoreSettings() {
         body: JSON.stringify(formData.storePolicy),
       });
 
-      if (!response.ok) throw new Error("Failed to update store policy");
+      if (!policyResponse.ok) throw new Error("Failed to update store policy");
+
+      // Then update store pickup setting
+      const pickupResponse = await fetch(`${BASE_URL}/seller/store-pickup`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sellerToken}`,
+        },
+        body: JSON.stringify({
+          offersStorePickup: formData.offersStorePickup
+        }),
+      });
+
+      if (!pickupResponse.ok) throw new Error("Failed to update store pickup setting");
+      
       return true;
     } catch (error) {
       toast.error("Error updating store policy");
@@ -1047,6 +1067,28 @@ export default function StoreSettings() {
                     <Select
                       value={formData.storePolicy.allowsCod ? "true" : "false"}
                       onValueChange={(value) => handleStorePolicyChange('allowsCod', value === 'true')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem> 
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Add Store Pickup Option */}
+                  <div className="space-y-2">
+                    <Label>Store Pickup Available</Label>
+                    <Select
+                      value={formData.offersStorePickup ? "true" : "false"}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          offersStorePickup: value === 'true'
+                        }));
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select option" />
