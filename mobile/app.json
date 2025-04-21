@@ -2,7 +2,7 @@
   "expo": {
     "name": "auqli",
     "slug": "auqli-app",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/appstore.png",
     "scheme": "myapp",
@@ -16,7 +16,7 @@
     "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.auqli.app",
+      "bundleIdentifier": "com.auqli.auqliapp",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
