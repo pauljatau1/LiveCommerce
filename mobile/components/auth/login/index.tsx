@@ -248,8 +248,8 @@ const Login = () => {
                         </Text>
                       </View>
                       <View className="h-px flex-1 bg-primary-100" />
-                    </View>
-                    <CustomButton
+                    </View> */}
+                    {/* <CustomButton
                       textVariant="success"
                       title="Continue with Google"
                       className=" mt-[18px] !rounded border border-primary items-center justify-center !bg-white !text-black-100"
