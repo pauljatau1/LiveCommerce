@@ -30,6 +30,7 @@ import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
 import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
+import LoadingModal from "@/components/global/loading-modal";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -169,7 +170,7 @@ const Login = () => {
   //   }
   // };
 
-  useEffect(() => { }, []);
+  useEffect(() => {}, []);
 
   return (
     <>
@@ -234,7 +235,7 @@ const Login = () => {
                       onPress={onSubmit}
                       className="mb-4 mt-[18px] !rounded !text-white text-sm font-LexendDecaBold"
                       disabled={isLoading || !isValid}
-                      loading={isLoading}
+                      // loading={isLoading}
                     >
                       Log in
                     </CustomButton>
@@ -298,6 +299,7 @@ const Login = () => {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+        <LoadingModal isVisible={isLoading} />
       </SafeAreaView>
     </>
   );

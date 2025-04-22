@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity, Image, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import { toast } from "@/core/toast";
+import { Image } from "expo-image";
 
 const CartSheet = ({
   productDetails,
@@ -96,8 +97,12 @@ const CartSheet = ({
                   selectedVariant?.images[0]?.data) ||
                 productDetails?.images[0]?.url,
             }}
-            resizeMode="cover"
-            className="w-[79px] h-[74px] rounded-[8px]"
+            contentFit="cover"
+            style={{
+              width: 79,
+              height: 74,
+              borderRadius: 8,
+            }}
           />
           <View className="gap-[2px]">
             <Text className="text-white text-[22px] font-LexendDecaMedium">
@@ -156,8 +161,14 @@ const CartSheet = ({
                     uri:
                       variant?.images[0]?.data || productDetails.images[0].url,
                   }}
-                  resizeMode="cover"
-                  className="w-[79px] h-[74px] bg-white p-[1px] self-center"
+                  contentFit="cover"
+                  style={{
+                    width: 79,
+                    height: 74,
+                    backgroundColor: "white",
+                    padding: 1,
+                    alignSelf: "center",
+                  }}
                 />
                 <View className="bg-white p-[2px] items-center justify-center border-t-[1px] border-[#9f9f9f]">
                   <Text className="text-black text-[11px] font-LexendDecaMedium">

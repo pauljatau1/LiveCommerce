@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
 import CustomButton from "../button/CustomButton";
@@ -14,6 +14,7 @@ import { getToken } from "@/store/features/auth/utils";
 import AddedToCart from "@/components/product/productAddedToCart";
 import CartSheet from "@/components/product/productCartSheet";
 import { formatNumber } from "@/helpers/helpers";
+import { Image } from "expo-image";
 
 const ProductCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -99,8 +100,12 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                 }
               : images.diamondsImage
           }
-          resizeMode="cover"
-          className="w-[100%] h-[157px]"
+          contentFit="cover"
+          // className="w-[100%] h-[157px]"
+          style={{
+            width: "100%",
+            height: 157,
+          }}
         />
       )}
       {/* Product Details */}
@@ -145,7 +150,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                 ? { uri: moreDetails?.seller?.storeAvatar.url }
                 : require("../../../assets/icons/user-image-empty.png")
             }
-            resizeMode="contain"
+            contentFit="contain"
             style={{
               width: 20,
               height: 20,

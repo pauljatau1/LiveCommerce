@@ -5,7 +5,6 @@ import {
   ScrollView,
   Dimensions,
   TouchableOpacity,
-  Image,
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
@@ -54,6 +53,7 @@ import { Octicons } from "@expo/vector-icons";
 import CartSheet from "@/components/product/productCartSheet";
 import AddedToCart from "@/components/product/productAddedToCart";
 import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
+import { Image } from "expo-image";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -586,7 +586,7 @@ const ProductDescription = () => {
             >
               <Image
                 source={require("../../../assets/icons/cart.png")}
-                resizeMode="cover"
+                contentFit="cover"
                 style={{
                   width: 25,
                   height: 25,
@@ -640,6 +640,7 @@ const ProductDescription = () => {
                       loop
                       width={width}
                       height={400}
+                      enabled={productDetails?.images?.length > 1}
                       // autoPlay={true}
                       data={productDetails.images}
                       scrollAnimationDuration={200}
@@ -653,8 +654,11 @@ const ProductDescription = () => {
                         <View>
                           <Image
                             source={{ uri: item.url || "" }}
-                            className="w-full h-[400px]"
-                            style={{ resizeMode: "contain" }}
+                            style={{
+                              width: "100%",
+                              height: 400,
+                              contentFit: "contain",
+                            }}
                           />
                           <View
                             style={{
@@ -722,7 +726,7 @@ const ProductDescription = () => {
                         <Image
                           source={require("../../../assets/icons/verified.png")}
                           style={{
-                            resizeMode: "contain",
+                            contentFit: "contain",
                             width: 20,
                             height: 20,
                           }}
@@ -923,7 +927,7 @@ const ProductDescription = () => {
                           style={{
                             width: 23,
                             height: 23,
-                            resizeMode: "contain",
+                            contentFit: "contain",
                           }}
                         />
                       </View>
@@ -987,7 +991,7 @@ const ProductDescription = () => {
                           style={{
                             width: 23,
                             height: 23,
-                            resizeMode: "contain",
+                            contentFit: "contain",
                           }}
                         />
                       </View>
@@ -1055,7 +1059,7 @@ const ProductDescription = () => {
                           style={{
                             width: 23,
                             height: 23,
-                            resizeMode: "contain",
+                            contentFit: "contain",
                           }}
                         />
                       </View>
@@ -1093,7 +1097,7 @@ const ProductDescription = () => {
                             style={{
                               width: 32,
                               height: 32,
-                              resizeMode: "contain",
+                              contentFit: "contain",
                               borderRadius: 32,
                             }}
                           />
@@ -1105,7 +1109,7 @@ const ProductDescription = () => {
                               <Image
                                 source={require("../../../assets/icons/verified.png")}
                                 style={{
-                                  resizeMode: "contain",
+                                  contentFit: "contain",
                                   width: 16,
                                   height: 16,
                                 }}

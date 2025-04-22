@@ -377,11 +377,15 @@ const VideoItem = ({
                   },
                   styles.imageShadow,
                 ]}
+                containerStyle={{
+                  borderRadius: 31,
+                }}
                 glassStyle={{
                   width: 31,
                   height: 31,
                   borderRadius: 31,
                 }}
+                showActivityIndicator={false}
                 placeholderColor="rgba(255, 255, 255, 0.1)"
                 tint="dark"
                 blurIntensity={25}
@@ -453,14 +457,21 @@ const VideoItem = ({
           </View>
           <View
             className="flex-row items-center justify-center px-[4px] py-[2px] gap-[4px] rounded-[8px]"
-            style={{
-              backgroundColor: "rgba(0,0,0,0.8)",
-            }}
+            style={
+              {
+                // backgroundColor: "rgba(0,0,0,0.8)",
+              }
+            }
           >
-            <Ionicons name="eye-outline" size={16} color="#EFF0FA" />
+            <Ionicons
+              name="eye-outline"
+              size={16}
+              color="#EFF0FA"
+              style={styles.buttonShadow}
+            />
             <Text
               className="font-LexendDeca text-[12px]"
-              style={{ color: "#EFF0FA" }}
+              style={[{ color: "#EFF0FA" }, styles.text]}
             >
               {formatNumber(engagement?.views || 0)}
             </Text>
@@ -573,15 +584,18 @@ const VideoItem = ({
                     height: 40,
                     borderRadius: 4,
                   }}
+                  containerStyle={{
+                    borderRadius: 4,
+                  }}
                   glassStyle={{
                     width: 40,
                     height: 40,
                     borderRadius: 4,
                   }}
+                  showActivityIndicator={false}
                   placeholderColor="rgba(255, 255, 255, 0.1)"
                   tint="dark"
                   blurIntensity={25}
-                  
                 />
                 <View className="shrink justify-between gap-[4px]">
                   <Text

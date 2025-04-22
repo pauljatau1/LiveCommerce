@@ -1,5 +1,6 @@
 import React from "react";
-import { FlatList, View, Image, Text, Dimensions } from "react-native";
+import { FlatList, View, Text, Dimensions } from "react-native";
+import { Image } from "expo-image";
 import useCarousel from "@/hooks/useCarousel";
 import CustomButton from "@/components/global/button/CustomButton";
 import { data } from "@/constants";

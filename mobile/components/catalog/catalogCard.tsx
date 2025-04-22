@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
 import CustomButton from "../global/button/CustomButton";
@@ -14,6 +14,7 @@ import AuthSheet from "../auth/authSheet";
 import AddedToCart from "../product/productAddedToCart";
 import CartSheet from "../product/productCartSheet";
 import { formatNumber } from "@/helpers/helpers";
+import { Image } from "expo-image";
 
 const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -96,8 +97,12 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                 }
               : images.diamondsImage
           }
-          resizeMode="cover"
-          className="w-[100%] h-[157px]"
+          contentFit="cover"
+          // className="w-[100%] h-[157px]"
+          style={{
+            width: "100%",
+            height: 157,
+          }}
         />
       )}
       {/* Product Details */}
@@ -142,7 +147,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                 ? { uri: moreDetails?.seller?.storeAvatar.url }
                 : require("../../assets/icons/user-image-empty.png")
             }
-            resizeMode="contain"
+            contentFit="contain"
             style={{
               width: 20,
               height: 20,
@@ -340,7 +345,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
 //                 (selectedVariant?.images && selectedVariant?.images[0]?.data) ||
 //                 productDetails?.images[0]?.url,
 //             }}
-//             resizeMode="cover"
+//             contentFit="cover"
 //             className="w-[79px] h-[74px] rounded-[8px]"
 //           />
 //           <View className="gap-[2px]">
@@ -400,7 +405,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
 //                     uri:
 //                       variant?.images[0]?.data || productDetails.images[0].url,
 //                   }}
-//                   resizeMode="cover"
+//                   contentFit="cover"
 //                   className="w-[79px] h-[74px] bg-white p-[1px] self-center"
 //                 />
 //                 <View className="bg-white p-[2px] items-center justify-center border-t-[1px] border-[#9f9f9f]">
@@ -472,7 +477,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
 //       <View className="flex-row gap-[16px] bg-white p-[8px] rounded-[8px] mb-[20px] items-center ">
 //         <Image
 //           source={{ uri: cartData?.images[0]?.url }}
-//           resizeMode="cover"
+//           contentFit="cover"
 //           style={{ width: 73, height: 73, borderRadius: 4 }}
 //         />
 //         <View className="justify-between py-2 gap-[20px] shrink">
