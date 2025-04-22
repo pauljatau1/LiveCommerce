@@ -24,6 +24,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch } from "react-redux";
 import { signIn } from "@/store/features/auth/authSlice";
 import { Skeleton } from "@rneui/themed";
+import { AntDesign } from "@expo/vector-icons";
 
 type FormData = {
   selectedCategories: {
@@ -191,6 +192,9 @@ const Categories = () => {
         <TouchableOpacity
           onPress={() => toggleCategory(item.id, item.name)}
           className="rounded-md overflow-visible relative w-full shrink h-[173px]"
+          style={{
+            overflow: "visible",
+          }}
           activeOpacity={0.5}
         >
           <Image
@@ -198,11 +202,27 @@ const Categories = () => {
             className="rounded-md border-[0.6px] border-gray-200 h-full opacity-50"
             resizeMode="cover"
           />
-          {selectedCategories.find((val) => val.name == item.name) && (
-            <Image
-              source={images.checkmarkIcon}
-              className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
-            />
+          {selectedCategories.some((val) => val.name == item.name) && (
+            <View
+              className="bg-white"
+              style={{
+                position: "absolute",
+                top: -10,
+                right: -10,
+                borderRadius: 11,
+                width: 22,
+                height: 22,
+              }}
+            >
+              <AntDesign
+                name="checkcircle"
+                size={22}
+                color="#16783A"
+                style={{
+                  alignSelf: "center",
+                }}
+              />
+            </View>
           )}
           <Text className=" font-LexendDecaSemiBold text-white absolute bottom-3 text-lg px-[8.41px]">
             {item.name}
@@ -225,7 +245,7 @@ const Categories = () => {
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full bg-black">
-        <View className="flex-1 px-[24px]">
+        <View className="flex-1">
           <FlatList
             data={categoriesData}
             numColumns={2}
@@ -236,6 +256,8 @@ const Categories = () => {
               justifyContent: "center",
               columnGap: 18,
               paddingVertical: 10,
+              overflow: "visible",
+              paddingHorizontal: 16,
             }}
             renderItem={renderCategoryCards}
             showsVerticalScrollIndicator={false}

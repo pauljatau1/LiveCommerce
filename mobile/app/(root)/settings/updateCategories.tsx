@@ -26,7 +26,7 @@ import { Skeleton } from "@rneui/themed";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import CustomButton from "@/components/global/button/CustomButton";
 import BottomSheet from "@/components/global/bottom-sheet";
-import { Entypo } from "@expo/vector-icons";
+import { AntDesign, Entypo } from "@expo/vector-icons";
 import { setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import { RootState } from "@/store";
@@ -53,6 +53,7 @@ const Categories = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [subCategories, setSubCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [strippedCategories, setStrippedCategories] = useState<any[]>([]);
 
   const selectedCategories = watch("selectedCategories");
   const [uploadCategories, { isLoading }] = useUploadCategoriesMutation();
@@ -88,7 +89,6 @@ const Categories = () => {
           ?.name || null,
       );
     } else {
-      setSelectedCategory(title);
       const subCategories =
         categoriesData?.find((category: any) => category.name === title)
           ?.subCategories || [];
@@ -100,36 +100,8 @@ const Categories = () => {
           subCategories,
         },
       ]);
+      setSelectedCategory(title);
     }
-  };
-
-  const addSubCategory = (categoryName: string, subCategoryName: string) => {
-    const updatedCategories = [...selectedCategories];
-    const categoryIndex = updatedCategories.findIndex(
-      (category) => category.name === categoryName,
-    );
-
-    if (categoryIndex !== -1) {
-      const category = updatedCategories[categoryIndex];
-      const isAlreadyAdded = category.subCategories.some(
-        (sub) => sub.name === subCategoryName,
-      );
-
-      if (isAlreadyAdded) {
-        category.subCategories = category.subCategories.filter(
-          (sub) => sub.name !== subCategoryName,
-        );
-      } else {
-        category.subCategories.push({ name: subCategoryName });
-      }
-    } else {
-      updatedCategories.push({
-        name: categoryName,
-        subCategories: [{ name: subCategoryName }],
-      });
-    }
-
-    setValue("selectedCategories", updatedCategories);
   };
 
   const handleContinue = async (data: FormData) => {
@@ -211,12 +183,31 @@ const Categories = () => {
     getSelectedCategories();
   }, []);
 
+  // useEffect(() => {
+  //   if (categoriesData) {
+  //     setStrippedCategories(
+  //       categoriesData?.map((cat: any) => ({
+  //         _id: cat._id,
+  //         name: cat?.name,
+  //         image: {
+  //           url: cat.image.url,
+  //         },
+  //       })),
+  //     );
+  //   }
+  // }, [categoriesData]);
+
   const renderCategoryCards = useCallback(
     ({ item }: any) => {
+      console.log("selected category ", selectedCategory);
+
       return (
         <TouchableOpacity
           onPress={() => toggleCategory(item.id, item.name)}
           className="rounded-md overflow-visible relative w-full shrink h-[173px]"
+          style={{
+            overflow: "visible",
+          }}
           activeOpacity={0.5}
         >
           <Image
@@ -224,11 +215,32 @@ const Categories = () => {
             className="rounded-md border-[0.6px] border-gray-200 h-full opacity-50"
             resizeMode="cover"
           />
-          {selectedCategories.find((val) => val.name == item.name) && (
-            <Image
-              source={images.checkmarkIcon}
-              className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
-            />
+          {selectedCategories.some((val) => val.name == item.name) && (
+            <View
+              className="bg-white"
+              style={{
+                position: "absolute",
+                top: -10,
+                right: -10,
+                borderRadius: 11,
+                width: 22,
+                height: 22,
+              }}
+            >
+              <AntDesign
+                name="checkcircle"
+                size={22}
+                color="#16783A"
+                style={{
+                  alignSelf: "center",
+                }}
+              />
+            </View>
+
+            // <Image
+            //   source={images.checkmarkIcon}
+            //   className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
+            // />
           )}
           <Text className=" font-LexendDecaSemiBold text-white absolute bottom-3 text-lg px-[8.41px]">
             {item.name}
@@ -236,7 +248,7 @@ const Categories = () => {
         </TouchableOpacity>
       );
     },
-    [categoriesData, selectedCategories],
+    [selectedCategory, selectedCategories],
   );
 
   const renderListHeader = useCallback(() => {
@@ -261,7 +273,7 @@ const Categories = () => {
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full bg-black">
-        <View className="flex-1 px-[24px]">
+        <View className="flex-1 ">
           <FlatList
             data={categoriesData}
             numColumns={2}
@@ -272,105 +284,19 @@ const Categories = () => {
               justifyContent: "center",
               columnGap: 18,
               paddingVertical: 10,
+              overflow: "visible",
+              paddingHorizontal: 16,
             }}
             renderItem={renderCategoryCards}
             showsVerticalScrollIndicator={false}
           />
-          <View className="mx-5 mt-5">
+          <View className="mx-5 mt-[10px]">
             <CustomButton
               title="Continue"
               onPress={handleSubmit(handleContinue)}
               disabled={!selectedCategory || isLoading}
-              className="mb-4 mt-[18px] bg-primary-100 !rounded !text-white text-sm font-LexendDecaBold"
+              className="mb-4 bg-primary-100 !rounded !text-white text-sm font-LexendDecaBold"
             />
-            {/* <CustomButton
-              title="Add Preference"
-              onPress={() => setShow(true)}
-              textVariant="success"
-              disabled={!selectedCategory || isLoading}
-              className="mb-16 mt-[18px] bg-transparent border border-[#16783A] !rounded text-sm font-LexendDecaBold"
-              IconLeft={() => (
-                <Image
-                  source={icons.addCircle}
-                  resizeMode="contain"
-                  className="mx-1"
-                />
-              )}
-            /> */}
-            <BottomSheet
-              bgColor="#3A3A3A"
-              childrenStyle="!px-[11px]"
-              showCloseIcon={false}
-              title="Sub Category"
-              show={show}
-              titleColor="!text-white"
-              keyboardBehavior="interactive"
-            >
-              <View className="rounded-t-3xl">
-                <FlatList
-                  data={subCategories}
-                  numColumns={2}
-                  columnWrapperStyle={{
-                    columnGap: 22,
-                    justifyContent: "space-between",
-                  }}
-                  keyExtractor={(item) => item._id}
-                  renderItem={({ item: subCategory }) => {
-                    const isSelected = selectedCategories.some(
-                      (category) =>
-                        category.name === selectedCategory &&
-                        category.subCategories.some(
-                          (sub) => sub.name === subCategory.name,
-                        ),
-                    );
-
-                    return (
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor: isSelected
-                            ? "#16783A"
-                            : "rgba(69, 193, 51, 0.15)",
-                          padding: 16,
-                          marginBottom: 26,
-                        }}
-                        className="rounded-[26.928px] flex-1 items-center flex-row justify-between px-[22px] text-center w-[168px] font-LexendDeca font-normal text-sm border-gray-200 border-[0.861px]"
-                        onPress={() =>
-                          addSubCategory(
-                            selectedCategory ||
-                              // selectedCategories[0]?.name ||
-                              "",
-                            subCategory.name,
-                          )
-                        }
-                      >
-                        <Text
-                          className={
-                            isSelected ? "text-white" : "text-gray-200"
-                          }
-                          style={{ fontSize: 14.362 }}
-                        >
-                          {subCategory.name}
-                        </Text>
-                        <Image
-                          source={
-                            isSelected
-                              ? icons.checkmarkCircleSelectIcon
-                              : icons.checkmarkCircleIcon
-                          }
-                        />
-                      </TouchableOpacity>
-                    );
-                  }}
-                />
-              </View>
-              <View className="mx-3">
-                <CustomButton
-                  title="Continue"
-                  onPress={() => setShow(false)}
-                  className="mb-8 mt-[18px] bg-primary-200 !rounded !text-white text-[14.512px] font-LexendDecaBold"
-                />
-              </View>
-            </BottomSheet>
           </View>
         </View>
       </SafeAreaView>
