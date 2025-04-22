@@ -54,6 +54,7 @@ import CommentsSheet from "./commentsSheet";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { EvilIcons, Fontisto } from "@expo/vector-icons";
+import { GlassImage } from "@/app/(root)/livestream/components";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -365,10 +366,10 @@ const VideoItem = ({
                 })
               }
             >
-              <Image
+              <GlassImage
                 source={{ uri: seller?.storeAvatar?.url }}
                 resizeMode="cover"
-                style={[
+                imageStyle={[
                   {
                     height: 31,
                     width: 31,
@@ -376,6 +377,14 @@ const VideoItem = ({
                   },
                   styles.imageShadow,
                 ]}
+                glassStyle={{
+                  width: 31,
+                  height: 31,
+                  borderRadius: 31,
+                }}
+                placeholderColor="rgba(255, 255, 255, 0.1)"
+                tint="dark"
+                blurIntensity={25}
               />
             </Pressable>
 
@@ -536,14 +545,23 @@ const VideoItem = ({
               onPress={() => setShowProduct(true)}
             >
               <View className="flex-row items-center gap-[12px]">
-                <Image
+                <GlassImage
                   source={{ uri: product?.image }}
                   resizeMode="cover"
-                  style={{
+                  imageStyle={{
                     width: 40,
                     height: 40,
                     borderRadius: 4,
                   }}
+                  glassStyle={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 4,
+                  }}
+                  placeholderColor="rgba(255, 255, 255, 0.1)"
+                  tint="dark"
+                  blurIntensity={25}
+                  
                 />
                 <View className="shrink justify-between gap-[4px]">
                   <Text
