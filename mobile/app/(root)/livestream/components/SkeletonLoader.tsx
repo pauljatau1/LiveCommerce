@@ -14,50 +14,12 @@ interface SkeletonLoaderProps {
  */
 export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type }) => {
     const insets = useSafeAreaInsets();
-    const breatheAnim = useRef(new Animated.Value(0)).current;
     
-    useEffect(() => {
-        // Start pulsing animation
-        const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(breatheAnim, {
-                    toValue: 1,
-                    duration: 1200,
-                    easing: Easing.ease,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(breatheAnim, {
-                    toValue: 0,
-                    duration: 1200,
-                    easing: Easing.ease,
-                    useNativeDriver: false,
-                }),
-            ])
-        );
-        
-        animation.start();
-        return () => animation.stop();
-    }, []);
     
     // Create staggered skeleton items
     const SkeletonItem = ({ index = 0, style = {} }: { index?: number, style?: any }) => {
-        // Stagger the animations slightly based on index
-        const delayFactor = index * 0.2;
-        const animatedOpacity = breatheAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.3, 0.7]
-        });
-
-        const pulseStyles = {
-            opacity: Animated.add(animatedOpacity, new Animated.Value(-delayFactor)).interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.7],
-                extrapolate: 'clamp'
-            })
-        };
-
         return (
-            <Animated.View style={[style, pulseStyles]} />
+            <Animated.View className='animate-pulse' style={style} />
         );
     };
 
@@ -183,7 +145,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 30,
         borderRadius: 15,
-        backgroundColor: 'rgba(22, 120, 58, 0.3)',
+        backgroundColor: 'rgba(22, 120, 58, 0.2)',
         marginLeft: 16,
     },
     viewerCountContainer: {

@@ -2079,7 +2079,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   inputWithButtonContainer: {
-    height: 47,
+    height: 50,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
