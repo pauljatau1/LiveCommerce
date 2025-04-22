@@ -472,12 +472,21 @@ const VideoItem = ({
               <TouchableOpacity
                 className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={handleLike}
-                style={styles.buttonShadow}
               >
                 {liked ? (
-                  <Fontisto name="heart" size={22} color="red" />
+                  <Fontisto
+                    name="heart"
+                    size={22}
+                    color="red"
+                    style={styles.buttonShadow}
+                  />
                 ) : (
-                  <Fontisto name="heart-alt" size={22} color="white" />
+                  <Fontisto
+                    name="heart-alt"
+                    size={22}
+                    color="white"
+                    style={styles.buttonShadow}
+                  />
                 )}
               </TouchableOpacity>
               <Text
@@ -491,10 +500,13 @@ const VideoItem = ({
               <TouchableOpacity
                 className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={() => setShowComments(true)}
-                style={styles.buttonShadow}
               >
-                <EvilIcons name="comment" size={36} color="white" />
-                {/* <Octicons name="comment" size={18} color="#14AE5C" /> */}
+                <EvilIcons
+                  name="comment"
+                  size={36}
+                  color="white"
+                  style={styles.buttonShadow}
+                />
               </TouchableOpacity>
               <Text
                 className="text-white text-[13px] font-LexendDecaMedium"
@@ -507,9 +519,13 @@ const VideoItem = ({
               <TouchableOpacity
                 className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={onShare}
-                style={styles.buttonShadow}
               >
-                <Ionicons name="arrow-redo-sharp" size={28} color="white" />
+                <Ionicons
+                  name="arrow-redo-sharp"
+                  size={28}
+                  color="white"
+                  style={styles.buttonShadow}
+                />
               </TouchableOpacity>
               <Text
                 className="text-white text-[12px] font-LexendDecaMedium"
@@ -522,9 +538,13 @@ const VideoItem = ({
               <TouchableOpacity
                 className=" rounded-[8px] w-[40px] items-center justify-center"
                 onPress={() => setShowShop(true)}
-                style={styles.buttonShadow}
               >
-                <SimpleLineIcons name="bag" size={24} color="white" />
+                <SimpleLineIcons
+                  name="bag"
+                  size={24}
+                  color="white"
+                  style={styles.buttonShadow}
+                />
               </TouchableOpacity>
               <Text
                 className="text-white text-[12px] font-LexendDecaMedium"
