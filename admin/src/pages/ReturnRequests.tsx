@@ -7,67 +7,121 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 
-export default function PickupRequests() {
-  const [requests, setRequests] = useState([]);
+const ReturnRequests = () => {
+  const [refundRequests, setRefundRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [adminNote, setAdminNote] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    fetchPickupRequests();
+    fetchRefundRequests();
   }, []);
 
-  const fetchPickupRequests = async () => {
+  const fetchRefundRequests = async () => {
     try {
-      const response = await api.get("/api/pickup");
-      setRequests(response.data.data.pickupRequests);
+      const response = await api.get("/api/returns/admin/refund-requests");
+      setRefundRequests(response.data.refundRequests);
     } catch (error) {
-      console.error("Error fetching pickup requests:", error);
-      toast.error("Failed to fetch pickup requests");
+      console.error("Error fetching refund requests:", error);
+      toast.error("Failed to fetch refund requests");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (id) => {
+  const handleApproveClick = (request) => {
+    setSelectedRequest(request);
+    setShowApproveDialog(true);
+  };
+
+  const handleApproveRefund = async () => {
     try {
       setIsProcessing(true);
-      const response = await api.post(`/api/pickup/${id}/approve`);
+      const response = await api.post(`/api/returns/${selectedRequest._id}/admin/process-refund`, {
+        action: 'approve',
+        note: adminNote
+      });
 
       if (response.status === 200) {
-        toast.success("Pickup request approved successfully");
-        fetchPickupRequests(); // Refresh the list
+        toast.success("Refund approved and processed successfully");
+        setShowApproveDialog(false);
+        fetchRefundRequests(); // Refresh the list
       }
     } catch (error) {
-      console.error("Error approving request:", error);
-      toast.error(error.response?.data?.message || "Failed to approve request");
+      console.error("Error processing refund:", error);
+      toast.error(error.response?.data?.message || "Failed to process refund");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDecline = async (id) => {
+  const handleRejectRefund = async (requestId) => {
     try {
-      setIsProcessing(true);
-      const response = await api.post(`/api/pickup/${id}/decline`);
+      const response = await api.post(`/api/returns/${requestId}/admin/process-refund`, {
+        action: 'reject',
+        note: 'Refund request rejected by admin'
+      });
 
       if (response.status === 200) {
-        toast.success("Pickup request declined successfully");
-        fetchPickupRequests(); // Refresh the list
+        toast.success("Refund request rejected");
+        fetchRefundRequests(); // Refresh the list
       }
     } catch (error) {
-      console.error("Error declining request:", error);
-      toast.error(error.response?.data?.message || "Failed to decline request");
-    } finally {
-      setIsProcessing(false);
+      console.error("Error rejecting refund:", error);
+      toast.error("Failed to reject refund request");
     }
   };
+
+  const renderApproveDialog = () => (
+    <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Approve Refund Request</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <p className="text-sm font-medium">Order ID: {selectedRequest?.order?.order_id}</p>
+            <p className="text-sm font-medium">Amount: ₦{selectedRequest?.sellerResponse?.partialRefundAmount}</p>
+            <p className="text-sm font-medium">Buyer: {selectedRequest?.buyer?.firstName} {selectedRequest?.buyer?.lastName}</p>
+            <Textarea
+              placeholder="Add a note (optional)"
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowApproveDialog(false)} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button onClick={handleApproveRefund} disabled={isProcessing}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve & Process Refund
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   if (loading) {
     return (
@@ -78,66 +132,78 @@ export default function PickupRequests() {
   }
 
   return (
-    <div className="container mx-auto py-10 text-white">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold tracking-tight">Pickup Requests</h2>
-      </div>
-
-      <div className="rounded-md border border-gray-700">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-white">Order Number</TableHead>
-              <TableHead className="text-white">Buyer Name</TableHead>
-              <TableHead className="text-white">Seller Name</TableHead>
-              <TableHead className="text-white">Product Name</TableHead>
-              <TableHead className="text-white">Status</TableHead>
-              <TableHead className="text-white">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((request) => (
-              <TableRow key={request._id}>
-                <TableCell className="text-white">{request.order.orderNumber}</TableCell>
-                <TableCell className="text-white">{`${request.buyer.firstName} ${request.buyer.lastName}`}</TableCell>
-                <TableCell className="text-white">{request.seller.storeName}</TableCell>
-                <TableCell className="text-white">{request.order.productName}</TableCell>
-                <TableCell>
-                  <Badge variant={
-                    request.status === 'approved' ? 'default' :
-                    request.status === 'declined' ? 'destructive' :
-                    'secondary'
-                  }>
-                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleApprove(request._id)}
-                      disabled={request.status !== 'pending' || isProcessing}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDecline(request._id)}
-                      disabled={request.status !== 'pending' || isProcessing}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Decline
-                    </Button>
-                  </div>
-                </TableCell>
+    <div className="p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Refund Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Buyer</TableHead>
+                <TableHead>Seller</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {refundRequests.map((request) => (
+                <TableRow key={request._id}>
+                  <TableCell>{request.order?.order_id}</TableCell>
+                  <TableCell>{request.buyer?.firstName} {request.buyer?.lastName}</TableCell>
+                  <TableCell>{request.seller?.businessName}</TableCell>
+                  <TableCell>₦{request.sellerResponse?.partialRefundAmount?.toLocaleString()}</TableCell>
+                  <TableCell>{request.sellerResponse?.message}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        request.status === "REFUNDED"
+                          ? "success"
+                          : request.status === "REJECTED"
+                          ? "destructive"
+                          : "default"
+                      }
+                    >
+                      {request.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(request.sellerResponse?.date).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {request.status === "PENDING_ADMIN_REVIEW" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleApproveClick(request)}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRejectRefund(request._id)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      {renderApproveDialog()}
     </div>
   );
-}
+};
+
+export default ReturnRequests; 

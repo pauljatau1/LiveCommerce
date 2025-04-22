@@ -179,6 +179,19 @@ function Sellers() {
   };
 
   const toggleVerification = async (sellerId: string) => {
+    const seller = sellers.find(s => s._id === sellerId);
+    if (!seller) return;
+
+    const missingDocuments = !seller.verificationDocuments?.documents?.length;
+    const invalidAccountType = !seller.accountType || seller.accountType === "N/A";
+    
+    if (missingDocuments || invalidAccountType) {
+      // Can't verify - show error
+      const reason = missingDocuments ? "Missing verification documents" : "Invalid account type";
+      console.error(`Cannot verify seller: ${reason}`);
+      return;
+    }
+    
     setUpdatingId(sellerId);
     try {
       await api.put(`/api/admin/sellers/${sellerId}/verify`);
@@ -268,7 +281,12 @@ function Sellers() {
     }
   };
 
-  const verificationButtons = (seller: Seller) => (
+  const verificationButtons = (seller: Seller) => {
+    const missingDocuments = !seller.verificationDocuments?.documents?.length;
+    const invalidAccountType = !seller.accountType || seller.accountType === "N/A";
+    const canVerify = !missingDocuments && !invalidAccountType;
+    
+    return (
     <div className="flex items-center gap-2">
       <Badge 
         variant="outline" 
@@ -291,8 +309,10 @@ function Sellers() {
             variant="outline"
             size="sm"
             onClick={() => toggleVerification(seller._id)}
-            disabled={updatingId === seller._id}
-            className="ml-2"
+            disabled={updatingId === seller._id || !canVerify}
+            title={missingDocuments ? "Cannot verify: Missing documents" : 
+                  invalidAccountType ? "Cannot verify: Invalid account type" : ""}
+            className={`ml-2 ${!canVerify ? "cursor-not-allowed opacity-50" : ""}`}
           >
             {updatingId === seller._id ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -314,7 +334,7 @@ function Sellers() {
         </>
       )}
     </div>
-  );
+  )};
 
   if (loading) {
     return (
@@ -599,6 +619,38 @@ function Sellers() {
                         </p>
                         <p>{selectedSeller.businessAddress.zipCode}</p>
                         <p>{selectedSeller.businessAddress.country}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification Status */}
+                  {!selectedSeller.isVerified && (
+                    <div className="bg-zinc-900 rounded-lg p-5 border border-zinc-800">
+                      <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5 text-zinc-400" />
+                        Verification Status
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 px-2 py-1">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 mt-3">
+                          {(!selectedSeller.accountType || selectedSeller.accountType === "N/A") && (
+                            <div className="flex items-center gap-2 text-sm text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              <span>Account type is not set or invalid</span>
+                            </div>
+                          )}
+                          {!selectedSeller.verificationDocuments?.documents?.length && (
+                            <div className="flex items-center gap-2 text-sm text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              <span>Missing verification documents</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

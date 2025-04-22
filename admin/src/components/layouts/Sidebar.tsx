@@ -3,6 +3,9 @@ import { cn } from '../../lib/utils';
 import { useSidebar } from '@/context/sidebarContext';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
+import { api } from '@/api/axios';
+import { Badge } from '@/components/ui/badge';
 
 import {
   LayoutDashboard,
@@ -23,24 +26,47 @@ import {
   Truck
 } from 'lucide-react';
 
+// Interface for simplified seller data
+interface SimpleSeller {
+  _id: string;
+  isVerified: boolean;
+}
+
+// Interface for simplified refund request data
+interface SimpleRefundRequest {
+  refundRequest: {
+    status: string;
+  }
+}
+
+// Interface for simplified withdrawal data
+interface SimpleWithdrawal {
+  status: string;
+}
+
+// Interface for simplified bank request stats
+interface BankRequestStats {
+  pending: number;
+}
+
 const mainLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Package, label: 'Products', path: '/dashboard/products' },
   { icon: Folder, label: 'Categories', path: '/dashboard/categories' },
-  { icon: Users, label: 'Sellers', path: '/dashboard/sellers' },
+  { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
-  { icon: RotateCcw, label: 'Refund Requests', path: '/dashboard/refund-requests' },
+  { icon: RotateCcw, label: 'Refund Req', path: '/dashboard/refund-requests', showPendingCount: true },
   { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },
-  { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals' },
+  { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals', showPendingCount: true },
   { icon: DollarSign, label: 'Payments', path: '/dashboard/payments' },
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },
   { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
   { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
   { icon: FileText, label: 'Return Requests', path: '/dashboard/return-requests' },
-  { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests' },
+  { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests', showPendingCount: true },
 ];
 
 const bottomLinks = [
@@ -51,6 +77,57 @@ const bottomLinks = [
 function Sidebar() {
   const location = useLocation();
   const { isOpen, close } = useSidebar();
+  const [pendingSellersCount, setPendingSellersCount] = useState(0);
+  const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
+  const [pendingBankRequestsCount, setPendingBankRequestsCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchPendingCounts();
+  }, []);
+
+  const fetchPendingCounts = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch pending sellers
+      const sellersResponse = await api.get("/api/admin/sellers");
+      const sellers = sellersResponse.data as SimpleSeller[];
+      const pendingSellers = sellers.filter(seller => !seller.isVerified).length;
+      setPendingSellersCount(pendingSellers);
+      
+      // Fetch pending refund requests
+      const refundsResponse = await api.get("/api/order/refund-requests");
+      const refundRequests = refundsResponse.data.refundRequests as SimpleRefundRequest[];
+      const pendingRefunds = refundRequests.filter(req => req.refundRequest.status === "pending").length;
+      setPendingRefundsCount(pendingRefunds);
+      
+      // Fetch pending withdrawals
+      const withdrawalsResponse = await api.get("/api/admin/withdrawals");
+      const withdrawals = withdrawalsResponse.data as SimpleWithdrawal[];
+      const pendingWithdrawals = withdrawals.filter(withdrawal => withdrawal.status === "pending").length;
+      setPendingWithdrawalsCount(pendingWithdrawals);
+      
+      // Fetch pending bank requests
+      const bankRequestsResponse = await api.get("/api/admin/bank-requests/stats");
+      const bankRequestStats = bankRequestsResponse.data.data as BankRequestStats;
+      setPendingBankRequestsCount(bankRequestStats.pending);
+      
+    } catch (err) {
+      console.error("Error fetching pending counts:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPendingCount = (path: string) => {
+    if (path === '/dashboard/sellers') return pendingSellersCount;
+    if (path === '/dashboard/refund-requests') return pendingRefundsCount;
+    if (path === '/dashboard/withdrawals') return pendingWithdrawalsCount;
+    if (path === '/dashboard/bankrequests') return pendingBankRequestsCount;
+    return 0;
+  };
 
   return (
     <>
@@ -80,12 +157,14 @@ function Sidebar() {
         <nav className="p-4 pt-6 md:pt-10 space-y-2 flex-grow overflow-y-auto">
           {mainLinks.map((link) => {
             const Icon = link.icon;
+            const pendingCount = link.showPendingCount ? getPendingCount(link.path) : 0;
+            
             return (
               <Link
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                  "flex items-center justify-between px-3 py-2 rounded-lg transition-colors",
                   "hover:bg-secondary hover:text-primary",
                   location.pathname === link.path ?
                     "bg-secondary text-primary" :
@@ -97,8 +176,24 @@ function Sidebar() {
                   }
                 }}
               >
-                <Icon className="h-5 w-5" />
-                <span>{link.label}</span>
+                <div className="flex items-center space-x-3">
+                  <Icon className="h-5 w-5" />
+                  <span>{link.label}</span>
+                </div>
+                {link.showPendingCount && pendingCount > 0 && (
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      "ml-2",
+                      link.path === '/dashboard/sellers' && "bg-yellow-500/20 hover:bg-yellow-500/20 text-yellow-400",
+                      link.path === '/dashboard/refund-requests' && "bg-orange-500/20 hover:bg-orange-500/20 text-orange-400",
+                      link.path === '/dashboard/withdrawals' && "bg-blue-500/20 hover:bg-blue-500/20 text-blue-400",
+                      link.path === '/dashboard/bankrequests' && "bg-purple-500/20 hover:bg-purple-500/20 text-purple-400"
+                    )}
+                  >
+                    {pendingCount}
+                  </Badge>
+                )}
               </Link>
             );
           })}
