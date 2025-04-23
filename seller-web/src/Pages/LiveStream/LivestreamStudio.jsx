@@ -526,34 +526,36 @@ const LivestreamStudio = () => {
                 try {
                     const container = document.getElementById(containerId);
                     if (!container) {
-                        console.log(`🔄 [TRACK] Container ${containerId} not found in DOM`);
+                        console.log(`📷 [STREAM INIT] Container ${containerId} not found in DOM`);
                         return false;
                     }
 
-                    // Check if the container is visible in the current view
-                    const isVisible = container.offsetParent !== null;
-                    console.log(`🔄 [TRACK] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
+                    // MORE RELIABLE CHECK: Use a MutationObserver approach
+                    const rect = container.getBoundingClientRect();
+                    const isVisible = !(rect.width === 0 && rect.height === 0);
+                    console.log(`📷 [STREAM INIT] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}, dimensions: ${rect.width}x${rect.height}`);
 
-                    // Play in this container
+                    // Play the video track in this container - even if hidden
+                    // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                fit: 'cover',
-                mirror: true
-            });
-                    console.log(`🔄 [TRACK] Video playing in ${containerId}`);
+                        fit: 'cover',
+                        mirror: true
+                    });
+                    console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
-                } catch (err) {
-                    console.error(`Error playing video in ${containerId}:`, err);
+                } catch (error) {
+                    console.error(`Error playing video in ${containerId}:`, error);
                     return false;
                 }
             };
 
             // First pass - try to play in both containers immediately
-            console.log('🔄 [TRACK 4/6] First attempt to play in both containers');
+            console.log('📷 [STREAM INIT] First attempt to play in both containers');
             const desktopSuccess = playVideoInContainer(desktopContainerId);
             const mobileSuccess = playVideoInContainer(mobileContainerId);
             
-            // Setup continuous monitoring of containers
-            console.log('🔄 [TRACK 5/6] Setting up container monitor');
+            // 10. Setup continuous monitoring of containers - more intelligent handling
+            console.log('📷 [STREAM INIT] Setting up container monitor');
             
             // Keep track of container states
             const containerStates = {
@@ -561,10 +563,116 @@ const LivestreamStudio = () => {
                 [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
             };
             
+            // Track window width for responsive design changes
+            let lastWidth = window.innerWidth;
+            let visibilityMonitorActive = false;
+            
+            // Listen for visibility changes (hidden/visible)
+            if (typeof document !== 'undefined' && document.addEventListener) {
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && isStreaming) {
+                        console.log('📷 [STREAM MONITOR] Document became visible, refreshing video in all containers');
+                        // Stop all tracks and then restart them
+                        videoTrack.stop();
+                        
+                        // Reset tracking states
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    }
+                });
+            }
+            
+            // Listen for window resize to detect responsive mode changes
+            if (typeof window !== 'undefined' && window.addEventListener) {
+                window.addEventListener('resize', () => {
+                    const currentWidth = window.innerWidth;
+                    const breakpoint = 1280; // 'xl' breakpoint
+                    
+                    // Only act if crossing the xl breakpoint
+                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) || 
+                        (lastWidth >= breakpoint && currentWidth < breakpoint)) {
+                        
+                        console.log(`📷 [STREAM MONITOR] Responsive breakpoint crossed: ${lastWidth} -> ${currentWidth}`);
+                        
+                        // Add a small delay to allow the DOM to update
+                        setTimeout(() => {
+                            // Stop the video track completely
+                            videoTrack.stop();
+                            
+                            // Reset tracking states
+                            Object.keys(containerStates).forEach(id => {
+                                containerStates[id].lastPlayed = 0;
+                            });
+                            
+                            // Try to play in the appropriate container based on new width
+                            if (currentWidth >= breakpoint) {
+                                playVideoInContainer(desktopContainerId);
+                            } else {
+                                playVideoInContainer(mobileContainerId);
+                            }
+                        }, 300);
+                    }
+                    
+                    lastWidth = currentWidth;
+                });
+            }
+            
+            // Setup page visibility check mechanism (MutationObserver)
+            const setupVisibilityMonitor = () => {
+                if (visibilityMonitorActive) return;
+                visibilityMonitorActive = true;
+                
+                // Watch for any DOM changes that might affect visibility
+                const observer = new MutationObserver((mutations) => {
+                    if (!isStreaming) {
+                        observer.disconnect();
+                        return;
+                    }
+                    
+                    const desktopElem = document.getElementById(desktopContainerId);
+                    const mobileElem = document.getElementById(mobileContainerId);
+                    const shouldRefresh = mutations.some(mutation => {
+                        return Array.from(mutation.addedNodes).some(node => 
+                            node.contains && (
+                                (desktopElem && node.contains(desktopElem)) || 
+                                (mobileElem && node.contains(mobileElem))
+                            )
+                        );
+                    });
+                    
+                    if (shouldRefresh) {
+                        console.log('📷 [STREAM MONITOR] DOM changed significantly, refreshing video');
+                        videoTrack.stop();
+                        
+                        // Reset tracking states
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    }
+                });
+                
+                // Watch for any changes to the DOM
+                observer.observe(document.body, { 
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['class', 'style', 'hidden']
+                });
+                
+                return observer;
+            };
+            
+            // Start visibility monitor
+            const observer = setupVisibilityMonitor();
+            
+            // Store for cleanup
+            window.videoObserver = observer;
+            
             // More aggressive container monitor - checks more frequently
             const containerMonitor = setInterval(() => {
                 // Only log every 10th iteration to reduce console spam
-                const shouldLog = Math.random() < 0.1; // 10% chance to log
+                const shouldLog = Math.random() < 0.05; // 5% chance to log
                 
                 // Check if we need to reset the video track occasionally
                 const now = Date.now();
@@ -600,40 +708,37 @@ const LivestreamStudio = () => {
                 const desktopElem = document.getElementById(desktopContainerId);
                 const mobileElem = document.getElementById(mobileContainerId);
                 
-                // First, check which containers exist and are visible
-                const desktopVisible = desktopElem && (window.innerWidth >= 1280 || desktopElem.offsetWidth > 0);
-                const mobileVisible = mobileElem && (window.innerWidth < 1280 || mobileElem.offsetWidth > 0);
-                
-                if (shouldLog) {
-                    console.log(`📷 [STREAM MONITOR] Desktop container: ${desktopElem ? 'exists' : 'missing'}, ${desktopVisible ? 'visible' : 'hidden'}`);
-                    console.log(`📷 [STREAM MONITOR] Mobile container: ${mobileElem ? 'exists' : 'missing'}, ${mobileVisible ? 'visible' : 'hidden'}`);
+                if (!desktopElem && !mobileElem) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] No video containers found in DOM');
+                    return;
                 }
                 
-                // If both are visible, we need special handling
-                if (desktopVisible && mobileVisible) {
-                    if (shouldLog) console.log('📷 [STREAM MONITOR] Both containers visible, handling special case');
-                    
-                    // First try to play in desktop
-                    if (playVideoInContainer(desktopContainerId)) {
-                        containerStates[desktopContainerId].lastPlayed = now;
-                    }
-                    
-                    // Then also play in mobile
-                    if (playVideoInContainer(mobileContainerId)) {
-                        containerStates[mobileContainerId].lastPlayed = now;
-                    }
-                } 
-                // Otherwise, try to play in whichever is visible
-                else {
-                    if (desktopVisible) {
+                // First, check which containers exist and should be visible based on screen width
+                const isDesktopWidth = window.innerWidth >= 1280; // 'xl' breakpoint
+                
+                // SPECIAL HANDLING: Try to play in the correct container based on viewport width
+                if (isDesktopWidth) {
+                    // Desktop width = try desktop container first
+                    if (desktopElem) {
                         if (playVideoInContainer(desktopContainerId)) {
                             containerStates[desktopContainerId].lastPlayed = now;
                         }
-                    }
-                    
-                    if (mobileVisible) {
+                    } else if (mobileElem) {
+                        // Fallback if desktop element doesn't exist
                         if (playVideoInContainer(mobileContainerId)) {
                             containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    }
+                } else {
+                    // Mobile width = try mobile container first
+                    if (mobileElem) {
+                        if (playVideoInContainer(mobileContainerId)) {
+                            containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    } else if (desktopElem) {
+                        // Fallback if mobile element doesn't exist
+                        if (playVideoInContainer(desktopContainerId)) {
+                            containerStates[desktopContainerId].lastPlayed = now;
                         }
                     }
                 }
@@ -1249,34 +1354,36 @@ const LivestreamStudio = () => {
                 try {
                     const container = document.getElementById(containerId);
                     if (!container) {
-                        console.log(`🔄 [TRACK] Container ${containerId} not found in DOM`);
+                        console.log(`📷 [STREAM INIT] Container ${containerId} not found in DOM`);
                         return false;
                     }
 
-                    // Check if the container is visible in the current view
-                    const isVisible = container.offsetParent !== null;
-                    console.log(`🔄 [TRACK] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
+                    // MORE RELIABLE CHECK: Use a MutationObserver approach
+                    const rect = container.getBoundingClientRect();
+                    const isVisible = !(rect.width === 0 && rect.height === 0);
+                    console.log(`📷 [STREAM INIT] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}, dimensions: ${rect.width}x${rect.height}`);
 
-                    // Play in this container
+                    // Play the video track in this container - even if hidden
+                    // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                fit: 'cover',
-                mirror: true
-            });
-                    console.log(`🔄 [TRACK] Video playing in ${containerId}`);
+                        fit: 'cover',
+                        mirror: true
+                    });
+                    console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
-                } catch (err) {
-                    console.error(`Error playing video in ${containerId}:`, err);
+                } catch (error) {
+                    console.error(`Error playing video in ${containerId}:`, error);
                     return false;
                 }
             };
 
             // First pass - try to play in both containers immediately
-            console.log('🔄 [TRACK 4/6] First attempt to play in both containers');
+            console.log('📷 [STREAM INIT] First attempt to play in both containers');
             const desktopSuccess = playVideoInContainer(desktopContainerId);
             const mobileSuccess = playVideoInContainer(mobileContainerId);
             
-            // Setup continuous monitoring of containers
-            console.log('🔄 [TRACK 5/6] Setting up container monitor');
+            // 10. Setup continuous monitoring of containers - more intelligent handling
+            console.log('📷 [STREAM INIT] Setting up container monitor');
             
             // Keep track of container states
             const containerStates = {
@@ -1284,10 +1391,116 @@ const LivestreamStudio = () => {
                 [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
             };
             
+            // Track window width for responsive design changes
+            let lastWidth = window.innerWidth;
+            let visibilityMonitorActive = false;
+            
+            // Listen for visibility changes (hidden/visible)
+            if (typeof document !== 'undefined' && document.addEventListener) {
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && isStreaming) {
+                        console.log('📷 [STREAM MONITOR] Document became visible, refreshing video in all containers');
+                        // Stop all tracks and then restart them
+                        videoTrack.stop();
+                        
+                        // Reset tracking states
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    }
+                });
+            }
+            
+            // Listen for window resize to detect responsive mode changes
+            if (typeof window !== 'undefined' && window.addEventListener) {
+                window.addEventListener('resize', () => {
+                    const currentWidth = window.innerWidth;
+                    const breakpoint = 1280; // 'xl' breakpoint
+                    
+                    // Only act if crossing the xl breakpoint
+                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) || 
+                        (lastWidth >= breakpoint && currentWidth < breakpoint)) {
+                        
+                        console.log(`📷 [STREAM MONITOR] Responsive breakpoint crossed: ${lastWidth} -> ${currentWidth}`);
+                        
+                        // Add a small delay to allow the DOM to update
+                        setTimeout(() => {
+                            // Stop the video track completely
+                            videoTrack.stop();
+                            
+                            // Reset tracking states
+                            Object.keys(containerStates).forEach(id => {
+                                containerStates[id].lastPlayed = 0;
+                            });
+                            
+                            // Try to play in the appropriate container based on new width
+                            if (currentWidth >= breakpoint) {
+                                playVideoInContainer(desktopContainerId);
+                            } else {
+                                playVideoInContainer(mobileContainerId);
+                            }
+                        }, 300);
+                    }
+                    
+                    lastWidth = currentWidth;
+                });
+            }
+            
+            // Setup page visibility check mechanism (MutationObserver)
+            const setupVisibilityMonitor = () => {
+                if (visibilityMonitorActive) return;
+                visibilityMonitorActive = true;
+                
+                // Watch for any DOM changes that might affect visibility
+                const observer = new MutationObserver((mutations) => {
+                    if (!isStreaming) {
+                        observer.disconnect();
+                        return;
+                    }
+                    
+                    const desktopElem = document.getElementById(desktopContainerId);
+                    const mobileElem = document.getElementById(mobileContainerId);
+                    const shouldRefresh = mutations.some(mutation => {
+                        return Array.from(mutation.addedNodes).some(node => 
+                            node.contains && (
+                                (desktopElem && node.contains(desktopElem)) || 
+                                (mobileElem && node.contains(mobileElem))
+                            )
+                        );
+                    });
+                    
+                    if (shouldRefresh) {
+                        console.log('📷 [STREAM MONITOR] DOM changed significantly, refreshing video');
+                        videoTrack.stop();
+                        
+                        // Reset tracking states
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    }
+                });
+                
+                // Watch for any changes to the DOM
+                observer.observe(document.body, { 
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['class', 'style', 'hidden']
+                });
+                
+                return observer;
+            };
+            
+            // Start visibility monitor
+            const observer = setupVisibilityMonitor();
+            
+            // Store for cleanup
+            window.videoObserver = observer;
+            
             // More aggressive container monitor - checks more frequently
             const containerMonitor = setInterval(() => {
                 // Only log every 10th iteration to reduce console spam
-                const shouldLog = Math.random() < 0.1; // 10% chance to log
+                const shouldLog = Math.random() < 0.05; // 5% chance to log
                 
                 // Check if we need to reset the video track occasionally
                 const now = Date.now();
@@ -1323,40 +1536,37 @@ const LivestreamStudio = () => {
                 const desktopElem = document.getElementById(desktopContainerId);
                 const mobileElem = document.getElementById(mobileContainerId);
                 
-                // First, check which containers exist and are visible
-                const desktopVisible = desktopElem && (window.innerWidth >= 1280 || desktopElem.offsetWidth > 0);
-                const mobileVisible = mobileElem && (window.innerWidth < 1280 || mobileElem.offsetWidth > 0);
-                
-                if (shouldLog) {
-                    console.log(`📷 [STREAM MONITOR] Desktop container: ${desktopElem ? 'exists' : 'missing'}, ${desktopVisible ? 'visible' : 'hidden'}`);
-                    console.log(`📷 [STREAM MONITOR] Mobile container: ${mobileElem ? 'exists' : 'missing'}, ${mobileVisible ? 'visible' : 'hidden'}`);
+                if (!desktopElem && !mobileElem) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] No video containers found in DOM');
+                    return;
                 }
                 
-                // If both are visible, we need special handling
-                if (desktopVisible && mobileVisible) {
-                    if (shouldLog) console.log('📷 [STREAM MONITOR] Both containers visible, handling special case');
-                    
-                    // First try to play in desktop
-                    if (playVideoInContainer(desktopContainerId)) {
-                        containerStates[desktopContainerId].lastPlayed = now;
-                    }
-                    
-                    // Then also play in mobile
-                    if (playVideoInContainer(mobileContainerId)) {
-                        containerStates[mobileContainerId].lastPlayed = now;
-                    }
-                } 
-                // Otherwise, try to play in whichever is visible
-                else {
-                    if (desktopVisible) {
+                // First, check which containers exist and should be visible based on screen width
+                const isDesktopWidth = window.innerWidth >= 1280; // 'xl' breakpoint
+                
+                // SPECIAL HANDLING: Try to play in the correct container based on viewport width
+                if (isDesktopWidth) {
+                    // Desktop width = try desktop container first
+                    if (desktopElem) {
                         if (playVideoInContainer(desktopContainerId)) {
                             containerStates[desktopContainerId].lastPlayed = now;
                         }
-                    }
-                    
-                    if (mobileVisible) {
+                    } else if (mobileElem) {
+                        // Fallback if desktop element doesn't exist
                         if (playVideoInContainer(mobileContainerId)) {
                             containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    }
+                } else {
+                    // Mobile width = try mobile container first
+                    if (mobileElem) {
+                        if (playVideoInContainer(mobileContainerId)) {
+                            containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    } else if (desktopElem) {
+                        // Fallback if mobile element doesn't exist
+                        if (playVideoInContainer(desktopContainerId)) {
+                            containerStates[desktopContainerId].lastPlayed = now;
                         }
                     }
                 }
