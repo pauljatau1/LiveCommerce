@@ -95,15 +95,26 @@ exports.register = async (req, res) => {
       phoneNumber,
       password,
       otp,
-      expoPushToken, 
+      expoPushToken,
       wallet: {
         balance: 0,
         onHoldAmount: 0,
-        currency: 'NGN'
-        // Don't initialize transactions array, let it be handled by default schema
-      }
+        currency: 'NGN',
+        transactions: [], // Initialize as empty array
+        onHoldItems: []  // Initialize as empty array
+      },
+      shippingAddresses: [],
+      wishlist: [],
+      selectedCategories: [],
+      activityFeed: [],
+      conversations: [],
+      messages: [],
+      posts: [],
+      viewedBlips: [],
+      followers: []
     });
 
+    // Save the new buyer with properly initialized wallet
     await newBuyer.save();
 
     // Only save token if provided
@@ -269,13 +280,23 @@ async function googleRegisterMobile(data, res) {
       phoneNumber,
       password: googleToken,
       otp,
-      expoPushToken, // This will be undefined if not provided, which is fine
+      expoPushToken,
       wallet: {
         balance: 0,
         onHoldAmount: 0,
-        currency: 'NGN'
-        // Don't initialize transactions array, let it be handled by default schema
-      }
+        currency: 'NGN',
+        transactions: [], // Explicitly initialize empty transactions array
+        onHoldItems: [] // Explicitly initialize empty onHoldItems array
+      },
+      shippingAddresses: [], // Initialize empty addresses array
+      wishlist: [], // Initialize empty wishlist
+      selectedCategories: [], // Initialize empty categories
+      activityFeed: [], // Initialize empty activity feed
+      conversations: [], // Initialize empty conversations
+      messages: [], // Initialize empty messages
+      posts: [], // Initialize empty posts
+      viewedBlips: [], // Initialize empty viewed blips
+      followers: [] // Initialize empty followers
     });
 
     if (profileImage) {
