@@ -15,7 +15,6 @@ const StreamDesktopUi = ({
     isLiveStreamEndingButton2,
     streamDuration,
     formatTime,
-    videoContainerRef,
     products,
     formatCurrency,
     seller,
@@ -155,7 +154,7 @@ const StreamDesktopUi = ({
                             <Icon icon="ri:tools-line" className="w-8 h-8" />
                         </div>
                         <div
-                            ref={videoContainerRef}
+                            id="desktop-video-container"
                             className="w-full h-full bg-black"
                             style={{
                                 minHeight: '400px',
@@ -213,7 +212,6 @@ StreamDesktopUi.propTypes = {
     isLiveStreamEndingButton2: PropTypes.bool,
     streamDuration: PropTypes.number,
     formatTime: PropTypes.func,
-    videoContainerRef: PropTypes.object,
     products: PropTypes.array,
     formatCurrency: PropTypes.func,
     seller: PropTypes.object,

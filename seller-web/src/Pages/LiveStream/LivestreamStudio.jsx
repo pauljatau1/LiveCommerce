@@ -47,7 +47,6 @@ const LivestreamStudio = () => {
     const [itemsSold, setItemsSold] = useState(0);
     const [totalShares, setTotalShares] = useState(0);
     const [deviceError, setDeviceError] = useState(null);
-    const videoContainerRef = useRef(null);
     const [streamDuration, setStreamDuration] = useState(0);
     const [timerInterval, setTimerInterval] = useState(null);
     const [role, setRole] = useState('host');
@@ -158,50 +157,105 @@ const LivestreamStudio = () => {
 
     const checkDevicePermissions = async () => {
         try {
+            // First check if we already have permissions
             const videoPermission = await navigator.permissions.query({ name: 'camera' });
             const audioPermission = await navigator.permissions.query({ name: 'microphone' });
 
+            // If permissions are explicitly denied, show error message
             if (videoPermission.state === 'denied' || audioPermission.state === 'denied') {
                 setDeviceError('Camera/microphone access is blocked. Please grant camera and microphone access.');
                 return false;
             }
 
-            // Set up a timeout promise that rejects after 120 seconds
+            // Set up a much longer timeout (10 minutes) as requested
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => {
-                    reject(new Error('Device initialization timeout after 120 seconds'));
-                }, 120000);
+                    reject(new Error('Device initialization timeout after 10 minutes'));
+                }, 600000); // 10 minutes in milliseconds
             });
 
-            // Try to get media with a timeout
-            const mediaPromise = navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                    frameRate: { ideal: 30 }
-                },
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
+            // Create a promise that will resolve when permissions are granted and devices are ready
+            const getMediaWithRetry = async () => {
+                let retryCount = 0;
+                const maxRetries = 5;
+                let lastError = null;
+
+                while (retryCount < maxRetries) {
+                    try {
+                        console.log(`📷 [DEVICE] Attempting to access camera/mic (attempt ${retryCount + 1})`);
+                        
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 },
+                                frameRate: { ideal: 30 }
+                            },
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
+
+                        // Verify that the tracks are actually available and enabled
+                        const videoTrack = stream.getVideoTracks()[0];
+                        const audioTrack = stream.getAudioTracks()[0];
+
+                        if (!videoTrack) {
+                            throw new Error('No video track available');
+                        }
+
+                        if (!audioTrack) {
+                            throw new Error('No audio track available');
+                        }
+
+                        // Additional verification that tracks are ready and producing data
+                        if (videoTrack && !videoTrack.enabled) {
+                            videoTrack.enabled = true;
+                        }
+
+                        if (audioTrack && !audioTrack.enabled) {
+                            audioTrack.enabled = true;
+                        }
+
+                        // Add delay to ensure tracks are fully initialized
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        console.log('📷 [DEVICE] Successfully accessed camera and microphone');
+                        return stream;
+                    } catch (error) {
+                        lastError = error;
+                        retryCount++;
+                        
+                        // Don't retry immediately - give the browser some time
+                        if (retryCount < maxRetries) {
+                            console.log(`📷 [DEVICE] Error accessing media devices, retrying in 3 seconds... (${retryCount}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, 3000));
+                        }
+                    }
                 }
-            });
+                
+                // If we've exhausted all retries, throw the last error
+                throw lastError;
+            };
 
-            // Race between the media initialization and the timeout
-            const previewStream = await Promise.race([mediaPromise, timeoutPromise]);
+            // Race between the media initialization with retry and the timeout
+            const previewStream = await Promise.race([getMediaWithRetry(), timeoutPromise]);
 
-            // Check if camera track is actually receiving data
+            // Double-check that we have valid tracks before proceeding
             const videoTrack = previewStream.getVideoTracks()[0];
-            if (videoTrack && !videoTrack.enabled) {
-                throw new Error('Camera is not producing video data');
-            }
-
-            // Check if audio track is actually receiving data
             const audioTrack = previewStream.getAudioTracks()[0];
-            if (audioTrack && !audioTrack.enabled) {
-                throw new Error('Microphone is not producing audio data');
+
+            if (!videoTrack) {
+                throw new Error('Camera not available or not producing video data');
             }
 
+            if (!audioTrack) {
+                throw new Error('Microphone not available or not producing audio data');
+            }
+
+            console.log('📷 [DEVICE] Device initialization successful');
+            
             // Store the preview stream in state
             setPreviewMediaStream(previewStream);
             return previewStream;
@@ -211,17 +265,19 @@ const LivestreamStudio = () => {
             let errorMessage = `Device error: ${error.message}.`;
 
             if (error.message.includes('timeout')) {
-                errorMessage = 'Camera and microphone did not initialize within 120 seconds. Please check your device connections.';
+                errorMessage = 'Camera and microphone did not initialize within 10 minutes. Please check your device connections.';
             } else if (error.name === 'NotFoundError') {
                 errorMessage = 'Camera or microphone not found. Please connect your devices and try again.';
             } else if (error.name === 'NotReadableError' || error.name === 'AbortError') {
                 errorMessage = 'Your camera or microphone is already in use by another application. Please close other apps that might be using your devices.';
             } else if (error.name === 'OverconstrainedError') {
                 errorMessage = 'Your camera does not support the required resolution. Please try using a different camera.';
-            } else if (error.message.includes('Camera is not producing')) {
-                errorMessage = 'Your camera is connected but not producing video. Please check your camera settings or try another device.';
-            } else if (error.message.includes('Microphone is not producing')) {
-                errorMessage = 'Your microphone is connected but not producing audio. Please check your microphone settings or try another device.';
+            } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                errorMessage = 'Permission to use camera and microphone was denied. Please allow access and try again.';
+            } else if (error.message.includes('No video track available')) {
+                errorMessage = 'Could not access your camera. Please check that your camera is connected and working properly.';
+            } else if (error.message.includes('No audio track available')) {
+                errorMessage = 'Could not access your microphone. Please check that your microphone is connected and working properly.';
             }
 
             setDeviceError(errorMessage);
@@ -255,6 +311,13 @@ const LivestreamStudio = () => {
 
     const cleanupAgoraResources = async () => {
         try {
+            // Clear the container monitor interval if it exists
+            if (window.containerMonitorInterval) {
+                clearInterval(window.containerMonitorInterval);
+                window.containerMonitorInterval = null;
+                console.log("📤 [STREAM END] Cleared container monitor interval");
+            }
+
             // Clean up preview stream if it exists
             if (previewMediaStream) {
                 try {
@@ -286,6 +349,16 @@ const LivestreamStudio = () => {
                         try {
                             const trackType = track.trackMediaType; // 'audio' or 'video'
                             console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
+
+                            // If it's a video track, make sure to stop playing
+                            if (trackType === 'video') {
+                                try {
+                                    track.stop();
+                                    console.log(`📤 [STREAM END] Stopped playing ${trackType} track in any containers`);
+                                } catch (stopError) {
+                                    console.error(`Error stopping ${trackType} track in containers:`, stopError);
+                                }
+                            }
 
                             // Change order: First disable, then stop and close
                             try {
@@ -355,9 +428,17 @@ const LivestreamStudio = () => {
             console.log('freshStreamData', freshStreamData)
             const details = await getLiveStreamFullDetails(id);
 
-            // 1. Check permissions and keep preview stream alive
+            // 1. Check permissions and keep preview stream alive - this may take time for user input
+            console.log('📷 [STREAM INIT] Waiting for device permissions and initialization...');
             const previewStream = await checkDevicePermissions();
-            if (!previewStream) return;
+            
+            // If permissions not granted or devices not initialized, abort stream initialization
+            if (!previewStream) {
+                console.log('📷 [STREAM INIT] Device permissions not granted or initialization failed');
+                setIsLiveStreamStarting(false);
+                return;
+            }
+            console.log('📷 [STREAM INIT] Device permissions granted and devices initialized');
 
             // 2. Use fresh stream data if provided, otherwise fetch
             let streamCredentials;
@@ -399,6 +480,7 @@ const LivestreamStudio = () => {
             console.log('Current role:', currentRole);
 
             // 7. Create tracks AFTER setting isStreaming
+            console.log('📷 [STREAM INIT] Creating Agora tracks from device streams');
             const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
                     encoderConfig: {
@@ -424,32 +506,151 @@ const LivestreamStudio = () => {
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
                 {
-                    timeout: 120000,
-                    retry: 3
+                    timeout: 600000, // 10 minutes timeout to match checkDevicePermissions
+                    retry: 5       // Increase retry count
                 }
             );
+            console.log('📷 [STREAM INIT] Successfully created Agora tracks');
 
-            // 8. Wait for video container to be ready
-            await new Promise((resolve, reject) => {
-                const checkInterval = setInterval(() => {
-                    if (videoContainerRef.current) {
-                        clearInterval(checkInterval);
-                        resolve();
+            // 8. Wait for DOM to be updated with video containers
+            console.log('📷 [STREAM INIT] Waiting for video containers to be rendered in DOM');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 9. Define unique IDs for both containers
+            const desktopContainerId = 'desktop-video-container';
+            const mobileContainerId = 'mobile-video-container';
+
+            // Create a function to play video with proper error handling
+            const playVideoInContainer = (containerId) => {
+                if (!videoTrack) return false;
+                try {
+                    const container = document.getElementById(containerId);
+                    if (!container) {
+                        console.log(`🔄 [TRACK] Container ${containerId} not found in DOM`);
+                        return false;
                     }
-                }, 100);
 
-                setTimeout(() => {
-                    clearInterval(checkInterval);
-                    reject(new Error('Video container not found after 30 seconds'));
-                }, 30000);
-            });
+                    // Check if the container is visible in the current view
+                    const isVisible = container.offsetParent !== null;
+                    console.log(`🔄 [TRACK] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
 
-            // 9. Play and publish
-            videoTrack.play(videoContainerRef.current, {
+                    // Play in this container
+                    videoTrack.play(container, {
                 fit: 'cover',
                 mirror: true
             });
+                    console.log(`🔄 [TRACK] Video playing in ${containerId}`);
+                    return true;
+                } catch (err) {
+                    console.error(`Error playing video in ${containerId}:`, err);
+                    return false;
+                }
+            };
+
+            // First pass - try to play in both containers immediately
+            console.log('🔄 [TRACK 4/6] First attempt to play in both containers');
+            const desktopSuccess = playVideoInContainer(desktopContainerId);
+            const mobileSuccess = playVideoInContainer(mobileContainerId);
+            
+            // Setup continuous monitoring of containers
+            console.log('🔄 [TRACK 5/6] Setting up container monitor');
+            
+            // Keep track of container states
+            const containerStates = {
+                [desktopContainerId]: { lastPlayed: desktopSuccess ? Date.now() : 0 },
+                [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
+            };
+            
+            // More aggressive container monitor - checks more frequently
+            const containerMonitor = setInterval(() => {
+                // Only log every 10th iteration to reduce console spam
+                const shouldLog = Math.random() < 0.1; // 10% chance to log
+                
+                // Check if we need to reset the video track occasionally
+                const now = Date.now();
+                const RESET_INTERVAL = 10000; // 10 seconds
+                let shouldReset = false;
+                
+                Object.keys(containerStates).forEach(id => {
+                    // If we haven't successfully played in this container for a while
+                    // and it's been more than RESET_INTERVAL since we last tried,
+                    // mark for reset
+                    if (now - containerStates[id].lastPlayed > RESET_INTERVAL) {
+                        shouldReset = true;
+                    }
+                });
+                
+                // If we need to reset, stop the video track completely and reset states
+                if (shouldReset) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] Performing periodic video track reset');
+                    try {
+                        // First stop all playback
+                        videoTrack.stop();
+                        
+                        // Reset last played timestamps to trigger replay in all containers
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    } catch (error) {
+                        console.error('Error during video track reset:', error);
+                    }
+                }
+                
+                // Try both containers on each interval
+                const desktopElem = document.getElementById(desktopContainerId);
+                const mobileElem = document.getElementById(mobileContainerId);
+                
+                // First, check which containers exist and are visible
+                const desktopVisible = desktopElem && (window.innerWidth >= 1280 || desktopElem.offsetWidth > 0);
+                const mobileVisible = mobileElem && (window.innerWidth < 1280 || mobileElem.offsetWidth > 0);
+                
+                if (shouldLog) {
+                    console.log(`📷 [STREAM MONITOR] Desktop container: ${desktopElem ? 'exists' : 'missing'}, ${desktopVisible ? 'visible' : 'hidden'}`);
+                    console.log(`📷 [STREAM MONITOR] Mobile container: ${mobileElem ? 'exists' : 'missing'}, ${mobileVisible ? 'visible' : 'hidden'}`);
+                }
+                
+                // If both are visible, we need special handling
+                if (desktopVisible && mobileVisible) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] Both containers visible, handling special case');
+                    
+                    // First try to play in desktop
+                    if (playVideoInContainer(desktopContainerId)) {
+                        containerStates[desktopContainerId].lastPlayed = now;
+                    }
+                    
+                    // Then also play in mobile
+                    if (playVideoInContainer(mobileContainerId)) {
+                        containerStates[mobileContainerId].lastPlayed = now;
+                    }
+                } 
+                // Otherwise, try to play in whichever is visible
+                else {
+                    if (desktopVisible) {
+                        if (playVideoInContainer(desktopContainerId)) {
+                            containerStates[desktopContainerId].lastPlayed = now;
+                        }
+                    }
+                    
+                    if (mobileVisible) {
+                        if (playVideoInContainer(mobileContainerId)) {
+                            containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    }
+                }
+                
+                // If we're no longer streaming, clear the interval
+                if (!isStreaming) {
+                    clearInterval(containerMonitor);
+                    console.log('📷 [STREAM MONITOR] Stopped container monitor (not streaming)');
+                }
+            }, 250); // Check more frequently (4 times per second)
+            
+            // Store the interval for cleanup
+            window.containerMonitorInterval = containerMonitor;
+            
+            console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
             await client.publish([audioTrack, videoTrack]);
+            console.log('✅ [TRACK] Successfully published tracks to channel');
 
             // Store complete stream credentials in localStorage for reconnection
             const streamCredentialsForStorage = {
@@ -464,6 +665,7 @@ const LivestreamStudio = () => {
             // Update tracks and start timer
             setLocalTracks([audioTrack, videoTrack]);
             startTimer();
+            console.log('📷 [STREAM INIT] Stream initialization completed successfully');
 
         } catch (error) {
             if (error.code === 'DEVICE_NOT_FOUND') {
@@ -942,16 +1144,17 @@ const LivestreamStudio = () => {
             }
             console.log('🔄 [RECONNECT 10/18] Successfully fetched fresh stream data');
 
-            // Check permissions
-            console.log('🔄 [RECONNECT 11/18] Checking device permissions');
+            // Check permissions with improved waiting
+            console.log('🔄 [RECONNECT 11/18] Checking device permissions - this may take time for user input');
             const previewStream = await checkDevicePermissions();
             if (!previewStream) {
-                console.error('❌ [RECONNECT] Device permission check failed');
+                console.error('❌ [RECONNECT] Device permission check failed or user denied permissions');
+                toast.error('Cannot reconnect to stream without camera and microphone access');
                 globalReconnectionInProgress = false;
                 reconnectionInProgress.current = false;
                 return;
             }
-            console.log('🔄 [RECONNECT 12/18] Device permissions granted');
+            console.log('🔄 [RECONNECT 12/18] Device permissions granted and devices initialized');
 
             // Prepare stream credentials with fresh token
             console.log('🔄 [RECONNECT 13/18] Preparing stream credentials with fresh token');
@@ -1003,7 +1206,7 @@ const LivestreamStudio = () => {
             );
             console.log('✅ [RECONNECT] Successfully joined channel');
 
-            // Create tracks after setting isStreaming
+            // Create tracks after setting isStreaming - with extended timeout
             console.log('🔄 [TRACK 1/6] Creating audio and video tracks');
             const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
@@ -1028,37 +1231,146 @@ const LivestreamStudio = () => {
                     },
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
-                },
-                {
-                    timeout: 120000,
-                    retry: 3
                 }
             );
             console.log('🔄 [TRACK 2/6] Successfully created audio and video tracks');
 
-            // Wait for video container to be ready
-            console.log('🔄 [TRACK 3/6] Waiting for video container to be ready');
-            await new Promise((resolve, reject) => {
-                const checkInterval = setInterval(() => {
-                    if (videoContainerRef.current) {
-                        clearInterval(checkInterval);
-                        resolve();
+            // Wait for DOM to be updated with video containers
+            console.log('🔄 [TRACK 3/6] Waiting for video containers to be rendered in DOM');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Define unique IDs for both containers
+            const desktopContainerId = 'desktop-video-container';
+            const mobileContainerId = 'mobile-video-container';
+
+            // Create a function to play video with proper error handling
+            const playVideoInContainer = (containerId) => {
+                if (!videoTrack) return false;
+                try {
+                    const container = document.getElementById(containerId);
+                    if (!container) {
+                        console.log(`🔄 [TRACK] Container ${containerId} not found in DOM`);
+                        return false;
                     }
-                }, 100);
 
-                setTimeout(() => {
-                    clearInterval(checkInterval);
-                    reject(new Error('Video container not found after 30 seconds'));
-                }, 30000);
-            });
-            console.log('🔄 [TRACK 4/6] Video container is ready');
+                    // Check if the container is visible in the current view
+                    const isVisible = container.offsetParent !== null;
+                    console.log(`🔄 [TRACK] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
 
-            // Play and publish
-            console.log('🔄 [TRACK 5/6] Playing video track in container');
-            videoTrack.play(videoContainerRef.current, {
+                    // Play in this container
+                    videoTrack.play(container, {
                 fit: 'cover',
                 mirror: true
             });
+                    console.log(`🔄 [TRACK] Video playing in ${containerId}`);
+                    return true;
+                } catch (err) {
+                    console.error(`Error playing video in ${containerId}:`, err);
+                    return false;
+                }
+            };
+
+            // First pass - try to play in both containers immediately
+            console.log('🔄 [TRACK 4/6] First attempt to play in both containers');
+            const desktopSuccess = playVideoInContainer(desktopContainerId);
+            const mobileSuccess = playVideoInContainer(mobileContainerId);
+            
+            // Setup continuous monitoring of containers
+            console.log('🔄 [TRACK 5/6] Setting up container monitor');
+            
+            // Keep track of container states
+            const containerStates = {
+                [desktopContainerId]: { lastPlayed: desktopSuccess ? Date.now() : 0 },
+                [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
+            };
+            
+            // More aggressive container monitor - checks more frequently
+            const containerMonitor = setInterval(() => {
+                // Only log every 10th iteration to reduce console spam
+                const shouldLog = Math.random() < 0.1; // 10% chance to log
+                
+                // Check if we need to reset the video track occasionally
+                const now = Date.now();
+                const RESET_INTERVAL = 10000; // 10 seconds
+                let shouldReset = false;
+                
+                Object.keys(containerStates).forEach(id => {
+                    // If we haven't successfully played in this container for a while
+                    // and it's been more than RESET_INTERVAL since we last tried,
+                    // mark for reset
+                    if (now - containerStates[id].lastPlayed > RESET_INTERVAL) {
+                        shouldReset = true;
+                    }
+                });
+                
+                // If we need to reset, stop the video track completely and reset states
+                if (shouldReset) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] Performing periodic video track reset');
+                    try {
+                        // First stop all playback
+                        videoTrack.stop();
+                        
+                        // Reset last played timestamps to trigger replay in all containers
+                        Object.keys(containerStates).forEach(id => {
+                            containerStates[id].lastPlayed = 0;
+                        });
+                    } catch (error) {
+                        console.error('Error during video track reset:', error);
+                    }
+                }
+                
+                // Try both containers on each interval
+                const desktopElem = document.getElementById(desktopContainerId);
+                const mobileElem = document.getElementById(mobileContainerId);
+                
+                // First, check which containers exist and are visible
+                const desktopVisible = desktopElem && (window.innerWidth >= 1280 || desktopElem.offsetWidth > 0);
+                const mobileVisible = mobileElem && (window.innerWidth < 1280 || mobileElem.offsetWidth > 0);
+                
+                if (shouldLog) {
+                    console.log(`📷 [STREAM MONITOR] Desktop container: ${desktopElem ? 'exists' : 'missing'}, ${desktopVisible ? 'visible' : 'hidden'}`);
+                    console.log(`📷 [STREAM MONITOR] Mobile container: ${mobileElem ? 'exists' : 'missing'}, ${mobileVisible ? 'visible' : 'hidden'}`);
+                }
+                
+                // If both are visible, we need special handling
+                if (desktopVisible && mobileVisible) {
+                    if (shouldLog) console.log('📷 [STREAM MONITOR] Both containers visible, handling special case');
+                    
+                    // First try to play in desktop
+                    if (playVideoInContainer(desktopContainerId)) {
+                        containerStates[desktopContainerId].lastPlayed = now;
+                    }
+                    
+                    // Then also play in mobile
+                    if (playVideoInContainer(mobileContainerId)) {
+                        containerStates[mobileContainerId].lastPlayed = now;
+                    }
+                } 
+                // Otherwise, try to play in whichever is visible
+                else {
+                    if (desktopVisible) {
+                        if (playVideoInContainer(desktopContainerId)) {
+                            containerStates[desktopContainerId].lastPlayed = now;
+                        }
+                    }
+                    
+                    if (mobileVisible) {
+                        if (playVideoInContainer(mobileContainerId)) {
+                            containerStates[mobileContainerId].lastPlayed = now;
+                        }
+                    }
+                }
+                
+                // If we're no longer streaming, clear the interval
+                if (!isStreaming) {
+                    clearInterval(containerMonitor);
+                    console.log('📷 [STREAM MONITOR] Stopped container monitor (not streaming)');
+                }
+            }, 250); // Check more frequently (4 times per second)
+            
+            // Store the interval for cleanup
+            window.containerMonitorInterval = containerMonitor;
+            
             console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
             await client.publish([audioTrack, videoTrack]);
             console.log('✅ [TRACK] Successfully published tracks to channel');
@@ -1125,17 +1437,8 @@ const LivestreamStudio = () => {
         };
     }, []);
 
-    // Example of how to send a comment
-    const sendComment = (content) => {
-        if (liveStreamDetails && liveStreamDetails._id) {
-            livestreamSocket.sendStreamComment(liveStreamDetails._id, content);
-        } else {
-            console.error('Cannot send comment: livestream ID not available');
-        }
-    };
-
     return (
-        <div className="min-h-screen p-4 lg:p-6 bg-[#000000] text-white">
+        <div className="min-h-screen xl:p-6 bg-[#000000] text-white">
             {
                 isLoading || isLiveStreamStarting ? (
                     <div className="flex justify-center items-center h-screen">
@@ -1145,12 +1448,12 @@ const LivestreamStudio = () => {
                     <>
                         {!isInitialDataLoaded ? (
                             <div className="flex items-center justify-center h-screen">
-                                <CircularProgress />
+                                <CircularProgress size={25} color='#14AE5C' />
                             </div>
                         ) : (
                             <>
                                 {!isStreaming ? (
-                                    <>
+                                    <div className="h-full relative ">
                                         <PreStreamDesktopUi
                                             viewers={viewers}
                                             totalShares={totalShares}
@@ -1181,7 +1484,7 @@ const LivestreamStudio = () => {
                                             viewers={viewers}
                                             totalShares={totalShares}
                                         />
-                                    </>
+                                    </div>
                                 ) : (
                                     <>
                                         {liveStreamDetails?.type === 'auction' ? (
@@ -1195,7 +1498,6 @@ const LivestreamStudio = () => {
                                                     isLiveStreamEndingButton2={isLiveStreamEndingButton2}
                                                     streamDuration={streamDuration}
                                                     formatTime={formatTime}
-                                                    videoContainerRef={videoContainerRef}
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
@@ -1209,7 +1511,6 @@ const LivestreamStudio = () => {
                                                     isLiveStreamEndingButton2={isLiveStreamEndingButton2}
                                                     streamDuration={streamDuration}
                                                     formatTime={formatTime}
-                                                    videoContainerRef={videoContainerRef}
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
@@ -1230,7 +1531,6 @@ const LivestreamStudio = () => {
                                                     isLiveStreamEndingButton2={isLiveStreamEndingButton2}
                                                     streamDuration={streamDuration}
                                                     formatTime={formatTime}
-                                                    videoContainerRef={videoContainerRef}
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
@@ -1244,7 +1544,6 @@ const LivestreamStudio = () => {
                                                     isLiveStreamEndingButton2={isLiveStreamEndingButton2}
                                                     streamDuration={streamDuration}
                                                     formatTime={formatTime}
-                                                    videoContainerRef={videoContainerRef}
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}

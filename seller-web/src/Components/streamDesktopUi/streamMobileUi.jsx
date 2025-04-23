@@ -15,7 +15,6 @@ const StreamMobileUi = ({
     isLiveStreamEndingButton2,
     streamDuration,
     formatTime,
-    videoContainerRef,
     products,
     formatCurrency,
     seller,
@@ -160,14 +159,14 @@ const StreamMobileUi = ({
                 )
             }
 
-            {/* Mobile Main Content - Stream Preview 
+            {/* Mobile Main Content - Stream Preview */}
             <div className="block xl:hidden col-span-12 bg-[#0D0F12] w-full rounded-xl relative overflow-hidden">
                 <div className="stream-container relative w-full h-full" style={{ aspectRatio: '16/9' }}>
                     <div onClick={() => setIsToolsSidebarOpen(!isToolsSidebarOpen)} className="absolute xl:hidden top-4 left-4 cursor-pointer z-10 text-white bg-white/10 backdrop-blur-lg rounded-lg p-2">
                         <Icon icon="ri:tools-line" className="w-8 h-8" />
                     </div>
                     <div
-                        ref={videoContainerRef}
+                        id="mobile-video-container"
                         className="w-full h-full bg-black"
                         style={{
                             minHeight: '400px',
@@ -175,7 +174,7 @@ const StreamMobileUi = ({
                         }}
                     ></div>
                 </div>
-            </div>*/}
+            </div>
 
             {/*mobile Right Sidebar - Activities */}
             <div className="block xl:hidden col-span-12 bg-[#0D0F12] rounded-xl p-4">
@@ -255,7 +254,6 @@ StreamMobileUi.propTypes = {
     isLiveStreamEndingButton2: PropTypes.bool,
     streamDuration: PropTypes.number,
     formatTime: PropTypes.func,
-    videoContainerRef: PropTypes.object,
     products: PropTypes.array,
     formatCurrency: PropTypes.func,
     seller: PropTypes.object,
