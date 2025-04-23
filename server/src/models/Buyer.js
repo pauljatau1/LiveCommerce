@@ -35,9 +35,7 @@ const transactionSchema = new mongoose.Schema({
     required: true 
   },
   paymentReference: { 
-    type: String, 
-    required: true,
-    sparse: true
+    type: String
   },
   description: { 
     type: String, 
