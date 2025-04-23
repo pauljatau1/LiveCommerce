@@ -108,7 +108,7 @@ const sellerSchema = new mongoose.Schema({
       zipCode: { type: String },
     }
   },
-  storeName: { type: String, required: true },
+  storeName: { type: String },
   aboutStore: { type: String },
   storeAvatar: {
     url: { type: String },

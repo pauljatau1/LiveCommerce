@@ -99,9 +99,8 @@ exports.register = async (req, res) => {
       wallet: {
         balance: 0,
         onHoldAmount: 0,
-        onHoldItems: [],
-        currency: 'NGN',
-        transactions: []
+        currency: 'NGN'
+        // Don't initialize transactions array, let it be handled by default schema
       }
     });
 
@@ -270,7 +269,13 @@ async function googleRegisterMobile(data, res) {
       phoneNumber,
       password: googleToken,
       otp,
-      expoPushToken // This will be undefined if not provided, which is fine
+      expoPushToken, // This will be undefined if not provided, which is fine
+      wallet: {
+        balance: 0,
+        onHoldAmount: 0,
+        currency: 'NGN'
+        // Don't initialize transactions array, let it be handled by default schema
+      }
     });
 
     if (profileImage) {

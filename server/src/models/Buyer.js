@@ -37,7 +37,8 @@ const transactionSchema = new mongoose.Schema({
   paymentReference: { 
     type: String, 
     required: true,
-    unique: true 
+    unique: true,
+    sparse: true // This allows null values and empty arrays to exist without violating uniqueness
   },
   description: { 
     type: String, 

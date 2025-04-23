@@ -1836,7 +1836,19 @@ exports.getAllBlips = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -2386,7 +2398,19 @@ exports.getSuggestedBlips = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -5879,7 +5903,19 @@ exports.getBlipDetails = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -7173,8 +7209,11 @@ exports.getRelatedBlips = async (req, res) => {
   try {
     const { blipId } = req.params;
     const { limit = 10, page = 1 } = req.query;
-    const userId = req.user ? req.user._id : null;
     
+    // Get buyerId and check authentication status
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+
     // Find the product that contains the reference blip
     const product = await Product.findOne({ 
       'blips._id': blipId,
@@ -7182,7 +7221,7 @@ exports.getRelatedBlips = async (req, res) => {
     })
     .populate({
       path: 'seller',
-      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions followers'
     });
     
     if (!product) {
@@ -7205,7 +7244,7 @@ exports.getRelatedBlips = async (req, res) => {
     })
     .populate({
       path: 'seller',
-      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
     })
     .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
     
@@ -7216,7 +7255,13 @@ exports.getRelatedBlips = async (req, res) => {
       if (prod.blips && prod.blips.length > 0) {
         prod.blips.forEach(blip => {
           // Check if the current user has liked this blip
-          const isLiked = userId ? blip.likes.includes(userId) : false;
+          const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
+          
+          // Check if the buyer is following the seller
+          const isFollowing = isAuthenticated && prod.seller.followers ? 
+            prod.seller.followers.some(follower => 
+              follower.buyerId && follower.buyerId.toString() === buyerId
+            ) : false;
           
           // Get product image URL
           const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
@@ -7267,7 +7312,7 @@ exports.getRelatedBlips = async (req, res) => {
               aboutStore: prod.seller.aboutStore || '',
               storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
               totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
-              isFollowing: false, // Would need to check buyer's following list to determine this
+              isFollowing: isFollowing,
               isFeatured: prod.seller.isVerified || false
             }
           });
@@ -7284,7 +7329,7 @@ exports.getRelatedBlips = async (req, res) => {
       })
       .populate({
         path: 'seller',
-        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
       })
       .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
       
@@ -7297,6 +7342,14 @@ exports.getRelatedBlips = async (req, res) => {
             );
             
             if (!exists) {
+              const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
+              
+              // Check if the buyer is following the seller
+              const isFollowing = isAuthenticated && prod.seller.followers ? 
+                prod.seller.followers.some(follower => 
+                  follower.buyerId && follower.buyerId.toString() === buyerId
+                ) : false;
+              
               // Get product image URL
               const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
               
@@ -7309,9 +7362,6 @@ exports.getRelatedBlips = async (req, res) => {
                   discountedPrice = Math.max(0, prod.price - prod.discount.value);
                 }
               }
-              
-              // Check if the current user has liked this blip
-              const isLiked = userId ? blip.likes.includes(userId) : false;
               
               relatedBlips.push({
                 discount: {
@@ -7349,7 +7399,7 @@ exports.getRelatedBlips = async (req, res) => {
                   aboutStore: prod.seller.aboutStore || '',
                   storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
                   totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
-                  isFollowing: false, // Would need to check buyer's following list to determine this
+                  isFollowing: isFollowing,
                   isFeatured: prod.seller.isVerified || false
                 }
               });
