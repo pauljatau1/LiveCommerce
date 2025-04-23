@@ -1908,4 +1908,110 @@ router.delete('/buyers/:buyerId',
   adminController.deleteBuyerAccount
 );
 
+/**
+ * @swagger
+ * /api/admin/buyers/transactions:
+ *   get:
+ *     summary: Get all transactions of all buyers
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for transaction search
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for transaction search
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit, all]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of records to return
+ *     responses:
+ *       200:
+ *         description: List of all buyer transactions
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyers/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getAllBuyerTransactions
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/transactions:
+ *   get:
+ *     summary: Get all transactions of all sellers
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for transaction search
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for transaction search
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit, all]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of records to return
+ *     responses:
+ *       200:
+ *         description: List of all seller transactions
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/sellers/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getAllSellerTransactions
+);
+
 module.exports = router;

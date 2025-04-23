@@ -4247,6 +4247,214 @@ exports.deleteBuyerAccount = async (req, res) => {
 
 // ... existing code ...
 
+exports.getAllBuyerTransactions = async (req, res) => {
+  try {
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+    
+    // Build filter
+    const filter = {};
+    
+    // Date filter
+    if (startDate || endDate) {
+      filter['wallet.transactions.createdAt'] = {};
+      if (startDate) {
+        filter['wallet.transactions.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
+      }
+    }
+    
+    // Type filter
+    if (type && type !== 'all') {
+      filter['wallet.transactions.type'] = type;
+    }
+
+    // Aggregate to unwind transaction arrays and filter
+    const aggregation = [
+      {
+        $match: {
+          'wallet.transactions': { $exists: true, $ne: [] }
+        }
+      },
+      { $unwind: '$wallet.transactions' },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          email: 1,
+          username: 1,
+          transaction: '$wallet.transactions'
+        }
+      }
+    ];
+    
+    // Apply date filter if specified
+    if (startDate || endDate) {
+      let dateMatch = { $match: { 'transaction.createdAt': {} } };
+      if (startDate) {
+        dateMatch.$match['transaction.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateMatch.$match['transaction.createdAt'].$lte = new Date(endDate);
+      }
+      aggregation.push(dateMatch);
+    }
+    
+    // Apply type filter if specified
+    if (type && type !== 'all') {
+      aggregation.push({
+        $match: { 'transaction.type': type }
+      });
+    }
+    
+    // Count total documents for pagination
+    const countPipeline = [...aggregation];
+    countPipeline.push({ $count: 'total' });
+    const countResult = await Buyer.aggregate(countPipeline);
+    const totalTransactions = countResult.length > 0 ? countResult[0].total : 0;
+
+    // Add sorting, pagination
+    aggregation.push(
+      { $sort: { 'transaction.createdAt': -1 } },
+      { $skip: skip },
+      { $limit: queryLimit }
+    );
+
+    // Execute query
+    const transactions = await Buyer.aggregate(aggregation);
+    
+    // Format the response with pagination info
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching buyer transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch buyer transactions',
+      error: error.message
+    });
+  }
+};
+
+exports.getAllSellerTransactions = async (req, res) => {
+  try {
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+    
+    // Build filter
+    const filter = {};
+    
+    // Date filter
+    if (startDate || endDate) {
+      filter['wallet.transactions.createdAt'] = {};
+      if (startDate) {
+        filter['wallet.transactions.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
+      }
+    }
+    
+    // Type filter
+    if (type && type !== 'all') {
+      filter['wallet.transactions.type'] = type;
+    }
+
+    // Aggregate to unwind transaction arrays and filter
+    const aggregation = [
+      {
+        $match: {
+          'wallet.transactions': { $exists: true, $ne: [] }
+        }
+      },
+      { $unwind: '$wallet.transactions' },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          storeName: 1,
+          email: 1,
+          businessName: 1,
+          businessEmail: 1,
+          transaction: '$wallet.transactions'
+        }
+      }
+    ];
+    
+    // Apply date filter if specified
+    if (startDate || endDate) {
+      let dateMatch = { $match: { 'transaction.createdAt': {} } };
+      if (startDate) {
+        dateMatch.$match['transaction.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateMatch.$match['transaction.createdAt'].$lte = new Date(endDate);
+      }
+      aggregation.push(dateMatch);
+    }
+    
+    // Apply type filter if specified
+    if (type && type !== 'all') {
+      aggregation.push({
+        $match: { 'transaction.type': type }
+      });
+    }
+    
+    // Count total documents for pagination
+    const countPipeline = [...aggregation];
+    countPipeline.push({ $count: 'total' });
+    const countResult = await Seller.aggregate(countPipeline);
+    const totalTransactions = countResult.length > 0 ? countResult[0].total : 0;
+
+    // Add sorting, pagination
+    aggregation.push(
+      { $sort: { 'transaction.createdAt': -1 } },
+      { $skip: skip },
+      { $limit: queryLimit }
+    );
+
+    // Execute query
+    const transactions = await Seller.aggregate(aggregation);
+    
+    // Format the response with pagination info
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching seller transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller transactions',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code ...
+
 
 
 
