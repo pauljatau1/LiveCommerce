@@ -102,7 +102,7 @@ const TabsLayout = () => {
           fontSize: 9,
         },
         tabBarStyle: {
-          // height: Platform.OS == "android" ? 60 : 80,
+          height: Platform.OS == "android" ? 60 : 80,
           backgroundColor: "#000",
           alignItems: "center",
           borderTopWidth: 0,

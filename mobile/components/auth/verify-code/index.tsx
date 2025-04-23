@@ -19,6 +19,7 @@ import { router } from "expo-router";
 import { icons } from "@/constants";
 import { OtpInput } from "react-native-otp-entry";
 import CustomButton from "@/components/global/button/CustomButton";
+import LoadingModal from "@/components/global/loading-modal";
 
 const VerifyCodeOtp = () => {
   const params = useLocalSearchParams();
@@ -145,9 +146,9 @@ const VerifyCodeOtp = () => {
             onPress={onSubmit}
             className="mb-4 mt-[18px] !rounded-[40px] py-4 !text-white text-sm font-LexendDecaBold"
             disabled={data.otp.length !== 4 || isLoading}
-            loading={isLoading}
           />
         </View>
+        <LoadingModal isVisible={isLoading} />
       </SafeAreaView>
     </>
   );

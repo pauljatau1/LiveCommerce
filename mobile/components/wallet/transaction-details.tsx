@@ -12,22 +12,22 @@ const statusColor = {
 const TransactionDetails = ({ item }: any) => {
   return (
     <View className="mt-[10px] my-[20px]">
-      <View className="items-center justify-center">
+      <View className="items-center justify-center ">
         <View
           style={{
-            backgroundColor: item.type == "credit" ? "#DEFFEE" : "#fae4e7",
+            backgroundColor: item.type == "credit" ? "#DEFFEE" : "#FAE4E7",
             width: 40,
             height: 40,
             borderRadius: 20,
             alignItems: "center",
             justifyContent: "center",
-            marginBottom: 10,
+            // marginBottom: 12,
           }}
         >
           <Feather
-            name={item.type == "credit" ? "arrow-down-left" : "arrow-up-right"}
+            name={item.type == "credit" ? "arrow-down-left" : "arrow-down-left"}
             size={18}
-            color={item.type == "credit" ? "#16783A" : "#cd000f"}
+            color={item.type == "credit" ? "#16783A" : "#CD000F"}
           />
         </View>
       </View>

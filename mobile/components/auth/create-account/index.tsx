@@ -28,6 +28,7 @@ import { signIn } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import LoadingModal from "@/components/global/loading-modal";
 
 const service = [
   {
@@ -127,19 +128,21 @@ const CreateAccount = () => {
   }, [phone]);
 
   return (
-    <ScrollView
-      style={{
-        backgroundColor: "black",
-      }}
-      showsVerticalScrollIndicator={false}
-    >
+    <SafeAreaView className="h-full flex-1 bg-black">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <SafeAreaView className="h-full flex-1 bg-black">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={{
+            backgroundColor: "black",
+            flex: 1,
+          }}
+          showsVerticalScrollIndicator={false}
         >
-          <View className="container h-full justify-between px-[21px] pb-3">
+          <View className=" justify-between px-[21px] pb-3">
             <View>
               <View className="my-[48px] mb-10">
                 <Text className="mb-[20px] text-center text-gray-200 font-LexendDecaBold text-[21px] ">
@@ -317,7 +320,7 @@ const CreateAccount = () => {
                     disabled={isLoading || !isValid || !agree}
                     onPress={handleSignUp}
                     className="mb-4 mt-[18px] !rounded !text-white"
-                    loading={isLoading}
+                    // loading={isLoading}
                   />
                 </FormProvider>
               </View>
@@ -359,9 +362,11 @@ const CreateAccount = () => {
               </Text>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <LoadingModal isVisible={isLoading} />
+    </SafeAreaView>
   );
 };
 
