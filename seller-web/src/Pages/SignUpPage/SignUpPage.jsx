@@ -105,6 +105,9 @@ const SignUpPage = () => {
       return;
     }
 
+    // Format email - convert to lowercase and remove spaces
+    const formattedEmail = formData.email.toLowerCase().replace(/\s+/g, '');
+
     if (formData.password !== formData.confirmPassword) {
       //if passwords do not match, alert the user
       console.log('Passwords do not match');
@@ -139,7 +142,7 @@ const SignUpPage = () => {
       const result = await createSeller(
         formData.firstName, 
         formData.lastName, 
-        formData.email, 
+        formattedEmail, 
         formData.password, 
         formattedPhone, 
         formData.storeName
@@ -168,8 +171,10 @@ const SignUpPage = () => {
     if (otp.length === 4 && signUpSellerDetails !== null) {
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
+        // Get the normalized email for OTP verification
+        const formattedEmail = signUpSellerDetails?.email.toLowerCase().replace(/\s+/g, '');
         // Verify OTP - this will handle the redirection to dashboard if successful
-        const success = await verifyOtp(signUpSellerDetails?.email, otp);
+        const success = await verifyOtp(formattedEmail, otp);
         if (success) {
           // Close modal
           setIsModalOpen(false);
@@ -189,7 +194,9 @@ const SignUpPage = () => {
 
   const handleNewOtpRequest = async () => {
     if (signUpSellerDetails !== null) {
-      await requestNewOtp(signUpSellerDetails?.email);
+      // Format email for OTP request
+      const formattedEmail = signUpSellerDetails?.email.toLowerCase().replace(/\s+/g, '');
+      await requestNewOtp(formattedEmail);
       setActivateOtp(true);
     } else {
       toast.error("You are unauthorized to request for a new OTP");
@@ -307,7 +314,10 @@ const SignUpPage = () => {
                       name="email"
                       value={formData.email}
                       placeholder='Enter your email'
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => {
+                        // Store the value as is (for UI display), but will format on submission
+                        setFormData({ ...formData, email: e.target.value });
+                      }}
                       className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
                     />
                   </TooltipTrigger>
