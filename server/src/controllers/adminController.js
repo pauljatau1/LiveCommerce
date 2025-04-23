@@ -4183,6 +4183,70 @@ exports.downloadProductCsvTemplate = async (req, res) => {
 
 // ... existing code continues ...
 
+exports.deleteBuyerAccount = async (req, res) => {
+  const { buyerId } = req.params;
+
+  try {
+    // Find the buyer first to make sure they exist and to get their email
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Store buyer details for sending email
+    const buyerEmail = buyer.email;
+    const buyerName = `${buyer.firstName} ${buyer.lastName}`;
+    
+    // Delete the buyer account
+    await Buyer.findByIdAndDelete(buyerId);
+    
+    // Send email notification to the buyer
+    const emailMsg = {
+      to: buyerEmail,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Your Auqli Account Has Been Deleted',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Account Deletion Notification</h2>
+          <p>Dear ${buyerName},</p>
+          <p>We regret to inform you that your account on Auqli has been deleted by our administration team.</p>
+          <p>This action may have been taken due to:</p>
+          <ul>
+            <li>Violation of our terms of service</li>
+            <li>Account inactivity for an extended period</li>
+            <li>Multiple community guideline violations</li>
+            <li>At your request through customer support</li>
+          </ul>
+          <p>If you believe this was done in error or have any questions, please contact our support team at support@auqli.com</p>
+          <p>Best regards,<br>Auqli Support Team</p>
+        </div>
+      `
+    };
+
+    await sgMail.send(emailMsg);
+
+    // Send successful response
+    res.status(200).json({
+      success: true,
+      message: 'Buyer account deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error deleting buyer account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete buyer account',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code ...
+
 
 
 

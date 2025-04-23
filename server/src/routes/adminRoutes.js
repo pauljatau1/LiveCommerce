@@ -1879,4 +1879,33 @@ router.get(
   adminController.downloadProductCsvTemplate
 );
 
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}:
+ *   delete:
+ *     summary: Delete a buyer's account
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Buyer ID
+ *     responses:
+ *       200:
+ *         description: Buyer account deleted successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/buyers/:buyerId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.deleteBuyerAccount
+);
+
 module.exports = router;
