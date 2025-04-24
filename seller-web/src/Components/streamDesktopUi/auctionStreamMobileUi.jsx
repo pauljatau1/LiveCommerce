@@ -244,20 +244,20 @@ const AuctionStreamMobileUi = ({
                     </div>
                     
                     {/* Bottom Bar - Absolutely positioned */}
-                    <div className="absolute bottom-0 left-0 right-0 py-3 px-4 bg-gradient-to-t from-black/70 to-transparent">
+                    <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/70 to-transparent">
                         <div className="flex items-center justify-between">
                             <button 
-                                className="w-10 h-10 flex items-center justify-center bg-black/40 rounded-full"
+                                className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-full"
                             >
-                                <Icon icon="mdi:shopping" className="text-white text-xl" />
+                                <Icon icon="mdi:shopping" className="text-white text-lg" />
                             </button>
                             
-                            <div className="flex-1 mx-2">
+                            <div className="flex-1 mx-1 sm:mx-2 min-w-0">
                                 <div className={`flex items-center bg-black/40 rounded-full overflow-hidden ${isInputFocused ? 'ring-1 ring-white/30' : ''}`}>
                                     <input
                                         type="text"
                                         placeholder="Send a message..."
-                                        className="flex-1 bg-transparent text-white placeholder-white/50 text-sm px-4 py-2 focus:outline-none"
+                                        className="flex-1 min-w-0 bg-transparent text-white placeholder-white/50 text-sm px-2 sm:px-4 py-2 focus:outline-none"
                                         value={commentInput}
                                         onChange={(e) => setCommentInput(e.target.value)}
                                         onKeyPress={handleKeyPress}
@@ -265,7 +265,7 @@ const AuctionStreamMobileUi = ({
                                         onBlur={() => setIsInputFocused(false)}
                                     />
                                     <button 
-                                        className={`px-3 text-white/70 ${!commentInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
+                                        className={`px-2 sm:px-3 text-white/70 ${!commentInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
                                         onClick={handleSendComment}
                                         disabled={!commentInput.trim()}
                                     >
@@ -274,11 +274,11 @@ const AuctionStreamMobileUi = ({
                                 </div>
                             </div>
                             
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center">
                                 <button 
-                                    className="w-10 h-10 flex items-center justify-center bg-black/40 rounded-full"
+                                    className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-full"
                                 >
-                                    <Icon icon="mdi:dots-horizontal" className="text-white text-xl" />
+                                    <Icon icon="mdi:dots-horizontal" className="text-white text-lg" />
                                 </button>
                             </div>
                         </div>
