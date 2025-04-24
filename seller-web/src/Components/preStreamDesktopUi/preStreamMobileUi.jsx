@@ -1,12 +1,13 @@
-import { Icon } from '@iconify/react';
-import { MdClose } from 'react-icons/md';
-import AuqliLogo from '../../assets/auqli-official-logo.png';
-import ChatEmpty from '../../assets/Chat Empty.png';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { MdClose, MdVideocam, MdVideocamOff, MdMic, MdMicOff, MdFlipCameraIos, MdCheck, MdAdd } from 'react-icons/md';
+import { IoChevronDown } from 'react-icons/io5';
+import { FiUsers } from 'react-icons/fi';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Icon } from '@iconify/react';
 
 const PreStreamMobileUi = ({
     handleStartStream,
-    liveStreamDetails,
     deviceError,
     existingLivestream,
     getInitials,
@@ -14,219 +15,254 @@ const PreStreamMobileUi = ({
     lastName,
     products,
     formatCurrency,
-    seller,
-    isToolsSidebarOpen,
-    setIsToolsSidebarOpen,
     viewers = [],
-    totalShares = 0
+    liveStreamDetails,
+    isReconnecting
 }) => {
-  return (
-        <div className="block xl:hidden">
-            {/** HEADER */}
-            <div className="grid grid-cols-1 md:grid-cols-6 items-start gap-4">
-                <div className="flex justify-between md:justify-start md:col-span-3 items-center gap-2">
-                    <img src={AuqliLogo} alt="Auqli Logo" className="w-[120px] h-[32px] md:w-[162px] md:h-[44.03px]" />
-                    <h1 className="text-white whitespace-nowrap text-lg md:text-xl font-lexend font-bold">LIVE STUDIO</h1>
-                </div>
-                <div className="flex md:col-span-3 md:justify-end items-center gap-2">
-                    <button onClick={handleStartStream} className="flex items-center gap-2 border h-9 text-white p-2 border-[#272A31] rounded-md hover:bg-gray-200/10 transition-all duration-300">
-                        <Icon icon="proicons:record" className="w-5 h-6" color="#C74E5B" />
-                    </button>
-                    <div className="flex border border-[#272A31] h-9 rounded-md items-center">
-                        <button className="flex items-center justify-center gap-2 h-full text-white p-2 hover:bg-gray-200/10 transition-all duration-300">
-                            <Icon icon="bi:record-fill" className={`w-5 h-5 ${liveStreamDetails ? 'animate-pulse' : ''}`} color="#C74E5B" />
-                            <p className="text-sm font-inter font-semibold text-[#EFF0FA]">LIVE <span className="text-sm font-inter font-medium text-[#EFF0FA] inline-block min-w-[2rem] text-right">0:00</span></p>
-                        </button>
-                        <button onClick={handleStartStream} className="flex items-center justify-center gap-2 border-l border-[#272A31] h-full text-white p-2 hover:bg-gray-200/10 transition-all duration-300">
-                            <Icon icon="fluent:record-32-regular" className="w-5 h-5" color="#EFF0FA" />
-                            <p className="text-sm font-inter font-semibold text-[#EFF0FA]">Start</p>
-                        </button>
-                    </div>
-                </div>
-            </div>
+    const [activeTab, setActiveTab] = useState('settings');
+    const [cameraEnabled, setCameraEnabled] = useState(true);
+    const [micEnabled, setMicEnabled] = useState(true);
+    const [videoQuality, setVideoQuality] = useState('High (1080p)');
+    const [audioQuality, setAudioQuality] = useState('High');
 
-            {/* Viewer stats for mobile - added in a more compact form */}
-            <div className="flex items-center justify-between mt-4 mb-2">
+    // Quality options
+    const videoOptions = ['Low (480p)', 'Medium (720p)', 'High (1080p)'];
+    const audioOptions = ['Low', 'Medium', 'High'];
+
+    return (
+        <div className="block xl:hidden h-[100dvh] w-full relative bg-black overflow-hidden">
+            {/* Header area */}
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10">
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center px-3 py-2 border w-fit border-[#272A31] rounded-md">
-                        <Icon icon="octicon:people-24" className="w-4 h-4 mr-1" color='#EFF0FA' />
-                        <p className="text-xs font-inter font-medium text-[#EFF0FA]">{viewers.length}</p>
+                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-medium">
+                        NOT LIVE
                     </div>
-                    <div className="flex items-center px-3 py-2 border w-fit border-[#14AE5C] rounded-md">
-                        <Icon icon="fluent:share-16-regular" className="w-4 h-4 mr-1" color='#14AE5C' />
-                        <p className="text-xs font-inter font-medium text-[#EFF0FA]">{totalShares}</p>
+                    <div className="bg-black/40 backdrop-blur-sm text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                        <FiUsers className="mr-1" size={12} />
+                        {viewers.length || 0}
                     </div>
                 </div>
-                <div className="flex items-center cursor-pointer px-3 py-2 bg-[#EDF2F7] rounded-md">
-                    <p className="text-xs font-inter font-medium text-[#7A828A] truncate max-w-[100px]">streamlink.com</p>
-                    <Icon icon="solar:copy-linear" className="w-4 h-4 ml-1" color='#16783A' />
+                <div className="flex items-center gap-2">
+                    <button
+                        className="bg-black/40 backdrop-blur-sm text-white rounded-md w-8 h-8 flex items-center justify-center"
+                        onClick={() => setCameraEnabled(!cameraEnabled)}
+                    >
+                        {cameraEnabled ? <MdVideocam size={20} /> : <MdVideocamOff size={20} />}
+                    </button>
+                    <button
+                        className="bg-black/40 backdrop-blur-sm text-white rounded-md w-8 h-8 flex items-center justify-center"
+                        onClick={() => setMicEnabled(!micEnabled)}
+                    >
+                        {micEnabled ? <MdMic size={20} /> : <MdMicOff size={20} />}
+                    </button>
+                    <button className="bg-black/40 backdrop-blur-sm text-white rounded-md w-8 h-8 flex items-center justify-center">
+                        <MdClose size={20} />
+                    </button>
                 </div>
             </div>
 
-            {/** BODY */}
-            <div className="mt-4 grid grid-cols-12 gap-6 min-h-[calc(100vh-250px)]">
-                {
-                    isToolsSidebarOpen && (
-                        <div className="block xl:hidden fixed left-5 md:left-10 top-20 z-50 max-w-80 col-span-12 md:col-span-3 xl:col-span-2 bg-[#0D0F12] rounded-xl p-4">
-                            <div className="space-y-4">
-                                <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Tools</h2>
-                                <MdClose size={24} className="absolute top-0 right-4 cursor-pointer text-white" onClick={() => setIsToolsSidebarOpen(false)} />
-                                <div className="space-y-2">
-                                    <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
-                                        <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
-                                        <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
-                                    </button>
-                                    <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
-                                        <Icon icon="solar:user-block-linear" className="w-5 h-5" color="#C74E5B" />
-                                        <span className="text-[#EFF0FA] font-inter text-sm">Block/Kick User</span>
-                                    </button>
-                                    <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
-                                        <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
-                                        <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
-                                    </button>
-                                    <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
-                                        <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
-                                        <span className="text-[#EFF0FA] font-inter text-sm">Settings</span>
-                                    </button>
-                                </div>
+            {/* Stream Panel / Tabs section */}
+            <div className="absolute top-16 left-0 right-0 p-4 z-10">
+                {/* Tab navigation */}
+                <div className="flex justify-between border-b border-gray-700">
+                    <button
+                        className={`py-2 px-4 text-sm font-medium relative ${activeTab === 'settings' ? 'text-green-500' : 'text-gray-400'}`}
+                        onClick={() => setActiveTab('settings')}
+                    >
+                        Settings
+                        {activeTab === 'settings' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500"></div>
+                        )}
+                    </button>
+                    <button
+                        className={`py-2 px-4 text-sm font-medium relative ${activeTab === 'products' ? 'text-green-500' : 'text-gray-400'}`}
+                        onClick={() => setActiveTab('products')}
+                    >
+                        Products
+                        {activeTab === 'products' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500"></div>
+                        )}
+                    </button>
+                </div>
 
-                                <div className="mt-8">
-                                    <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-                                    <div className="space-y-4 max-h-[calc(100vh-500px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
-                                        {
-                                            products?.length > 0 ? (
-                                                products?.map((item) => (
-                                                    <div key={item?.product._id} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
-                                                        <div className="">
-                                                            <img
-                                                                src={item?.product?.images[0]?.url}
-                                                                alt={item?.product?.name}
-                                                                className="w-[62px] h-[62px] object-contain rounded-lg"
-                                                            />
-                                                        </div>
-    <div>
-                                                            <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
-                                                            <p className="text-sm text-[#718096] font-inter font-medium">
-                                                                {formatCurrency(item?.product?.price)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="flex flex-col mt-10 items-center justify-center h-full">
-                                                    <p className="text-sm text-[#7A828A] font-inter">No products added yet</p>
-                                                </div>
-                                            )
-                                        }
+                {/* Tab content */}
+                <div className="mt-4 max-h-[60dvh] overflow-y-auto scroll-smooth pb-40">
+                    {activeTab === 'settings' && (
+                        <div className="space-y-3">
+                            <div className="bg-[#1A1D24] rounded-md p-3">
+                                <p className="text-sm capitalize text-gray-300">Title: {liveStreamDetails?.title}</p>
+                            </div>
+
+                            {/* Video Quality Dropdown */}
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <div className="bg-[#1A1D24] rounded-md p-3 flex items-center justify-between cursor-pointer">
+                                        <p className="text-sm text-gray-300">Video Quality</p>
+                                        <div className="flex items-center">
+                                            <MdCheck className="text-green-500 mr-1" />
+                                            <span className="text-sm text-gray-300 mr-1">{videoQuality}</span>
+                                            <IoChevronDown className="text-gray-400" />
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-    </div>
-  )
-}
+                                </DropdownMenu.Trigger>
 
-                {/* mobile Main Content - Stream Preview */}
-                <div className="block xl:hidden col-span-12 bg-[#0D0F12] rounded-xl relative overflow-hidden">
-                    <div className="stream-container relative w-full h-full" style={{ aspectRatio: '16/9' }}>
-                        <div onClick={() => setIsToolsSidebarOpen(!isToolsSidebarOpen)} className="absolute xl:hidden top-4 left-4 cursor-pointer z-10 text-white bg-white/10 backdrop-blur-lg rounded-lg p-2">
-                            <Icon icon="ri:tools-line" className="w-8 h-8" />
+                                <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                        className="bg-[#1A1D24] rounded-md p-1 z-50 shadow-lg min-w-[150px]"
+                                        sideOffset={5}
+                                        align="end"
+                                    >
+                                        {videoOptions.map((option) => (
+                                            <DropdownMenu.Item
+                                                key={option}
+                                                className={`text-sm p-2 rounded cursor-pointer ${videoQuality === option ? 'text-green-500 bg-black/30' : 'text-gray-300 hover:bg-black/20'}`}
+                                                onClick={() => setVideoQuality(option)}
+                                            >
+                                                <div className="flex items-center">
+                                                    {videoQuality === option && <MdCheck className="mr-1" />}
+                                                    {option}
+                                                </div>
+                                            </DropdownMenu.Item>
+                                        ))}
+                                    </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+
+                            {/* Audio Quality Dropdown */}
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <div className="bg-[#1A1D24] rounded-md p-3 flex items-center justify-between cursor-pointer">
+                                        <p className="text-sm text-gray-300">Audio Quality</p>
+                                        <div className="flex items-center">
+                                            <MdCheck className="text-green-500 mr-1" />
+                                            <span className="text-sm text-gray-300 mr-1">{audioQuality}</span>
+                                            <IoChevronDown className="text-gray-400" />
+                                        </div>
+                                    </div>
+                                </DropdownMenu.Trigger>
+
+                                <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                        className="bg-[#1A1D24] rounded-md p-1 z-50 shadow-lg min-w-[150px]"
+                                        sideOffset={5}
+                                        align="end"
+                                    >
+                                        {audioOptions.map((option) => (
+                                            <DropdownMenu.Item
+                                                key={option}
+                                                className={`text-sm p-2 rounded cursor-pointer ${audioQuality === option ? 'text-green-500 bg-black/30' : 'text-gray-300 hover:bg-black/20'}`}
+                                                onClick={() => setAudioQuality(option)}
+                                            >
+                                                <div className="flex items-center">
+                                                    {audioQuality === option && <MdCheck className="mr-1" />}
+                                                    {option}
+                                                </div>
+                                            </DropdownMenu.Item>
+                                        ))}
+                                    </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+
+                            <div className="bg-[#1A1D24] rounded-md p-3">
+                                <p className="text-sm text-gray-300">FAQ&apos;s</p>
+                            </div>
                         </div>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <div className="w-24 h-24 bg-[#272A31] rounded-full flex items-center justify-center mb-6">
-                                <p className="text-white text-2xl font-lexend font-bold">
-                                    {getInitials(firstName, lastName)}
-                                </p>
-                            </div>
-                            {deviceError ? (
-                                <div className="text-red-500 mb-4 text-center">
-                                    <p>{deviceError}</p>
-                                    <button
-                                        onClick={() => window.location.reload()}
-                                        className="mt-2 text-white bg-red-600 px-4 py-2 rounded-lg"
-                                    >
-                                        Retry
+                    )}
+
+                    {activeTab === 'products' && (
+                        <div className={`space-y-3 ${products && products.length > 0 ? '' : 'relative h-[500px]'}`}>
+                            {products && products.length > 0 ? (
+                                products.map((item, index) => (
+                                    <div key={item?.product?._id || index} className="bg-[#1A1D24] rounded-md p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 bg-gray-700 rounded-md overflow-hidden">
+                                                {item?.product?.images?.[0]?.url ? (
+                                                    <img
+                                                        src={item.product.images[0].url}
+                                                        alt={item.product.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <span className="text-gray-400 text-xs">No img</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-white truncate max-w-[150px] font-medium">{item?.product?.name}</p>
+                                                <p className="text-xs text-gray-400">
+                                                    {item?.product?.size && `Size: ${item.product.size}`}
+                                                </p>
+                                                {item?.product?.price && (
+                                                    <p className="text-xs text-green-500 font-medium">
+                                                        {formatCurrency ? formatCurrency(item.product.price) : `₦${item.product.price}`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                // No Products Available UI
+                                <div className="flex flex-col items-center justify-center py-8 text-center absolute top-0 left-0 right-0 bottom-0">
+                                    <div className="w-16 h-16 bg-[#1A1D24] rounded-full flex items-center justify-center mb-4">
+                                        <MdAdd className="text-gray-400" size={24} />
+                                    </div>
+                                    <p className="text-gray-300 text-sm mb-4">No products added yet</p>
+                                    <button className="bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium">
+                                        Upload Product
                                     </button>
                                 </div>
-                            ) : (
-                                existingLivestream ? (
-                                    <button
-                                        onClick={() => { handleStartStream() }}
-                                        className="bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300"
-                                    >
-                                        Reconnect Stream
-                                    </button>
-
-                                ) : (
-                                    <button
-                                        onClick={handleStartStream}
-                                        className="bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300"
-                                    >
-                                        Start Stream
-                                    </button>
-                                )
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* mobile Right Sidebar - Activities */}
-                <div className="block xl:hidden col-span-12 bg-[#0D0F12] rounded-xl p-4">
-                    <div className="h-full flex flex-col">
-                        <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Activities</h2>
-                        <div className="flex-1 flex flex-col items-center justify-center">
-                            <div className="text-center space-y-4">
-                                <div className="w-16 xl:w-24 h-16 xl:h-24 mx-auto">
-                                    <img src={ChatEmpty} alt="Chat" className="w-full h-full" />
-                                </div>
-                                <h3 className="text-[#EFF0FA] font-inter font-medium">Start a conversation</h3>
-                                <p className="text-[#7A828A] text-sm font-inter">
-                                    There are no messages here yet. Start a conversation by sending a message.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="mt-auto pt-4">
-                            <div className="flex items-center gap-2 bg-[#161A1E] rounded-lg p-3">
-                                {
-                                    seller?.storeAvatar?.url ? (
-                                        <img src={seller?.storeAvatar.url} alt="User" className="w-8 h-8 rounded-full" />
-                                    ) : (
-                                        <Icon icon="hugeicons:user-circle" className="w-8 h-8" color="#EFF0FA" />
-                                    )
-                                }
-                                <input
-                                    type="text"
-                                    placeholder="Write a comment..."
-                                    className="flex-1 bg-transparent text-[#EFF0FA] placeholder-[#7A828A] text-sm font-inter focus:outline-none"
-                                />
-                                <button className="text-[#14AE5C]">
-                                    <Icon icon="solar:send-linear" className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
-            {/* Bottom Stats */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 z-10">
-                <div className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-[#14AE5C] font-inter font-medium text-lg">
-                            {formatCurrency(0)}
-                        </p>
-                        <p className="text-[#7A828A] text-sm font-inter">In sales so far</p>
+
+            {/* Custom Bottom Sheet (Fixed overlay) */}
+            <div className={`absolute bottom-0 left-0 right-0 bg-black border-t border-gray-800 rounded-t-2xl shadow-2xl z-20 }`}>
+                <div className="w-12 h-1 bg-gray-600 rounded-full mx-auto my-2"></div>
+                
+
+                <div className="px-4 pb-6 pt-2">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                            <Icon icon="proicons:record" className="text-red-500" size={20} />
+                            <p className="text-sm text-gray-300">
+                                Start Stream
+                            </p>
+                        </div>
+                        {/* Camera flip button positioned on the bottom-right corner of Start Stream section */}
+                        <button className=" bg-black/60 border border-gray-600 p-2 rounded-lg">
+                            <MdFlipCameraIos size={20} />
+                        </button>
                     </div>
-                </div>
-                <div className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-[#EFF0FA] font-inter font-medium text-lg">0</p>
-                        <p className="text-[#7A828A] text-sm font-inter">Items sold</p>
-                    </div>
-                </div>
-                <div className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-[#EFF0FA] font-inter font-medium text-lg">0</p>
-                        <p className="text-[#7A828A] text-sm font-inter">Shared your stream</p>
-                    </div>
+
+                    <p className="text-xs text-gray-400 mb-4">
+                        Begin your stream when you are done with the settings.
+                    </p>
+
+                    {deviceError ? (
+                        <div className="text-red-500 mb-3 text-center w-full">
+                            <p>{deviceError}</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-2 bg-red-600 text-white w-full py-3 rounded-lg"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <button
+                                disabled={isReconnecting}
+                                onClick={existingLivestream ? () => handleStartStream() : handleStartStream}
+                                className={`w-full ${isReconnecting ? 'bg-gray-600' : 'bg-white'} text-black font-medium py-3 rounded-lg`}
+                            >
+                                {existingLivestream ? isReconnecting ? 'Reconnecting...' : 'Reconnect Stream' : 'Go Live'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -235,7 +271,6 @@ const PreStreamMobileUi = ({
 
 PreStreamMobileUi.propTypes = {
     handleStartStream: PropTypes.func,
-    liveStreamDetails: PropTypes.object,
     deviceError: PropTypes.string,
     existingLivestream: PropTypes.object,
     getInitials: PropTypes.func,
@@ -243,11 +278,12 @@ PreStreamMobileUi.propTypes = {
     lastName: PropTypes.string,
     products: PropTypes.array,
     formatCurrency: PropTypes.func,
-    seller: PropTypes.object,
+    viewers: PropTypes.array,
     isToolsSidebarOpen: PropTypes.bool,
     setIsToolsSidebarOpen: PropTypes.func,
-    viewers: PropTypes.array,
     totalShares: PropTypes.number,
+    liveStreamDetails: PropTypes.object,
+    isReconnecting: PropTypes.bool
 };
 
 export default PreStreamMobileUi;
