@@ -25,7 +25,7 @@ const AuctionStreamMobileUi = ({
     const [autoScroll, setAutoScroll] = useState(true);
     const [hasNewMessages, setHasNewMessages] = useState(false);
     const prevMessagesLengthRef = useRef(0);
-    
+
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
         if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
@@ -157,11 +157,15 @@ const AuctionStreamMobileUi = ({
             endStream(false, false);
         }
     };
-    
+
     return (
         <div className="block xl:hidden">
             {/* Mobile Main Content - Stream Preview */}
-            <div className="block xl:hidden w-full h-screen relative overflow-hidden bg-black">
+            <div className="block xl:hidden w-full h-screen relative overflow-hidden bg-black"
+                 style={{
+                     // Using CSS custom property for reliable mobile height
+                     height: 'calc(var(--vh, 1vh) * 100)',
+                 }}>
                 {/* Video container */}
                 <div className="stream-container relative w-full h-full">
                     <div
@@ -169,7 +173,8 @@ const AuctionStreamMobileUi = ({
                         className="w-full h-full bg-black"
                         style={{
                             minHeight: '100%',
-                            transform: 'scaleX(-1)'
+                            // Removing the hardcoded transform to let switchCamera function handle mirroring
+                            // transform will be set dynamically based on camera facing mode
                         }}
                     ></div>
                     
@@ -188,13 +193,13 @@ const AuctionStreamMobileUi = ({
                             <div className="flex items-center bg-black/40 rounded-full px-2 py-1">
                                 <Icon icon="mdi:eye" className="text-white mr-1" />
                                 <span className="text-white text-xs">{viewerCount}</span>
-                            </div>
+                </div>
                             <button 
                                 onClick={handleSwitchCamera}
                                 className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
                             >
                                 <Icon icon="mdi:camera-flip" className="text-white text-lg" />
-                            </button>
+                    </button>
                             <button 
                                 onClick={handleToggleMicrophone}
                                 className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
@@ -210,8 +215,8 @@ const AuctionStreamMobileUi = ({
                                 className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
                             >
                                 <Icon icon="mdi:close" className="text-white text-lg" />
-                            </button>
-                        </div>
+                        </button>
+                    </div>
                     </div>
                     
                     {/* Live Chat Messages - Always visible */}
@@ -226,9 +231,9 @@ const AuctionStreamMobileUi = ({
                                     <MobileChatMessage key={message._id || message.id} message={message} />
                                 ))}
                                 <div ref={messagesEndRef} />
-                            </div>
-                        </div>
-                        
+                </div>
+            </div>
+
                         {/* New Messages Button - Shows when new messages arrive and user is scrolled up */}
                         {hasNewMessages && (
                             <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
@@ -241,8 +246,8 @@ const AuctionStreamMobileUi = ({
                                 </button>
                             </div>
                         )}
-                    </div>
-                    
+                            </div>
+
                     {/* Bottom Bar - Absolutely positioned */}
                     <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/70 to-transparent">
                         <div className="flex items-center justify-between">
@@ -264,13 +269,13 @@ const AuctionStreamMobileUi = ({
                                         onFocus={() => setIsInputFocused(true)}
                                         onBlur={() => setIsInputFocused(false)}
                                     />
-                                    <button 
+                                                        <button
                                         className={`px-2 sm:px-3 text-white/70 ${!commentInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
                                         onClick={handleSendComment}
                                         disabled={!commentInput.trim()}
                                     >
                                         <Icon icon="mdi:send" className="w-5 h-5" />
-                                    </button>
+                                                        </button>
                                 </div>
                             </div>
                             

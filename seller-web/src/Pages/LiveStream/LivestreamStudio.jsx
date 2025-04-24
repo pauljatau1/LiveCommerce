@@ -69,6 +69,36 @@ const LivestreamStudio = () => {
     // Add the livstreamSocket context
     const livestreamSocket = useLivestreamSocket();
 
+    // Function to set the CSS viewport height property
+    // This fixes issues with mobile browser viewport height
+    const setViewportHeight = () => {
+        // First get the viewport height and multiply it by 1% to get a value for a vh unit
+        const vh = window.innerHeight * 0.01;
+        // Then set the value in the --vh custom property to the root of the document
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    
+    // Initialize and update viewport height
+    useEffect(() => {
+        // Set initial viewport height
+        setViewportHeight();
+        
+        // Update on resize
+        window.addEventListener('resize', setViewportHeight);
+        
+        // Update on orientation change
+        window.addEventListener('orientationchange', () => {
+            // Small delay to ensure browser completes the orientation change
+            setTimeout(setViewportHeight, 100);
+        });
+        
+        // Cleanup
+        return () => {
+            window.removeEventListener('resize', setViewportHeight);
+            window.removeEventListener('orientationchange', setViewportHeight);
+        };
+    }, []);
+
     useEffect(() => {
         setHideSidebar(true);
         setFullScreenMode(true);
@@ -186,7 +216,7 @@ const LivestreamStudio = () => {
                 while (retryCount < maxRetries) {
                     try {
                         console.log(`📷 [DEVICE] Attempting to access camera/mic (attempt ${retryCount + 1})`);
-                        
+
                         const stream = await navigator.mediaDevices.getUserMedia({
                             video: {
                                 width: { ideal: 1920 },
@@ -229,7 +259,7 @@ const LivestreamStudio = () => {
                     } catch (error) {
                         lastError = error;
                         retryCount++;
-                        
+
                         // Don't retry immediately - give the browser some time
                         if (retryCount < maxRetries) {
                             console.log(`📷 [DEVICE] Error accessing media devices, retrying in 3 seconds... (${retryCount}/${maxRetries})`);
@@ -237,7 +267,7 @@ const LivestreamStudio = () => {
                         }
                     }
                 }
-                
+
                 // If we've exhausted all retries, throw the last error
                 throw lastError;
             };
@@ -258,7 +288,7 @@ const LivestreamStudio = () => {
             }
 
             console.log('📷 [DEVICE] Device initialization successful');
-            
+
             // Store the preview stream in state
             setPreviewMediaStream(previewStream);
             return previewStream;
@@ -434,7 +464,7 @@ const LivestreamStudio = () => {
             // 1. Check permissions and keep preview stream alive - this may take time for user input
             console.log('📷 [STREAM INIT] Waiting for device permissions and initialization...');
             const previewStream = await checkDevicePermissions();
-            
+
             // If permissions not granted or devices not initialized, abort stream initialization
             if (!previewStream) {
                 console.log('📷 [STREAM INIT] Device permissions not granted or initialization failed');
@@ -482,18 +512,17 @@ const LivestreamStudio = () => {
             const currentRole = client.role;
             console.log('Current role:', currentRole);
 
-            // 7. Create tracks AFTER setting isStreaming
-            console.log('📷 [STREAM INIT] Creating Agora tracks from device streams');
+            // 7. Create Agora tracks for audio and video
             const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
                     encoderConfig: {
                         sampleRate: 48000,
                         stereo: true,
                         bitrate: 128,
-                        AEC: true,
-                        ANS: true,
-                        AGC: true
-                    }
+                    },
+                    AEC: true,
+                    ANS: true,
+                    AGC: true
                 },
                 {
                     encoderConfig: {
@@ -503,7 +532,7 @@ const LivestreamStudio = () => {
                         bitrateMin: 1500,
                         bitrateMax: 4000,
                         optimizationMode: 'motion',
-                        mirror: true
+                        // Don't hardcode mirror property, will be set after initialization
                     },
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
@@ -514,6 +543,14 @@ const LivestreamStudio = () => {
                 }
             );
             console.log('📷 [STREAM INIT] Successfully created Agora tracks');
+            
+            // Set camera facing mode state
+            setCameraFacingMode("user");
+            
+            // Set mirror mode based on camera type
+            if (videoTrack.setMirror) {
+                videoTrack.setMirror(true); // Mirror for front-facing camera
+            }
 
             // 8. Wait for DOM to be updated with video containers
             console.log('📷 [STREAM INIT] Waiting for video containers to be rendered in DOM');
@@ -529,25 +566,24 @@ const LivestreamStudio = () => {
                 try {
                     const container = document.getElementById(containerId);
                     if (!container) {
-                        console.log(`📷 [STREAM INIT] Container ${containerId} not found in DOM`);
+                        console.log(`📷 [STREAM INIT] Container ${containerId} not found yet`);
                         return false;
                     }
-
-                    // MORE RELIABLE CHECK: Use a MutationObserver approach
-                    const rect = container.getBoundingClientRect();
-                    const isVisible = !(rect.width === 0 && rect.height === 0);
-                    console.log(`📷 [STREAM INIT] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}, dimensions: ${rect.width}x${rect.height}`);
 
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                fit: 'cover',
-                mirror: true
-            });
+                        fit: 'cover',
+                        mirror: cameraFacingMode === "user" // Only mirror if front-facing camera
+                    });
+                    
+                    // Also set the transform style directly to handle mirroring consistently
+                    container.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
+                    
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
-                } catch (error) {
-                    console.error(`Error playing video in ${containerId}:`, error);
+                } catch (e) {
+                    console.error(`📷 [STREAM INIT] Error playing video in ${containerId}:`, e);
                     return false;
                 }
             };
@@ -556,20 +592,20 @@ const LivestreamStudio = () => {
             console.log('📷 [STREAM INIT] First attempt to play in both containers');
             const desktopSuccess = playVideoInContainer(desktopContainerId);
             const mobileSuccess = playVideoInContainer(mobileContainerId);
-            
+
             // 10. Setup continuous monitoring of containers - more intelligent handling
             console.log('📷 [STREAM INIT] Setting up container monitor');
-            
+
             // Keep track of container states
             const containerStates = {
                 [desktopContainerId]: { lastPlayed: desktopSuccess ? Date.now() : 0 },
                 [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
             };
-            
+
             // Track window width for responsive design changes
             let lastWidth = window.innerWidth;
             let visibilityMonitorActive = false;
-            
+
             // Listen for visibility changes (hidden/visible)
             if (typeof document !== 'undefined' && document.addEventListener) {
                 document.addEventListener('visibilitychange', () => {
@@ -577,7 +613,7 @@ const LivestreamStudio = () => {
                         console.log('📷 [STREAM MONITOR] Document became visible, refreshing video in all containers');
                         // Stop all tracks and then restart them
                         videoTrack.stop();
-                        
+
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
@@ -585,29 +621,29 @@ const LivestreamStudio = () => {
                     }
                 });
             }
-            
+
             // Listen for window resize to detect responsive mode changes
             if (typeof window !== 'undefined' && window.addEventListener) {
                 window.addEventListener('resize', () => {
                     const currentWidth = window.innerWidth;
                     const breakpoint = 1280; // 'xl' breakpoint
-                    
+
                     // Only act if crossing the xl breakpoint
-                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) || 
+                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) ||
                         (lastWidth >= breakpoint && currentWidth < breakpoint)) {
-                        
+
                         console.log(`📷 [STREAM MONITOR] Responsive breakpoint crossed: ${lastWidth} -> ${currentWidth}`);
-                        
+
                         // Add a small delay to allow the DOM to update
                         setTimeout(() => {
                             // Stop the video track completely
                             videoTrack.stop();
-                            
+
                             // Reset tracking states
                             Object.keys(containerStates).forEach(id => {
                                 containerStates[id].lastPlayed = 0;
                             });
-                            
+
                             // Try to play in the appropriate container based on new width
                             if (currentWidth >= breakpoint) {
                                 playVideoInContainer(desktopContainerId);
@@ -616,72 +652,72 @@ const LivestreamStudio = () => {
                             }
                         }, 300);
                     }
-                    
+
                     lastWidth = currentWidth;
                 });
             }
-            
+
             // Setup page visibility check mechanism (MutationObserver)
             const setupVisibilityMonitor = () => {
                 if (visibilityMonitorActive) return;
                 visibilityMonitorActive = true;
-                
+
                 // Watch for any DOM changes that might affect visibility
                 const observer = new MutationObserver((mutations) => {
                     if (!isStreaming) {
                         observer.disconnect();
                         return;
                     }
-                    
+
                     const desktopElem = document.getElementById(desktopContainerId);
                     const mobileElem = document.getElementById(mobileContainerId);
                     const shouldRefresh = mutations.some(mutation => {
-                        return Array.from(mutation.addedNodes).some(node => 
+                        return Array.from(mutation.addedNodes).some(node =>
                             node.contains && (
-                                (desktopElem && node.contains(desktopElem)) || 
+                                (desktopElem && node.contains(desktopElem)) ||
                                 (mobileElem && node.contains(mobileElem))
                             )
                         );
                     });
-                    
+
                     if (shouldRefresh) {
                         console.log('📷 [STREAM MONITOR] DOM changed significantly, refreshing video');
                         videoTrack.stop();
-                        
+
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
                         });
                     }
                 });
-                
+
                 // Watch for any changes to the DOM
-                observer.observe(document.body, { 
+                observer.observe(document.body, {
                     childList: true,
                     subtree: true,
                     attributes: true,
                     attributeFilter: ['class', 'style', 'hidden']
                 });
-                
+
                 return observer;
             };
-            
+
             // Start visibility monitor
             const observer = setupVisibilityMonitor();
-            
+
             // Store for cleanup
             window.videoObserver = observer;
-            
+
             // More aggressive container monitor - checks more frequently
             const containerMonitor = setInterval(() => {
                 // Only log every 10th iteration to reduce console spam
                 const shouldLog = Math.random() < 0.05; // 5% chance to log
-                
+
                 // Check if we need to reset the video track occasionally
                 const now = Date.now();
                 const RESET_INTERVAL = 10000; // 10 seconds
                 let shouldReset = false;
-                
+
                 Object.keys(containerStates).forEach(id => {
                     // If we haven't successfully played in this container for a while
                     // and it's been more than RESET_INTERVAL since we last tried,
@@ -690,14 +726,14 @@ const LivestreamStudio = () => {
                         shouldReset = true;
                     }
                 });
-                
+
                 // If we need to reset, stop the video track completely and reset states
                 if (shouldReset) {
                     if (shouldLog) console.log('📷 [STREAM MONITOR] Performing periodic video track reset');
                     try {
                         // First stop all playback
                         videoTrack.stop();
-                        
+
                         // Reset last played timestamps to trigger replay in all containers
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
@@ -706,19 +742,19 @@ const LivestreamStudio = () => {
                         console.error('Error during video track reset:', error);
                     }
                 }
-                
+
                 // Try both containers on each interval
                 const desktopElem = document.getElementById(desktopContainerId);
                 const mobileElem = document.getElementById(mobileContainerId);
-                
+
                 if (!desktopElem && !mobileElem) {
                     if (shouldLog) console.log('📷 [STREAM MONITOR] No video containers found in DOM');
                     return;
                 }
-                
+
                 // First, check which containers exist and should be visible based on screen width
                 const isDesktopWidth = window.innerWidth >= 1280; // 'xl' breakpoint
-                
+
                 // SPECIAL HANDLING: Try to play in the correct container based on viewport width
                 if (isDesktopWidth) {
                     // Desktop width = try desktop container first
@@ -745,17 +781,17 @@ const LivestreamStudio = () => {
                         }
                     }
                 }
-                
+
                 // If we're no longer streaming, clear the interval
                 if (!isStreaming) {
                     clearInterval(containerMonitor);
                     console.log('📷 [STREAM MONITOR] Stopped container monitor (not streaming)');
                 }
             }, 250); // Check more frequently (4 times per second)
-            
+
             // Store the interval for cleanup
             window.containerMonitorInterval = containerMonitor;
-            
+
             console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
             await client.publish([audioTrack, videoTrack]);
             console.log('✅ [TRACK] Successfully published tracks to channel');
@@ -921,12 +957,12 @@ const LivestreamStudio = () => {
             // 5. Notify backend about stream end
             console.log("📤 [STREAM END] Notifying backend about stream end");
             await endLiveStream(_id);
-            
+
             // Reset all bidding states from the socket context
             if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
                 console.log("📤 [STREAM END] Resetting all bidding states");
                 livestreamSocket.resetBiddingStates();
-                
+
                 // Emit a host_disconnect event to notify viewers that the host has ended the stream
                 if (livestreamSocket.socket) {
                     console.log("📤 [STREAM END] Notifying viewers about host disconnect");
@@ -938,13 +974,13 @@ const LivestreamStudio = () => {
                         }
                     });
                 }
-                
+
                 // Clean up socket listeners to prevent memory leaks
                 if (typeof livestreamSocket.cleanupListeners === 'function') {
                     console.log("📤 [STREAM END] Cleaning up socket listeners");
                     livestreamSocket.cleanupListeners(_id);
                 }
-                
+
                 // Unsubscribe from stream notifications
                 if (typeof livestreamSocket.unsubscribeFromStreamNotifications === 'function') {
                     console.log("📤 [STREAM END] Unsubscribing from stream notifications");
@@ -1189,7 +1225,7 @@ const LivestreamStudio = () => {
         console.log('🔄 [RECONNECT 2/18] Set reconnection locks to prevent concurrent attempts');
 
         try {
-            
+
             // Force cleanup first - always ensure we're starting with a clean slate
             console.log('🔄 [RECONNECT 3/18] Cleaning up any existing Agora resources');
             await cleanupAgoraResources();
@@ -1358,25 +1394,24 @@ const LivestreamStudio = () => {
                 try {
                     const container = document.getElementById(containerId);
                     if (!container) {
-                        console.log(`📷 [STREAM INIT] Container ${containerId} not found in DOM`);
+                        console.log(`📷 [STREAM INIT] Container ${containerId} not found yet`);
                         return false;
                     }
-
-                    // MORE RELIABLE CHECK: Use a MutationObserver approach
-                    const rect = container.getBoundingClientRect();
-                    const isVisible = !(rect.width === 0 && rect.height === 0);
-                    console.log(`📷 [STREAM INIT] Container ${containerId} visibility check: ${isVisible ? 'VISIBLE' : 'HIDDEN'}, dimensions: ${rect.width}x${rect.height}`);
 
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                fit: 'cover',
-                mirror: true
-            });
+                        fit: 'cover',
+                        mirror: cameraFacingMode === "user" // Only mirror if front-facing camera
+                    });
+                    
+                    // Also set the transform style directly to handle mirroring consistently
+                    container.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
+                    
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
-                } catch (error) {
-                    console.error(`Error playing video in ${containerId}:`, error);
+                } catch (e) {
+                    console.error(`📷 [STREAM INIT] Error playing video in ${containerId}:`, e);
                     return false;
                 }
             };
@@ -1385,20 +1420,20 @@ const LivestreamStudio = () => {
             console.log('📷 [STREAM INIT] First attempt to play in both containers');
             const desktopSuccess = playVideoInContainer(desktopContainerId);
             const mobileSuccess = playVideoInContainer(mobileContainerId);
-            
+
             // 10. Setup continuous monitoring of containers - more intelligent handling
             console.log('📷 [STREAM INIT] Setting up container monitor');
-            
+
             // Keep track of container states
             const containerStates = {
                 [desktopContainerId]: { lastPlayed: desktopSuccess ? Date.now() : 0 },
                 [mobileContainerId]: { lastPlayed: mobileSuccess ? Date.now() : 0 }
             };
-            
+
             // Track window width for responsive design changes
             let lastWidth = window.innerWidth;
             let visibilityMonitorActive = false;
-            
+
             // Listen for visibility changes (hidden/visible)
             if (typeof document !== 'undefined' && document.addEventListener) {
                 document.addEventListener('visibilitychange', () => {
@@ -1406,7 +1441,7 @@ const LivestreamStudio = () => {
                         console.log('📷 [STREAM MONITOR] Document became visible, refreshing video in all containers');
                         // Stop all tracks and then restart them
                         videoTrack.stop();
-                        
+
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
@@ -1414,29 +1449,29 @@ const LivestreamStudio = () => {
                     }
                 });
             }
-            
+
             // Listen for window resize to detect responsive mode changes
             if (typeof window !== 'undefined' && window.addEventListener) {
                 window.addEventListener('resize', () => {
                     const currentWidth = window.innerWidth;
                     const breakpoint = 1280; // 'xl' breakpoint
-                    
+
                     // Only act if crossing the xl breakpoint
-                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) || 
+                    if ((lastWidth < breakpoint && currentWidth >= breakpoint) ||
                         (lastWidth >= breakpoint && currentWidth < breakpoint)) {
-                        
+
                         console.log(`📷 [STREAM MONITOR] Responsive breakpoint crossed: ${lastWidth} -> ${currentWidth}`);
-                        
+
                         // Add a small delay to allow the DOM to update
                         setTimeout(() => {
                             // Stop the video track completely
                             videoTrack.stop();
-                            
+
                             // Reset tracking states
                             Object.keys(containerStates).forEach(id => {
                                 containerStates[id].lastPlayed = 0;
                             });
-                            
+
                             // Try to play in the appropriate container based on new width
                             if (currentWidth >= breakpoint) {
                                 playVideoInContainer(desktopContainerId);
@@ -1445,72 +1480,72 @@ const LivestreamStudio = () => {
                             }
                         }, 300);
                     }
-                    
+
                     lastWidth = currentWidth;
                 });
             }
-            
+
             // Setup page visibility check mechanism (MutationObserver)
             const setupVisibilityMonitor = () => {
                 if (visibilityMonitorActive) return;
                 visibilityMonitorActive = true;
-                
+
                 // Watch for any DOM changes that might affect visibility
                 const observer = new MutationObserver((mutations) => {
                     if (!isStreaming) {
                         observer.disconnect();
                         return;
                     }
-                    
+
                     const desktopElem = document.getElementById(desktopContainerId);
                     const mobileElem = document.getElementById(mobileContainerId);
                     const shouldRefresh = mutations.some(mutation => {
-                        return Array.from(mutation.addedNodes).some(node => 
+                        return Array.from(mutation.addedNodes).some(node =>
                             node.contains && (
-                                (desktopElem && node.contains(desktopElem)) || 
+                                (desktopElem && node.contains(desktopElem)) ||
                                 (mobileElem && node.contains(mobileElem))
                             )
                         );
                     });
-                    
+
                     if (shouldRefresh) {
                         console.log('📷 [STREAM MONITOR] DOM changed significantly, refreshing video');
                         videoTrack.stop();
-                        
+
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
                         });
                     }
                 });
-                
+
                 // Watch for any changes to the DOM
-                observer.observe(document.body, { 
+                observer.observe(document.body, {
                     childList: true,
                     subtree: true,
                     attributes: true,
                     attributeFilter: ['class', 'style', 'hidden']
                 });
-                
+
                 return observer;
             };
-            
+
             // Start visibility monitor
             const observer = setupVisibilityMonitor();
-            
+
             // Store for cleanup
             window.videoObserver = observer;
-            
+
             // More aggressive container monitor - checks more frequently
             const containerMonitor = setInterval(() => {
                 // Only log every 10th iteration to reduce console spam
                 const shouldLog = Math.random() < 0.05; // 5% chance to log
-                
+
                 // Check if we need to reset the video track occasionally
                 const now = Date.now();
                 const RESET_INTERVAL = 10000; // 10 seconds
                 let shouldReset = false;
-                
+
                 Object.keys(containerStates).forEach(id => {
                     // If we haven't successfully played in this container for a while
                     // and it's been more than RESET_INTERVAL since we last tried,
@@ -1519,14 +1554,14 @@ const LivestreamStudio = () => {
                         shouldReset = true;
                     }
                 });
-                
+
                 // If we need to reset, stop the video track completely and reset states
                 if (shouldReset) {
                     if (shouldLog) console.log('📷 [STREAM MONITOR] Performing periodic video track reset');
                     try {
                         // First stop all playback
                         videoTrack.stop();
-                        
+
                         // Reset last played timestamps to trigger replay in all containers
                         Object.keys(containerStates).forEach(id => {
                             containerStates[id].lastPlayed = 0;
@@ -1535,19 +1570,19 @@ const LivestreamStudio = () => {
                         console.error('Error during video track reset:', error);
                     }
                 }
-                
+
                 // Try both containers on each interval
                 const desktopElem = document.getElementById(desktopContainerId);
                 const mobileElem = document.getElementById(mobileContainerId);
-                
+
                 if (!desktopElem && !mobileElem) {
                     if (shouldLog) console.log('📷 [STREAM MONITOR] No video containers found in DOM');
                     return;
                 }
-                
+
                 // First, check which containers exist and should be visible based on screen width
                 const isDesktopWidth = window.innerWidth >= 1280; // 'xl' breakpoint
-                
+
                 // SPECIAL HANDLING: Try to play in the correct container based on viewport width
                 if (isDesktopWidth) {
                     // Desktop width = try desktop container first
@@ -1574,17 +1609,17 @@ const LivestreamStudio = () => {
                         }
                     }
                 }
-                
+
                 // If we're no longer streaming, clear the interval
                 if (!isStreaming) {
                     clearInterval(containerMonitor);
                     console.log('📷 [STREAM MONITOR] Stopped container monitor (not streaming)');
                 }
             }, 250); // Check more frequently (4 times per second)
-            
+
             // Store the interval for cleanup
             window.containerMonitorInterval = containerMonitor;
-            
+
             console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
             await client.publish([audioTrack, videoTrack]);
             console.log('✅ [TRACK] Successfully published tracks to channel');
@@ -1658,7 +1693,7 @@ const LivestreamStudio = () => {
             console.log("Cannot switch camera: not streaming or no local tracks");
             return;
         }
-        
+
         try {
             // Find the video track
             const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
@@ -1666,25 +1701,61 @@ const LivestreamStudio = () => {
                 console.error("No video track found to switch");
                 return;
             }
-            
+
             // Switch facing mode
             const newFacingMode = cameraFacingMode === "user" ? "environment" : "user";
             console.log(`Switching camera from ${cameraFacingMode} to ${newFacingMode}`);
-            
-            // Create a more robust approach to switch cameras that properly handles mobile devices
+
+            // Show a loading toast to indicate camera is switching
+            const loadingToast = toast.loading('Switching camera...', {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+
+            // Try Agora's recommended approach first
             try {
-                console.log("Using native switchDevice method from Agora SDK");
-                // This is the recommended way to switch cameras in Agora
-                await videoTrack.setDevice(newFacingMode === "user" ? "front" : "rear");
+                // Get available devices first to ensure permissions
+                const devices = await AgoraRTC.getCameras();
+                if (devices.length < 2) {
+                    toast.dismiss(loadingToast);
+                    toast.error("Only one camera detected", {
+                        style: {
+                            background: '#161A1E',
+                            color: '#fff',
+                        }
+                    });
+                    return;
+                }
                 
-                // Update the facing mode state
-                setCameraFacingMode(newFacingMode);
+                // Find the appropriate device based on facing mode
+                // On mobile, devices[0] is typically front camera, devices[1] is back camera
+                const targetDevice = newFacingMode === "user" ? devices[0].deviceId : devices[1].deviceId;
                 
-                // Update mirror setting based on camera type
+                await videoTrack.setDevice(targetDevice);
+                
+                // Update mirroring based on camera type (only mirror front camera)
                 if (videoTrack.setMirror) {
                     videoTrack.setMirror(newFacingMode === "user");
                 }
                 
+                // Also update the CSS transform in video containers
+                const mobileContainer = document.getElementById('mobile-video-container');
+                if (mobileContainer) {
+                    mobileContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
+                }
+                
+                const desktopContainer = document.getElementById('desktop-video-container');
+                if (desktopContainer) {
+                    // Desktop view should match mobile view for consistency
+                    desktopContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none"; 
+                }
+                
+                // Update state
+                setCameraFacingMode(newFacingMode);
+                
+                toast.dismiss(loadingToast);
                 toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
                     style: {
                         background: '#161A1E',
@@ -1693,24 +1764,24 @@ const LivestreamStudio = () => {
                 });
                 return;
             } catch (deviceSwitchError) {
-                console.error("Failed to switch using setDevice, falling back to recreate method:", deviceSwitchError);
-                // Continue to fallback method if setDevice fails
+                console.error("Failed to switch using setDevice:", deviceSwitchError);
+                // Continue to fallback method
             }
+
+            // Fallback: recreate the track with different constraints
+            console.log("Falling back to track recreation approach for camera switching");
             
-            // Fallback approach: Recreate the track
-            console.log("Falling back to track recreation approach");
-            
-            // Unpublish the current video track
+            // Step 1: Unpublish current video track to free up camera resources
             await client.unpublish(videoTrack);
             
-            // To prevent "NotReadableError", we need to fully release the previous track
+            // Step 2: Close and dispose of current track to fully release camera
             videoTrack.stop();
             videoTrack.close();
             
-            // Small delay to ensure resources are released
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Step 3: Wait for the camera to be fully released
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Create a new video track with the opposite facing mode
+            // Step 4: Create new track with different facing mode
             const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
                 encoderConfig: {
                     width: { ideal: 1280, min: 640 },
@@ -1719,42 +1790,57 @@ const LivestreamStudio = () => {
                     bitrateMin: 1000,
                     bitrateMax: 2500,
                     optimizationMode: 'motion',
-                    mirror: newFacingMode === "user" // Only mirror if front-facing
                 },
                 facingMode: newFacingMode,
-                cameraId: newFacingMode // On mobile, this can help select the right camera
+                cameraId: newFacingMode === "user" ? "front" : "rear" // Help mobile devices select correct camera
             });
             
-            // Update the local tracks array
-            const updatedTracks = localTracks.map(track => 
+            // Step 5: Set mirror mode based on camera type via Agora's API
+            if (newVideoTrack.setMirror) {
+                newVideoTrack.setMirror(newFacingMode === "user"); // Only mirror if front-facing
+            }
+            
+            // Step 6: Update container CSS directly
+            const mobileContainer = document.getElementById('mobile-video-container');
+            if (mobileContainer) {
+                mobileContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
+            }
+            
+            const desktopContainer = document.getElementById('desktop-video-container');
+            if (desktopContainer) {
+                desktopContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
+            }
+            
+            // Step 7: Update local tracks array
+            const updatedTracks = localTracks.map(track =>
                 track.trackMediaType === 'video' ? newVideoTrack : track
             );
             setLocalTracks(updatedTracks);
             
-            // Play in the containers
-            const desktopContainerId = 'desktop-video-container';
-            const mobileContainerId = 'mobile-video-container';
-            
+            // Step 8: Play in containers
             try {
-                newVideoTrack.play(desktopContainerId);
-                console.log(`Playing switched video in desktop container`);
+                if (document.getElementById('desktop-video-container')) {
+                    newVideoTrack.play('desktop-video-container');
+                }
             } catch (desktopPlayError) {
-                console.error("Error playing switched video in desktop container:", desktopPlayError);
+                console.error("Error playing in desktop container:", desktopPlayError);
             }
             
             try {
-                newVideoTrack.play(mobileContainerId);
-                console.log(`Playing switched video in mobile container`);
+                if (document.getElementById('mobile-video-container')) {
+                    newVideoTrack.play('mobile-video-container');
+                }
             } catch (mobilePlayError) {
-                console.error("Error playing switched video in mobile container:", mobilePlayError);
+                console.error("Error playing in mobile container:", mobilePlayError);
             }
             
-            // Publish the new track
+            // Step 9: Publish the new track
             await client.publish(newVideoTrack);
             
-            // Update the facing mode state
+            // Step 10: Update state
             setCameraFacingMode(newFacingMode);
             
+            toast.dismiss(loadingToast);
             toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
                 style: {
                     background: '#161A1E',
@@ -1763,16 +1849,16 @@ const LivestreamStudio = () => {
             });
         } catch (error) {
             console.error("Error switching camera:", error);
-            toast.error(`Failed to switch camera: ${error.name}: ${error.message}`, {
+            toast.error(`Failed to switch camera: ${error.message}`, {
                 style: {
                     background: '#161A1E',
                     color: '#fff',
                 }
             });
             
-            // Show a more user-friendly error message with recovery instructions
-            if (error.name === "NotReadableError" || error.name === "NotFoundError") {
-                toast.error("Camera switching failed. Try closing other apps using the camera and try again.", {
+            // Provide clearer error message for users
+            if (error.name === "NotReadableError" || error.name === "NotAllowedError") {
+                toast.error("Camera is being used by another application. Please close other camera apps and try again.", {
                     style: {
                         background: '#161A1E',
                         color: '#fff',
@@ -1782,14 +1868,14 @@ const LivestreamStudio = () => {
             }
         }
     };
-    
+
     // Function to toggle microphone
     const toggleMicrophone = async () => {
         if (!isStreaming || localTracks.length === 0) {
             console.log("Cannot toggle microphone: not streaming or no local tracks");
             return;
         }
-        
+
         try {
             // Find the audio track
             const audioTrack = localTracks.find(track => track.trackMediaType === 'audio');
@@ -1797,12 +1883,12 @@ const LivestreamStudio = () => {
                 console.error("No audio track found to toggle");
                 return;
             }
-            
+
             // Toggle the enabled state
             const newEnabledState = !audioTrack.enabled;
             audioTrack.setEnabled(newEnabledState);
             setIsMicrophoneEnabled(newEnabledState);
-            
+
             toast.success(`Microphone ${newEnabledState ? 'unmuted' : 'muted'}`, {
                 style: {
                     background: '#161A1E',
