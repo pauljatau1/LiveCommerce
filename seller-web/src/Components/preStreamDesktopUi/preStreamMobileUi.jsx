@@ -16,7 +16,8 @@ const PreStreamMobileUi = ({
     products,
     formatCurrency,
     viewers = [],
-    liveStreamDetails
+    liveStreamDetails,
+    isReconnecting
 }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -254,10 +255,11 @@ const PreStreamMobileUi = ({
                     ) : (
                         <div className="relative">
                             <button
+                                disabled={isReconnecting}
                                 onClick={existingLivestream ? () => handleStartStream() : handleStartStream}
-                                className="w-full bg-white text-black font-medium py-3 rounded-lg"
+                                className={`w-full ${isReconnecting ? 'bg-gray-600' : 'bg-white'} text-black font-medium py-3 rounded-lg`}
                             >
-                                {existingLivestream ? 'Reconnect Stream' : 'Go Live'}
+                                {existingLivestream ? isReconnecting ? 'Reconnecting...' : 'Reconnect Stream' : 'Go Live'}
                             </button>
                         </div>
                     )}
@@ -281,6 +283,7 @@ PreStreamMobileUi.propTypes = {
     setIsToolsSidebarOpen: PropTypes.func,
     totalShares: PropTypes.number,
     liveStreamDetails: PropTypes.object,
+    isReconnecting: PropTypes.bool
 };
 
 export default PreStreamMobileUi;

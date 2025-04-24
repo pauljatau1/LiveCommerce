@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
@@ -21,7 +21,8 @@ const StreamDesktopUi = ({
     isToolsSidebarOpen,
     setIsToolsSidebarOpen
 }) => {
-    const { socket } = useLivestreamSocket();
+    const { socket, notifications } = useLivestreamSocket();
+    const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
@@ -38,6 +39,19 @@ const StreamDesktopUi = ({
             }
         };
     }, [liveStreamDetails, socket]);
+
+    // Update messages when new notifications come in
+    useEffect(() => {
+        if (notifications.length > 0) {
+            const latestNotification = notifications[notifications.length - 1];
+            
+            // Update viewer count for join/leave notifications
+            if ((latestNotification.type === 'join' || latestNotification.type === 'leave') && 
+                latestNotification.data?.viewerCount !== undefined) {
+                setViewerCount(latestNotification.data.viewerCount);
+            }
+        }
+    }, [notifications, liveStreamDetails]);
     
     return (
         <div className="hidden xl:block">
@@ -54,7 +68,7 @@ const StreamDesktopUi = ({
                     </div>
                     <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
                         <Icon icon="octicon:people-24" className="w-5 h-5" color='#EFF0FA' />
-                        <p className="text-sm font-inter font-medium text-[#EFF0FA]">{viewers.length}</p>
+                        <p className="text-sm font-inter font-medium text-[#EFF0FA]">{viewerCount}</p>
                     </div>
                     <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#14AE5C] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
                         <Icon icon="fluent:share-16-regular" className="w-7 h-7" color='#14AE5C' />

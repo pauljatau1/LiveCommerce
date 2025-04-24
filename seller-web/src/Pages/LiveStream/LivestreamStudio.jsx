@@ -56,6 +56,9 @@ const LivestreamStudio = () => {
     const [isToolsSidebarOpen, setIsToolsSidebarOpen] = useState(false);
     const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
     const [previewMediaStream, setPreviewMediaStream] = useState(null);
+    const [cameraFacingMode, setCameraFacingMode] = useState("user"); // "user" for front camera, "environment" for back camera
+    const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
+    const [isReconnecting, setIsReconnecting] = useState(true);
 
     const socket = useSocket();
     const existingLivestream = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
@@ -538,9 +541,9 @@ const LivestreamStudio = () => {
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                        fit: 'cover',
-                        mirror: true
-                    });
+                fit: 'cover',
+                mirror: true
+            });
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (error) {
@@ -1186,6 +1189,7 @@ const LivestreamStudio = () => {
         console.log('🔄 [RECONNECT 2/18] Set reconnection locks to prevent concurrent attempts');
 
         try {
+            
             // Force cleanup first - always ensure we're starting with a clean slate
             console.log('🔄 [RECONNECT 3/18] Cleaning up any existing Agora resources');
             await cleanupAgoraResources();
@@ -1366,9 +1370,9 @@ const LivestreamStudio = () => {
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                        fit: 'cover',
-                        mirror: true
-                    });
+                fit: 'cover',
+                mirror: true
+            });
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (error) {
@@ -1628,6 +1632,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [RECONNECT COMPLETE] Resetting reconnection locks');
             globalReconnectionInProgress = false;
             reconnectionInProgress.current = false;
+            setIsReconnecting(false);
         }
     };
 
@@ -1646,6 +1651,130 @@ const LivestreamStudio = () => {
             reconnectionInProgress.current = false;
         };
     }, []);
+
+    // Function to switch between front and back cameras
+    const switchCamera = async () => {
+        if (!isStreaming || localTracks.length === 0) {
+            console.log("Cannot switch camera: not streaming or no local tracks");
+            return;
+        }
+        
+        try {
+            // Find the video track
+            const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
+            if (!videoTrack) {
+                console.error("No video track found to switch");
+                return;
+            }
+            
+            // Switch facing mode
+            const newFacingMode = cameraFacingMode === "user" ? "environment" : "user";
+            console.log(`Switching camera from ${cameraFacingMode} to ${newFacingMode}`);
+            
+            // Unpublish the current video track
+            await client.unpublish(videoTrack);
+            
+            // Stop and close the current video track
+            videoTrack.stop();
+            videoTrack.close();
+            
+            // Create a new video track with the opposite facing mode
+            const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+                encoderConfig: {
+                    width: { ideal: 1920, min: 1280 },
+                    height: { ideal: 1080, min: 720 },
+                    frameRate: 30,
+                    bitrateMin: 1500,
+                    bitrateMax: 4000,
+                    optimizationMode: 'motion',
+                    mirror: newFacingMode === "user" // Only mirror if front-facing
+                },
+                facingMode: newFacingMode
+            });
+            
+            // Update the local tracks array
+            const updatedTracks = localTracks.map(track => 
+                track.trackMediaType === 'video' ? newVideoTrack : track
+            );
+            setLocalTracks(updatedTracks);
+            
+            // Play in the containers
+            const desktopContainerId = 'desktop-video-container';
+            const mobileContainerId = 'mobile-video-container';
+            
+            try {
+                newVideoTrack.play(desktopContainerId);
+                console.log(`Playing switched video in desktop container`);
+            } catch (desktopPlayError) {
+                console.error("Error playing switched video in desktop container:", desktopPlayError);
+            }
+            
+            try {
+                newVideoTrack.play(mobileContainerId);
+                console.log(`Playing switched video in mobile container`);
+            } catch (mobilePlayError) {
+                console.error("Error playing switched video in mobile container:", mobilePlayError);
+            }
+            
+            // Publish the new track
+            await client.publish(newVideoTrack);
+            
+            // Update the facing mode state
+            setCameraFacingMode(newFacingMode);
+            
+            toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+        } catch (error) {
+            console.error("Error switching camera:", error);
+            toast.error(`Failed to switch camera: ${error.message}`, {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+        }
+    };
+    
+    // Function to toggle microphone
+    const toggleMicrophone = async () => {
+        if (!isStreaming || localTracks.length === 0) {
+            console.log("Cannot toggle microphone: not streaming or no local tracks");
+            return;
+        }
+        
+        try {
+            // Find the audio track
+            const audioTrack = localTracks.find(track => track.trackMediaType === 'audio');
+            if (!audioTrack) {
+                console.error("No audio track found to toggle");
+                return;
+            }
+            
+            // Toggle the enabled state
+            const newEnabledState = !audioTrack.enabled;
+            audioTrack.setEnabled(newEnabledState);
+            setIsMicrophoneEnabled(newEnabledState);
+            
+            toast.success(`Microphone ${newEnabledState ? 'unmuted' : 'muted'}`, {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+        } catch (error) {
+            console.error("Error toggling microphone:", error);
+            toast.error(`Failed to toggle microphone: ${error.message}`, {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+        }
+    };
 
     return (
         <div className="min-h-screen xl:p-6 bg-[#000000] text-white">
@@ -1677,6 +1806,7 @@ const LivestreamStudio = () => {
                                             products={products}
                                             formatCurrency={formatCurrency}
                                             seller={seller}
+                                            isReconnecting={isReconnecting}
                                         />
                                         <PreStreamMobileUi
                                             handleStartStream={handleStartStream}
@@ -1693,6 +1823,7 @@ const LivestreamStudio = () => {
                                             setIsToolsSidebarOpen={setIsToolsSidebarOpen}
                                             viewers={viewers}
                                             totalShares={totalShares}
+                                            isReconnecting={isReconnecting}
                                         />
                                     </div>
                                 ) : (
@@ -1761,6 +1892,9 @@ const LivestreamStudio = () => {
                                                     setIsToolsSidebarOpen={setIsToolsSidebarOpen}
                                                     viewers={viewers}
                                                     totalShares={totalShares}
+                                                    switchCamera={switchCamera}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
                                                 />
                                             </>
                                         )}
