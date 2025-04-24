@@ -161,7 +161,11 @@ const StreamMobileUi = ({
     return (
         <div className="block xl:hidden">
             {/* Mobile Main Content - Stream Preview */}
-            <div className="block xl:hidden w-full h-screen relative overflow-hidden bg-black">
+            <div className="block xl:hidden w-full h-screen relative overflow-hidden bg-black"
+                 style={{
+                     // Using CSS custom property for reliable mobile height
+                     height: 'calc(var(--vh, 1vh) * 100)',
+                 }}>
                 {/* Video container */}
                 <div className="stream-container relative w-full h-full">
                     <div
@@ -169,14 +173,15 @@ const StreamMobileUi = ({
                         className="w-full h-full bg-black"
                         style={{
                             minHeight: '100%',
-                            transform: 'scaleX(-1)'
+                            // Removing the hardcoded transform to let switchCamera function handle mirroring
+                            // transform will be set dynamically based on camera facing mode
                         }}
                     ></div>
                     
                     {/* Top Bar - Absolutely positioned */}
                     <div className="absolute top-0 left-0 right-0 py-2 px-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
                         <div className="flex items-center space-x-2">
-                            
+                            <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
                             <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
                                 <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
                                 <span>LIVE</span>
