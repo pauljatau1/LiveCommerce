@@ -1671,25 +1671,58 @@ const LivestreamStudio = () => {
             const newFacingMode = cameraFacingMode === "user" ? "environment" : "user";
             console.log(`Switching camera from ${cameraFacingMode} to ${newFacingMode}`);
             
+            // Create a more robust approach to switch cameras that properly handles mobile devices
+            try {
+                console.log("Using native switchDevice method from Agora SDK");
+                // This is the recommended way to switch cameras in Agora
+                await videoTrack.setDevice(newFacingMode === "user" ? "front" : "rear");
+                
+                // Update the facing mode state
+                setCameraFacingMode(newFacingMode);
+                
+                // Update mirror setting based on camera type
+                if (videoTrack.setMirror) {
+                    videoTrack.setMirror(newFacingMode === "user");
+                }
+                
+                toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+                return;
+            } catch (deviceSwitchError) {
+                console.error("Failed to switch using setDevice, falling back to recreate method:", deviceSwitchError);
+                // Continue to fallback method if setDevice fails
+            }
+            
+            // Fallback approach: Recreate the track
+            console.log("Falling back to track recreation approach");
+            
             // Unpublish the current video track
             await client.unpublish(videoTrack);
             
-            // Stop and close the current video track
+            // To prevent "NotReadableError", we need to fully release the previous track
             videoTrack.stop();
             videoTrack.close();
+            
+            // Small delay to ensure resources are released
+            await new Promise(resolve => setTimeout(resolve, 500));
             
             // Create a new video track with the opposite facing mode
             const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
                 encoderConfig: {
-                    width: { ideal: 1920, min: 1280 },
-                    height: { ideal: 1080, min: 720 },
+                    width: { ideal: 1280, min: 640 },
+                    height: { ideal: 720, min: 480 },
                     frameRate: 30,
-                    bitrateMin: 1500,
-                    bitrateMax: 4000,
+                    bitrateMin: 1000,
+                    bitrateMax: 2500,
                     optimizationMode: 'motion',
                     mirror: newFacingMode === "user" // Only mirror if front-facing
                 },
-                facingMode: newFacingMode
+                facingMode: newFacingMode,
+                cameraId: newFacingMode // On mobile, this can help select the right camera
             });
             
             // Update the local tracks array
@@ -1730,12 +1763,23 @@ const LivestreamStudio = () => {
             });
         } catch (error) {
             console.error("Error switching camera:", error);
-            toast.error(`Failed to switch camera: ${error.message}`, {
+            toast.error(`Failed to switch camera: ${error.name}: ${error.message}`, {
                 style: {
                     background: '#161A1E',
                     color: '#fff',
                 }
             });
+            
+            // Show a more user-friendly error message with recovery instructions
+            if (error.name === "NotReadableError" || error.name === "NotFoundError") {
+                toast.error("Camera switching failed. Try closing other apps using the camera and try again.", {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    },
+                    duration: 5000
+                });
+            }
         }
     };
     
