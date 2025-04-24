@@ -270,7 +270,6 @@ const AddAddress = () => {
                     placeholder="Street Address"
                     placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
-                    maxLength={45}
                     onChangeText={setAddress1}
                   />
                 </View>
@@ -279,7 +278,6 @@ const AddAddress = () => {
                     placeholder="Address 2"
                     placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
-                    maxLength={45}
                     onChangeText={setAddress2}
                   />
                 </View>
