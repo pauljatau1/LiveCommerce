@@ -21,6 +21,7 @@ import { router } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
+import MessageListSkeleton from "@/components/skeleton/messageListSkeleton";
 
 const Message = () => {
   const isFocused = useIsFocused();
@@ -205,7 +206,7 @@ const Message = () => {
       </View>
 
       {loading ? (
-        <ActivityIndicator size={"small"} color="#16783A" />
+        <MessageListSkeleton numOfLoaders={10} height={50} padding={16} />
       ) : conversations?.length > 0 ? (
         <View style={{ flex: 1 }}>
           <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">

@@ -207,20 +207,19 @@ const AddAddress = () => {
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    gap: 12,
                   }}
                 >
-                  <View style={styles.inputContainer}>
+                  <View style={[{ flexShrink: 1 }, styles.inputContainer]}>
                     <TextInput
                       placeholder="First name"
-                      placeholderTextColor="rgba(130, 130, 130, 0.8)"
                       style={styles.textInput}
                       onChangeText={setFirstname}
                     />
                   </View>
-                  <View style={styles.inputContainer}>
+                  <View style={[{ flexShrink: 1 }, styles.inputContainer]}>
                     <TextInput
                       placeholder="Last name"
-                      placeholderTextColor="rgba(130, 130, 130, 0.8)"
                       style={styles.textInput}
                       onChangeText={setLastname}
                     />
@@ -268,7 +267,6 @@ const AddAddress = () => {
                 <View style={styles.inputContainer}>
                   <TextInput
                     placeholder="Street Address"
-                    placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
                     onChangeText={setAddress1}
                   />
@@ -276,7 +274,6 @@ const AddAddress = () => {
                 <View style={styles.inputContainer}>
                   <TextInput
                     placeholder="Address 2"
-                    placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
                     onChangeText={setAddress2}
                   />
@@ -286,13 +283,12 @@ const AddAddress = () => {
                     styles.inputContainer,
                     {
                       borderWidth: 1,
-                      borderColor: zipCodeError ? "#ff0a0a" : "#ccc",
+                      borderColor: zipCodeError ? "#ff0a0a" : "#2e2e2e",
                     },
                   ]}
                 >
                   <TextInput
                     placeholder="Zip Code"
-                    placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
                     maxLength={6}
                     inputMode="numeric"
@@ -318,13 +314,12 @@ const AddAddress = () => {
                     styles.inputContainer,
                     {
                       borderWidth: 1,
-                      borderColor: phoneError ? "#ff0a0a" : "#ccc",
+                      borderColor: phoneError ? "#ff0a0a" : "#2e2e2e",
                     },
                   ]}
                 >
                   <TextInput
                     placeholder="Phone"
-                    placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
                     inputMode="numeric"
                     maxLength={11}
@@ -349,13 +344,12 @@ const AddAddress = () => {
                     styles.inputContainer,
                     {
                       borderWidth: 1,
-                      borderColor: emailError ? "#ff0a0a" : "#ccc",
+                      borderColor: emailError ? "#ff0a0a" : "#2e2e2e",
                     },
                   ]}
                 >
                   <TextInput
                     placeholder="Email"
-                    placeholderTextColor="rgba(130, 130, 130, 0.8)"
                     style={styles.textInput}
                     inputMode="email"
                     onChangeText={handleEmailChange}
@@ -422,32 +416,32 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderRadius: 8,
     paddingHorizontal: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#2e2e2e",
   },
   inputContainer: {
     padding: 16,
-    backgroundColor: "white",
-    borderRadius: 4,
+    backgroundColor: "#2e2e2e",
+    borderRadius: 8,
     position: "relative",
     // marginBottom: 20,
-    flexBasis: "47%",
+    flexBasis: "100%",
   },
   textInput: {
-    fontSize: 12,
-    color: "#111",
+    fontSize: 13,
+    color: "#fff",
     paddingVertical: 0,
     fontFamily: "LexendDeca",
   },
   placeholderStyle: {
-    fontSize: 12,
-    color: "#00000070",
+    fontSize: 13,
+    color: "rgba(130, 130, 130, 0.8)",
     marginVertical: 10,
     height: 20,
     fontFamily: "LexendDeca",
   },
   selectedTextStyle: {
     fontSize: 12,
-    color: "#000000",
+    color: "#fff",
     paddingVertical: 5,
     height: 30,
     top: 1.5,
@@ -466,7 +460,7 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: "#16783A",
     padding: 12,
-    borderRadius: 5,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },

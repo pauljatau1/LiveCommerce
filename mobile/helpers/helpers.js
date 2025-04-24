@@ -150,7 +150,7 @@ export function formatMessageDate(date) {
   const messageDate = moment(date);
 
   if (messageDate.isSame(now, "day")) {
-    return messageDate.format("h:mm"); // Example: "2:30 PM"
+    return messageDate.format("H:mm"); // Example: "2:30 PM"
   } else if (messageDate.isSame(now.clone().subtract(1, "day"), "day")) {
     return "Yesterday";
   } else if (messageDate.isAfter(now.clone().startOf("week"))) {

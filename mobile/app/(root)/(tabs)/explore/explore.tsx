@@ -19,6 +19,7 @@ import { SimpleLineIcons } from "@expo/vector-icons";
 import { formatNumber } from "@/helpers/helpers";
 import { useIsFocused } from "@react-navigation/native";
 import { GlassImage } from "../../livestream/components";
+import ExploreSkeleton from "@/components/skeleton/exploreSkeleton";
 
 const Explore = () => {
   const isFocused = useIsFocused();
@@ -45,27 +46,26 @@ const Explore = () => {
         }
         style={{
           marginBottom: 12,
+          flexShrink: 1,
+          width: "100%",
+          // flexBasis: "48%",
         }}
       >
-        <View className="relative flex-row h-[70px] items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
+        <View className="relative items-center rounded-[8px] overflow-hidden pb-[8px] bg-[#2e2e2e] gap-[8px]">
           <GlassImage
             source={{ uri: category?.image?.url }}
             resizeMode="cover"
             imageStyle={{
-              width: 70,
-              height: "100%",
-              borderTopLeftRadius: 4,
-              borderBottomLeftRadius: 4,
+              width: "100%",
+              height: 100,
             }}
             glassStyle={{
-              width: 70,
-              height: "100%",
-              borderTopLeftRadius: 4,
-              borderBottomLeftRadius: 4,
+              width: "100%",
+              height: 100,
             }}
             containerStyle={{
-              width: 70,
-              height: "100%",
+              width: "100%",
+              height: 100,
             }}
             placeholderColor="rgba(255, 255, 255, 0.1)"
             tint="dark"
@@ -73,35 +73,29 @@ const Explore = () => {
             showActivityIndicator={false}
           />
 
-          <View className="bg-[#f2f2f2] w-full shrink flex-row items-center justify-between p-[15px]">
-            <View className="gap-[2px]">
-              <Text className="text-[#3A3A3A] text-[13px] font-LexendDecaSemiBold">
+          <View className=" shrink flex-row items-center justify-between">
+            <View className="gap-[6px] shrink px-[4px]">
+              <Text
+                className="text-[#fff] text-[12px] font-LexendDecaMedium shrink text-center self-center"
+                numberOfLines={1}
+              >
                 {category.name}
               </Text>
-              <View className="flex-row gap-[4px] items-center">
+              <View className="flex-row gap-[4px] items-center justify-center">
                 <View
-                  className="rounded-[4px] p-[5px] bg-[#DEFFEE] items-center justify-center"
+                  className="rounded-[4px] p-[2px] bg-[#DEFFEE] items-center justify-center"
                   style={{
                     backgroundColor: "#DEFFEE",
                   }}
                 >
-                  <SimpleLineIcons name="chart" size={10} color="#66CB9F" />
+                  <SimpleLineIcons name="chart" size={7} color="#66CB9F" />
                 </View>
-                {/* <Image
-                  source={require("../../../../assets/icons/explore-live-icon.png")}
-                  style={{
-                    width: 15,
-                    height: 15,
-                  }}
-                /> */}
-                <Text className="text-[9px] text-[#3A3A3A] font-LexendDecaMedium">
+                <Text className="text-[8px] text-[#fff] font-LexendDeca">
                   {formatNumber(category?.statistics?.streams?.active)} Streams
                   | {formatNumber(category?.statistics?.totalProducts)} Products
                 </Text>
               </View>
             </View>
-
-            <FontAwesome6 name="caret-right" size={16} color="#ccc" />
           </View>
         </View>
       </Pressable>
@@ -137,12 +131,12 @@ const Explore = () => {
   const exploreHeader = useCallback(() => {
     return (
       <>
-        <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
+        <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold mb-[14px]">
           Browse by Category
         </Text>
-        <View className="flex-row items-center gap-[8px] mb-[26px]">
+        <View className="flex-row items-center gap-[8px] mb-[13px]">
           <TouchableOpacity
-            className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
+            className={` rounded-[6px] py-[8px] px-[12px] justify-center items-center`}
             style={{
               backgroundColor:
                 filter == "Popular" ? "#fff" : "rgba(204, 204, 204, 0.25)",
@@ -150,13 +144,13 @@ const Explore = () => {
             onPress={() => setFilter("Popular")}
           >
             <Text
-              className={`${filter == "Popular" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
+              className={`${filter == "Popular" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[12px] font-LexendDecaMedium`}
             >
               Popular
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
+            className={` rounded-[6px] py-[8px] px-[12px] justify-center items-center`}
             style={{
               backgroundColor:
                 filter == "A-Z" ? "#fff" : "rgba(204, 204, 204, 0.25)",
@@ -164,7 +158,7 @@ const Explore = () => {
             onPress={() => setFilter("A-Z")}
           >
             <Text
-              className={`${filter == "A-Z" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
+              className={`${filter == "A-Z" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[12px] font-LexendDecaMedium`}
             >
               A-Z
             </Text>
@@ -177,24 +171,26 @@ const Explore = () => {
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <View className="pt-[30px]">
+      <View className="pt-[30px] flex-1">
         <HomeHeader />
 
-        <View className="p-[23px] px-[16px] pb-[50px] h-full ">
+        <View className="">
           {isLoading ? (
-            <ActivityIndicator
-              size={"small"}
-              color={"#16783A"}
-              style={{ marginTop: 30 }}
-            />
+            <ExploreSkeleton numOfLoaders={8} padding={16} height={140} />
           ) : (
             <FlatList
               data={categoriesData}
-              keyExtractor={(_, index) => index.toString()}
+              keyExtractor={(item, index) => item._id || index.toString()}
               renderItem={({ item, index }) => renderCategories(item, index)}
+              numColumns={2}
+              columnWrapperStyle={{
+                gap: 12,
+                justifyContent: "space-between",
+              }}
               contentContainerStyle={{
-                paddingBottom: Platform.OS == "android" ? 50 : 20,
-                // gap: 12,
+                paddingTop: 24,
+                paddingHorizontal: 16,
+                paddingBottom: 16,
               }}
               showsVerticalScrollIndicator={false}
               ListHeaderComponent={exploreHeader}
