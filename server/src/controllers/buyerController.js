@@ -85,6 +85,12 @@ exports.register = async (req, res) => {
       return res.status(409).json({ message: 'Username is already taken' });
     }
 
+    // Check if phone number exists
+    const existingPhoneNumber = await Buyer.findOne({ phoneNumber });
+    if (existingPhoneNumber) {
+      return res.status(409).json({ message: 'Phone number is already registered' });
+    }
+
     const otp = generateOTP();
     const newBuyer = new Buyer({
       firstName,
