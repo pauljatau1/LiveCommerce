@@ -200,6 +200,23 @@ export const VerificationService = {
   },
   
   /**
+   * Searches categories by name or subcategories
+   * @param {String} query - The search query
+   * @returns {Promise} - The API response with matching categories
+   */
+  searchCategories: async (query) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/public/categories/search`, {
+        params: { query }
+      });
+      return response.data.results;
+    } catch (error) {
+      console.error('Error searching categories:', error);
+      throw error;
+    }
+  },
+  
+  /**
    * Selects categories for a seller
    * @param {Array} categories - The selected categories
    * @returns {Promise} - The API response

@@ -323,14 +323,13 @@ export default function Payout() {
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center text-xs sm:text-sm text-green-600 mb-3">
+              {/* <div className="flex items-center text-xs sm:text-sm text-green-600 mb-3">
                 <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                <span className="font-medium">+12.5%</span>
-                <span className="text-gray-500 ml-1">from last month</span>
-              </div>
+                
+              </div> */}
               <Button 
                 variant="outline" 
-                className="w-full text-xs sm:text-sm py-1.5 sm:py-2"
+                className="w-full mt-3 text-xs sm:text-sm py-1.5 sm:py-2"
                 onClick={() => setActiveTab("transactions")}
               >
                 View Transactions
@@ -369,10 +368,10 @@ export default function Payout() {
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center text-xs sm:text-sm text-gray-600">
+              {/* <div className="flex items-center text-xs sm:text-sm text-gray-600">
                 <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                 <span className="text-gray-500">Last withdrawal 2 days ago</span>
-              </div>
+              </div> */}
             </Card>
 
             <Card className="p-4 sm:p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
@@ -392,7 +391,7 @@ export default function Payout() {
                   <DialogTrigger asChild>
                     <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0 text-xs sm:text-sm py-1.5 sm:py-2">
                       <ArrowDownToLine className="h-4 w-4 mr-2" />
-                      Withdraw Funds
+                      Process Withdrawal
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="w-[95%] sm:max-w-md rounded-lg">

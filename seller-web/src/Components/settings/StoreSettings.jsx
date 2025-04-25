@@ -752,6 +752,11 @@ export default function StoreSettings() {
               <p className="text-sm text-muted-foreground">
                 These details will appear in your profile
               </p>
+              <div className="bg-blue-50 p-3 rounded-md border border-blue-200 mt-2">
+                <p className="text-sm text-blue-700">
+                  To update store information, please contact support at <a href="mailto:support@auqli.com" className="underline">support@auqli.com</a>
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -760,8 +765,8 @@ export default function StoreSettings() {
                   id="storeName" 
                   name="storeName"
                   value={formData.storeName}
-                  onChange={handleInputChange}
-                  placeholder="Enter store name" 
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
 
@@ -771,8 +776,8 @@ export default function StoreSettings() {
                   id="phoneNumber"
                   name="phoneNumber"
                   value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  placeholder="+234 00000 00000" 
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
 
@@ -786,12 +791,14 @@ export default function StoreSettings() {
                       className="w-20 h-20 rounded-full object-cover"
                     />
                   )}
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleAvatarUpload(e.target.files[0])}
-                    className="cursor-pointer"
-                  />
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleAvatarUpload(e.target.files[0])}
+                      className="cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -805,57 +812,15 @@ export default function StoreSettings() {
                       className="w-full h-32 object-cover rounded-lg"
                     />
                   )}
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleBannerUpload(e.target.files[0])}
-                    className="cursor-pointer"
-                  />
+                  <div>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleBannerUpload(e.target.files[0])}
+                      className="cursor-pointer"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* <div className="space-y-2">
-                <Label htmlFor="addressLine1">Address *</Label>
-                <Input
-                  id="addressLine1"
-                  name="addressLine1"
-                  value={formData.address.addressLine1}
-                  onChange={handleAddressChange}
-                  placeholder="Enter address"
-                />
-              </div> */}
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* <div className="space-y-2">
-                  <Label htmlFor="country">Country *</Label>
-                  <Select 
-                    value={formData.address.country}
-                    onValueChange={(value) => handleAddressChange({ target: { name: 'country', value } })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Nigeria">Nigeria</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div> */}
-
-                {/* <div className="space-y-2">
-                  <Label htmlFor="state">State *</Label>
-                  <Select
-                    value={formData.address.state}
-                    onValueChange={(value) => handleAddressChange({ target: { name: 'state', value } })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Lagos">Lagos</SelectItem>
-                    
-                    </SelectContent>
-                  </Select>
-                </div> */}
               </div>
 
               <div className="space-y-2">
@@ -878,8 +843,8 @@ export default function StoreSettings() {
                       id="businessName"
                       name="businessName"
                       value={formData.businessName}
-                      onChange={handleInputChange}
-                      placeholder="Enter business name"
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
                     />
                   </div>
 
@@ -889,17 +854,12 @@ export default function StoreSettings() {
                       id="businessType"
                       name="businessType"
                       value={formData.businessType}
-                      onChange={handleInputChange}
-                      placeholder="Enter business type"
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
                     />
                   </div>
                 </>
               )}
-
-              {/* <div className="space-y-2">
-                <Label htmlFor="cac">CAC</Label>
-                <Input id="cac" placeholder="e.g.,1234567890" />
-              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="description">Store Description</Label>
@@ -1248,106 +1208,9 @@ export default function StoreSettings() {
           </Card>
 
           {/* Special Dates Card */}
-          <Card className="shadow-sm">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl">Special Dates</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Add holidays or special operating hours
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Add New Special Date Section */}
-              <div className="space-y-4 border-b pb-6">
-                <h4 className="font-medium">Add New Date</h4>
-                <div className="space-y-4">
-                  <div className="space-y-4">
-                    <Label>Date</Label>
-                    <div className="relative">
-                      <DatePicker
-                        selected={newSpecialDate.date}
-                        onChange={(date) => 
-                          setNewSpecialDate(prev => ({ ...prev, date }))
-                        }
-                        dateFormat="MMMM d, yyyy"
-                        minDate={new Date()}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <Label>Status</Label>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={newSpecialDate.isOpen}
-                        onCheckedChange={(checked) =>
-                          setNewSpecialDate(prev => ({ ...prev, isOpen: checked }))
-                        }
-                      />
-                      <span>{newSpecialDate.isOpen ? 'Open' : 'Closed'}</span>
-                    </div>
-                  </div>
-                </div>
+         
 
-                {newSpecialDate.isOpen && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Open Time</Label>
-                      <Select
-                        value={newSpecialDate.openTime}
-                        onValueChange={(time) =>
-                          setNewSpecialDate(prev => ({ ...prev, openTime: time }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Open Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeOptions.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Close Time</Label>
-                      <Select
-                        value={newSpecialDate.closeTime}
-                        onValueChange={(time) =>
-                          setNewSpecialDate(prev => ({ ...prev, closeTime: time }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Close Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeOptions.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label>Note</Label>
-                  <Input
-                    value={newSpecialDate.note}
-                    onChange={(e) =>
-                      setNewSpecialDate(prev => ({ ...prev, note: e.target.value }))
-                    }
-                    placeholder="e.g., Holiday, Special Event"
-                  />
-                </div>
-
-                <Button onClick={handleAddSpecialDate}>Add Special Date</Button>
-              </div>
-
-              {/* Special Dates List Section */}
+              {/* Special Dates List Section
               {formData.specialDates.length > 0 && (
                 <div className="space-y-4">
                   <h4 className="font-medium">Special Dates List</h4>
@@ -1375,9 +1238,8 @@ export default function StoreSettings() {
                     ))}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              )} */}
+           
         </div>
       </div>
 

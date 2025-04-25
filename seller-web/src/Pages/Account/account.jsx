@@ -93,6 +93,20 @@ export default function AccountPage() {
     fetchProfile();
   }, []);
 
+  // Listen for verification completed event
+  useEffect(() => {
+    const handleVerificationCompleted = () => {
+      console.log("Verification completed event received, refreshing profile...");
+      fetchProfile();
+    };
+
+    window.addEventListener('seller-verification-completed', handleVerificationCompleted);
+    
+    return () => {
+      window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
+    };
+  }, []);
+
   const fetchReviewStats = async (sellerId) => {
     try {
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
