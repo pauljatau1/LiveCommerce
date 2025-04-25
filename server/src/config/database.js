@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   const maxRetries = process.env.MONGODB_CONNECTION_RETRIES ? parseInt(process.env.MONGODB_CONNECTION_RETRIES) : 5;
-  const retryInterval = process.env.MONGODB_RETRY_INTERVAL ? parseInt(process.env.MONGODB_RETRY_INTERVAL) : 5000; // 5 seconds
+  const retryInterval = process.env.MONGODB_RETRY_INTERVAL ? parseInt(process.env.MONGODB_RETRY_INTERVAL) : 5000; 
   let retries = 0;
   let connected = false;
 
@@ -16,7 +16,7 @@ const connectDB = async () => {
       const conn = await mongoose.connect(process.env.MONGODB_URI, {
         serverSelectionTimeoutMS: 10000,
         heartbeatFrequencyMS: 30000,
-      });
+      }); 
       
       // Adding multiple console logs for visibility
       console.log('\x1b[36m%s\x1b[0m', '🚀 Database Connected Successfully!');

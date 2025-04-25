@@ -101,8 +101,8 @@ exports.createProduct = async (req, res) => {
     if (req.body.blips && Array.isArray(req.body.blips)) {
       for (let blip of req.body.blips) {
         const buffer = Buffer.from(blip.data, 'base64');
-        const videoKey = `${uuidv4()}.mp4`;
-        const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
+        const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
+        const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
         
         // First upload the video
         const videoParams = {
@@ -114,8 +114,8 @@ exports.createProduct = async (req, res) => {
         const videoData = await s3.upload(videoParams).promise();
         
         // Create temporary files for ffmpeg
-        const tempVideoPath = path.join(os.tmpdir(), videoKey);
-        const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
+        const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
+        const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
         
         try {
           // Write video buffer to temp file
@@ -126,8 +126,8 @@ exports.createProduct = async (req, res) => {
             ffmpeg(tempVideoPath)
               .screenshots({
                 timestamps: ['00:00:01.000'],
-                filename: thumbnailKey,
-                folder: os.tmpdir(),
+                filename: path.basename(thumbnailKey),
+                folder: path.dirname(tempThumbnailPath),
                 size: '180x320'
               })
               .on('end', resolve)
@@ -151,9 +151,9 @@ exports.createProduct = async (req, res) => {
           await fs.unlink(tempThumbnailPath).catch(() => {});
           
           blipsLinks.push({ 
-            url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
+            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
             contentType: blip.contentType,
-            thumbnail: `https://` + process.env.CDN_URL + `/${videoData.Key}`
+            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
           });
         } catch (err) {
           console.error('Error generating thumbnail:', err);
