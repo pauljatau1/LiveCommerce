@@ -161,25 +161,16 @@ const AuctionStreamMobileUi = ({
     return (
         <div className="block xl:hidden">
             {/* Mobile Main Content - Stream Preview */}
-            <div className="block xl:hidden w-full h-screen relative overflow-hidden bg-black"
-                 style={{
-                     // Using CSS custom property for reliable mobile height
-                     height: 'calc(var(--vh, 1vh) * 100)',
-                 }}>
+            <div className="block xl:hidden fixed inset-0 bg-black">
                 {/* Video container */}
-                <div className="stream-container relative w-full h-full">
+                <div className="stream-container absolute inset-0">
                     <div
                         id="mobile-video-container"
-                        className="w-full h-full bg-black"
-                        style={{
-                            minHeight: '100%',
-                            // Removing the hardcoded transform to let switchCamera function handle mirroring
-                            // transform will be set dynamically based on camera facing mode
-                        }}
+                        className="h-full w-full bg-black object-cover"
                     ></div>
                     
                     {/* Top Bar - Absolutely positioned */}
-                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
+                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent z-10">
                         <div className="flex items-center space-x-2">
                             <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
                             <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
@@ -220,10 +211,10 @@ const AuctionStreamMobileUi = ({
                     </div>
                     
                     {/* Live Chat Messages - Always visible */}
-                    <div className="absolute bottom-16 left-0 right-0 max-h-[100%] pointer-events-auto overflow-hidden">
+                    <div className="absolute bottom-16 left-0 right-0 pointer-events-auto z-10">
                         <div 
                             ref={chatContainerRef}
-                            className="overflow-y-auto px-2 py-1 max-h-[calc(100vh-380px)] [&::-webkit-scrollbar]:hidden bg-transparent" 
+                            className="overflow-y-auto px-2 py-1 max-h-[40vh] [&::-webkit-scrollbar]:hidden bg-transparent"
                             onScroll={handleScroll}
                         >
                             <div className="space-y-1 py-2">
@@ -249,7 +240,7 @@ const AuctionStreamMobileUi = ({
                             </div>
 
                     {/* Bottom Bar - Absolutely positioned */}
-                    <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/70 to-transparent">
+                    <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/70 to-transparent z-10">
                         <div className="flex items-center justify-between">
                             <button 
                                 className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-full"
@@ -258,7 +249,17 @@ const AuctionStreamMobileUi = ({
                             </button>
                             
                             <div className="flex-1 mx-1 sm:mx-2 min-w-0">
-                                <div className={`flex items-center bg-black/40 rounded-full overflow-hidden ${isInputFocused ? 'ring-1 ring-white/30' : ''}`}>
+                                <div 
+                                    className={`flex items-center bg-black/40 rounded-full overflow-hidden ${isInputFocused ? 'ring-1 ring-white/30' : ''}`}
+                                    onClick={(e) => {
+                                        // Prevent input losing focus when tapping container
+                                        const inputElement = e.currentTarget.querySelector('input');
+                                        if (inputElement) {
+                                            inputElement.focus();
+                                            e.stopPropagation();
+                                        }
+                                    }}
+                                >
                                     <input
                                         type="text"
                                         placeholder="Send a message..."
@@ -267,7 +268,12 @@ const AuctionStreamMobileUi = ({
                                         onChange={(e) => setCommentInput(e.target.value)}
                                         onKeyPress={handleKeyPress}
                                         onFocus={() => setIsInputFocused(true)}
-                                        onBlur={() => setIsInputFocused(false)}
+                                        onBlur={(e) => {
+                                            // Only blur if the click was outside the parent container
+                                            if (!e.currentTarget.parentElement.contains(e.relatedTarget)) {
+                                                setIsInputFocused(false);
+                                            }
+                                        }}
                                     />
                                                         <button
                                         className={`px-2 sm:px-3 text-white/70 ${!commentInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
