@@ -329,6 +329,20 @@ const HomePage = () => {
     ];
   };
 
+  // Listen for verification completed event
+  useEffect(() => {
+    const handleVerificationCompleted = () => {
+      console.log("Verification completed event received, refreshing seller data...");
+      fetchSellerDetails();
+    };
+
+    window.addEventListener('seller-verification-completed', handleVerificationCompleted);
+    
+    return () => {
+      window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
+    };
+  }, []);
+
   return (
     <>
       {/* Verification Dialog */}

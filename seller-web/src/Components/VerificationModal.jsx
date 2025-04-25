@@ -141,9 +141,23 @@ const NIGERIAN_BANKS = [
 ];
 
 const VerificationModal = ({ isOpen, onClose }) => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [accountType, setAccountType] = useState(null);
+  // Combined state declarations - keeping only one set
   const [internalIsOpen, setInternalIsOpen] = useState(isOpen);
+  const [accountType, setAccountType] = useState('');
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [apiCategories, setApiCategories] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState({
+    storeBanner: null,
+    storeProfileImage: null
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [displayedCategories, setDisplayedCategories] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState({
+    submission: false,
+    categories: false
+  });
   const [formData, setFormData] = useState({
     // Personal Information (Individual)
     firstName: '',
@@ -199,22 +213,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
     // Terms (shared)
     acceptedTerms: false,
   });
-  
-  // Preview image URLs for the store banner and profile image
-  const [previewUrls, setPreviewUrls] = useState({
-    storeBanner: null,
-    storeProfileImage: null
-  });
-  
-  // State for categories from API
-  const [apiCategories, setApiCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState({
-    categories: false,
-    submission: false
-  });
-
-  // State for confirmation dialog
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   // Custom close handler to show confirmation dialog
   const handleCloseAttempt = () => {
@@ -273,9 +271,13 @@ const VerificationModal = ({ isOpen, onClose }) => {
           setInternalIsOpen(false);
           if (onClose) onClose();
           
-          toast.info("Your account is already under review. You'll be notified when it's approved or declined.", {
-            duration: 5000,
-          });
+          // Only show toast if this is a new modal open attempt (not on component remount)
+          if (isOpen) {
+            toast.info("Your account is already under review. You'll be notified when it's approved or declined.", {
+              duration: 5000,
+              id: "account-pending-toast", // Add ID to prevent duplicate toasts
+            });
+          }
         } else {
           setInternalIsOpen(isOpen);
         }
@@ -456,10 +458,24 @@ const VerificationModal = ({ isOpen, onClose }) => {
       await VerificationService.updateStoreProfile(storeProfile);
       
       // 7. Set account status to pending for review
-      await VerificationService.updateAccountPendingStatus(true);
+      const response = await VerificationService.updateAccountPendingStatus(true);
+      
+      // Immediately update the localStorage seller data to reflect the pending status
+      try {
+        const sellerData = JSON.parse(localStorage.getItem('seller'));
+        if (sellerData) {
+          sellerData.accountPending = true;
+          localStorage.setItem('seller', JSON.stringify(sellerData));
+        }
+      } catch (err) {
+        console.error("Error updating seller data in localStorage:", err);
+      }
       
       // Success notification
-      toast.success("Verification application submitted successfully!");
+      toast.success("Verification application submitted successfully! Your account is now under review.", {
+        duration: 5000,
+        id: "verification-success-toast", // Add ID to prevent duplicate toasts
+      });
       
       // Go to final step
       setCurrentStep(getTotalSteps() - 1);
@@ -467,10 +483,22 @@ const VerificationModal = ({ isOpen, onClose }) => {
       // Close the modal automatically after showing success
       setTimeout(() => {
         onClose();
-      }, 3000); // Close after 3 seconds to give user time to see the success message
+        
+        // Force refresh the parent component to update the UI
+        if (window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('seller-verification-completed'));
+        }
+        
+        // Reload the page after modal closes
+        setTimeout(() => {
+          window.location.reload();
+        }, 300);
+      }, 10000); // Close after 10 seconds to give user time to see the success message
     } catch (error) {
       console.error("Error submitting verification:", error);
-      toast.error(error.response?.data?.message || "Failed to submit verification");
+      toast.error(error.response?.data?.message || "Failed to submit verification", {
+        id: "verification-error-toast", // Add ID to prevent duplicate toasts
+      });
     } finally {
       setIsLoading(prev => ({ ...prev, submission: false }));
     }
@@ -526,6 +554,32 @@ const VerificationModal = ({ isOpen, onClose }) => {
         </div>
       </div>
     );
+  };
+
+  // Define the handler for category search
+  const handleSearchChange = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    
+    if (query.trim().length === 0) {
+      setDisplayedCategories([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    try {
+      if (query.trim().length >= 2) {
+        const results = await VerificationService.searchCategories(query);
+        setDisplayedCategories(results);
+      }
+    } catch (error) {
+      console.error('Error searching categories:', error);
+      toast.error('Failed to search categories');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Let's update the validateCurrentStep function to require all document uploads
@@ -1103,60 +1157,168 @@ const VerificationModal = ({ isOpen, onClose }) => {
             </p>
           </div>
           
+          {/* Search Input */}
+          <div className="mb-6 relative">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search for categories..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full pl-10 h-10 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              {searchQuery && (
+                <button 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setDisplayedCategories([]);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Search by category or subcategory name
+            </p>
+          </div>
+          
           {isLoading.categories ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="h-10 w-10 text-green-600 animate-spin mb-4" />
               <p className="text-gray-600 dark:text-gray-300">Loading categories...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {apiCategories
-                .sort((a, b) => a.name.localeCompare(b.name)) // Sort categories alphabetically
-                .map(category => (
-                <div 
-                  key={category._id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
-                    formData.categories.includes(category.name) 
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
-                      : 'border-gray-200 dark:border-gray-700'
-                  }`}
-                  onClick={() => handleCategoryToggle(category.name)}
-                >
-                  <div className={`p-2 rounded-full ${
-                    formData.categories.includes(category.name)
-                      ? 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-400' 
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                  }`}>
-                    {category.image?.url ? (
-                      <img 
-                        src={category.image.url} 
-                        alt={category.name} 
-                        className="h-4 w-4 object-cover"
-                      />
+            <>
+              {searchQuery ? (
+                // Show search results
+                displayedCategories.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {displayedCategories.map(category => (
+                      <div 
+                        key={category._id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
+                          formData.categories.includes(category.name) 
+                            ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                        onClick={() => handleCategoryToggle(category.name)}
+                      >
+                        <div className={`p-2 rounded-full ${
+                          formData.categories.includes(category.name)
+                            ? 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-400' 
+                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {category.image?.url ? (
+                            <img 
+                              src={category.image.url} 
+                              alt={category.name} 
+                              className="h-4 w-4 object-cover"
+                            />
+                          ) : (
+                            <Tag className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <Label 
+                            htmlFor={`category-${category._id}`} 
+                            className="cursor-pointer font-medium text-sm"
+                          >
+                            {category.name}
+                          </Label>
+                          {category.matchingSubCategories && category.matchingSubCategories.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              <span className="text-gray-400">Matches: </span>
+                              {category.matchingSubCategories.map((sub, idx) => (
+                                <span key={idx} className="text-green-600 dark:text-green-400">
+                                  {sub.name} {idx < category.matchingSubCategories.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Checkbox 
+                          id={`category-${category._id}`}
+                          checked={formData.categories.includes(category.name)}
+                          className={`h-5 w-5 ${
+                            formData.categories.includes(category.name)
+                              ? 'text-green-600 dark:text-green-500'
+                              : ''
+                          }`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
+                    {isSearching ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
+                        <span>Searching...</span>
+                      </div>
                     ) : (
-                      <Tag className="h-4 w-4" />
+                      'No categories found'
                     )}
                   </div>
-                  <div className="flex-1">
-                    <Label 
-                      htmlFor={`category-${category._id}`} 
-                      className="cursor-pointer font-medium text-sm"
+                )
+              ) : (
+                // Show all categories
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {apiCategories
+                    .sort((a, b) => a.name.localeCompare(b.name)) // Sort categories alphabetically
+                    .map(category => (
+                    <div 
+                      key={category._id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
+                        formData.categories.includes(category.name) 
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                      onClick={() => handleCategoryToggle(category.name)}
                     >
-                      {category.name}
-                    </Label>
-                  </div>
-                  <Checkbox 
-                    id={`category-${category._id}`}
-                    checked={formData.categories.includes(category.name)}
-                    className={`h-5 w-5 ${
-                      formData.categories.includes(category.name)
-                        ? 'text-green-600 dark:text-green-500'
-                        : ''
-                    }`}
-                  />
+                      <div className={`p-2 rounded-full ${
+                        formData.categories.includes(category.name)
+                          ? 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-400' 
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      }`}>
+                        {category.image?.url ? (
+                          <img 
+                            src={category.image.url} 
+                            alt={category.name} 
+                            className="h-4 w-4 object-cover"
+                          />
+                        ) : (
+                          <Tag className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <Label 
+                          htmlFor={`category-${category._id}`} 
+                          className="cursor-pointer font-medium text-sm"
+                        >
+                          {category.name}
+                        </Label>
+                      </div>
+                      <Checkbox 
+                        id={`category-${category._id}`}
+                        checked={formData.categories.includes(category.name)}
+                        className={`h-5 w-5 ${
+                          formData.categories.includes(category.name)
+                            ? 'text-green-600 dark:text-green-500'
+                            : ''
+                        }`}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
           
           {formData.categories.length > 0 && (

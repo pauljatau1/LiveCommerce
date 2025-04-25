@@ -385,20 +385,14 @@ export default function AddressSettings() {
           {hasVerified && (
             <Badge variant="outline" className="text-green-500">Verified</Badge>
           )}
-          <Button 
-            variant="outline" 
-            className="text-green-500 border-green-500 w-full sm:w-auto"
-            onClick={() => setEditingAddress(type.toLowerCase())}
-            disabled={isLoading}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {address ? 'Update Address' : 'Add Address'}
-          </Button>
+          <div className="text-sm text-blue-700">
+            <span>Contact <a href="mailto:support@auqli.com" className="underline font-medium">support@auqli.com</a> to update</span>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {address && (
+          {address ? (
             <div className="bg-slate-50 p-4 rounded-lg">
               <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-2">
                 <div className="space-y-1 w-full sm:w-auto">
@@ -413,26 +407,11 @@ export default function AddressSettings() {
                     value && <p key={key} className="text-sm text-muted-foreground">{value}</p>
                   ))}
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto justify-end">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setEditingAddress(type.toLowerCase())}
-                    disabled={isLoading}
-                  >
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-red-500"
-                    onClick={() => handleDeleteAddress(type.toLowerCase())}
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
+            </div>
+          ) : (
+            <div className="py-2">
+              <p className="text-sm text-muted-foreground">No address information available. Please contact support to add an address.</p>
             </div>
           )}
         </div>
@@ -442,7 +421,11 @@ export default function AddressSettings() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {AddressDialog()}
+      <div className="bg-blue-50 p-4 rounded-md border border-blue-200 mb-6">
+        <p className="text-sm text-blue-700">
+          To update or add address information, please contact support at <a href="mailto:support@auqli.com" className="underline font-medium">support@auqli.com</a>
+        </p>
+      </div>
       
       {profileData.accountType === 'business' && (
         <AddressCard 
@@ -478,7 +461,7 @@ export default function AddressSettings() {
       />
 
       {/* Additional Info Card */}
-      <Card>
+      {/* <Card>
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
             <div className="space-y-1">
@@ -500,7 +483,7 @@ export default function AddressSettings() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 } 

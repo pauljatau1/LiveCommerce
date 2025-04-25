@@ -12,7 +12,7 @@ import { useAuthContext } from "../../Hooks/useAuthContext";
 const LiveStream = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const { getAllSellerActiveStreams, fetchedLiveStreams, isLoading } = useContext(LivestreamContext);
-    const { seller } = useAuthContext();
+    const { seller, authToken, fetchSellerDetails } = useAuthContext();
     const [scheduledShows, setScheduledShows] = useState([]);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showVerificationDialog, setShowVerificationDialog] = useState(false);
@@ -80,6 +80,26 @@ const LiveStream = () => {
         if (time.hours > 0) return `${time.hours}h ${time.minutes}m left`;
         return `${time.minutes}m left`;
     };
+
+    useEffect(() => {
+        if (authToken) {
+            fetchSellerDetails();
+        }
+    }, [authToken]);
+
+    // Listen for verification completed event
+    useEffect(() => {
+        const handleVerificationCompleted = () => {
+            console.log("Verification completed event received, refreshing seller data...");
+            fetchSellerDetails();
+        };
+
+        window.addEventListener('seller-verification-completed', handleVerificationCompleted);
+        
+        return () => {
+            window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
+        };
+    }, []);
 
     return (
         <div className="flex flex-col mt-10 gap-8 ">
