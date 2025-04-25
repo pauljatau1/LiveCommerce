@@ -103,7 +103,7 @@ const Notifications = () => {
           },
         },
       );
-      console.log("marking read ", response.data);
+      // console.log("marking read ", response.data);
     } catch (error) {
       console.error("Error marking notifications as read:", error);
     }
@@ -200,20 +200,21 @@ const Notifications = () => {
         <View style={styles.emptyWrapper}>
           <View style={styles.emptyImageContainer}>
             <Image
-              source={icons.waving}
+              source={icons.sadEmoji}
               contentFit="contain"
               style={{
                 width: 56,
                 height: 56,
                 borderRadius: 56,
-                backgroundColor: "#E4ECF7",
+                backgroundColor: "#DDF9E7",
               }}
             />
           </View>
 
           <Text style={styles.emptyText}>You have no notifications!</Text>
           <Text style={styles.emptySubText}>
-            if you will get any notifications we will tell you about it
+            No new notifications right now, but we’ll keep you updated on
+            orders, messages, and deals. Stay tuned!
           </Text>
         </View>
       </View>
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
     width: 124,
     height: 124,
     borderRadius: "50%",
-    backgroundColor: "#E4ECF7",
+    backgroundColor: "#DDF9E7",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,

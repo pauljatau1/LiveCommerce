@@ -25,7 +25,6 @@ const Coming = () => {
           `api/streams?status=scheduled&page=${page}&limit=10`,
       );
       if (response.status === 200) {
-        console.log("upcoming streams", response.data?.streams?.length);
         if (response.data?.streams) {
           if (page == 1) {
             setupcoming(response.data?.streams);

@@ -19,7 +19,8 @@
       "bundleIdentifier": "com.auqli.auqliapp",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow access to your photos to upload images for your profile, reviews, and messages."
       },
       "entitlements": {
         "aps-environment": "production"
@@ -53,8 +54,15 @@
           "backgroundColor": "#111111"
         }
       ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Your data will be used to deliver personalized ads to you."
+        }
+      ],
       "expo-dev-client",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-tracking-transparency"
     ],
     "experiments": {
       "typedRoutes": true

@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootState } from "@/store";
 import CreateAccountModal from "@/components/global/create-account-prompt";
 import OrderPopup from "@/components/global/orders/order-popup";
+import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
 
 const { width, height } = Dimensions.get("window");
 
@@ -21,16 +22,17 @@ const Homepage = () => {
   // const token = useSelector((state: RootState) => state.authState.token);
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const tries = useRef<number>(0);
-  // const dispatch = useDispatch();
 
-  // useEffect(() => {
-  //   dispatch({ type: "socket/connect", payload: {} });
-  //   return () => {
-  //     dispatch({ type: "socket/leaveAuction", payload: {} });
-
-  //     dispatch({ type: "socket/disconnect", payload: {} });
-  //   };
-  // });
+  const requestTrackingPermission = async () => {
+    const { status } = await requestTrackingPermissionsAsync();
+    if (status === "granted") {
+      console.log("Yay! I have user permission to track data");
+    } else {
+      console.log("Shucks! I dont have user permission to track data ", {
+        status,
+      });
+    }
+  };
 
   const closeModal = useCallback(() => {
     setIsVisible(false);
@@ -48,6 +50,7 @@ const Homepage = () => {
         tries.current = 1;
       }
     }
+    requestTrackingPermission();
     setIsFirstTime();
     checkIfLoggedIn();
   }, []);
