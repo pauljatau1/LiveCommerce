@@ -3,9 +3,18 @@ import { useIntercom } from 'react-use-intercom';
 export const useIntercomChat = () => {
     const { boot, shutdown, update } = useIntercom();
 
+    // Simple UUID generator that works on all browsers
+    const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
     const initVisitor = () => {
-        // Generate fresh UUID for each visitor session
-        const visitorId = crypto.randomUUID();
+        // Generate fresh UUID for each visitor session using the cross-browser method
+        const visitorId = generateUUID();
 
         boot({
             user_id: `visitor_${visitorId}`,

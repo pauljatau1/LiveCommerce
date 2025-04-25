@@ -87,8 +87,8 @@ const PreStreamDesktopUi = ({
               <div className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
                 {
                   products?.length > 0 ? (
-                    products?.map((item) => (
-                      <div key={item?.product._id} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
+                    products?.map((item, index) => (
+                      <div key={item?.product._id || index} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
                         <div className="">
                           <img
                             src={item?.product?.images[0]?.url}
