@@ -3,6 +3,7 @@ import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import axios from "axios";
+import mixpanel from "mixpanel-browser";
 
 const LivestreamContext = createContext();
 
@@ -143,6 +144,7 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
+            const sellerData = JSON.parse(localStorage.getItem('seller'));
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
 
             const response = await axios.post(`${BASE_URL}/streams/open-live-show`, streamData, {
@@ -157,6 +159,22 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
+                mixpanel.track("Live Show Scheduled", {
+                    "User ID": sellerData.data._id,
+                    "Email": sellerData.data.email,
+                    "Store Name": sellerData.data.storeName,
+                    "First Name": sellerData.data.firstName,
+                    "Last Name": sellerData.data.lastName,
+                    "Phone Number": sellerData.data.phoneNumber,
+                    "stream title": streamData.title,
+                    "stream description": streamData.description,
+                    "stream category": streamData.category,
+                    "stream tags": streamData.tags,
+                    "stream products": streamData.products,
+                    "stream scheduled start time": streamData.scheduledStartTime,
+                    "stream cover photo": streamData.coverImage ? "uploaded" : "not uploaded",
+                    "stream video": streamData.video ? "uploaded" : "not uploaded",
+                });
             }
         } catch (error) {
             console.error(error);
@@ -176,6 +194,7 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
+            const sellerData = JSON.parse(localStorage.getItem('seller'));
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
             const response = await axios.post(`${BASE_URL}/streams/create`, streamData, {
                 headers: {
@@ -188,6 +207,22 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
+                mixpanel.track("Live Auction Scheduled", {
+                    "User ID": sellerData.data._id,
+                    "Email": sellerData.data.email,
+                    "Store Name": sellerData.data.storeName,
+                    "First Name": sellerData.data.firstName,
+                    "Last Name": sellerData.data.lastName,  
+                    "Phone Number": sellerData.data.phoneNumber,
+                    "stream title": streamData.title,
+                    "stream description": streamData.description,
+                    "stream category": streamData.category,
+                    "stream tags": streamData.tags,
+                    "stream products": streamData.products,
+                    "stream scheduled start time": streamData.scheduledStartTime,
+                    "stream cover photo": streamData.coverImage ? "uploaded" : "not uploaded",
+                    "stream video": streamData.video ? "uploaded" : "not uploaded",
+                });
             }
         } catch (error) {
             console.error(error);
@@ -231,6 +266,7 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
 
             const sellerToken = localStorage.getItem('sellerToken');
+            const sellerData = JSON.parse(localStorage.getItem('seller'));
             const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
 
             if (!tokenData?.data) {
@@ -261,6 +297,23 @@ export const LivestreamProvider = ({ children }) => {
                         background: '#161A1E',
                         color: '#fff',
                     }
+                });
+
+                mixpanel.track("Live Show Started", {
+                    "User ID": sellerData.data._id,
+                    "Email": sellerData.data.email,
+                    "Store Name": sellerData.data.storeName,
+                    "First Name": sellerData.data.firstName,
+                    "Last Name": sellerData.data.lastName,
+                    "stream id": streamId,
+                    "stream title": streamData.title,
+                    "stream description": streamData.description,
+                    "stream category": streamData.category,
+                    "stream tags": streamData.tags,
+                    "stream products": streamData.products,
+                    "channel name": streamData.channelName,
+                    "agora token": streamData.agoraToken,
+                    "stream scheduled start time": streamData.scheduledStartTime,
                 });
 
                 return streamData;

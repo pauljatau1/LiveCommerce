@@ -633,6 +633,12 @@ function AuthProvider({ children }) {
                 );
 
                 mixpanel.track("Profile Completed", {
+                    "User ID": response.data._id,
+                    "Email": response.data.email,
+                    "Store Name": response.data.storeName,
+                    "First Name": response.data.firstName,
+                    "Last Name": response.data.lastName,
+                    "Phone Number": response.data.phoneNumber,
                     "Completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
                     "User Type": "Seller"
                 });
