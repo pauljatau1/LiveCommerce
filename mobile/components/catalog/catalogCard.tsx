@@ -143,8 +143,8 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
         <View className="flex-row gap-x-2  items-center">
           <Image
             source={
-              moreDetails?.seller?.storeAvatar.url
-                ? { uri: moreDetails?.seller?.storeAvatar.url }
+              moreDetails?.seller?.storeAvatar?.url
+                ? { uri: moreDetails?.seller?.storeAvatar?.url }
                 : require("../../assets/icons/user-image-empty.png")
             }
             contentFit="contain"
