@@ -178,7 +178,7 @@ exports.register = async (req, res) => {
 
     // After successful seller creation and welcome email
     const adminMsg = {
-      to: ['support@auqli.com'],
+      to: ['admin@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
       subject: 'New Seller Registration - Auqli',
       html: `
@@ -3972,6 +3972,40 @@ exports.toggleAccountPending = async (req, res) => {
 
     seller.accountPending = status;
     await seller.save();
+
+    // Send email notification to admin if seller has completed onboarding (status = true)
+    if (status === true) {
+      try {
+        const adminMsg = {
+          to: 'admin@auqli.com',
+          from: 'Auqli Notifications <support@auqli.com>',
+          subject: `Seller Onboarding Completed - ${seller.storeName || seller.firstName + ' ' + seller.lastName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>New Seller Onboarding Completed</h2>
+              <p>A seller has just completed their onboarding process and is ready for review.</p>
+              <p><strong>Seller Details:</strong></p>
+              <ul>
+                <li>Name: ${seller.firstName} ${seller.lastName}</li>
+                <li>Store Name: ${seller.storeName || 'N/A'}</li>
+                <li>Email: ${seller.email}</li>
+                <li>Phone: ${seller.phoneNumber}</li>
+                <li>Account Type: ${seller.accountType || 'N/A'}</li>
+                <li>Business Name: ${seller.businessName || 'N/A'}</li>
+              </ul>
+              <p>Please review this account at your earliest convenience.</p>
+              <p>Best regards,<br>Auqli Team</p>
+            </div>
+          `
+        };
+        
+        await sgMail.send(adminMsg);
+        console.log(`Onboarding completion notification email sent to admin for seller: ${seller._id}`);
+      } catch (emailError) {
+        console.error('Error sending onboarding notification email:', emailError);
+        // Continue execution despite email error - don't block the API response
+      }
+    }
 
     return res.status(200).json({
       success: true,

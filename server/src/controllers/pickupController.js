@@ -83,7 +83,7 @@ exports.createPickupRequest = async (req, res) => {
 
     // Send email to admin about new pickup request
     const adminEmail = {
-      to: 'support@auqli.com',
+      to: 'admin@auqli.com',
       from: {
         email: 'support@auqli.com',
         name: 'Auqli Orders',

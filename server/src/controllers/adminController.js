@@ -317,10 +317,59 @@ exports.enableSeller = async (req, res) => {
 
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate('seller');
-    res.json(products);
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Build filter object based on query parameters
+    const filter = {};
+    
+    // Filter by product name (case-insensitive partial match)
+    if (req.query.name) {
+      filter.name = { $regex: req.query.name, $options: 'i' };
+    }
+    
+    // Filter by category
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+    
+    // Filter by seller ID
+    if (req.query.sellerId) {
+      filter.seller = req.query.sellerId;
+    }
+    
+    // Filter by status
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    // Count total number of products for pagination metadata
+    const totalProducts = await Product.countDocuments(filter);
+    
+    // Get paginated products with populated seller information
+    const products = await Product.find(filter)
+      .populate('seller')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      productsPerPage: limit,
+      products
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch products',
+      error: error.message 
+    });
   }
 };
 
@@ -5019,10 +5068,310 @@ exports.deleteFezOrder = async (req, res) => {
   }
 };
 
-// ... rest of the file remains unchanged ...
+exports.searchProducts = async (req, res) => {
+  try {
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
+    // Extract search parameters from query
+    const { 
+      query, 
+      minPrice, 
+      maxPrice, 
+      category, 
+      subCategory, 
+      sellerId, 
+      status, 
+      sortBy, 
+      sortOrder 
+    } = req.query;
 
+    // Build search filter
+    const filter = {};
 
+    // Search in name, description, or SKU if query is provided
+    if (query) {
+      filter.$or = [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { 'inventory.sku': { $regex: query, $options: 'i' } }
+      ];
+    }
 
+    // Price range filter
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      filter.price = {};
+      if (minPrice !== undefined) filter.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) filter.price.$lte = Number(maxPrice);
+    }
 
+    // Category filters
+    if (category) filter.category = category;
+    if (subCategory) filter.subCategory = subCategory;
 
+    // Seller filter
+    if (sellerId) filter.seller = sellerId;
+
+    // Status filter
+    if (status) filter.status = status;
+
+    // Build sort options
+    let sort = { createdAt: -1 }; // Default sort by newest
+    
+    if (sortBy) {
+      sort = {};
+      const order = sortOrder === 'asc' ? 1 : -1;
+      
+      // Map frontend sort fields to MongoDB fields
+      switch (sortBy) {
+        case 'name':
+          sort.name = order;
+          break;
+        case 'price':
+          sort.price = order;
+          break;
+        case 'popularity':
+          sort['stats.views'] = order;
+          break;
+        case 'sold':
+          sort['stats.soldCount'] = order;
+          break;
+        case 'created':
+        default:
+          sort.createdAt = order;
+      }
+    }
+
+    // Count total matching products for pagination metadata
+    const totalProducts = await Product.countDocuments(filter);
+    
+    // Get paginated products with populated seller information
+    const products = await Product.find(filter)
+      .populate('seller', 'firstName lastName businessName email storeName storeAvatar isVerified')
+      .skip(skip)
+      .limit(limit)
+      .sort(sort);
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      productsPerPage: limit,
+      products
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to search products',
+      error: error.message 
+    });
+  }
+};
+
+exports.getPlatformMetrics = async (req, res) => {
+  try {
+    // Collect counts from all main models
+    const [
+      totalBuyers,
+      totalSellers,
+      totalProducts,
+      totalOrders,
+      totalStreams,
+      totalTransactions,
+      totalWithdrawals,
+      totalBankChangeRequests
+    ] = await Promise.all([
+      Buyer.countDocuments(),
+      Seller.countDocuments(),
+      Product.countDocuments(),
+      Order.countDocuments(),
+      Stream.countDocuments(),
+      Transaction.countDocuments(),
+      Withdrawal.countDocuments(),
+      BankChangeRequest.countDocuments()
+    ]);
+
+    // Get active/inactive users
+    const [activeBuyers, activeSellers] = await Promise.all([
+      Buyer.countDocuments({ isActive: true }),
+      Seller.countDocuments({ isDisabled: false })
+    ]);
+
+    // Get verification stats
+    const [
+      verifiedSellers, 
+      pendingVerificationSellers,
+      identityVerifiedBuyers
+    ] = await Promise.all([
+      Seller.countDocuments({ isVerified: true }),
+      Seller.countDocuments({ isVerified: false, 'verificationDocuments.documents': { $exists: true, $ne: [] } }),
+      Buyer.countDocuments({ isIdentityVerified: true })
+    ]);
+
+    // Get order status metrics
+    const [
+      pendingOrders,
+      processingOrders,
+      shippedOrders,
+      deliveredOrders,
+      cancelledOrders,
+      ordersWithReturns,
+      ordersWithDisputes
+    ] = await Promise.all([
+      Order.countDocuments({ 'items.status': 'pending' }),
+      Order.countDocuments({ 'items.status': 'processing' }),
+      Order.countDocuments({ 'items.status': 'shipped' }),
+      Order.countDocuments({ 'items.status': 'delivered' }),
+      Order.countDocuments({ 'items.status': 'cancelled' }),
+      Order.countDocuments({ 'orderStatus.hasReturn': true }),
+      Order.countDocuments({ 'orderStatus.hasDispute': true })
+    ]);
+
+    // Get withdrawal status metrics
+    const [
+      pendingWithdrawals,
+      processingWithdrawals,
+      completedWithdrawals,
+      rejectedWithdrawals
+    ] = await Promise.all([
+      Withdrawal.countDocuments({ status: 'pending' }),
+      Withdrawal.countDocuments({ status: 'processing' }),
+      Withdrawal.countDocuments({ status: 'completed' }),
+      Withdrawal.countDocuments({ status: 'rejected' })
+    ]);
+
+    // Get bank change request metrics
+    const [
+      pendingBankChangeRequests,
+      approvedBankChangeRequests,
+      rejectedBankChangeRequests
+    ] = await Promise.all([
+      BankChangeRequest.countDocuments({ status: 'pending' }),
+      BankChangeRequest.countDocuments({ status: 'approved' }),
+      BankChangeRequest.countDocuments({ status: 'rejected' })
+    ]);
+
+    // Get stream metrics
+    const [
+      scheduledStreams,
+      liveStreams,
+      endedStreams,
+      cancelledStreams
+    ] = await Promise.all([
+      Stream.countDocuments({ status: 'scheduled' }),
+      Stream.countDocuments({ status: 'live' }),
+      Stream.countDocuments({ status: 'ended' }),
+      Stream.countDocuments({ cancelledStream: true })
+    ]);
+
+    // Get financial metrics
+    const totalOrderAmount = await Order.aggregate([
+      { $match: { paid: true } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+
+    const totalWithdrawalAmount = await Withdrawal.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    // Calculate percentages
+    const buyerVerificationRate = totalBuyers > 0 ? (identityVerifiedBuyers / totalBuyers * 100).toFixed(2) : 0;
+    const sellerVerificationRate = totalSellers > 0 ? (verifiedSellers / totalSellers * 100).toFixed(2) : 0;
+    const pendingWithdrawalRate = totalWithdrawals > 0 ? (pendingWithdrawals / totalWithdrawals * 100).toFixed(2) : 0;
+    const pendingBankChangeRate = totalBankChangeRequests > 0 ? (pendingBankChangeRequests / totalBankChangeRequests * 100).toFixed(2) : 0;
+    const cancelledStreamRate = totalStreams > 0 ? (cancelledStreams / totalStreams * 100).toFixed(2) : 0;
+
+    // Recent activity - get the latest 5 of each important model
+    const [
+      recentOrders,
+      recentWithdrawals,
+      recentBankChangeRequests,
+      recentStreams
+    ] = await Promise.all([
+      Order.find().sort({ createdAt: -1 }).limit(5).select('order_id buyer seller totalAmount createdAt items.status'),
+      Withdrawal.find().sort({ requestDate: -1 }).limit(5).select('seller amount status requestDate reference'),
+      BankChangeRequest.find().sort({ requestDate: -1 }).limit(5).select('seller status requestDate newBankDetails.bankName'),
+      Stream.find().sort({ createdAt: -1 }).limit(5).select('seller title status scheduledStartTime actualStartTime')
+    ]);
+
+    const metrics = {
+      counts: {
+        buyers: totalBuyers,
+        sellers: totalSellers,
+        products: totalProducts,
+        orders: totalOrders,
+        streams: totalStreams,
+        transactions: totalTransactions,
+        withdrawals: totalWithdrawals,
+        bankChangeRequests: totalBankChangeRequests
+      },
+      userMetrics: {
+        activeBuyers,
+        inactiveBuyers: totalBuyers - activeBuyers,
+        activeSellers,
+        inactiveSellers: totalSellers - activeSellers,
+        verifiedSellers,
+        pendingVerificationSellers,
+        identityVerifiedBuyers,
+        buyerVerificationRate,
+        sellerVerificationRate
+      },
+      orderMetrics: {
+        pendingOrders,
+        processingOrders,
+        shippedOrders,
+        deliveredOrders,
+        cancelledOrders,
+        ordersWithReturns,
+        ordersWithDisputes
+      },
+      withdrawalMetrics: {
+        pendingWithdrawals,
+        processingWithdrawals,
+        completedWithdrawals,
+        rejectedWithdrawals,
+        pendingWithdrawalRate
+      },
+      bankChangeMetrics: {
+        pendingBankChangeRequests,
+        approvedBankChangeRequests,
+        rejectedBankChangeRequests,
+        pendingBankChangeRate
+      },
+      streamMetrics: {
+        scheduledStreams,
+        liveStreams,
+        endedStreams,
+        cancelledStreams,
+        cancelledStreamRate
+      },
+      financialMetrics: {
+        totalOrderAmount: totalOrderAmount.length > 0 ? totalOrderAmount[0].total : 0,
+        totalWithdrawalAmount: totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0
+      },
+      recentActivity: {
+        orders: recentOrders,
+        withdrawals: recentWithdrawals,
+        bankChangeRequests: recentBankChangeRequests,
+        streams: recentStreams
+      }
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    console.error('Error fetching platform metrics:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch platform metrics',
+      error: error.message
+    });
+  }
+};

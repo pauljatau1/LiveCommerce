@@ -238,13 +238,71 @@ router.put('/buyers/:buyerId/enable', authMiddleware.verifyToken, adminControlle
  * @swagger
  * /api/admin/products:
  *   get:
- *     summary: Get all products
+ *     summary: Get all products with pagination and filtering
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of products per page
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Filter products by name (partial, case-insensitive)
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter products by category
+ *       - in: query
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         description: Filter products by seller ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, offline_auction]
+ *         description: Filter products by status
  *     responses:
  *       200:
- *         description: List of products retrieved successfully
+ *         description: Paginated list of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 5
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 100
+ *                 productsPerPage:
+ *                   type: integer
+ *                   example: 20
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
  *       500:
  *         description: Internal server error
  */
@@ -2513,5 +2571,123 @@ router.delete('/fez-orders/:orderNo',
   authMiddleware.isAdmin, 
   adminController.deleteFezOrder
 );
+
+/**
+ * @swagger
+ * /api/admin/products/search:
+ *   get:
+ *     summary: Advanced search for products with multiple filters and sorting
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search term to match against product name, description or SKU
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by product category
+ *       - in: query
+ *         name: subCategory
+ *         schema:
+ *           type: string
+ *         description: Filter by product subcategory
+ *       - in: query
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         description: Filter by seller ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, offline_auction]
+ *         description: Filter by product status
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, price, popularity, sold, created]
+ *         description: Field to sort results by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order (ascending or descending)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of products per page
+ *     responses:
+ *       200:
+ *         description: Paginated and filtered list of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 5
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 100
+ *                 productsPerPage:
+ *                   type: integer
+ *                   example: 20
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/products/search', authMiddleware.verifyToken, adminController.searchProducts);
+
+/**
+ * @swagger
+ * /api/admin/platform-metrics:
+ *   get:
+ *     summary: Get comprehensive platform metrics and statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Platform metrics retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/platform-metrics', authMiddleware.verifyToken, adminController.getPlatformMetrics);
 
 module.exports = router;

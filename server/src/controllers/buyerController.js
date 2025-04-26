@@ -2554,7 +2554,7 @@ exports.reportUser = async (req, res) => {
 
     // Send email notification
     const msg = {
-      to: ['support@auqli.com', 'bolu@auqli.com'],
+      to: ['admin@auqli.com', 'bolu@auqli.com'],
       from: 'Joseph From Auqli <support@auqli.com>',
       subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
       html: `

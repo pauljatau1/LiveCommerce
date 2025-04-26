@@ -1915,7 +1915,7 @@ exports.rejectReturnRequest = async (req, res) => {
 
     // Send email to admin
     const adminEmail = {
-      to: 'support@auqli.com',
+      to: 'admin@auqli.com',
       from: 'Auqli Returns <support@auqli.com>',
       subject: 'New Return Dispute Created',
       html: `
