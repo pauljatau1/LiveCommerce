@@ -9,9 +9,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Copy, Download } from "lucide-react";
+import { Loader2, Copy, Download, Trash2 } from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Buyer {
   _id: string;
@@ -47,6 +57,9 @@ function Buyers() {
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [buyerToDelete, setBuyerToDelete] = useState<Buyer | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetchBuyers();
@@ -113,6 +126,37 @@ function Buyers() {
       });
     } finally {
       setVerifyingId(null);
+    }
+  };
+
+  const handleDeleteClick = (buyer: Buyer) => {
+    setBuyerToDelete(buyer);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteBuyer = async () => {
+    if (!buyerToDelete) return;
+    
+    setDeletingId(buyerToDelete._id);
+    try {
+      await api.delete(`/api/admin/buyers/${buyerToDelete._id}`);
+      
+      // Remove the buyer from the state
+      setBuyers(buyers.filter(buyer => buyer._id !== buyerToDelete._id));
+      
+      toast({
+        description: "Buyer account deleted successfully",
+      });
+    } catch (err) {
+      console.error("Error deleting buyer account:", err);
+      toast({
+        variant: "destructive",
+        description: "Failed to delete buyer account",
+      });
+    } finally {
+      setDeletingId(null);
+      setShowDeleteDialog(false);
+      setBuyerToDelete(null);
     }
   };
 
@@ -274,6 +318,20 @@ function Buyers() {
                           Document Pending
                         </span>
                       )}
+                      
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(buyer)}
+                        disabled={deletingId === buyer._id}
+                      >
+                        {deletingId === buyer._id ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 mr-1" />
+                        )}
+                        Delete
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -282,6 +340,27 @@ function Buyers() {
           </Table>
         </div>
       </Card>
+      
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete {buyerToDelete?.firstName} {buyerToDelete?.lastName}'s account.
+              This action cannot be undone and will remove all of their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBuyer} className="bg-destructive text-white">
+              {deletingId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Delete Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

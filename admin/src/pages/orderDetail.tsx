@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -21,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Package, Truck, MapPin, Clock, AlertCircle, CreditCard, Store, FileText, Banknote, User, CheckCircle, XCircle } from 'lucide-react'
+import { Package, Truck, MapPin, Clock, AlertCircle, CreditCard, Store, FileText, Banknote, User, CheckCircle, XCircle, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface OrderDetail {
   order: {
@@ -158,8 +160,11 @@ function OrderDetail() {
   const [orderData, setOrderData] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [fezDialogOpen, setFezDialogOpen] = useState(false)
   const [reason, setReason] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [fezOrderNo, setFezOrderNo] = useState("")
+  const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -195,6 +200,30 @@ function OrderDetail() {
       setIsUpdating(false)
     }
   }
+
+  const handleDeleteFezOrder = async () => {
+    if (!fezOrderNo.trim()) {
+      toast.error("Please enter a valid Fez order number");
+      return;
+    }
+
+    try {
+      setIsDeletingFezOrder(true);
+      const response = await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`);
+      
+      toast.success(response.data.message || "Fez order cancelled successfully");
+      setFezDialogOpen(false);
+      setFezOrderNo("");
+      
+      // Refresh order data if needed
+      const updatedOrder = await api.get(`/api/order/${id}`);
+      setOrderData(updatedOrder.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to cancel Fez order");
+    } finally {
+      setIsDeletingFezOrder(false);
+    }
+  };
 
   if (loading) return <div>Loading...</div>
   if (!orderData) return <div>Order not found</div>
@@ -266,6 +295,52 @@ function OrderDetail() {
                   className={orderData.order.orderStatus.isOpen ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
                 >
                   {isUpdating ? "Updating..." : orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Fez Order Deletion Dialog */}
+          <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="destructive"
+                className="ml-2"
+                title="Delete Fez Order"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Fez Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+              <DialogHeader>
+                <DialogTitle>Delete Fez Order</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Enter the Fez order number to cancel the delivery order.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Input
+                  placeholder="Enter Fez Order Number"
+                  value={fezOrderNo}
+                  onChange={(e) => setFezOrderNo(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setFezDialogOpen(false)}
+                  className="bg-gray-800 text-white hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteFezOrder}
+                  disabled={!fezOrderNo.trim() || isDeletingFezOrder}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {isDeletingFezOrder ? "Deleting..." : "Delete Fez Order"}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -3,6 +3,7 @@ import { AuthProvider } from '@/context/authContext';
 import Login from '@/auth/login';
 import Dashboard from '@/pages/dashboard';
 import Sellers from '@/pages/sellers';
+import SellerDetail from '@/pages/sellerDetail';
 import Categories from '@/pages/categories';
 import ProtectedRoute from './ProtectedRoute';
 import MainLayout from '@/components/layouts/MainLayout';
@@ -39,6 +40,7 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="/dashboard/sellers" element={<Sellers />} />
+            <Route path="/dashboard/seller/:id" element={<SellerDetail />} />
             <Route path="/dashboard/categories" element={<Categories />} />
             <Route path="/dashboard/buyers" element={<Buyers />} />
             <Route path="/dashboard/orders" element={<Orders />} />

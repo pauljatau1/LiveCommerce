@@ -23,7 +23,8 @@ import {
   PackageOpen,
   Building2,
   RotateCcw,
-  Truck
+  Truck,
+  TruckIcon
 } from 'lucide-react';
 
 // Interface for simplified seller data
@@ -56,6 +57,7 @@ const mainLinks = [
   { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
+  { icon: TruckIcon, label: 'Fez Orders', path: '/dashboard/orders', description: 'Manage Fez delivery orders' },
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: RotateCcw, label: 'Refund Req', path: '/dashboard/refund-requests', showPendingCount: true },
   { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },

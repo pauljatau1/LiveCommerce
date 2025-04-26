@@ -3,7 +3,8 @@ import {
   Package,
   ArrowUpRight,
   Eye,
-  Download
+  Download,
+  Trash2
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,9 +16,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { useEffect, useState, useMemo } from "react"
 import { api } from "@/api/axios"
 import { Link } from "react-router-dom"
+import { toast } from "sonner"
 
 // Define TypeScript interfaces
 interface Order {
@@ -58,6 +70,9 @@ interface OrdersResponse {
 function Orders() {
   const [ordersData, setOrdersData] = useState<OrdersResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fezDialogOpen, setFezDialogOpen] = useState(false)
+  const [fezOrderNo, setFezOrderNo] = useState("")
+  const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
 
   // Calculate total revenue from paid orders using useMemo
   const totalRevenue = useMemo(() => {
@@ -88,6 +103,30 @@ function Orders() {
     fetchOrders()
   }, [])
 
+  const handleDeleteFezOrder = async () => {
+    if (!fezOrderNo.trim()) {
+      toast.error("Please enter a valid Fez order number");
+      return;
+    }
+
+    try {
+      setIsDeletingFezOrder(true);
+      const response = await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`);
+      
+      toast.success(response.data.message || "Fez order cancelled successfully");
+      setFezDialogOpen(false);
+      setFezOrderNo("");
+      
+      // Refresh orders data
+      const refreshedOrders = await api.get('/api/admin/orders?page=1&limit=100');
+      setOrdersData(refreshedOrders.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to cancel Fez order");
+    } finally {
+      setIsDeletingFezOrder(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -100,6 +139,49 @@ function Orders() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
+          
+          {/* Delete Fez Order Button */}
+          <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="shrink-0">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Fez Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+              <DialogHeader>
+                <DialogTitle>Delete Fez Order</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Enter the Fez order number to cancel the delivery order.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Input
+                  placeholder="Enter Fez Order Number"
+                  value={fezOrderNo}
+                  onChange={(e) => setFezOrderNo(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setFezDialogOpen(false)}
+                  className="bg-gray-800 text-white hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteFezOrder}
+                  disabled={!fezOrderNo.trim() || isDeletingFezOrder}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {isDeletingFezOrder ? "Deleting..." : "Delete Fez Order"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
           <Button className="bg-primary shrink-0">
             <ShoppingCart className="h-4 w-4 mr-2" />
             New Order
@@ -190,11 +272,13 @@ function Orders() {
                       {new Date(order.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Link to={`/dashboard/order-detail/${order._id}`}>
-                      <Button variant="ghost" size="icon">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      </Link>
+                      <div className="flex items-center">
+                        <Link to={`/dashboard/order-detail/${order._id}`}>
+                          <Button variant="ghost" size="icon" title="View Order">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

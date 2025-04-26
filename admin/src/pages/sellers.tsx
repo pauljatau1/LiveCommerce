@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -462,12 +463,11 @@ function Sellers() {
                           variant="default"
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
-                          onClick={() => {
-                            setSelectedSeller(seller);
-                            setShowModal(true);
-                          }}
+                          asChild
                         >
-                          <span className="hidden sm:inline-block mr-1">View</span> Details
+                          <Link to={`/dashboard/seller/${seller._id}`}>
+                            <span className="hidden sm:inline-block mr-1">View</span> Details
+                          </Link>
                         </Button>
                         {seller.verificationDocuments?.documents?.length > 0 && (
                           <DropdownMenu>
