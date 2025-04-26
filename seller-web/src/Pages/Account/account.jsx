@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import VerificationModal from "../../Components/VerificationModal";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { Icon } from "@iconify/react";
+import mixpanel from "mixpanel-browser";
 
 export default function AccountPage() {
   const { setHeaderName, setNavName } = useOutletContext();
@@ -330,14 +331,39 @@ export default function AccountPage() {
       {/* Verification Modal */}
       <VerificationModal 
         isOpen={verificationModalOpen} 
-        onClose={() => setVerificationModalOpen(false)} 
+        onClose={() => {
+          setVerificationModalOpen(false);
+          mixpanel.track("Skipped Onboarding Verification", {
+            "User ID": profile._id,
+            "Email": profile.email,
+            "Store Name": profile.storeName,
+            "First Name": profile.firstName,
+            "Last Name": profile.lastName,
+            "Phone Number": profile.phoneNumber,
+            "Signup Date": profile.createdAt,
+            "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+          });
+        }}
       />
       
       {/* Verification Dialog */}
       {profile && (
         <VerificationDialog
           isOpen={verificationDialogOpen}
-          onClose={() => setVerificationDialogOpen(false)}
+          onClose={() => {
+            setVerificationDialogOpen(false);
+            mixpanel.track("Skipped Onboarding Verification", {
+              "User ID": profile._id,
+              "Email": profile.email,
+              "Store Name": profile.storeName,
+              "First Name": profile.firstName,
+              "Last Name": profile.lastName,  
+              "Phone Number": profile.phoneNumber,
+              "Signup Date": profile.createdAt,
+              "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+            });
+
+          }}
           isPending={profile.accountPending}
         />
       )}

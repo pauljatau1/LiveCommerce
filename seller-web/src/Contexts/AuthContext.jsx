@@ -241,6 +241,11 @@ function AuthProvider({ children }) {
                 try {
                     mixpanel.identify(response.data.user._id);
                     mixpanel.track("User Signed Up", {
+                        "Email": response.data.user.email,
+                        "Name": `${response.data.user.firstName} ${response.data.user.lastName}`,
+                        "Phone Number": response.data.user.phoneNumber,
+                        "Store Name": response.data.user.storeName,
+                        "userId": response.data.user._id,
                         "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
                         "Referral Used": response.data.referralUsed ? "Yes" : "No",
                         "Referrer ID": response.data.referrerId || "None",
@@ -493,9 +498,21 @@ function AuthProvider({ children }) {
 
                 // Track login event with device context and IP
                 mixpanel.track("Login", {
+                    "$email": response.data.user?.email,
+                    "$name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
+                    "Store Name": response.data.user?.storeName,
+                    "User Type": "Seller",
+                    "Seller Account Type": response.data.user?.accountType,
+                    "Signup Date": new Date(response.data.user?.createdAt).toISOString().split('T')[0],
                     "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
-                    "Device Type": getDeviceType(),
+                    "Primary Payment Account Number": response.data.user?.bankDetails?.accountNumber || "None",
+                    "Primary Payment Account Name": response.data.user?.bankDetails?.accountName || "None",
+                    "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                    "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
+                    "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
+                    "Total Wallet Balance": response.data.user?.walletBalance || 0,
                     "IP Address": clientIP,
+                    "Device Type": getDeviceType(),
                     "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                 });
 
@@ -616,19 +633,15 @@ function AuthProvider({ children }) {
                 );
 
                 mixpanel.track("Profile Completed", {
+                    "User ID": response.data._id,
+                    "Email": response.data.email,
+                    "Store Name": response.data.storeName,
+                    "First Name": response.data.firstName,
+                    "Last Name": response.data.lastName,
+                    "Phone Number": response.data.phoneNumber,
                     "Completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
                     "User Type": "Seller"
                 });
-
-                if (!response.data.isVerified) {
-                    mixpanel.track("Onboarding Completed", {
-                        "Time to Complete Onboarding": formatOnboardingTime(
-                            Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60)
-                        ),
-                        "Total Minutes": Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60),
-                        "Current Onboarding Step": response.data.onboardingProcess
-                    });
-                }
             }
         } catch (error) {
             console.log(error);
