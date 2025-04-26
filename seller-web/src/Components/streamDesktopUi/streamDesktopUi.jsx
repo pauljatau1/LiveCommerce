@@ -172,7 +172,6 @@ const StreamDesktopUi = ({
                             className="w-full h-full bg-black"
                             style={{
                                 minHeight: '400px',
-                                transform: 'scaleX(-1)'
                             }}
                         ></div>
                     </div>
