@@ -2014,4 +2014,504 @@ router.get('/sellers/transactions',
   adminController.getAllSellerTransactions
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/details:
+ *   get:
+ *     summary: Get detailed information about a specific seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Detailed seller information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     seller:
+ *                       type: object
+ *                       description: All seller information from the Seller model
+ *                     metrics:
+ *                       type: object
+ *                       properties:
+ *                         ordersCount:
+ *                           type: number
+ *                           example: 120
+ *                         postsCount:
+ *                           type: number
+ *                           example: 35
+ *                         streamsCount:
+ *                           type: number
+ *                           example: 15
+ *                         productsCount:
+ *                           type: number
+ *                           example: 75
+ *                         campaignsCount:
+ *                           type: number
+ *                           example: 8
+ *                         conversationsCount:
+ *                           type: number
+ *                           example: 45
+ *                         followersCount:
+ *                           type: number
+ *                           example: 150
+ *                         totalRevenue:
+ *                           type: number
+ *                           example: 25000
+ *                         walletBalance:
+ *                           type: number
+ *                           example: 12500
+ *                         averageRating:
+ *                           type: number
+ *                           example: 4.7
+ *                         totalReviews:
+ *                           type: number
+ *                           example: 95
+ *                     recentActivity:
+ *                       type: object
+ *                       properties:
+ *                         orders:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         streams:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         transactions:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         campaigns:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         withdrawals:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                     analytics:
+ *                       type: object
+ *                       properties:
+ *                         salesByMonth:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         storeVisits:
+ *                           type: number
+ *                           example: 1200
+ *                         monthlyStats:
+ *                           type: object
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/sellers/:sellerId/details', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.getSellerDetails
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/update:
+ *   put:
+ *     summary: Update seller information by admin
+ *     description: Allows administrators to update various seller information including personal details, business info, addresses, bank details, and store settings
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               # Personal Information
+ *               firstName:
+ *                 type: string
+ *                 description: Seller's first name
+ *               lastName:
+ *                 type: string
+ *                 description: Seller's last name
+ *               email:
+ *                 type: string
+ *                 description: Seller's email address
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Seller's phone number
+ *               
+ *               # Business Information
+ *               businessName:
+ *                 type: string
+ *                 description: Name of the seller's business
+ *               businessType:
+ *                 type: string
+ *                 description: Type of business
+ *               businessEmail:
+ *                 type: string
+ *                 description: Business email address
+ *               businessNumber:
+ *                 type: string
+ *                 description: Business phone number
+ *               taxInformation:
+ *                 type: string
+ *                 description: Tax information or ID
+ *               accountType:
+ *                 type: string
+ *                 enum: [individual, business]
+ *                 description: Seller account type
+ *               
+ *               # Business Address
+ *               businessAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   addressLine1:
+ *                     type: string
+ *                   addressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               
+ *               # Seller Address
+ *               sellerAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   addressLine1:
+ *                     type: string
+ *                   addressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               
+ *               # Warehouse Details
+ *               warehouseDetails:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   contactNumber:
+ *                     type: string
+ *                   address:
+ *                     type: object
+ *                     properties:
+ *                       country:
+ *                         type: string
+ *                       state:
+ *                         type: string
+ *                       city:
+ *                         type: string
+ *                       addressLine1:
+ *                         type: string
+ *                       addressLine2:
+ *                         type: string
+ *                       zipCode:
+ *                         type: string
+ *               
+ *               # Bank Details
+ *               bankDetails:
+ *                 type: object
+ *                 properties:
+ *                   bankCountry:
+ *                     type: string
+ *                   bankName:
+ *                     type: string
+ *                   bankAccountType:
+ *                     type: string
+ *                   accountCurrency:
+ *                     type: string
+ *                   accountNumber:
+ *                     type: string
+ *                   accountName:
+ *                     type: string
+ *                   swiftCode:
+ *                     type: string
+ *                   bankIdentifierCode:
+ *                     type: string
+ *               
+ *               # Store Details
+ *               storeName:
+ *                 type: string
+ *                 description: Name of the store
+ *               aboutStore:
+ *                 type: string
+ *                 description: Description about the store
+ *               socialMedia:
+ *                 type: object
+ *                 properties:
+ *                   instagram:
+ *                     type: string
+ *                   facebook:
+ *                     type: string
+ *                   tiktok:
+ *                     type: string
+ *               
+ *               # Store Settings
+ *               operatingHours:
+ *                 type: object
+ *                 properties:
+ *                   monday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   tuesday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   wednesday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   thursday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   friday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   saturday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *                   sunday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                       closeTime:
+ *                         type: string
+ *               timezone:
+ *                 type: string
+ *                 description: Store timezone (e.g., "Africa/Lagos")
+ *               storePolicy:
+ *                 type: object
+ *                 properties:
+ *                   deliveryTimes:
+ *                     type: string
+ *                   freeShippingPolicy:
+ *                     type: string
+ *                   lostOrDamagedPolicy:
+ *                     type: string
+ *                   refundPolicy:
+ *                     type: string
+ *                   processingTime:
+ *                     type: string
+ *                   refundMethod:
+ *                     type: string
+ *                   nonRefundableItems:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   returnWindow:
+ *                     type: number
+ *                   returnCondition:
+ *                     type: string
+ *                   returnShipping:
+ *                     type: string
+ *                   exchangePolicy:
+ *                     type: string
+ *                   allowsCod:
+ *                     type: boolean
+ *               offersStorePickup:
+ *                 type: boolean
+ *                 description: Whether the store offers in-store pickup
+ *               
+ *               # Status Flags
+ *               isVerified:
+ *                 type: boolean
+ *                 description: Verification status of the seller
+ *               isFeatured:
+ *                 type: boolean
+ *                 description: Whether the seller is featured on the platform
+ *               isDisabled:
+ *                 type: boolean
+ *                 description: Whether the seller account is disabled
+ *               accountPending:
+ *                 type: boolean
+ *                 description: Whether the seller account is pending approval
+ *     responses:
+ *       200:
+ *         description: Seller information updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Seller information updated successfully"
+ *                 seller:
+ *                   type: object
+ *                   description: Updated seller information
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/update', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.updateSellerInfo
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/revoke-verification:
+ *   put:
+ *     summary: Revoke a seller's verification status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Seller verification revoked successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/revoke-verification', authMiddleware.verifyToken, adminController.revokeSellerVerification);
+
+/**
+ * @swagger
+ * /api/admin/fez-orders/{orderNo}:
+ *   delete:
+ *     summary: Delete/Cancel a Fez delivery order
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderNo
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Fez order number to cancel
+ *     responses:
+ *       200:
+ *         description: Fez order cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Fez order cancelled successfully
+ *                 data:
+ *                   type: object
+ *                   description: Response data from Fez API
+ *                 affectedOrders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       order_id:
+ *                         type: string
+ *                 affectedReturns:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *       400:
+ *         description: Invalid order number or cancellation failed
+ *       500:
+ *         description: Server error
+ */
+router.delete('/fez-orders/:orderNo', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.deleteFezOrder
+);
+
 module.exports = router;

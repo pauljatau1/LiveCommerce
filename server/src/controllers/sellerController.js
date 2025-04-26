@@ -193,7 +193,7 @@ exports.register = async (req, res) => {
               <p style="margin: 5px 0;">Phone: ${phoneNumber}</p>
             </div>
             <p style="font-size: 14px;">Please check the admin dashboard for more details.</p>
-            <a href="https://admin.auqli.live/" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login</a>
+           
             <hr style="border: 1px solid #333333; margin: 30px 0;">
             <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>

@@ -4114,9 +4114,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
             <p style="margin-bottom: 5px;"><strong>Phone:</strong> ${order.delivery_address.phone}</p>
           </div>
           
-          <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
-            <a href="https://auqli.com/account/orders/${order._id}" style="background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Order</a>
-          </div>
+         
           
           <p style="font-size: 14px; color: #777; margin-top: 30px;">If you have any questions about your order, please contact our customer support team.</p>
         </div>

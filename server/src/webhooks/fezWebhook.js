@@ -430,9 +430,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
           <p style="color: #555; font-size: 16px;">Hello ${order.buyer.firstName},</p>
           <p style="color: #555; font-size: 16px;">Great news! Your order has been picked up from ${order.seller.businessName || order.seller.firstName} and is now on its way to our logistics center for processing.</p>
           ${commonOrderInfo}
-          <div style="text-align: center; margin: 25px 0;">
-            <a href="https://auqli.com/orders/${order.order_id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Track Your Order</a>
-          </div>
+         
           ${emailFooter}
         `);
         
@@ -442,9 +440,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
           <p style="color: #555; font-size: 16px;">Hello ${order.seller.firstName},</p>
           <p style="color: #555; font-size: 16px;">Your order has been picked up successfully and is now in transit.</p>
           ${commonOrderInfo}
-          <div style="text-align: center; margin: 25px 0;">
-            <a href="https://seller.auqli.com/orders/${order.order_id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View Order Details</a>
-          </div>
+         
           ${emailFooter}
         `);
         break;

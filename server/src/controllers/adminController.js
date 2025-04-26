@@ -13,42 +13,16 @@ const Resource = require('../models/Resource');
 const Transaction = require('../models/Transaction');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const Stream = require('../models/Stream');
+const Post = require('../models/Post');
+const Campaign = require('../models/Campaign');
+const Conversation = require('../models/Conversation');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
-// const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
 
-// Add bank code mapping at the top of the file
-const BANK_CODES = {
-  'access bank': '044',
-  'guaranty trust bank': '058',
-  'first bank': '011',
-  'united bank for africa': '033',
-  'zenith bank': '057',
-  // Add more banks as needed
-};
 
-// Test bank accounts you can use
-const TEST_ACCOUNTS = {
-  'Access Bank': {
-    code: '044',
-    number: '0690000031',
-    name: 'Test Account'
-  },
-  'Guaranty Trust Bank': {
-    code: '058',
-    number: '0123456789',
-    name: 'Test Account'
-  }
-};
 
-// // Add debug logging for Paystack configuration
-// console.log('Paystack Configuration:', {
-//   secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
-//   secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
-//   secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
-// });
 
 // Update Paystack configuration with logging
 const paystack = axios.create({
@@ -93,17 +67,7 @@ cloudinary.config({
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 
-// Add validation middleware
-const validatePaystackConfig = (req, res, next) => {
-  if (!process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY === 'sk_test_REDACTED') {
-    return res.status(500).json({
-      success: false,
-      message: 'Server configuration error',
-      error: 'Invalid Paystack configuration'
-    });
-  }
-  next();
-};
+
 
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -300,7 +264,7 @@ exports.enableSeller = async (req, res) => {
             <li>Access your seller dashboard</li>
             <li>Receive payments</li>
           </ul>
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          
           <p>Thank you for your patience during this process.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -947,7 +911,7 @@ exports.verifyBusinessAccount = async (req, res) => {
             <li>Process orders and receive payments</li>
           </ul>
           <p>Start selling today by logging into your account!</p>
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+         
           <p>If you have any questions, please don't hesitate to contact our support team.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -1851,7 +1815,7 @@ exports.rejectBusinessAccount = async (req, res) => {
 
           <p>If you need assistance or have any questions, please don't hesitate to contact our support team.</p>
           
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          
           
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -4083,9 +4047,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         
         <p style="margin-top: 20px;">You can view and manage all your products in your seller dashboard.</p>
         
-        <div style="text-align: center; margin-top: 30px;">
-          <a href="${process.env.FRONTEND_URL || 'https://auqli.com'}/seller/products" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Products</a>
-        </div>
+       
         
         <p style="margin-top: 30px;">Thank you for selling with Auqli!</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -4454,6 +4416,610 @@ exports.getAllSellerTransactions = async (req, res) => {
 };
 
 // ... existing code ...
+
+/**
+ * Get detailed information about a specific seller including metrics
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getSellerDetails = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+
+    // Find the seller with all information
+    const seller = await Seller.findById(sellerId).lean();
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Get additional metrics and counts
+    const [
+      ordersCount,
+      postsCount,
+      streamsCount,
+      productsCount,
+      transactions,
+      campaignsCount,
+      conversationsCount
+    ] = await Promise.all([
+      Order.countDocuments({ seller: sellerId }),
+      Post.countDocuments({ 'author.userId': sellerId, 'author.userModel': 'Seller' }),
+      Stream.countDocuments({ seller: sellerId }),
+      Product.find({ seller: sellerId }).countDocuments(),
+      Transaction.find({ seller: sellerId }).sort({ createdAt: -1 }).limit(10).lean(),
+      Campaign.countDocuments({ seller: sellerId }),
+      Conversation.countDocuments({ 'participants': { $elemMatch: { id: sellerId, model: 'Seller' } } })
+    ]);
+
+    // Get recent orders
+    const recentOrders = await Order.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('buyer', 'firstName lastName email')
+      .lean();
+
+    // Get recent streams
+    const recentStreams = await Stream.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Get all campaigns with basic info
+    const campaigns = await Campaign.find({ seller: sellerId })
+      .select('title status stats createdAt scheduledFor')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Calculate total revenue and sales
+    const revenue = await Order.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), paid: true } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+
+    // Calculate sales by month (for the last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const salesByMonth = await Order.aggregate([
+      { 
+        $match: { 
+          seller: new mongoose.Types.ObjectId(sellerId), 
+          paid: true,
+          createdAt: { $gte: sixMonthsAgo } 
+        } 
+      },
+      {
+        $group: {
+          _id: { 
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalSales: { $sum: '$totalAmount' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    // Get withdrawal history
+    const withdrawals = await Withdrawal.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Format the response
+    const sellerDetails = {
+      seller,
+      metrics: {
+        ordersCount,
+        postsCount,
+        streamsCount,
+        productsCount,
+        campaignsCount,
+        conversationsCount,
+        followersCount: seller.followers ? seller.followers.length : 0,
+        totalRevenue: revenue.length > 0 ? revenue[0].total : 0,
+        walletBalance: seller.walletBalance || 0,
+        averageRating: seller.stats?.averageRating || 0,
+        totalReviews: seller.stats?.totalReviews || 0
+      },
+      recentActivity: {
+        orders: recentOrders,
+        streams: recentStreams,
+        transactions,
+        campaigns,
+        withdrawals
+      },
+      analytics: {
+        salesByMonth,
+        storeVisits: seller.storeVisits || 0,
+        monthlyStats: seller.monthlyStats || {}
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: sellerDetails
+    });
+  } catch (error) {
+    console.error('Error fetching seller details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller details',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update seller information by admin
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.updateSellerInfo = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // Extract update fields from request body
+    const {
+      // Personal info
+      firstName, 
+      lastName,
+      email,
+      phoneNumber,
+      
+      // Business info
+      businessName,
+      businessType,
+      businessEmail,
+      businessNumber,
+      taxInformation,
+      accountType,
+      
+      // Business address
+      businessAddress,
+      
+      // Seller address
+      sellerAddress,
+      
+      // Warehouse details
+      warehouseDetails,
+      
+      // Bank details
+      bankDetails,
+      
+      // Store details
+      storeName,
+      aboutStore,
+      socialMedia,
+      
+      // Store settings
+      operatingHours,
+      timezone,
+      storePolicy,
+      offersStorePickup,
+      
+      // Status flags
+      isVerified,
+      isFeatured,
+      isDisabled,
+      accountPending
+    } = req.body;
+    
+    // Update personal information
+    if (firstName) seller.firstName = firstName;
+    if (lastName) seller.lastName = lastName;
+    if (email) seller.email = email;
+    if (phoneNumber) seller.phoneNumber = phoneNumber;
+    
+    // Update business information
+    if (businessName) seller.businessName = businessName;
+    if (businessType) seller.businessType = businessType;
+    if (businessEmail) seller.businessEmail = businessEmail;
+    if (businessNumber) seller.businessNumber = businessNumber;
+    if (taxInformation) seller.taxInformation = taxInformation;
+    if (accountType) seller.accountType = accountType;
+    
+    // Update addresses
+    if (businessAddress) seller.businessAddress = businessAddress;
+    if (sellerAddress) seller.sellerAddress = sellerAddress;
+    if (warehouseDetails) seller.warehouseDetails = warehouseDetails;
+    
+    // Update bank details
+    if (bankDetails) seller.bankDetails = bankDetails;
+    
+    // Update store details
+    if (storeName) seller.storeName = storeName;
+    if (aboutStore) seller.aboutStore = aboutStore;
+    if (socialMedia) seller.socialMedia = socialMedia;
+    
+    // Update store settings
+    if (operatingHours) seller.operatingHours = operatingHours;
+    if (timezone) seller.timezone = timezone;
+    if (storePolicy) seller.storePolicy = storePolicy;
+    if (offersStorePickup !== undefined) seller.offersStorePickup = offersStorePickup;
+    
+    // Update status flags
+    if (isVerified !== undefined) seller.isVerified = isVerified;
+    if (isFeatured !== undefined) seller.isFeatured = isFeatured;
+    if (isDisabled !== undefined) seller.isDisabled = isDisabled;
+    if (accountPending !== undefined) seller.accountPending = accountPending;
+    
+    // Update completion flags based on the provided information
+    if (sellerAddress) seller.hasFilledAddress = true;
+    if (warehouseDetails?.address) seller.hasFilledWarehouseAddress = true;
+    if (bankDetails?.accountNumber && bankDetails?.bankName) seller.hasFilledBankDetails = true;
+    if (businessAddress) seller.hasFilledBusinessAddress = true;
+    
+    // Save the updated seller
+    const updatedSeller = await seller.save();
+    
+    // Create admin activity log for this update
+    // (If you have an activity logging system)
+    
+    // Send notification to seller about the account update (optional)
+    try {
+      const emailMsg = {
+        to: updatedSeller.email,
+        from: 'Auqli Admin <support@auqli.com>',
+        subject: 'Your Seller Account Has Been Updated',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Account Update</h2>
+            <p>Dear ${updatedSeller.firstName},</p>
+            <p>We're writing to inform you that an administrator has updated information on your seller account.</p>
+            <p>If you have any questions or concerns about these changes, please contact our support team at support@auqli.com.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+      
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send(emailMsg);
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError);
+      // Continue execution despite email error
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller information updated successfully',
+      seller: updatedSeller
+    });
+  } catch (error) {
+    console.error('Error updating seller information:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update seller information',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Revoke a seller's verification status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.revokeSellerVerification = async (req, res) => {
+  const { sellerId } = req.params;
+
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+
+    // Set verification status to false
+    seller.isVerified = false;
+    await seller.save();
+
+    // Send notification emails
+    const personalEmailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Important: Verification Status Update - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Verification Status Update</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>This is to inform you that your verification status on Auqli has been revoked. This change may affect some of your seller capabilities.</p>
+          <p>If you have any questions or need clarification about this change, please contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <support@auqli.com>',
+        subject: 'Important: Business Account Verification Status Update - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Verification Update</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>We're writing to inform you that your business account verification status on Auqli has been revoked.</p>
+            <p>Business Details:</p>
+            <ul>
+              <li>Business Name: ${seller.businessName}</li>
+              <li>Account Type: ${seller.accountType}</li>
+              <li>Verification Status: Not Verified</li>
+            </ul>
+            <p>If you have any questions about this change or need assistance, please contact our business support team.</p>
+            <p>Best regards,<br>Auqli Business Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(personalEmailMsg);
+
+    res.json({ 
+      success: true,
+      message: 'Seller verification revoked successfully', 
+      seller 
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to revoke seller verification', 
+      error: error.message 
+    });
+  }
+};
+
+// ... existing code ...
+
+/**
+ * Delete/Cancel a Fez delivery order
+ * This allows admins to manually cancel a Fez shipment by providing the order number
+ */
+exports.deleteFezOrder = async (req, res) => {
+  try {
+    const { orderNo } = req.params;
+    
+    if (!orderNo) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Fez order number is required' 
+      });
+    }
+    
+    console.log(`🚫 Admin attempting to cancel Fez order: ${orderNo}`);
+    
+    // Get a fresh authentication token for Fez Delivery
+    const axios = require('axios');
+    const FEZ_API_URL = process.env.FEZ_API_URL;
+    
+    // Function to get Fez auth token
+    const getFezAuthToken = async () => {
+      try {
+        const authUrl = `${FEZ_API_URL}/user/authenticate`;
+        const authData = {
+          user_id: process.env.FEZ_USER_ID,
+          password: process.env.FEZ_PASSWORD
+        };
+        
+        const response = await axios.post(authUrl, authData);
+        
+        if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+          return response.data.authDetails.authToken;
+        } else {
+          throw new Error('Failed to authenticate with Fez Delivery');
+        }
+      } catch (error) {
+        console.error('Fez authentication error:', error.message);
+        throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+      }
+    };
+    
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for Fez order cancellation:', authToken.substring(0, 10) + '...');
+    
+    let cancellationSuccessful = false;
+    let responseData = null;
+    
+    // Try the DELETE endpoint first
+    try {
+      console.log(`Attempting to cancel Fez order using DELETE method: ${orderNo}`);
+      
+      const deleteResponse = await axios.delete(`${FEZ_API_URL}/order`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': process.env.FEZ_SECRET_KEY,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          orderNo: orderNo
+        }
+      });
+      
+      if (deleteResponse.data && deleteResponse.data.status === 'Success') {
+        console.log('Fez order cancellation successful using DELETE method:', deleteResponse.data);
+        cancellationSuccessful = true;
+        responseData = deleteResponse.data;
+      } else {
+        console.log('Fez order cancellation using DELETE method failed:', deleteResponse.data);
+      }
+    } catch (deleteError) {
+      console.log('Error during DELETE method cancellation:', deleteError.message);
+      if (deleteError.response) {
+        console.log('DELETE Error response data:', deleteError.response.data);
+      }
+    }
+    
+    // If DELETE method failed, try the POST endpoint
+    if (!cancellationSuccessful) {
+      try {
+        console.log(`Attempting to cancel Fez order using POST method: ${orderNo}`);
+        
+        const postResponse = await axios.post(
+          `${FEZ_API_URL}/order/cancel/${orderNo}`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'secret-key': process.env.FEZ_SECRET_KEY,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (postResponse.data && postResponse.data.status === 'Success') {
+          console.log('Fez order cancellation successful using POST method:', postResponse.data);
+          cancellationSuccessful = true;
+          responseData = postResponse.data;
+        } else {
+          console.log('Fez order cancellation using POST method failed:', postResponse.data);
+        }
+      } catch (postError) {
+        console.log('Error during POST method cancellation:', postError.message);
+        if (postError.response) {
+          console.log('POST Error response data:', postError.response.data);
+        }
+      }
+    }
+    
+    // Look for any orders in our system with this Fez order number
+    const Order = require('../models/Order');
+    const orders = await Order.find({
+      $or: [
+        { 'shipping.tracking.number': orderNo },
+        { 'shipping.fez_order_number': orderNo },
+        { 'shipping.shipment_id': orderNo }
+      ]
+    });
+    
+    // Also check for any return shipments with this order number
+    const Return = require('../models/Return');
+    const returns = await Return.find({
+      'returnShipment.shipment_id': orderNo
+    });
+    
+    // Update our database for found orders
+    if (orders.length > 0) {
+      for (const order of orders) {
+        // Create new tracking entry
+        const newTrackingEntry = {
+          status: 'cancelled',
+          description: `Shipment cancelled by admin`,
+          timestamp: new Date()
+        };
+        
+        // Update order shipping information
+        await Order.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              'shipping.tracking.status': 'cancelled',
+              'shipping.tracking.lastUpdate': new Date()
+            },
+            $push: {
+              'shipping.tracking.history': newTrackingEntry
+            }
+          }
+        );
+        
+        console.log(`Updated order ${order.order_id} with cancelled shipping status`);
+      }
+    }
+    
+    // Update return shipments if found
+    if (returns.length > 0) {
+      for (const returnDoc of returns) {
+        await Return.findByIdAndUpdate(
+          returnDoc._id,
+          {
+            $set: {
+              'returnShipment.tracking.status': 'cancelled',
+              'returnShipment.tracking.lastUpdate': new Date()
+            },
+            $push: {
+              'returnShipment.tracking.history': {
+                status: 'cancelled',
+                timestamp: new Date(),
+                description: 'Return shipment cancelled by admin'
+              },
+              'timeline': {
+                status: 'RETURN_CANCELLED',
+                date: new Date(),
+                note: 'Return shipment cancelled by admin',
+                updatedBy: 'admin'
+              }
+            }
+          }
+        );
+        
+        console.log(`Updated return request ${returnDoc._id} with cancelled shipping status`);
+      }
+    }
+    
+    if (cancellationSuccessful) {
+      return res.status(200).json({
+        success: true,
+        message: 'Fez order cancelled successfully',
+        data: responseData,
+        affectedOrders: orders.map(o => ({ id: o._id, order_id: o.order_id })),
+        affectedReturns: returns.map(r => ({ id: r._id }))
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to cancel Fez order. The order might not exist or has already been cancelled.',
+        affectedOrders: orders.map(o => ({ id: o._id, order_id: o.order_id })),
+        affectedReturns: returns.map(r => ({ id: r._id }))
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error cancelling Fez order:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error cancelling Fez order',
+      error: error.message
+    });
+  }
+};
+
+// ... rest of the file remains unchanged ...
 
 
 

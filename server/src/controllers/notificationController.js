@@ -361,9 +361,7 @@ exports.sendEmailNotification = async (seller, notification) => {
           ${deliveryInfoHtml}
           
           <p style="color: #555; font-size: 16px; margin-top: 20px;">Please log in to your Auqli seller dashboard to process this order.</p>
-          <div style="text-align: center; margin: 25px 0;">
-            <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View Order Details</a>
-          </div>
+          
           
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
             <p>Thank you for selling with Auqli!</p>
@@ -506,9 +504,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         ${deliveryInfoHtml}
         
         <p>You can track the status of your order by logging into your Auqli account.</p>
-        <div style="text-align: center; margin-top: 20px;">
-          <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Track Your Order</a>
-        </div>
+       
         <p style="margin-top: 20px;">If you have any questions about your order, please contact our customer service team.</p>
         <p>Thank you for shopping with Auqli!</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -787,17 +783,12 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
                 </div>
               ` : ''}
               
-              <div style="margin-top: 30px; text-align: center;">
-                <a href="${process.env.FRONTEND_URL}/store/${seller._id}" 
-                   style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Visit Store
-                </a>
-              </div>
+             
               
               <p style="color: #6b7280; font-size: 12px; margin-top: 20px; text-align: center;">
                 You're receiving this email because you follow ${seller.businessName || seller.firstName} on Auqli.
                 <br>
-                <a href="${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}" style="color: #4f46e5;">Unsubscribe</a>
+              
               </p>
             </div>
           </div>
@@ -1539,10 +1530,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
               </ul>
             </div>
             
-            <div style="text-align: center; margin: 25px 0;">
-              <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Track Your Orders</a>
-            </div>
-            
+           
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
               <p>Thank you for shopping with Auqli!</p>
               <p>If you have any questions about your orders, please contact our customer service team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
@@ -1978,9 +1966,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
               </ul>
             </div>
             
-            <div style="text-align: center; margin: 25px 0;">
-              <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Track Your Orders</a>
-            </div>
+           
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
               <p>Thank you for shopping with Auqli!</p>

@@ -5388,7 +5388,7 @@ agenda.define('end-auction', async (job) => {
             <p>Dear ${product.auction.currentHighestBid.buyer.firstName},</p>
             <p>You have won the auction for "${product.name}" with a bid of $${winner.bidAmount}!</p>
             <p>The seller will contact you shortly with payment details.</p>
-            <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Product</a></p>
+           
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `
@@ -5408,7 +5408,7 @@ agenda.define('end-auction', async (job) => {
             <p>Winner: ${product.auction.currentHighestBid.buyer.firstName} ${product.auction.currentHighestBid.buyer.lastName}</p>
             <p>An order will be automatically created for this auction win.</p>
             <p>Please contact the buyer to arrange payment and delivery.</p>
-            <p><a href="${process.env.FRONTEND_URL}/dashboard/products/${product._id}">View Details</a></p>
+           
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `

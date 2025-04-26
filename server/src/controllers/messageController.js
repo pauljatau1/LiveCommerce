@@ -90,7 +90,7 @@ const sendSellerMessageNotification = async (sellerId, buyerName, messagePreview
         <p>Dear ${seller.firstName},</p>
         <p>${buyerName} has sent you a message: "${messagePreview}"</p>
         <p>Please log in to your Auqli account to respond.</p>
-        <p><a href="${process.env.FRONTEND_URL}/dashboard/messages/${conversationId}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View Messages</a></p>
+      
         <p>Best regards,<br>The Auqli Team</p>
       </div>
     `;
@@ -104,7 +104,7 @@ const sendSellerMessageNotification = async (sellerId, buyerName, messagePreview
           <p>Dear ${seller.firstName},</p>
           <p>You have ${conversationCount} conversations with new messages on Auqli.</p>
           <p>Please log in to your Auqli account to respond to your customers.</p>
-          <p><a href="${process.env.FRONTEND_URL}/dashboard/messages" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View All Messages</a></p>
+         
           <p>Best regards,<br>The Auqli Team</p>
         </div>
       `;

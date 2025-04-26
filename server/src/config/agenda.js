@@ -605,7 +605,7 @@ agenda.define('update-auction-status', async (job) => {
               <p>A new auction has started for "${product.name}" by ${seller.businessName}.</p>
               <p>Starting bid: $${product.auction.minBid}</p>
               <p>Don't miss out on this opportunity!</p>
-              <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Auction</a></p>
+             
               <p>Best regards,<br>The Auqli Team</p>
             </div>
           `
@@ -1247,7 +1247,7 @@ agenda.define('process-pending-message-notifications', async (job) => {
                 <p>Dear ${seller.firstName},</p>
                 <p>${buyerName} has sent you a message: "${messagePreview.length > 50 ? messagePreview.substring(0, 47) + '...' : messagePreview}"</p>
                 <p>Please log in to your Auqli account to respond.</p>
-                <p><a href="${process.env.FRONTEND_URL}/dashboard/messages/${conversation._id}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View Messages</a></p>
+              
                 <p>Best regards,<br>The Auqli Team</p>
               </div>
             `;
@@ -1260,7 +1260,7 @@ agenda.define('process-pending-message-notifications', async (job) => {
                 <p>Dear ${seller.firstName},</p>
                 <p>You have ${conversationCount} conversations with new messages on Auqli.</p>
                 <p>Please log in to your Auqli account to respond to your customers.</p>
-                <p><a href="${process.env.FRONTEND_URL}/dashboard/messages" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View All Messages</a></p>
+               
                 <p>Best regards,<br>The Auqli Team</p>
               </div>
             `;
@@ -1468,7 +1468,7 @@ agenda.define('bid_timer', async (job) => {
   }
 });
 
-// Define job to delete unpaid orders after 10 minutes
+// Define job to delete unpaid orders after 5 minutes
 agenda.define('delete_unpaid_orders', async (job) => {
   try {
     const { orderId } = job.attrs.data;
@@ -1486,7 +1486,7 @@ agenda.define('delete_unpaid_orders', async (job) => {
     
     // Check if order is still unpaid and was created with Paystack
     if (!order.paid && order.paymentInfo.method === 'paystack') {
-      console.log(`Deleting unpaid Paystack order ${order.order_id} after 10 minutes`);
+      console.log(`Deleting unpaid Paystack order ${order.order_id} after 5 minutes`);
       
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {
@@ -1535,9 +1535,26 @@ agenda.define('delete_unpaid_orders', async (job) => {
             status: cancelResponse.status,
             data: cancelResponse.data
           });
+          
+          // Also delete the order from Fez
+          const deleteResponse = await axios.delete(
+            `${FEZ_API_URL}/order/${order.shipping.fez_order_number}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'secret-key': process.env.FEZ_SECRET_KEY,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log(`Fez shipment deletion response for order ${order.order_id}:`, {
+            status: deleteResponse.status,
+            data: deleteResponse.data
+          });
         } catch (fezError) {
-          console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError.message);
-          // Continue with order deletion even if Fez cancellation fails
+          console.error(`Error with Fez operations for order ${order.order_id}:`, fezError.message);
+          // Continue with order deletion even if Fez operations fail
         }
       }
       
