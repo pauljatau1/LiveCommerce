@@ -240,9 +240,10 @@ function AuthProvider({ children }) {
                 // Track signup event
                 try {
                     mixpanel.identify(response.data.user._id);
-                    mixpanel.track("User Signed Up", {
+                    mixpanel.track("Seller Signed Up", {
+                        "seller id": response.data.user._id,
                         "Email": response.data.user.email,
-                        "Name": `${response.data.user.firstName} ${response.data.user.lastName}`,
+                        "seller full name": `${response.data.user.firstName} ${response.data.user.lastName}`,
                         "Phone Number": response.data.user.phoneNumber,
                         "Store Name": response.data.user.storeName,
                         "userId": response.data.user._id,
@@ -497,9 +498,10 @@ function AuthProvider({ children }) {
                 }
 
                 // Track login event with device context and IP
-                mixpanel.track("Login", {
+                mixpanel.track("Seller Login", {
                     "$email": response.data.user?.email,
-                    "$name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
+                    "seller id": response.data.user?._id,
+                    "seller full name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
                     "Store Name": response.data.user?.storeName,
                     "User Type": "Seller",
                     "Seller Account Type": response.data.user?.accountType,
@@ -510,7 +512,7 @@ function AuthProvider({ children }) {
                     "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
                     "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
                     "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
-                    "Total Wallet Balance": response.data.user?.walletBalance || 0,
+                    "Total Wallet Balance": `₦${response.data.user?.walletBalance.toLocaleString('en-NG')}`,
                     "IP Address": clientIP,
                     "Device Type": getDeviceType(),
                     "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
@@ -632,15 +634,15 @@ function AuthProvider({ children }) {
                     response.data.isProfileComplete
                 );
 
-                mixpanel.track("Profile Completed", {
-                    "User ID": response.data._id,
-                    "Email": response.data.email,
-                    "Store Name": response.data.storeName,
-                    "First Name": response.data.firstName,
-                    "Last Name": response.data.lastName,
-                    "Phone Number": response.data.phoneNumber,
-                    "Completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
-                    "User Type": "Seller"
+                mixpanel.track("Seller Profile Completed", {
+                    "seller id": response.data._id,
+                    "seller email": response.data.email,
+                    "seller store name": response.data.storeName,
+                    "seller first name": response.data.firstName,
+                    "seller last name": response.data.lastName,
+                    "seller phone number": response.data.phoneNumber,
+                    "seller profile completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
+                    "user type": "Seller"
                 });
             }
         } catch (error) {

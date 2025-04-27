@@ -921,7 +921,7 @@ const LivestreamStudio = () => {
 
             // 5. Notify backend about stream end
             console.log("📤 [STREAM END] Notifying backend about stream end");
-            await endLiveStream(_id);
+            await endLiveStream(_id, liveStreamDetails);
 
             // Reset all bidding states from the socket context
             if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
