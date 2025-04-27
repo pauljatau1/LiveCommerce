@@ -506,10 +506,20 @@ exports.getAllProducts = async (req, res) => {
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
+    // Make sure stats and review data are included in the response
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        products,
+        products: productsWithStats,
         pagination: {
           currentPage: Number(page),
           totalPages,
@@ -1417,9 +1427,19 @@ exports.getJustArrivedProducts = async (req, res) => {
       .limit(10)
       .populate('seller', sellerPopulationFields);
 
+    // Add review stats data to each product
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
+
     res.json({
       success: true,
-      data: products
+      data: productsWithStats
     });
   } catch (error) {
     res.status(500).json({
@@ -1512,9 +1532,19 @@ exports.getTrendingProducts = async (req, res) => {
       .limit(10)
       .populate('seller', sellerPopulationFields);
 
+    // Add review stats data to each product
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
+
     res.json({
       success: true,
-      data: products
+      data: productsWithStats
     });
   } catch (error) {
     res.status(500).json({
@@ -3373,9 +3403,19 @@ exports.getPersonalizedProducts = async (req, res) => {
     const total = products.length > 0 
       ? await Product.countDocuments(categoryQuery)
       : await Product.countDocuments(baseQuery);
+      
+    // Add review stats data to each product
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
 
     res.json({
-      products,
+      products: productsWithStats,
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
       totalProducts: total,
