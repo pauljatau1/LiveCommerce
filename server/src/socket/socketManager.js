@@ -6,7 +6,7 @@ const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
-const { mixpanel } = require('../app');
+const mixpanel = require('../config/mixpanel');
 
 // Store active users
 const activeUsers = new Map();

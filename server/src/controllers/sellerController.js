@@ -23,6 +23,7 @@ const Transaction = require('../models/Transaction');
 const Return = require('../models/Return');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const Admin = require('../models/Admin');
+const mixpanel = require('../config/mixpanel');
 
 
 // Add this helper function at the top of the file
@@ -238,6 +239,13 @@ exports.login = async (req, res) => {
 
     const token = generateToken(seller._id);
 
+    // track seller login event on mixpanel
+    mixpanel.track('seller_login', {
+      sellerId: seller._id,
+      sellerName: seller.firstName + " " + seller.lastName,
+      email: seller.email
+    });
+    
     res.json({ user: seller, token });
   } catch (error) {
     res.status(500).json({ message: 'Login failed', error: error.message });

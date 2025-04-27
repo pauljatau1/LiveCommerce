@@ -1601,6 +1601,62 @@ agenda.define('delete_expired_streams', async (job) => {
   }
 });
 
+// Define job for daily livestream analytics at midnight WAT
+agenda.define('daily_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting daily_livestream_analytics job');
+    
+    // Create yesterday's date (WAT timezone)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    
+    const formattedDate = yesterday.toISOString().split('T')[0];
+    console.log(`Running daily livestream analytics for date: ${formattedDate}`);
+    
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/24h?date=${formattedDate}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/24h?date=${formattedDate}`;
+    
+    console.log(`Calling API endpoint: ${apiUrl}`);
+    
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('API response:', {
+      success: response.data.success,
+      date: response.data.data?.date,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+    
+    console.log('Daily livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in daily_livestream_analytics job:', error);
+    
+    // If the error is from the axios request
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
@@ -1613,6 +1669,11 @@ const startAgenda = async () => {
   // Schedule the delete expired streams job to run every 15 minutes
   await agenda.every('15 minutes', 'delete_expired_streams');
   // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
+  
+  // Schedule daily livestream analytics job to run at midnight WAT
+  // Note: WAT is UTC+1, so 11:00 PM UTC
+  await agenda.every('0 23 * * *', 'daily_livestream_analytics');
+  console.log('Scheduled daily livestream analytics job to run at midnight WAT');
 };
 
 module.exports = { agenda, startAgenda }; 
