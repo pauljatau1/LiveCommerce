@@ -619,6 +619,18 @@ orderSchema.pre('save', async function(next) {
   next();
 });
 
+orderSchema.pre('save', async function(next) {
+  // Check if refund request status is being changed to approved
+  if (this.isModified('refundRequest.status') && this.refundRequest.status === 'approved') {
+    // Close the order
+    this.isOpen = false;
+    this.closedAt = new Date();
+    this.closedBy = 'admin';
+    this.closedReason = 'Order closed after refund approval';
+  }
+  next();
+});
+
 // Add a compound index to prevent duplicate orders
 orderSchema.index({ order_id: 1, buyer: 1 }, { unique: true });
 

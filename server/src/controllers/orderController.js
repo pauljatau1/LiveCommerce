@@ -43,7 +43,7 @@ const paystack = axios.create({
 });
 
 // Initialize Fez API configuration
-const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_API_URL = process.env.FEZ_API_URL;
 const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
 const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 
@@ -68,7 +68,7 @@ const initializeFezWebhook = async () => {
       {
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'secret-key': process.env.FEZ_SECRET_KEY,
           'Content-Type': 'application/json'
         }
       }
@@ -118,16 +118,16 @@ const initializeTerminalWebhook = async () => {
         active: true
       };
 
-      console.log(`Creating webhook for event: ${event}`);
+      // console.log(`Creating webhook for event: ${event}`);
 
       try {
         const response = await terminalAPI.post('/webhooks', webhookData);
         
         if (response.data && response.data.status) {
-          console.log(`Successfully created webhook for ${event}:`, {
-            webhookId: response.data.data?.id,
-            event: event
-          });
+          // console.log(`Successfully created webhook for ${event}:`, {
+          //   webhookId: response.data.data?.id,
+          //   event: event
+          // });
         } else {
           console.error(`Failed to create webhook for ${event}:`, response.data);
         }
@@ -144,7 +144,7 @@ const initializeTerminalWebhook = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    console.log('Completed webhook initialization process');
+    // console.log('Completed webhook initialization process');
   } catch (error) {
     console.error('Failed to initialize Terminal webhooks:', {
       error: error.message,
@@ -349,7 +349,7 @@ exports.createOrder = async (req, res) => {
           // Generate a unique batch ID for each seller
           batchId: `AUQLI-${sellerId.substring(0, 4)}-${uuidv4().substring(0, 8)}`,
           // Initialize shipping fee and weight for each seller
-          shippingFee: 0,
+          shippingFee: item?.seller?.shippingFee,
           totalWeight: 0,
           // Initialize seller-specific parcel information
           parcelInfo: {
@@ -402,10 +402,6 @@ exports.createOrder = async (req, res) => {
       });
     });
     
-    console.log('DEBUG - Order Creation - Unique Sellers:', {
-      count: uniqueSellers.size,
-      sellerIds: Array.from(uniqueSellers)
-    });
     
     // Process each seller to check if buyer is already a follower
     // and add if not
@@ -465,7 +461,7 @@ exports.createOrder = async (req, res) => {
         // Save the seller with the new follower
         await seller.save();
         
-        console.log(`DEBUG - Order Creation - Buyer successfully added as follower. New follower count: ${seller.followers.length}`);
+       
         
         // Add to buyer's activity feed if it exists
         if (buyer.activityFeed) {
@@ -479,10 +475,10 @@ exports.createOrder = async (req, res) => {
           
           // Save buyer with updated activity feed
           await buyer.save();
-          console.log(`DEBUG - Order Creation - Added follow activity to buyer's feed`);
+          
         }
       } else {
-        console.log(`DEBUG - Order Creation - Buyer is already a follower of seller: ${sellerId}`);
+        
         
         // Update the existing follower's information
         const followerIndex = seller.followers.findIndex(
@@ -490,7 +486,7 @@ exports.createOrder = async (req, res) => {
         );
         
         if (followerIndex !== -1) {
-          console.log(`DEBUG - Order Creation - Updating existing follower information`);
+         
           
           // Increment order count and update last interaction
           seller.followers[followerIndex].totalOrders = 
@@ -557,29 +553,34 @@ exports.createOrder = async (req, res) => {
     }
     
     // If a global shipping fee was provided, distribute it proportionally among sellers
-    if (shippingFee) {
-      const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
+    // if (shippingFee) {
+    //   const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
       
-      for (const sellerId in sellerItems) {
-        const sellerData = sellerItems[sellerId];
-        // Distribute the shipping fee proportionally based on weight
-        const weightRatio = sellerData.totalWeight / totalWeight;
-        sellerData.shippingFee = Math.round(shippingFee * weightRatio);
-      }
+    //   for (const sellerId in sellerItems) {
+    //     const sellerData = sellerItems[sellerId];
+    //     // Distribute the shipping fee proportionally based on weight
+    //     const weightRatio = sellerData.totalWeight / totalWeight;
+    //     sellerData.shippingFee = Math.round(shippingFee * weightRatio);
+    //   }
       
-      // Ensure the sum of distributed fees equals the original total
-      // (might be off by a few naira due to rounding)
-      const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
+    //   // Ensure the sum of distributed fees equals the original total
+    //   // (might be off by a few naira due to rounding)
+    //   const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
       
-      // Adjust the first seller's fee to make up any difference
-      if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
-        const firstSellerId = Object.keys(sellerItems)[0];
-        sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
-      }
-    }
+    //   // Adjust the first seller's fee to make up any difference
+    //   if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
+    //     const firstSellerId = Object.keys(sellerItems)[0];
+    //     sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
+    //   }
+    // }
     
     // Calculate grand total (items + shipping)
-    let grandTotal = totalAmount + totalShippingFee;
+    // let grandTotal = totalAmount + totalShippingFee;
+
+    //new grandTotal Calculation
+    let grandTotal = totalAmount + shippingFee;
+    totalShippingFee = shippingFee
+
     
     // Check wallet balance if using wallet payment
     if (paidFromWallet) {
@@ -838,7 +839,7 @@ exports.createOrder = async (req, res) => {
         uniqueID: order.order_id, // Unique ID for each order
         BatchID: sellerBatchId, // Seller-specific batch ID
         valueOfItem: sellerParcel.valueOfItem,
-        weight: Math.max(1, Math.round(sellerParcel.weight)), // Ensure minimum weight of 1kg for Fez
+        weight: Math.max(1, Math.round(sellerParcel.weight)),
         itemDescription: sellerParcel.itemDescription,
         additionalDetails: additionalDetails || '',
         isItemCod: isItemCod && !paidFromWallet,
@@ -894,7 +895,7 @@ exports.createOrder = async (req, res) => {
       fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'secret-key': process.env.FEZ_SECRET_KEY,
           'Content-Type': 'application/json'
         }
       });
@@ -2016,7 +2017,7 @@ exports.getOrderDetails = async (req, res) => {
        const Return = mongoose.model('Return');
        const returnRequest = await Return.findOne({ order: order._id })
          .populate('items.product', 'name')
-         .select('_id status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
+         .select('_id order status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
 
        const response = {
          order: {
@@ -2627,7 +2628,7 @@ exports.cancelShipment = async (req, res) => {
         const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'secret-key': process.env.FEZ_SECRET_KEY,
             'Content-Type': 'application/json'
           },
           data: {
@@ -2804,6 +2805,31 @@ exports.cancelShipment = async (req, res) => {
       })
     ]);
 
+    // If order is paid, create a refund request
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      // Create refund request
+      const refundAmount = order.totalAmount; // Full refund for cancellation
+      
+      await Order.findByIdAndUpdate(order._id, {
+        'refundRequest.requested': true,
+        'refundRequest.requestedAt': new Date(),
+        'refundRequest.requestedBy': req.user.role === 'seller' ? 'seller' : 'buyer',
+        'refundRequest.reason': 'Order cancelled',
+        'refundRequest.status': 'pending',
+        'refundRequest.refundAmount': refundAmount
+      });
+
+      // The order will be closed automatically after refund is processed
+    } else {
+      // For unpaid orders, close the order immediately
+      await Order.findByIdAndUpdate(order._id, {
+        isOpen: false,
+        closedAt: new Date(),
+        closedBy: req.user.role === 'seller' ? 'seller' : 'buyer',
+        closedReason: 'Order cancelled'
+      });
+    }
+
     res.json({ 
       message: 'Shipment cancelled successfully',
       order: updatedOrder
@@ -2826,10 +2852,10 @@ const getFezAuthToken = async () => {
   try {
     console.log('🔑 Attempting to authenticate with Fez Delivery API...');
     
-    const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+    const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
-      user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-      password: process.env.FEZ_PASSWORD || "Bolu@123"
+      user_id: process.env.FEZ_USER_ID,
+      password: process.env.FEZ_PASSWORD
     };
     
     console.log(`📤 Auth request to: ${authUrl}`);
@@ -2866,12 +2892,13 @@ const getFezAuthToken = async () => {
   }
 };
 
+
 // Get delivery cost from Fez Delivery
 exports.getDeliveryCost = async (req, res) => {
   try {
     console.log('🚚 Starting delivery cost calculation request...');
     const { state, pickupLocations } = req.body;
-    
+
     // Validate input
     if (!Array.isArray(pickupLocations)) {
       return res.status(400).json({
@@ -2881,39 +2908,56 @@ exports.getDeliveryCost = async (req, res) => {
       });
     }
 
-    // Get a fresh authentication token
+    // Step 1: Group by sellerId and pickupState
+    const sellerGroups = {};
+    for (const location of pickupLocations) {
+      const key = `${location.sellerId}_${location.pickUpState}`;
+      if (!sellerGroups[key]) {
+        sellerGroups[key] = {
+          sellerId: location.sellerId,
+          pickUpState: location.pickUpState,
+          totalWeight: 0,
+        };
+      }
+      sellerGroups[key].totalWeight += location.weight;
+    }
+
+    const mergedPickupLocations = Object.values(sellerGroups);
+
+    console.log('🧹 Merged pickup locations:', mergedPickupLocations);
+
+    // Get fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
-    
-    // Prepare the request URL and headers
-    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+
+    const url = `${process.env.FEZ_API_URL}/order/cost`;
     const headers = {
       'Authorization': `Bearer ${authToken}`,
-      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'secret-key': process.env.FEZ_SECRET_KEY,
       'Content-Type': 'application/json'
     };
-    
-    // Make parallel requests for each pickup location
-    const costPromises = pickupLocations.map(async (location) => {
-      const { pickUpState, weight, sellerId } = location;
+
+    // Step 2: Now send request only once per merged seller group
+    const costPromises = mergedPickupLocations.map(async (group) => {
+      const { sellerId, pickUpState, totalWeight } = group;
       
-      console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
+      console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, totalWeight }, null, 2)}`);
       
       try {
         const response = await axios.post(url, {
           state,
           pickUpState,
-          weight
+          weight: totalWeight
         }, { 
           headers,
-          timeout: 30000 // 30 seconds timeout
+          timeout: 30000
         });
 
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           ...response.data
         };
       } catch (error) {
@@ -2921,17 +2965,16 @@ exports.getDeliveryCost = async (req, res) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           error: error.message,
           status: 'Error'
         };
       }
     });
 
-    // Wait for all requests to complete
     const results = await Promise.all(costPromises);
 
-    // Calculate total shipping cost
+    // Step 3: Sum only successful ones
     const successfulResults = results.filter(r => r.status === 'Success');
     const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
 
@@ -2952,7 +2995,6 @@ exports.getDeliveryCost = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error fetching delivery costs:', error);
-    
     return res.status(500).json({
       status: 'Error',
       description: 'Failed to fetch delivery costs',
@@ -2962,45 +3004,60 @@ exports.getDeliveryCost = async (req, res) => {
   }
 };
 
-/**
- * Internal version of getDeliveryCost that can be called from other controllers
- * Returns the cost data directly instead of sending an HTTP response
- */
+
 exports.calculateDeliveryCostInternal = async (shippingDetails) => {
   try {
     console.log('🚚 Starting internal delivery cost calculation...');
     const { state, pickupLocations } = shippingDetails;
-    
+
     // Validate input
     if (!Array.isArray(pickupLocations)) {
       throw new Error('pickupLocations must be an array');
     }
 
+    // Group items by sellerId and pickUpState
+    const groupedPickups = {};
+    pickupLocations.forEach((location) => {
+      const { pickUpState, weight, sellerId } = location;
+      const key = `${sellerId}_${pickUpState}`;
+
+      if (!groupedPickups[key]) {
+        groupedPickups[key] = {
+          sellerId,
+          pickUpState,
+          totalWeight: 0
+        };
+      }
+      groupedPickups[key].totalWeight += weight;
+    });
+
+    const groupedPickupArray = Object.values(groupedPickups);
+
     // Get a fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
-    
+
     // Prepare the request URL and headers
-    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+    const url = `${process.env.FEZ_API_URL}/order/cost`;
     const headers = {
       'Authorization': `Bearer ${authToken}`,
-      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'secret-key': process.env.FEZ_SECRET_KEY,
       'Content-Type': 'application/json'
     };
-    
-    // Make parallel requests for each pickup location
-    const costPromises = pickupLocations.map(async (location) => {
-      const { pickUpState, weight, sellerId } = location;
-      
-      console.log(`📤 Internal cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
-      
+
+    // Make parallel requests for each grouped pickup
+    const costPromises = groupedPickupArray.map(async (group) => {
+      const { sellerId, pickUpState, totalWeight } = group;
+
+      console.log(`📤 Internal cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, totalWeight }, null, 2)}`);
+
       try {
         const response = await axios.post(url, {
           state,
           pickUpState,
-          weight
-        }, { 
+          weight: totalWeight
+        }, {
           headers,
           timeout: 30000 // 30 seconds timeout
         });
@@ -3008,7 +3065,7 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           ...response.data
         };
       } catch (error) {
@@ -3016,7 +3073,7 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
         return {
           sellerId,
           pickUpState,
-          weight,
+          weight: totalWeight,
           error: error.message,
           status: 'Error'
         };
@@ -3075,7 +3132,7 @@ exports.trackOrderFez = async (req, res) => {
     const trackingResponse = await axios.get(`${FEZ_API_URL}/order/track/${orderNo}`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+        'secret-key': process.env.FEZ_SECRET_KEY 
       }
     });
     
@@ -3159,7 +3216,7 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
     }, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'secret-key': process.env.FEZ_SECRET_KEY,
         'Content-Type': 'application/json'
       }
     });
@@ -4072,9 +4129,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
             <p style="margin-bottom: 5px;"><strong>Phone:</strong> ${order.delivery_address.phone}</p>
           </div>
           
-          <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
-            <a href="https://auqli.com/account/orders/${order._id}" style="background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Order</a>
-          </div>
+         
           
           <p style="font-size: 14px; color: #777; margin-top: 30px;">If you have any questions about your order, please contact our customer support team.</p>
         </div>
@@ -4201,44 +4256,39 @@ exports.cancelOrderBySeller = async (req, res) => {
         requestedAt: new Date(),
         requestedBy: 'seller',
         reason: reason || 'Order cancelled by seller',
-        status: 'pending'
+        status: 'pending',
+        refundAmount: order.totalAmount
       };
       
-      // Also update the order status to indicate it has a refund
-      order.orderStatus.hasRefund = true;
+      // The order will be closed automatically after refund is processed
+    } else {
+      // For unpaid orders, close the order immediately
+      order.isOpen = false;
+      order.closedAt = new Date();
+      order.closedBy = 'seller';
+      order.closedReason = reason || 'Order cancelled by seller';
     }
 
-    // Only attempt to cancel with Fez if order is paid and has tracking number
-    if (order.paid && order.shipping.tracking.number) {
+    // Only attempt to cancel with Fez if order has tracking number
+    if (order.shipping.tracking.number) {
       try {
-        // Get a fresh authentication token for Fez Delivery
+        // Get a fresh authentication token for Fez
         const authToken = await getFezAuthToken();
-        console.log('Using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
         
-        // Cancel shipment with Fez Delivery
-        const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
-            'Content-Type': 'application/json'
-          },
-          data: {
-            orderNo: order.shipping.tracking.number
+        // Cancel the shipment with Fez
+        await axios.post(
+          `${FEZ_API_URL}/order/cancel/${order.shipping.tracking.number}`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'secret-key': process.env.FEZ_SECRET_KEY 
+            }
           }
-        });
-
-        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
-          console.log('Fez API cancellation successful:', cancelResponse.data.description);
-        } else {
-          console.log('Fez API cancellation failed:', cancelResponse.data);
-          // Continue with local cancellation despite Fez API error
-        }
+        );
       } catch (fezError) {
-        console.log('Fez API error:', fezError.message);
-        if (fezError.response) {
-          console.log('Fez API error details:', fezError.response.data);
-        }
-        // Continue with local cancellation despite Fez API error
+        console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
+        // Continue with order cancellation even if Fez cancellation fails
       }
     }
 
@@ -4301,48 +4351,36 @@ exports.cancelOrderBySeller = async (req, res) => {
       const admins = await Admin.find({});
       
       if (admins && admins.length > 0) {
-        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        const adminEmail = {
+          to: admins.map(admin => admin.email),
+          from: 'Auqli Orders <support@auqli.com>',
+          subject: 'New Refund Request - Order Cancelled by Seller',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>New Refund Request</h2>
+              <p>A new refund request has been created due to order cancellation by seller.</p>
+              <p><strong>Order Details:</strong></p>
+              <ul>
+                <li>Order ID: ${order.order_id}</li>
+                <li>Seller: ${order.seller.businessName}</li>
+                <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+                <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
+                <li>Reason: ${reason || 'Order cancelled by seller'}</li>
+              </ul>
+              <p>Please process this refund request promptly.</p>
+            </div>
+          `
+        };
         
-        if (adminEmails.length > 0) {
-          const adminEmail = {
-            to: adminEmails,
-            from: 'Auqli Refunds <support@auqli.com>',
-            subject: `New Refund Request - Order #${order.order_id}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>New Refund Request</h2>
-                <p>A new refund request has been created for a cancelled order.</p>
-                <p><strong>Order Details:</strong></p>
-                <ul>
-                  <li>Order ID: ${order.order_id}</li>
-                  <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
-                  <li>Seller: ${order.seller.businessName}</li>
-                  <li>Amount: ${order.totalAmount}</li>
-                  <li>Payment Method: ${order.paymentInfo?.method || 'Unknown'}</li>
-                  <li>Reason: ${reason || 'Order cancelled by seller'}</li>
-                </ul>
-                <p>Please process this refund request at your earliest convenience.</p>
-              </div>
-            `
-          };
-          
-          try {
-            await sgMail.send(adminEmail);
-          } catch (emailError) {
-            console.error('Error sending admin notification:', emailError);
-          }
-        }
+        await sgMail.send(adminEmail);
       }
     }
 
     try {
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
+      await sgMail.send([buyerEmail, sellerEmail]);
     } catch (emailError) {
-      console.error('Error sending emails:', emailError);
-      // Continue execution despite email error
+      console.error('Error sending cancellation emails:', emailError);
+      // Continue processing even if email sending fails
     }
 
     res.json({ 
@@ -4358,7 +4396,10 @@ exports.cancelOrderBySeller = async (req, res) => {
         shipping: {
           tracking: order.shipping?.tracking
         },
-        refundRequest: order.refundRequest
+        refundRequest: order.refundRequest,
+        closedAt: order.closedAt,
+        closedBy: order.closedBy,
+        closedReason: order.closedReason
       }
     });
 
@@ -4800,7 +4841,7 @@ exports.getManifestUrl = async (req, res) => {
     const manifestResponse = await axios.get(`${FEZ_API_URL}/orders/${orderNo}/manifest-url`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+        'secret-key': process.env.FEZ_SECRET_KEY 
       }
     });
     
@@ -4895,10 +4936,10 @@ async function handleFailedPayment(paymentData, res) {
       // Get Fez auth token
       const getFezAuthToken = async () => {
         try {
-          const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+          const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
           const authData = {
-            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
-            password: process.env.FEZ_PASSWORD || "Bolu@123"
+            user_id: process.env.FEZ_USER_ID,
+            password: process.env.FEZ_PASSWORD
           };
           
           const response = await axios.post(authUrl, authData);
@@ -4917,14 +4958,14 @@ async function handleFailedPayment(paymentData, res) {
       const authToken = await getFezAuthToken();
       
       // Cancel Fez shipment
-      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      const FEZ_API_URL = process.env.FEZ_API_URL;
       const cancelResponse = await axios.post(
         `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
         {},
         {
           headers: {
             'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'secret-key': process.env.FEZ_SECRET_KEY,
             'Content-Type': 'application/json'
           }
         }

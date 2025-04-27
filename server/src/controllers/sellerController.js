@@ -178,7 +178,7 @@ exports.register = async (req, res) => {
 
     // After successful seller creation and welcome email
     const adminMsg = {
-      to: ['support@auqli.com'],
+      to: ['admin@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
       subject: 'New Seller Registration - Auqli',
       html: `
@@ -193,7 +193,7 @@ exports.register = async (req, res) => {
               <p style="margin: 5px 0;">Phone: ${phoneNumber}</p>
             </div>
             <p style="font-size: 14px;">Please check the admin dashboard for more details.</p>
-            <a href="https://admin.auqli.live/" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login</a>
+           
             <hr style="border: 1px solid #333333; margin: 30px 0;">
             <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>
@@ -349,7 +349,7 @@ exports.getProfile = async (req, res) => {
         hasFilledCategoryDetails: 1,
         hasFilledVerificationDocuments: 1,
         hasFilledWarehouseAddress: 1,
-        isNew: 1,
+        isNewSeller: 1,
         onboardingProcess: 1,
         notificationPreferences: 1,
         aboutStore: 1,
@@ -366,6 +366,7 @@ exports.getProfile = async (req, res) => {
         timezone: 1,
         storePolicy: 1,
         accountPending: 1,
+        offersStorePickup: 1, // Add this line to include offersStorePickup
       })
       .lean();
 
@@ -405,6 +406,7 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: 'Error fetching seller profile', error: error.message });
   }
 };
+
 
 // Helper function to get current schedule
 const getCurrentSchedule = (seller) => {
@@ -3970,6 +3972,40 @@ exports.toggleAccountPending = async (req, res) => {
 
     seller.accountPending = status;
     await seller.save();
+
+    // Send email notification to admin if seller has completed onboarding (status = true)
+    if (status === true) {
+      try {
+        const adminMsg = {
+          to: 'admin@auqli.com',
+          from: 'Auqli Notifications <support@auqli.com>',
+          subject: `Seller Onboarding Completed - ${seller.storeName || seller.firstName + ' ' + seller.lastName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>New Seller Onboarding Completed</h2>
+              <p>A seller has just completed their onboarding process and is ready for review.</p>
+              <p><strong>Seller Details:</strong></p>
+              <ul>
+                <li>Name: ${seller.firstName} ${seller.lastName}</li>
+                <li>Store Name: ${seller.storeName || 'N/A'}</li>
+                <li>Email: ${seller.email}</li>
+                <li>Phone: ${seller.phoneNumber}</li>
+                <li>Account Type: ${seller.accountType || 'N/A'}</li>
+                <li>Business Name: ${seller.businessName || 'N/A'}</li>
+              </ul>
+              <p>Please review this account at your earliest convenience.</p>
+              <p>Best regards,<br>Auqli Team</p>
+            </div>
+          `
+        };
+        
+        await sgMail.send(adminMsg);
+        console.log(`Onboarding completion notification email sent to admin for seller: ${seller._id}`);
+      } catch (emailError) {
+        console.error('Error sending onboarding notification email:', emailError);
+        // Continue execution despite email error - don't block the API response
+      }
+    }
 
     return res.status(200).json({
       success: true,

@@ -13,42 +13,16 @@ const Resource = require('../models/Resource');
 const Transaction = require('../models/Transaction');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const Stream = require('../models/Stream');
+const Post = require('../models/Post');
+const Campaign = require('../models/Campaign');
+const Conversation = require('../models/Conversation');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
-// const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
 
-// Add bank code mapping at the top of the file
-const BANK_CODES = {
-  'access bank': '044',
-  'guaranty trust bank': '058',
-  'first bank': '011',
-  'united bank for africa': '033',
-  'zenith bank': '057',
-  // Add more banks as needed
-};
 
-// Test bank accounts you can use
-const TEST_ACCOUNTS = {
-  'Access Bank': {
-    code: '044',
-    number: '0690000031',
-    name: 'Test Account'
-  },
-  'Guaranty Trust Bank': {
-    code: '058',
-    number: '0123456789',
-    name: 'Test Account'
-  }
-};
 
-// Add debug logging for Paystack configuration
-console.log('Paystack Configuration:', {
-  secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
-  secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
-  secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
-});
 
 // Update Paystack configuration with logging
 const paystack = axios.create({
@@ -93,17 +67,7 @@ cloudinary.config({
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 
-// Add validation middleware
-const validatePaystackConfig = (req, res, next) => {
-  if (!process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY === 'sk_test_REDACTED') {
-    return res.status(500).json({
-      success: false,
-      message: 'Server configuration error',
-      error: 'Invalid Paystack configuration'
-    });
-  }
-  next();
-};
+
 
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -300,7 +264,7 @@ exports.enableSeller = async (req, res) => {
             <li>Access your seller dashboard</li>
             <li>Receive payments</li>
           </ul>
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          
           <p>Thank you for your patience during this process.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -353,10 +317,59 @@ exports.enableSeller = async (req, res) => {
 
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate('seller');
-    res.json(products);
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Build filter object based on query parameters
+    const filter = {};
+    
+    // Filter by product name (case-insensitive partial match)
+    if (req.query.name) {
+      filter.name = { $regex: req.query.name, $options: 'i' };
+    }
+    
+    // Filter by category
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+    
+    // Filter by seller ID
+    if (req.query.sellerId) {
+      filter.seller = req.query.sellerId;
+    }
+    
+    // Filter by status
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    // Count total number of products for pagination metadata
+    const totalProducts = await Product.countDocuments(filter);
+    
+    // Get paginated products with populated seller information
+    const products = await Product.find(filter)
+      .populate('seller')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      productsPerPage: limit,
+      products
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch products',
+      error: error.message 
+    });
   }
 };
 
@@ -947,7 +960,7 @@ exports.verifyBusinessAccount = async (req, res) => {
             <li>Process orders and receive payments</li>
           </ul>
           <p>Start selling today by logging into your account!</p>
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+         
           <p>If you have any questions, please don't hesitate to contact our support team.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -1851,7 +1864,7 @@ exports.rejectBusinessAccount = async (req, res) => {
 
           <p>If you need assistance or have any questions, please don't hesitate to contact our support team.</p>
           
-          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          
           
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -4083,9 +4096,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         
         <p style="margin-top: 20px;">You can view and manage all your products in your seller dashboard.</p>
         
-        <div style="text-align: center; margin-top: 30px;">
-          <a href="${process.env.FRONTEND_URL || 'https://auqli.com'}/seller/products" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Products</a>
-        </div>
+       
         
         <p style="margin-top: 30px;">Thank you for selling with Auqli!</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -4183,8 +4194,1184 @@ exports.downloadProductCsvTemplate = async (req, res) => {
 
 // ... existing code continues ...
 
+exports.deleteBuyerAccount = async (req, res) => {
+  const { buyerId } = req.params;
 
+  try {
+    // Find the buyer first to make sure they exist and to get their email
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
 
+    // Store buyer details for sending email
+    const buyerEmail = buyer.email;
+    const buyerName = `${buyer.firstName} ${buyer.lastName}`;
+    
+    // Delete the buyer account
+    await Buyer.findByIdAndDelete(buyerId);
+    
+    // Send email notification to the buyer
+    const emailMsg = {
+      to: buyerEmail,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Your Auqli Account Has Been Deleted',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Account Deletion Notification</h2>
+          <p>Dear ${buyerName},</p>
+          <p>We regret to inform you that your account on Auqli has been deleted by our administration team.</p>
+          <p>This action may have been taken due to:</p>
+          <ul>
+            <li>Violation of our terms of service</li>
+            <li>Account inactivity for an extended period</li>
+            <li>Multiple community guideline violations</li>
+            <li>At your request through customer support</li>
+          </ul>
+          <p>If you believe this was done in error or have any questions, please contact our support team at support@auqli.com</p>
+          <p>Best regards,<br>Auqli Support Team</p>
+        </div>
+      `
+    };
 
+    await sgMail.send(emailMsg);
 
+    // Send successful response
+    res.status(200).json({
+      success: true,
+      message: 'Buyer account deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error deleting buyer account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete buyer account',
+      error: error.message
+    });
+  }
+};
 
+// ... existing code ...
+
+exports.getAllBuyerTransactions = async (req, res) => {
+  try {
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+    
+    // Build filter
+    const filter = {};
+    
+    // Date filter
+    if (startDate || endDate) {
+      filter['wallet.transactions.createdAt'] = {};
+      if (startDate) {
+        filter['wallet.transactions.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
+      }
+    }
+    
+    // Type filter
+    if (type && type !== 'all') {
+      filter['wallet.transactions.type'] = type;
+    }
+
+    // Aggregate to unwind transaction arrays and filter
+    const aggregation = [
+      {
+        $match: {
+          'wallet.transactions': { $exists: true, $ne: [] }
+        }
+      },
+      { $unwind: '$wallet.transactions' },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          email: 1,
+          username: 1,
+          transaction: '$wallet.transactions'
+        }
+      }
+    ];
+    
+    // Apply date filter if specified
+    if (startDate || endDate) {
+      let dateMatch = { $match: { 'transaction.createdAt': {} } };
+      if (startDate) {
+        dateMatch.$match['transaction.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateMatch.$match['transaction.createdAt'].$lte = new Date(endDate);
+      }
+      aggregation.push(dateMatch);
+    }
+    
+    // Apply type filter if specified
+    if (type && type !== 'all') {
+      aggregation.push({
+        $match: { 'transaction.type': type }
+      });
+    }
+    
+    // Count total documents for pagination
+    const countPipeline = [...aggregation];
+    countPipeline.push({ $count: 'total' });
+    const countResult = await Buyer.aggregate(countPipeline);
+    const totalTransactions = countResult.length > 0 ? countResult[0].total : 0;
+
+    // Add sorting, pagination
+    aggregation.push(
+      { $sort: { 'transaction.createdAt': -1 } },
+      { $skip: skip },
+      { $limit: queryLimit }
+    );
+
+    // Execute query
+    const transactions = await Buyer.aggregate(aggregation);
+    
+    // Format the response with pagination info
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching buyer transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch buyer transactions',
+      error: error.message
+    });
+  }
+};
+
+exports.getAllSellerTransactions = async (req, res) => {
+  try {
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+    
+    // Build filter
+    const filter = {};
+    
+    // Date filter
+    if (startDate || endDate) {
+      filter['wallet.transactions.createdAt'] = {};
+      if (startDate) {
+        filter['wallet.transactions.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
+      }
+    }
+    
+    // Type filter
+    if (type && type !== 'all') {
+      filter['wallet.transactions.type'] = type;
+    }
+
+    // Aggregate to unwind transaction arrays and filter
+    const aggregation = [
+      {
+        $match: {
+          'wallet.transactions': { $exists: true, $ne: [] }
+        }
+      },
+      { $unwind: '$wallet.transactions' },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          storeName: 1,
+          email: 1,
+          businessName: 1,
+          businessEmail: 1,
+          transaction: '$wallet.transactions'
+        }
+      }
+    ];
+    
+    // Apply date filter if specified
+    if (startDate || endDate) {
+      let dateMatch = { $match: { 'transaction.createdAt': {} } };
+      if (startDate) {
+        dateMatch.$match['transaction.createdAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateMatch.$match['transaction.createdAt'].$lte = new Date(endDate);
+      }
+      aggregation.push(dateMatch);
+    }
+    
+    // Apply type filter if specified
+    if (type && type !== 'all') {
+      aggregation.push({
+        $match: { 'transaction.type': type }
+      });
+    }
+    
+    // Count total documents for pagination
+    const countPipeline = [...aggregation];
+    countPipeline.push({ $count: 'total' });
+    const countResult = await Seller.aggregate(countPipeline);
+    const totalTransactions = countResult.length > 0 ? countResult[0].total : 0;
+
+    // Add sorting, pagination
+    aggregation.push(
+      { $sort: { 'transaction.createdAt': -1 } },
+      { $skip: skip },
+      { $limit: queryLimit }
+    );
+
+    // Execute query
+    const transactions = await Seller.aggregate(aggregation);
+    
+    // Format the response with pagination info
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching seller transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller transactions',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code ...
+
+/**
+ * Get detailed information about a specific seller including metrics
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getSellerDetails = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+
+    // Find the seller with all information
+    const seller = await Seller.findById(sellerId).lean();
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Get additional metrics and counts
+    const [
+      ordersCount,
+      postsCount,
+      streamsCount,
+      productsCount,
+      transactions,
+      campaignsCount,
+      conversationsCount
+    ] = await Promise.all([
+      Order.countDocuments({ seller: sellerId }),
+      Post.countDocuments({ 'author.userId': sellerId, 'author.userModel': 'Seller' }),
+      Stream.countDocuments({ seller: sellerId }),
+      Product.find({ seller: sellerId }).countDocuments(),
+      Transaction.find({ seller: sellerId }).sort({ createdAt: -1 }).limit(10).lean(),
+      Campaign.countDocuments({ seller: sellerId }),
+      Conversation.countDocuments({ 'participants': { $elemMatch: { id: sellerId, model: 'Seller' } } })
+    ]);
+
+    // Get recent orders
+    const recentOrders = await Order.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('buyer', 'firstName lastName email')
+      .lean();
+
+    // Get recent streams
+    const recentStreams = await Stream.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Get all campaigns with basic info
+    const campaigns = await Campaign.find({ seller: sellerId })
+      .select('title status stats createdAt scheduledFor')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Calculate total revenue and sales
+    const revenue = await Order.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), paid: true } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+
+    // Calculate sales by month (for the last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const salesByMonth = await Order.aggregate([
+      { 
+        $match: { 
+          seller: new mongoose.Types.ObjectId(sellerId), 
+          paid: true,
+          createdAt: { $gte: sixMonthsAgo } 
+        } 
+      },
+      {
+        $group: {
+          _id: { 
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalSales: { $sum: '$totalAmount' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    // Get withdrawal history
+    const withdrawals = await Withdrawal.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Format the response
+    const sellerDetails = {
+      seller,
+      metrics: {
+        ordersCount,
+        postsCount,
+        streamsCount,
+        productsCount,
+        campaignsCount,
+        conversationsCount,
+        followersCount: seller.followers ? seller.followers.length : 0,
+        totalRevenue: revenue.length > 0 ? revenue[0].total : 0,
+        walletBalance: seller.walletBalance || 0,
+        averageRating: seller.stats?.averageRating || 0,
+        totalReviews: seller.stats?.totalReviews || 0
+      },
+      recentActivity: {
+        orders: recentOrders,
+        streams: recentStreams,
+        transactions,
+        campaigns,
+        withdrawals
+      },
+      analytics: {
+        salesByMonth,
+        storeVisits: seller.storeVisits || 0,
+        monthlyStats: seller.monthlyStats || {}
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: sellerDetails
+    });
+  } catch (error) {
+    console.error('Error fetching seller details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller details',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update seller information by admin
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.updateSellerInfo = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // Extract update fields from request body
+    const {
+      // Personal info
+      firstName, 
+      lastName,
+      email,
+      phoneNumber,
+      
+      // Business info
+      businessName,
+      businessType,
+      businessEmail,
+      businessNumber,
+      taxInformation,
+      accountType,
+      
+      // Business address
+      businessAddress,
+      
+      // Seller address
+      sellerAddress,
+      
+      // Warehouse details
+      warehouseDetails,
+      
+      // Bank details
+      bankDetails,
+      
+      // Store details
+      storeName,
+      aboutStore,
+      socialMedia,
+      
+      // Store settings
+      operatingHours,
+      timezone,
+      storePolicy,
+      offersStorePickup,
+      
+      // Status flags
+      isVerified,
+      isFeatured,
+      isDisabled,
+      accountPending
+    } = req.body;
+    
+    // Update personal information
+    if (firstName) seller.firstName = firstName;
+    if (lastName) seller.lastName = lastName;
+    if (email) seller.email = email;
+    if (phoneNumber) seller.phoneNumber = phoneNumber;
+    
+    // Update business information
+    if (businessName) seller.businessName = businessName;
+    if (businessType) seller.businessType = businessType;
+    if (businessEmail) seller.businessEmail = businessEmail;
+    if (businessNumber) seller.businessNumber = businessNumber;
+    if (taxInformation) seller.taxInformation = taxInformation;
+    if (accountType) seller.accountType = accountType;
+    
+    // Update addresses
+    if (businessAddress) seller.businessAddress = businessAddress;
+    if (sellerAddress) seller.sellerAddress = sellerAddress;
+    if (warehouseDetails) seller.warehouseDetails = warehouseDetails;
+    
+    // Update bank details
+    if (bankDetails) seller.bankDetails = bankDetails;
+    
+    // Update store details
+    if (storeName) seller.storeName = storeName;
+    if (aboutStore) seller.aboutStore = aboutStore;
+    if (socialMedia) seller.socialMedia = socialMedia;
+    
+    // Update store settings
+    if (operatingHours) seller.operatingHours = operatingHours;
+    if (timezone) seller.timezone = timezone;
+    if (storePolicy) seller.storePolicy = storePolicy;
+    if (offersStorePickup !== undefined) seller.offersStorePickup = offersStorePickup;
+    
+    // Update status flags
+    if (isVerified !== undefined) seller.isVerified = isVerified;
+    if (isFeatured !== undefined) seller.isFeatured = isFeatured;
+    if (isDisabled !== undefined) seller.isDisabled = isDisabled;
+    if (accountPending !== undefined) seller.accountPending = accountPending;
+    
+    // Update completion flags based on the provided information
+    if (sellerAddress) seller.hasFilledAddress = true;
+    if (warehouseDetails?.address) seller.hasFilledWarehouseAddress = true;
+    if (bankDetails?.accountNumber && bankDetails?.bankName) seller.hasFilledBankDetails = true;
+    if (businessAddress) seller.hasFilledBusinessAddress = true;
+    
+    // Save the updated seller
+    const updatedSeller = await seller.save();
+    
+    // Create admin activity log for this update
+    // (If you have an activity logging system)
+    
+    // Send notification to seller about the account update (optional)
+    try {
+      const emailMsg = {
+        to: updatedSeller.email,
+        from: 'Auqli Admin <support@auqli.com>',
+        subject: 'Your Seller Account Has Been Updated',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Account Update</h2>
+            <p>Dear ${updatedSeller.firstName},</p>
+            <p>We're writing to inform you that an administrator has updated information on your seller account.</p>
+            <p>If you have any questions or concerns about these changes, please contact our support team at support@auqli.com.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+      
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send(emailMsg);
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError);
+      // Continue execution despite email error
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller information updated successfully',
+      seller: updatedSeller
+    });
+  } catch (error) {
+    console.error('Error updating seller information:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update seller information',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Revoke a seller's verification status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.revokeSellerVerification = async (req, res) => {
+  const { sellerId } = req.params;
+
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+
+    // Set verification status to false
+    seller.isVerified = false;
+    await seller.save();
+
+    // Send notification emails
+    const personalEmailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Important: Verification Status Update - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Verification Status Update</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>This is to inform you that your verification status on Auqli has been revoked. This change may affect some of your seller capabilities.</p>
+          <p>If you have any questions or need clarification about this change, please contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <support@auqli.com>',
+        subject: 'Important: Business Account Verification Status Update - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Verification Update</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>We're writing to inform you that your business account verification status on Auqli has been revoked.</p>
+            <p>Business Details:</p>
+            <ul>
+              <li>Business Name: ${seller.businessName}</li>
+              <li>Account Type: ${seller.accountType}</li>
+              <li>Verification Status: Not Verified</li>
+            </ul>
+            <p>If you have any questions about this change or need assistance, please contact our business support team.</p>
+            <p>Best regards,<br>Auqli Business Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(personalEmailMsg);
+
+    res.json({ 
+      success: true,
+      message: 'Seller verification revoked successfully', 
+      seller 
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to revoke seller verification', 
+      error: error.message 
+    });
+  }
+};
+
+// ... existing code ...
+
+/**
+ * Delete/Cancel a Fez delivery order
+ * This allows admins to manually cancel a Fez shipment by providing the order number
+ */
+exports.deleteFezOrder = async (req, res) => {
+  try {
+    const { orderNo } = req.params;
+    
+    if (!orderNo) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Fez order number is required' 
+      });
+    }
+    
+    console.log(`🚫 Admin attempting to cancel Fez order: ${orderNo}`);
+    
+    // Get a fresh authentication token for Fez Delivery
+    const axios = require('axios');
+    const FEZ_API_URL = process.env.FEZ_API_URL;
+    
+    // Function to get Fez auth token
+    const getFezAuthToken = async () => {
+      try {
+        const authUrl = `${FEZ_API_URL}/user/authenticate`;
+        const authData = {
+          user_id: process.env.FEZ_USER_ID,
+          password: process.env.FEZ_PASSWORD
+        };
+        
+        const response = await axios.post(authUrl, authData);
+        
+        if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+          return response.data.authDetails.authToken;
+        } else {
+          throw new Error('Failed to authenticate with Fez Delivery');
+        }
+      } catch (error) {
+        console.error('Fez authentication error:', error.message);
+        throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+      }
+    };
+    
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for Fez order cancellation:', authToken.substring(0, 10) + '...');
+    
+    let cancellationSuccessful = false;
+    let responseData = null;
+    
+    // Try the DELETE endpoint first
+    try {
+      console.log(`Attempting to cancel Fez order using DELETE method: ${orderNo}`);
+      
+      const deleteResponse = await axios.delete(`${FEZ_API_URL}/order`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': process.env.FEZ_SECRET_KEY,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          orderNo: orderNo
+        }
+      });
+      
+      if (deleteResponse.data && deleteResponse.data.status === 'Success') {
+        console.log('Fez order cancellation successful using DELETE method:', deleteResponse.data);
+        cancellationSuccessful = true;
+        responseData = deleteResponse.data;
+      } else {
+        console.log('Fez order cancellation using DELETE method failed:', deleteResponse.data);
+      }
+    } catch (deleteError) {
+      console.log('Error during DELETE method cancellation:', deleteError.message);
+      if (deleteError.response) {
+        console.log('DELETE Error response data:', deleteError.response.data);
+      }
+    }
+    
+    // If DELETE method failed, try the POST endpoint
+    if (!cancellationSuccessful) {
+      try {
+        console.log(`Attempting to cancel Fez order using POST method: ${orderNo}`);
+        
+        const postResponse = await axios.post(
+          `${FEZ_API_URL}/order/cancel/${orderNo}`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'secret-key': process.env.FEZ_SECRET_KEY,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (postResponse.data && postResponse.data.status === 'Success') {
+          console.log('Fez order cancellation successful using POST method:', postResponse.data);
+          cancellationSuccessful = true;
+          responseData = postResponse.data;
+        } else {
+          console.log('Fez order cancellation using POST method failed:', postResponse.data);
+        }
+      } catch (postError) {
+        console.log('Error during POST method cancellation:', postError.message);
+        if (postError.response) {
+          console.log('POST Error response data:', postError.response.data);
+        }
+      }
+    }
+    
+    // Look for any orders in our system with this Fez order number
+    const Order = require('../models/Order');
+    const orders = await Order.find({
+      $or: [
+        { 'shipping.tracking.number': orderNo },
+        { 'shipping.fez_order_number': orderNo },
+        { 'shipping.shipment_id': orderNo }
+      ]
+    });
+    
+    // Also check for any return shipments with this order number
+    const Return = require('../models/Return');
+    const returns = await Return.find({
+      'returnShipment.shipment_id': orderNo
+    });
+    
+    // Update our database for found orders
+    if (orders.length > 0) {
+      for (const order of orders) {
+        // Create new tracking entry
+        const newTrackingEntry = {
+          status: 'cancelled',
+          description: `Shipment cancelled by admin`,
+          timestamp: new Date()
+        };
+        
+        // Update order shipping information
+        await Order.findByIdAndUpdate(
+          order._id,
+          {
+            $set: {
+              'shipping.tracking.status': 'cancelled',
+              'shipping.tracking.lastUpdate': new Date()
+            },
+            $push: {
+              'shipping.tracking.history': newTrackingEntry
+            }
+          }
+        );
+        
+        console.log(`Updated order ${order.order_id} with cancelled shipping status`);
+      }
+    }
+    
+    // Update return shipments if found
+    if (returns.length > 0) {
+      for (const returnDoc of returns) {
+        await Return.findByIdAndUpdate(
+          returnDoc._id,
+          {
+            $set: {
+              'returnShipment.tracking.status': 'cancelled',
+              'returnShipment.tracking.lastUpdate': new Date()
+            },
+            $push: {
+              'returnShipment.tracking.history': {
+                status: 'cancelled',
+                timestamp: new Date(),
+                description: 'Return shipment cancelled by admin'
+              },
+              'timeline': {
+                status: 'RETURN_CANCELLED',
+                date: new Date(),
+                note: 'Return shipment cancelled by admin',
+                updatedBy: 'admin'
+              }
+            }
+          }
+        );
+        
+        console.log(`Updated return request ${returnDoc._id} with cancelled shipping status`);
+      }
+    }
+    
+    if (cancellationSuccessful) {
+      return res.status(200).json({
+        success: true,
+        message: 'Fez order cancelled successfully',
+        data: responseData,
+        affectedOrders: orders.map(o => ({ id: o._id, order_id: o.order_id })),
+        affectedReturns: returns.map(r => ({ id: r._id }))
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to cancel Fez order. The order might not exist or has already been cancelled.',
+        affectedOrders: orders.map(o => ({ id: o._id, order_id: o.order_id })),
+        affectedReturns: returns.map(r => ({ id: r._id }))
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error cancelling Fez order:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error cancelling Fez order',
+      error: error.message
+    });
+  }
+};
+
+exports.searchProducts = async (req, res) => {
+  try {
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Extract search parameters from query
+    const { 
+      query, 
+      minPrice, 
+      maxPrice, 
+      category, 
+      subCategory, 
+      sellerId, 
+      status, 
+      sortBy, 
+      sortOrder 
+    } = req.query;
+
+    // Build search filter
+    const filter = {};
+
+    // Search in name, description, or SKU if query is provided
+    if (query) {
+      filter.$or = [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { 'inventory.sku': { $regex: query, $options: 'i' } }
+      ];
+    }
+
+    // Price range filter
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      filter.price = {};
+      if (minPrice !== undefined) filter.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) filter.price.$lte = Number(maxPrice);
+    }
+
+    // Category filters
+    if (category) filter.category = category;
+    if (subCategory) filter.subCategory = subCategory;
+
+    // Seller filter
+    if (sellerId) filter.seller = sellerId;
+
+    // Status filter
+    if (status) filter.status = status;
+
+    // Build sort options
+    let sort = { createdAt: -1 }; // Default sort by newest
+    
+    if (sortBy) {
+      sort = {};
+      const order = sortOrder === 'asc' ? 1 : -1;
+      
+      // Map frontend sort fields to MongoDB fields
+      switch (sortBy) {
+        case 'name':
+          sort.name = order;
+          break;
+        case 'price':
+          sort.price = order;
+          break;
+        case 'popularity':
+          sort['stats.views'] = order;
+          break;
+        case 'sold':
+          sort['stats.soldCount'] = order;
+          break;
+        case 'created':
+        default:
+          sort.createdAt = order;
+      }
+    }
+
+    // Count total matching products for pagination metadata
+    const totalProducts = await Product.countDocuments(filter);
+    
+    // Get paginated products with populated seller information
+    const products = await Product.find(filter)
+      .populate('seller', 'firstName lastName businessName email storeName storeAvatar isVerified')
+      .skip(skip)
+      .limit(limit)
+      .sort(sort);
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      productsPerPage: limit,
+      products
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to search products',
+      error: error.message 
+    });
+  }
+};
+
+exports.getPlatformMetrics = async (req, res) => {
+  try {
+    // Collect counts from all main models
+    const [
+      totalBuyers,
+      totalSellers,
+      totalProducts,
+      totalOrders,
+      totalStreams,
+      totalTransactions,
+      totalWithdrawals,
+      totalBankChangeRequests
+    ] = await Promise.all([
+      Buyer.countDocuments(),
+      Seller.countDocuments(),
+      Product.countDocuments(),
+      Order.countDocuments(),
+      Stream.countDocuments(),
+      Transaction.countDocuments(),
+      Withdrawal.countDocuments(),
+      BankChangeRequest.countDocuments()
+    ]);
+
+    // Get active/inactive users
+    const [activeBuyers, activeSellers] = await Promise.all([
+      Buyer.countDocuments({ isActive: true }),
+      Seller.countDocuments({ isDisabled: false })
+    ]);
+
+    // Get verification stats
+    const [
+      verifiedSellers, 
+      pendingVerificationSellers,
+      identityVerifiedBuyers
+    ] = await Promise.all([
+      Seller.countDocuments({ isVerified: true }),
+      Seller.countDocuments({ isVerified: false, 'verificationDocuments.documents': { $exists: true, $ne: [] } }),
+      Buyer.countDocuments({ isIdentityVerified: true })
+    ]);
+
+    // Get order status metrics
+    const [
+      pendingOrders,
+      processingOrders,
+      shippedOrders,
+      deliveredOrders,
+      cancelledOrders,
+      ordersWithReturns,
+      ordersWithDisputes
+    ] = await Promise.all([
+      Order.countDocuments({ 'items.status': 'pending' }),
+      Order.countDocuments({ 'items.status': 'processing' }),
+      Order.countDocuments({ 'items.status': 'shipped' }),
+      Order.countDocuments({ 'items.status': 'delivered' }),
+      Order.countDocuments({ 'items.status': 'cancelled' }),
+      Order.countDocuments({ 'orderStatus.hasReturn': true }),
+      Order.countDocuments({ 'orderStatus.hasDispute': true })
+    ]);
+
+    // Get withdrawal status metrics
+    const [
+      pendingWithdrawals,
+      processingWithdrawals,
+      completedWithdrawals,
+      rejectedWithdrawals
+    ] = await Promise.all([
+      Withdrawal.countDocuments({ status: 'pending' }),
+      Withdrawal.countDocuments({ status: 'processing' }),
+      Withdrawal.countDocuments({ status: 'completed' }),
+      Withdrawal.countDocuments({ status: 'rejected' })
+    ]);
+
+    // Get bank change request metrics
+    const [
+      pendingBankChangeRequests,
+      approvedBankChangeRequests,
+      rejectedBankChangeRequests
+    ] = await Promise.all([
+      BankChangeRequest.countDocuments({ status: 'pending' }),
+      BankChangeRequest.countDocuments({ status: 'approved' }),
+      BankChangeRequest.countDocuments({ status: 'rejected' })
+    ]);
+
+    // Get stream metrics
+    const [
+      scheduledStreams,
+      liveStreams,
+      endedStreams,
+      cancelledStreams
+    ] = await Promise.all([
+      Stream.countDocuments({ status: 'scheduled' }),
+      Stream.countDocuments({ status: 'live' }),
+      Stream.countDocuments({ status: 'ended' }),
+      Stream.countDocuments({ cancelledStream: true })
+    ]);
+
+    // Get financial metrics
+    const totalOrderAmount = await Order.aggregate([
+      { $match: { paid: true } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+
+    const totalWithdrawalAmount = await Withdrawal.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    // Calculate percentages
+    const buyerVerificationRate = totalBuyers > 0 ? (identityVerifiedBuyers / totalBuyers * 100).toFixed(2) : 0;
+    const sellerVerificationRate = totalSellers > 0 ? (verifiedSellers / totalSellers * 100).toFixed(2) : 0;
+    const pendingWithdrawalRate = totalWithdrawals > 0 ? (pendingWithdrawals / totalWithdrawals * 100).toFixed(2) : 0;
+    const pendingBankChangeRate = totalBankChangeRequests > 0 ? (pendingBankChangeRequests / totalBankChangeRequests * 100).toFixed(2) : 0;
+    const cancelledStreamRate = totalStreams > 0 ? (cancelledStreams / totalStreams * 100).toFixed(2) : 0;
+
+    // Recent activity - get the latest 5 of each important model
+    const [
+      recentOrders,
+      recentWithdrawals,
+      recentBankChangeRequests,
+      recentStreams
+    ] = await Promise.all([
+      Order.find().sort({ createdAt: -1 }).limit(5).select('order_id buyer seller totalAmount createdAt items.status'),
+      Withdrawal.find().sort({ requestDate: -1 }).limit(5).select('seller amount status requestDate reference'),
+      BankChangeRequest.find().sort({ requestDate: -1 }).limit(5).select('seller status requestDate newBankDetails.bankName'),
+      Stream.find().sort({ createdAt: -1 }).limit(5).select('seller title status scheduledStartTime actualStartTime')
+    ]);
+
+    const metrics = {
+      counts: {
+        buyers: totalBuyers,
+        sellers: totalSellers,
+        products: totalProducts,
+        orders: totalOrders,
+        streams: totalStreams,
+        transactions: totalTransactions,
+        withdrawals: totalWithdrawals,
+        bankChangeRequests: totalBankChangeRequests
+      },
+      userMetrics: {
+        activeBuyers,
+        inactiveBuyers: totalBuyers - activeBuyers,
+        activeSellers,
+        inactiveSellers: totalSellers - activeSellers,
+        verifiedSellers,
+        pendingVerificationSellers,
+        identityVerifiedBuyers,
+        buyerVerificationRate,
+        sellerVerificationRate
+      },
+      orderMetrics: {
+        pendingOrders,
+        processingOrders,
+        shippedOrders,
+        deliveredOrders,
+        cancelledOrders,
+        ordersWithReturns,
+        ordersWithDisputes
+      },
+      withdrawalMetrics: {
+        pendingWithdrawals,
+        processingWithdrawals,
+        completedWithdrawals,
+        rejectedWithdrawals,
+        pendingWithdrawalRate
+      },
+      bankChangeMetrics: {
+        pendingBankChangeRequests,
+        approvedBankChangeRequests,
+        rejectedBankChangeRequests,
+        pendingBankChangeRate
+      },
+      streamMetrics: {
+        scheduledStreams,
+        liveStreams,
+        endedStreams,
+        cancelledStreams,
+        cancelledStreamRate
+      },
+      financialMetrics: {
+        totalOrderAmount: totalOrderAmount.length > 0 ? totalOrderAmount[0].total : 0,
+        totalWithdrawalAmount: totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0
+      },
+      recentActivity: {
+        orders: recentOrders,
+        withdrawals: recentWithdrawals,
+        bankChangeRequests: recentBankChangeRequests,
+        streams: recentStreams
+      }
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    console.error('Error fetching platform metrics:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch platform metrics',
+      error: error.message
+    });
+  }
+};

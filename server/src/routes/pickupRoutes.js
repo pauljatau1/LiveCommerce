@@ -45,8 +45,8 @@ router.post(
   processPickupRequest
 );
 
-// Upload proof and confirm pickup
-router.post('/:orderId/upload-proof',
+// Combined route for uploading proof and confirming pickup
+router.post('/:orderId/confirm',
   authMiddleware.isSeller,
   upload.single('proof'),
   async (req, res) => {
@@ -55,47 +55,8 @@ router.post('/:orderId/upload-proof',
       const { note } = req.body;
       const proofImage = req.file;
 
-      let proofUrl = null;
-      let publicId = null;
-
-      if (proofImage) {
-        // Upload to S3
-        const params = {
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: `pickup-proofs/${uuidv4()}-${proofImage.originalname}`,
-          Body: proofImage.buffer,
-          ContentType: proofImage.mimetype,
-        };
-
-        const uploadResult = await s3.upload(params).promise();
-        proofUrl = `https://${process.env.CDN_URL}/${uploadResult.Key}`;
-        publicId = uploadResult.Key;
-      }
-
-      res.status(200).json({
-        message: 'Proof uploaded successfully',
-        data: {
-          url: proofUrl,
-          public_id: publicId
-        }
-      });
-    } catch (error) {
-      console.error('Error uploading proof:', error);
-      res.status(500).json({ message: 'Error uploading proof', error: error.message });
-    }
-  }
-);
-
-// Confirm pickup delivery
-router.post('/:orderId/confirm',
-  authMiddleware.isSeller,
-  async (req, res) => {
-    try {
-      const { orderId } = req.params;
-      const { proofUrl, note } = req.body;
-
-      if (!proofUrl) {
-        return res.status(400).json({ message: 'Proof URL is required' });
+      if (!proofImage) {
+        return res.status(400).json({ message: 'Proof of delivery is required' });
       }
 
       const order = await Order.findById(orderId);
@@ -107,6 +68,17 @@ router.post('/:orderId/confirm',
       if (!order.isStorePickup) {
         return res.status(400).json({ message: 'This order is not a store pickup order' });
       }
+
+      // Upload to S3
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `pickup-proofs/${uuidv4()}-${proofImage.originalname}`,
+        Body: proofImage.buffer,
+        ContentType: proofImage.mimetype,
+      };
+
+      const uploadResult = await s3.upload(params).promise();
+      const proofUrl = `https://${process.env.CDN_URL}/${uploadResult.Key}`;
 
       // Update order status
       order.items = order.items.map(item => ({

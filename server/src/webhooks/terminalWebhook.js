@@ -72,11 +72,11 @@ const handleDeliveryException = async (exceptionData) => {
 
 const handleShipmentCreated = async (data) => {
   try {
-    console.log('Processing shipment.created webhook:', {
-      shipmentId: data.shipment_id,
-      trackingNumber: data.tracking_number,
-      status: data.status
-    });
+    // console.log('Processing shipment.created webhook:', {
+    //   shipmentId: data.shipment_id,
+    //   trackingNumber: data.tracking_number,
+    //   status: data.status
+    // });
 
     const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id })
       .populate('buyer', 'email firstName lastName')
@@ -87,9 +87,9 @@ const handleShipmentCreated = async (data) => {
       return;
     }
 
-    console.log('Found order:', order._id);
-    console.log('Buyer email:', order.buyer.email);
-    console.log('Seller email:', order.seller.email);
+    // console.log('Found order:', order._id);
+    // console.log('Buyer email:', order.buyer.email);
+    // console.log('Seller email:', order.seller.email);
 
     // Preserve existing shipping data and update only necessary fields
     const updatedShipping = {
@@ -234,7 +234,7 @@ const handleShipmentInTransit = async (data) => {
       return;
     }
 
-    console.log('Found order:', order._id);
+    // console.log('Found order:', order._id);
 
     // Update tracking history
     const updatedShipping = {

@@ -771,7 +771,7 @@ router.get('/sellers/:id', async (req, res) => {
         businessEmail isVerified createdAt isFeatured 
         followers storeVisits shippingOptions warehouseDetails
         firstName lastName phoneNumber businessNumber taxInformation
-        accountType verificationDocuments emailVerified isNew
+        accountType verificationDocuments emailVerified isNewSeller
         activityFeed customers sellerAddress email reviews stats
       `);
     
@@ -1006,7 +1006,7 @@ router.get('/sellers/:id', async (req, res) => {
         }
       },
       activity: {
-        isNew: seller.isNew,
+        isNew: seller.isNewSeller,
         recentActivity: seller.activityFeed?.slice(0, 5) || []
       },
       createdAt: seller.createdAt

@@ -35,9 +35,9 @@ const transactionSchema = new mongoose.Schema({
     required: true 
   },
   paymentReference: { 
-    type: String, 
-    required: true,
-    unique: true 
+    type: String,
+    sparse: true, 
+    index: true   
   },
   description: { 
     type: String, 
@@ -110,7 +110,7 @@ const buyerSchema = new mongoose.Schema({
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
     addedAt: { type: Date, default: Date.now }
   }],
-  isNew: { type: Boolean, default: true },
+  isNewBuyer: { type: Boolean, default: true },
   identityDocument: {
     url: { type: String },
     public_id: { type: String },
@@ -238,13 +238,13 @@ const buyerSchema = new mongoose.Schema({
 // Middleware to update isNew property after 3 days
 buyerSchema.pre('save', async function(next) {
   // First handle the isNew check
-  if (this.isNew && this.createdAt) {
+  if (this.isNewBuyer && this.createdAt) {
     const createdAt = new Date(this.createdAt);
     const now = new Date();
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
 
     if (daysDifference >= 3) {
-      this.isNew = false;
+      this.isNewBuyer = false;
     }
   }
 

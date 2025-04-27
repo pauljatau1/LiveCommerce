@@ -101,8 +101,8 @@ exports.createProduct = async (req, res) => {
     if (req.body.blips && Array.isArray(req.body.blips)) {
       for (let blip of req.body.blips) {
         const buffer = Buffer.from(blip.data, 'base64');
-        const videoKey = `${uuidv4()}.mp4`;
-        const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
+        const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
+        const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
         
         // First upload the video
         const videoParams = {
@@ -114,8 +114,8 @@ exports.createProduct = async (req, res) => {
         const videoData = await s3.upload(videoParams).promise();
         
         // Create temporary files for ffmpeg
-        const tempVideoPath = path.join(os.tmpdir(), videoKey);
-        const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
+        const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
+        const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
         
         try {
           // Write video buffer to temp file
@@ -126,9 +126,9 @@ exports.createProduct = async (req, res) => {
             ffmpeg(tempVideoPath)
               .screenshots({
                 timestamps: ['00:00:01.000'],
-                filename: thumbnailKey,
-                folder: os.tmpdir(),
-                size: '180x320'
+                filename: path.basename(thumbnailKey),
+                folder: path.dirname(tempThumbnailPath),
+                size: '180x?'
               })
               .on('end', resolve)
               .on('error', reject);
@@ -151,9 +151,9 @@ exports.createProduct = async (req, res) => {
           await fs.unlink(tempThumbnailPath).catch(() => {});
           
           blipsLinks.push({ 
-            url: `https://` + process.env.CDN_URL + `/${uploadResult.Key}`,
+            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
             contentType: blip.contentType,
-            thumbnail: `https://` + process.env.CDN_URL + `/${videoData.Key}`
+            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
           });
         } catch (err) {
           console.error('Error generating thumbnail:', err);
@@ -1836,7 +1836,19 @@ exports.getAllBlips = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -2386,7 +2398,19 @@ exports.getSuggestedBlips = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -5364,7 +5388,7 @@ agenda.define('end-auction', async (job) => {
             <p>Dear ${product.auction.currentHighestBid.buyer.firstName},</p>
             <p>You have won the auction for "${product.name}" with a bid of $${winner.bidAmount}!</p>
             <p>The seller will contact you shortly with payment details.</p>
-            <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Product</a></p>
+           
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `
@@ -5384,7 +5408,7 @@ agenda.define('end-auction', async (job) => {
             <p>Winner: ${product.auction.currentHighestBid.buyer.firstName} ${product.auction.currentHighestBid.buyer.lastName}</p>
             <p>An order will be automatically created for this auction win.</p>
             <p>Please contact the buyer to arrange payment and delivery.</p>
-            <p><a href="${process.env.FRONTEND_URL}/dashboard/products/${product._id}">View Details</a></p>
+           
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `
@@ -5879,7 +5903,19 @@ exports.getBlipDetails = async (req, res) => {
                 }
               }
             },
-            viewCount: '$blips.viewCount'
+            viewCount: '$blips.viewCount',
+            isLiked: {
+              $cond: {
+                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    '$blips.likes'
+                  ]
+                },
+                else: false
+              }
+            }
           },
           averageRating: {
             $cond: {
@@ -6960,7 +6996,7 @@ exports.addBlipToProduct = async (req, res) => {
             timestamps: ['00:00:01.000'],
             filename: path.basename(thumbnailKey),
             folder: path.dirname(tempThumbnailPath),
-            size: '180x320'
+            size: '180x?'
           })
           .on('end', resolve)
           .on('error', reject);
@@ -7173,8 +7209,11 @@ exports.getRelatedBlips = async (req, res) => {
   try {
     const { blipId } = req.params;
     const { limit = 10, page = 1 } = req.query;
-    const userId = req.user ? req.user._id : null;
     
+    // Get buyerId and check authentication status
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+
     // Find the product that contains the reference blip
     const product = await Product.findOne({ 
       'blips._id': blipId,
@@ -7182,7 +7221,7 @@ exports.getRelatedBlips = async (req, res) => {
     })
     .populate({
       path: 'seller',
-      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions followers'
     });
     
     if (!product) {
@@ -7205,7 +7244,7 @@ exports.getRelatedBlips = async (req, res) => {
     })
     .populate({
       path: 'seller',
-      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
     })
     .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
     
@@ -7216,7 +7255,13 @@ exports.getRelatedBlips = async (req, res) => {
       if (prod.blips && prod.blips.length > 0) {
         prod.blips.forEach(blip => {
           // Check if the current user has liked this blip
-          const isLiked = userId ? blip.likes.includes(userId) : false;
+          const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
+          
+          // Check if the buyer is following the seller
+          const isFollowing = isAuthenticated && prod.seller.followers ? 
+            prod.seller.followers.some(follower => 
+              follower.buyerId && follower.buyerId.toString() === buyerId
+            ) : false;
           
           // Get product image URL
           const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
@@ -7267,7 +7312,7 @@ exports.getRelatedBlips = async (req, res) => {
               aboutStore: prod.seller.aboutStore || '',
               storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
               totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
-              isFollowing: false, // Would need to check buyer's following list to determine this
+              isFollowing: isFollowing,
               isFeatured: prod.seller.isVerified || false
             }
           });
@@ -7284,7 +7329,7 @@ exports.getRelatedBlips = async (req, res) => {
       })
       .populate({
         path: 'seller',
-        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified'
+        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
       })
       .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
       
@@ -7297,6 +7342,14 @@ exports.getRelatedBlips = async (req, res) => {
             );
             
             if (!exists) {
+              const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
+              
+              // Check if the buyer is following the seller
+              const isFollowing = isAuthenticated && prod.seller.followers ? 
+                prod.seller.followers.some(follower => 
+                  follower.buyerId && follower.buyerId.toString() === buyerId
+                ) : false;
+              
               // Get product image URL
               const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
               
@@ -7309,9 +7362,6 @@ exports.getRelatedBlips = async (req, res) => {
                   discountedPrice = Math.max(0, prod.price - prod.discount.value);
                 }
               }
-              
-              // Check if the current user has liked this blip
-              const isLiked = userId ? blip.likes.includes(userId) : false;
               
               relatedBlips.push({
                 discount: {
@@ -7349,7 +7399,7 @@ exports.getRelatedBlips = async (req, res) => {
                   aboutStore: prod.seller.aboutStore || '',
                   storeRating: prod.seller.stats && prod.seller.stats.rating ? prod.seller.stats.rating : 0,
                   totalStoreReviews: prod.seller.stats && prod.seller.stats.totalReviews ? prod.seller.stats.totalReviews : 0,
-                  isFollowing: false, // Would need to check buyer's following list to determine this
+                  isFollowing: isFollowing,
                   isFeatured: prod.seller.isVerified || false
                 }
               });

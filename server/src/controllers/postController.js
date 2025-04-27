@@ -1857,7 +1857,7 @@ exports.reportPost = async (req, res) => {
 
     // Send email notification
     const msg = {
-      to: ['support@auqli.com', 'bolu@auqli.com'],
+      to: ['admin@auqli.com', 'bolu@auqli.com'],
       from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'New Post Report',
       html: `

@@ -28,7 +28,7 @@ socket.emit('join_auction_bidding', streamId);
 // Listen for bid updates
 socket.on('auction_bid_update', (bidData) => {
   // Handle the bid update
-  console.log('New bid:', bidData);
+  // console.log('New bid:', bidData);
   // Update UI to show the new bid
 });
 ```
@@ -48,7 +48,7 @@ socket.emit('stream_place_bid', {
 // Listen for success response
 socket.on('bid_placed', (response) => {
   if (response.success) {
-    console.log('Bid placed successfully:', response);
+    // console.log('Bid placed successfully:', response);
     // Handle successful bid (update UI, show confirmation, etc.)
     
     // Check if the bid won the auction

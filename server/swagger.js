@@ -14,7 +14,7 @@ const options = {
         url: 'https://api.staging.auqli.live', 
       },
       {
-        url: 'https://auqliserver-8xr8zvib.b4a.run', 
+        url: 'https://api.auqli.live', 
       },
       {
         url: 'http://localhost:8000', 
