@@ -62,48 +62,38 @@ function CustomerDetail() {
         const isCurrentlyFollowing = followingData.some(buyer => buyer.buyerId === id);
         setIsFollowing(isCurrentlyFollowing);
 
-        // Add default values for nested objects
-        const orderStats = {
-          general: {
-            totalOrders: 0,
-            totalSpent: 0,
-            averageOrderValue: 0,
-            ...data.orderStats?.general
-          },
-          withSeller: {
-            totalOrders: 0,
-            totalSpent: 0,
-            averageOrderValue: 0,
-            ...data.orderStats?.withSeller
-          }
-        };
-
         setCustomerData({
           name: `${data.buyerInfo.firstName} ${data.buyerInfo.lastName}`,
           email: data.buyerInfo.email,
+          phoneNumber: data.buyerInfo.phoneNumber,
+          country: data.buyerInfo.country,
           avatar: data.buyerInfo.profileImageUrl || "https://media.istockphoto.com/id/1223671392/vector/default-profile-picture-avatar-photo-placeholder-vector-illustration.jpg?s=612x612&w=0&k=20&c=s0aTdmT5aU6b8ot7VKm11DeID6NctRCpB755rA1BIP0=",
           verified: data.hasOrderedFromSeller,
           customerSince: new Date(data.buyerInfo.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           joinedDate: new Date(data.buyerInfo.joinDate).getFullYear(),
+          accountAge: data.buyerInfo.accountAge,
+          isIdentityVerified: data.buyerInfo.isIdentityVerified,
+          preferredLanguage: data.buyerInfo.preferredLanguage,
+          preferredCurrency: data.buyerInfo.preferredCurrency,
           rating: 0,
           amountSpent: {
-            total: orderStats.general.totalSpent || 0,
-            withSeller: orderStats.withSeller.totalSpent || 0
+            total: data.orderStats?.totalSpent || 0,
+            withSeller: data.orderStats?.totalSpent || 0
           },
           orderStats: {
-            general: {
-              totalOrders: orderStats.general.totalOrders || 0,
-              totalSpent: orderStats.general.totalSpent || 0,
-              averageOrderValue: orderStats.general.averageOrderValue || 0
-            },
-            withSeller: {
-              totalOrders: orderStats.withSeller.totalOrders || 0,
-              totalSpent: orderStats.withSeller.totalSpent || 0,
-              averageOrderValue: orderStats.withSeller.averageOrderValue || 0
-            }
+            totalOrders: data.orderStats?.totalOrders || 0,
+            totalSpent: data.orderStats?.totalSpent || 0,
+            averageOrderValue: data.orderStats?.averageOrderValue || 0,
+            firstOrderDate: data.orderStats?.firstOrderDate || null,
+            lastOrderDate: data.orderStats?.lastOrderDate || null,
+            orderFrequency: data.orderStats?.orderFrequency || '0 orders/month'
+          },
+          purchaseInsights: {
+            topCategories: data.purchaseInsights?.topCategories || [],
+            paymentMethods: data.purchaseInsights?.paymentMethods || [],
+            orderStatusDistribution: data.purchaseInsights?.orderStatusDistribution || {}
           },
           addresses: data.shippingAddresses || [],
-          activities: data.activityFeed || [],
           recentOrders: data.recentOrders || [],
           topPurchases: data.topPurchases || []
         })
@@ -223,11 +213,35 @@ function CustomerDetail() {
                   <span className="font-medium">Verified Customer</span>
                 </div>
               )}
+              {customerData.isIdentityVerified && (
+                <div className="flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs border border-green-200">
+                  <Icon icon="mdi:shield-check" width="12" height="12" />
+                  <span className="font-medium">ID Verified</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
               <span className="font-medium">Member since {customerData.customerSince}</span>
               <span className="hidden sm:block text-slate-300">•</span>
-              <span className="text-slate-500">Joined {customerData.joinedDate}</span>
+              <span className="text-slate-500">{customerData.accountAge}</span>
+              {/* {customerData.phoneNumber && (
+                <>
+                  <span className="hidden sm:block text-slate-300">•</span>
+                  <span className="text-slate-500">{customerData.phoneNumber}</span>
+                </>
+              )} */}
+              {customerData.country && (
+                <>
+                  <span className="hidden sm:block text-slate-300">•</span>
+                  <span className="text-slate-500">{customerData.country}</span>
+                </>
+              )}
+              {customerData.preferredCurrency && (
+                <>
+                  <span className="hidden sm:block text-slate-300">•</span>
+                  <span className="text-slate-500">Currency: {customerData.preferredCurrency}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="sm:flex gap-2">
@@ -274,7 +288,7 @@ function CustomerDetail() {
                   ₦{(customerData?.amountSpent?.total || 0).toLocaleString()}
                 </p>
                 <p className="text-xs text-white/70 mt-0.5">
-                  With you: ₦{(customerData?.amountSpent?.withSeller || 0).toLocaleString()}
+                  {customerData?.orderStats?.orderFrequency}
                 </p>
               </div>
             </div>
@@ -285,10 +299,16 @@ function CustomerDetail() {
               <div>
                 <p className="text-xs font-medium text-white/80">Total Orders</p>
                 <p className="text-lg font-bold mt-0.5">
-                  {customerData?.orderStats?.general?.totalOrders || 0}
+                  {customerData?.orderStats?.totalOrders || 0}
                 </p>
                 <p className="text-xs text-white/70 mt-0.5">
-                  With you: {customerData?.orderStats?.withSeller?.totalOrders || 0}
+                  First order: {customerData?.orderStats?.firstOrderDate ? 
+                    new Date(customerData.orderStats.firstOrderDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    }) : 'N/A'
+                  }
                 </p>
               </div>
             </div>
@@ -299,7 +319,7 @@ function CustomerDetail() {
               <div>
                 <p className="text-xs font-medium text-white/80">Average Order Value</p>
                 <p className="text-lg font-bold mt-0.5">
-                  ₦{Math.round(customerData?.orderStats?.withSeller?.averageOrderValue || 0).toLocaleString()}
+                  ₦{Math.round(customerData?.orderStats?.averageOrderValue || 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -310,8 +330,8 @@ function CustomerDetail() {
               <div>
                 <p className="text-xs font-medium text-white/80">Last Purchase</p>
                 <p className="text-lg font-bold mt-0.5">
-                  {customerData?.recentOrders?.[0]?.createdAt ? 
-                    new Date(customerData.recentOrders[0].createdAt).toLocaleDateString('en-US', {
+                  {customerData?.orderStats?.lastOrderDate ? 
+                    new Date(customerData.orderStats.lastOrderDate).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric'
@@ -339,7 +359,7 @@ function CustomerDetail() {
                           <span className="text-slate-600">Quantity: {purchase.quantity}</span>
                           <span className="text-emerald-600 font-medium">₦{purchase.totalSpent.toLocaleString()}</span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">Seller: {purchase.seller.name}</p>
+                        {/* <p className="text-xs text-slate-500 mt-1">Seller: {purchase.seller.name}</p> */}
                       </div>
                     </div>
                   ))}
@@ -374,6 +394,20 @@ function CustomerDetail() {
                               year: 'numeric'
                             })}
                           </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge className={`${
+                              order.paymentMethod === 'paystack' ? 'bg-green-100 text-green-800 border-green-200' :
+                              order.paymentMethod === 'cash' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                              'bg-blue-100 text-blue-800 border-blue-200'
+                            } capitalize`}>
+                              {order.paymentMethod}
+                            </Badge>
+                            {order.isCashOnDelivery && (
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                COD
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <p className="font-medium text-emerald-600">₦{order.totalAmount.toLocaleString()}</p>
                       </div>
@@ -387,10 +421,20 @@ function CustomerDetail() {
                                 className="w-12 h-12 object-cover rounded-md"
                               />
                             )}
-                            <div>
+                            <div className="flex-1">
                               <p className="text-sm font-medium text-slate-900">{item.product.name}</p>
                               <p className="text-xs text-slate-500">Qty: {item.quantity} × ₦{item.product.price.toLocaleString()}</p>
                             </div>
+                            <Badge className={`
+                              ${item.status === 'delivered' ? 'bg-green-100 text-green-800 border-green-200' : 
+                                item.status === 'shipped' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                item.status === 'pending' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                item.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-200' :
+                                'bg-slate-100 text-slate-800 border-slate-200'} 
+                              capitalize
+                            `}>
+                              {item.status || 'processing'}
+                            </Badge>
                           </div>
                         ))}
                       </div>
@@ -409,52 +453,99 @@ function CustomerDetail() {
                 <h2 className="text-lg font-inter font-semibold text-slate-900 mb-4">Detailed Statistics</h2>
                 <div className="space-y-4">
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <h3 className="text-sm font-medium text-slate-700 mb-3">General Statistics</h3>
+                    <h3 className="text-sm font-medium text-slate-700 mb-3">Order Statistics</h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Total Orders</span>
                         <span className="font-medium text-slate-900">
-                          {customerData?.orderStats?.general?.totalOrders || 0}
+                          {customerData?.orderStats?.totalOrders || 0}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Total Spent</span>
                         <span className="font-medium text-slate-900">
-                          ₦{(customerData?.orderStats?.general?.totalSpent || 0).toLocaleString()}
+                          ₦{(customerData?.orderStats?.totalSpent || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Average Order Value</span>
                         <span className="font-medium text-slate-900">
-                          ₦{Math.round(customerData?.orderStats?.general?.averageOrderValue || 0).toLocaleString()}
+                          ₦{Math.round(customerData?.orderStats?.averageOrderValue || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">First Order Date</span>
+                        <span className="font-medium text-slate-900">
+                          {customerData?.orderStats?.firstOrderDate ? 
+                            new Date(customerData.orderStats.firstOrderDate).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Last Order Date</span>
+                        <span className="font-medium text-slate-900">
+                          {customerData?.orderStats?.lastOrderDate ? 
+                            new Date(customerData.orderStats.lastOrderDate).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Order Frequency</span>
+                        <span className="font-medium text-slate-900">
+                          {customerData?.orderStats?.orderFrequency || '0 orders/month'}
                         </span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <h3 className="text-sm font-medium text-slate-700 mb-3">Orders with Your Store</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600">Total Orders</span>
-                        <span className="font-medium text-slate-900">
-                          {customerData?.orderStats?.withSeller?.totalOrders || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600">Total Spent</span>
-                        <span className="font-medium text-slate-900">
-                          ₦{(customerData?.orderStats?.withSeller?.totalSpent || 0).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600">Average Order Value</span>
-                        <span className="font-medium text-slate-900">
-                          ₦{Math.round(customerData?.orderStats?.withSeller?.averageOrderValue || 0).toLocaleString()}
-                        </span>
+                  {customerData?.purchaseInsights?.topCategories && 
+                   customerData.purchaseInsights.topCategories.length > 0 && (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <h3 className="text-sm font-medium text-slate-700 mb-3">Top Categories</h3>
+                      <div className="space-y-2">
+                        {customerData.purchaseInsights.topCategories.slice(0, 5).map((category, index) => (
+                          <div key={index} className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 capitalize">{category.category}</span>
+                            <span className="font-medium text-slate-900">
+                              ₦{(category.totalSpent || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {customerData?.purchaseInsights?.paymentMethods && 
+                   customerData.purchaseInsights.paymentMethods.length > 0 && (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <h3 className="text-sm font-medium text-slate-700 mb-3">Payment Methods</h3>
+                      <div className="space-y-2">
+                        {customerData.purchaseInsights.paymentMethods.map((payment, index) => (
+                          <div key={index} className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 capitalize">{payment.method}</span>
+                            <span className="font-medium text-slate-900">
+                              {payment.count} orders
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {customerData?.purchaseInsights?.orderStatusDistribution && 
+                   Object.keys(customerData.purchaseInsights.orderStatusDistribution).length > 0 && (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <h3 className="text-sm font-medium text-slate-700 mb-3">Order Status Distribution</h3>
+                      <div className="space-y-2">
+                        {Object.entries(customerData.purchaseInsights.orderStatusDistribution).map(([status, count], index) => (
+                          <div key={index} className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 capitalize">{status}</span>
+                            <span className="font-medium text-slate-900">
+                              {count} items
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -488,35 +579,57 @@ function CustomerDetail() {
             {/* Activity Feed - Enhanced */}
             <Card className="border border-slate-200">
               <div className="p-5">
-                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Activity Feed</h2>
+                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Customer Info</h2>
                 <div className="space-y-4">
-                  {customerData.activities.map((activity, index) => (
-                    <div key={index} className="flex gap-3">
-                      <div className="flex-shrink-0 w-14 text-xs text-slate-500">
-                        <p className="font-medium">
-                          {new Date(activity.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                        <p className="text-slate-400">
-                          {new Date(activity.createdAt).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                  {/* <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <h3 className="text-sm font-medium text-slate-700 mb-3">Contact Information</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Email</span>
+                        <span className="font-medium text-slate-900">{customerData.email}</span>
                       </div>
-                      <div className="flex-1 pb-4 border-l border-slate-200 pl-4 relative">
-                        <div className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full ${
-                          activity.type === 'follow' ? 'bg-blue-100 border-2 border-blue-500' :
-                          activity.type === 'order' ? 'bg-green-100 border-2 border-green-500' :
-                          'bg-indigo-100 border-2 border-indigo-500'
-                        }`}></div>
-                        <p className="text-sm font-medium text-slate-900">{activity.content}</p>
-                        <p className="mt-0.5 text-xs text-slate-500 capitalize">{activity.type}</p>
+                      {customerData.phoneNumber && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600">Phone</span>
+                          <span className="font-medium text-slate-900">{customerData.phoneNumber}</span>
+                        </div>
+                      )}
+                      {customerData.country && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600">Country</span>
+                          <span className="font-medium text-slate-900">{customerData.country}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div> */}
+                  
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <h3 className="text-sm font-medium text-slate-700 mb-3">Account Information</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Member Since</span>
+                        <span className="font-medium text-slate-900">{customerData.customerSince}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Account Age</span>
+                        <span className="font-medium text-slate-900">{customerData.accountAge}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Preferred Currency</span>
+                        <span className="font-medium text-slate-900">{customerData.preferredCurrency || 'Not set'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Preferred Language</span>
+                        <span className="font-medium text-slate-900 capitalize">{customerData.preferredLanguage || 'Not set'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">ID Verified</span>
+                        <span className={`font-medium ${customerData.isIdentityVerified ? 'text-green-600' : 'text-slate-600'}`}>
+                          {customerData.isIdentityVerified ? 'Yes' : 'No'}
+                        </span>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </Card>

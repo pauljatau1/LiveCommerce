@@ -72,8 +72,12 @@ const SignUpPage = () => {
     const sellerToken = localStorage.getItem('sellerToken');
     if (sellerToken) {
       const tokenData = JSON.parse(sellerToken);
+      const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
+      // Check if email is verified
+      const isEmailVerified = sellerData.emailVerified === true || sellerData.isVerified === true;
+      
       // Only redirect if token exists AND is verified (after OTP)
-      if (tokenData.isVerified === true) {
+      if (tokenData.isVerified === true && isEmailVerified) {
         navigate('/dashboard/home', { replace: true });
         return;
       }
@@ -84,8 +88,11 @@ const SignUpPage = () => {
       setIsModalOpen(true);
     } else if (otpStatus === "pending" && unverifiedUser) {
       setIsModalOpen(true);
+    } else if (unverifiedUser) {
+      // Also show modal if user was redirected back to signup because they're unverified
+      setIsModalOpen(true);
     }
-  }, [signUpSellerDetails, otpStatus, navigate]);
+  }, [signUpSellerDetails, otpStatus, navigate, unverifiedUser]);
 
   //function to submit the user data
   const submitUserData = async (event) => {
@@ -309,7 +316,7 @@ const SignUpPage = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <input
-                      type="text"
+                      type="email"
                       id="email"
                       name="email"
                       value={formData.email}
