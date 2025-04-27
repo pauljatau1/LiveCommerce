@@ -1823,6 +1823,11 @@ exports.rejectBusinessAccount = async (req, res) => {
     seller.hasFilledVerificationDocuments = false;
     seller.onboardingProcess = 'rejected';
     
+    // Set accountPending to false if it was true
+    if (seller.accountPending) {
+      seller.accountPending = false;
+    }
+    
     // Reset all onboarding progress flags
     seller.hasFilledAddress = false;
     seller.hasFilledWarehouseAddress = false;

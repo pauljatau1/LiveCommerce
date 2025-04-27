@@ -1239,19 +1239,28 @@ exports.getStatistics = async (req, res) => {
       }
     });
 
-    // Get total followers directly from seller.followers array
-    const totalCustomers = seller.followers.length;
+    // Find all unique buyers who have placed orders with this seller
+    const buyersWithOrders = await Order.distinct('buyer', { 'items.seller': seller._id });
+    
+    // Count only customers/followers who have at least one order
+    const totalCustomers = seller.followers.filter(follower => 
+      buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString())
+    ).length;
 
-    // Get current week's new followers
+    // Get current week's new followers who have orders
     const currentWeekCustomers = seller.followers.filter(follower => {
       const followDate = new Date(follower.followDate);
-      return followDate >= currentWeekStart && followDate <= currentDate;
+      return followDate >= currentWeekStart && 
+             followDate <= currentDate &&
+             buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString());
     }).length;
 
-    // Get last week's new followers
+    // Get last week's new followers who have orders
     const lastWeekCustomers = seller.followers.filter(follower => {
       const followDate = new Date(follower.followDate);
-      return followDate >= lastWeekStart && followDate < currentWeekStart;
+      return followDate >= lastWeekStart && 
+             followDate < currentWeekStart &&
+             buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString());
     }).length;
 
     // Calculate conversion rates
@@ -1687,8 +1696,11 @@ exports.getBuyerDetails = async (req, res) => {
     const { buyerId } = req.params;
     const sellerId = req.user.id;
 
-    // Get buyer information
-    const buyer = await Buyer.findById(buyerId);
+    // Get buyer information with relevant fields
+    const buyer = await Buyer.findById(buyerId).select(
+      'firstName lastName email phoneNumber country profileImage createdAt shippingAddresses isIdentityVerified preferredLanguage preferredCurrency'
+    );
+    
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -1698,12 +1710,8 @@ exports.getBuyerDetails = async (req, res) => {
       buyer: buyerId,
       seller: sellerId
     })
-    .populate('items.product', 'name images price')
+    .populate('items.product', 'name images price category')
     .sort({ createdAt: -1 });
-
-    // if (orders.length === 0) {
-    //   return res.status(403).json({ message: 'Buyer has not ordered from this seller' });
-    // }
 
     // Get recent 5 orders with details
     const recentOrders = await Order.find({
@@ -1716,21 +1724,36 @@ exports.getBuyerDetails = async (req, res) => {
 
     // Calculate order statistics
     const orderStats = {
-      general: {
-        totalOrders: orders.length,
-        totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-        averageOrderValue: orders.length > 0 
-          ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
-          : 0
-      },
-      withSeller: {
-        totalOrders: orders.length,
-        totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-        averageOrderValue: orders.length > 0 
-          ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
-          : 0
-      }
+      totalOrders: orders.length,
+      totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+      averageOrderValue: orders.length > 0 
+        ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+        : 0,
+      firstOrderDate: orders.length > 0 ? orders[orders.length - 1].createdAt : null,
+      lastOrderDate: orders.length > 0 ? orders[0].createdAt : null,
+      orderFrequency: orders.length > 0 
+        ? (orders.length / ((new Date() - new Date(orders[orders.length - 1].createdAt)) / (1000 * 60 * 60 * 24 * 30))).toFixed(2) + ' orders/month'
+        : '0 orders/month'
     };
+
+    // Get purchase categories distribution
+    const categoryPurchases = {};
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (!item.product || !item.product.category) return; // Skip if product or category is null
+        
+        const category = item.product.category;
+        if (!categoryPurchases[category]) {
+          categoryPurchases[category] = {
+            category,
+            quantity: 0,
+            totalSpent: 0
+          };
+        }
+        categoryPurchases[category].quantity += item.quantity;
+        categoryPurchases[category].totalSpent += item.price * item.quantity;
+      });
+    });
 
     // Get top purchases - Modified to handle null products
     const productPurchases = {};
@@ -1760,40 +1783,64 @@ exports.getBuyerDetails = async (req, res) => {
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5);
 
+    // Calculate payment methods distribution
+    const paymentMethods = {};
+    orders.forEach(order => {
+      const method = order.paymentInfo?.method || 'unknown';
+      if (!paymentMethods[method]) {
+        paymentMethods[method] = {
+          method,
+          count: 0,
+          totalAmount: 0
+        };
+      }
+      paymentMethods[method].count += 1;
+      paymentMethods[method].totalAmount += order.totalAmount;
+    });
+
+    // Get order status distribution
+    const orderStatusDistribution = {};
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        const status = item.status || 'unknown';
+        if (!orderStatusDistribution[status]) {
+          orderStatusDistribution[status] = 0;
+        }
+        orderStatusDistribution[status] += 1;
+      });
+    });
+
     const response = {
       buyerInfo: {
         firstName: buyer.firstName,
         lastName: buyer.lastName,
         email: buyer.email,
+        phoneNumber: buyer.phoneNumber,
+        country: buyer.country,
         joinDate: buyer.createdAt,
-        profileImageUrl: buyer.profileImage?.url || null
+        profileImageUrl: buyer.profileImage?.url || null,
+        isIdentityVerified: buyer.isIdentityVerified,
+        preferredLanguage: buyer.preferredLanguage,
+        preferredCurrency: buyer.preferredCurrency,
+        accountAge: `${Math.floor((new Date() - new Date(buyer.createdAt)) / (1000 * 60 * 60 * 24))} days`
       },
-      orderStats: {
-        general: {
-          totalOrders: orders.length,
-          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-          averageOrderValue: orders.length > 0 
-            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
-            : 0
-        },
-        withSeller: {
-          totalOrders: orders.length,
-          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-          averageOrderValue: orders.length > 0 
-            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
-            : 0
-        }
+      orderStats,
+      purchaseInsights: {
+        topCategories: Object.values(categoryPurchases)
+          .sort((a, b) => b.totalSpent - a.totalSpent),
+        paymentMethods: Object.values(paymentMethods),
+        orderStatusDistribution
       },
       shippingAddresses: buyer.shippingAddresses,
-      activityFeed: buyer.activityFeed,
       topPurchases,
       recentOrders: recentOrders.map(order => ({
         _id: order._id,
-
         orderNumber: order.order_id,
         totalAmount: order.totalAmount,
         status: order.status,
         createdAt: order.createdAt,
+        paymentMethod: order.paymentInfo?.method || 'unknown',
+        isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false,
         items: order.items.map(item => ({
           product: item.product ? {
             name: item.product.name,
@@ -1804,10 +1851,11 @@ exports.getBuyerDetails = async (req, res) => {
             images: [],
             price: item.price
           },
-          quantity: item.quantity
+          quantity: item.quantity,
+          status: item.status
         }))
       })),
-      hasOrderedFromSeller: true
+      hasOrderedFromSeller: orders.length > 0
     };
 
     res.json(response);

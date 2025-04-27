@@ -117,7 +117,14 @@ const getNotificationMessage = (type, data) => {
     case 'pickup_arranged':
       return `Pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${data.pickupDate ? new Date(data.pickupDate).toLocaleDateString() : 'the scheduled date'}.`;
     case 'new_follower':
-      return `${data.buyerName || 'Someone'} is now following your store.`;
+      // Check if this notification is for a buyer (they don't have stores)
+      if (data.sellerId) {
+        // This is a notification for a buyer being followed by a seller
+        return `${data.sellerName || 'A seller'} has started following you.`;
+      } else {
+        // This is a notification for a seller being followed by a buyer
+        return `${data.buyerName || 'Someone'} is now following your store.`;
+      }
     case 'low_stock':
       return `Your product "${data.productName}" is running low on stock (${data.currentStock} units remaining).`;
     case 'order_delivered':
