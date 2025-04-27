@@ -883,6 +883,15 @@ const Checkout = () => {
             amount={
               selectedDeliveryOpt == 0 ? deliveryFee! + cartTotal : cartTotal
             }
+            channels={[
+              "card",
+              "bank",
+              "ussd",
+              "qr",
+              "mobile_money",
+              "bank_transfer",
+              "apple_pay",
+            ]}
             billingEmail={user?.email}
             billingName={`${user?.firstName + " " + user?.lastName}`}
             onSuccess={onPaystackSuccess}

@@ -544,6 +544,15 @@ const Wallet = () => {
           refNumber={generateReference()}
           paystackKey={paystackKey?.publicKey}
           amount={amount}
+          channels={[
+            "card",
+            "bank",
+            "ussd",
+            "qr",
+            "mobile_money",
+            "bank_transfer",
+            "apple_pay",
+          ]}
           billingEmail={userInfo?.email}
           billingName={`${userInfo?.firstName + " " + userInfo?.lastName}`}
           onSuccess={onPaystackSuccess}

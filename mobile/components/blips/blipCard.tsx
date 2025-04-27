@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 const BlipCard = ({ item }: any) => {
   return (
     <Pressable
-      className=" bg-black rounded-[8px] w-[100%] h-[250px]"
+      className=" bg-black rounded-[8px] w-[100%] h-[270px]"
       onPress={() =>
         router.push({
           pathname: "/singleBlip/feed",
@@ -21,7 +21,7 @@ const BlipCard = ({ item }: any) => {
         style={{
           width: "100%",
           height: "100%",
-          borderRadius: 8,
+          borderRadius: 12,
         }}
         contentFit="cover"
       />

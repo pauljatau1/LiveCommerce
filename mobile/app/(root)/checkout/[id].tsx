@@ -482,6 +482,15 @@ const CheckoutSummary = () => {
           refNumber={generateReference()}
           paystackKey={paystackKey?.publicKey}
           amount={shippingFee! + subtotal}
+          channels={[
+            "card",
+            "bank",
+            "ussd",
+            "qr",
+            "mobile_money",
+            "bank_transfer",
+            "apple_pay",
+          ]}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}
           onSuccess={onPaystackSuccess}

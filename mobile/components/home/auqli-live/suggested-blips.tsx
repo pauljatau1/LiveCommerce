@@ -81,7 +81,7 @@ const SuggestedBlips = () => {
             renderItem={({ item }) => (
               <View
                 style={{
-                  width: (width - 32) / 2 - 6,
+                  width: (width - 32) / 2 - 24,
                 }}
               >
                 <BlipCard item={item} />
