@@ -69,36 +69,6 @@ const LivestreamStudio = () => {
     // Add the livstreamSocket context
     const livestreamSocket = useLivestreamSocket();
 
-    // Function to set the CSS viewport height property
-    // This fixes issues with mobile browser viewport height
-    const setViewportHeight = () => {
-        // First get the viewport height and multiply it by 1% to get a value for a vh unit
-        const vh = window.innerHeight * 0.01;
-        // Then set the value in the --vh custom property to the root of the document
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-    };
-    
-    // Initialize and update viewport height
-    useEffect(() => {
-        // Set initial viewport height
-        setViewportHeight();
-        
-        // Update on resize
-        window.addEventListener('resize', setViewportHeight);
-        
-        // Update on orientation change
-        window.addEventListener('orientationchange', () => {
-            // Small delay to ensure browser completes the orientation change
-            setTimeout(setViewportHeight, 100);
-        });
-        
-        // Cleanup
-        return () => {
-            window.removeEventListener('resize', setViewportHeight);
-            window.removeEventListener('orientationchange', setViewportHeight);
-        };
-    }, []);
-
     useEffect(() => {
         setHideSidebar(true);
         setFullScreenMode(true);
@@ -520,9 +490,9 @@ const LivestreamStudio = () => {
                         stereo: true,
                         bitrate: 128,
                     },
-                    AEC: true,
-                    ANS: true,
-                    AGC: true
+                        AEC: true,
+                        ANS: true,
+                        AGC: true
                 },
                 {
                     encoderConfig: {
@@ -547,10 +517,8 @@ const LivestreamStudio = () => {
             // Set camera facing mode state
             setCameraFacingMode("user");
             
-            // Set mirror mode based on camera type
-            if (videoTrack.setMirror) {
-                videoTrack.setMirror(true); // Mirror for front-facing camera
-            }
+           
+            
 
             // 8. Wait for DOM to be updated with video containers
             console.log('📷 [STREAM INIT] Waiting for video containers to be rendered in DOM');
@@ -573,12 +541,9 @@ const LivestreamStudio = () => {
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
-                        fit: 'cover',
-                        mirror: cameraFacingMode === "user" // Only mirror if front-facing camera
+                        fit: 'cover'
                     });
                     
-                    // Also set the transform style directly to handle mirroring consistently
-                    container.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
                     
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
@@ -956,7 +921,7 @@ const LivestreamStudio = () => {
 
             // 5. Notify backend about stream end
             console.log("📤 [STREAM END] Notifying backend about stream end");
-            await endLiveStream(_id);
+            await endLiveStream(_id, liveStreamDetails);
 
             // Reset all bidding states from the socket context
             if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
@@ -1372,7 +1337,6 @@ const LivestreamStudio = () => {
                         bitrateMin: 1500,
                         bitrateMax: 4000,
                         optimizationMode: 'motion',
-                        mirror: true
                     },
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
@@ -1402,11 +1366,9 @@ const LivestreamStudio = () => {
                     // This ensures it's ready when the container becomes visible
                     videoTrack.play(container, {
                         fit: 'cover',
-                        mirror: cameraFacingMode === "user" // Only mirror if front-facing camera
                     });
                     
-                    // Also set the transform style directly to handle mirroring consistently
-                    container.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
+                   
                     
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
@@ -1687,187 +1649,205 @@ const LivestreamStudio = () => {
         };
     }, []);
 
-    // Function to switch between front and back cameras
-    const switchCamera = async () => {
-        if (!isStreaming || localTracks.length === 0) {
-            console.log("Cannot switch camera: not streaming or no local tracks");
-            return;
+    // Add a helper function to identify front and rear cameras by label
+    const identifyCamerasByLabel = (cameras) => {
+        // Identify by common naming patterns in camera labels
+        let frontCamera = cameras.find(d => 
+            d.label.toLowerCase().includes("front") || 
+            d.label.toLowerCase().includes("user") ||
+            d.label.toLowerCase().includes("selfie") ||
+            // Most mobile devices name facing cameras with numbers - 1 is typically front
+            (d.label.includes("camera") && d.label.includes("1"))
+        );
+        
+        let rearCamera = cameras.find(d => 
+            d.label.toLowerCase().includes("back") || 
+            d.label.toLowerCase().includes("rear") || 
+            d.label.toLowerCase().includes("environment") ||
+            // Most mobile devices name facing cameras with numbers - 0 is typically back
+            (d.label.includes("camera") && d.label.includes("0"))
+        );
+        
+        // If label-based detection fails, use index-based fallback
+        // (common convention is first camera is back, second is front)
+        if (!frontCamera && !rearCamera && cameras.length >= 2) {
+            // Try to infer based on device ordering
+            rearCamera = cameras[0]; // First camera is usually back
+            frontCamera = cameras[1]; // Second camera is usually front
+        } else if (!frontCamera && cameras.length >= 1) {
+            // If we only found rear camera, the other one must be front
+            frontCamera = cameras.find(cam => cam !== rearCamera);
+        } else if (!rearCamera && cameras.length >= 1) {
+            // If we only found front camera, the other one must be rear
+            rearCamera = cameras.find(cam => cam !== frontCamera);
         }
+        
+        return { frontCamera, rearCamera };
+    };
 
+    // Function to switch between front and back cameras
+
+    const switchCamera = async () => {
         try {
-            // Find the video track
-            const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
-            if (!videoTrack) {
-                console.error("No video track found to switch");
+            console.log("Starting camera switch process");
+            
+            // Get available cameras
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(device => device.kind === 'videoinput');
+            
+            if (cameras.length < 2) {
+                console.warn("Cannot switch camera - only one camera available");
+                toast.error("Camera switching failed - only one camera available");
                 return;
             }
-
-            // Switch facing mode
-            const newFacingMode = cameraFacingMode === "user" ? "environment" : "user";
-            console.log(`Switching camera from ${cameraFacingMode} to ${newFacingMode}`);
-
-            // Show a loading toast to indicate camera is switching
-            const loadingToast = toast.loading('Switching camera...', {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
-
-            // Try Agora's recommended approach first
-            try {
-                // Get available devices first to ensure permissions
-                const devices = await AgoraRTC.getCameras();
-                if (devices.length < 2) {
-                    toast.dismiss(loadingToast);
-                    toast.error("Only one camera detected", {
-                        style: {
-                            background: '#161A1E',
-                            color: '#fff',
-                        }
-                    });
-                    return;
-                }
-                
-                // Find the appropriate device based on facing mode
-                // On mobile, devices[0] is typically front camera, devices[1] is back camera
-                const targetDevice = newFacingMode === "user" ? devices[0].deviceId : devices[1].deviceId;
-                
-                await videoTrack.setDevice(targetDevice);
-                
-                // Update mirroring based on camera type (only mirror front camera)
-                if (videoTrack.setMirror) {
-                    videoTrack.setMirror(newFacingMode === "user");
-                }
-                
-                // Also update the CSS transform in video containers
-                const mobileContainer = document.getElementById('mobile-video-container');
-                if (mobileContainer) {
-                    mobileContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
-                }
-                
-                const desktopContainer = document.getElementById('desktop-video-container');
-                if (desktopContainer) {
-                    // Desktop view should match mobile view for consistency
-                    desktopContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none"; 
-                }
-                
-                // Update state
-                setCameraFacingMode(newFacingMode);
-                
-                toast.dismiss(loadingToast);
-                toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
-                    style: {
-                        background: '#161A1E',
-                        color: '#fff',
+            
+            // Find current camera index
+            let currentCameraIndex = 0;
+            const activeTrack = localTracks.find(track => track.trackType === 'video')?.track;
+            
+            if (activeTrack) {
+                const activeSettings = activeTrack.getMediaStreamTrack().getSettings();
+                currentCameraIndex = cameras.findIndex(c => c.deviceId === activeSettings.deviceId);
+                if (currentCameraIndex < 0) currentCameraIndex = 0;
+            }
+            
+            // Get next camera
+            const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
+            const targetCamera = cameras[nextCameraIndex];
+            
+            // Determine if rear or front camera
+            let calculatedFacingMode = "user";
+            if (targetCamera.label.toLowerCase().includes("back") || 
+                targetCamera.label.toLowerCase().includes("rear")) {
+                calculatedFacingMode = "environment";
+            }
+            
+            console.log(`Switching to camera: ${targetCamera.label} (${calculatedFacingMode})`);
+            
+            // Stop all existing tracks
+            for (const track of localTracks) {
+                if (track?.track) {
+                    try {
+                        await client.unpublish(track.track).catch(e => console.warn("Error unpublishing:", e));
+                        await track.track.stop().catch(e => console.warn("Error stopping track:", e));
+                        await track.track.close().catch(e => console.warn("Error closing track:", e));
+                    } catch (err) {
+                        console.warn("Error cleaning up track:", err);
                     }
-                });
-                return;
-            } catch (deviceSwitchError) {
-                console.error("Failed to switch using setDevice:", deviceSwitchError);
-                // Continue to fallback method
+                }
             }
-
-            // Fallback: recreate the track with different constraints
-            console.log("Falling back to track recreation approach for camera switching");
             
-            // Step 1: Unpublish current video track to free up camera resources
-            await client.unpublish(videoTrack);
+            // Wait for resources to be released
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Step 2: Close and dispose of current track to fully release camera
-            videoTrack.stop();
-            videoTrack.close();
+            // Access new camera with retry
+            let mediaStream = null;
+            let attempts = 3;
             
-            // Step 3: Wait for the camera to be fully released
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            while (attempts > 0 && !mediaStream) {
+                try {
+                    // Try different constraints
+                    if (attempts === 3) {
+                        // First try facingMode
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: calculatedFacingMode },
+                            audio: false
+                        }).catch(() => null);
+                    }
+                    
+                    if (!mediaStream && attempts === 2) {
+                        // Then try deviceId
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            video: { deviceId: { exact: targetCamera.deviceId } },
+                            audio: false
+                        }).catch(() => null);
+                    }
+                    
+                    if (!mediaStream && attempts === 1) {
+                        // Last resort - generic video
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                            audio: false
+                        }).catch(() => null);
+                    }
+                } catch (err) {
+                    console.warn(`Camera access attempt ${attempts} failed:`, err);
+                }
+                
+                attempts--;
+                if (!mediaStream && attempts > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
             
-            // Step 4: Create new track with different facing mode
-            const newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+            if (!mediaStream) {
+                throw new Error("Failed to access camera after multiple attempts");
+            }
+            
+            console.log("Camera access successful!");
+            
+            // Create new track
+            const cameraTrack = await AgoraRTC.createCameraVideoTrack({
+                mediaStreamTrack: mediaStream.getVideoTracks()[0],
                 encoderConfig: {
-                    width: { ideal: 1280, min: 640 },
-                    height: { ideal: 720, min: 480 },
+                    width: 640,
+                    height: 360,
                     frameRate: 30,
-                    bitrateMin: 1000,
-                    bitrateMax: 2500,
-                    optimizationMode: 'motion',
-                },
-                facingMode: newFacingMode,
-                cameraId: newFacingMode === "user" ? "front" : "rear" // Help mobile devices select correct camera
-            });
-            
-            // Step 5: Set mirror mode based on camera type via Agora's API
-            if (newVideoTrack.setMirror) {
-                newVideoTrack.setMirror(newFacingMode === "user"); // Only mirror if front-facing
-            }
-            
-            // Step 6: Update container CSS directly
-            const mobileContainer = document.getElementById('mobile-video-container');
-            if (mobileContainer) {
-                mobileContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
-            }
-            
-            const desktopContainer = document.getElementById('desktop-video-container');
-            if (desktopContainer) {
-                desktopContainer.style.transform = newFacingMode === "user" ? "scaleX(-1)" : "none";
-            }
-            
-            // Step 7: Update local tracks array
-            const updatedTracks = localTracks.map(track =>
-                track.trackMediaType === 'video' ? newVideoTrack : track
-            );
-            setLocalTracks(updatedTracks);
-            
-            // Step 8: Play in containers
-            try {
-                if (document.getElementById('desktop-video-container')) {
-                    newVideoTrack.play('desktop-video-container');
-                }
-            } catch (desktopPlayError) {
-                console.error("Error playing in desktop container:", desktopPlayError);
-            }
-            
-            try {
-                if (document.getElementById('mobile-video-container')) {
-                    newVideoTrack.play('mobile-video-container');
-                }
-            } catch (mobilePlayError) {
-                console.error("Error playing in mobile container:", mobilePlayError);
-            }
-            
-            // Step 9: Publish the new track
-            await client.publish(newVideoTrack);
-            
-            // Step 10: Update state
-            setCameraFacingMode(newFacingMode);
-            
-            toast.dismiss(loadingToast);
-            toast.success(`Switched to ${newFacingMode === "user" ? "front" : "back"} camera`, {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
+                    bitrateMin: 400,
+                    bitrateMax: 1000,
                 }
             });
+            
+            // Publish the track
+            if (client && channelName) {
+                await client.publish(cameraTrack);
+            }
+            
+            // Update local tracks state
+            setLocalTracks(prevTracks => {
+                const newTracks = [...prevTracks];
+                const videoTrackIndex = newTracks.findIndex(track => track.trackType === 'video');
+                if (videoTrackIndex >= 0) {
+                    newTracks[videoTrackIndex] = {
+                        ...newTracks[videoTrackIndex],
+                        track: cameraTrack,
+                        trackName: `track-cam-${Math.random().toString(16).slice(2, 10)}`,
+                        sourceType: `camera-${calculatedFacingMode}`,
+                    };
+                }
+                return newTracks;
+            });
+            
+            // Update camera facing mode
+            setCameraFacingMode(calculatedFacingMode);
+            
+            // Play video in container
+            setTimeout(() => {
+                const videoContainer = document.getElementById('mobile-video-container');
+                if (videoContainer && cameraTrack) {
+                    cameraTrack.play('mobile-video-container');
+                }
+            }, 500);
+            
+            toast.success("Camera switched successfully");
+            
         } catch (error) {
-            console.error("Error switching camera:", error);
-            toast.error(`Failed to switch camera: ${error.message}`, {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
-            
-            // Provide clearer error message for users
-            if (error.name === "NotReadableError" || error.name === "NotAllowedError") {
-                toast.error("Camera is being used by another application. Please close other camera apps and try again.", {
-                    style: {
-                        background: '#161A1E',
-                        color: '#fff',
-                    },
-                    duration: 5000
-                });
-            }
+            console.error("Fatal error in camera switching:", error);
+            toast.error("Camera switching failed. Please try again.");
         }
     };
+    
+    // Add code to load camera state from localStorage in initializeStream
+    useEffect(() => {
+        // Load camera facing mode from localStorage when livestream ID is available
+        if (id) {
+            const savedCameraMode = localStorage.getItem(`camera_facing_mode_${id}`);
+            if (savedCameraMode) {
+                setCameraFacingMode(savedCameraMode);
+                console.log(`Loaded camera facing mode from storage: ${savedCameraMode}`);
+            }
+        }
+    }, [id]);
 
     // Function to toggle microphone
     const toggleMicrophone = async () => {

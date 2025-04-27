@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import VerificationModal from "../../Components/VerificationModal";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { Icon } from "@iconify/react";
+import mixpanel from "mixpanel-browser";
 
 export default function AccountPage() {
   const { setHeaderName, setNavName } = useOutletContext();
@@ -341,14 +342,39 @@ export default function AccountPage() {
       {/* Verification Modal */}
       <VerificationModal 
         isOpen={verificationModalOpen} 
-        onClose={() => setVerificationModalOpen(false)} 
+        onClose={() => {
+          setVerificationModalOpen(false);
+          mixpanel.track("Seller Skipped Onboarding Verification", {
+            "seller id": profile._id,
+            "seller email": profile.email,
+            "seller store name": profile.storeName,
+            "seller first name": profile.firstName,
+            "seller last name": profile.lastName,
+            "seller phone number": profile.phoneNumber,
+            "Signup Date": profile.createdAt,
+            "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+          });
+        }}
       />
       
       {/* Verification Dialog */}
       {profile && (
         <VerificationDialog
           isOpen={verificationDialogOpen}
-          onClose={() => setVerificationDialogOpen(false)}
+          onClose={() => {
+            setVerificationDialogOpen(false);
+            mixpanel.track("Seller Skipped Onboarding Verification", {
+              "seller id": profile._id,
+              "seller email": profile.email,
+              "seller store name": profile.storeName,
+              "seller first name": profile.firstName,
+              "seller last name": profile.lastName,  
+              "seller phone number": profile.phoneNumber,
+              "Signup Date": profile.createdAt,
+              "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+            });
+
+          }}
           isPending={profile.accountPending}
         />
       )}

@@ -244,7 +244,12 @@ function AuthProvider({ children }) {
                 // Track signup event
                 try {
                     mixpanel.identify(response.data.user._id);
-                    mixpanel.track("User Signed Up", {
+                    mixpanel.track("Seller Signed Up", {
+                        "Seller ID": response.data.user._id,
+                        "Seller Email": email,
+                        "Seller Full Name": `${firstName} ${lastName}`,
+                        "Seller Phone Number": phoneNumber,
+                        "Seller Store Name": storeName,
                         "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
                         "Referral Used": response.data.referralUsed ? "Yes" : "No",
                         "Referrer ID": response.data.referrerId || "None",
@@ -506,10 +511,23 @@ function AuthProvider({ children }) {
                 }
 
                 // Track login event with device context and IP
-                mixpanel.track("Login", {
+                mixpanel.track("Seller Login", {
+                    "$email": response.data.user?.email,
+                    "seller id": response.data.user?._id,
+                    "seller full name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
+                    "Store Name": response.data.user?.storeName,
+                    "User Type": "Seller",
+                    "Seller Account Type": response.data.user?.accountType,
+                    "Signup Date": new Date(response.data.user?.createdAt).toISOString().split('T')[0],
                     "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
-                    "Device Type": getDeviceType(),
+                    "Primary Payment Account Number": response.data.user?.bankDetails?.accountNumber || "None",
+                    "Primary Payment Account Name": response.data.user?.bankDetails?.accountName || "None",
+                    "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                    "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
+                    "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
+                    "Total Wallet Balance": `₦${response.data.user?.walletBalance.toLocaleString('en-NG')}`,
                     "IP Address": clientIP,
+                    "Device Type": getDeviceType(),
                     "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                 });
 
@@ -662,20 +680,16 @@ function AuthProvider({ children }) {
                     response.data.isProfileComplete
                 );
 
-                mixpanel.track("Profile Completed", {
-                    "Completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
-                    "User Type": "Seller"
+                mixpanel.track("Seller Profile Completed", {
+                    "seller id": response.data._id,
+                    "seller email": response.data.email,
+                    "seller store name": response.data.storeName,
+                    "seller first name": response.data.firstName,
+                    "seller last name": response.data.lastName,
+                    "seller phone number": response.data.phoneNumber,
+                    "seller profile completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
+                    "user type": "Seller"
                 });
-
-                if (!response.data.isVerified) {
-                    mixpanel.track("Onboarding Completed", {
-                        "Time to Complete Onboarding": formatOnboardingTime(
-                            Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60)
-                        ),
-                        "Total Minutes": Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60),
-                        "Current Onboarding Step": response.data.onboardingProcess
-                    });
-                }
             }
         } catch (error) {
             console.log(error);

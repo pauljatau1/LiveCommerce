@@ -244,7 +244,7 @@ const PreStreamMobileUi = ({
 
                     {deviceError ? (
                         <div className="text-red-500 mb-3 text-center w-full">
-                            <p>{deviceError}</p>
+                            <p className="text-sm text-left ">{deviceError}</p>
                             <button
                                 onClick={() => window.location.reload()}
                                 className="mt-2 bg-red-600 text-white w-full py-3 rounded-lg"

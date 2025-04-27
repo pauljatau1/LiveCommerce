@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { BASE_URL } from '../Constants/Server';
+import mixpanel from 'mixpanel-browser';
 
 /**
  * Service for handling all verification-related API calls
@@ -13,6 +14,7 @@ export const VerificationService = {
   selectAccountType: async (accountType) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -22,6 +24,23 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+
+      console.log('response', response);
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 1: Account Type Selected", {
+          "Account Type": accountType,
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
+      
       
       return response.data;
     } catch (error) {
@@ -38,6 +57,7 @@ export const VerificationService = {
   updateIndividualInformation: async (individualInfo) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -47,6 +67,25 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 2: Individual Information Updated", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Country": individualInfo.country,
+          "State": individualInfo.state,
+          "City": individualInfo.city,
+          "Address Line 1": individualInfo.addressLine1,
+          "Address Line 2": individualInfo.addressLine2,
+          "Zip Code": individualInfo.zipCode,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -63,6 +102,7 @@ export const VerificationService = {
   uploadIndividualVerification: async (documents) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const formData = new FormData();
@@ -89,6 +129,22 @@ export const VerificationService = {
           }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 3: Individual Verification Documents Uploaded", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Individual Tax ID": documents.individualTaxId ? "Uploaded" : "Not Uploaded",
+          "Government ID": documents.governmentId ? "Uploaded" : "Not Uploaded",
+          "Proof of Address": documents.proofOfAddress ? "Uploaded" : "Not Uploaded",
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -105,6 +161,7 @@ export const VerificationService = {
   addBusinessDetails: async (businessDetails) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));  
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -114,8 +171,23 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 4: Business Details Added", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Business Name": businessDetails.businessName,
+          "Business Type": businessDetails.businessType,
+          "Tax Information": businessDetails.taxInformation,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
-      return response.data;
     } catch (error) {
       console.error('Error adding business details:', error);
       throw error;
@@ -130,6 +202,7 @@ export const VerificationService = {
   addBusinessInformation: async (businessInfo) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -139,6 +212,25 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 5: Business Information Added", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Business Number": businessInfo.businessNumber,
+          "Business Email": businessInfo.businessEmail,
+          "Business Country": businessInfo.businessAddress.country,
+          "Business State": businessInfo.businessAddress.state,
+          "Business City": businessInfo.businessAddress.city,
+          "Business Address": businessInfo.businessAddress.addressLine1,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -155,6 +247,7 @@ export const VerificationService = {
   uploadCompanyVerification: async (documents) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const formData = new FormData();
@@ -177,6 +270,21 @@ export const VerificationService = {
           }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 6: Company Verification Documents Uploaded", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
+          "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -224,6 +332,7 @@ export const VerificationService = {
   selectCategories: async (categories) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
@@ -234,6 +343,19 @@ export const VerificationService = {
         }
       );
       
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 7: Categories Selected", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Categories": categories.map(cat => cat.name).join(', '),
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       return response.data;
     } catch (error) {
       console.error('Error selecting categories:', error);
@@ -249,6 +371,7 @@ export const VerificationService = {
   addBankDetails: async (bankDetails) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -258,6 +381,27 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+      
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 8: Bank Details Added", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Bank Country": bankDetails.bankCountry,
+          "Bank Name": bankDetails.bankName,
+          "Account Type": bankDetails.accountType,
+          "Account Currency": bankDetails.accountCurrency,
+          "Account Number": bankDetails.accountNumber,
+          "Account Name": bankDetails.accountName,
+          "SWIFT Code": bankDetails.swiftCode,
+          "Bank Identifier Code": bankDetails.bankIdentifierCode,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -274,6 +418,7 @@ export const VerificationService = {
   uploadStoreAvatar: async (avatarFile) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const formData = new FormData();
@@ -290,6 +435,20 @@ export const VerificationService = {
         }
       );
       
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 9: Store Avatar Uploaded", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Avatar": avatarFile ? "Uploaded" : "Not Uploaded",
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error uploading store avatar:', error);
@@ -305,6 +464,7 @@ export const VerificationService = {
   uploadStoreBanner: async (bannerFile) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const formData = new FormData();
@@ -321,6 +481,19 @@ export const VerificationService = {
         }
       );
       
+      if (response.status === 200) {
+        mixpanel.track("seller onboarding step 10: Store Banner Uploaded", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Banner": bannerFile ? "Uploaded" : "Not Uploaded",
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       return response.data;
     } catch (error) {
       console.error('Error uploading store banner:', error);
@@ -336,8 +509,9 @@ export const VerificationService = {
   updateStoreProfile: async (storeProfile) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
-      
+
       const response = await axios.put(
         `${BASE_URL}/seller/store-profile`,
         storeProfile,
@@ -345,6 +519,21 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+
+      if (response.status === 200) {
+        mixpanel.track("Seller Final Onboarding Step: Store Profile Updated", {
+          "Seller ID": sellerData._id,
+          "Seller Email": sellerData.email,
+          "Seller Store Name": sellerData.storeName,
+          "Seller First Name": sellerData.firstName,
+          "Seller Last Name": sellerData.lastName,
+          "Seller Phone Number": sellerData.phoneNumber,
+          "New Store Name": storeProfile.storeName,
+          "New Store Bio": storeProfile.storeBio,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
@@ -361,6 +550,7 @@ export const VerificationService = {
   updateAccountPendingStatus: async (status = true) => {
     try {
       const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -370,6 +560,20 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
+      
+      if (response.status === 200) {
+        mixpanel.track("Seller onboarding step 12: Account Pending Status Updated", {
+          "Seller ID": sellerData._id,
+          "Seller Email": sellerData.email,
+          "Seller Store Name": sellerData.storeName,
+          "Seller First Name": sellerData.firstName,
+          "Seller Last Name": sellerData.lastName,
+          "Seller Phone Number": sellerData.phoneNumber,
+          "Pending Status": status ? "Pending" : "Not Pending",
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
       
       return response.data;
     } catch (error) {
