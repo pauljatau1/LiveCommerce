@@ -241,12 +241,11 @@ function AuthProvider({ children }) {
                 try {
                     mixpanel.identify(response.data.user._id);
                     mixpanel.track("Seller Signed Up", {
-                        "seller id": response.data.user._id,
-                        "Email": response.data.user.email,
-                        "seller full name": `${response.data.user.firstName} ${response.data.user.lastName}`,
-                        "Phone Number": response.data.user.phoneNumber,
-                        "Store Name": response.data.user.storeName,
-                        "userId": response.data.user._id,
+                        "Seller ID": response.data.user._id,
+                        "Seller Email": email,
+                        "Seller Full Name": `${firstName} ${lastName}`,
+                        "Seller Phone Number": phoneNumber,
+                        "Seller Store Name": storeName,
                         "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
                         "Referral Used": response.data.referralUsed ? "Yes" : "No",
                         "Referrer ID": response.data.referrerId || "None",
