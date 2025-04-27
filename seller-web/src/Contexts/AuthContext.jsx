@@ -30,7 +30,8 @@ function AuthProvider({ children }) {
         blockedUser: false,
         isForgotPasswordRequestSuccessful: false,
         passwordResetSuccessful: false,
-        isDataReady: false
+        isDataReady: false,
+        emailVerified: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -44,7 +45,7 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     token: action.payload,
-                    isAuthenticated: true
+                    isAuthenticated: action.payload.isVerified === true // Only authenticate if verified
                 }
             case "SET_MESSAGE":
                 return {
@@ -69,6 +70,8 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     otpStatus: "verified",
+                    emailVerified: true,
+                    isAuthenticated: true
                 }
             case "VERIFY_OTP_FAILED":
                 return {
@@ -99,9 +102,10 @@ function AuthProvider({ children }) {
             case "LOGIN_SUCCESS":
                 return {
                     ...state,
-                    isAuthenticated: true,
+                    isAuthenticated: action.payload.seller.isVerified === true && (action.payload.seller.emailVerified === true || action.payload.seller.isVerified === true),
                     seller: action.payload.seller,
                     token: action.payload.token,
+                    emailVerified: action.payload.seller.emailVerified === true || action.payload.seller.isVerified === true,
                     message: "Login successful"
                 }
             case "LOGIN_FAILED":
@@ -215,7 +219,7 @@ function AuthProvider({ children }) {
 
             if (response.status === 201) {
                 console.log(response);
-                // Store token but don't set isVerified to true yet
+                // Store token but explicitly set isVerified to false
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
                     isVerified: false // OTP verification still needed
@@ -225,7 +229,7 @@ function AuthProvider({ children }) {
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
                 
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
-                // Don't set isVerified to true yet
+                // Don't set isAuthenticated to true yet - important change
                 
                 toast.success(response.data.message, {
                     style: {
@@ -354,7 +358,7 @@ function AuthProvider({ children }) {
                 console.log(`otp verification response:`, response.data);
                 dispatch({ type: 'VERIFY_OTP_SUCCESS' });
                 
-                // Set the user as authenticated and prepare for dashboard access
+                // Only after successful verification, set the user as authenticated
                 if (response.data.token) {
                     // Set isVerified to true in localStorage
                     localStorage.setItem('sellerToken', JSON.stringify({
@@ -366,11 +370,12 @@ function AuthProvider({ children }) {
                         // Update the user in localStorage with verified status
                         const userData = response.data.user;
                         userData.isVerified = true; // Ensure verification status is set
+                        userData.emailVerified = true; // Add emailVerified flag
                         localStorage.setItem('seller', JSON.stringify(userData));
                         dispatch({ type: 'STORE_SELLER', payload: userData });
                     }
                     
-                    // Set authenticated state
+                    // Now set authenticated state after verification
                     dispatch({ type: 'SET_TOKEN', payload: { 
                         data: response.data.token,
                         isVerified: true 
@@ -442,12 +447,21 @@ function AuthProvider({ children }) {
             });
             dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
+                // Check if email is verified before setting authenticated state
+                const isEmailVerified = response.data.user.emailVerified === true || response.data.user.isVerified === true;
+                
                 dispatch({ type: 'STORE_SELLER', payload: response.data.user });
-                dispatch({ type: 'STORE_TOKEN', payload: { data: response.data.token, isVerified: response.data.user.isVerified } });
+                
+                // Set token but respect verification status
+                dispatch({ type: 'STORE_TOKEN', payload: { 
+                    data: response.data.token, 
+                    isVerified: response.data.user.isVerified && isEmailVerified 
+                }});
+                
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
-                    isVerified: response.data.user.isVerified
+                    isVerified: response.data.user.isVerified && isEmailVerified
                 }));
 
                 // Mixpanel User Identification
@@ -506,9 +520,24 @@ function AuthProvider({ children }) {
                         border: '1px solid #05031F',
                     }
                 });
-                navigate('/dashboard/home', { replace: true });
-                dispatch({ type: 'SET_DATA_READY', payload: true });
-                window.dispatchEvent(new Event('appLoginComplete'));
+                
+                // Only navigate to dashboard if email is verified
+                if (isEmailVerified) {
+                    navigate('/dashboard/home', { replace: true });
+                    dispatch({ type: 'SET_DATA_READY', payload: true });
+                    window.dispatchEvent(new Event('appLoginComplete'));
+                } else {
+                    // If email not verified, send to signup page for OTP verification
+                    dispatch({ type: 'UNVERIFIED_SELLER', payload: response.data.user });
+                    navigate('/signup', { replace: true });
+                    toast.error('Email verification required', {
+                        description: 'Please verify your email before accessing the dashboard',
+                        style: {
+                            background: '#425466',
+                            color: '#F7FAFC',
+                        }
+                    });
+                }
             }
         } catch (error) {
             console.log(error);
@@ -601,13 +630,31 @@ function AuthProvider({ children }) {
                 }
             });
             if (response.status === 200) {
+                // Explicitly check emailVerified status from response
+                const isEmailVerified = response.data.emailVerified === true || response.data.isVerified === true;
+                
                 dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data });
                 console.log("seller details:", response.data);
+                
+                // Save token with proper verification status
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
-                    isVerified: response.data.isVerified
+                    isVerified: isEmailVerified && response.data.isVerified
                 }));
-                localStorage.setItem('seller', JSON.stringify(response.data));
+                
+                // Include emailVerified status in user data
+                const userData = {
+                    ...response.data,
+                    emailVerified: isEmailVerified
+                };
+                
+                localStorage.setItem('seller', JSON.stringify(userData));
+                
+                // If email is not verified, trigger the unverified user state
+                if (!isEmailVerified) {
+                    dispatch({ type: 'UNVERIFIED_SELLER', payload: userData });
+                }
+                
                 const profileComplete = Boolean(
                     response.data.storeName &&
                     response.data.businessAddress &&

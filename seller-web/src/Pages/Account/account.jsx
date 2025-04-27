@@ -48,10 +48,21 @@ export default function AccountPage() {
   useEffect(() => {
     setHeaderName("Account");
     
-    // Check if the URL has the openVerification parameter
+    // Check if the URL has parameters
     const queryParams = new URLSearchParams(window.location.search);
+    
+    // Check for verification parameter
     if (queryParams.get('openVerification') === 'true') {
       setVerificationModalOpen(true);
+      // Remove the query parameter from the URL without refreshing
+      navigate('/dashboard/account', { replace: true });
+    }
+    
+    // Check for followers parameter
+    if (queryParams.get('openFollowers') === 'true') {
+      // Open followers dialog and fetch followers
+      setFollowersDialogOpen(true);
+      fetchFollowers();
       // Remove the query parameter from the URL without refreshing
       navigate('/dashboard/account', { replace: true });
     }

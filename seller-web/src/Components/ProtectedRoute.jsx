@@ -8,7 +8,7 @@ import axios from 'axios';
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchSellerDetails, seller: contextSeller, token } = useAuthContext();
+  const { fetchSellerDetails, seller: contextSeller, token, dispatch } = useAuthContext();
 
   console.log('Protected route activated')
   console.log('contextSeller', contextSeller)
@@ -42,8 +42,33 @@ const ProtectedRoute = ({ children }) => {
     const isLoginRoute = location.pathname.startsWith('/login');
     const isOnboardingRoute = location.pathname.startsWith('/onboarding');
 
+    // Check if email is verified (either explicit flag or implied via isVerified)
+    const isEmailVerified = sellerData?.emailVerified === true || sellerData?.isVerified === true;
+
+    // If email is not verified and we're not on signup page, redirect to signup for OTP verification
+    if (tokenData?.data && sellerData && !isEmailVerified && !isSignUpRoute) {
+      console.log('Email not verified, redirecting to signup for OTP verification');
+      
+      // Save email to help identify the unverified user
+      if (sellerData?.email) {
+        dispatch({ type: 'UNVERIFIED_SELLER', payload: sellerData });
+      }
+      
+      navigate('/signup', { replace: true });
+      
+      toast.error('Email verification required', {
+        description: 'Please verify your email to continue',
+        style: {
+          background: '#425466',
+          color: '#F7FAFC',
+        }
+      });
+      
+      return;
+    }
+
     // Quick check for token and verified status before proceeding with API call
-    if (tokenData?.isVerified === true && !isDashboardRoute && !isOnboardingRoute) {
+    if (tokenData?.isVerified === true && isEmailVerified && !isDashboardRoute && !isOnboardingRoute) {
       console.log('User is verified, redirecting to dashboard');
       navigate('/dashboard/home', { replace: true });
       return;
@@ -62,21 +87,27 @@ const ProtectedRoute = ({ children }) => {
           console.log('token validity response', response)
           console.log('validity', response)
           if (response.status === 200) {
+            // Don't allow dashboard access for unverified email
+            if (isDashboardRoute && !isEmailVerified) {
+              navigate('/signup', { replace: true });
+              return;
+            }
+            
             // Skip onboarding check for verified users and allow accessing dashboard
-            if (isDashboardRoute) {
+            if (isDashboardRoute && isEmailVerified) {
               // Let them access the dashboard without redirecting
               return;
             }
             
-            // If on signup/login page and token is valid, redirect to dashboard
-            if ((isSignUpRoute || isLoginRoute) && tokenData?.isVerified === true) {
+            // If on signup/login page and token is valid & email verified, redirect to dashboard
+            if ((isSignUpRoute || isLoginRoute) && isEmailVerified && tokenData?.isVerified === true) {
               navigate('/dashboard/home', { replace: true });
               return;
             }
             
             // Below checks only for non-dashboard routes
             if (tokenData?.isVerified === false && !isDashboardRoute) {
-              if (sellerData?.onboardingProcess) {
+              if (sellerData?.onboardingProcess && isEmailVerified) {
                 if (!isOnboardingRoute) {
                   console.log('onboarding process', sellerData?.onboardingProcess)
                   navigate(`/onboarding/${sellerData?.onboardingProcess}`);
@@ -88,11 +119,10 @@ const ProtectedRoute = ({ children }) => {
                     }
                   });
                 }
-              } else {
+              } else if (isEmailVerified) {
                 navigate('/dashboard/home');
-                
               }
-            } else if (tokenData?.isVerified === true && !isDashboardRoute) {
+            } else if (tokenData?.isVerified === true && isEmailVerified && !isDashboardRoute) {
               navigate('/dashboard/home', { replace: true });
             }
           } else {

@@ -30,6 +30,7 @@ import { useIntercomChat } from "../../Hooks/useIntercom";
 import Skeleton from 'react-loading-skeleton';
 import VerificationDialog from "../../Components/VerificationDialog";
 import AuqliUniversity from "../../Components/AuqliUniversity";
+import { toast } from "sonner";
 
 
 
@@ -113,10 +114,25 @@ const HomePage = () => {
 
   // Check verification status when seller data is loaded
   useEffect(() => {
-    if (seller && seller.isVerified === false) {
-      setShowVerificationDialog(true);
+    if (seller) {
+      // Check both isVerified and emailVerified flags
+      const isEmailVerified = seller.emailVerified === true || seller.isVerified === true;
+      
+      if (!isEmailVerified) {
+        // Redirect unverified users to signup page
+        navigate('/signup', { replace: true });
+        toast.error('Email verification required', {
+          description: 'Please verify your email to continue',
+          style: {
+            background: '#425466',
+            color: '#F7FAFC',
+          }
+        });
+      } else if (seller.isVerified === false) {
+        setShowVerificationDialog(true);
+      }
     }
-  }, [seller]);
+  }, [seller, navigate]);
 
   // Handle temporary dismissal of verification dialog
   const handleCloseVerificationDialog = () => {
@@ -500,7 +516,8 @@ const HomePage = () => {
                                 break;
                               
                               case 'new_follower':
-                                navigate('/dashboard/customers');
+                                // Redirect to account page with parameter to open followers dialog
+                                navigate('/dashboard/account?openFollowers=true');
                                 break;
                               
                               case 'new_order':
