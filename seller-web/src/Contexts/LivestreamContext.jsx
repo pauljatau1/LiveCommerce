@@ -160,12 +160,12 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
                 mixpanel.track("Live Show Scheduled", {
-                    "seller id": sellerData.data._id,
-                    "seller email": sellerData.data.email,
-                    "seller store name": sellerData.data.storeName,
-                    "seller first name": sellerData.data.firstName,
-                    "seller last name": sellerData.data.lastName,
-                    "seller phone number": sellerData.data.phoneNumber,
+                    "seller id": sellerData._id,
+                    "seller email": sellerData.email,
+                    "seller store name": sellerData.storeName,
+                    "seller first name": sellerData.firstName,
+                    "seller last name": sellerData.lastName,
+                    "seller phone number": sellerData.phoneNumber,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
                     "stream category": streamData.category,
@@ -208,12 +208,12 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
                 mixpanel.track("Live Auction Scheduled", {
-                    "seller id": sellerData.data._id,
-                    "seller email": sellerData.data.email,
-                    "seller store name": sellerData.data.storeName,
-                    "seller first name": sellerData.data.firstName,
-                    "seller last name": sellerData.data.lastName,  
-                    "seller phone number": sellerData.data.phoneNumber,
+                    "seller id": sellerData._id,
+                    "seller email": sellerData.email,
+                    "seller store name": sellerData.storeName,
+                    "seller first name": sellerData.firstName,
+                    "seller last name": sellerData.lastName,  
+                    "seller phone number": sellerData.phoneNumber,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
                     "stream category": streamData.category,
@@ -300,11 +300,11 @@ export const LivestreamProvider = ({ children }) => {
                 });
 
                 mixpanel.track("Live Show Started", {
-                    "seller id": sellerData.data._id,
-                    "seller email": sellerData.data.email,
-                    "seller store name": sellerData.data.storeName,
-                    "seller first name": sellerData.data.firstName,
-                    "seller last name": sellerData.data.lastName,
+                    "seller id": sellerData._id,
+                    "seller email": sellerData.email,
+                    "seller store name": sellerData.storeName,
+                    "seller first name": sellerData.firstName,
+                    "seller last name": sellerData.lastName,
                     "stream id": streamId,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
@@ -373,11 +373,11 @@ export const LivestreamProvider = ({ children }) => {
 
                 // Track the livestream end event
                 mixpanel.track("Live Stream Ended", {
-                    "seller id": sellerData.data._id,
-                    "seller email": sellerData.data.email,
-                    "seller store name": sellerData.data.storeName,
-                    "seller first name": sellerData.data.firstName,
-                    "seller last name": sellerData.data.lastName,
+                    "seller id": sellerData._id,
+                    "seller email": sellerData.email,
+                    "seller store name": sellerData.storeName,
+                    "seller first name": sellerData.firstName,
+                    "seller last name": sellerData.lastName,
                     "stream id": streamId,
                     "stream title": streamData.title,
                     "stream scheduled start time": streamData.scheduledStartTime,
