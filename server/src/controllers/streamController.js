@@ -12,6 +12,7 @@ const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
 const orderController = require('./orderController');
+const { mixpanel } = require('../app');
 
 const expo = new Expo();
 
@@ -1000,6 +1001,26 @@ exports.joinStream = async (req, res) => {
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
 
+    // track event in mixpanel
+    if (res.statusCode === 200) {
+      if (stream.type === 'open_show') {
+        mixpanel.track('open_show_stream_joined', {
+          streamId: stream._id,
+          buyerId: req.user.id,
+          buyerName: buyer.firstName + " " + buyer.lastName,
+          buyerUsername: buyer.username,
+          joinTime: new Date().toISOString()
+        });
+      } else {
+        mixpanel.track('live_auction_stream_joined', {
+          streamId: stream._id,
+          buyerId: req.user.id,
+          buyerName: buyer.firstName + " " + buyer.lastName,
+          buyerUsername: buyer.username,
+          joinTime: new Date().toISOString()
+        });
+      }
+    }
     res.json({
       message: 'Successfully joined stream',
       channelName: stream.channelName,
@@ -1972,6 +1993,15 @@ exports.leaveStream = async (req, res) => {
       // Continue even if saving the chat interaction fails
     }
 
+    // track viewer left stream event on mixpanel
+    mixpanel.track('viewer_left_stream', {
+      streamId: stream._id,
+      viewerId: req.user.id,
+      viewerName: buyer.firstName + " " + buyer.lastName,
+      viewerCount: activeViewerCount,
+      leftAt: new Date().toISOString()
+    });
+
     res.json({
       message: 'Successfully left stream',
       streamId: stream._id,
@@ -2627,6 +2657,19 @@ exports.endProductBidding = async (req, res) => {
               break;
             }
           }
+
+          // track live auction order event on mixpanel
+          mixpanel.track('live_auction_order', {
+            streamId: stream._id,
+            buyerId: winningBidderId,
+            productId: fullProductDetails._id,
+            productName: fullProductDetails.name,
+            buyerName: buyer.firstName + " " + buyer.lastName,
+            buyerUsername: buyer.username,
+            orderId: orderResult.orders[0].orderId,
+            orderTotal: orderResult.totals.grandTotal,
+            orderDate: orderResult.orders[0].createdAt,
+          });
 
           if (!winnerSocketFound) {
             console.log(`[END_BID] Warning: Winning bidder (${winningBidderId}) not found in room ${streamRoom}`);

@@ -31,6 +31,7 @@ const streamRoutes = require('./routes/streamRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const flashSaleRoutes = require('./routes/flashSaleRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
+const mixpanel = require('mixpanel');
 
 
 const app = express();
@@ -88,6 +89,11 @@ app.get('/', (req, res) => {
        message: 'Welcome to the Auqli API!', 
        description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience new one' 
    });
+});
+
+// configure connection to mixpanel analytics
+const mixpanelClient = mixpanel.init(process.env.MIXPANEL_PROJECT_TOKEN, {
+  verbose: true,
 });
 
 // Enhanced health check route
@@ -152,4 +158,4 @@ app.use((err, req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
-module.exports = { app, server };
+module.exports = { app, server, mixpanel: mixpanelClient };

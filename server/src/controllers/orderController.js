@@ -30,6 +30,7 @@ const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
 const crypto = require('crypto');
 const notificationController = require('../controllers/notificationController');
+const { mixpanel } = require('../app');
 
 // Initialize Paystack
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
@@ -1071,6 +1072,20 @@ exports.createOrder = async (req, res) => {
           } else {
             console.warn('Could not send socket notification - io not available');
           }
+
+          // track live show order event on mixpanel
+          mixpanel.track('live_show_order', {
+            streamId: stream._id,
+            buyerId: buyer.id,
+            productId: orders[0].items[0].product,
+            productName: orders[0].items[0].productName,
+            buyerName: buyer.firstName + " " + buyer.lastName,
+            buyerUsername: buyer.username,
+            orderId: orders[0].order_id,
+            orderTotal: orders[0].totalAmount,
+            orderDate: orders[0].createdAt,
+          });
+
         } else {
           console.warn('Stream not found for liveshow order:', req.body.streamId);
         }

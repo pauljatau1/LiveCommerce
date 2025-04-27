@@ -6,6 +6,7 @@ const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
+const { mixpanel } = require('../app');
 
 // Store active users
 const activeUsers = new Map();
@@ -1096,6 +1097,17 @@ function initializeSocket(server) {
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
 
+          // track user comments in mixpanel
+          mixpanel.track('stream_comment', {
+            streamId: data.streamId,
+            buyerId: socket.user.id,
+            buyerName: userDetails.firstName + " " + userDetails.lastName,
+            buyerUsername: userDetails.username,
+            engagementType: 'comment',
+            comment: data.content,
+            commentTime: new Date().toISOString()
+          });
+
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
           io.to(streamRoom).emit('stream_notification', notificationObj);
@@ -1681,6 +1693,19 @@ function initializeSocket(server) {
               }
 
               await stream.save();
+
+              // track live show order event on mixpanel
+              mixpanel.track('live_auction_order', {
+                streamId: stream._id,
+                buyerId: buyer._id,
+                productId: fullProductDetails._id,
+                productName: fullProductDetails.name,
+                buyerName: buyer.firstName + " " + buyer.lastName,
+                buyerUsername: buyer.username,
+                orderId: orderResult.orders[0].orderId,
+                orderTotal: orderResult.totals.grandTotal,
+                orderDate: orderResult.orders[0].createdAt,
+              });
 
               // Create a stream-specific room name
               const streamRoom = `stream_notifications_${stream._id.toString()}`;
