@@ -160,12 +160,12 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
                 mixpanel.track("Live Show Scheduled", {
-                    "User ID": sellerData.data._id,
-                    "Email": sellerData.data.email,
-                    "Store Name": sellerData.data.storeName,
-                    "First Name": sellerData.data.firstName,
-                    "Last Name": sellerData.data.lastName,
-                    "Phone Number": sellerData.data.phoneNumber,
+                    "seller id": sellerData.data._id,
+                    "seller email": sellerData.data.email,
+                    "seller store name": sellerData.data.storeName,
+                    "seller first name": sellerData.data.firstName,
+                    "seller last name": sellerData.data.lastName,
+                    "seller phone number": sellerData.data.phoneNumber,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
                     "stream category": streamData.category,
@@ -208,12 +208,12 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
                 mixpanel.track("Live Auction Scheduled", {
-                    "User ID": sellerData.data._id,
-                    "Email": sellerData.data.email,
-                    "Store Name": sellerData.data.storeName,
-                    "First Name": sellerData.data.firstName,
-                    "Last Name": sellerData.data.lastName,  
-                    "Phone Number": sellerData.data.phoneNumber,
+                    "seller id": sellerData.data._id,
+                    "seller email": sellerData.data.email,
+                    "seller store name": sellerData.data.storeName,
+                    "seller first name": sellerData.data.firstName,
+                    "seller last name": sellerData.data.lastName,  
+                    "seller phone number": sellerData.data.phoneNumber,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
                     "stream category": streamData.category,
@@ -300,11 +300,11 @@ export const LivestreamProvider = ({ children }) => {
                 });
 
                 mixpanel.track("Live Show Started", {
-                    "User ID": sellerData.data._id,
-                    "Email": sellerData.data.email,
-                    "Store Name": sellerData.data.storeName,
-                    "First Name": sellerData.data.firstName,
-                    "Last Name": sellerData.data.lastName,
+                    "seller id": sellerData.data._id,
+                    "seller email": sellerData.data.email,
+                    "seller store name": sellerData.data.storeName,
+                    "seller first name": sellerData.data.firstName,
+                    "seller last name": sellerData.data.lastName,
                     "stream id": streamId,
                     "stream title": streamData.title,
                     "stream description": streamData.description,
@@ -338,9 +338,10 @@ export const LivestreamProvider = ({ children }) => {
         }
     };
 
-    const endLiveStream = async (streamId) => {
+    const endLiveStream = async (streamId, streamData) => {
         try {
             const sellerToken = localStorage.getItem('sellerToken');
+            const sellerData = JSON.parse(localStorage.getItem('seller'));
             const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
 
             if (!tokenData?.data) {
@@ -369,6 +370,20 @@ export const LivestreamProvider = ({ children }) => {
                         color: '#fff',
                     }
                 });
+
+                // Track the livestream end event
+                mixpanel.track("Live Stream Ended", {
+                    "seller id": sellerData.data._id,
+                    "seller email": sellerData.data.email,
+                    "seller store name": sellerData.data.storeName,
+                    "seller first name": sellerData.data.firstName,
+                    "seller last name": sellerData.data.lastName,
+                    "stream id": streamId,
+                    "stream title": streamData.title,
+                    "stream scheduled start time": streamData.scheduledStartTime,
+                    "livestream type": streamData.type
+                });
+                
             }
         } catch (error) {
             console.error('End livestream error:', error);

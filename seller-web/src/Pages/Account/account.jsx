@@ -333,13 +333,13 @@ export default function AccountPage() {
         isOpen={verificationModalOpen} 
         onClose={() => {
           setVerificationModalOpen(false);
-          mixpanel.track("Skipped Onboarding Verification", {
-            "User ID": profile._id,
-            "Email": profile.email,
-            "Store Name": profile.storeName,
-            "First Name": profile.firstName,
-            "Last Name": profile.lastName,
-            "Phone Number": profile.phoneNumber,
+          mixpanel.track("Seller Skipped Onboarding Verification", {
+            "seller id": profile._id,
+            "seller email": profile.email,
+            "seller store name": profile.storeName,
+            "seller first name": profile.firstName,
+            "seller last name": profile.lastName,
+            "seller phone number": profile.phoneNumber,
             "Signup Date": profile.createdAt,
             "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
           });
@@ -352,13 +352,13 @@ export default function AccountPage() {
           isOpen={verificationDialogOpen}
           onClose={() => {
             setVerificationDialogOpen(false);
-            mixpanel.track("Skipped Onboarding Verification", {
-              "User ID": profile._id,
-              "Email": profile.email,
-              "Store Name": profile.storeName,
-              "First Name": profile.firstName,
-              "Last Name": profile.lastName,  
-              "Phone Number": profile.phoneNumber,
+            mixpanel.track("Seller Skipped Onboarding Verification", {
+              "seller id": profile._id,
+              "seller email": profile.email,
+              "seller store name": profile.storeName,
+              "seller first name": profile.firstName,
+              "seller last name": profile.lastName,  
+              "seller phone number": profile.phoneNumber,
               "Signup Date": profile.createdAt,
               "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
             });
