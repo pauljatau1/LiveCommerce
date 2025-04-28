@@ -53,6 +53,56 @@ router.get('/livestreams/24h', authMiddleware.verifyToken, authMiddleware.isAdmi
 
 /**
  * @swagger
+ * /api/analytics/livestreams/weekly:
+ *   get:
+ *     summary: Get livestream analytics for a specific week
+ *     description: Retrieves analytics about livestreams that ended within a specified week
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: week
+ *         schema:
+ *           type: string
+ *         description: Week in YYYY-WW format (e.g., 2023-42). If not provided, will use previous week.
+ *     responses:
+ *       200:
+ *         description: Weekly analytics data retrieved successfully
+ *       401:
+ *         description: Not authorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/livestreams/weekly', authMiddleware.verifyToken, authMiddleware.isAdmin, analyticsController.getWeeklyLivestreamAnalytics);
+
+/**
+ * @swagger
+ * /api/analytics/livestreams/monthly:
+ *   get:
+ *     summary: Get livestream analytics for a specific month
+ *     description: Retrieves analytics about livestreams that ended within a specified month
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: string
+ *         description: Month in YYYY-MM format (e.g., 2023-11). If not provided, will use previous month.
+ *     responses:
+ *       200:
+ *         description: Monthly analytics data retrieved successfully
+ *       401:
+ *         description: Not authorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/livestreams/monthly', authMiddleware.verifyToken, authMiddleware.isAdmin, analyticsController.getMonthlyLivestreamAnalytics);
+
+/**
+ * @swagger
  * /api/analytics/livestreams:
  *   get:
  *     summary: Get livestream analytics by date range

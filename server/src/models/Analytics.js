@@ -4,7 +4,7 @@ const analyticsSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['livestream', 'order', 'product', 'user', 'revenue', 'auction']
+    enum: ['livestream', 'livestream_weekly', 'livestream_monthly', 'order', 'product', 'user', 'revenue', 'auction']
   },
   date: {
     type: Date,
