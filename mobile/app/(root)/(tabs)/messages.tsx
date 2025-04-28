@@ -239,7 +239,7 @@ const Message = () => {
               </Text>
             </TouchableOpacity>
           </View>
-          <View style={{ flex: 1 }}>
+          <View>
             <FlatList
               data={filter == "all" ? conversations : unreadConvos}
               renderItem={({ item }) => renderConversations(item)}
