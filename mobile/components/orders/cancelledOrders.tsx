@@ -150,8 +150,8 @@ const CancelledOrders = ({
             orderStatus={order?.shipping?.tracking?.status}
             seller={order?.seller?._id}
             buyer={order?.buyer?._id}
-            token={userToken.toString()}
-            conversationId={conversationId.toString()}
+            token={userToken?.toString()}
+            conversationId={conversationId?.toString()}
           />
         ))}
       </View>
