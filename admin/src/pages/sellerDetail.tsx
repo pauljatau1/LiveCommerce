@@ -328,6 +328,9 @@ function SellerDetail() {
   });
   const [showDeleteProductModal, setShowDeleteProductModal] = useState(false);
   const [showDisableProductModal, setShowDisableProductModal] = useState(false);
+  const [showDeleteAllProductsModal, setShowDeleteAllProductsModal] = useState(false);
+  const [deleteAllProductsReason, setDeleteAllProductsReason] = useState("");
+  const [isDeletingAllProducts, setIsDeletingAllProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Tab state
@@ -674,6 +677,39 @@ function SellerDetail() {
     }
   };
 
+  const handleDeleteAllProducts = async () => {
+    if (!deleteAllProductsReason) {
+      toast.error("Please provide a reason for deleting all products");
+      return;
+    }
+
+    try {
+      setIsDeletingAllProducts(true);
+      
+      await api.delete(`/api/admin/sellers/${id}/products`, {
+        data: { reason: deleteAllProductsReason }
+      });
+      
+      // Reset product list and counts
+      setSellerProducts([]);
+      setProductsPagination(prev => ({
+        ...prev,
+        currentPage: 1,
+        totalPages: 0,
+        totalProducts: 0
+      }));
+      
+      toast.success("All products for this seller have been deleted");
+      setShowDeleteAllProductsModal(false);
+      setDeleteAllProductsReason("");
+    } catch (error: any) {
+      console.error("Error deleting all products:", error);
+      toast.error(error.response?.data?.message || "Failed to delete all products");
+    } finally {
+      setIsDeletingAllProducts(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -798,7 +834,16 @@ function SellerDetail() {
             </DropdownMenuContent>
           </DropdownMenu>
           
-         
+          {/* Delete All Products Button */}
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={() => setShowDeleteAllProductsModal(true)}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete All Products
+          </Button>
         </div>
       </div>
 
@@ -1343,6 +1388,15 @@ function SellerDetail() {
                 Products ({productsPagination.totalProducts || 0})
               </h3>
               <div className="flex items-center gap-3">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteAllProductsModal(true)}
+                  className="mr-2"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete All Products
+                </Button>
                 <div className="relative">
                   <input
                     type="text"
@@ -2368,6 +2422,61 @@ function SellerDetail() {
                 <MinusCircle className="h-4 w-4 mr-2" />
               )}
               Deduct Funds
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete All Products Confirmation Modal */}
+      <Dialog open={showDeleteAllProductsModal} onOpenChange={setShowDeleteAllProductsModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Delete All Products
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Are you sure you want to delete all products for this seller? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Reason*
+              </label>
+              <Textarea
+                placeholder="Enter reason for deleting all products"
+                value={deleteAllProductsReason}
+                onChange={(e) => setDeleteAllProductsReason(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteAllProductsReason('');
+                setShowDeleteAllProductsModal(false);
+              }}
+              className="border-zinc-700 text-zinc-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteAllProducts}
+              disabled={isDeletingAllProducts || !deleteAllProductsReason}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingAllProducts ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete All Products
             </Button>
           </DialogFooter>
         </DialogContent>
