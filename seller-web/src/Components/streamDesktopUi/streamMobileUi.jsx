@@ -25,6 +25,9 @@ const StreamMobileUi = ({
     const [autoScroll, setAutoScroll] = useState(true);
     const [hasNewMessages, setHasNewMessages] = useState(false);
     const prevMessagesLengthRef = useRef(0);
+    const [showCameraModal, setShowCameraModal] = useState(false);
+    const [availableCameras, setAvailableCameras] = useState([]);
+    const [isLoadingCameras, setIsLoadingCameras] = useState(false);
     
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
@@ -140,9 +143,62 @@ const StreamMobileUi = ({
         }
     };
     
-    const handleSwitchCamera = () => {
-        if (switchCamera && typeof switchCamera === 'function') {
+    const handleSwitchCamera = async () => {
+        if (!switchCamera || typeof switchCamera !== 'function') {
+            return;
+        }
+
+        setIsLoadingCameras(true);
+        
+        try {
+            // Get list of available cameras
+            const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = mediaDevices.filter(device => device.kind === 'videoinput');
+            
+            // Process camera information
+            const processedCameras = cameras.map(camera => {
+                const label = camera.label || 'Unknown Camera';
+                let position = 'unknown';
+                
+                if (label.toLowerCase().includes('front') || 
+                    label.toLowerCase().includes('user') || 
+                    label.toLowerCase().includes('selfie')) {
+                    position = 'front';
+                } else if (label.toLowerCase().includes('back') || 
+                          label.toLowerCase().includes('rear') || 
+                          label.toLowerCase().includes('environment')) {
+                    position = 'back';
+                }
+                
+                return {
+                    id: camera.deviceId,
+                    label,
+                    position
+                };
+            });
+            
+            setAvailableCameras(processedCameras);
+            
+            // If more than 2 cameras, show modal
+            if (cameras.length > 1) {
+                setShowCameraModal(true);
+            } else {
+                // Otherwise just switch directly
+                switchCamera();
+            }
+        } catch (error) {
+            console.error("Error enumerating camera devices:", error);
+            // Fall back to direct switching
             switchCamera();
+        } finally {
+            setIsLoadingCameras(false);
+        }
+    };
+    
+    const handleCameraSelection = (cameraId) => {
+        setShowCameraModal(false);
+        if (switchCamera && typeof switchCamera === 'function') {
+            switchCamera(cameraId);
         }
     };
     
@@ -188,8 +244,13 @@ const StreamMobileUi = ({
                             <button 
                                 onClick={handleSwitchCamera}
                                 className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                disabled={isLoadingCameras}
                             >
-                                <Icon icon="mdi:camera-flip" className="text-white text-lg" />
+                                {isLoadingCameras ? (
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <Icon icon="mdi:camera-flip" className="text-white text-lg" />
+                                )}
                             </button>
                             <button 
                                 onClick={handleToggleMicrophone}
@@ -296,6 +357,57 @@ const StreamMobileUi = ({
                     </div>
                 </div>
             </div>
+            
+            {/* Camera Selection Modal */}
+            {showCameraModal && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#1A1D21] rounded-xl w-full max-w-xs sm:max-w-sm overflow-hidden shadow-xl animate-zoom-in">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 className="text-white text-lg font-medium">Select Camera</h3>
+                            <button 
+                                onClick={() => setShowCameraModal(false)}
+                                className="text-gray-400 hover:text-white"
+                            >
+                                <Icon icon="mdi:close" className="w-6 h-6" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-2 max-h-[50vh] overflow-y-auto">
+                            {availableCameras.map((camera) => (
+                                <button
+                                    key={camera.id}
+                                    className="flex items-center w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-left mb-1"
+                                    onClick={() => handleCameraSelection(camera.id)}
+                                >
+                                    <div className="w-10 h-10 bg-[#2A2D35] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                                        <Icon 
+                                            icon={camera.position === 'front' ? 'mdi:camera-front' : camera.position === 'back' ? 'mdi:camera-rear' : 'mdi:camera'} 
+                                            className="text-white text-xl"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="text-white font-medium">{
+                                            camera.position === 'front' ? 'Front Camera' : 
+                                            camera.position === 'back' ? 'Back Camera' : 
+                                            'Camera'
+                                        }</div>
+                                        <div className="text-gray-400 text-sm truncate max-w-[200px]">{camera.label}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="p-4 border-t border-gray-700">
+                            <button
+                                onClick={() => setShowCameraModal(false)} 
+                                className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -309,6 +421,19 @@ style.textContent = `
   }
   .animate-bounce-subtle {
     animation: bounceSlight 2s infinite ease-in-out;
+  }
+  @keyframes zoomIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .animate-zoom-in {
+    animation: zoomIn 0.2s ease-out forwards;
   }
 `;
 document.head.appendChild(style);

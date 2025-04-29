@@ -497,9 +497,9 @@ const LivestreamStudio = () => {
                         stereo: true,
                         bitrate: 128,
                     },
-                    AEC: true,
-                    ANS: true,
-                    AGC: true
+                        AEC: true,
+                        ANS: true,
+                        AGC: true
                 },
                 {
                     encoderConfig: {
@@ -520,12 +520,12 @@ const LivestreamStudio = () => {
                 }
             );
             console.log('📷 [STREAM INIT] Successfully created Agora tracks');
-
+            
             // Set camera facing mode state
             setCameraFacingMode("user");
-
-
-
+            
+           
+            
 
             // 8. Wait for DOM to be updated with video containers
             console.log('📷 [STREAM INIT] Waiting for video containers to be rendered in DOM');
@@ -550,8 +550,8 @@ const LivestreamStudio = () => {
                     videoTrack.play(container, {
                         fit: 'cover'
                     });
-
-
+                    
+                    
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (e) {
@@ -1374,9 +1374,9 @@ const LivestreamStudio = () => {
                     videoTrack.play(container, {
                         fit: 'cover',
                     });
-
-
-
+                    
+                   
+                    
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (e) {
@@ -1659,22 +1659,22 @@ const LivestreamStudio = () => {
     // Add a helper function to identify front and rear cameras by label
     const identifyCamerasByLabel = (cameras) => {
         // Identify by common naming patterns in camera labels
-        let frontCamera = cameras.find(d =>
-            d.label.toLowerCase().includes("front") ||
+        let frontCamera = cameras.find(d => 
+            d.label.toLowerCase().includes("front") || 
             d.label.toLowerCase().includes("user") ||
             d.label.toLowerCase().includes("selfie") ||
             // Most mobile devices name facing cameras with numbers - 1 is typically front
             (d.label.includes("camera") && d.label.includes("1"))
         );
-
-        let rearCamera = cameras.find(d =>
-            d.label.toLowerCase().includes("back") ||
-            d.label.toLowerCase().includes("rear") ||
+        
+        let rearCamera = cameras.find(d => 
+            d.label.toLowerCase().includes("back") || 
+            d.label.toLowerCase().includes("rear") || 
             d.label.toLowerCase().includes("environment") ||
             // Most mobile devices name facing cameras with numbers - 0 is typically back
             (d.label.includes("camera") && d.label.includes("0"))
         );
-
+        
         // If label-based detection fails, use index-based fallback
         // (common convention is first camera is back, second is front)
         if (!frontCamera && !rearCamera && cameras.length >= 2) {
@@ -1688,13 +1688,13 @@ const LivestreamStudio = () => {
             // If we only found front camera, the other one must be rear
             rearCamera = cameras.find(cam => cam !== frontCamera);
         }
-
+        
         return { frontCamera, rearCamera };
     };
 
     // Function to switch between front and back cameras
 
-    const switchCamera = async () => {
+    const switchCamera = async (specificCameraId) => {
         if (!isStreaming || localTracks.length === 0) {
             console.log("Cannot switch camera: not streaming or no local tracks");
             return;
@@ -1724,7 +1724,7 @@ const LivestreamStudio = () => {
 
                 console.log(`Available cameras (${cameras.length}):`,
                     cameras.map(d => `${d.label || 'Unnamed camera'} (${d.deviceId.substring(0, 8)}...)`));
-
+            
                 if (cameras.length < 2) {
                     console.error("Not enough cameras to switch between");
                     toast.dismiss(loadingToast);
@@ -1736,41 +1736,65 @@ const LivestreamStudio = () => {
                     });
                     return;
                 }
-
+            
                 console.log("STEP 2: Determining current and target cameras");
-                // Determine current camera index
-                let currentCameraIndex = -1;
-
-                // Try to find current camera in the list by deviceId
-                if (videoTrack._deviceId) {
-                    currentCameraIndex = cameras.findIndex(cam => cam.deviceId === videoTrack._deviceId);
-                    console.log(`Found current camera at index ${currentCameraIndex} by deviceId`);
-                }
-
-                // If we couldn't find by deviceId, try using label
-                if (currentCameraIndex === -1 && videoTrack._originMediaStreamTrack && videoTrack._originMediaStreamTrack.label) {
-                    const trackLabel = videoTrack._originMediaStreamTrack.label;
-                    currentCameraIndex = cameras.findIndex(cam => cam.label === trackLabel);
-                    console.log(`Found current camera at index ${currentCameraIndex} by label`);
-                }
-
-                // Last resort: use facing mode as hint
-                if (currentCameraIndex === -1) {
-                    console.log(`Could not find current camera by ID or label, using facing mode ${cameraFacingMode} as hint`);
-                    // Determine likely index based on facing mode
-                    if (cameras.length >= 2) {
-                        // In most devices, camera index 0 is back, index 1 is front
-                        currentCameraIndex = cameraFacingMode === "user" ? 1 : 0;
-                    } else {
-                        currentCameraIndex = 0; // Only one camera
+                
+                // If a specific camera ID was provided, use that camera
+                let targetCamera;
+                if (specificCameraId) {
+                    console.log(`Looking for specific camera with ID: ${specificCameraId.substring(0, 8)}...`);
+                    targetCamera = cameras.find(cam => cam.deviceId === specificCameraId);
+                    
+                    if (!targetCamera) {
+                        console.error(`Camera with ID ${specificCameraId.substring(0, 8)}... not found`);
+                        toast.dismiss(loadingToast);
+                        toast.error("Selected camera not found. Try again.", {
+                            style: {
+                                background: '#161A1E',
+                                color: '#fff',
+                            }
+                        });
+                        return;
                     }
+                    
+                    console.log(`Found specified camera: ${targetCamera.label || 'Unnamed camera'}`);
+                } else {
+                    // No specific camera ID, use the default cycling behavior
+                    // Determine current camera index
+                    let currentCameraIndex = -1;
+
+                    // Try to find current camera in the list by deviceId
+                    if (videoTrack._deviceId) {
+                        currentCameraIndex = cameras.findIndex(cam => cam.deviceId === videoTrack._deviceId);
+                        console.log(`Found current camera at index ${currentCameraIndex} by deviceId`);
+                    }
+
+                    // If we couldn't find by deviceId, try using label
+                    if (currentCameraIndex === -1 && videoTrack._originMediaStreamTrack && videoTrack._originMediaStreamTrack.label) {
+                        const trackLabel = videoTrack._originMediaStreamTrack.label;
+                        currentCameraIndex = cameras.findIndex(cam => cam.label === trackLabel);
+                        console.log(`Found current camera at index ${currentCameraIndex} by label`);
+                    }
+
+                    // Last resort: use facing mode as hint
+                    if (currentCameraIndex === -1) {
+                        console.log(`Could not find current camera by ID or label, using facing mode ${cameraFacingMode} as hint`);
+                        // Determine likely index based on facing mode
+                        if (cameras.length >= 2) {
+                            // In most devices, camera index 0 is back, index 1 is front
+                            currentCameraIndex = cameraFacingMode === "user" ? 1 : 0;
+                        } else {
+                            currentCameraIndex = 0; // Only one camera
+                        }
+                    }
+
+                    // Get the next camera in sequence
+                    const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
+                    console.log(`Switching from camera ${currentCameraIndex} to camera ${nextCameraIndex}`);
+                    
+                    targetCamera = cameras[nextCameraIndex];
                 }
-
-                // Get the next camera in sequence
-                const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
-                console.log(`Switching from camera ${currentCameraIndex} to camera ${nextCameraIndex}`);
-
-                const targetCamera = cameras[nextCameraIndex];
+                
                 console.log(`Target camera: ${targetCamera.label || 'Unnamed camera'} (${targetCamera.deviceId.substring(0, 8)}...)`);
 
                 // Calculate the facing mode based on camera label
@@ -1789,12 +1813,19 @@ const LivestreamStudio = () => {
                     console.log("Target camera identified as FRONT camera based on label:", targetCamera.label);
                 } else {
                     // If we can't determine from label, use index as fallback
-                    calculatedFacingMode = nextCameraIndex === 0 ? "user" : "environment";
-                    console.log(`Unable to determine camera type from label, using index ${nextCameraIndex} to guess: ${calculatedFacingMode}`);
+                    // For specific camera selection, default to environment if label doesn't give clues
+                    if (specificCameraId) {
+                        calculatedFacingMode = "environment";
+                        console.log(`Unable to determine camera type from label for specific camera, defaulting to: ${calculatedFacingMode}`);
+                    } else {
+                        const nextCameraIndex = cameras.findIndex(cam => cam.deviceId === targetCamera.deviceId);
+                        calculatedFacingMode = nextCameraIndex === 0 ? "environment" : "user";
+                        console.log(`Unable to determine camera type from label, using index ${nextCameraIndex} to guess: ${calculatedFacingMode}`);
+                    }
                 }
 
                 console.log(`Final calculated facing mode: ${calculatedFacingMode}`);
-
+                
                 console.log("STEP 3: AGGRESSIVE cleanup of all media resources");
                 // CRITICAL: Force release ALL media resources first
 
@@ -1810,7 +1841,7 @@ const LivestreamStudio = () => {
                                 console.log(`Stopping preview track: ${track.kind} (${track.label || 'unnamed'})`);
                                 track.stop();
                                 track.enabled = false;
-                            } catch (err) {
+                    } catch (err) {
                                 console.warn(`Failed to stop preview track: ${err.message}`);
                             }
                         });
@@ -1908,7 +1939,7 @@ const LivestreamStudio = () => {
                         try {
                             const facingModeConstraints = {
                                 video: { facingMode: { exact: "environment" } },
-                                audio: false
+                            audio: false
                             };
                             console.log("Using facingMode constraints:", JSON.stringify(facingModeConstraints, null, 2));
                             return await navigator.mediaDevices.getUserMedia(facingModeConstraints);
@@ -1928,7 +1959,7 @@ const LivestreamStudio = () => {
                                 video: {
                                     deviceId: { exact: targetCamera.deviceId }
                                 },
-                                audio: false
+                            audio: false
                             };
 
                             // Only add facingMode if we're trying to get the front camera
@@ -1989,8 +2020,8 @@ const LivestreamStudio = () => {
                                         console.log("Last resort: trying with generic video constraint");
                                         try {
                                             return await navigator.mediaDevices.getUserMedia({
-                                                video: true,
-                                                audio: false
+                            video: true,
+                            audio: false
                                             });
                                         } catch (lastError) {
                                             console.error("All camera access attempts failed:", lastError);
@@ -2015,8 +2046,8 @@ const LivestreamStudio = () => {
                 let testStream = null;
                 try {
                     testStream = await accessCamera();
-                    console.log("Camera access successful!");
-
+            console.log("Camera access successful!");
+            
                     // Validate that we got the right camera
                     const videoTrack = testStream.getVideoTracks()[0];
                     const settings = videoTrack?.getSettings();
@@ -2106,10 +2137,10 @@ const LivestreamStudio = () => {
                         console.log("Trying fallback with createCameraVideoTrack");
                         newVideoTrack = await AgoraRTC.createCameraVideoTrack({
                             cameraId: targetCamera.deviceId,
-                            encoderConfig: {
+                encoderConfig: {
                                 width: { ideal: 1280, min: 640 },
                                 height: { ideal: 1080, min: 480 },
-                                frameRate: 30,
+                    frameRate: 30,
                                 bitrateMin: 1000,
                                 bitrateMax: 2500,
                                 optimizationMode: 'motion'
@@ -2219,7 +2250,7 @@ const LivestreamStudio = () => {
             });
         }
     };
-
+    
     // Add code to load camera state from localStorage in initializeStream
     useEffect(() => {
         // Load camera facing mode from localStorage when livestream ID is available
