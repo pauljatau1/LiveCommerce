@@ -2690,4 +2690,224 @@ router.get('/products/search', authMiddleware.verifyToken, adminController.searc
  */
 router.get('/platform-metrics', authMiddleware.verifyToken, adminController.getPlatformMetrics);
 
+/**
+ * @swagger
+ * /api/admin/products/{productId}:
+ *   delete:
+ *     summary: Delete a product
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to delete
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for product deletion
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  '/products/:productId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deleteProduct
+);
+
+/**
+ * @swagger
+ * /api/admin/products/{productId}/disable:
+ *   put:
+ *     summary: Disable a product
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Product ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for product disabling
+ *     responses:
+ *       200:
+ *         description: Product disabled successfully
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/products/:productId/disable',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.disableProduct
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/products:
+ *   get:
+ *     summary: Get all products for a specific seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, draft, all]
+ *           default: all
+ *         description: Filter by product status
+ *     responses:
+ *       200:
+ *         description: List of seller's products
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/sellers/:sellerId/products',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerProducts
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/wallet/deduct:
+ *   post:
+ *     summary: Deduct money from a seller's wallet
+ *     tags: [Admin, Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to deduct from the wallet
+ *                 required: true
+ *               reason:
+ *                 type: string
+ *                 description: Reason for the deduction
+ *     responses:
+ *       200:
+ *         description: Amount deducted successfully
+ *       400:
+ *         description: Invalid amount or insufficient balance
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/sellers/:sellerId/wallet/deduct',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deductFromSellerWallet
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/wallet/add:
+ *   post:
+ *     summary: Add money to a seller's wallet
+ *     tags: [Admin, Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to add to the wallet
+ *                 required: true
+ *               reason:
+ *                 type: string
+ *                 description: Reason for adding the funds
+ *     responses:
+ *       200:
+ *         description: Amount added successfully
+ *       400:
+ *         description: Invalid amount
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/sellers/:sellerId/wallet/add',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.addToSellerWallet
+);
+
 module.exports = router;

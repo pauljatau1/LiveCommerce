@@ -263,7 +263,7 @@ const orderSchema = new mongoose.Schema({
 orderSchema.pre('save', async function(next) {
   if (this.isModified('isOpen') && !this.isOpen) {
     try {
-      console.log('Order closing process started - payment will be released to seller:', {
+      console.log('Order closing process started:', {
         orderId: this._id,
         order_id: this.order_id,
         items: this.items.length,
@@ -271,7 +271,9 @@ orderSchema.pre('save', async function(next) {
         currentIsOpen: this.isOpen,
         paymentMethod: this.paymentInfo?.method,
         isCashOnDelivery: this.paymentInfo?.isCashOnDelivery,
-        isPaid: this.paid
+        isPaid: this.paid,
+        closedReason: this.closedReason,
+        closedBy: this.closedBy
       });
 
       // Check if this order is already being processed elsewhere (to avoid duplicate processing)
@@ -282,6 +284,20 @@ orderSchema.pre('save', async function(next) {
       
       // Mark this order as processed to avoid duplicate processing
       this._orderClosingProcessed = true;
+
+      // Check if the order was cancelled (any item has 'cancelled' status or closedReason contains 'cancel')
+      const isCancelled = this.items.some(item => item.status === 'cancelled') || 
+                        (this.closedReason && this.closedReason.toLowerCase().includes('cancel'));
+      
+      // Skip payment release for cancelled orders
+      if (isCancelled) {
+        console.log(`Order ${this.order_id} was cancelled. Skipping payment release to seller.`, {
+          itemStatuses: this.items.map(item => item.status),
+          closedReason: this.closedReason,
+          closedBy: this.closedBy
+        });
+        return next();
+      }
 
       // Populate the products
       await this.populate('items.product', 'name category');

@@ -3975,14 +3975,14 @@ exports.bulkUploadProducts = async (req, res) => {
           name: productData['product name'],
           description: productData['product description'] || `Description for ${productData['product name']}`,
           price: parsedPrice,
-          category: productData['product main category'] || 'Fashion',
+          category: productData['product main category'] || 'Other',
           subCategory: productData['product subcategory'] || '',
           status: 'active',
           seller: sellerId,
           stock: parsedInventory,
           condition: productData['product condition'] || 'New',
           images: [{
-            url: productData['product main image'] || 'https://burst.shopifycdn.com/photos/default-product-image.jpg'
+            url: productData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg'
           }],
           weight: finalWeight, // Save weight to top-level field
           shipping: {
@@ -4013,15 +4013,17 @@ exports.bulkUploadProducts = async (req, res) => {
       }
     }
     
-    // Update seller's product count
-    if (createdProducts.length > 0) {
+    // Update seller's product count and send emails
+    if (createdProducts.length > 0 || errors.length > 0) {
       try {
-        await Seller.findByIdAndUpdate(sellerId, {
-          $inc: { 'stats.totalProducts': createdProducts.length }
-        });
+        if (createdProducts.length > 0) {
+          await Seller.findByIdAndUpdate(sellerId, {
+            $inc: { 'stats.totalProducts': createdProducts.length }
+          });
+        }
         
         // Send email notification to seller
-        await sendBulkUploadEmail(seller, createdProducts, results.length, errors.length);
+        await sendBulkUploadEmail(seller, createdProducts, results.length, errors.length, errors);
       } catch (error) {
         console.error('Failed to update seller stats or send email:', error);
       }
@@ -4048,7 +4050,7 @@ exports.bulkUploadProducts = async (req, res) => {
 };
 
 // Helper function to send bulk upload email notification
-async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount) {
+async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount, errors = []) {
   try {
     // Get up to 5 products to display in the email
     const productsToDisplay = products.slice(0, 5);
@@ -4065,8 +4067,49 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
       </tr>
     `).join('');
     
-    // Email content
-    const emailHTML = `
+    // Create error list HTML (up to 10 errors)
+    const errorsToDisplay = errors.slice(0, 10);
+    const errorListHTML = errorsToDisplay.length > 0 
+      ? errorsToDisplay.map(error => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${error.row}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${error.productName || 'N/A'}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${error.error}</td>
+        </tr>
+      `).join('')
+      : '';
+    
+    // Error section for admin email
+    const errorSection = errorsCount > 0 
+      ? `
+        <h3 style="margin-top: 20px; color: #333;">Failed Products (${errorsCount} total)</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f5f5f5;">
+              <th style="padding: 10px; text-align: left;">Row</th>
+              <th style="padding: 10px; text-align: left;">Product Name</th>
+              <th style="padding: 10px; text-align: left;">Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${errorListHTML}
+          </tbody>
+        </table>
+        ${errors.length > 10 ? `<p style="text-align: center; font-style: italic; margin-top: 10px;">And ${errors.length - 10} more errors...</p>` : ''}
+      `
+      : '';
+    
+    // Error note for seller email (without detailed errors)
+    const sellerErrorNote = errorsCount > 0
+      ? `
+        <div style="background-color: #fff0f0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ff6b6b;">
+          <p style="margin: 0; color: #c53030;"><strong>Note:</strong> Some products could not be uploaded due to errors. Please contact support for more details.</p>
+        </div>
+      `
+      : '';
+    
+    // Email content for seller
+    const sellerEmailHTML = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <h2 style="color: #333; text-align: center;">Bulk Product Upload Completed</h2>
         <p>Hello ${seller.firstName || seller.businessName},</p>
@@ -4095,29 +4138,76 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         
         ${products.length > 5 ? `<p style="text-align: center; font-style: italic; margin-top: 10px;">And ${products.length - 5} more products...</p>` : ''}
         
+        ${sellerErrorNote}
+        
         <div style="background-color: #fff8e1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
           <p style="margin: 0; color: #7d6608;"><strong>Note:</strong> For any products where weight was not specified, a default weight of 0.5kg has been assigned to the product's weight field. You can update product weights in your store dashboard if needed.</p>
         </div>
         
         <p style="margin-top: 20px;">You can view and manage all your products in your seller dashboard.</p>
         
-       
-        
         <p style="margin-top: 30px;">Thank you for selling with Auqli!</p>
         <p>Best regards,<br>The Auqli Team</p>
       </div>
     `;
     
-    // Send the email using SendGrid
-    const msg = {
+    // Email content for admin
+    const adminEmailHTML = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Bulk Product Upload Report</h2>
+        <p>A bulk product upload has been completed by an administrator for seller: ${seller.businessName || seller.firstName} ${seller.lastName || ''}.</p>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>Seller ID:</strong> ${seller._id}</p>
+          <p><strong>Seller Email:</strong> ${seller.email}</p>
+          <p><strong>Total products processed:</strong> ${totalProcessed}</p>
+          <p><strong>Successfully uploaded:</strong> ${products.length}</p>
+          <p><strong>Errors encountered:</strong> ${errorsCount}</p>
+        </div>
+        
+        <h3 style="margin-top: 20px; color: #333;">Sample of Uploaded Products</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f5f5f5;">
+              <th style="padding: 10px; text-align: left;">Image</th>
+              <th style="padding: 10px; text-align: left;">Product Name</th>
+              <th style="padding: 10px; text-align: left;">Category</th>
+              <th style="padding: 10px; text-align: left;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${productListHTML}
+          </tbody>
+        </table>
+        
+        ${products.length > 5 ? `<p style="text-align: center; font-style: italic; margin-top: 10px;">And ${products.length - 5} more products...</p>` : ''}
+        
+        ${errorSection}
+      </div>
+    `;
+    
+    // Send the email to seller using SendGrid
+    const sellerMsg = {
       to: seller.email,
       from: 'Auqli Support <support@auqli.com>',
       subject: 'Bulk Product Upload Completed - Auqli',
-      html: emailHTML,
+      html: sellerEmailHTML,
     };
     
-    await sgMail.send(msg);
-    console.log(`Bulk upload notification email sent to ${seller.email}`);
+    // Send the email to admin using SendGrid
+    const adminMsg = {
+      to: 'admin@auqli.com',
+      from: 'Auqli Support <support@auqli.com>',
+      subject: `Bulk Upload Report: ${seller.businessName || seller.firstName} (${products.length} success, ${errorsCount} errors)`,
+      html: adminEmailHTML,
+    };
+    
+    await Promise.all([
+      sgMail.send(sellerMsg),
+      sgMail.send(adminMsg)
+    ]);
+    
+    console.log(`Bulk upload notification emails sent to ${seller.email} and admin@auqli.com`);
     
   } catch (error) {
     console.error('Error sending bulk upload email:', error);
@@ -5380,3 +5470,530 @@ exports.getPlatformMetrics = async (req, res) => {
     });
   }
 };
+
+// Function to send product status notification email to seller
+async function sendProductStatusEmail(seller, product, action, reason) {
+  try {
+    // Ensure SendGrid API key is set
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    const actionMap = {
+      delete: {
+        subject: 'Product Deleted by Admin - Auqli',
+        title: 'Product Deleted',
+        message: 'We\'re writing to inform you that an administrator has deleted one of your products from the platform.'
+      },
+      disable: {
+        subject: 'Product Disabled by Admin - Auqli',
+        title: 'Product Disabled',
+        message: 'We\'re writing to inform you that an administrator has disabled one of your products. The product has been set to draft status and is no longer visible to buyers.'
+      }
+    };
+
+    const template = actionMap[action];
+    
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: template.subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>${template.title}</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>${template.message}</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>Product Name:</strong> ${product.name}</p>
+            <p><strong>Product ID:</strong> ${product._id}</p>
+            ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+          </div>
+          
+          <p>If you have any questions or concerns about this action, please contact our support team at support@auqli.com.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+    
+    await sgMail.send(emailMsg);
+    console.log(`Product ${action} notification email sent to seller: ${seller.email}`);
+  } catch (error) {
+    console.error(`Error sending product ${action} email:`, error);
+    // Don't throw error to prevent API failure
+  }
+}
+
+// Admin delete product function
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { reason } = req.body;
+    
+    const product = await Product.findById(productId).populate('seller');
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    // Store seller reference before deleting product
+    const seller = product.seller;
+    
+    // Delete the product
+    await Product.findByIdAndDelete(productId);
+    
+    // Send email notification to the seller
+    await sendProductStatusEmail(seller, product, 'delete', reason);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete product',
+      error: error.message
+    });
+  }
+};
+
+// Admin disable product function
+exports.disableProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { reason } = req.body;
+    
+    const product = await Product.findById(productId).populate('seller');
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    // Update the product status to draft
+    product.status = 'draft';
+    await product.save();
+    
+    // Send email notification to the seller
+    await sendProductStatusEmail(product.seller, product, 'disable', reason);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Product disabled successfully',
+      product: {
+        _id: product._id,
+        name: product.name,
+        status: product.status
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error disabling product:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to disable product',
+      error: error.message
+    });
+  }
+};
+
+exports.getSellerProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      category,
+      minPrice,
+      maxPrice,
+      sortBy = 'newest',
+      search
+    } = req.query;
+
+    // Validate seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Build query
+    const query = { seller: sellerId };
+    
+    // Add filters if provided
+    if (status) {
+      query.status = status;
+    }
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add search functionality
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { 'inventory.sku': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'stock_asc':
+        sortOptions = { stock: 1 };
+        break;
+      case 'stock_desc':
+        sortOptions = { stock: -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'most_viewed':
+        sortOptions = { 'stats.views': -1 };
+        break;
+      default: // 'newest'
+        sortOptions = { createdAt: -1 };
+    }
+
+    // Execute query with pagination
+    const products = await Product.find(query)
+      .select(`
+        name 
+        description
+        price 
+        category 
+        images 
+        status
+        variants
+        stock
+        inventory
+        stats
+        discount
+        pricing
+        createdAt
+        updatedAt
+        brand
+        sku
+        visibility
+      `)
+      .sort(sortOptions)
+      .skip((page - 1) * Number(limit))
+      .limit(Number(limit));
+
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(query);
+
+    res.json({
+      products: products.map(product => ({
+        ...product.toObject(),
+        isLowStock: product.stock <= product.inventory.lowStockThreshold,
+        hasDiscount: product.discount?.isActive || false,
+        discountedPrice: product.discountedPrice,
+        stats: {
+          ...product.stats,
+          daysListed: Math.floor((new Date() - new Date(product.createdAt)) / (1000 * 60 * 60 * 24))
+        }
+      })),
+      pagination: {
+        totalPages: Math.ceil(totalProducts / Number(limit)),
+        currentPage: Number(page),
+        totalProducts,
+        limit: Number(limit)
+      },
+      seller: {
+        id: seller._id,
+        name: seller.firstName + ' ' + seller.lastName,
+        businessName: seller.businessName,
+        storeName: seller.storeName,
+        email: seller.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve seller products', 
+      error: error.message 
+    });
+  }
+};
+
+// ... existing code ...
+
+// Function to send wallet transaction notification email to seller
+async function sendWalletTransactionEmail(seller, amount, type, reason, newBalance) {
+  try {
+    // Ensure SendGrid API key is set
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    const formattedAmount = amount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedBalance = newBalance.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedDate = new Date().toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const isCredit = type === 'credit';
+    
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: isCredit ? 'Funds Added to Your Wallet - Auqli' : 'Funds Deducted from Your Wallet - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+          </div>
+          
+          <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+            <h2 style="color: #333; margin-bottom: 20px; text-align: center;">${isCredit ? 'Wallet Credit Notice' : 'Wallet Deduction Notice'}</h2>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${seller.firstName},</p>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              ${isCredit 
+                ? `Your wallet has been credited with ${formattedAmount}.` 
+                : `${formattedAmount} has been deducted from your wallet.`}
+            </p>
+            
+            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+              <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Transaction Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #777; width: 40%;">Amount:</td>
+                  <td style="padding: 8px 0; color: ${isCredit ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+                    ${isCredit ? '+' : '-'}${formattedAmount}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Transaction Type:</td>
+                  <td style="padding: 8px 0; color: #333;">
+                    ${isCredit ? 'Credit' : 'Debit'} (Admin Adjustment)
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Date & Time:</td>
+                  <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Reason:</td>
+                  <td style="padding: 8px 0; color: #333;">${reason || 'Administrative adjustment'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Current Balance:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedBalance}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              If you have any questions regarding this transaction, please contact our support team.
+            </p>
+          </div>
+          
+          <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+            <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p>
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    await sgMail.send(emailMsg);
+    console.log(`Wallet transaction email sent to seller: ${seller.email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending wallet transaction email:', error);
+    return false;
+  }
+}
+
+// Deduct from seller wallet
+exports.deductFromSellerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { sellerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId).session(session);
+    
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+    
+    // Check if seller has sufficient balance
+    if (seller.walletBalance < amount) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Insufficient wallet balance',
+        currentBalance: seller.walletBalance 
+      });
+    }
+    
+    // Create transaction record
+    const transaction = await Transaction.create([{
+      seller: seller._id,
+      type: 'platform_fee', // Using platform_fee type as it's an outflow from seller
+      amount: amount,
+      status: 'completed',
+      description: reason || 'Administrative deduction',
+      metadata: {
+        deductedBy: req.user.id,
+        deductionReason: reason
+      }
+    }], { session });
+    
+    // Update seller's wallet balance
+    const previousBalance = seller.walletBalance;
+    seller.walletBalance -= amount;
+    await seller.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendWalletTransactionEmail(seller, amount, 'debit', reason, seller.walletBalance);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Amount deducted from seller wallet successfully',
+      transaction: transaction[0],
+      previousBalance,
+      newBalance: seller.walletBalance
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error deducting from seller wallet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deduct from seller wallet',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Add to seller wallet
+exports.addToSellerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { sellerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId).session(session);
+    
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+    
+    // Create transaction record
+    const transaction = await Transaction.create([{
+      seller: seller._id,
+      type: 'order_payment', // Using order_payment type as it's an inflow to seller
+      amount: amount,
+      status: 'completed',
+      description: reason || 'Administrative credit',
+      metadata: {
+        addedBy: req.user.id,
+        creditReason: reason
+      }
+    }], { session });
+    
+    // Update seller's wallet balance
+    const previousBalance = seller.walletBalance;
+    seller.walletBalance += amount;
+    await seller.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendWalletTransactionEmail(seller, amount, 'credit', reason, seller.walletBalance);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Amount added to seller wallet successfully',
+      transaction: transaction[0],
+      previousBalance,
+      newBalance: seller.walletBalance
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error adding to seller wallet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add to seller wallet',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ... existing code ...

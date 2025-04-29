@@ -1468,7 +1468,7 @@ agenda.define('bid_timer', async (job) => {
   }
 });
 
-// Define job to delete unpaid orders after 5 minutes
+// Define job to delete unpaid orders after 1 minute
 agenda.define('delete_unpaid_orders', async (job) => {
   try {
     const { orderId } = job.attrs.data;
@@ -1486,7 +1486,7 @@ agenda.define('delete_unpaid_orders', async (job) => {
     
     // Check if order is still unpaid and was created with Paystack
     if (!order.paid && order.paymentInfo.method === 'paystack') {
-      console.log(`Deleting unpaid Paystack order ${order.order_id} after 5 minutes`);
+      console.log(`Deleting unpaid Paystack order ${order.order_id} after 1 minute`);
       
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {

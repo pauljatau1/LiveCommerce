@@ -488,9 +488,9 @@ exports.uploadCompanyVerification = async (req, res) => {
   try {
     const files = req.files;
 
-    if (!files || !files.certificateOfIncorporation || !files.businessTaxId) {
+    if (!files || !files.certificateOfIncorporation) {
       return res.status(400).json({ 
-        message: 'Both Certificate of Incorporation and Business Tax ID are required' 
+        message: 'Certificate of Incorporation is required' 
       });
     }
 
@@ -516,25 +516,30 @@ exports.uploadCompanyVerification = async (req, res) => {
       public_id: certUpload.Key
     });
 
-    // Upload Business Tax ID
-    const taxFile = files.businessTaxId[0];
-    const taxParams = {
-      Bucket: process.env.CDN_S3_BUCKET,
-      Key: `verification/${req.user.id}/company/${uuidv4()}-${taxFile.originalname}`,
-      Body: taxFile.buffer,
-      ContentType: taxFile.mimetype,
-    };
-    const taxUpload = await s3.upload(taxParams).promise();
-    documents.push({
-      documentType: 'businessTaxId',
-      fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`,
-      public_id: taxUpload.Key
-    });
+    // Upload Business Tax ID if provided
+    if (files.businessTaxId) {
+      const taxFile = files.businessTaxId[0];
+      const taxParams = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `verification/${req.user.id}/company/${uuidv4()}-${taxFile.originalname}`,
+        Body: taxFile.buffer,
+        ContentType: taxFile.mimetype,
+      };
+      const taxUpload = await s3.upload(taxParams).promise();
+      documents.push({
+        documentType: 'businessTaxId',
+        fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`,
+        public_id: taxUpload.Key
+      });
+    }
 
     seller.verificationDocuments = {
       type: 'company',
       documents: documents
     };
+    
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
     
     await seller.save();
 
@@ -554,9 +559,9 @@ exports.uploadIndividualVerification = async (req, res) => {
   try {
     const files = req.files;
 
-    if (!files || !files.individualTaxId || !files.governmentId || !files.proofOfAddress) {
+    if (!files || !files.governmentId || !files.proofOfAddress) {
       return res.status(400).json({ 
-        message: 'Tax ID, Government ID, and Proof of Address are all required' 
+        message: 'Government ID and Proof of Address are required' 
       });
     }
 
@@ -567,20 +572,22 @@ exports.uploadIndividualVerification = async (req, res) => {
 
     const documents = [];
     
-    // Upload Individual Tax ID
-    const taxFile = files.individualTaxId[0];
-    const taxParams = {
-      Bucket: process.env.CDN_S3_BUCKET,
-      Key: `verification/${req.user.id}/individual/${uuidv4()}-${taxFile.originalname}`,
-      Body: taxFile.buffer,
-      ContentType: taxFile.mimetype,
-    };
-    const taxUpload = await s3.upload(taxParams).promise();
-    documents.push({
-      documentType: 'individualTaxId',
-      fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`, 
-      public_id: taxUpload.Key
-    });
+    // Upload Individual Tax ID if provided
+    if (files.individualTaxId) {
+      const taxFile = files.individualTaxId[0];
+      const taxParams = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `verification/${req.user.id}/individual/${uuidv4()}-${taxFile.originalname}`,
+        Body: taxFile.buffer,
+        ContentType: taxFile.mimetype,
+      };
+      const taxUpload = await s3.upload(taxParams).promise();
+      documents.push({
+        documentType: 'individualTaxId',
+        fileUrl: `https://` + process.env.CDN_URL + `/${taxUpload.Key}`, 
+        public_id: taxUpload.Key
+      });
+    }
 
     // Upload Government ID
     const govFile = files.governmentId[0];
@@ -616,6 +623,9 @@ exports.uploadIndividualVerification = async (req, res) => {
       type: 'individual',
       documents: documents
     };
+    
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
     
     await seller.save();
 
@@ -1236,23 +1246,28 @@ exports.getStatistics = async (req, res) => {
     
     // Count only customers/followers who have at least one order
     const totalCustomers = seller.followers.filter(follower => 
-      buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString())
+      follower.buyerId && buyersWithOrders.some(buyerId => 
+        buyerId && buyerId.toString() === follower.buyerId.toString())
     ).length;
 
     // Get current week's new followers who have orders
     const currentWeekCustomers = seller.followers.filter(follower => {
+      if (!follower.buyerId || !follower.followDate) return false;
       const followDate = new Date(follower.followDate);
       return followDate >= currentWeekStart && 
-             followDate <= currentDate &&
-             buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString());
+              followDate <= currentDate &&
+              buyersWithOrders.some(buyerId => 
+                buyerId && buyerId.toString() === follower.buyerId.toString());
     }).length;
 
     // Get last week's new followers who have orders
     const lastWeekCustomers = seller.followers.filter(follower => {
+      if (!follower.buyerId || !follower.followDate) return false;
       const followDate = new Date(follower.followDate);
       return followDate >= lastWeekStart && 
-             followDate < currentWeekStart &&
-             buyersWithOrders.some(buyerId => buyerId.toString() === follower.buyerId.toString());
+              followDate < currentWeekStart &&
+              buyersWithOrders.some(buyerId => 
+                buyerId && buyerId.toString() === follower.buyerId.toString());
     }).length;
 
     // Calculate conversion rates

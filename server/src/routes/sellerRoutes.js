@@ -225,6 +225,8 @@ router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - certificateOfIncorporation
  *             properties:
  *               certificateOfIncorporation:
  *                 type: string
@@ -232,6 +234,7 @@ router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController
  *               businessTaxId:
  *                 type: string
  *                 format: binary
+ *                 description: Optional tax ID document
  *     responses:
  *       200:
  *         description: Documents uploaded successfully
@@ -314,10 +317,14 @@ router.post(
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - governmentId
+ *               - proofOfAddress
  *             properties:
  *               individualTaxId:
  *                 type: string
  *                 format: binary
+ *                 description: Optional tax ID document
  *               governmentId:
  *                 type: string
  *                 format: binary

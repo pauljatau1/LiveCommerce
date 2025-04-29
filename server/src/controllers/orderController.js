@@ -712,10 +712,10 @@ exports.createOrder = async (req, res) => {
         order_id: order.order_id
       });
       
-      // Schedule job to delete order if still unpaid after 10 minutes (for Paystack orders only)
+      // Schedule job to delete order if still unpaid after 1 minute (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
-        agenda.schedule('in 10 minutes', 'delete_unpaid_orders', { orderId: order._id });
-        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 10 minutes`);
+        agenda.schedule('in 1 minute', 'delete_unpaid_orders', { orderId: order._id });
+        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 1 minute`);
       }
       
       // Add buyer to seller's customers list if not already a customer
@@ -4289,6 +4289,22 @@ exports.cancelOrderBySeller = async (req, res) => {
       } catch (fezError) {
         console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
         // Continue with order cancellation even if Fez cancellation fails
+      }
+    }
+
+    // Fix for buyerDetails validation error
+    if (!order.buyerDetails || !order.buyerDetails._id) {
+      if (!order.buyerDetails) {
+        order.buyerDetails = {};
+      }
+      order.buyerDetails._id = order.buyer._id;
+      
+      // Optionally populate other buyerDetails fields if they're empty
+      if (!order.buyerDetails.firstName) {
+        order.buyerDetails.firstName = order.buyer.firstName;
+      }
+      if (!order.buyerDetails.lastName) {
+        order.buyerDetails.lastName = order.buyer.lastName;
       }
     }
 
