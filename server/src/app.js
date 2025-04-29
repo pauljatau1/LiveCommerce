@@ -9,6 +9,7 @@ const socketManager = require('./socket/socketManager');
 const compression = require('compression');
 const passport = require('./config/passport');
 const mongoose = require('mongoose');
+const mixpanelClient = require('./config/mixpanel');
 
 
 // Import routes
@@ -24,6 +25,7 @@ const returnRoutes = require('./routes/returnRoutes');
 const pickupRoutes = require('./routes/pickupRoutes');
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 const webhookRoutes = require('./routes/webhookRoutes');
 const locationRoutes = require('./routes/locationRoutes');
@@ -31,7 +33,6 @@ const streamRoutes = require('./routes/streamRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const flashSaleRoutes = require('./routes/flashSaleRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
-const mixpanel = require('mixpanel');
 
 
 const app = express();
@@ -91,11 +92,6 @@ app.get('/', (req, res) => {
    });
 });
 
-// configure connection to mixpanel analytics
-const mixpanelClient = mixpanel.init(process.env.MIXPANEL_PROJECT_TOKEN, {
-  verbose: true,
-});
-
 // Enhanced health check route
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
@@ -136,6 +132,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);

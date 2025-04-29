@@ -12,7 +12,7 @@ const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
 const orderController = require('./orderController');
-const { mixpanel } = require('../app');
+const mixpanel = require('../config/mixpanel');
 
 const expo = new Expo();
 

@@ -1601,6 +1601,179 @@ agenda.define('delete_expired_streams', async (job) => {
   }
 });
 
+// Define job for daily livestream analytics at midnight WAT
+agenda.define('daily_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting daily_livestream_analytics job');
+    
+    // Create yesterday's date (WAT timezone)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    
+    const formattedDate = yesterday.toISOString().split('T')[0];
+    console.log(`Running daily livestream analytics for date: ${formattedDate}`);
+    
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/24h?date=${formattedDate}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/24h?date=${formattedDate}`;
+    
+    console.log(`Calling API endpoint: ${apiUrl}`);
+    
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('API response:', {
+      success: response.data.success,
+      date: response.data.data?.date,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+    
+    console.log('Daily livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in daily_livestream_analytics job:', error);
+    
+    // If the error is from the axios request
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
+// Define job for weekly livestream analytics
+agenda.define('weekly_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting weekly_livestream_analytics job');
+    
+    // Calculate last week
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const year = lastWeek.getFullYear();
+    
+    // Get ISO week number
+    const startOfYear = new Date(lastWeek.getFullYear(), 0, 1);
+    const days = Math.floor((lastWeek - startOfYear) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((lastWeek.getDay() + 1 + days) / 7);
+    
+    const formattedWeek = `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+    console.log(`Running weekly livestream analytics for week: ${formattedWeek}`);
+    
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/weekly?week=${formattedWeek}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/weekly?week=${formattedWeek}`;
+    
+    console.log(`Calling API endpoint: ${apiUrl}`);
+    
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('API response:', {
+      success: response.data.success,
+      week: response.data.data?.week,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+    
+    console.log('Weekly livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in weekly_livestream_analytics job:', error);
+    
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
+// Define job for monthly livestream analytics
+agenda.define('monthly_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting monthly_livestream_analytics job');
+    
+    // Calculate last month
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const year = lastMonth.getFullYear();
+    const month = lastMonth.getMonth() + 1; // JavaScript months are 0-indexed
+    
+    const formattedMonth = `${year}-${month.toString().padStart(2, '0')}`;
+    console.log(`Running monthly livestream analytics for month: ${formattedMonth}`);
+    
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/monthly?month=${formattedMonth}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/monthly?month=${formattedMonth}`;
+    
+    console.log(`Calling API endpoint: ${apiUrl}`);
+    
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('API response:', {
+      success: response.data.success,
+      month: response.data.data?.month,
+      monthName: response.data.data?.monthName,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+    
+    console.log('Monthly livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in monthly_livestream_analytics job:', error);
+    
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
@@ -1613,6 +1786,21 @@ const startAgenda = async () => {
   // Schedule the delete expired streams job to run every 15 minutes
   await agenda.every('15 minutes', 'delete_expired_streams');
   // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
+  
+  // Schedule daily livestream analytics job to run at midnight WAT
+  // Note: WAT is UTC+1, so 11:00 PM UTC
+  await agenda.every('0 23 * * *', 'daily_livestream_analytics');
+  console.log('Scheduled daily livestream analytics job to run at midnight WAT');
+  
+  // Schedule weekly livestream analytics job to run at 1:00 AM WAT on Mondays
+  // Note: WAT is UTC+1, so 0:00 AM UTC on Mondays (day 1)
+  await agenda.every('0 0 * * 1', 'weekly_livestream_analytics');
+  console.log('Scheduled weekly livestream analytics job to run at 1:00 AM WAT on Mondays');
+  
+  // Schedule monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month
+  // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
+  await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
+  console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
 };
 
 module.exports = { agenda, startAgenda }; 
