@@ -367,9 +367,9 @@ const VerificationModal = ({ isOpen, onClose }) => {
         await VerificationService.updateIndividualInformation(individualInfo);
         
         // Upload individual verification documents
-        if (formData.taxId || formData.governmentId || formData.proofOfAddress) {
+        if (formData.governmentId && formData.proofOfAddress) {
           const documents = {
-            individualTaxId: formData.taxId,
+            individualTaxId: formData.taxId, // Optional, only sent if it exists
             governmentId: formData.governmentId,
             proofOfAddress: formData.proofOfAddress
           };
@@ -404,10 +404,10 @@ const VerificationModal = ({ isOpen, onClose }) => {
         await VerificationService.addBusinessInformation(businessInfo);
         
         // Step 3: Upload business verification documents
-        if (formData.certificateOfIncorporation || formData.businessTaxId) {
+        if (formData.certificateOfIncorporation) {
           const documents = {
             certificateOfIncorporation: formData.certificateOfIncorporation,
-            businessTaxId: formData.businessTaxId
+            businessTaxId: formData.businessTaxId  // Optional, only sent if it exists
           };
           
           await VerificationService.uploadCompanyVerification(documents);
@@ -611,7 +611,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       // Documentation - require all three documents
       if (currentStepInfo.id === 'documentation') {
         // Ensure all required documents are uploaded
-        return formData.taxId && formData.governmentId && formData.proofOfAddress;
+        return formData.governmentId && formData.proofOfAddress;
       }
     }
     
@@ -631,7 +631,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       
       // Business Documentation - require both documents
       if (currentStepInfo.id === 'business-documentation') {
-        return formData.certificateOfIncorporation && formData.businessTaxId;
+        return formData.certificateOfIncorporation;
       }
     }
     
@@ -834,16 +834,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
           
           
           <div className="space-y-5">
-            <FileUploadComponent 
-              id="taxId"
-              name="taxId"
-              label="Tax ID or VAT Number"
-              description="Upload a document showing your tax identification number"
-              icon={Copy}
-              color="green"
-              value={formData.taxId}
-            />
-            
             <FileUploadComponent 
               id="governmentId"
               name="governmentId"
@@ -1125,16 +1115,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
               icon={FileCheck}
               color="blue"
               value={formData.certificateOfIncorporation}
-            />
-            
-            <FileUploadComponent 
-              id="businessTaxId"
-              name="businessTaxId"
-              label="Business Tax ID Document"
-              description="Upload a document showing your business tax identification number"
-              icon={FileText}
-              color="purple"
-              value={formData.businessTaxId}
             />
           </div>
         </div>
