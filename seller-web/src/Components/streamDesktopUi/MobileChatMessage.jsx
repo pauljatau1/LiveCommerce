@@ -40,7 +40,7 @@ const MobileChatMessage = ({ message }) => {
     if (avatarUrl) {
       return <img src={avatarUrl} alt={message.user} className="w-8 h-8 rounded-full object-cover" />;
     } else {
-      return <Icon icon="hugeicons:user-circle" className="w-8 h-8" color="#EFF0FA" />;
+      return <Icon icon="hugeicons:user-circle" className="w-6 h-6" color="#EFF0FA" />;
     }
   };
 
@@ -57,14 +57,14 @@ const MobileChatMessage = ({ message }) => {
     case 'comment':
       return (
         <div className="flex items-start mb-1 px-2 animate-fadeIn">
-          <div className="mr-2 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-green-500/30">
+          <div className="mr-2 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center overflow-hidden bg-black/20 border-2 border-green-500/30">
             {renderAvatar()}
           </div>
-          <div className="flex-1 bg-black/40 backdrop-blur-sm max-w-[70%] rounded-xl px-3 py-1.5">
-            <p className="text-xs font-semibold" style={{ color: usernameColor }}>
+          <div className="flex-1 bg-black/40 backdrop-blur-sm max-w-[70%] rounded-xl px-3 py-1.5 overflow-hidden">
+            <p className="text-xs font-semibold truncate" style={{ color: usernameColor }}>
               {message.user}
             </p>
-            <p className="text-xs text-white">{message.content}</p>
+            <p className="text-xs text-white break-words">{message.content}</p>
           </div>
         </div>
       );
@@ -73,7 +73,7 @@ const MobileChatMessage = ({ message }) => {
       return (
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex items-center bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 w-auto max-w-[80%]">
-            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-green-500/30">
+            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center overflow-hidden bg-black/20 border-2 border-green-500/30">
               {renderAvatar()}
             </div>
             <div className="flex-1 mr-1 min-w-0">
@@ -89,7 +89,7 @@ const MobileChatMessage = ({ message }) => {
       return (
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex items-center bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 w-auto max-w-[80%]">
-            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-red-500/30">
+            <div className="mr-1.5 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-red-500/30">
               {renderAvatar()}
             </div>
             <div className="flex-1 mr-1 min-w-0">
@@ -105,7 +105,7 @@ const MobileChatMessage = ({ message }) => {
       return (
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex items-center bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 w-auto max-w-[80%]">
-            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-purple-500/30">
+            <div className="mr-1.5 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-purple-500/30">
               {renderAvatar()}
             </div>
             <div className="flex-1 mr-1 min-w-0">
@@ -122,7 +122,7 @@ const MobileChatMessage = ({ message }) => {
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex flex-col bg-black/40 backdrop-blur-sm rounded-xl px-2 py-1.5 w-auto max-w-[100%]">
             <div className="flex gap-4 items-center">
-              <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-purple-500/50">
+              <div className="mr-1.5 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-purple-500/50">
                 {renderAvatar()}
               </div>
               <div className="flex-1 min-w-0">
@@ -184,7 +184,7 @@ const MobileChatMessage = ({ message }) => {
       return (
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex items-center bg-black/40 backdrop-blur-sm rounded-xl px-2 py-1.5 w-auto max-w-[90%]">
-            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-yellow-500/50">
+            <div className="mr-1.5 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-yellow-500/50">
               {renderAvatar()}
             </div>
             <div className="flex-1 min-w-0">
@@ -208,7 +208,7 @@ const MobileChatMessage = ({ message }) => {
       return (
         <div className="flex items-center mb-1 animate-fadeIn">
           <div className="flex items-center bg-gradient-to-r from-[#1A1500]/80 to-[#332C04]/80 backdrop-blur-sm rounded-xl px-2 py-1.5 w-auto max-w-[90%] border border-[#FFD700]/50">
-            <div className="mr-1.5 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-yellow-500/50">
+            <div className="mr-1.5 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-yellow-500/50">
               {renderAvatar()}
             </div>
             <div className="flex-1 min-w-0">
@@ -231,7 +231,7 @@ const MobileChatMessage = ({ message }) => {
     default:
       return (
         <div className="flex items-start mb-1 px-2 animate-fadeIn">
-          <div className="mr-2 flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-black/20 border-2 border-green-500/30">
+          <div className="mr-2 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full overflow-hidden bg-black/20 border-2 border-green-500/30">
             {renderAvatar()}
           </div>
           <div className="flex-1 bg-black/40 backdrop-blur-sm max-w-[70%] rounded-xl px-3 py-1.5">
