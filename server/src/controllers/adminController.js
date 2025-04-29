@@ -5997,3 +5997,87 @@ exports.addToSellerWallet = async (req, res) => {
 };
 
 // ... existing code ...
+
+// Admin function to delete all products of a seller
+exports.deleteAllSellerProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { reason } = req.body;
+    
+    // Check if seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Find all products of the seller
+    const products = await Product.find({ seller: sellerId });
+    
+    if (products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No products found for this seller'
+      });
+    }
+
+    // Get basic product info for email notification
+    const productsInfo = products.map(product => ({
+      _id: product._id,
+      name: product.name,
+      category: product.category,
+      price: product.price
+    }));
+
+    // Delete all products of the seller
+    const deleteResult = await Product.deleteMany({ seller: sellerId });
+    
+    // Send email notification to the seller
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'All Products Deleted by Admin - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>All Products Deleted</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>We're writing to inform you that an administrator has deleted all of your products from the platform.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>Total Products Deleted:</strong> ${deleteResult.deletedCount}</p>
+            ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+          </div>
+          
+          <p>If you have any questions or concerns about this action, please contact our support team at support@auqli.com.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+    
+    try {
+      // Ensure SendGrid API key is set
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send(emailMsg);
+      console.log(`Products deletion notification email sent to seller: ${seller.email}`);
+    } catch (emailError) {
+      console.error('Error sending products deletion email:', emailError);
+      // Don't throw error to prevent API failure
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: `All products of seller ${sellerId} deleted successfully`,
+      deletedCount: deleteResult.deletedCount
+    });
+    
+  } catch (error) {
+    console.error('Error deleting all seller products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete all seller products',
+      error: error.message
+    });
+  }
+};

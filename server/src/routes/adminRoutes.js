@@ -2910,4 +2910,43 @@ router.post(
   adminController.addToSellerWallet
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/products:
+ *   delete:
+ *     summary: Delete all products of a seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller whose products to delete
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for deleting all products
+ *     responses:
+ *       200:
+ *         description: All seller products deleted successfully
+ *       404:
+ *         description: Seller not found or no products found
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  '/sellers/:sellerId/products',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deleteAllSellerProducts
+);
+
 module.exports = router;
