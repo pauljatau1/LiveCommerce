@@ -76,7 +76,7 @@ export interface UpdateSellerData {
   businessEmail?: string;
   businessNumber?: string;
   taxInformation?: string;
-  accountType?: 'individual' | 'business';
+  accountType?: string;
   
   // Addresses
   businessAddress?: BusinessAddress;
@@ -102,6 +102,17 @@ export interface UpdateSellerData {
   isFeatured?: boolean;
   isDisabled?: boolean;
   accountPending?: boolean;
+}
+
+export interface SellerProductsParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: string;
+  search?: string;
 }
 
 export const SellerService = {
@@ -143,5 +154,30 @@ export const SellerService = {
   // Update seller information
   updateSellerInfo: async (sellerId: string, data: UpdateSellerData) => {
     return await api.put(`/api/admin/sellers/${sellerId}/update`, data);
+  },
+  
+  // Get seller's products
+  getSellerProducts: async (sellerId: string, params?: SellerProductsParams) => {
+    return await api.get(`/api/admin/sellers/${sellerId}/products`, { params });
+  },
+  
+  // Delete a product
+  deleteProduct: async (productId: string, data?: { reason: string }) => {
+    return await api.delete(`/api/admin/products/${productId}`, { data });
+  },
+  
+  // Disable a product
+  disableProduct: async (productId: string, data?: { reason: string }) => {
+    return await api.put(`/api/admin/products/${productId}/disable`, data);
+  },
+  
+  // Add funds to seller wallet
+  addToSellerWallet: async (sellerId: string, data: { amount: number, reason: string }) => {
+    return await api.post(`/api/admin/sellers/${sellerId}/wallet/add`, data);
+  },
+  
+  // Deduct funds from seller wallet
+  deductFromSellerWallet: async (sellerId: string, data: { amount: number, reason: string }) => {
+    return await api.post(`/api/admin/sellers/${sellerId}/wallet/deduct`, data);
   }
 }; 

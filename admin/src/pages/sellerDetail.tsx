@@ -59,9 +59,30 @@ import {
   Video,
   Wallet,
   XCircle,
-  Pencil
+  Pencil,
+  Search,
+  Filter,
+  X,
+  Trash2,
+  Tag,
+  Package2,
+  BarChart2,
+  PlusCircle,
+  MinusCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  CreditCard
 } from "lucide-react";
 import EditSellerForm from "@/components/sellers/EditSellerForm";
+import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Interface declarations (same as in sellers.tsx)
 interface BusinessAddress {
@@ -115,6 +136,54 @@ interface Category {
     _id: string;
   }>;
   _id: string;
+}
+
+interface ProductStats {
+  views?: number;
+  soldCount?: number;
+  averageRating?: number;
+  reviewCount?: number;
+}
+
+interface ProductDiscount {
+  isActive: boolean;
+  type: string;
+  value: number;
+  discountedPrice?: number;
+}
+
+interface ProductInventory {
+  quantity?: number;
+  lowStockThreshold?: number;
+  sku?: string;
+}
+
+interface Product {
+  _id: string;
+  id?: string;
+  name: string;
+  brand?: string;
+  category: string;
+  subCategory?: string;
+  price: number;
+  discountedPrice?: number;
+  stock: number;
+  status: string;
+  sku?: string;
+  upc?: string;
+  visibility?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  condition?: string;
+  discount?: ProductDiscount;
+  seller?: Seller;
+  stats?: ProductStats;
+  inventory?: ProductInventory;
+  images: {
+    url: string;
+    _id?: string;
+  }[];
+  reviews?: any[];
 }
 
 interface Seller {
@@ -223,7 +292,7 @@ interface Seller {
 
 function SellerDetail() {
   const { id } = useParams();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [seller, setSeller] = useState<Seller | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [recentActivity, setRecentActivity] = useState<any>(null);
@@ -233,6 +302,36 @@ function SellerDetail() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectDetails, setRejectDetails] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Wallet management state
+  const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [showDeductFundsModal, setShowDeductFundsModal] = useState(false);
+  const [walletAmount, setWalletAmount] = useState<string>('');
+  const [walletReason, setWalletReason] = useState<string>('');
+  const [walletLoading, setWalletLoading] = useState<boolean>(false);
+
+  // Products state
+  const [sellerProducts, setSellerProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [productsPagination, setProductsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0,
+    productsPerPage: 10
+  });
+  const [productsFilter, setProductsFilter] = useState({
+    status: '',
+    category: '',
+    search: '',
+    sortBy: 'newest'
+  });
+  const [showDeleteProductModal, setShowDeleteProductModal] = useState(false);
+  const [showDisableProductModal, setShowDisableProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     // Set loading state
@@ -264,6 +363,13 @@ function SellerDetail() {
       setSeller(null);
     }
   }, [id]);
+
+  // Fetch seller products when tab changes to products
+  useEffect(() => {
+    if (id && activeTab === 'products' && sellerProducts.length === 0) {
+      fetchSellerProducts(true);
+    }
+  }, [id, activeTab]);
 
   const getDisplayName = (seller: Seller) => {
     if (seller.storeName) {
@@ -359,6 +465,213 @@ function SellerDetail() {
   const handleSellerUpdate = (updatedData: any) => {
     setSeller(updatedData);
     setShowEditModal(false);
+  };
+
+  // Format price to readable format with currency
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  };
+
+  // Fetch seller's products
+  const fetchSellerProducts = async (isNewFilter = false) => {
+    if (!id) return;
+
+    try {
+      const page = isNewFilter ? 1 : productsPagination.currentPage;
+      
+      if (isNewFilter) {
+        setLoadingProducts(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const params = {
+        page,
+        limit: productsPagination.productsPerPage,
+        ...(productsFilter.status && { status: productsFilter.status }),
+        ...(productsFilter.category && { category: productsFilter.category }),
+        ...(productsFilter.search && { search: productsFilter.search }),
+        sortBy: productsFilter.sortBy
+      };
+
+      const response = await SellerService.getSellerProducts(id, params);
+      
+      const { products, currentPage, totalPages, totalProducts, productsPerPage } = response.data;
+      
+      setProductsPagination({
+        currentPage,
+        totalPages,
+        totalProducts,
+        productsPerPage
+      });
+
+      if (isNewFilter) {
+        setSellerProducts(products);
+      } else {
+        setSellerProducts(prev => [...prev, ...products]);
+      }
+    } catch (error) {
+      console.error("Error fetching seller products:", error);
+      toast.error("Failed to load seller's products");
+    } finally {
+      setLoadingProducts(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load more products
+  const handleLoadMoreProducts = () => {
+    if (productsPagination.currentPage < productsPagination.totalPages) {
+      setProductsPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }));
+      fetchSellerProducts(false);
+    }
+  };
+
+  // Apply product filters
+  const applyProductsFilter = () => {
+    setProductsPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchSellerProducts(true);
+  };
+
+  // Reset product filters
+  const resetProductsFilter = () => {
+    setProductsFilter({
+      status: '',
+      category: '',
+      search: '',
+      sortBy: 'newest'
+    });
+    setProductsPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchSellerProducts(true);
+  };
+
+  // Handle product filter change
+  const handleProductFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProductsFilter(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handle delete product
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      await SellerService.deleteProduct(selectedProduct._id);
+      toast.success("Product deleted successfully");
+      setSellerProducts(products => products.filter(p => p._id !== selectedProduct._id));
+      setShowDeleteProductModal(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Failed to delete product");
+    }
+  };
+
+  // Handle disable product
+  const handleDisableProduct = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      await SellerService.disableProduct(selectedProduct._id);
+      toast.success("Product disabled successfully");
+      setSellerProducts(products => products.map(p => 
+        p._id === selectedProduct._id ? { ...p, status: 'draft' } : p
+      ));
+      setShowDisableProductModal(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error("Error disabling product:", error);
+      toast.error("Failed to disable product");
+    }
+  };
+
+  // Get the product discount percentage
+  const getDiscountPercentage = (product: Product) => {
+    if (!product.discount?.isActive || !product.discount.value) return 0;
+    return product.discount.type === 'percentage' ? 
+      product.discount.value : 
+      Math.round((product.discount.value / product.price) * 100);
+  };
+
+  // Handle adding funds to wallet
+  const handleAddFunds = async () => {
+    if (!id || !walletAmount || parseFloat(walletAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    try {
+      setWalletLoading(true);
+      
+      const response = await SellerService.addToSellerWallet(id, {
+        amount: parseFloat(walletAmount),
+        reason: walletReason || "Manual fund addition by admin"
+      });
+      
+      // Update the seller object with the new wallet balance
+      setSeller(prevSeller => {
+        if (!prevSeller) return null;
+        return {
+          ...prevSeller,
+          walletBalance: response.data.newBalance || (prevSeller.walletBalance + parseFloat(walletAmount))
+        };
+      });
+      
+      toast.success(`Successfully added ${formatPrice(parseFloat(walletAmount))} to seller's wallet`);
+      
+      // Reset form and close modal
+      setWalletAmount('');
+      setWalletReason('');
+      setShowAddFundsModal(false);
+    } catch (error: any) {
+      console.error("Error adding funds:", error);
+      toast.error(error.response?.data?.message || "Failed to add funds to wallet");
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  // Handle deducting funds from wallet
+  const handleDeductFunds = async () => {
+    if (!id || !walletAmount || parseFloat(walletAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    try {
+      setWalletLoading(true);
+      
+      const response = await SellerService.deductFromSellerWallet(id, {
+        amount: parseFloat(walletAmount),
+        reason: walletReason || "Manual fund deduction by admin"
+      });
+      
+      // Update the seller object with the new wallet balance
+      setSeller(prevSeller => {
+        if (!prevSeller) return null;
+        return {
+          ...prevSeller,
+          walletBalance: response.data.newBalance || (prevSeller.walletBalance - parseFloat(walletAmount))
+        };
+      });
+      
+      toast.success(`Successfully deducted ${formatPrice(parseFloat(walletAmount))} from seller's wallet`);
+      
+      // Reset form and close modal
+      setWalletAmount('');
+      setWalletReason('');
+      setShowDeductFundsModal(false);
+    } catch (error: any) {
+      console.error("Error deducting funds:", error);
+      toast.error(error.response?.data?.message || "Failed to deduct funds from wallet");
+    } finally {
+      setWalletLoading(false);
+    }
   };
 
   if (loading) {
@@ -558,7 +871,7 @@ function SellerDetail() {
       </div>
 
       {/* Tabs Section */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="mb-4 w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sales">Sales & Orders</TabsTrigger>
@@ -1023,15 +1336,380 @@ function SellerDetail() {
         </TabsContent>
         
         <TabsContent value="products">
-          <Card className="p-5 bg-zinc-900 border-zinc-800">
-            <h3 className="text-xl font-semibold text-center py-8 text-zinc-400">
-              Products data will be displayed here
-            </h3>
-          </Card>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Package className="h-5 w-5 text-zinc-400" />
+                Products ({productsPagination.totalProducts || 0})
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    name="search"
+                    value={productsFilter.search}
+                    onChange={handleProductFilterChange}
+                    className="bg-zinc-800 text-white border border-zinc-700 rounded-md px-4 py-2 text-sm w-64 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {productsFilter.search && (
+                    <button 
+                      onClick={() => {
+                        setProductsFilter(prev => ({ ...prev, search: '' }));
+                      }}
+                      className="absolute right-8 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button 
+                    onClick={applyProductsFilter}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-white"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
+                <select
+                  name="status"
+                  value={productsFilter.status}
+                  onChange={handleProductFilterChange}
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="offline_auction">Offline Auction</option>
+                </select>
+                <select
+                  name="sortBy"
+                  value={productsFilter.sortBy}
+                  onChange={handleProductFilterChange}
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="best_selling">Best Selling</option>
+                  <option value="most_viewed">Most Viewed</option>
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetProductsFilter}
+                  className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                >
+                  Reset
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={applyProductsFilter}
+                  className="border-indigo-600 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40"
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+
+            <Card className="p-5 bg-zinc-900 border-zinc-800">
+              {loadingProducts && sellerProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mb-4" />
+                  <p className="text-zinc-400">Loading products...</p>
+                </div>
+              ) : sellerProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Package2 className="h-16 w-16 text-zinc-700 mb-4" />
+                  <p className="text-zinc-400 mb-2">No products found</p>
+                  <p className="text-zinc-500 text-sm">This seller doesn't have any products matching your criteria.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-zinc-800">
+                          <TableHead className="text-zinc-400">Image</TableHead>
+                          <TableHead className="text-zinc-400">Product Details</TableHead>
+                          <TableHead className="text-zinc-400">Price</TableHead>
+                          <TableHead className="text-zinc-400">Inventory</TableHead>
+                          <TableHead className="text-zinc-400">Status</TableHead>
+                          <TableHead className="text-zinc-400">Sales & Analytics</TableHead>
+                          <TableHead className="text-zinc-400">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sellerProducts.map((product) => (
+                          <TableRow key={product._id} className="border-zinc-800 hover:bg-zinc-800/50">
+                            <TableCell className="align-top">
+                              {product.images && product.images.length > 0 && (
+                                <div className="relative group">
+                                  <img 
+                                    src={product.images[0].url} 
+                                    alt={product.name}
+                                    className="w-16 h-16 object-cover rounded-md"
+                                  />
+                                  {product.images.length > 1 && (
+                                    <Badge className="absolute -top-2 -right-2 bg-zinc-700 text-zinc-300 text-xs">
+                                      +{product.images.length - 1}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-md align-top">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm mb-1 text-white">{product.name}</span>
+                                <div className="flex flex-col text-xs text-zinc-400">
+                                  <span>ID: {product._id}</span>
+                                  {product.sku && <span>SKU: {product.sku}</span>}
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs bg-zinc-700 text-zinc-300">
+                                      {product.category}
+                                    </Badge>
+                                    {product.subCategory && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {product.subCategory}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {product.brand && (
+                                    <span className="mt-1 text-xs">Brand: {product.brand}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-white">{formatPrice(product.price)}</span>
+                                  {product.discount?.isActive && (
+                                    <Badge className="bg-red-500/20 text-red-400 text-xs">
+                                      -{getDiscountPercentage(product)}%
+                                    </Badge>
+                                  )}
+                                </div>
+                                {product.discount?.isActive && product.discount.discountedPrice && (
+                                  <span className="text-xs text-zinc-500 line-through">
+                                    {formatPrice(product.discount.discountedPrice)}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-white">{product.stock}</span>
+                                  <span className="text-xs text-zinc-400">units</span>
+                                </div>
+                                {product.inventory?.lowStockThreshold && (
+                                  <span className="text-xs text-zinc-400">
+                                    Low stock alert: {product.inventory.lowStockThreshold}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex flex-col gap-2">
+                                <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit ${
+                                  product.stock > 20 
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : product.stock > 0
+                                    ? 'bg-yellow-500/20 text-yellow-400'
+                                    : 'bg-red-500/20 text-red-400'
+                                }`}>
+                                  {product.stock > 20 
+                                    ? 'In Stock' 
+                                    : product.stock > 0 
+                                    ? 'Low Stock'
+                                    : 'Out of Stock'}
+                                </span>
+                                <Badge variant={product.status === 'active' ? 'default' : 'outline'} className={`text-xs w-fit ${
+                                  product.status === 'active' 
+                                    ? 'bg-green-500/20 text-green-400' 
+                                    : product.status === 'draft'
+                                    ? 'text-zinc-400'
+                                    : 'bg-blue-500/20 text-blue-400'
+                                }`}>
+                                  {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex flex-col text-xs gap-1 text-zinc-400">
+                                <div className="flex items-center gap-1">
+                                  <Package2 className="h-3 w-3 text-blue-400" />
+                                  <span>{product.stats?.soldCount || 0} sold</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Eye className="h-3 w-3 text-purple-400" />
+                                  <span>{product.stats?.views || 0} views</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-3 w-3 text-yellow-400" />
+                                  <span>{product.stats?.averageRating || 0} rating ({product.stats?.reviewCount || 0})</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="flex space-x-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-red-400 hover:text-red-300 border-zinc-700 hover:bg-red-500/10"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setShowDeleteProductModal(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                                
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-amber-400 hover:text-amber-300 border-zinc-700 hover:bg-amber-500/10"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setShowDisableProductModal(true);
+                                  }}
+                                >
+                                  <Tag className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Loading indicator */}
+                  {loadingMore && (
+                    <div className="flex justify-center items-center py-6">
+                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500 mr-2" />
+                      <span className="text-zinc-400">Loading more products...</span>
+                    </div>
+                  )}
+
+                  {/* Pagination info */}
+                  <div className="mt-4 text-center text-sm text-zinc-500">
+                    Showing {sellerProducts.length} of {productsPagination.totalProducts} products
+                  </div>
+
+                  {/* Load more button */}
+                  {!loadingProducts && !loadingMore && productsPagination.currentPage < productsPagination.totalPages && (
+                    <div className="mt-6 flex justify-center">
+                      <Button 
+                        onClick={handleLoadMoreProducts}
+                        disabled={loadingMore}
+                        className="bg-indigo-600/20 text-indigo-400 border border-indigo-600/30 hover:bg-indigo-600/40"
+                      >
+                        {loadingMore ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>Load More Products</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+          </div>
         </TabsContent>
         
         <TabsContent value="finances">
           <div className="space-y-6">
+            {/* Wallet Management */}
+            <Card className="p-5 bg-zinc-900 border-zinc-800">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-zinc-400" />
+                  Wallet Management
+                </h3>
+                <div className="flex items-center gap-3 mt-4 md:mt-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddFundsModal(true)}
+                    className="bg-green-600/20 border-green-600/40 text-green-400 hover:bg-green-600/30"
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Funds
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeductFundsModal(true)}
+                    className="bg-red-600/20 border-red-600/40 text-red-400 hover:bg-red-600/30"
+                  >
+                    <MinusCircle className="h-4 w-4 mr-2" />
+                    Deduct Funds
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex-1 bg-zinc-800 rounded-lg p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="text-sm text-zinc-400">Current Balance</div>
+                    <div className="text-3xl font-bold text-white mt-2">
+                      {formatPrice(seller?.walletBalance || 0)}
+                    </div>
+                  </div>
+                  <div className="flex items-center mt-6">
+                    <CreditCard className="h-5 w-5 text-zinc-400 mr-2" />
+                    <span className="text-sm text-zinc-300">Seller Account</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-zinc-800 rounded-lg p-5">
+                  <div className="text-sm text-zinc-400 mb-4">Quick Actions</div>
+                  <div className="space-y-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-zinc-700 text-zinc-300"
+                      onClick={() => {
+                        setWalletAmount('1000');
+                        setShowAddFundsModal(true);
+                      }}
+                    >
+                      <ArrowUpRight className="h-4 w-4 mr-2 text-green-400" />
+                      Add ₦1,000
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-zinc-700 text-zinc-300"
+                      onClick={() => {
+                        setWalletAmount('5000');
+                        setShowAddFundsModal(true);
+                      }}
+                    >
+                      <ArrowUpRight className="h-4 w-4 mr-2 text-green-400" />
+                      Add ₦5,000
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-zinc-700 text-zinc-300"
+                      onClick={() => {
+                        setWalletAmount('1000');
+                        setShowDeductFundsModal(true);
+                      }}
+                    >
+                      <ArrowDownRight className="h-4 w-4 mr-2 text-red-400" />
+                      Deduct ₦1,000
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+            
             {/* Recent Transactions */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
               <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
@@ -1429,6 +2107,269 @@ function SellerDetail() {
               onCancel={() => setShowEditModal(false)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Product Confirmation Modal */}
+      {showDeleteProductModal && selectedProduct && (
+        <Dialog open={showDeleteProductModal} onOpenChange={setShowDeleteProductModal}>
+          <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-red-400" />
+                Delete Product
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Are you sure you want to delete this product? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-zinc-800 p-4 rounded-md mb-4">
+              <div className="flex items-center gap-3">
+                {selectedProduct.images && selectedProduct.images.length > 0 && (
+                  <img 
+                    src={selectedProduct.images[0].url} 
+                    alt={selectedProduct.name}
+                    className="w-12 h-12 object-cover rounded-md"
+                  />
+                )}
+                <div>
+                  <p className="font-medium text-white">{selectedProduct.name}</p>
+                  <p className="text-sm text-zinc-400">
+                    {formatPrice(selectedProduct.price)} • {selectedProduct.category}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteProductModal(false);
+                  setSelectedProduct(null);
+                }}
+                className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProduct}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Product
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Disable Product Confirmation Modal */}
+      {showDisableProductModal && selectedProduct && (
+        <Dialog open={showDisableProductModal} onOpenChange={setShowDisableProductModal}>
+          <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Tag className="h-5 w-5 text-amber-400" />
+                Disable Product
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                This will set the product status to draft and hide it from customers.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-zinc-800 p-4 rounded-md mb-4">
+              <div className="flex items-center gap-3">
+                {selectedProduct.images && selectedProduct.images.length > 0 && (
+                  <img 
+                    src={selectedProduct.images[0].url} 
+                    alt={selectedProduct.name}
+                    className="w-12 h-12 object-cover rounded-md"
+                  />
+                )}
+                <div>
+                  <p className="font-medium text-white">{selectedProduct.name}</p>
+                  <p className="text-sm text-zinc-400">
+                    {formatPrice(selectedProduct.price)} • {selectedProduct.category}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDisableProductModal(false);
+                  setSelectedProduct(null);
+                }}
+                className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDisableProduct}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                Disable Product
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Add Funds Modal */}
+      <Dialog open={showAddFundsModal} onOpenChange={setShowAddFundsModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <PlusCircle className="h-5 w-5 text-green-400" />
+              Add Funds to Wallet
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Add funds to {seller?.storeName || getDisplayName(seller || {} as Seller)}'s wallet balance.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Amount (₦)*
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Enter amount to add"
+                value={walletAmount}
+                onChange={(e) => setWalletAmount(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Reason
+              </label>
+              <Textarea
+                placeholder="Enter reason for adding funds (optional)"
+                value={walletReason}
+                onChange={(e) => setWalletReason(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWalletAmount('');
+                setWalletReason('');
+                setShowAddFundsModal(false);
+              }}
+              className="border-zinc-700 text-zinc-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddFunds}
+              disabled={walletLoading || !walletAmount || parseFloat(walletAmount) <= 0}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {walletLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <PlusCircle className="h-4 w-4 mr-2" />
+              )}
+              Add Funds
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deduct Funds Modal */}
+      <Dialog open={showDeductFundsModal} onOpenChange={setShowDeductFundsModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <MinusCircle className="h-5 w-5 text-red-400" />
+              Deduct Funds from Wallet
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Deduct funds from {seller?.storeName || getDisplayName(seller || {} as Seller)}'s wallet balance.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="py-2 rounded-md bg-zinc-800 px-3 flex justify-between">
+              <span className="text-zinc-300">Current Balance:</span>
+              <span className="font-medium text-white">{formatPrice(seller?.walletBalance || 0)}</span>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Amount (₦)*
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Enter amount to deduct"
+                value={walletAmount}
+                onChange={(e) => setWalletAmount(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
+              {parseFloat(walletAmount) > (seller?.walletBalance || 0) && (
+                <p className="text-xs text-red-400 mt-1">
+                  Amount exceeds current balance
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Reason*
+              </label>
+              <Textarea
+                placeholder="Enter reason for deducting funds"
+                value={walletReason}
+                onChange={(e) => setWalletReason(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWalletAmount('');
+                setWalletReason('');
+                setShowDeductFundsModal(false);
+              }}
+              className="border-zinc-700 text-zinc-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeductFunds}
+              disabled={
+                walletLoading || 
+                !walletAmount || 
+                parseFloat(walletAmount) <= 0 || 
+                parseFloat(walletAmount) > (seller?.walletBalance || 0) ||
+                !walletReason
+              }
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {walletLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <MinusCircle className="h-4 w-4 mr-2" />
+              )}
+              Deduct Funds
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

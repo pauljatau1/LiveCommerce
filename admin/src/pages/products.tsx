@@ -383,7 +383,7 @@ function Products() {
                         'the seller'
       
       toast.success(
-        `Successfully imported ${response.data.results.createdProducts.length} products. ${sellerName} has been notified via email with details.`,
+        `Successfully imported ${response.data.results.createdProducts.length} products${response.data.results.errors.length > 0 ? ` with ${response.data.results.errors.length} errors` : ''}. ${sellerName} has been notified via email with details.`,
         { duration: 5000 }
       )
       
@@ -427,14 +427,53 @@ function Products() {
 
   // Function to get the product discount percentage
   const getDiscountPercentage = (product: Product) => {
-    if (product.discount?.isActive && product.discount.type === 'percentage') {
-      return product.discount.value;
-    }
-    if (product.price && product.discountedPrice && product.discountedPrice < product.price) {
-      return Math.round(((product.price - product.discountedPrice) / product.price) * 100);
-    }
-    return 0;
+    if (!product.discount?.isActive || !product.discount.value) return 0;
+    return product.discount.type === 'percentage' ? 
+      product.discount.value : 
+      Math.round((product.discount.value / product.price) * 100);
   }
+
+  // Handle delete product
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/admin/products/${productId}`);
+      
+      if (response.data.success) {
+        toast.success("Product deleted successfully");
+        // Remove the deleted product from the list
+        setProducts(products.filter(product => product._id !== productId));
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Failed to delete product. Please try again.");
+    }
+  };
+
+  // Handle disable product
+  const handleDisableProduct = async (productId: string, productName: string) => {
+    if (!confirm(`Are you sure you want to disable "${productName}"? The product will be set to draft status.`)) {
+      return;
+    }
+
+    try {
+      const response = await api.put(`/admin/products/${productId}/disable`);
+      
+      if (response.data.success) {
+        toast.success("Product disabled successfully");
+        // Update the product status in the list
+        setProducts(products.map(product => 
+          product._id === productId ? { ...product, status: 'draft' } : product
+        ));
+      }
+    } catch (error) {
+      console.error("Error disabling product:", error);
+      toast.error("Failed to disable product. Please try again.");
+    }
+  };
 
   // Initial loading state for the entire page
   if (loading && pagination.currentPage === 1 && products.length === 0) {
@@ -812,34 +851,35 @@ function Products() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Edit Product</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>View Details</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-500 hover:text-red-600"
+                                onClick={() => handleDeleteProduct(product._id, product.name)}
+                              >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>Delete Product</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-amber-500 hover:text-amber-600"
+                                onClick={() => handleDisableProduct(product._id, product.name)}
+                              >
+                                <Tag className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Disable Product</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -948,6 +988,36 @@ function Products() {
                     )}
                   </ul>
                 </div>
+                
+                {/* Error details section */}
+                {uploadStats.errors.length > 0 && (
+                  <div className="border border-red-200 rounded-md p-4 max-h-[200px] overflow-y-auto bg-red-50">
+                    <h4 className="font-medium mb-2 text-red-700">Failed Products</h4>
+                    <table className="w-full text-sm">
+                      <thead className="text-xs text-red-700 uppercase bg-red-100">
+                        <tr>
+                          <th className="py-2 px-1 text-left">Row</th>
+                          <th className="py-2 px-1 text-left">Product</th>
+                          <th className="py-2 px-1 text-left">Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadStats.errors.slice(0, 10).map((error: any, index: number) => (
+                          <tr key={index} className="border-b border-red-200">
+                            <td className="py-2 px-1">{error.row}</td>
+                            <td className="py-2 px-1">{error.productName || 'N/A'}</td>
+                            <td className="py-2 px-1 text-red-600">{error.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {uploadStats.errors.length > 10 && (
+                      <p className="text-sm text-gray-500 italic text-center mt-2">
+                        and {uploadStats.errors.length - 10} more errors...
+                      </p>
+                    )}
+                  </div>
+                )}
                 
                 <div className="p-3 bg-amber-50 rounded-md text-sm text-amber-700 border-l-4 border-amber-400">
                   <p className="flex items-center gap-2">
