@@ -6,11 +6,15 @@ node_modules/
 #environment variables
 .env
 
+
 # Expo
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+
+eas.json
+credentials.json
 
 # Native
 *.orig.*
@@ -43,6 +47,9 @@ app-example
 
 
 GoogleServices-info.plist
+
+GoogleService-Info.plist
+google-services.json
 
 android
 ios
