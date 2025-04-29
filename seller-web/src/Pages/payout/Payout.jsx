@@ -309,96 +309,42 @@ export default function Payout() {
     <>
       <div className="min-h-screen bg-gray-50/30">
         <div className="container mx-auto sm:px-4 py-4 sm:py-6 space-y-4">
-          {/* Financial Cards - Enhanced Design */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100">
-                  <CircleDollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Total Earnings</p>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                    {formatCurrency(transactionSummary.totalEarnings)}
-                  </h3>
-                </div>
-              </div>
-              {/* <div className="flex items-center text-xs sm:text-sm text-green-600 mb-3">
-                <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                
-              </div> */}
-              <Button 
-                variant="outline" 
-                className="w-full mt-3 text-xs sm:text-sm py-1.5 sm:py-2"
-                onClick={() => setActiveTab("transactions")}
-              >
-                View Transactions
-              </Button>
-            </Card>
-
-            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Pending Payouts</p>
-                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
-                    {formatCurrency(financialData.amountOnHold)}
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                <BanknoteIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                <span className="text-gray-500">
-                  {withdrawals.filter(w => w.status === 'pending').length} pending requests
-                </span>
-              </div>
-            </Card>
-
-            <Card className="p-4 sm:p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100">
-                  <ArrowDownToLine className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Total Withdrawals</p>
-                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
-                    {formatCurrency(transactionSummary.totalWithdrawals)}
-                  </h3>
-                </div>
-              </div>
-              {/* <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                <span className="text-gray-500">Last withdrawal 2 days ago</span>
-              </div> */}
-            </Card>
-
-            <Card className="p-4 sm:p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
+          {/* Financial Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            
+            {/* Available Balance Card - Now first and full-width on smaller screens */}
+            <Card className="relative p-5 sm:p-6 overflow-hidden rounded-xl border border-green-200 col-span-1 sm:col-span-3 lg:col-span-1 order-first">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500 via-green-600 to-green-700"></div>
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJwYXR0ZXJuIiB4PSIwIiB5PSIwIiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHBhdHRlcm5UcmFuc2Zvcm09InJvdGF0ZSgxMCkiPjxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjEuNSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNwYXR0ZXJuKSIvPjwvc3ZnPg==')]"></div>
+              <div className="absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl from-white/10 to-transparent rounded-tl-full"></div>
               <div className="relative z-10">
-                <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                  <div className="p-2 sm:p-3 rounded-xl bg-white/10 backdrop-blur-sm">
-                    <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 rounded-full bg-white/15 backdrop-blur-sm">
+                    <Wallet className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm font-medium text-gray-300">Available Balance</p>
-                    <h3 className="text-lg sm:text-2xl font-bold text-white">
+                    <p className="text-sm font-medium text-green-100">Available Balance</p>
+                    <h3 className="text-xl sm:text-3xl font-bold text-white">
                       {formatCurrency(transactionSummary.currentBalance)}
                     </h3>
                   </div>
                 </div>
+                <div className="flex items-center text-sm text-green-100 mb-4 space-x-1">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span>Available for immediate withdrawal</span>
+                </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0 text-xs sm:text-sm py-1.5 sm:py-2">
+                    <Button className="w-full mt-1 bg-white hover:bg-gray-50 text-green-700 font-semibold border-0 text-sm py-2.5 rounded-lg">
                       <ArrowDownToLine className="h-4 w-4 mr-2" />
                       Process Withdrawal
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="w-[95%] sm:max-w-md rounded-lg">
+                  <DialogContent className="w-[95%] sm:max-w-md rounded-xl border border-gray-200">
                     <DialogTitle className="text-base sm:text-lg">Create Withdrawal Request</DialogTitle>
                     <DialogDescription className="py-3 sm:py-4">
                       <div className="space-y-3 sm:space-y-4">
-                        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
+                        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-100">
                           <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Current Bank Details</h4>
                           <div className="space-y-1 sm:space-y-2">
                             <div className="flex justify-between text-xs sm:text-sm">
@@ -416,7 +362,7 @@ export default function Payout() {
                           </div>
                           <Button
                             variant="link"
-                            className="mt-1 sm:mt-2 h-auto p-0 text-blue-600 text-xs sm:text-sm"
+                            className="mt-1 sm:mt-2 h-auto p-0 text-green-600 text-xs sm:text-sm"
                             onClick={() => {
                               document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
                               window.location.href = "/dashboard/settings?tab=payment";
@@ -443,8 +389,8 @@ export default function Payout() {
                         {error && (
                           <p className="text-red-500 text-xs sm:text-sm">{error}</p>
                         )}
-                        <div className="text-xs sm:text-sm text-gray-500">
-                          <Info className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
+                        <div className="text-xs sm:text-sm text-gray-500 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                          <Info className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1 text-yellow-600" />
                           Minimum withdrawal amount is ₦1,000
                         </div>
                       </div>
@@ -453,23 +399,62 @@ export default function Payout() {
                       <Button
                         onClick={handleWithdrawalRequest}
                         disabled={loading || !withdrawalAmount}
-                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm"
+                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm rounded-lg"
                       >
                         {loading ? 'Processing...' : 'Withdraw'}
                       </Button>
                       <DialogClose asChild>
-                        <Button variant="outline" className="w-full sm:w-auto text-sm">Cancel</Button>
+                        <Button variant="outline" className="w-full sm:w-auto text-sm rounded-lg">Cancel</Button>
                       </DialogClose>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.07] to-transparent" />
+            </Card>
+
+            <Card className="relative p-5 sm:p-6 bg-white rounded-xl border border-gray-100 col-span-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 rounded-full bg-gradient-to-br from-amber-50 to-amber-100">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">Pending Payouts</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
+                    {formatCurrency(financialData.amountOnHold)}
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center text-xs sm:text-sm text-gray-600 space-x-1">
+                <BanknoteIcon className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500" />
+                <span className="text-amber-600 font-medium">
+                  {withdrawals.filter(w => w.status === 'pending').length} pending requests
+                </span>
+              </div>
+              <div className="absolute top-0 right-0 h-20 w-20 bg-gradient-to-bl from-amber-50 to-transparent opacity-40 rounded-bl-full"></div>
+            </Card>
+
+            <Card className="relative p-5 sm:p-6 bg-white rounded-xl border border-gray-100 col-span-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 rounded-full bg-gradient-to-br from-purple-50 to-purple-100">
+                  <ArrowDownToLine className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">Total Withdrawals</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900">
+                    {formatCurrency(transactionSummary.totalWithdrawals)}
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center text-xs sm:text-sm text-gray-600 space-x-1">
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500" />
+                <span className="text-purple-600 font-medium">Processed withdrawals</span>
+              </div>
+              <div className="absolute top-0 right-0 h-20 w-20 bg-gradient-to-bl from-purple-50 to-transparent opacity-40 rounded-bl-full"></div>
             </Card>
           </div>
 
           {/* Withdrawal Method - Updated for mobile */}
-          <Card className="p-4 bg-white shadow-sm">
+          <Card className="p-5 bg-white rounded-xl border border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-green-50">
@@ -478,27 +463,27 @@ export default function Payout() {
                 <h3 className="font-medium text-gray-800">Withdrawal Method</h3>
               </div>
               <Link to="/dashboard/settings?tab=payment">
-                <Button variant="outline" className="border-2 w-full sm:w-auto text-xs sm:text-sm py-1.5 sm:py-2">
+                <Button variant="outline" className="border-gray-200 hover:bg-gray-50 hover:border-gray-300 w-full sm:w-auto text-xs sm:text-sm py-1.5 sm:py-2 rounded-lg transition-all duration-200">
                   Go To Bank Settings
                 </Button>
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-all duration-200">
                 <Building2 className="h-5 w-5 text-gray-500 mr-3" />
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Bank Name</p>
                   <p className="font-medium text-sm sm:text-base">{bankDetails.bankName}</p>
                 </div>
               </div>
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-all duration-200">
                 <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">#</span>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Account Number</p>
                   <p className="font-medium text-sm sm:text-base">{bankDetails.accountNumber}</p>
                 </div>
               </div>
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-all duration-200">
                 <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">@</span>
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">Account Name</p>
