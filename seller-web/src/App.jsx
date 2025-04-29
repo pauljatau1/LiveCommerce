@@ -415,7 +415,7 @@ const router = createBrowserRouter([
 function App() {
   useEffect(() => {
     // Initialize Mixpanel based on existing consent
-    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
       debug: true,
       track_pageview: true,
       persistence: "localStorage",
@@ -425,11 +425,11 @@ function App() {
 
   const handleConsentAccept = () => {
     // Initialize Customer.io analytics
-    window.cioanalytics.load("403c9b971fd0501b68ee");
+    window.cioanalytics.load(import.meta.env.VITE_CUSTOMER_IO_TOKEN || "403c9b971fd0501b68ee");
     // Track initial pageview
     window.cioanalytics.page();
     // Near entry of your product, init Mixpanel
-    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
       debug: true,
       track_pageview: true,
       persistence: "localStorage",
@@ -453,11 +453,11 @@ function App() {
 
   const handleConsentDecline = () => {
     // Initialize Customer.io analytics
-    window.cioanalytics.load("403c9b971fd0501b68ee");
+    window.cioanalytics.load(import.meta.env.VITE_CUSTOMER_IO_TOKEN || "403c9b971fd0501b68ee");
     // Track initial pageview
     window.cioanalytics.page();
     // Near entry of your product, init Mixpanel
-    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
       debug: true,
       track_pageview: true,
       persistence: "localStorage",
