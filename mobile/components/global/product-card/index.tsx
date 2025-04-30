@@ -142,8 +142,8 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
         </Text>
       </View>
       {/* Seller Information */}
-      <View className=" flex-row  justify-between items-center shrink">
-        <View className="flex-row gap-x-2  items-center">
+      <View className=" flex-row  justify-between items-center shrink gap-[4px]">
+        <View className="flex-row gap-x-2  items-center shrink">
           <Image
             source={
               moreDetails?.seller?.storeAvatar?.url
@@ -157,8 +157,11 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
               borderRadius: 20,
             }}
           />
-          <View>
-            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+          <View className="shrink">
+            <Text
+              className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold"
+              numberOfLines={1}
+            >
               {sellerName || moreDetails?.seller?.businessName}
             </Text>
             <View className="flex-row items-center gap-[4px]">

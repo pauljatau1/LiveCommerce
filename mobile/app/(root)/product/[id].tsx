@@ -49,7 +49,7 @@ import { initializeSocket } from "@/core/sockets";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
-import { Octicons } from "@expo/vector-icons";
+import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import CartSheet from "@/components/product/productCartSheet";
 import AddedToCart from "@/components/product/productAddedToCart";
 import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
@@ -467,7 +467,7 @@ const ProductDescription = () => {
             price={item.price}
             category={item.category}
             sellerName={
-              item.seller?.storeInfo?.storeName || sellerInfo.storeName
+              item.seller?.storeInfo?.storeName || item?.seller?.storeName
             }
             imageUrl={item.images}
             sellerRating={item.stats?.averageRating}
@@ -1088,8 +1088,8 @@ const ProductDescription = () => {
                       className="py-[15px] px-[10px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
                       style={{ backgroundColor: "rgba(22, 120, 58, 0.38)" }}
                     >
-                      <View className="">
-                        <View className="flex-row gap-2 items-center mb-[18px]">
+                      <View className="shrink">
+                        <View className="flex-row gap-2 items-center mb-[18px] shrink">
                           <Image
                             source={{
                               uri: sellerInfo?.storePresence?.storeAvatar?.url,
@@ -1101,9 +1101,12 @@ const ProductDescription = () => {
                               borderRadius: 32,
                             }}
                           />
-                          <View>
-                            <View className="flex-row items-center gap-[8px]">
-                              <Text className="text-[#ccc] text-[15px] font-LexendDecaMedium">
+                          <View className="shrink">
+                            <View className="flex-row items-center gap-[8px] shrink">
+                              <Text
+                                className="text-[#ccc] text-[15px] font-LexendDecaMedium shrink"
+                                numberOfLines={1}
+                              >
                                 {sellerInfo?.storeName}
                               </Text>
                               <Image
@@ -1175,7 +1178,7 @@ const ProductDescription = () => {
                         </View>
                       </View>
 
-                      <View className="justify-between flex-row gap-[16px] shrink">
+                      <View className="justify-between flex-row gap-[16px]">
                         <View className="  gap-[16px] justify-between">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
@@ -1242,7 +1245,12 @@ const ProductDescription = () => {
 
                   <View className="w-[100%] mb-[20px]">
                     <SectionHeader title="More From This Seller" btnText="" />
-                    <View style={{ paddingLeft: 22, paddingTop: 12 }}>
+                    <View
+                      style={{
+                        paddingLeft: moreProductsData?.length > 0 ? 22 : 0,
+                        paddingTop: 12,
+                      }}
+                    >
                       {isMoreProductsLoading ? (
                         <ActivityIndicator color="#fff" size="small" />
                       ) : (
@@ -1250,16 +1258,36 @@ const ProductDescription = () => {
                       )}
                       {!isMoreProductsLoading &&
                       moreProductsData?.length < 1 ? (
-                        <Text className="font-LexendDeca text-white text-[12px] self-center">
-                          No more products found
-                        </Text>
+                        <View
+                          style={{
+                            marginVertical: 40,
+                            width: "100%",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <MaterialIcons
+                            name="inventory"
+                            size={35}
+                            color="#ccc"
+                            style={{ opacity: 0.5 }}
+                          />
+                          <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+                            No More Products Found!
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
                   </View>
 
                   <View className="w-[100%]">
                     <SectionHeader title="Similar Products" btnText="" />
-                    <View style={{ paddingLeft: 22, paddingTop: 12 }}>
+                    <View
+                      style={{
+                        paddingLeft: similarProductsData?.length > 0 ? 22 : 0,
+                        paddingTop: 12,
+                      }}
+                    >
                       {similarProductsLoading ? (
                         <ActivityIndicator color="#fff" size="small" />
                       ) : (
@@ -1268,9 +1296,24 @@ const ProductDescription = () => {
 
                       {!similarProductsLoading &&
                       similarProductsData?.length < 1 ? (
-                        <Text className="font-LexendDeca text-white text-[12px] self-center">
-                          No similar products found
-                        </Text>
+                        <View
+                          style={{
+                            marginVertical: 40,
+                            width: "100%",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <MaterialIcons
+                            name="inventory"
+                            size={35}
+                            color="#ccc"
+                            style={{ opacity: 0.5 }}
+                          />
+                          <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center mx-[10px] mb-[10px]">
+                            No Similar Products Found!
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
                   </View>

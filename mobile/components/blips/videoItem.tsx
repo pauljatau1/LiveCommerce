@@ -55,6 +55,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { EvilIcons, Fontisto } from "@expo/vector-icons";
 import { GlassImage } from "@/app/(root)/livestream/components";
+import { LinearGradient } from "expo-linear-gradient";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -478,6 +479,11 @@ const VideoItem = ({
           </View>
         </View>
         <View className="p-[10px]">
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
+            locations={[0.3, 1]}
+            style={styles.gradientOverlay}
+          ></LinearGradient>
           <View className="gap-[16px] mb-[16px]">
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
@@ -565,6 +571,7 @@ const VideoItem = ({
               </Text>
             </View>
           </View>
+
           <View>
             <Pressable
               className=" py-[4px] mb-[16px] rounded-[5px] "
@@ -850,6 +857,16 @@ const styles = StyleSheet.create({
         elevation: 5,
       },
     }),
+  },
+
+  gradientOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 500, // Adjust based on how much shadow you want
+    justifyContent: "flex-end",
+    padding: 16,
   },
 });
 

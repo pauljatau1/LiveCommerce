@@ -566,7 +566,7 @@ const MessageRoom = () => {
           backgroundColor="#121212"
         />
         <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
-          <View className="flex-row items-center gap-[12px]">
+          <View className="flex-row items-center gap-[12px] shrink">
             <TouchableOpacity className="" onPress={() => router.back()}>
               <Entypo
                 name="chevron-left"
@@ -600,8 +600,11 @@ const MessageRoom = () => {
               )}
             </View>
 
-            <View className="gap-[2px]">
-              <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
+            <View className="gap-[2px] shrink">
+              <Text
+                className="text-[18px] text-[#ccc] font-LexendDecaMedium shrink"
+                numberOfLines={1}
+              >
                 {name}
               </Text>
               {isOnline ? (
