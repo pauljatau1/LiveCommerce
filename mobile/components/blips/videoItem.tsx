@@ -24,7 +24,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
 import { useIsFocused, useNavigationState } from "@react-navigation/native";
 import Entypo from "@expo/vector-icons/Entypo";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -66,6 +66,7 @@ const VideoItem = ({
   product,
   item,
   singularBlip = false,
+  shared = false,
 }: {
   id: string;
   videoUrl: string;
@@ -75,6 +76,7 @@ const VideoItem = ({
   product: any;
   item: any;
   singularBlip: boolean;
+  shared: boolean;
 }) => {
   const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();
@@ -120,10 +122,7 @@ const VideoItem = ({
   const onShare = async () => {
     try {
       const result = await Share.share({
-        url:
-          Platform.OS == "android"
-            ? `com.auqli.auqliapp://singleBlip?id=${product?.id}&blipId=${id}`
-            : `com.auqli.app://singleBlip?id=${product?.id}&blipId=${id}`,
+        url: `https://app.auqli.live/singleBlip/feed?id=${product?.id}&blipId=${id}&itmSource=share`,
       });
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
@@ -350,7 +349,11 @@ const VideoItem = ({
             {singularBlip ? (
               <Pressable
                 // onPress={() => router.replace("/blips")}
-                onPress={() => router.back()}
+                onPress={() => {
+                  shared
+                    ? router.replace("/(root)/(tabs)/blips")
+                    : router.back();
+                }}
                 style={styles.buttonShadow}
               >
                 <Entypo name="chevron-left" size={24} color="#fff" />

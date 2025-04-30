@@ -22,7 +22,7 @@ import { useLocalSearchParams } from "expo-router";
 
 const { height } = Dimensions.get("window");
 const BlipsFeed = () => {
-  const { id, productId } = useLocalSearchParams();
+  const { id, productId, itmSource } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
   const tabBarHeight = insets.bottom;
@@ -142,6 +142,7 @@ const BlipsFeed = () => {
           image: item?.images,
         }}
         singularBlip={true}
+        shared={itmSource?.toString() == "share"}
       />
     );
   };

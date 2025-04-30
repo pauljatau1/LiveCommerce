@@ -24,7 +24,8 @@
       },
       "entitlements": {
         "aps-environment": "production"
-      }
+      },
+      "associatedDomains": ["applinks:app.auqli.live"]
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
@@ -35,6 +36,20 @@
         "foregroundImage": "./assets/images/appstore.png",
         "backgroundColor": "#ffffff"
       },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app.auqli.live",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "permissions": ["INTERNET", "RECORD_AUDIO"]
     },
