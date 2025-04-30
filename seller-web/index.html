@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- Customer.io -->
   <script>
     !function () {
       var i = "cioanalytics";
@@ -28,6 +29,31 @@
       }
     }();
   </script>
+  <script type="text/javascript">
+    var _cio = _cio || [];
+    (function () {
+      var a, b, c; a = function (f) {
+        return function () {
+          _cio.push([f].
+            concat(Array.prototype.slice.call(arguments, 0)))
+        }
+      }; b = ["load", "identify",
+        "sidentify", "track", "page", "on", "off"]; for (c = 0; c < b.length; c++) { _cio[b[c]] = a(b[c]) };
+      var t = document.createElement('script'),
+        s = document.getElementsByTagName('script')[0];
+      t.async = true;
+      t.id = 'cio-tracker';
+      t.setAttribute('data-site-id', '714ef0f88ce6c4127d56');
+      t.setAttribute('data-use-array-params', 'true');
+
+      // Enabled in-app messaging
+      t.setAttribute('data-use-in-app', 'true');
+
+      t.src = 'https://assets.customer.io/assets/track.js';
+      s.parentNode.insertBefore(t, s);
+    })();
+  </script>
+  <!-- End Customer.io -->
   <script>
     // Only initialize Clarity if consent exists
     function initClarity(userInfo) {
@@ -92,19 +118,22 @@
     gtag('config', 'G-314W6NNXZ4');
   </script>
   <!-- End Google tag (gtag.js) -->
-   
+
   <!-- Meta Pixel Code -->
-<script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '791882983135313');
-  fbq('track', 'PageView');
+  <script>
+    !function (f, b, e, v, n, t, s) {
+      if (f.fbq) return; n = f.fbq = function () {
+        n.callMethod ?
+        n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+      };
+      if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+      n.queue = []; t = b.createElement(e); t.async = !0;
+      t.src = v; s = b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t, s)
+    }(window, document, 'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '791882983135313');
+    fbq('track', 'PageView');
   </script>
   <!-- End Meta Pixel Code -->
 
