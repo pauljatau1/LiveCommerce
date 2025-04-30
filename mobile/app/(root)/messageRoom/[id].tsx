@@ -37,6 +37,12 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import ConnectProductCard from "@/components/connect/product-card";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  SlideInDown,
+  SlideOutDown,
+} from "react-native-reanimated";
 import {
   products,
   useGetAllProductsQuery,
@@ -860,7 +866,11 @@ const MessageRoom = () => {
                 )}
               </View>
               {showOptions && (
-                <View className="flex-row items-center justify-center gap-[50] flex-wrap self-center">
+                <Animated.View
+                  className="flex-row items-center justify-center gap-[50] flex-wrap self-center"
+                  entering={SlideInDown}
+                  exiting={SlideOutDown}
+                >
                   <TouchableOpacity
                     className="flex-col items-center gap-[5px]"
                     onPress={() => pickImage()}
@@ -889,7 +899,7 @@ const MessageRoom = () => {
                   </TouchableOpacity>
 
                   {/* <LoadingModal isVisible={isLoading} /> */}
-                </View>
+                </Animated.View>
               )}
             </View>
           </View>

@@ -219,6 +219,48 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
           {formatNumber(moreDetails?.stock)}pcs
         </Text>
       </View>
+
+      <View className="mt-[4px]">
+        {moreDetails?.reviewCount > 0 ||
+        moreDetails?.stats?.totalReviews > 0 ? (
+          <View className="flex-row items-center gap-[6px]">
+            <View className="flex-row gap-[2px] items-center">
+              {Array(5)
+                .fill(0)
+                .map((_, index) =>
+                  parseInt(
+                    moreDetails?.averageRating ||
+                      moreDetails?.stats?.averageRating,
+                  ) <
+                  index + 1 ? (
+                    <AntDesign
+                      key={index}
+                      name="star"
+                      size={11}
+                      color="#rgba(255, 255, 255, 0.62)"
+                    />
+                  ) : (
+                    <AntDesign
+                      name="star"
+                      size={11}
+                      color="#FFD700"
+                      key={index}
+                    />
+                  ),
+                )}
+            </View>
+            <Text className="text-white text-[8.5px] font-LexendDecaMedium font-semibold">
+              {formatNumber(
+                moreDetails?.reviewCount || moreDetails?.stats?.totalReviews,
+              )}
+            </Text>
+          </View>
+        ) : (
+          <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+            No Reviews
+          </Text>
+        )}
+      </View>
       {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
       </Text> */}
