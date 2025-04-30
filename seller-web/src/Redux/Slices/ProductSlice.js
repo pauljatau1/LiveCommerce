@@ -41,6 +41,37 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
         });
 
         if (response.status === 201) {
+            // Track product listing with Customer.io
+            try {
+                const seller = JSON.parse(localStorage.getItem('seller')) || {};
+                
+                if (window.cioanalytics) {
+                    // First re-identify the user to ensure the connection is active
+                    window.cioanalytics.identify(seller._id, {
+                        seller_id: seller._id,
+                        email: seller.email,
+                        first_name: seller.firstName,
+                        last_name: seller.lastName
+                    });
+                    
+                    // Track the product listing event after a small delay
+                    setTimeout(() => {
+                        window.cioanalytics.track('product_listed', {
+                            product_id: response.data.product._id,
+                            category: response.data.product.category,
+                            price: response.data.product.price,
+                            stock_level: response.data.product.stock,
+                            product_name: response.data.product.name,
+                            seller_name: seller.storeName || `${seller.firstName} ${seller.lastName}`,
+                            seller_id: seller._id
+                        });
+                    }, 500);
+                }
+            } catch (trackingError) {
+                console.error('Failed to track product creation:', trackingError);
+                // Don't throw here - we still want to return the successful response
+            }
+            
             return response.data;
         }
     } catch (error) {

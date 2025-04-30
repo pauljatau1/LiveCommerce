@@ -10,8 +10,7 @@ import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
 import { useIntercom } from 'react-use-intercom';
-import DatePicker from "react-datepicker"
-import "react-datepicker/dist/react-datepicker.css"
+
 
 // Add these constants at the top of the file, after the imports
 const DELIVERY_POLICIES = {

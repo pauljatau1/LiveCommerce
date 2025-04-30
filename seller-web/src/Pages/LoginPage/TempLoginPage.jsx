@@ -1,5 +1,7 @@
 import { Link, useNavigate, useLoaderData } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import eyeIcon from '@iconify-icons/mdi/eye';
+import eyeOffIcon from '@iconify-icons/mdi/eye-off';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -99,7 +101,7 @@ const TempLoginPage = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
-                  <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                  <Icon icon={showPassword ? eyeOffIcon : eyeIcon} width="20" height="20" />
                 </button>
               </div>
             </div>

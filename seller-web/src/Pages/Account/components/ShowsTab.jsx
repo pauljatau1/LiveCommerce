@@ -5,7 +5,7 @@ import { Calendar, Clock, Users, Eye } from "lucide-react"
 import { format } from "date-fns"
 import { BASE_URL } from "@/Constants/Server"
 import { Skeleton } from "@/components/ui/skeleton"
-
+import PropTypes from "prop-types";
 export default function ShowsTab({ sellerId }) {
   const [streams, setStreams] = useState([])
   const [loading, setLoading] = useState(true)
@@ -156,3 +156,8 @@ export default function ShowsTab({ sellerId }) {
     </div>
   )
 } 
+
+ShowsTab.propTypes = {
+  sellerId: PropTypes.string.isRequired,
+};
+

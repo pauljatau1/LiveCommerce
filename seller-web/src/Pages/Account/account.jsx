@@ -9,7 +9,6 @@ import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server";
 import { format } from "date-fns";
-import PostsTab from "./components/PostsTab";
 import ShopTab from "./components/ShopTab";
 import BlipsTab from "./components/BlipsTab";
 import ShowsTab from "./components/ShowsTab";
@@ -23,7 +22,7 @@ import { Icon } from "@iconify/react";
 import mixpanel from "mixpanel-browser";
 
 export default function AccountPage() {
-  const { setHeaderName, setNavName } = useOutletContext();
+  const { setHeaderName } = useOutletContext();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);

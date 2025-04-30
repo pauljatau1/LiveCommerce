@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Calendar, ChevronDown, Download, Users, Mail, MousePointerClick, TrendingUp, DollarSign, Globe, Monitor, Smartphone, Tablet } from "lucide-react"
+import { Calendar, ChevronDown, Download, Users, Mail, MousePointerClick, TrendingUp, DollarSign,  Monitor, Smartphone, Tablet } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
@@ -10,7 +9,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import toast from "react-hot-toast"
+import { toast } from "sonner"
+import PropTypes from "prop-types";
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -42,6 +42,14 @@ function StatsCard({ title, value, change, prefix = "", icon: Icon }) {
     </Card>
   )
 }
+
+StatsCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.number.isRequired,
+  change: PropTypes.number.isRequired,
+  prefix: PropTypes.string,
+  icon: PropTypes.func.isRequired,
+};
 
 function TrendsChart({ data }) {
   return (
@@ -116,6 +124,10 @@ function TrendsChart({ data }) {
   )
 }
 
+TrendsChart.propTypes = {
+  data: PropTypes.array.isRequired,
+};
+
 function DeviceDistribution({ deviceStats }) {
   const data = [
     { name: 'Desktop', value: deviceStats?.desktop || 0 },
@@ -169,6 +181,10 @@ function DeviceDistribution({ deviceStats }) {
     </Card>
   )
 }
+
+DeviceDistribution.propTypes = {
+  deviceStats: PropTypes.object.isRequired,
+};
 
 function CampaignsTable({ campaigns }) {
   return (
@@ -252,6 +268,10 @@ function CampaignsTable({ campaigns }) {
     </Card>
   )
 }
+
+CampaignsTable.propTypes = {
+  campaigns: PropTypes.array.isRequired,
+};
 
 function InboxCampaigns() {
   const navigate = useNavigate()
@@ -359,5 +379,9 @@ function InboxCampaigns() {
     </div>
   )
 }
+
+InboxCampaigns.propTypes = {
+  campaigns: PropTypes.array.isRequired,
+};
 
 export default InboxCampaigns

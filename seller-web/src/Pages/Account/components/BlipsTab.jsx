@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Play, Clock, Heart, MessageSquare, Star, Store, Package, Video } from "lucide-react"
+import { Play, Clock, Heart, MessageSquare, Star, Store, Video } from "lucide-react"
 import { format } from "date-fns"
 import { BASE_URL } from "@/Constants/Server"
 import { Skeleton } from "@/components/ui/skeleton"
-
+import PropTypes from "prop-types";
 export default function BlipsTab({ sellerId }) {
   const [blips, setBlips] = useState([])
   const [loading, setLoading] = useState(true)
@@ -199,3 +199,8 @@ export default function BlipsTab({ sellerId }) {
     </div>
   )
 } 
+
+BlipsTab.propTypes = {
+  sellerId: PropTypes.string.isRequired,
+};
+

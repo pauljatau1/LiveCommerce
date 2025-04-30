@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, Send, MessageCircle, ThumbsUp, Calendar, Award, User, Check, Reply, Package, DollarSign } from "lucide-react";
+import { Avatar, AvatarFallback} from "@/components/ui/avatar";
+import { Star, Send, MessageCircle, ThumbsUp, Calendar, Award, Reply, DollarSign } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { BASE_URL } from "@/Constants/Server";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-
+import PropTypes from "prop-types";
 export default function ReviewsTab({ sellerId }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -441,3 +441,7 @@ export default function ReviewsTab({ sellerId }) {
     </div>
   );
 }
+
+ReviewsTab.propTypes = {
+  sellerId: PropTypes.string.isRequired,
+};

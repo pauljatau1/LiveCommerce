@@ -256,6 +256,32 @@ function AuthProvider({ children }) {
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     });
+                    
+                    // Track seller account creation with Customer.io
+                    if (window.cioanalytics) {
+                        const clientIP = await getClientIP().catch(() => 'unknown');
+                        // First identify the user
+                        window.cioanalytics.identify(response.data.user._id, {
+                            seller_id: response.data.user._id,
+                            email: email,
+                            first_name: firstName,
+                            last_name: lastName,
+                            created_at: Math.floor(new Date().getTime() / 1000),
+                            user_type: 'seller'
+                        });
+                        
+                        // Then track events after a small delay
+                        setTimeout(() => {
+                            window.cioanalytics.track('seller_account_created', {
+                                seller_id: response.data.user._id,
+                                email: email,
+                                first_name: firstName,
+                                last_name: lastName,
+                                ip_address: clientIP,
+                                device_type: getDeviceType(),
+                            });
+                        }, 500);
+                    }
                 } catch (e) {
                     console.error('Mixpanel tracking error:', e);
                 }
@@ -516,6 +542,8 @@ function AuthProvider({ children }) {
                         });
                     }
 
+                    
+
                     // Track login event with device context and IP
                     mixpanel.track("Seller Login", {
                         "$email": response.data.user?.email,
@@ -553,21 +581,34 @@ function AuthProvider({ children }) {
 
                     // Identify user with Customer.io
                     if (window.cioanalytics) {
-                        window.cioanalytics.identify(response.data.user.id, {
+                        // Always use _id consistently (appears to be your MongoDB ID)
+                        window.cioanalytics.identify(response.data.user._id, {
                             seller_id: response.data.user._id,
                             email: response.data.user.email,
                             first_name: response.data.user.firstName,
                             last_name: response.data.user.lastName,
                             created_at: Math.floor(new Date(response.data.user.createdAt).getTime() / 1000),
                             user_type: 'seller',
-                            seller_account_type: response.data.user.accountType,
+                            account_type: response.data.user.accountType,
                             store_name: response.data.user.storeName,
-                            location: `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
+                            location: `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
                             total_wallet_balance: `₦${response.data.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                             ip_address: clientIP,
                             device_type: getDeviceType(),
                             approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                         });
+                        
+                        // Use setTimeout to ensure identification is processed before tracking events
+                        setTimeout(() => {
+                            window.cioanalytics.track('seller_account_login', {
+                                seller_id: response.data.user._id,
+                                email: response.data.user?.email,
+                                first_name: response.data.user?.firstName,
+                                last_name: response.data.user?.lastName,
+                                ip_address: clientIP,
+                                device_type: getDeviceType(),
+                            });
+                        }, 500);
                     }
                 } else {
                     // If email not verified, send to signup page for OTP verification

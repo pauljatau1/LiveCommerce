@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import React from 'react';
+import { useState, useEffect} from "react";
 import { Icon } from "@iconify/react";
-import { useNavigation, useOutletContext } from "react-router-dom";
-import Header from "../../Components/ui/Header/Header";
+import { useOutletContext } from "react-router-dom";
 //import Loader from '../../Components/Loader';
 import {
     Command,
@@ -34,16 +34,34 @@ import { useAuthContext } from "../../Hooks/useAuthContext";
 import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
 import { BASE_URL } from "../../Constants/Server";
 import axios from 'axios';
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
-import React from 'react';
 
+// Import all icons directly
+import plusIcon from '@iconify-icons/tabler/plus';
+import magnifyingGlassIcon from '@iconify-icons/heroicons/magnifying-glass';
+import xMarkIcon from '@iconify-icons/heroicons/x-mark';
+import adjustmentsHorizontalIcon from '@iconify-icons/heroicons/adjustments-horizontal';
+import calendarOutlineIcon from '@iconify-icons/solar/calendar-outline';
+import clockThinIcon from '@iconify-icons/iconamoon/clock-thin';
+import sortByTimeLinearIcon from '@iconify-icons/solar/sort-by-time-linear';
+import clockIcon from '@iconify-icons/heroicons/clock';
+import graphBoldIcon from '@iconify-icons/solar/graph-bold';
+import restartBoldIcon from '@iconify-icons/solar/restart-bold';
+import eyeBoldIcon from '@iconify-icons/solar/eye-bold';
+import boxEdit24FilledIcon from '@iconify-icons/fluent/box-edit-24-filled';
+import videoFrameBoldIcon from '@iconify-icons/solar/video-frame-bold';
+import penBoldIcon from '@iconify-icons/solar/pen-bold';
+import trashBinTrashBoldIcon from '@iconify-icons/solar/trash-bin-trash-bold';
+import arrowLongLeftIcon from '@iconify-icons/gg/arrow-long-left';
+import arrowLongRightIcon from '@iconify-icons/gg/arrow-long-right';
+import arrowDownIcon from '@iconify-icons/simple-line-icons/arrow-down';
+import checkIcon from '@iconify-icons/lucide/check';
 
 const ProductsPage = () => {
     const { setHeaderName, setNavName } = useOutletContext()
-    const navigation = useNavigation();
     const dispatch = useDispatch();
-    const { products, auctionProducts, isLoading, isLoadingAuctions, deleteStatus } = useSelector((state) => state.product);
+    const { products, auctionProducts, isLoading, isLoadingAuctions } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); 
     const [sortType, setSortType] = useState('newest-to-oldest'); 
@@ -554,7 +572,7 @@ const ProductsPage = () => {
                                         }
                                     }}
                                 >
-                                    <Icon icon="tabler:plus" width="16" height="16" color="#FFFFFF" />
+                                    <Icon icon={plusIcon} width="16" height="16" color="#FFFFFF" />
                                     <span className="hidden sm:inline">
                                         {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
                                     </span>
@@ -568,7 +586,7 @@ const ProductsPage = () => {
                                 <form onSubmit={handleSearch} className="relative w-full sm:w-auto max-w-full sm:max-w-[400px] flex">
                                     <div className="flex items-center relative flex-grow">
                                         <Icon
-                                            icon="heroicons:magnifying-glass"
+                                            icon={magnifyingGlassIcon}
                                             className="absolute left-3 text-gray-400"
                                             width="18"
                                         />
@@ -584,7 +602,7 @@ const ProductsPage = () => {
                                         type="submit"
                                         className="bg-[#0BB248] text-white px-3 py-2 rounded-r-lg hover:bg-[#0BB248]/90 transition-all duration-300"
                                     >
-                                        <Icon icon="heroicons:magnifying-glass" width="18" />
+                                        <Icon icon={magnifyingGlassIcon} width="18" />
                                     </button>
                                     
                                     {isSearchMode && (
@@ -593,7 +611,7 @@ const ProductsPage = () => {
                                             onClick={handleClearSearch}
                                             className="ml-2 bg-gray-200 text-gray-600 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300 flex items-center gap-1"
                                         >
-                                            <Icon icon="heroicons:x-mark" width="16" />
+                                            <Icon icon={xMarkIcon} width="16" />
                                             <span className="hidden sm:inline">Clear</span>
                                         </button>
                                     )}
@@ -612,7 +630,7 @@ const ProductsPage = () => {
                                         className="flex items-center justify-between w-full gap-2 text-xs font-cabin font-normal bg-[#0BB24817] text-[#0BB248] rounded-lg py-2 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out"
                                     >
                                         <span className="flex items-center gap-2">
-                                            <Icon icon="heroicons:adjustments-horizontal" width="16" height="16" />
+                                            <Icon icon={adjustmentsHorizontalIcon} width="16" height="16" />
                                             Filter Products
                                         </span>
                                         <span className="text-[#0BB248] font-medium">
@@ -628,7 +646,7 @@ const ProductsPage = () => {
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-base font-semibold">Filter Options</h3>
                                                 <button onClick={toggleFilterMenu} className="p-1">
-                                                    <Icon icon="heroicons:x-mark" width="20" />
+                                                    <Icon icon={xMarkIcon} width="20" />
                                                 </button>
                                             </div>
                                             
@@ -742,7 +760,7 @@ const ProductsPage = () => {
                                                 onClick={() => setShowDateDialog(true)}
                                                 className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:calendar-outline" width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#0BB248"} />
+                                                <Icon icon={calendarOutlineIcon} width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Date</p>
                                             </button>
 
@@ -751,7 +769,7 @@ const ProductsPage = () => {
                                                 onClick={() => setShowStatusDialog(true)}
                                                 className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="iconamoon:clock-thin" width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#0BB248"} />
+                                                <Icon icon={clockThinIcon} width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Status</p>
                                             </button>
 
@@ -760,7 +778,7 @@ const ProductsPage = () => {
                                                 onClick={() => setShowPriceDialog(true)}
                                                 className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:sort-by-time-linear" width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#0BB248"} />
+                                                <Icon icon={sortByTimeLinearIcon} width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Price</p>
                                             </button>
                                         </div>
@@ -899,7 +917,7 @@ const ProductsPage = () => {
                                                                 <div>
                                                                     <p className="text-xs text-gray-500">Time Left</p>
                                                                     <div className="flex items-center gap-1">
-                                                                        <Icon icon="heroicons:clock" className="w-3.5 h-3.5 text-gray-500" />
+                                                                        <Icon icon={clockIcon} className="w-3.5 h-3.5 text-gray-500" />
                                                                         <p className="text-sm">
                                                                             {(() => {
                                                                                 if (!item.auction) return 'N/A';
@@ -974,7 +992,7 @@ const ProductsPage = () => {
                                                                         }}
                                                                         className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
-                                                                        <Icon icon="solar:graph-bold" className="w-3.5 h-3.5" />
+                                                                        <Icon icon={graphBoldIcon} className="w-3.5 h-3.5" />
                                                                         <span>Performance</span>
                                                                     </button>
                                                                     {item.auction?.status === 'ended' && (
@@ -986,7 +1004,7 @@ const ProductsPage = () => {
                                                                             }}
                                                                             className="inline-flex items-center gap-1 text-xs bg-[#05031F] text-white px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                         >
-                                                                            <Icon icon="solar:restart-bold" className="w-3.5 h-3.5" />
+                                                                            <Icon icon={restartBoldIcon} className="w-3.5 h-3.5" />
                                                                             <span>Rerun</span>
                                                                         </button>
                                                                     )}
@@ -1001,7 +1019,7 @@ const ProductsPage = () => {
                                                                         }}
                                                                         className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
-                                                                        <Icon icon="solar:eye-bold" className="w-3.5 h-3.5" />
+                                                                        <Icon icon={eyeBoldIcon} className="w-3.5 h-3.5" />
                                                                         <span>Details</span>
                                                                     </button>
                                                                     <button 
@@ -1012,7 +1030,7 @@ const ProductsPage = () => {
                                                                         }}
                                                                         className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
-                                                                        <Icon icon="fluent:box-edit-24-filled" className="w-3.5 h-3.5" />
+                                                                        <Icon icon={boxEdit24FilledIcon} className="w-3.5 h-3.5" />
                                                                         <span>Stock</span>
                                                                     </button>
                                                                     <button 
@@ -1023,7 +1041,7 @@ const ProductsPage = () => {
                                                                         }}
                                                                         className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
-                                                                        <Icon icon="solar:video-frame-bold" className="w-3.5 h-3.5" />
+                                                                        <Icon icon={videoFrameBoldIcon} className="w-3.5 h-3.5" />
                                                                         <span>Blip</span>
                                                                     </button>
                                                                 </>
@@ -1034,7 +1052,7 @@ const ProductsPage = () => {
                                                                 to={`/dashboard/edit-product/${item._id}`}
                                                                 className="inline-flex items-center gap-1 text-xs bg-[#05031F]/10 text-[#05031F] px-2 py-1.5 rounded-md"
                                                             >
-                                                                <Icon icon="solar:pen-bold" className="w-3.5 h-3.5" />
+                                                                <Icon icon={penBoldIcon} className="w-3.5 h-3.5" />
                                                                 <span>Edit</span>
                                                             </Link>
                                                             <button 
@@ -1045,7 +1063,7 @@ const ProductsPage = () => {
                                                                 }}
                                                                 className="inline-flex items-center gap-1 text-xs bg-[#DF0707]/10 text-[#DF0707] px-2 py-1.5 rounded-md"
                                                             >
-                                                                <Icon icon="solar:trash-bin-trash-bold" className="w-3.5 h-3.5" />
+                                                                <Icon icon={trashBinTrashBoldIcon} className="w-3.5 h-3.5" />
                                                                 <span>Delete</span>
                                                             </button>
                                                         </div>
@@ -1117,7 +1135,7 @@ const ProductsPage = () => {
                                                     : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
                                             } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
-                                            <Icon icon="gg:arrow-long-left" width="14" height="14" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
+                                            <Icon icon={arrowLongLeftIcon} width="14" height="14" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
                                             <span className="text-xs">Prev</span>
                                         </button>
                                         
@@ -1135,7 +1153,7 @@ const ProductsPage = () => {
                                             } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
                                             <span className="text-xs">Next</span>
-                                            <Icon icon="gg:arrow-long-right" width="14" height="14" color={currentPage >= paginationData.totalPages ? "#a0a0a0" : "#FFFFFF"} />
+                                            <Icon icon={arrowLongRightIcon} width="14" height="14" color={currentPage >= paginationData.totalPages ? "#a0a0a0" : "#FFFFFF"} />
                                         </button>
                                     </div>
                                     
@@ -1150,7 +1168,7 @@ const ProductsPage = () => {
                                                     : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
                                             } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
-                                            <Icon icon="gg:arrow-long-left" width="16" height="16" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
+                                            <Icon icon={arrowLongLeftIcon} width="16" height="16" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
                                             <p className="text-xs sm:text-sm font-cabin font-normal">Previous</p>
                                         </button>
                                         
@@ -1174,7 +1192,7 @@ const ProductsPage = () => {
                                             } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
                                             <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
-                                            <Icon icon="gg:arrow-long-right" width="16" height="16" color={currentPage >= paginationData.totalPages ? "#a0a0a0" : "#FFFFFF"} />
+                                            <Icon icon={arrowLongRightIcon} width="16" height="16" color={currentPage >= paginationData.totalPages ? "#a0a0a0" : "#FFFFFF"} />
                                         </button>
                                     </div>
                                         
@@ -1182,7 +1200,7 @@ const ProductsPage = () => {
                                         <PopoverTrigger asChild>
                                             <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
                                                 <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
-                                                <Icon icon="simple-line-icons:arrow-down" width="8" height="8" color="#FFFFFF" />
+                                                <Icon icon={arrowDownIcon} width="8" height="8" color="#FFFFFF" />
                                             </button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[200px] p-0">
@@ -1191,19 +1209,19 @@ const ProductsPage = () => {
                                                     <CommandGroup>
                                                         <CommandItem onSelect={() => handleItemsPerPageChange(10)}>
                                                             <span>10 per page</span>
-                                                            {itemsPerPage === 10 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            {itemsPerPage === 10 && <Icon icon={checkIcon} className="ml-auto" />}
                                                         </CommandItem>
                                                         <CommandItem onSelect={() => handleItemsPerPageChange(20)}>
                                                             <span>20 per page</span>
-                                                            {itemsPerPage === 20 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            {itemsPerPage === 20 && <Icon icon={checkIcon} className="ml-auto" />}
                                                         </CommandItem>
                                                         <CommandItem onSelect={() => handleItemsPerPageChange(50)}>
                                                             <span>50 per page</span>
-                                                            {itemsPerPage === 50 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            {itemsPerPage === 50 && <Icon icon={checkIcon} className="ml-auto" />}
                                                         </CommandItem>
                                                         <CommandItem onSelect={() => handleItemsPerPageChange(100)}>
                                                             <span>100 per page</span>
-                                                            {itemsPerPage === 100 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            {itemsPerPage === 100 && <Icon icon={checkIcon} className="ml-auto" />}
                                                         </CommandItem>
                                                     </CommandGroup>
                                                 </CommandList>
@@ -1237,7 +1255,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Newest to Oldest</span>
-                            {sortType === 'newest-to-oldest' && <Icon icon="lucide:check" />}
+                            {sortType === 'newest-to-oldest' && <Icon icon={checkIcon} />}
                         </button>
                         <button
                             onClick={() => {
@@ -1249,7 +1267,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Oldest to Newest</span>
-                            {sortType === 'oldest-to-newest' && <Icon icon="lucide:check" />}
+                            {sortType === 'oldest-to-newest' && <Icon icon={checkIcon} />}
                         </button>
                     </div>
                 </DialogContent>
@@ -1275,7 +1293,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Show Active Only</span>
-                            {sortType === 'active-only' && <Icon icon="lucide:check" />}
+                            {sortType === 'active-only' && <Icon icon={checkIcon} />}
                         </button>
                         <button
                             onClick={() => {
@@ -1287,7 +1305,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Show Draft Only</span>
-                            {sortType === 'draft-only' && <Icon icon="lucide:check" />}
+                            {sortType === 'draft-only' && <Icon icon={checkIcon} />}
                         </button>
                         <button
                             onClick={() => {
@@ -1301,7 +1319,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Show All</span>
-                            {sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft') && <Icon icon="lucide:check" />}
+                            {sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft') && <Icon icon={checkIcon} />}
                         </button>
                     </div>
                 </DialogContent>
@@ -1327,7 +1345,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Highest to Lowest</span>
-                            {sortType === 'price-high-to-low' && <Icon icon="lucide:check" />}
+                            {sortType === 'price-high-to-low' && <Icon icon={checkIcon} />}
                         </button>
                         <button
                             onClick={() => {
@@ -1339,7 +1357,7 @@ const ProductsPage = () => {
                             }`}
                         >
                             <span>Lowest to Highest</span>
-                            {sortType === 'price-low-to-high' && <Icon icon="lucide:check" />}
+                            {sortType === 'price-low-to-high' && <Icon icon={checkIcon} />}
                         </button>
                     </div>
                 </DialogContent>
@@ -1429,10 +1447,10 @@ const ProductsPage = () => {
                                             to={`/dashboard/edit-product/${selectedProduct._id}`}
                                             className="px-4 py-2 bg-[#05031F] text-white rounded-md hover:bg-[#05031F]/90 transition-all duration-200 flex items-center gap-2"
                                         >
-                                            <Icon icon="solar:pen-bold" className="w-4 h-4" />
+                                            <Icon icon={penBoldIcon} className="w-4 h-4" />
                                             Edit Product
                                         </Link>
-                                        <button
+                                        <button 
                                             onClick={() => {
                                                 setOpenProductDetails(false);
                                                 setProductToDelete(selectedProduct);
@@ -1440,7 +1458,7 @@ const ProductsPage = () => {
                                             }}
                                             className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-all duration-200 flex items-center gap-2"
                                         >
-                                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                            <Icon icon={trashBinTrashBoldIcon} className="w-4 h-4" />
                                             Delete Product
                                         </button>
                                     </div>
@@ -1511,7 +1529,7 @@ const ProductsPage = () => {
                                     onClick={() => setShowRerunDialog(false)}
                                     className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 font-medium transition-all flex items-center gap-2"
                                 >
-                                    <Icon icon="solar:restart-bold" className="w-5 h-5" />
+                                    <Icon icon={restartBoldIcon} className="w-5 h-5" />
                                     <span>Rerun Auction</span>
                                 </button>
                             </div>
@@ -1579,7 +1597,7 @@ const ProductsPage = () => {
                                 onClick={handleDeleteProduct}
                                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 flex items-center gap-2"
                             >
-                                <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                <Icon icon={trashBinTrashBoldIcon} className="w-4 h-4" />
                                 Delete Product
                             </button>
                         </div>

@@ -1,6 +1,7 @@
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 import { Card } from '../ui/card'
+import PropTypes from 'prop-types'    
 
 export function EmojiPicker({ onEmojiSelect }) {
   return (
@@ -19,3 +20,7 @@ export function EmojiPicker({ onEmojiSelect }) {
     </div>
   )
 } 
+
+EmojiPicker.propTypes = {
+  onEmojiSelect: PropTypes.func.isRequired,
+};
