@@ -2,7 +2,7 @@ const Seller = require('../models/Seller');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const Category = require('../models/Category');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');

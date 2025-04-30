@@ -16,7 +16,7 @@ const { Expo } = require('expo-server-sdk');
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // Load environment variables from a .env file
 require('dotenv').config();
 
@@ -24,7 +24,7 @@ const expo = new Expo();
 
 // Initialize Paystack
 const axios = require('axios');
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {

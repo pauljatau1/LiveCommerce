@@ -55,7 +55,7 @@ paystack.interceptors.request.use((config) => {
   return config;
 });
 
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Configure Cloudinary
 cloudinary.config({
