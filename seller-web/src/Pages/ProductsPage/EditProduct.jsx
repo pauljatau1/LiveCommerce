@@ -447,7 +447,7 @@ const EditProduct = () => {
 
             // Process main product images
             const processedImages = await Promise.all(images.map(async (image) => {
-                if (image?.url.startsWith('https://auqli-uploads.s3')) {
+                if (image?.url.startsWith('https://')) {
                     return {
                         data: image?.url,
                         contentType: image?.contentType,
@@ -466,7 +466,7 @@ const EditProduct = () => {
             // Process video if exists
             const processedBlips = [];
             if (videos.length > 0) {
-                if (videos[0]?.url.startsWith('https://auqli-uploads.s3')) {
+                if (videos[0]?.url.startsWith('https://')) {
                     processedBlips.push({
                         data: videos[0]?.url,
                     });

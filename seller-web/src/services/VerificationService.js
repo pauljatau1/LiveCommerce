@@ -542,6 +542,7 @@ export const VerificationService = {
             email: sellerData.email,
             first_name: sellerData.firstName,
             last_name: sellerData.lastName,
+            store_name: sellerData.storeName,
             created_at: Math.floor(new Date(sellerData.createdAt).getTime() / 1000),
             user_type: 'seller'
           });

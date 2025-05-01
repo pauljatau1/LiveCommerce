@@ -500,10 +500,6 @@ function AuthProvider({ children }) {
                 }));
 
                 if (isEmailVerified) {
-
-                    // Mixpanel User Identification
-                    mixpanel.identify(response.data.user?._id);
-
                     // Get IP address (only with consent)
                     let clientIP = 'unknown';
 
@@ -513,57 +509,65 @@ function AuthProvider({ children }) {
                         console.error('IP tracking failed:', e);
                     }
 
-                    // Set user properties
-                    mixpanel.people.set({
-                        "$email": response.data.user?.email,
-                        "$name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
-                        "Store Name": response.data.user?.storeName,
-                        "User Type": "Seller",
-                        "Seller Account Type": response.data.user?.accountType,
-                        "Signup Date": new Date(response.data.user?.createdAt).toISOString().split('T')[0],
-                        "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
-                        "Primary Payment Account Number": response.data.user?.bankDetails?.accountNumber || "None",
-                        "Primary Payment Account Name": response.data.user?.bankDetails?.accountName || "None",
-                        "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                        "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
-                        "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
-                        "Total Wallet Balance": `₦${response.data.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                        "IP Address": clientIP,
-                    });
+                    // Use safer analytics approach - check if mixpanel is initialized
+                    if (mixpanel && mixpanel.get_distinct_id) {
+                        try {
+                            // Mixpanel User Identification
+                            mixpanel.identify(response?.data?.user?._id);
+
+                            // Set user properties
+                            mixpanel.people.set({
+                                "$email": response?.data?.user?.email,
+                                "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                                "Store Name": response?.data?.user?.storeName,
+                                "User Type": "Seller",
+                                "Seller Account Type": response?.data?.user?.accountType,
+                                "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
+                                "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
+                                "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
+                                "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
+                                "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                                "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
+                                "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                                "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                                "IP Address": clientIP,
+                            });
+
+                            // Track login event with device context and IP
+                            mixpanel.track("Seller Login", {
+                                "$email": response?.data?.user?.email,
+                                "seller id": response?.data?.user?._id,
+                                "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                                "Store Name": response?.data?.user?.storeName,
+                                "User Type": "Seller",
+                                "Seller Account Type": response?.data?.user?.accountType,
+                                "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
+                                "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
+                                "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
+                                "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
+                                "Primary Payment Account Bank": response?.data?.user?.bankDetails?.bankName || "None",
+                                "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
+                                "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                                "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                                "IP Address": clientIP,
+                                "Device Type": getDeviceType(),
+                                "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
+                            });
+                        } catch (analyticError) {
+                            console.error('Mixpanel tracking error:', analyticError);
+                        }
+                    }
 
                     // Also identify the user in Microsoft Clarity
                     if (window.initClarity) {
                         // If clarity isn't directly available but initClarity is, use that
                         window.initClarity({
-                            id: response.data.user?._id,
-                            email: response.data.user?.email,
-                            firstName: response.data.user?.firstName,
-                            lastName: response.data.user?.lastName
+                            id: response?.data?.user?._id,
+                            email: response?.data?.user?.email,
+                            firstName: response?.data?.user?.firstName,
+                            lastName: response?.data?.user?.lastName
                         });
                     }
-
-                    
-
-                    // Track login event with device context and IP
-                    mixpanel.track("Seller Login", {
-                        "$email": response.data.user?.email,
-                        "seller id": response.data.user?._id,
-                        "seller full name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
-                        "Store Name": response.data.user?.storeName,
-                        "User Type": "Seller",
-                        "Seller Account Type": response.data.user?.accountType,
-                        "Signup Date": new Date(response.data.user?.createdAt).toISOString().split('T')[0],
-                        "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
-                        "Primary Payment Account Number": response.data.user?.bankDetails?.accountNumber || "None",
-                        "Primary Payment Account Name": response.data.user?.bankDetails?.accountName || "None",
-                        "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                        "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
-                        "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
-                        "Total Wallet Balance": `₦${response.data.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                        "IP Address": clientIP,
-                        "Device Type": getDeviceType(),
-                        "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
-                    });
 
                     console.log('login response:', response.data);
 
@@ -580,36 +584,41 @@ function AuthProvider({ children }) {
                     window.dispatchEvent(new Event('appLoginComplete'));
 
                     // Identify user with Customer.io
-                    if (window.cioanalytics) {
-                        // Always use _id consistently (appears to be your MongoDB ID)
-                        window.cioanalytics.identify(response.data.user._id, {
-                            seller_id: response.data.user._id,
-                            email: response.data.user.email,
-                            first_name: response.data.user.firstName,
-                            last_name: response.data.user.lastName,
-                            created_at: Math.floor(new Date(response.data.user.createdAt).getTime() / 1000),
-                            user_type: 'seller',
-                            account_type: response.data.user.accountType,
-                            store_name: response.data.user.storeName,
-                            location: `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
-                            total_wallet_balance: `₦${response.data.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                            ip_address: clientIP,
-                            device_type: getDeviceType(),
-                            approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
-                        });
-                        
-                        // Use setTimeout to ensure identification is processed before tracking events
-                        setTimeout(() => {
-                            window.cioanalytics.track('seller_account_login', {
-                                seller_id: response.data.user._id,
-                                email: response.data.user?.email,
-                                first_name: response.data.user?.firstName,
-                                last_name: response.data.user?.lastName,
+                    try {
+                        if (window.cioanalytics) {
+                            // Always use _id consistently (appears to be your MongoDB ID)
+                            window.cioanalytics.identify(response?.data?.user?._id, {
+                                seller_id: response?.data?.user?._id,
+                                email: response?.data?.user?.email,
+                                first_name: response?.data?.user?.firstName,
+                                last_name: response?.data?.user?.lastName,
+                                created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
+                                user_type: 'seller',
+                                account_type: response?.data?.user?.accountType,
+                                store_name: response?.data?.user?.storeName,
+                                location: `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
+                                total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
+                                approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                             });
-                        }, 500);
+                            
+                            // Use setTimeout to ensure identification is processed before tracking events
+                            setTimeout(() => {
+                                window.cioanalytics.track('seller_account_login', {
+                                    seller_id: response?.data?.user?._id,
+                                    email: response?.data?.user?.email,
+                                    first_name: response?.data?.user?.firstName,
+                                    last_name: response?.data?.user?.lastName,
+                                    ip_address: clientIP,
+                                    device_type: getDeviceType(),
+                                });
+                            }, 500);
+                        }
+                    } catch (error) {
+                        console.log('error tracking customer.io login event', error);
                     }
+                    
                 } else {
                     // If email not verified, send to signup page for OTP verification
                     dispatch({ type: 'UNVERIFIED_SELLER', payload: response.data.user });

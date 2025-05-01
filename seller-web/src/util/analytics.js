@@ -174,8 +174,8 @@ const createNoopAnalytics = () => {
  */
 export const initAllAnalytics = async (options = {}) => {
   const {
-    mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d",
-    customerIOToken = import.meta.env.VITE_CUSTOMER_IO_TOKEN || "403c9b971fd0501b68ee",
+    mixpanelToken = import.meta.env.MIXPANEL_PROJECT_TOKEN,
+    customerIOToken = import.meta.env.CIO_API_KEY,
     userData = null
   } = options;
   
