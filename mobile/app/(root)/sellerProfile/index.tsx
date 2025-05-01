@@ -246,7 +246,12 @@ const CollapsibleHeader = memo(
               <Feather name="truck" size={14} color="black" />
               <View style={styles.policyText}>
                 <Text style={styles.policyTextLabel}>Free Shipping</Text>
-                <Text style={styles.policyTextValue}> Over N5000</Text>
+                <Text style={styles.policyTextValue}>
+                  {seller?.storePolicies?.delivery?.freeShippingPolicy?.replaceAll(
+                    "_",
+                    " ",
+                  )}
+                </Text>
               </View>
             </View>
 
