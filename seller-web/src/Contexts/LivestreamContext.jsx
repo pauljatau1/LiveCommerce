@@ -175,6 +175,33 @@ export const LivestreamProvider = ({ children }) => {
                     "stream cover photo": streamData.coverImage ? "uploaded" : "not uploaded",
                     "stream video": streamData.video ? "uploaded" : "not uploaded",
                 });
+                
+                // Track stream scheduling with Customer.io
+                try {
+                    if (window.cioanalytics) {
+                        // First re-identify the user to ensure the connection is active
+                        window.cioanalytics.identify(sellerData._id, {
+                            seller_id: sellerData._id,
+                            email: sellerData.email,
+                            first_name: sellerData.firstName,
+                            last_name: sellerData.lastName
+                        });
+                        
+                        // Track the live event scheduled
+                        setTimeout(() => {
+                            window.cioanalytics.track('live_event_scheduled', {
+                                event_id: response.data.stream._id,
+                                seller_id: sellerData._id,
+                                date_time: response.data.stream.scheduledStartTime,
+                                event_type: 'live_show',
+                                event_title: streamData.title,
+                                product_count: streamData.products?.length || 0
+                            });
+                        }, 500);
+                    }
+                } catch (trackingError) {
+                    console.error('Failed to track live event scheduling:', trackingError);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -223,6 +250,33 @@ export const LivestreamProvider = ({ children }) => {
                     "stream cover photo": streamData.coverImage ? "uploaded" : "not uploaded",
                     "stream video": streamData.video ? "uploaded" : "not uploaded",
                 });
+                
+                // Track stream scheduling with Customer.io
+                try {
+                    if (window.cioanalytics) {
+                        // First re-identify the user to ensure the connection is active
+                        window.cioanalytics.identify(sellerData._id, {
+                            seller_id: sellerData._id,
+                            email: sellerData.email,
+                            first_name: sellerData.firstName,
+                            last_name: sellerData.lastName
+                        });
+                        
+                        // Track the live event scheduled
+                        setTimeout(() => {
+                            window.cioanalytics.track('live_event_scheduled', {
+                                event_id: response.data.stream._id,
+                                seller_id: sellerData._id,
+                                date_time: response.data.stream.scheduledStartTime,
+                                event_type: 'live_auction',
+                                event_title: streamData.title,
+                                product_count: streamData.products?.length || 0
+                            });
+                        }, 500);
+                    }
+                } catch (trackingError) {
+                    console.error('Failed to track live event scheduling:', trackingError);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -315,6 +369,34 @@ export const LivestreamProvider = ({ children }) => {
                     "agora token": streamData.agoraToken,
                     "stream scheduled start time": streamData.scheduledStartTime,
                 });
+                
+                // Track stream start with Customer.io
+                try {
+                    if (window.cioanalytics) {
+                        // First re-identify the user to ensure the connection is active
+                        window.cioanalytics.identify(sellerData._id, {
+                            seller_id: sellerData._id,
+                            email: sellerData.email,
+                            first_name: sellerData.firstName,
+                            last_name: sellerData.lastName
+                        });
+                        
+                        // Track the live event started
+                        setTimeout(() => {
+                            window.cioanalytics.track('live_event_started', {
+                                event_id: streamId,
+                                seller_id: sellerData._id,
+                                date_time: new Date().toISOString(),
+                                event_type: streamData.type || 'live_show',
+                                event_title: streamData.title,
+                                product_count: streamData.products?.length || 0,
+                                scheduled_start_time: streamData.scheduledStartTime
+                            });
+                        }, 500);
+                    }
+                } catch (trackingError) {
+                    console.error('Failed to track live event start:', trackingError);
+                }
 
                 return streamData;
             }
@@ -384,6 +466,33 @@ export const LivestreamProvider = ({ children }) => {
                     "livestream type": streamData.type
                 });
                 
+                // Track stream end with Customer.io
+                try {
+                    if (window.cioanalytics) {
+                        // First re-identify the user to ensure the connection is active
+                        window.cioanalytics.identify(sellerData._id, {
+                            seller_id: sellerData._id,
+                            email: sellerData.email,
+                            first_name: sellerData.firstName,
+                            last_name: sellerData.lastName
+                        });
+                        
+                        // Track the live event ended
+                        setTimeout(() => {
+                            window.cioanalytics.track('live_event_ended', {
+                                event_id: streamId,
+                                seller_id: sellerData._id,
+                                date_time: new Date().toISOString(),
+                                event_type: streamData.type || 'live_show',
+                                event_title: streamData.title,
+                                stream_duration_minutes: calculateStreamDuration(streamData),
+                                scheduled_start_time: streamData.scheduledStartTime
+                            });
+                        }, 500);
+                    }
+                } catch (trackingError) {
+                    console.error('Failed to track live event end:', trackingError);
+                }
             }
         } catch (error) {
             console.error('End livestream error:', error);
@@ -506,6 +615,17 @@ export const LivestreamProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_ACTIVATING_BID', payload: false });
         }
+    };
+
+    // Helper function to calculate stream duration in minutes
+    const calculateStreamDuration = (streamData) => {
+        if (!streamData || !streamData.actualStartTime) return 0;
+        
+        const startTime = new Date(streamData.actualStartTime).getTime();
+        const endTime = new Date().getTime();
+        
+        // Return duration in minutes
+        return Math.round((endTime - startTime) / (1000 * 60));
     };
 
     return (

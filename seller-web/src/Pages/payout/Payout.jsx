@@ -196,6 +196,52 @@ export default function Payout() {
           setWithdrawals([...withdrawals, result.withdrawal]);
           setWithdrawalAmount(0);
           setLoading(false);
+          
+          // Track withdrawal request with Customer.io
+          try {
+            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+            
+            if (window.cioanalytics) {
+              // First re-identify the user to ensure the connection is active
+              window.cioanalytics.identify(seller._id, {
+                seller_id: seller._id,
+                email: seller.email,
+                first_name: seller.firstName,
+                last_name: seller.lastName
+              });
+              
+              // Track withdrawal request after a small delay
+              setTimeout(async () => {
+                // Get IP address if possible
+                let ipAddress = 'unknown';
+                try {
+                  const ipResponse = await fetch('https://api.ipify.org?format=json');
+                  if (ipResponse.ok) {
+                    const ipData = await ipResponse.json();
+                    ipAddress = ipData.ip;
+                  }
+                } catch (ipError) {
+                  console.error('Failed to get IP address:', ipError);
+                }
+                
+                window.cioanalytics.track('withdrawal_requested', {
+                  seller_id: seller._id,
+                  amount: `₦${withdrawalAmount.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}`,
+                  payout_method: 'bank_transfer',
+                  bank_name: bankDetails.bankName,
+                  account_name: bankDetails.accountName,
+                  account_number_last4: bankDetails.accountNumber.slice(-4),
+                  store_name: seller.storeName,
+                  ip_address: ipAddress,
+                  withdrawal_id: result.withdrawal._id,
+                  withdrawal_reference: result.withdrawal.reference
+                });
+              }, 500);
+            }
+          } catch (trackingError) {
+            console.error('Failed to track withdrawal request:', trackingError);
+          }
+          
           document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
           document.getElementById('withdrawalSuccessDialog').click(); // Open success dialog
         } else {
