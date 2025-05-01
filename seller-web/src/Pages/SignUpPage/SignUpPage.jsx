@@ -1,5 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import eyeIcon from '@iconify-icons/mdi/eye';
+import eyeOffIcon from '@iconify-icons/mdi/eye-off';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -19,14 +21,14 @@ const isValidNigerianPhoneNumber = (phone) => {
   if (!phone) return false;
   // Remove any spaces, dashes, or other characters
   const cleanPhone = phone.replace(/\D/g, '');
-  
+
   // Check if it starts with Nigeria country code (234) or 0
   const hasValidPrefix = cleanPhone.startsWith('234') || cleanPhone.startsWith('0');
-  
+
   // Check if it has the correct length (13 with 234 prefix, or 11 with 0 prefix)
-  const hasValidLength = (cleanPhone.startsWith('234') && cleanPhone.length === 13) || 
-                        (cleanPhone.startsWith('0') && cleanPhone.length === 11);
-                        
+  const hasValidLength = (cleanPhone.startsWith('234') && cleanPhone.length === 13) ||
+    (cleanPhone.startsWith('0') && cleanPhone.length === 11);
+
   return hasValidPrefix && hasValidLength;
 };
 
@@ -34,17 +36,17 @@ const isValidNigerianPhoneNumber = (phone) => {
 const formatPhoneForBackend = (phone) => {
   if (!phone) return '';
   const cleanPhone = phone.replace(/\D/g, '');
-  
+
   // If starts with 0, replace with 234
   if (cleanPhone.startsWith('0')) {
     return '234' + cleanPhone.slice(1);
   }
-  
+
   // If already starts with 234, return as is
   if (cleanPhone.startsWith('234')) {
     return cleanPhone;
   }
-  
+
   return cleanPhone;
 };
 
@@ -75,7 +77,7 @@ const SignUpPage = () => {
       const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
       // Check if email is verified
       const isEmailVerified = sellerData.emailVerified === true || sellerData.isVerified === true;
-      
+
       // Only redirect if token exists AND is verified (after OTP)
       if (tokenData.isVerified === true && isEmailVerified) {
         navigate('/dashboard/home', { replace: true });
@@ -97,7 +99,7 @@ const SignUpPage = () => {
   //function to submit the user data
   const submitUserData = async (event) => {
     event.preventDefault();
-    
+
     // Validate phone number first
     if (!isValidNigerianPhoneNumber(formData.phoneNumber)) {
       toast.error('Please enter a valid Nigerian phone number', {
@@ -147,18 +149,18 @@ const SignUpPage = () => {
       const formattedPhone = formatPhoneForBackend(formData.phoneNumber);
       //if the data is valid, create the seller
       const result = await createSeller(
-        formData.firstName, 
-        formData.lastName, 
-        formattedEmail, 
-        formData.password, 
-        formattedPhone, 
+        formData.firstName,
+        formData.lastName,
+        formattedEmail,
+        formData.password,
+        formattedPhone,
         formData.storeName
       );
-      
+
       if (result !== false) {
         // Show OTP modal immediately after successful registration
         setIsModalOpen(true);
-        
+
         //reset the form data
         setFormData({
           firstName: '',
@@ -423,7 +425,7 @@ const SignUpPage = () => {
                         onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                       >
-                        <Icon icon={formData.showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                        <Icon icon={formData.showPassword ? eyeOffIcon : eyeIcon} width="20" height="20" />
                       </button>
                     </div>
                   </TooltipTrigger>
@@ -468,26 +470,26 @@ const SignUpPage = () => {
                   id="terms"
                   className="mt-1"
                 />
-               <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
-  By creating an account means you agree to the{' '}
-  <Link
-    to="https://www.auqli.live/privacy-policy"
-    className="text-[#425466] font-bold hover:underline"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    Terms and Conditions
-  </Link>
-  , and our{' '}
-  <Link
-    to="https://www.auqli.live/terms"
-    className="text-[#425466] font-bold hover:underline"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    Privacy Policy
-  </Link>
-</label>
+                <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
+                  By creating an account means you agree to the{' '}
+                  <Link
+                    to="https://www.auqli.live/privacy-policy"
+                    className="text-[#425466] font-bold hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Terms and Conditions
+                  </Link>
+                  , and our{' '}
+                  <Link
+                    to="https://www.auqli.live/terms"
+                    className="text-[#425466] font-bold hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Privacy Policy
+                  </Link>
+                </label>
 
               </div>
 

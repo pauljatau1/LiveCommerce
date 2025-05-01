@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Icon } from "@iconify/react";
 import { Modal, Box, TextField, CircularProgress } from '@mui/material';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import axios from 'axios';
 import { BASE_URL } from '../../../Constants/Server';
 

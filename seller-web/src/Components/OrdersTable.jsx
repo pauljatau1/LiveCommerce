@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import PropTypes from "prop-types";
 
 const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
@@ -334,5 +335,9 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
     </div>
   )
 }
+
+OrdersTable.propTypes = {
+  orders: PropTypes.object.isRequired,
+};
 
 export default OrdersTable

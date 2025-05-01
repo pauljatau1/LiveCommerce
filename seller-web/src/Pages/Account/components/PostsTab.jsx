@@ -24,12 +24,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
+import PropTypes from "prop-types";
 export default function PostsTab({ sellerId }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [slideIndices, setSlideIndices] = useState({});
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -193,6 +192,11 @@ export default function PostsTab({ sellerId }) {
         )}
       </div>
     );
+
+    MediaItem.propTypes = {
+      item: PropTypes.object.isRequired,
+      className: PropTypes.string,
+    };
 
     if (totalMediaCount === 1) {
       return (
@@ -523,3 +527,7 @@ export default function PostsTab({ sellerId }) {
     </div>
   );
 }
+
+PostsTab.propTypes = {
+  sellerId: PropTypes.string.isRequired,
+};

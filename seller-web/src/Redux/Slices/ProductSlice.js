@@ -32,7 +32,7 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
     try {
         const storedToken = localStorage.getItem('sellerToken');
         const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-        
+
         const response = await axios.post(`${BASE_URL}/products`, formData, {
             headers: {
                 Authorization: `Bearer ${tokenData.data}`,
@@ -41,6 +41,8 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
         });
 
         if (response.status === 201) {
+            console.log("product created response:", response);
+
             return response.data;
         }
     } catch (error) {
@@ -49,7 +51,7 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
     }
 });
 
-export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts', async (params = {page: 1, limit: 10}) => {
+export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts', async (params = { page: 1, limit: 10 }) => {
     try {
         const seller = JSON.parse(localStorage.getItem('seller'));
         console.log("seller:", seller);
@@ -70,7 +72,7 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
     }
 });
 
-export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async (params = {page: 1, limit: 10}) => {
+export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async (params = { page: 1, limit: 10 }) => {
     try {
         const seller = JSON.parse(localStorage.getItem('seller'));
         const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/auctions`, {
@@ -127,7 +129,7 @@ export const updateProduct = createAsyncThunk('product/updateProduct', async ({ 
     try {
         const storedToken = localStorage.getItem('sellerToken');
         const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-        
+
         const response = await axios.put(`${BASE_URL}/products/${productId}`, formData, {
             headers: {
                 Authorization: `Bearer ${tokenData.data}`,
@@ -185,22 +187,53 @@ const productSlice = createSlice({
     ).addCase(createProduct.fulfilled, (state, action) => {
         state.isLoading = false;
         state.message = action.payload.message;
+        // Track product listing with Customer.io
+        try {
+            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+
+            if (window.cioanalytics) {
+                // First re-identify the user to ensure the connection is active
+                window.cioanalytics.identify(seller._id, {
+                    seller_id: seller._id,
+                    email: seller.email,
+                    first_name: seller.firstName,
+                    last_name: seller.lastName
+                });
+
+                // Track the product listing event after a small delay
+                setTimeout(() => {
+                    window.cioanalytics.track('product_listed', {
+                        product_id: action.payload?.id,
+                        category: action.payload?.category,
+                        price: `₦${action.payload?.price.toLocaleString('en-NG')}`,
+                        stock_level: action.payload?.stock,
+                        product_name: action.payload?.name,
+                        seller_name: seller.storeName || `${seller.firstName} ${seller.lastName}`,
+                        seller_id: seller._id
+                    });
+                }, 500);
+            }
+        } catch (trackingError) {
+            console.error('Failed to track product creation:', trackingError);
+            // Don't throw here - we still want to return the successful response
+        }
+
         toast.success('Product created successfully', {
             description: "Product has been created successfully",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
         state.response = 'success';
-        console.log(action.payload);
+        console.log('product created response2:', action.payload);
     }).addCase(createProduct.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
         toast.error('Failed to create product', {
             description: "Please try again",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -223,7 +256,7 @@ const productSlice = createSlice({
         toast.error('Failed to fetch products', {
             description: "Please reload the page and try again",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -236,7 +269,7 @@ const productSlice = createSlice({
         state.products = state.products.filter(product => product._id !== action.payload.deletedProduct.id);
         toast.success(`${action.payload.deletedProduct.name} has been deleted successfully`, {
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -247,7 +280,7 @@ const productSlice = createSlice({
         toast.error('Failed to delete product', {
             description: "Please try again",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -262,7 +295,7 @@ const productSlice = createSlice({
         toast.error('Failed to fetch product details', {
             description: "Please try again",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -271,9 +304,39 @@ const productSlice = createSlice({
     }).addCase(updateProduct.fulfilled, (state, action) => {
         state.isLoading = false;
         state.message = action.payload.message;
+        // Track product update with Customer.io
+        try {
+            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+
+            if (window.cioanalytics) {
+                // First re-identify the user to ensure the connection is active
+                window.cioanalytics.identify(seller._id, {
+                    seller_id: seller._id,
+                    email: seller.email,
+                    first_name: seller.firstName,
+                    last_name: seller.lastName
+                });
+
+                // Track the product update event after a small delay
+                setTimeout(() => {
+                    window.cioanalytics.track('product_updated', {
+                        product_id: action.payload?.product?.id,
+                        category: action.payload?.product?.category,
+                        price: `₦${action.payload?.product?.price?.toLocaleString('en-NG')}`,
+                        stock_level: action.payload?.product?.stock,
+                        product_name: action.payload?.product?.name,
+                        seller_name: seller.storeName || `${seller.firstName} ${seller.lastName}`,
+                        seller_id: seller._id
+                    });
+                }, 500);
+            }
+        } catch (trackingError) {
+            console.error('Failed to track product update:', trackingError);
+            // Don't throw here - we still want to return the successful response
+        }
         toast.success('Product updated successfully', {
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -284,7 +347,7 @@ const productSlice = createSlice({
         toast.error('Failed to update product', {
             description: action.error.message,
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
@@ -304,36 +367,36 @@ const productSlice = createSlice({
         toast.error('Failed to fetch auction products', {
             description: "Please reload the page and try again",
             style: {
-                background: '#05031F',
+                background: '#17171B',
                 color: '#fff',
             }
         });
     })
-    .addCase(searchSellerProducts.pending, (state) => {
-        state.isLoading = true;
-        state.message = null;
-    })
-    .addCase(searchSellerProducts.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.message = 'Products search completed successfully';
-        state.products = action.payload.data;
-        state.pagination = {
-            currentPage: action.payload.pagination.currentPage,
-            totalPages: action.payload.pagination.totalPages,
-            totalProducts: action.payload.pagination.totalProducts
-        };
-    })
-    .addCase(searchSellerProducts.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.error.message;
-        toast.error('Failed to search products', {
-            description: "Please try again with different search terms",
-            style: {
-                background: '#05031F',
-                color: '#fff',
-            }
-        });
-    })
+        .addCase(searchSellerProducts.pending, (state) => {
+            state.isLoading = true;
+            state.message = null;
+        })
+        .addCase(searchSellerProducts.fulfilled, (state, action) => {
+            state.isLoading = false;
+            state.message = 'Products search completed successfully';
+            state.products = action.payload.data;
+            state.pagination = {
+                currentPage: action.payload.pagination.currentPage,
+                totalPages: action.payload.pagination.totalPages,
+                totalProducts: action.payload.pagination.totalProducts
+            };
+        })
+        .addCase(searchSellerProducts.rejected, (state, action) => {
+            state.isLoading = false;
+            state.error = action.error.message;
+            toast.error('Failed to search products', {
+                description: "Please try again with different search terms",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
 });
 
 export const { resetResponse } = productSlice.actions;

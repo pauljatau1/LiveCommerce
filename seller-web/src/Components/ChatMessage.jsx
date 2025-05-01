@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
+import PropTypes from "prop-types";
 
 const ChatMessage = ({ message, isOwn }) => {
   return (
@@ -18,6 +19,11 @@ const ChatMessage = ({ message, isOwn }) => {
       </div>
     </div>
   );
+};
+
+ChatMessage.propTypes = {
+  message: PropTypes.object.isRequired,
+  isOwn: PropTypes.bool.isRequired,
 };
 
 export default ChatMessage; 

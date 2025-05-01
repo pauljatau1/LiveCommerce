@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import PropTypes from "prop-types";
 
 export default function Coupons() {
   // Add coupon type state
@@ -712,3 +713,11 @@ export default function Coupons() {
     </div>
   )
 }
+
+Coupons.propTypes = {
+  couponType: PropTypes.string.isRequired,
+  formData: PropTypes.object.isRequired,
+  setFormData: PropTypes.func.isRequired,
+  selectedProducts: PropTypes.array.isRequired,
+  setSelectedProducts: PropTypes.func.isRequired,
+};
