@@ -36,6 +36,7 @@ import { Checkbox } from "../../Components/ui/checkbox";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { debounce } from 'lodash';
+import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 
 // Define the rich text editor toolbar options
 const quillModules = {
@@ -108,6 +109,7 @@ const AddProduct = () => {
     const [categorySearchQuery, setCategorySearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
     // Check URL parameters for ?type=auction
     useEffect(() => {
@@ -901,6 +903,12 @@ const AddProduct = () => {
 
     VariantSection.displayName = 'VariantSection';
 
+    // Add handler for category selection from modal
+    const handleCategorySelection = (category, subCategory) => {
+        setSelectedCategory(category);
+        setSelectedSubCategory(subCategory);
+    };
+
     return (
         <>
             {
@@ -912,6 +920,21 @@ const AddProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
+                        {/* Category Selection Modal */}
+                        <CategorySelectionModal 
+                            isOpen={isCategoryModalOpen}
+                            onClose={() => setIsCategoryModalOpen(false)}
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            selectedSubCategory={selectedSubCategory}
+                            onApply={handleCategorySelection}
+                            isSearching={isSearching}
+                            searchResults={searchResults}
+                            categorySearchQuery={categorySearchQuery}
+                            setCategorySearchQuery={setCategorySearchQuery}
+                            getSubCategories={getSubCategories}
+                        />
+                        
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">
@@ -992,164 +1015,24 @@ const AddProduct = () => {
                                 {/** mobile categories */}
                                 <div className="flex lg:hidden flex-col gap-4">
                                     <div className="space-y-2">
-                                        <RequiredLabel>Category</RequiredLabel>
-                                        <div className="relative">
-                                            <Select
-                                                value={selectedCategory}
-                                                onValueChange={(value) => {
-                                                    setSelectedCategory(value);
-                                                    setSelectedSubCategory(''); // Reset subcategory when category changes
-                                                }}
-                                            >
-                                                <SelectTrigger className="w-full rounded-full">
-                                                    <SelectValue>
-                                                        {selectedCategory || "Choose a category..."}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent className="w-[var(--radix-select-trigger-width)] max-h-[400px] overflow-hidden">
-                                                    <div className="sticky top-0 bg-white z-50 p-2 border-b shadow-sm">
-                                                        <div className="relative">
-                                                            <input
-                                                                type="text"
-                                                                value={categorySearchQuery}
-                                                                onChange={(e) => {
-                                                                    setCategorySearchQuery(e.target.value);
-                                                                    // Don't show loading state for empty queries
-                                                                    if (!e.target.value.trim()) {
-                                                                        setIsSearching(false);
-                                                                        setSearchResults([]);
-                                                                    }
-                                                                }}
-                                                                placeholder="Search categories..."
-                                                                className="w-full px-3 py-2 border border-[#02020238] rounded-full text-sm outline-none focus:border-[#0BB248] focus:ring-1 focus:ring-[#0BB248]"
-                                                            />
-                                                            {isSearching && (
-                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                                    <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
-                                                                </div>
-                                                            )}
-                                                            {!isSearching && categorySearchQuery && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setCategorySearchQuery('');
-                                                                        setSearchResults([]);
-                                                                    }}
-                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded-full p-1"
-                                                                >
-                                                                    <Icon icon="heroicons:x-mark" className="w-4 h-4 text-gray-400" />
-                                                                </button>
-                                                            )}
-                                                            {!isSearching && !categorySearchQuery && (
-                                                                <Icon 
-                                                                    icon="heroicons:magnifying-glass" 
-                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="relative bg-white">
-                                                        <div className="pt-2 overflow-y-auto max-h-[300px]">
-                                                            {categorySearchQuery ? (
-                                                                // Show search results
-                                                                searchResults.length > 0 ? (
-                                                                    searchResults.map((category) => (
-                                                                        <div key={category._id} className="px-2 py-1">
-                                                                            <SelectItem 
-                                                                                value={category.name}
-                                                                                className="rounded-md cursor-pointer hover:bg-gray-50"
-                                                                            >
-                                                                                <div>
-                                                                                    <div className="font-medium">{category.name}</div>
-                                                                                    {category.matchingSubCategories.length > 0 && (
-                                                                                        <div className="text-xs text-gray-500 mt-1">
-                                                                                            <span className="text-gray-400">Subcategories: </span>
-                                                                                            {category.matchingSubCategories.map((sub, index) => (
-                                                                                                <button
-                                                                                                    key={sub.name}
-                                                                                                    className="text-[#0BB248] hover:underline"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.preventDefault();
-                                                                                                        e.stopPropagation();
-                                                                                                        setSelectedCategory(category.name);
-                                                                                                        setSelectedSubCategory(sub.name);
-                                                                                                        setCategorySearchQuery('');
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {sub.name}
-                                                                                                    {index < category.matchingSubCategories.length - 1 ? ', ' : ''}
-                                                                                                </button>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
-                                                                        {isSearching ? (
-                                                                            <div className="flex items-center justify-center gap-2">
-                                                                                <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
-                                                                                <span>Searching...</span>
-                                                                            </div>
-                                                                        ) : (
-                                                                            'No categories found'
-                                                                        )}
-                                                                    </div>
-                                                                )
-                                                            ) : (
-                                                                // Show all categories with sections
-                                                                <div className="space-y-2">
-                                                                    {categories.map((category) => (
-                                                                        <div key={category._id} className="px-2 py-1">
-                                                                            <SelectItem
-                                                                                value={category.name}
-                                                                                className="rounded-md cursor-pointer hover:bg-gray-50"
-                                                                            >
-                                                                                <div className="flex items-center justify-between w-full">
-                                                                                    <span>{category.name}</span>
-                                                                                    {category.subCategories?.length > 0 && (
-                                                                                        <span className="text-xs text-gray-400">
-                                                                                            {category.subCategories.length} subcategories
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Sub-Category</Label>
-                                        <Select
-                                            value={selectedSubCategory}
-                                            onValueChange={setSelectedSubCategory}
-                                            disabled={!selectedCategory}
+                                        <RequiredLabel>Category & Sub-Category</RequiredLabel>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCategoryModalOpen(true)}
+                                            className="w-full flex items-center justify-between gap-2 p-3 border border-[#02020238] bg-white rounded-xl hover:border-gray-400 transition-colors text-left"
                                         >
-                                            <SelectTrigger className="rounded-full">
-                                                <SelectValue placeholder="Choose a sub-category..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <div className="py-2">
-                                                    {getSubCategories(selectedCategory).map((subCategory) => (
-                                                        <SelectItem
-                                                            key={subCategory._id}
-                                                            value={subCategory.name}
-                                                            className="rounded-md cursor-pointer"
-                                                        >
-                                                            {subCategory.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </div>
-                                            </SelectContent>
-                                        </Select>
+                                            <div className="flex flex-col">
+                                                <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                                                    {selectedCategory || "Choose a category..."}
+                                                </span>
+                                                {selectedCategory && selectedSubCategory && (
+                                                    <span className="text-xs text-gray-500 mt-0.5">
+                                                        {selectedSubCategory}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -1183,7 +1066,7 @@ const AddProduct = () => {
                                                         </div>
                                                     ))}
                                                     {images.length < 5 && (
-                                                        <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
+                                                        <label className="w-24 h-24 border-2 border-dashed border-[#02020238] rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
                                                             <input
                                                                 type="file"
                                                                 className="hidden"
@@ -1661,9 +1544,12 @@ const AddProduct = () => {
                                                 <SelectTrigger className="rounded-full">
                                                     <SelectValue>
                                                         <div className="flex items-center gap-2">
-                                                            <span className={`w-2 h-2 rounded-full ${productStatus === 'active' ? 'bg-green-500' : 'bg-orange-500'
+                                                            <span className={`w-2 h-2 rounded-full ${
+                                                                productStatus === 'active' ? 'bg-green-500' : 
+                                                                productStatus === 'offline_auction' ? 'bg-purple-500' : 'bg-orange-500'
                                                                 }`} />
-                                                            {productStatus.charAt(0).toUpperCase() + productStatus.slice(1)}
+                                                            {productStatus === 'offline_auction' ? 'Offline Auction' : 
+                                                             productStatus.charAt(0).toUpperCase() + productStatus.slice(1)}
                                                         </div>
                                                     </SelectValue>
                                                 </SelectTrigger>
@@ -1690,11 +1576,6 @@ const AddProduct = () => {
                                             </Select>
                                         </div>
 
-                                        {/*<div>
-                                            <Label>Product Type</Label>
-                                            <Input placeholder="Choose a product type..." />
-                                        </div>*/}
-
                                         <div className="space-y-2">
                                             <Label>Vendor</Label>
                                             <Input value={sellerDetails?.firstName + " " + sellerDetails?.lastName} disabled />
@@ -1702,164 +1583,38 @@ const AddProduct = () => {
 
                                         <div className="hidden lg:block space-y-2 ">
                                             <div className="space-y-2">
-                                                <RequiredLabel>Category</RequiredLabel>
-                                                <div className="relative">
-                                                    <Select
-                                                        value={selectedCategory}
-                                                        onValueChange={(value) => {
-                                                            setSelectedCategory(value);
-                                                            setSelectedSubCategory(''); // Reset subcategory when category changes
-                                                        }}
-                                                    >
-                                                        <SelectTrigger className="w-full rounded-full">
-                                                            <SelectValue>
-                                                                {selectedCategory || "Choose a category..."}
-                                                            </SelectValue>
-                                                        </SelectTrigger>
-                                                        <SelectContent className="w-[var(--radix-select-trigger-width)] max-h-[400px] overflow-hidden">
-                                                            <div className="sticky top-0 bg-white z-50 p-2 border-b shadow-sm">
-                                                                <div className="relative">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={categorySearchQuery}
-                                                                        onChange={(e) => {
-                                                                            setCategorySearchQuery(e.target.value);
-                                                                            // Don't show loading state for empty queries
-                                                                            if (!e.target.value.trim()) {
-                                                                                setIsSearching(false);
-                                                                                setSearchResults([]);
-                                                                            }
-                                                                        }}
-                                                                        placeholder="Search categories..."
-                                                                        className="w-full px-3 py-2 border border-[#02020238] rounded-full text-sm outline-none focus:border-[#0BB248] focus:ring-1 focus:ring-[#0BB248]"
-                                                                    />
-                                                                    {isSearching && (
-                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                                            <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
-                                                                        </div>
-                                                                    )}
-                                                                    {!isSearching && categorySearchQuery && (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setCategorySearchQuery('');
-                                                                                setSearchResults([]);
-                                                                            }}
-                                                                            className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded-full p-1"
-                                                                        >
-                                                                            <Icon icon="heroicons:x-mark" className="w-4 h-4 text-gray-400" />
-                                                                        </button>
-                                                                    )}
-                                                                    {!isSearching && !categorySearchQuery && (
-                                                                        <Icon 
-                                                                            icon="heroicons:magnifying-glass" 
-                                                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="relative bg-white">
-                                                                <div className="pt-2 overflow-y-auto max-h-[300px]">
-                                                                    {categorySearchQuery ? (
-                                                                        // Show search results
-                                                                        searchResults.length > 0 ? (
-                                                                            searchResults.map((category) => (
-                                                                                <div key={category._id} className="px-2 py-1">
-                                                                                    <SelectItem 
-                                                                                        value={category.name}
-                                                                                        className="rounded-md cursor-pointer hover:bg-gray-50"
-                                                                                    >
-                                                                                        <div>
-                                                                                            <div className="font-medium">{category.name}</div>
-                                                                                            {category.matchingSubCategories.length > 0 && (
-                                                                                                <div className="text-xs text-gray-500 mt-1">
-                                                                                                    <span className="text-gray-400">Subcategories: </span>
-                                                                                                    {category.matchingSubCategories.map((sub, index) => (
-                                                                                                        <button
-                                                                                                            key={sub.name}
-                                                                                                            className="text-[#0BB248] hover:underline"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.preventDefault();
-                                                                                                                e.stopPropagation();
-                                                                                                                setSelectedCategory(category.name);
-                                                                                                                setSelectedSubCategory(sub.name);
-                                                                                                                setCategorySearchQuery('');
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            {sub.name}
-                                                                                                            {index < category.matchingSubCategories.length - 1 ? ', ' : ''}
-                                                                                                        </button>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </SelectItem>
-                                                                                </div>
-                                                                            ))
-                                                                        ) : (
-                                                                            <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
-                                                                                {isSearching ? (
-                                                                                    <div className="flex items-center justify-center gap-2">
-                                                                                        <Icon icon="eos-icons:loading" className="w-4 h-4 text-[#0BB248] animate-spin" />
-                                                                                        <span>Searching...</span>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    'No categories found'
-                                                                                )}
-                                                                            </div>
-                                                                        )
-                                                                    ) : (
-                                                                        // Show all categories with sections
-                                                                        <div className="space-y-2">
-                                                                            {categories.map((category) => (
-                                                                                <div key={category._id} className="px-2 py-1">
-                                                                                    <SelectItem
-                                                                                        value={category.name}
-                                                                                        className="rounded-md cursor-pointer hover:bg-gray-50"
-                                                                                    >
-                                                                                        <div className="flex items-center justify-between w-full">
-                                                                                            <span>{category.name}</span>
-                                                                                            {category.subCategories?.length > 0 && (
-                                                                                                <span className="text-xs text-gray-400">
-                                                                                                    {category.subCategories.length} subcategories
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </SelectItem>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label>Sub-Category</Label>
-                                                <Select
-                                                    value={selectedSubCategory}
-                                                    onValueChange={setSelectedSubCategory}
-                                                    disabled={!selectedCategory}
+                                                <RequiredLabel>Category & Sub-Category</RequiredLabel>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCategoryModalOpen(true)}
+                                                    className="w-full flex items-center justify-between gap-2 p-3 border border-[#02020238] bg-white rounded-lg hover:border-gray-400 transition-colors text-left"
                                                 >
-                                                    <SelectTrigger className="rounded-full">
-                                                        <SelectValue placeholder="Choose a sub-category..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <div className="py-2">
-                                                            {getSubCategories(selectedCategory).map((subCategory) => (
-                                                                <SelectItem
-                                                                    key={subCategory._id}
-                                                                    value={subCategory.name}
-                                                                    className="rounded-md cursor-pointer"
-                                                                >
-                                                                    {subCategory.name}
-                                                                </SelectItem>
-                                                            ))}
+                                                    <div className="flex flex-col">
+                                                        <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                                                            {selectedCategory || "Choose a category..."}
+                                                        </span>
+                                                        {selectedCategory && selectedSubCategory && (
+                                                            <span className="text-xs text-gray-500 mt-0.5">
+                                                                {selectedSubCategory}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+                                                </button>
+                                                
+                                                {/* Display selected values as badges if selected */}
+                                                {selectedCategory && (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#0BB248]/10 text-[#0BB248] border border-[#0BB248]/20">
+                                                            <span className="font-medium mr-1">Category:</span> {selectedCategory}
                                                         </div>
-                                                    </SelectContent>
-                                                </Select>
+                                                        {selectedSubCategory && (
+                                                            <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                                                                <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1872,30 +1627,6 @@ const AddProduct = () => {
                                                 className="rounded-full"
                                             />
                                         </div>
-
-                                        {/*<div>
-                                            <Label>Logistics Settings</Label>
-                                            <Select defaultValue="auqli">
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="auqli">Shipped Via Auqli</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div>
-                                            <Label>Warehouse Location</Label>
-                                            <Select>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Choose a Location" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="loc1">Location 1</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>*/}
 
                                         {/* Content Diagnosis */}
                                         <div className="bg-[#17171B] text-white p-4 rounded-lg mt-6">

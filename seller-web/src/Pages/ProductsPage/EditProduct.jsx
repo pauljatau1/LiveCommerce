@@ -1,14 +1,13 @@
-import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { Icon } from "@iconify/react";
 import {
     Collapsible,
     CollapsibleContent,
 } from "../../Components/ui/collapsible";
 import { Button } from "../../Components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../Components/ui/card";
 import { Label } from "../../Components/ui/label";
 import { Input } from "../../Components/ui/input2";
-import { Textarea } from "../../Components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import { BASE_URL } from '../../Constants/Server';
 import { toast } from 'sonner';
@@ -21,7 +20,6 @@ import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
-import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
 // Comment out ProductSpecifications import
 // import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
@@ -33,6 +31,7 @@ import VariantCombinationsMobile from '../../Components/ui/VariantComponents/Var
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 
 // Define the rich text editor toolbar options
 const quillModules = {
@@ -91,6 +90,11 @@ const EditProduct = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
+    // Modal state variables
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [categorySearchQuery, setCategorySearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
     // Comment out productSpecs state
     // const [productSpecs, setProductSpecs] = useState({});
 
@@ -104,6 +108,51 @@ const EditProduct = () => {
 
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
+
+    // Category search functionality
+    useEffect(() => {
+        if (!categorySearchQuery.trim()) {
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        const searchCategories = async () => {
+            setIsSearching(true);
+            try {
+                const query = categorySearchQuery.toLowerCase();
+                
+                // Filter categories based on the search query
+                const results = categories
+                    .filter(category => {
+                        const categoryMatches = category.name.toLowerCase().includes(query);
+                        
+                        // Find matching subcategories
+                        const matchingSubCategories = category.subCategories.filter(
+                            subCat => subCat.name.toLowerCase().includes(query)
+                        );
+                        
+                        return categoryMatches || matchingSubCategories.length > 0;
+                    })
+                    .map(category => ({
+                        ...category,
+                        matchingSubCategories: category.subCategories.filter(
+                            subCat => subCat.name.toLowerCase().includes(query)
+                        )
+                    }));
+                
+                setSearchResults(results);
+            } catch (error) {
+                console.error('Error searching categories:', error);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        // Add small delay to prevent too many searches while typing
+        const delaySearch = setTimeout(searchCategories, 300);
+        return () => clearTimeout(delaySearch);
+    }, [categorySearchQuery, categories]);
 
     // Comment out handleSpecificationsChange function
     // const handleSpecificationsChange = (specs) => {
@@ -926,6 +975,12 @@ const EditProduct = () => {
         }
     }, [response, navigate, dispatch]);
 
+    // Add handler for category selection from modal
+    const handleCategorySelection = (category, subCategory) => {
+        setSelectedCategory(category);
+        setSelectedSubCategory(subCategory);
+    };
+
     return (
         <>
             {
@@ -937,6 +992,21 @@ const EditProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
+                        {/* Category Selection Modal */}
+                        <CategorySelectionModal 
+                            isOpen={isCategoryModalOpen}
+                            onClose={() => setIsCategoryModalOpen(false)}
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            selectedSubCategory={selectedSubCategory}
+                            onApply={handleCategorySelection}
+                            isSearching={isSearching}
+                            searchResults={searchResults}
+                            categorySearchQuery={categorySearchQuery}
+                            setCategorySearchQuery={setCategorySearchQuery}
+                            getSubCategories={getSubCategories}
+                        />
+                        
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">
@@ -971,52 +1041,38 @@ const EditProduct = () => {
                                 {/** mobile categories */}
                                 <div className="flex lg:hidden flex-col gap-4">
                                     <div className="space-y-2">
-                                        <RequiredLabel>Category</RequiredLabel>
-                                        <Select
-                                            value={selectedCategory}
-                                            onValueChange={(value) => {
-                                                setSelectedCategory(value);
-                                                setSelectedSubCategory(''); // Reset subcategory when category changes
-                                            }}
+                                        <RequiredLabel>Category & Sub-Category</RequiredLabel>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCategoryModalOpen(true)}
+                                            className="w-full flex items-center justify-between gap-2 p-3 border border-[#02020238] bg-white rounded-xl hover:border-gray-400 transition-colors text-left"
                                         >
-                                            <SelectTrigger className="rounded-full">
-                                                <SelectValue placeholder="Choose a category..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {categories.map((category) => (
-                                                    <SelectItem
-                                                        key={category._id}
-                                                        value={category.name}
-                                                    >
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            <div className="flex flex-col">
+                                                <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                                                    {selectedCategory || "Choose a category..."}
+                                                </span>
+                                                {selectedCategory && selectedSubCategory && (
+                                                    <span className="text-xs text-gray-500 mt-0.5">
+                                                        {selectedSubCategory}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+                                        </button>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label>Sub-Category</Label>
-                                        <Select
-                                            value={selectedSubCategory}
-                                            onValueChange={setSelectedSubCategory}
-                                            disabled={!selectedCategory}
-                                        >
-                                            <SelectTrigger className="rounded-full">
-                                                <SelectValue placeholder="Choose a sub-category..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {getSubCategories(selectedCategory).map((subCategory) => (
-                                                    <SelectItem
-                                                        key={subCategory._id}
-                                                        value={subCategory.name}
-                                                    >
-                                                        {subCategory.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    {selectedCategory && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#0BB248]/10 text-[#0BB248] border border-[#0BB248]/20">
+                                                <span className="font-medium mr-1">Category:</span> {selectedCategory}
+                                            </div>
+                                            {selectedSubCategory && (
+                                                <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                                                    <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {
@@ -1090,7 +1146,7 @@ const EditProduct = () => {
                                                                     </div>
                                                                 ))}
                                                                 {images.length < 5 && (
-                                                                    <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
+                                                                    <label className="w-24 h-24 border-2 border-dashed border-[#02020238] rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
                                                                         <input
                                                                             type="file"
                                                                             className="hidden"
@@ -1368,52 +1424,38 @@ const EditProduct = () => {
 
                                         <div className="hidden lg:block space-y-2 ">
                                             <div className="space-y-2">
-                                                <RequiredLabel>Category</RequiredLabel>
-                                                <Select
-                                                    value={selectedCategory}
-                                                    onValueChange={(value) => {
-                                                        setSelectedCategory(value);
-                                                        setSelectedSubCategory(''); // Reset subcategory when category changes
-                                                    }}
+                                                <RequiredLabel>Category & Sub-Category</RequiredLabel>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCategoryModalOpen(true)}
+                                                    className="w-full flex items-center justify-between gap-2 p-3 border border-[#02020238] bg-white rounded-lg hover:border-gray-400 transition-colors text-left"
                                                 >
-                                                    <SelectTrigger className="rounded-full">
-                                                        <SelectValue placeholder="Choose a category..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {categories.map((category) => (
-                                                            <SelectItem
-                                                                key={category._id}
-                                                                value={category.name}
-                                                            >
-                                                                {category.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                    <div className="flex flex-col">
+                                                        <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                                                            {selectedCategory || "Choose a category..."}
+                                                        </span>
+                                                        {selectedCategory && selectedSubCategory && (
+                                                            <span className="text-xs text-gray-500 mt-0.5">
+                                                                {selectedSubCategory}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+                                                </button>
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label>Sub-Category</Label>
-                                                <Select
-                                                    value={selectedSubCategory}
-                                                    onValueChange={setSelectedSubCategory}
-                                                    disabled={!selectedCategory}
-                                                >
-                                                    <SelectTrigger className="rounded-full">
-                                                        <SelectValue placeholder="Choose a sub-category..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {getSubCategories(selectedCategory).map((subCategory) => (
-                                                            <SelectItem
-                                                                key={subCategory._id}
-                                                                value={subCategory.name}
-                                                            >
-                                                                {subCategory.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+                                            {selectedCategory && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#0BB248]/10 text-[#0BB248] border border-[#0BB248]/20">
+                                                        <span className="font-medium mr-1">Category:</span> {selectedCategory}
+                                                    </div>
+                                                    {selectedSubCategory && (
+                                                        <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                                                            <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2">
