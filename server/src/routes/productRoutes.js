@@ -3,7 +3,16 @@ const router = express.Router();
 const productController = require('../controllers/productController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Configure multer with file size limits
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB max file size
+    fieldSize: 100 * 1024 * 1024 // 100MB max field size
+  }
+});
+
 const jwt = require('jsonwebtoken');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 
@@ -1050,13 +1059,13 @@ router.get('/:id', productController.getProduct);
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Default product images (max 8)
+ *                 description: Default product images (max 8, max 50MB each)
  *               blips:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Product video blips (max 4)
+ *                 description: Product video blips (max 5, max 50MB each)
  *               stock:
  *                 type: number
  *                 minimum: 0
@@ -1151,19 +1160,49 @@ router.get('/:id', productController.getProduct);
  *         description: Unauthorized - Invalid or missing token
  *       403:
  *         description: Forbidden - User is not a seller
+ *       413:
+ *         description: File too large - exceeds 50MB limit
  *       500:
  *         description: Server error
  */
 router.post('/',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  upload.fields([
-    { name: 'images', maxCount: 8 },
-    { name: 'blips', maxCount: 4 },
-    { name: /^variant-[a-zA-Z0-9]+-images$/, maxCount: 10 },
-    { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
-    { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
-  ]),
+  (req, res, next) => {
+    const uploadFields = upload.fields([
+      { name: 'images', maxCount: 8 },
+      { name: 'blips', maxCount: 5 },
+      { name: /^variant-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+      { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+      { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
+    ]);
+
+    uploadFields(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            success: false,
+            message: 'File too large. Maximum file size is 50MB.'
+          });
+        } else if (err.code === 'LIMIT_FIELD_VALUE') {
+          return res.status(413).json({
+            success: false,
+            message: 'Field value too large. Maximum field size is 50MB.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Upload error: ${err.message}`
+        });
+      } else if (err) {
+        return res.status(500).json({
+          success: false,
+          message: `Error uploading files: ${err.message}`
+        });
+      }
+      next();
+    });
+  },
   productController.createProduct
 );
 
@@ -3454,7 +3493,8 @@ router.post('/:productId/reviews/:reviewId/reply',
  * @swagger
  * /api/products/{productId}/blips:
  *   post:
- *     summary: Add a new blip video to an existing product
+ *     summary: Add blips to a product
+ *     description: Add one or more video blips to an existing product (max 5 blips total per product, max 50MB per file)
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -3464,21 +3504,25 @@ router.post('/:productId/reviews/:reviewId/reply',
  *         required: true
  *         schema:
  *           type: string
- *         description: ID of the product to add the blip to
+ *         description: ID of the product
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - blipVideos
  *             properties:
- *               blipVideo:
- *                 type: string
- *                 format: binary
- *                 description: The video file to upload as a blip
+ *               blipVideos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Blip video files to upload (max 5, max 50MB each)
  *     responses:
  *       201:
- *         description: Blip video added successfully
+ *         description: Blips added successfully
  *         content:
  *           application/json:
  *             schema:
@@ -3488,41 +3532,61 @@ router.post('/:productId/reviews/:reviewId/reply',
  *                   type: boolean
  *                 message:
  *                   type: string
- *                 blip:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     url:
- *                       type: string
- *                     contentType:
- *                       type: string
- *                     thumbnail:
- *                       type: string
- *                     likesCount:
- *                       type: number
- *                     viewCount:
- *                       type: number
- *                     commentsCount:
- *                       type: number
- *                     createdAt:
- *                       type: string
- *                       format: date-time
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       url:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
  *       400:
- *         description: Invalid product ID format or no video file uploaded
- *       401:
- *         description: Unauthorized - Invalid or missing token
- *       403:
- *         description: Forbidden - User is not a seller
+ *         description: Invalid request or no files uploaded
  *       404:
- *         description: Product not found or user does not have permission to modify it
+ *         description: Product not found or not owned by seller
+ *       413:
+ *         description: File too large - exceeds 50MB limit
  *       500:
  *         description: Server error
  */
 router.post('/:productId/blips',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  upload.single('blipVideo'),
+  (req, res, next) => {
+    upload.array('blipVideos', 5)(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            success: false,
+            message: 'File too large. Maximum file size is 50MB.'
+          });
+        } else if (err.code === 'LIMIT_FIELD_VALUE') {
+          return res.status(413).json({
+            success: false,
+            message: 'Field value too large. Maximum field size is 50MB.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Multer error: ${err.message}`
+        });
+      } else if (err) {
+        return res.status(500).json({
+          success: false,
+          message: `Error uploading files: ${err.message}`
+        });
+      }
+      next();
+    });
+  },
   productController.addBlipToProduct
 );
 
@@ -3737,5 +3801,70 @@ router.get('/seller/:sellerId/search', productController.searchSellerProducts);
  *         description: Server error
  */
 router.get('/blips/:blipId/related', optionalAuthMiddleware, productController.getRelatedBlips);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}:
+ *   delete:
+ *     summary: Delete a blip from a product
+ *     description: Allows a seller to delete a blip video from their product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip to delete
+ *     responses:
+ *       200:
+ *         description: Blip deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Blip deleted successfully
+ *                 deletedBlip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the deleted blip
+ *                     url:
+ *                       type: string
+ *                       description: URL of the deleted blip video
+ *                     thumbnail:
+ *                       type: string
+ *                       description: URL of the deleted blip thumbnail
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not a seller
+ *       403:
+ *         description: Forbidden - not the owner of the product
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:productId/blips/:blipId',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.deleteBlipFromProduct
+);
 
 module.exports = router;

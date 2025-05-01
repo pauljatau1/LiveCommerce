@@ -1697,6 +1697,11 @@ exports.getSellerProfile = async (req, res) => {
           seller: seller.sellerAddress
         }
       },
+      location: {
+        country: seller.businessAddress?.country || seller.sellerAddress?.country,
+        state: seller.businessAddress?.state || seller.sellerAddress?.state,
+        city: seller.businessAddress?.city || seller.sellerAddress?.city
+      },
       storePolicies: {
         delivery: {
           processingTime: seller.storePolicy?.processingTime || null,
