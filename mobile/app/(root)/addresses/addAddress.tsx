@@ -203,7 +203,7 @@ const AddAddress = () => {
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
               <View style={{ gap: 20 }}>
                 {/* Name Fields */}
-                <View
+                {/* <View
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
@@ -233,7 +233,7 @@ const AddAddress = () => {
                       />
                     </View>
                   </View>
-                </View>
+                </View> */}
 
                 {/* State Dropdown */}
                 <View style={styles.inputSection}>
@@ -284,6 +284,7 @@ const AddAddress = () => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       placeholder="Street Address"
+                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
                       style={styles.textInput}
                       onChangeText={setAddress1}
                     />
@@ -295,6 +296,7 @@ const AddAddress = () => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       placeholder="Address 2"
+                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
                       style={styles.textInput}
                       onChangeText={setAddress2}
                     />
@@ -314,6 +316,7 @@ const AddAddress = () => {
                   >
                     <TextInput
                       placeholder="Zip Code"
+                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
                       style={styles.textInput}
                       maxLength={6}
                       inputMode="numeric"
@@ -335,7 +338,7 @@ const AddAddress = () => {
                   </View>
                 </View>
 
-                <View style={styles.inputSection}>
+                {/* <View style={styles.inputSection}>
                   <Text style={styles.textLabel}>Phone Number</Text>
 
                   <View
@@ -402,7 +405,7 @@ const AddAddress = () => {
                       </Text>
                     )}
                   </View>
-                </View>
+                </View> */}
 
                 <View style={styles.inputSection}>
                   <Text style={styles.textLabel}>Address Type</Text>
