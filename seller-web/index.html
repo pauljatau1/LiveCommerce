@@ -77,7 +77,7 @@
     // Check for,  existing consent on page load
     if (localStorage.getItem('analytics-consent') === 'true' || localStorage.getItem('analytics-consent') === 'false') {
       const seller = JSON.parse(localStorage.getItem('seller'));
-      console.log('analytics seller', seller);
+      // console.log('analytics seller', seller);
       if (seller) {
         // Create userInfo object for Clarity identification
         const userInfo = {

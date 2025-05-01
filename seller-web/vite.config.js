@@ -1,9 +1,7 @@
 import path from "path"
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
-import { visualizer } from 'rollup-plugin-visualizer'
 import { fileURLToPath } from 'url'
-import viteCompression from 'vite-plugin-compression'
 
 // Define __dirname equivalent for ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -95,8 +93,9 @@ export default defineConfig({
           ]
         }
       }
-    },
-    // Reduce code splitting for smaller overall bundle size (fewer HTTP requests)
-    chunkSizeWarningLimit: 1000
+    }
+  },
+  esbuild: {
+    drop: ['console', 'debugger'], // Remove console and debugger statements in production
   }
 })
