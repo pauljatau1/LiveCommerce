@@ -72,6 +72,12 @@ const BlipsFeed = () => {
   };
 
   const getBlip = async () => {
+    console.log({
+      id,
+      productId,
+      itmSource,
+    });
+
     const token = await getToken();
     try {
       const response = await axios.get(
@@ -119,7 +125,7 @@ const BlipsFeed = () => {
   useEffect(() => {
     getBlip();
     fetchMoreVideos();
-  }, []);
+  }, [id, productId]);
 
   const renderVideo = ({ item, index }: { item: any; index: number }) => {
     return (

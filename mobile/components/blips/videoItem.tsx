@@ -122,7 +122,8 @@ const VideoItem = ({
   const onShare = async () => {
     try {
       const result = await Share.share({
-        url: `https://app.auqli.live/singleBlip/feed?id=${product?.id}&blipId=${id}&itmSource=share`,
+        url: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
+        message: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
       });
       if (result.action === Share.sharedAction) {
         if (result.activityType) {

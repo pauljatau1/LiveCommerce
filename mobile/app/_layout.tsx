@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Provider } from "react-redux";
 import { store } from "@/store";
-import { StyleSheet } from "react-native";
+import { Linking, StyleSheet } from "react-native";
 import FlashMessage from "react-native-flash-message";
 import Constants from "expo-constants";
 import * as SystemUI from "expo-system-ui";
@@ -40,6 +40,19 @@ function RootLayoutNav() {
     "LexendDeca-SemiBold": require("../assets/fonts/LexendDeca-SemiBold.ttf"),
     "LexendDeca-Thin": require("../assets/fonts/LexendDeca-Thin.ttf"),
   });
+
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      const url = await Linking.getInitialURL();
+      if (url) {
+        const path = url.replace(/^https?:\/\/[^/]+/, "");
+        console.log("safe path", path);
+
+        router.replace(path);
+      }
+    };
+    handleDeepLink();
+  }, []);
 
   // useEffect(() => {
   //   if (loaded) {
