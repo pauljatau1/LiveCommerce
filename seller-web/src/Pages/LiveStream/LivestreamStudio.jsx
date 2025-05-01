@@ -3,17 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useOutletContext } from 'react-router-dom';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import { FiUsers, FiShare2, FiMessageCircle } from 'react-icons/fi';
-import { BsCameraVideo, BsMic, BsGear } from 'react-icons/bs';
-import { Icon } from '@iconify/react';
-import AuqliLogo from '../../assets/auqli-official-logo.png';
-import ChatEmpty from '../../assets/Chat Empty.png';
-import NotFoundIcon from '../../assets/livestudio-not-found.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'sonner';
-import { MdClose } from 'react-icons/md';
-import { BASE_URL } from '../../Constants/Server';
-import { io } from 'socket.io-client';
 import { useSocket } from '../../Contexts/SocketContext';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 import PreStreamDesktopUi from '../../Components/preStreamDesktopUi/preStreamDesktopUi';
@@ -38,18 +29,13 @@ const LivestreamStudio = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowBackButton } = useOutletContext();
-    const { activeStreams, startLiveStream, endLiveStream, fetchedLiveStreams, getLiveStreamFullDetails, isLoading, liveStreamDetails, hasLiveStreamStarted, hasLiveStreamEnded, joinLiveStreamAsHost } = useLivestreamContext();
+    const { startLiveStream, endLiveStream, getLiveStreamFullDetails, isLoading, liveStreamDetails, joinLiveStreamAsHost } = useLivestreamContext();
     const [localTracks, setLocalTracks] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
-    const [showChat, setShowChat] = useState(true);
-    const [messages, setMessages] = useState([]);
-    const [totalSales, setTotalSales] = useState(0);
-    const [itemsSold, setItemsSold] = useState(0);
-    const [totalShares, setTotalShares] = useState(0);
     const [deviceError, setDeviceError] = useState(null);
     const [streamDuration, setStreamDuration] = useState(0);
     const [timerInterval, setTimerInterval] = useState(null);
-    const [role, setRole] = useState('host');
+    const [totalShares, setTotalShares] = useState(0);
     const [isLiveStreamStarting, setIsLiveStreamStarting] = useState(false);
     const [isLiveStreamEndingButton1, setIsLiveStreamEndingButton1] = useState(false);
     const [isLiveStreamEndingButton2, setIsLiveStreamEndingButton2] = useState(false);
@@ -780,7 +766,7 @@ const LivestreamStudio = () => {
 
             // Update tracks and start timer
             setLocalTracks([audioTrack, videoTrack]);
-            //startTimer();
+            startTimer();
             console.log('📷 [STREAM INIT] Stream initialization completed successfully');
 
         } catch (error) {
@@ -1608,7 +1594,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            //startTimer();
+            startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
@@ -1656,41 +1642,6 @@ const LivestreamStudio = () => {
         };
     }, []);
 
-    // Add a helper function to identify front and rear cameras by label
-    const identifyCamerasByLabel = (cameras) => {
-        // Identify by common naming patterns in camera labels
-        let frontCamera = cameras.find(d => 
-            d.label.toLowerCase().includes("front") || 
-            d.label.toLowerCase().includes("user") ||
-            d.label.toLowerCase().includes("selfie") ||
-            // Most mobile devices name facing cameras with numbers - 1 is typically front
-            (d.label.includes("camera") && d.label.includes("1"))
-        );
-        
-        let rearCamera = cameras.find(d => 
-            d.label.toLowerCase().includes("back") || 
-            d.label.toLowerCase().includes("rear") || 
-            d.label.toLowerCase().includes("environment") ||
-            // Most mobile devices name facing cameras with numbers - 0 is typically back
-            (d.label.includes("camera") && d.label.includes("0"))
-        );
-        
-        // If label-based detection fails, use index-based fallback
-        // (common convention is first camera is back, second is front)
-        if (!frontCamera && !rearCamera && cameras.length >= 2) {
-            // Try to infer based on device ordering
-            rearCamera = cameras[0]; // First camera is usually back
-            frontCamera = cameras[1]; // Second camera is usually front
-        } else if (!frontCamera && cameras.length >= 1) {
-            // If we only found rear camera, the other one must be front
-            frontCamera = cameras.find(cam => cam !== rearCamera);
-        } else if (!rearCamera && cameras.length >= 1) {
-            // If we only found front camera, the other one must be rear
-            rearCamera = cameras.find(cam => cam !== frontCamera);
-        }
-        
-        return { frontCamera, rearCamera };
-    };
 
     // Function to switch between front and back cameras
 

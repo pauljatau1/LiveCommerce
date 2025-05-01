@@ -533,6 +533,31 @@ export const VerificationService = {
           "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
+
+        // Track seller profile completion with Customer.io
+        if (window.cioanalytics) {
+          // First re-identify the user to ensure the connection is active
+          window.cioanalytics.identify(sellerData._id, {
+            seller_id: sellerData._id,
+            email: sellerData.email,
+            first_name: sellerData.firstName,
+            last_name: sellerData.lastName,
+            store_name: sellerData.storeName,
+            created_at: Math.floor(new Date(sellerData.createdAt).getTime() / 1000),
+            user_type: 'seller'
+          });
+          
+          // Then track the event after a small delay
+          setTimeout(() => {
+            window.cioanalytics.track('seller_profile_completed', {
+              seller_id: sellerData._id,
+              store_name: storeProfile.storeName,
+              first_name: sellerData.firstName,
+              last_name: sellerData.lastName,
+              location: `${sellerData?.businessAddress?.country || ''}, ${sellerData?.businessAddress?.city || ''}, ${sellerData?.businessAddress?.state || ''}`
+            });
+          }, 500);
+        }
       }
       
       return response.data;

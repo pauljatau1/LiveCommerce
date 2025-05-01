@@ -1,77 +1,78 @@
 import AuthProvider from './Contexts/AuthContext';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, lazy } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
-import LoginPage from './Pages/LoginPage/LoginPage';
-import { ProductProvider } from './Contexts/ProductContext';
-import { LivestreamProvider } from './Contexts/LivestreamContext';
-import SignUpPage from './Pages/SignUpPage/SignUpPage';
-import DashboardLayout from './Components/DashboardLayout';
-import AppLayout from './Components/AppLayout';
-import ProtectedRoute from './Components/ProtectedRoute';
-import NotFoundPage from './Pages/NotFoundPage/NotFoundPage';
 import Loader from "./Components/Loader";
-import OnBoardingPage from './Pages/OnboardingPage/OnBoardingPage';
-import HomePage from './Pages/HomePage/HomePage';
-import BusinessOnboarding from './Pages/BusinessOnboarding/BusinessOnboarding';
-import IndividualOnboarding from './Pages/IndividualOnboarding/IndividualOnboarding';
-import BusinessInformationOnboarding from './Components/ui/BusinessInformationOnboarding';
-import BusinessVerificationOnboarding from './Components/ui/BusinessVerificationOnboarding';
-import BusinessBankOnboarding from './Components/ui/BusinessBankOnboarding';
-import BusinessCategoryOnboarding, { Loader as categoriesLoader } from './Components/ui/BusinessCategoryOnboarding';
-import ShippingOptionsOnboarding from './Components/ui/ShippingOptionsOnboarding';
-import AccountApproval from './Components/ui/AccountApproval';
-import IndividualVerificationOnboarding from './Components/ui/IndividualVerificationOnboarding';
-import Customers from './Pages/Customers/Customers';
-import CustomerDetail from './Pages/Customers/CustomerDetail';
-import ProductsPage from './Pages/ProductsPage/ProductsPage';
-import AddProduct from './Pages/ProductsPage/AddProduct';
-import Drafts from './Pages/ProductsPage/Drafts';
-import OrderDetails from './Pages/Orders/OrderDetails';
-import OrdersDashboard from './Pages/Orders/Orders';
-import CookieConsent from './Components/CookieConsent';
-import MarketingPage from './Pages/MarketingPage/MarketingPage';
-import { VariantsProvider } from './Contexts/VariantContext';
-import Payout from './Pages/payout/Payout';
-import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
 import { LivestreamSocketProvider } from './Contexts/LivestreamSocketContext';
-import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
-import EditProduct from './Pages/ProductsPage/EditProduct';
-import LiveStream from './Pages/LiveStream/LiveStream';
+import { VariantsProvider } from './Contexts/VariantContext';
+import { ProductProvider } from './Contexts/ProductContext';
+import { LivestreamProvider } from './Contexts/LivestreamContext';
 import DashboardRoute from './Components/DashboardRoute';
-import SettingsDashboard from './Pages/Settings/SettingsDashboard';
-import AnalyticsDashboard from './Pages/Analytics/anayltics';
-import Help from './Pages/help/help';
-import LiveStreamLayout from './Components/LiveStreamLayout';
-import CreateLiveAuction from './Pages/LiveStream/CreateLiveAuction';
-import CreateLiveShow from './Pages/LiveStream/CreateLiveShow';
-import ScheduleShows from './Pages/LiveStream/ScheduleShows';
-import PastShows from './Pages/LiveStream/PastShows';
-import SubmitLiveShow from './Pages/LiveStream/SubmitLiveShow';
-import SubmitLiveAuction from './Pages/LiveStream/SubmitLiveAuction';
-import LivestreamStudio from './Pages/LiveStream/LivestreamStudio';
-import OnboardingLayout from './Components/OnboardingLayout';
-import CreateProfile from './Components/ui/CreateProfile';
-import Coupons from './Pages/MarketingPage/Coupons';
-import CouponsList from './Pages/MarketingPage/CouponsList'
-import InboxCampaigns from './Pages/MarketingPage/InboxCampaigns';
-import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
+import AppLayout from './Components/AppLayout';
+import ProtectedRoute from './Components/ProtectedRoute';
 import { TooltipProvider } from './Components/ui/tooltip';
-import Returns from './Pages/Orders/Returns';
-import ReturnDetail from './Pages/Orders/ReturnDetail';
-import Account from './Pages/Account/account';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './lib/theme';
-import mixpanel from "mixpanel-browser";
+import CookieConsent from './Components/CookieConsent';
 import IntercomWrapper from './Components/IntercomProvider';
+import OnboardingLayout from './Components/OnboardingLayout';
+// Import analytics utilities instead of Mixpanel directly
+import { initAllAnalytics } from './util/analytics';
 
-// Create a wrapper component that provides both Router and Auth contexts
+// Lazy load all page components to reduce initial bundle size
+const LoginPage = lazy(() => import('./Pages/LoginPage/LoginPage'));
+const SignUpPage = lazy(() => import('./Pages/SignUpPage/SignUpPage'));
+const NotFoundPage = lazy(() => import('./Pages/NotFoundPage/NotFoundPage'));
+const OnBoardingPage = lazy(() => import('./Pages/OnboardingPage/OnBoardingPage'));
+const HomePage = lazy(() => import('./Pages/HomePage/HomePage'));
+const BusinessOnboarding = lazy(() => import('./Pages/BusinessOnboarding/BusinessOnboarding'));
+const IndividualOnboarding = lazy(() => import('./Pages/IndividualOnboarding/IndividualOnboarding'));
+const BusinessInformationOnboarding = lazy(() => import('./Components/ui/BusinessInformationOnboarding'));
+const BusinessVerificationOnboarding = lazy(() => import('./Components/ui/BusinessVerificationOnboarding'));
+const BusinessBankOnboarding = lazy(() => import('./Components/ui/BusinessBankOnboarding'));
+const BusinessCategoryOnboarding = lazy(() => import('./Components/ui/BusinessCategoryOnboarding'));
+const ShippingOptionsOnboarding = lazy(() => import('./Components/ui/ShippingOptionsOnboarding'));
+const AccountApproval = lazy(() => import('./Components/ui/AccountApproval'));
+const IndividualVerificationOnboarding = lazy(() => import('./Components/ui/IndividualVerificationOnboarding'));
+const CreateProfile = lazy(() => import('./Components/ui/CreateProfile'));
+const DashboardLayout = lazy(() => import('./Components/DashboardLayout'));
 
+// Lazily load content pages with higher payloads
+const Customers = lazy(() => import('./Pages/Customers/Customers'));
+const CustomerDetail = lazy(() => import('./Pages/Customers/CustomerDetail'));
+const ProductsPage = lazy(() => import('./Pages/ProductsPage/ProductsPage'));
+const AddProduct = lazy(() => import('./Pages/ProductsPage/AddProduct'));
+const EditProduct = lazy(() => import('./Pages/ProductsPage/EditProduct'));
+const Drafts = lazy(() => import('./Pages/ProductsPage/Drafts'));
+const OrderDetails = lazy(() => import('./Pages/Orders/OrderDetails'));
+const OrdersDashboard = lazy(() => import('./Pages/Orders/Orders'));
+const MarketingPage = lazy(() => import('./Pages/MarketingPage/MarketingPage'));
+const Payout = lazy(() => import('./Pages/payout/Payout'));
+const Messages = lazy(() => import('./Pages/messages/messages'));
+const AuqliConnect = lazy(() => import('./Pages/AuqliConnect/AuqliConnect'));
+const LiveStream = lazy(() => import('./Pages/LiveStream/LiveStream'));
+const SettingsDashboard = lazy(() => import('./Pages/Settings/SettingsDashboard'));
+const AnalyticsDashboard = lazy(() => import('./Pages/Analytics/anayltics'));
+const Help = lazy(() => import('./Pages/help/help'));
+const LiveStreamLayout = lazy(() => import('./Components/LiveStreamLayout'));
+const CreateLiveAuction = lazy(() => import('./Pages/LiveStream/CreateLiveAuction'));
+const CreateLiveShow = lazy(() => import('./Pages/LiveStream/CreateLiveShow'));
+const ScheduleShows = lazy(() => import('./Pages/LiveStream/ScheduleShows'));
+const PastShows = lazy(() => import('./Pages/LiveStream/PastShows'));
+const SubmitLiveShow = lazy(() => import('./Pages/LiveStream/SubmitLiveShow'));
+const SubmitLiveAuction = lazy(() => import('./Pages/LiveStream/SubmitLiveAuction'));
+const LivestreamStudio = lazy(() => import('./Pages/LiveStream/LivestreamStudio'));
+const Coupons = lazy(() => import('./Pages/MarketingPage/Coupons'));
+const CouponsList = lazy(() => import('./Pages/MarketingPage/CouponsList'));
+const InboxCampaigns = lazy(() => import('./Pages/MarketingPage/InboxCampaigns'));
+const CreateCampaign = lazy(() => import('./Pages/MarketingPage/CreateCampaign'));
+const Returns = lazy(() => import('./Pages/Orders/Returns'));
+const ReturnDetail = lazy(() => import('./Pages/Orders/ReturnDetail'));
+const Account = lazy(() => import('./Pages/Account/account'));
 
-// Create router configuration
+// Create router configuration with Suspense boundary for each lazy-loaded component
 const router = createBrowserRouter([
   {
     element: (
@@ -81,7 +82,9 @@ const router = createBrowserRouter([
             <LivestreamSocketProvider>
               <OnboardingProvider>
                 <TooltipProvider>
-                  <AppLayout />
+                  <Suspense fallback={<Loader />}>
+                    <AppLayout />
+                  </Suspense>
                 </TooltipProvider>
               </OnboardingProvider>
             </LivestreamSocketProvider>
@@ -89,26 +92,24 @@ const router = createBrowserRouter([
         </ProtectedRoute>
       </AuthProvider>
     ),
-    errorElement: <NotFoundPage />,
+    errorElement: <Suspense fallback={<Loader />}><NotFoundPage /></Suspense>,
 
     children: [
       {
         path: '/',
         element: <Loader />,
-        // element: <TestTopup />
       },
       {
         path: '/login',
-        element: <LoginPage />,
-        // element: <TestTopup />,
+        element: <Suspense fallback={<Loader />}><LoginPage /></Suspense>,
         loader: () => new Promise(resolve => setTimeout(resolve, 500)),
-        errorElement: <NotFoundPage />
+        errorElement: <Suspense fallback={<Loader />}><NotFoundPage /></Suspense>
       },
       {
         path: '/signup',
-        element: <SignUpPage />,
+        element: <Suspense fallback={<Loader />}><SignUpPage /></Suspense>,
         loader: () => new Promise(resolve => setTimeout(resolve, 500)),
-        errorElement: <NotFoundPage />
+        errorElement: <Suspense fallback={<Loader />}><NotFoundPage /></Suspense>
       },
       {
         path: '/onboarding',
@@ -169,9 +170,11 @@ const router = createBrowserRouter([
           },
           {
             path: 'business-category-onboarding',
-            element: <BusinessCategoryOnboarding />,
-            loader: categoriesLoader,
-            errorElement: <NotFoundPage />
+            element: <Suspense fallback={<Loader />}><BusinessCategoryOnboarding /></Suspense>,
+            loader: () => {
+              return new Promise(resolve => setTimeout(() => resolve([]), 1000));
+            },
+            errorElement: <Suspense fallback={<Loader />}><NotFoundPage /></Suspense>
           },
           {
             path: 'shipping-options-onboarding',
@@ -415,68 +418,32 @@ const router = createBrowserRouter([
 function App() {
   useEffect(() => {
     // Initialize Mixpanel based on existing consent
-    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
-      debug: true,
-      track_pageview: true,
-      persistence: "localStorage",
-      autocapture: true,
-    });
+    initAllAnalytics();
   }, []);
 
   const handleConsentAccept = () => {
-    // Initialize Customer.io analytics
-    window.cioanalytics.load(import.meta.env.VITE_CUSTOMER_IO_TOKEN || "403c9b971fd0501b68ee");
-    // Track initial pageview
-    window.cioanalytics.page();
-    // Near entry of your product, init Mixpanel
-    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
-      debug: true,
-      track_pageview: true,
-      persistence: "localStorage",
-      autocapture: true,
-    });
-
-    // Get user data if available and initialize Clarity with user info
+    // Get user data if available
     const seller = JSON.parse(localStorage.getItem('seller'));
-    console.log('analytics seller', seller);
-    if (seller) {
-      window.initClarity?.({
+    
+    // Initialize all analytics systems with user data if available
+    initAllAnalytics({
+      userData: seller ? {
         id: seller._id,
         email: seller.email,
         firstName: seller.firstName,
         lastName: seller.lastName
-      });
-    } else {
-      window.initClarity?.();
-    }
+      } : null
+    });
   };
 
   const handleConsentDecline = () => {
-    // Initialize Customer.io analytics
-    window.cioanalytics.load(import.meta.env.VITE_CUSTOMER_IO_TOKEN || "403c9b971fd0501b68ee");
-    // Track initial pageview
-    window.cioanalytics.page();
-    // Near entry of your product, init Mixpanel
-    mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN || "94b0cfbe14bc101f450403071cb7169d", {
-      debug: true,
-      track_pageview: true,
-      persistence: "localStorage",
-      autocapture: true,
+    // On decline, we still initialize with minimal tracking options
+    initAllAnalytics({
+      mixpanelOptions: {
+        track_pageview: false,
+        autocapture: false
+      }
     });
-
-    // Get user data if available and initialize Clarity with user info
-    const seller = JSON.parse(localStorage.getItem('seller'));
-    console.log('analytics seller', seller);
-    if (seller) {
-      window.initClarity?.({
-        id: seller._id,
-        email: seller.email,
-        firstName: seller.firstName,
-        lastName: seller.lastName
-      });
-    } else {
-      window.initClarity?.();
-    }
   };
 
   return (
@@ -485,7 +452,6 @@ function App() {
         <Suspense fallback={<Loader />}>
           <RouterProvider router={router} fallbackElement={<Loader />} />
           <Toaster />
-          <ToastContainer />
           <CookieConsent
             onAccept={handleConsentAccept}
             onDecline={handleConsentDecline}

@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
-import DatePicker from "react-datepicker"
-import "react-datepicker/dist/react-datepicker.css"
+import { useIntercom } from 'react-use-intercom';
+
 
 // Add these constants at the top of the file, after the imports
 const DELIVERY_POLICIES = {
@@ -51,6 +51,7 @@ const DELIVERY_POLICIES = {
 };
 
 export default function StoreSettings() {
+  const { show } = useIntercom();
   const [formData, setFormData] = useState({
     storeName: "",
     phoneNumber: "",
@@ -756,6 +757,9 @@ export default function StoreSettings() {
                 <p className="text-sm text-blue-700">
                   To update store information, please contact support at <a href="mailto:support@auqli.com" className="underline">support@auqli.com</a>
                 </p>
+                <button className="text-sm text-white bg-blue-500 px-4 py-2 my-3 rounded-md" onClick={() => show()}>
+                    Message Support
+                </button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">

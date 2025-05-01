@@ -1,19 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Icon } from "@iconify/react"
 import { useOutletContext, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { HelpCircle, Zap, Ticket, MessageSquare, Users2, MessageCircle } from "lucide-react"
 import { HiSpeakerphone } from "react-icons/hi"
 import { IoTicketSharp, IoFlashSharp } from "react-icons/io5"
 import { BiMessageRoundedDots } from "react-icons/bi"
 import { PiUsersThreeFill } from "react-icons/pi"
 import { LuMessageSquareMore } from "react-icons/lu"
 import { BsQuestionCircleFill } from "react-icons/bs"
-import { marketingAdsData } from "../../Utilities/data";
 import ComingSoonTag from "@/Components/ComingSoonTag";
 import AuqliUniversity from "@/Components/AuqliUniversity";
 
