@@ -121,10 +121,15 @@ const VideoItem = ({
 
   const onShare = async () => {
     try {
-      const result = await Share.share({
-        url: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
-        message: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
-      });
+      const result = await Share.share(
+        Platform.OS == "ios"
+          ? {
+              url: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
+            }
+          : {
+              message: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
+            },
+      );
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
           // shared with activity type of result.activityType
