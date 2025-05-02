@@ -102,7 +102,7 @@ const SubmitLiveAuction = () => {
         }
     }, [message]);
 
-    const selectedProducts = livestream?.products?.filter(product => product.selected);
+    const selectedProducts = livestream?.selectedProducts || [];
 
     const handleSchedulingLiveAuction = async () => {
         const streamData = {
@@ -271,7 +271,7 @@ const SubmitLiveAuction = () => {
                             <h1 className="text-lg font-semibold text-[#16192C] font-inter pl-8 pt-6 xl:pt-10">Products in show</h1>
                             <div className="flex flex-col gap-3 mt-3">
                                 {selectedProducts.map(product => (
-                                    <LiveAuctionProductsCard key={product.id} product={product} />
+                                    <LiveAuctionProductsCard key={product.productId} product={product} />
                                 ))}
                             </div>
                         </div>

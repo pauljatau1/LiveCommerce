@@ -1,6 +1,5 @@
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { NavLink } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import LiveShowIcon from '../../assets/Background.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import LiveStreamSuccessIcon from '../../assets/Party.png';
@@ -9,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useOutletContext } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import LiveShowProductsCard from '../../Components/LiveShowProductsCard';
 
 const SuccessModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -84,19 +84,21 @@ SuccessModal.propTypes = {
 const SubmitLiveShow = () => {
     const { livestream, scheduleLiveShow, isLoading, message } = useLivestreamContext();
     const { setHeaderName, setNavName } = useOutletContext();
-    const { products } = useSelector(state => state.product);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Submit Live Show');
-    }, []);
+    }, [setHeaderName, setNavName]);
 
     useEffect(() => {
         if (message === 'livestream scheduled successfully') {
             setShowSuccessModal(true);
         }
     }, [message]);
+
+    // Get the selected products from the livestream context
+    const selectedProducts = livestream?.selectedProducts || [];
 
     const handleSchedulingLiveShow = async () => {
         const streamData = {
@@ -108,14 +110,24 @@ const SubmitLiveShow = () => {
             },
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
+            products: selectedProducts.map(product => ({
+                product: {
+                    productId: product.productId,
+                    name: product.name,
+                    category: product.category,
+                    images: product.images,
+                    sku: product.sku,
+                    quantity: product.quantity,
+                }
+            })),
             video: livestream.video,
             scheduledStartTime: livestream.scheduledStartTime || new Date().toISOString(),
         }
 
-        console.log(streamData);
+        console.log('Live show submitted data:', streamData);
 
         try {
-            if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0) {
+            if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0 && selectedProducts.length > 0) {
                 await scheduleLiveShow(streamData);
             } else {
                 toast.error('Please fill in all fields', {
@@ -247,20 +259,18 @@ const SubmitLiveShow = () => {
                         </div>
 
                         {/* Products Selection Card */}
-                        <div className="flex-1 xl:flex-none lg:w-[500px] bg-white rounded-xl shadow-sm border border-gray-200 h-auto">
-                            <div className="h-full p-6 flex flex-col items-start lg:items-center justify-center">
-                                <div className="w-full flex flex-col items-start justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <h2 className="text-lg font-semibold text-gray-900">Products Selection</h2>
-                                        <p className="text-sm text-gray-500">
-                                            All products in your store are automatically selected for open live shows.
-                                            To remove a product, you can deactivate the product from the product listings.
-                                        </p>
+                        <div className="flex-1 xl:flex-none lg:w-[354px] bg-white rounded-xl shadow-sm border overflow-y-auto border-gray-200 h-auto">
+                            <h1 className="text-lg font-semibold text-[#16192C] font-inter pl-8 pt-6 xl:pt-10">Products in show</h1>
+                            <div className="flex flex-col gap-3 mt-3">
+                                {selectedProducts.length > 0 ? (
+                                    selectedProducts.map(product => (
+                                        <LiveShowProductsCard key={product.productId} product={product} />
+                                    ))
+                                ) : (
+                                    <div className="px-8 py-4 text-center">
+                                        <p className="text-sm text-gray-500">No products selected for this show.</p>
                                     </div>
-                                    <button className="px-4 py-2 text-sm font-medium text-green-600 bg-white border border-green-600 rounded-lg hover:bg-green-50">
-                                        Got it
-                                    </button>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -275,7 +285,7 @@ const SubmitLiveShow = () => {
                         </NavLink>
                         <button 
                             onClick={handleSchedulingLiveShow}
-                            disabled={isLoading}
+                            disabled={isLoading || selectedProducts.length === 0}
                             className="px-6 w-[200px] whitespace-nowrap py-2.5 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50"
                         >
                             {isLoading ? <CircularProgress size={20} color="#fff" /> : 'Schedule Live Show'}

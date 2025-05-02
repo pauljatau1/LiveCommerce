@@ -17,18 +17,24 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
+import ProductLimitModal from '../../Components/ProductLimitModal';
 
 const CreateLiveAuction = () => {
   const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
-  const { products, message } = useSelector((state) => state.product);
+  const { products, message, pagination } = useSelector((state) => state.product);
   const [dragActive, setDragActive] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
+  const [showProductLimitModal, setShowProductLimitModal] = useState(false);
   const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Store all selected products in local state for tracking across pagination
+  const [allSelectedProducts, setAllSelectedProducts] = useState([]);
 
   // Date and time picker states
   const [startDate, setStartDate] = useState(dayjs());
@@ -46,7 +52,7 @@ const CreateLiveAuction = () => {
   // Comprehensive predefined tags grouped by categ
   const [searchTag, setSearchTag] = useState('');
   const [filteredTags, setFilteredTags] = useState([]);
-  
+
   const allTags = [
     // Fashion Category
     { id: 1, label: 'Fashion', category: 'Fashion' },
@@ -56,14 +62,14 @@ const CreateLiveAuction = () => {
     { id: 5, label: 'Pants', category: 'Fashion' },
     { id: 6, label: 'Traditional', category: 'Fashion' },
     { id: 7, label: 'Vintage', category: 'Fashion' },
-    
+
     // Footwear Category
     { id: 8, label: 'Shoes', category: 'Footwear' },
     { id: 9, label: 'Sneakers', category: 'Footwear' },
     { id: 10, label: 'Heels', category: 'Footwear' },
     { id: 11, label: 'Boots', category: 'Footwear' },
     { id: 12, label: 'Sandals', category: 'Footwear' },
-    
+
     // Accessories Category
     { id: 13, label: 'Accessories', category: 'Accessories' },
     { id: 14, label: 'Jewelry', category: 'Accessories' },
@@ -71,7 +77,7 @@ const CreateLiveAuction = () => {
     { id: 16, label: 'Bags', category: 'Accessories' },
     { id: 17, label: 'Wallets', category: 'Accessories' },
     { id: 18, label: 'Belts', category: 'Accessories' },
-    
+
     // Electronics Category
     { id: 19, label: 'Electronics', category: 'Electronics' },
     { id: 20, label: 'Smartphones', category: 'Electronics' },
@@ -80,25 +86,25 @@ const CreateLiveAuction = () => {
     { id: 23, label: 'Headphones', category: 'Electronics' },
     { id: 24, label: 'Speakers', category: 'Electronics' },
     { id: 25, label: 'Cameras', category: 'Electronics' },
-    
+
     // Home & Living Category
     { id: 26, label: 'Home Decor', category: 'Home & Living' },
     { id: 27, label: 'Furniture', category: 'Home & Living' },
     { id: 28, label: 'Kitchen', category: 'Home & Living' },
     { id: 29, label: 'Bedding', category: 'Home & Living' },
-    
+
     // Beauty Category
     { id: 30, label: 'Beauty', category: 'Beauty' },
     { id: 31, label: 'Makeup', category: 'Beauty' },
     { id: 32, label: 'Skincare', category: 'Beauty' },
     { id: 33, label: 'Haircare', category: 'Beauty' },
     { id: 34, label: 'Fragrance', category: 'Beauty' },
-    
+
     // Kids & Baby Category
     { id: 35, label: 'Kids', category: 'Kids & Baby' },
     { id: 36, label: 'Baby Clothes', category: 'Kids & Baby' },
     { id: 37, label: 'Toys', category: 'Kids & Baby' },
-    
+
     // Seasonal & Trending Tags
     { id: 38, label: 'Trending', category: 'Popular' },
     { id: 39, label: 'New Arrivals', category: 'Popular' },
@@ -106,7 +112,7 @@ const CreateLiveAuction = () => {
     { id: 41, label: 'Limited Edition', category: 'Popular' },
     { id: 42, label: 'Exclusive', category: 'Popular' },
     { id: 43, label: 'Seasonal', category: 'Popular' },
-    
+
     // Sports & Fitness Tags
     { id: 44, label: 'Sports', category: 'Sports & Fitness' },
     { id: 45, label: 'Fitness', category: 'Sports & Fitness' },
@@ -122,13 +128,18 @@ const CreateLiveAuction = () => {
     setFilteredTags(allTags);
   }, []);
 
+  // Cleanup on mount - reset livestream data
+  useEffect(() => {
+    livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
+  }, [livestreamDispatch]);
+
   // Filter tags based on search input
   useEffect(() => {
     if (searchTag.trim() === '') {
       setFilteredTags(allTags);
     } else {
-      const filtered = allTags.filter(tag => 
-        tag.label.toLowerCase().includes(searchTag.toLowerCase()) || 
+      const filtered = allTags.filter(tag =>
+        tag.label.toLowerCase().includes(searchTag.toLowerCase()) ||
         tag.category.toLowerCase().includes(searchTag.toLowerCase())
       );
       setFilteredTags(filtered);
@@ -174,8 +185,11 @@ const CreateLiveAuction = () => {
   }, [startDate, startTime, startImmediately, livestreamDispatch]);
 
   useEffect(() => {
-    dispatch(fetchSellerProducts());
-  }, [dispatch]);
+    dispatch(fetchSellerProducts({
+      page: currentPage,
+      limit: itemsPerPage
+    }));
+  }, [dispatch, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (message === 'Products fetched successfully') {
@@ -192,13 +206,15 @@ const CreateLiveAuction = () => {
               quantity: product?.stock,
               minBid: product?.price,
               maxBid: 0,
-              selected: true
+              price: product?.price,
             }
-          })
+          }),
+          // Preserve selected products when changing pages
+          selectedProducts: livestream?.selectedProducts || []
         }
       });
     }
-  }, [message, products, livestreamDispatch])
+  }, [message, products, livestreamDispatch, livestream?.selectedProducts])
 
   // Initialize tags if they're undefined
   useEffect(() => {
@@ -212,7 +228,6 @@ const CreateLiveAuction = () => {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      setIsLoading(true);
       try {
         const response = await axios.get(`${BASE_URL}/public/categories`);
         if (response.status === 200) {
@@ -221,8 +236,6 @@ const CreateLiveAuction = () => {
       } catch (error) {
         console.error(error);
         toast.error('Failed to fetch categories');
-      } finally {
-        setIsLoading(false);
       }
     }
     fetchCategories();
@@ -283,20 +296,20 @@ const CreateLiveAuction = () => {
           reader.readAsDataURL(blob);
         });
       };
-      
+
       // Process image to base64
       const base64 = await convertBlobToBase64(file);
-      
+
       // Update the livestream context with the processed image data
-      livestreamDispatch({ 
-        type: 'SET_LIVESTREAM_DATA', 
-        payload: { 
+      livestreamDispatch({
+        type: 'SET_LIVESTREAM_DATA',
+        payload: {
           coverPhoto: {
             file: file, // Keep the file for preview
             data: base64,
             contentType: file.type
-          } 
-        } 
+          }
+        }
       });
     } catch (error) {
       console.error('Image processing failed:', error);
@@ -445,10 +458,10 @@ const CreateLiveAuction = () => {
   };
 
   const handleContinue = () => {
-    if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.products.some(product => product.selected) && livestream?.scheduledStartTime) {
+    if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.selectedProducts.length > 0 && livestream?.scheduledStartTime) {
       // Check for products with zero or negative quantity
-      const invalidProducts = livestream.products.filter(product => 
-        product.selected && (product.quantity <= 0 || !product.quantity)
+      const invalidProducts = livestream.selectedProducts.filter(product =>
+        product.quantity <= 0 || !product.quantity
       );
 
       if (invalidProducts.length > 0) {
@@ -469,7 +482,7 @@ const CreateLiveAuction = () => {
     livestreamDispatch({
       type: 'SET_LIVESTREAM_DATA',
       payload: {
-        products: livestream.products.map(product => {
+        selectedProducts: livestream.selectedProducts.map(product => {
           if (product.productId === productId) {
             return {
               ...product,
@@ -483,21 +496,63 @@ const CreateLiveAuction = () => {
   };
 
   const handleSelectProduct = (productId) => {
-    livestreamDispatch({
-      type: 'SET_LIVESTREAM_DATA',
-      payload: {
-        products: livestream.products.map(product => {
-          if (product.productId === productId) {
-            return {
-              ...product,
-              selected: !product.selected
-            };
-          }
-          return product;
-        })
+    const product = livestream.products.find(p => p.productId === productId);
+
+    // Check if product is already in selectedProducts array
+    const isAlreadySelected = livestream.selectedProducts.some(p => p.productId === productId);
+
+    if (isAlreadySelected) {
+      // If already selected, remove it from selectedProducts
+      livestreamDispatch({
+        type: 'SET_LIVESTREAM_DATA',
+        payload: {
+          selectedProducts: livestream.selectedProducts.filter(p => p.productId !== productId)
+        }
+      });
+    } else {
+      // If not selected and we're at the limit, show warning
+      if (livestream.selectedProducts.length >= 10) {
+        setShowProductLimitModal(true);
+        return;
       }
-    });
+
+      // Add to selected products
+      livestreamDispatch({
+        type: 'SET_LIVESTREAM_DATA',
+        payload: {
+          selectedProducts: [...livestream.selectedProducts, { ...product }]
+        }
+      });
+    }
   };
+
+  // Handle pagination - next page
+  const handleNextPage = () => {
+    if (currentPage < pagination?.totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Handle pagination - previous page
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  // Update local state whenever selected products change in context
+  useEffect(() => {
+    // Update local state to match context selectedProducts
+    setAllSelectedProducts(livestream?.selectedProducts || []);
+  }, [livestream?.selectedProducts]);
+
+  
 
   return (
     <div className="pt-4 md:pt-6">
@@ -1005,41 +1060,72 @@ const CreateLiveAuction = () => {
             id="tags-standard"
             options={filteredTags}
             value={livestream?.tags || []}
+            freeSolo
             onChange={(event, newValue) => {
+              // Transform any string values into tag objects
+              const formattedTags = newValue.map(tag => {
+                // If tag is a string (user input), create a new tag object
+                if (typeof tag === 'string') {
+                  return {
+                    id: `custom-${tag}`,
+                    label: tag,
+                    category: 'Custom Tags'
+                  };
+                }
+                // Otherwise return the existing tag object
+                return tag;
+              });
+              
               livestreamDispatch({
                 type: 'SET_LIVESTREAM_DATA',
-                payload: { tags: [...newValue] }
+                payload: { tags: formattedTags }
               });
             }}
-            getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
+            getOptionLabel={(option) => {
+              // Handle both string values and option objects
+              if (typeof option === 'string') {
+                return option;
+              }
+              return option.label;
+            }}
+            isOptionEqualToValue={(option, value) => {
+              // Handle custom tags
+              if (typeof value === 'string') {
+                return option.label === value;
+              }
+              return option.id === value.id;
+            }}
             groupBy={(option) => option.category}
             renderTags={(tagValue, getTagProps) =>
-              tagValue.map((option, index) => (
-                <Chip
-                  key={option.id}
-                  label={option.label}
-                  {...getTagProps({ index })}
-                  disabled={fixedTags.find(tag => tag.id === option.id)}
-                  sx={{
-                    backgroundColor: '#f3f4f6',
-                    '&.MuiChip-root': {
-                      borderRadius: '9999px',
-                      height: '28px',
-                    },
-                    '&.Mui-disabled': {
-                      opacity: 1,
-                      backgroundColor: '#e5e7eb',
-                    }
-                  }}
-                />
-              ))
+              tagValue.map((option, index) => {
+                // Check for custom tags (string IDs starting with 'custom-')
+                const isCustom = typeof option.id === 'string' && option.id.startsWith('custom-');
+                return (
+                  <Chip
+                    key={option.id || option}
+                    label={typeof option === 'string' ? option : option.label}
+                    {...getTagProps({ index })}
+                    disabled={!isCustom && fixedTags.find(tag => tag.id === option.id)}
+                    sx={{
+                      backgroundColor: isCustom ? '#e6f7ef' : '#f3f4f6',
+                      '&.MuiChip-root': {
+                        borderRadius: '9999px',
+                        height: '28px',
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 1,
+                        backgroundColor: '#e5e7eb',
+                      }
+                    }}
+                  />
+                );
+              })
             }
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
-                placeholder="Search for tags..."
+                placeholder="Search or add new tags..."
                 value={searchTag}
                 onChange={handleSearchChange}
                 sx={{
@@ -1076,6 +1162,9 @@ const CreateLiveAuction = () => {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
+            <div className="text-sm text-gray-500">
+              Selected: {allSelectedProducts.length}/10
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1103,83 +1192,133 @@ const CreateLiveAuction = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {livestream?.products.map((product) => (
-                  <tr
-                    key={product.productId}
-                    className={`transition-colors ${!product.selected ? 'bg-gray-50 opacity-60' : ''}`}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={product.selected}
-                        onChange={() => handleSelectProduct(product.productId)}
-                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                      />
-                    </td>
-                    <td className="px-4 pr-12 xl:pr-0 py-3">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={product.images[0].url}
-                          alt={product.name}
-                          className="w-10 h-10 rounded-lg object-cover"
+                {livestream?.products.map((product) => {
+                  // Check if this product is in the selectedProducts array
+                  const isSelected = livestream.selectedProducts.some(p => p.productId === product.productId);
+
+                  return (
+                    <tr
+                      key={product.productId}
+                      className={`transition-colors ${!isSelected ? 'bg-gray-50 opacity-60' : ''}`}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectProduct(product.productId)}
+                          className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                         />
-                        <div className="flex flex-col">
-                          <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product.name}</span>
-                          <span className="text-xs text-gray-500">{product.category}</span>
+                      </td>
+                      <td className="px-4 pr-12 xl:pr-0 py-3">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={product.images[0].url}
+                            alt={product.name}
+                            className="w-10 h-10 rounded-lg object-cover"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product.name}</span>
+                            <span className="text-xs text-gray-500">{product.category}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {product.sku}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-gray-500 font-medium">{product?.quantity}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-gray-500 font-medium">₦</span>
-                        <input
-                          type="text"
-                          min="0"
-                          value={product.minBid ? product.minBid.toLocaleString() : ''}
-                          disabled={!product.selected}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/,/g, '');
-                            handleBidChange(product.productId, 'minBid', value);
-                          }}
-                          className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
-                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-gray-500 font-medium">₦</span>
-                        <input
-                          type="text"
-                          min="0"
-                          value={product.maxBid ? product.maxBid.toLocaleString() : ''}
-                          disabled={!product.selected}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/,/g, '');
-                            handleBidChange(product.productId, 'maxBid', value);
-                          }}
-                          className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
-                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {product.sku}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-gray-500 font-medium">{product?.quantity}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-500 font-medium">₦</span>
+                          <input
+                            type="text"
+                            min="0"
+                            value={isSelected ? (livestream.selectedProducts.find(p => p.productId === product.productId)?.minBid || product.minBid).toLocaleString() : product.minBid ? product.minBid.toLocaleString() : ''}
+                            disabled={!isSelected}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/,/g, '');
+                              handleBidChange(product.productId, 'minBid', value);
+                            }}
+                            className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
+                              ${!isSelected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-500 font-medium">₦</span>
+                          <input
+                            type="text"
+                            min="0"
+                            value={isSelected ? (livestream.selectedProducts.find(p => p.productId === product.productId)?.maxBid || 0).toLocaleString() : ''}
+                            disabled={!isSelected}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/,/g, '');
+                              handleBidChange(product.productId, 'maxBid', value);
+                            }}
+                            className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
+                              ${!isSelected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
 
           <div className="flex justify-between flex-wrap gap-10 lg:gap-0 items-center pt-4 border-t">
-            <div className="text-sm text-gray-500">
-              Showing {products.length} items out of {products.length} results found
-            </div>
-            <div className="flex gap-3">
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between w-full mt-4">
+                <div className="text-sm text-gray-500">
+                  Showing {products.length} of {pagination.totalProducts} products
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage <= 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
+                      currentPage <= 1
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  
+                  <span className="text-sm">
+                    Page {currentPage} of {pagination.totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage >= pagination.totalPages}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
+                      currentPage >= pagination.totalPages
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span>Next</span>
+                    <Icon icon="heroicons:arrow-right-20-solid" className="w-4 h-4" />
+                  </button>
+                  
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                    className="ml-2 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 mt-7 ml-auto">
               <button
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1202,6 +1341,14 @@ const CreateLiveAuction = () => {
         <ZeroQuantityProductsModal
           products={zeroQuantityProducts}
           onClose={() => setShowZeroQuantityModal(false)}
+        />
+      )}
+
+      {/* Modal for product limit */}
+      {showProductLimitModal && (
+        <ProductLimitModal
+          isOpen={showProductLimitModal}
+          onClose={() => setShowProductLimitModal(false)}
         />
       )}
     </div>

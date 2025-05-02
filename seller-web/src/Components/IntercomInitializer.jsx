@@ -4,16 +4,13 @@ import { useAuthContext } from '../Hooks/useAuthContext';
 import { useLocation } from 'react-router-dom';
 
 const IntercomInitializer = () => {
-    const { seller, isAuthenticated, isDataReady } = useAuthContext();
-    const { initUser, initVisitor, shutDown } = useIntercomChat();
+    const { seller, isDataReady } = useAuthContext();
+    const { initUser, initVisitor } = useIntercomChat();
     const location = useLocation();
-
-    console.log(location.pathname);
 
     useEffect(() => {
         const validateSession = async () => {
             try {
-
                 // Remove the artificial delay
                 const token = localStorage.getItem('sellerToken');
                 const userToken = token ? JSON.parse(token) : { data: null };

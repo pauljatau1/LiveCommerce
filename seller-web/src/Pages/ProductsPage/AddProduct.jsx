@@ -1609,7 +1609,7 @@ const AddProduct = () => {
                                                             <span className="font-medium mr-1">Category:</span> {selectedCategory}
                                                         </div>
                                                         {selectedSubCategory && (
-                                                            <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                                                            <div className="inline-flex flex-wrap items-center px-3 py-1  rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
                                                                 <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
                                                             </div>
                                                         )}

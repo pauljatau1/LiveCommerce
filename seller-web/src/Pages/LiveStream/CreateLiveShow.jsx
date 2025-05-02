@@ -18,12 +18,13 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import CreateAuctionIcon from '../../assets/Upload icon.png';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
+import ProductLimitModal from '../../Components/ProductLimitModal';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { products, message } = useSelector((state) => state.product);
+    const { products, message, pagination } = useSelector((state) => state.product);
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
     const [dragActive, setDragActive] = useState(false);
     const [categories, setCategories] = useState([]);
@@ -32,7 +33,8 @@ const CreateLiveShow = () => {
     const [startImmediately, setStartImmediately] = useState(false);
     const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
     const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
-    
+    const [showProductLimitModal, setShowProductLimitModal] = useState(false);
+
     // Blips related state
     const [videos, setVideos] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -46,7 +48,17 @@ const CreateLiveShow = () => {
     // State for tag search
     const [searchTag, setSearchTag] = useState('');
     const [filteredTags, setFilteredTags] = useState([]);
-    
+
+    // Maximum number of products that can be selected
+    const MAX_PRODUCTS = 10;
+
+    // Store all selected products in local state
+    const [allSelectedProducts, setAllSelectedProducts] = useState([]);
+
+    // New pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     // Comprehensive predefined tags grouped by category
     const allTags = [
         // Fashion Category
@@ -57,14 +69,14 @@ const CreateLiveShow = () => {
         { id: 5, label: 'Pants', category: 'Fashion' },
         { id: 6, label: 'Traditional', category: 'Fashion' },
         { id: 7, label: 'Vintage', category: 'Fashion' },
-        
+
         // Footwear Category
         { id: 8, label: 'Shoes', category: 'Footwear' },
         { id: 9, label: 'Sneakers', category: 'Footwear' },
         { id: 10, label: 'Heels', category: 'Footwear' },
         { id: 11, label: 'Boots', category: 'Footwear' },
         { id: 12, label: 'Sandals', category: 'Footwear' },
-        
+
         // Accessories Category
         { id: 13, label: 'Accessories', category: 'Accessories' },
         { id: 14, label: 'Jewelry', category: 'Accessories' },
@@ -72,7 +84,7 @@ const CreateLiveShow = () => {
         { id: 16, label: 'Bags', category: 'Accessories' },
         { id: 17, label: 'Wallets', category: 'Accessories' },
         { id: 18, label: 'Belts', category: 'Accessories' },
-        
+
         // Electronics Category
         { id: 19, label: 'Electronics', category: 'Electronics' },
         { id: 20, label: 'Smartphones', category: 'Electronics' },
@@ -81,25 +93,25 @@ const CreateLiveShow = () => {
         { id: 23, label: 'Headphones', category: 'Electronics' },
         { id: 24, label: 'Speakers', category: 'Electronics' },
         { id: 25, label: 'Cameras', category: 'Electronics' },
-        
+
         // Home & Living Category
         { id: 26, label: 'Home Decor', category: 'Home & Living' },
         { id: 27, label: 'Furniture', category: 'Home & Living' },
         { id: 28, label: 'Kitchen', category: 'Home & Living' },
         { id: 29, label: 'Bedding', category: 'Home & Living' },
-        
+
         // Beauty Category
         { id: 30, label: 'Beauty', category: 'Beauty' },
         { id: 31, label: 'Makeup', category: 'Beauty' },
         { id: 32, label: 'Skincare', category: 'Beauty' },
         { id: 33, label: 'Haircare', category: 'Beauty' },
         { id: 34, label: 'Fragrance', category: 'Beauty' },
-        
+
         // Kids & Baby Category
         { id: 35, label: 'Kids', category: 'Kids & Baby' },
         { id: 36, label: 'Baby Clothes', category: 'Kids & Baby' },
         { id: 37, label: 'Toys', category: 'Kids & Baby' },
-        
+
         // Seasonal & Trending Tags
         { id: 38, label: 'Trending', category: 'Popular' },
         { id: 39, label: 'New Arrivals', category: 'Popular' },
@@ -107,7 +119,7 @@ const CreateLiveShow = () => {
         { id: 41, label: 'Limited Edition', category: 'Popular' },
         { id: 42, label: 'Exclusive', category: 'Popular' },
         { id: 43, label: 'Seasonal', category: 'Popular' },
-        
+
         // Sports & Fitness Tags
         { id: 44, label: 'Sports', category: 'Sports & Fitness' },
         { id: 45, label: 'Fitness', category: 'Sports & Fitness' },
@@ -123,32 +135,46 @@ const CreateLiveShow = () => {
         setFilteredTags(allTags);
     }, []);
 
+    // Cleanup on mount - reset livestream data
     useEffect(() => {
-        dispatch(fetchSellerProducts());
-    }, [dispatch]);
+        livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
+    }, [livestreamDispatch]);
 
+    // Fetch products for the current page
+    useEffect(() => {
+        dispatch(fetchSellerProducts({
+            page: currentPage,
+            limit: itemsPerPage
+        }));
+    }, [dispatch, currentPage, itemsPerPage]);
+
+    // Process products when they're fetched
     useEffect(() => {
         if (message === 'Products fetched successfully') {
-          livestreamDispatch({
-            type: 'SET_LIVESTREAM_DATA',
-            payload: {
-              products: products.map(product => {
+            // Process the fetched products without selection state
+            const processedProducts = products.map(product => {
                 return {
-                  productId: product?._id,
-                  name: product?.name,
-                  category: product?.category,
-                  images: product?.images,
-                  sku: product?.sku,
-                  quantity: product?.stock,
-                  minBid: product?.price,
-                  maxBid: 0,
-                  selected: true
+                    productId: product._id,
+                    name: product.name,
+                    category: product.category,
+                    images: product.images,
+                    sku: product.sku,
+                    quantity: product.stock,
+                    price: product.price,
+                };
+            });
+
+            // Update the livestream context with these processed products
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
+                    products: processedProducts,
+                    // Initialize selectedProducts to empty array on first fetch to avoid duplicates
+                    selectedProducts: livestream?.selectedProducts || []
                 }
-              })
-            }
-          });
+            });
         }
-      }, [message, products, livestreamDispatch])
+    }, [message, products, livestreamDispatch, livestream?.selectedProducts]);
 
     // Initialize tags if they're undefined
     useEffect(() => {
@@ -165,13 +191,19 @@ const CreateLiveShow = () => {
         if (searchTag.trim() === '') {
             setFilteredTags(allTags);
         } else {
-            const filtered = allTags.filter(tag => 
-                tag.label.toLowerCase().includes(searchTag.toLowerCase()) || 
+            const filtered = allTags.filter(tag =>
+                tag.label.toLowerCase().includes(searchTag.toLowerCase()) ||
                 tag.category.toLowerCase().includes(searchTag.toLowerCase())
             );
             setFilteredTags(filtered);
         }
     }, [searchTag]);
+
+    // Replace with new useEffect that watches livestream.selectedProducts
+    useEffect(() => {
+        // Update local state to match context selectedProducts
+        setAllSelectedProducts(livestream?.selectedProducts || []);
+    }, [livestream?.selectedProducts]);
 
     // Handle search input change
     const handleSearchChange = (event) => {
@@ -181,8 +213,8 @@ const CreateLiveShow = () => {
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Create Live Show');
-    }, []);
-
+    }, [setHeaderName, setNavName]);
+    
     // Update the scheduled start time in context whenever date, time, or startImmediately changes
     useEffect(() => {
         const getScheduledStartTime = () => {
@@ -226,10 +258,6 @@ const CreateLiveShow = () => {
         }
         fetchCategories();
     }, []);
-
-    useEffect(() => {
-        dispatch(fetchSellerProducts());
-    }, [dispatch]);
 
     // Handle drag events
     const handleDrag = (e) => {
@@ -286,20 +314,20 @@ const CreateLiveShow = () => {
                     reader.readAsDataURL(blob);
                 });
             };
-            
+
             // Process image to base64
             const base64 = await convertBlobToBase64(file);
-            
+
             // Update the livestream context with the processed image data
-            livestreamDispatch({ 
-                type: 'SET_LIVESTREAM_DATA', 
-                payload: { 
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
                     coverPhoto: {
                         file: file, // Keep the file for preview
                         data: base64,
                         contentType: file.type
-                    } 
-                } 
+                    }
+                }
             });
         } catch (error) {
             console.error('Image processing failed:', error);
@@ -392,7 +420,7 @@ const CreateLiveShow = () => {
 
             const videoUrl = URL.createObjectURL(file);
             setVideos([{ url: videoUrl, file }]);
-            
+
             // Convert file to base64 before dispatching
             const convertBlobToBase64 = (blob) => {
                 return new Promise((resolve, reject) => {
@@ -402,19 +430,19 @@ const CreateLiveShow = () => {
                     reader.readAsDataURL(blob);
                 });
             };
-            
+
             // Process video to base64
             const base64 = await convertBlobToBase64(file);
-            
+
             // Update the livestream context with the processed video data
-            livestreamDispatch({ 
-                type: 'SET_LIVESTREAM_DATA', 
-                payload: { 
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
                     video: {
                         data: base64,
                         contentType: file.type || 'video/mp4'
-                    } 
-                } 
+                    }
+                }
             });
 
         } catch (error) {
@@ -448,20 +476,58 @@ const CreateLiveShow = () => {
         });
     };
 
-    const handleContinue = () => {
-        if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
-            // Check for products with zero or negative quantity
-            // For live shows, we check all products since they're all included
-            if (livestream.products && livestream.products.length > 0) {
-                const invalidProducts = livestream.products.filter(product => 
-                    product.quantity <= 0 || !product.quantity
-                );
-    
-                if (invalidProducts.length > 0) {
-                    setZeroQuantityProducts(invalidProducts);
-                    setShowZeroQuantityModal(true);
-                    return;
+    // Handle product selection with product limit checking
+    const handleSelectProduct = (productId) => {
+        const product = livestream.products.find(p => p.productId === productId);
+
+        // Check if product is already selected
+        const isSelected = livestream.selectedProducts.some(p => p.productId === productId);
+
+        if (isSelected) {
+            // If selected, remove it
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
+                    selectedProducts: livestream.selectedProducts.filter(p => p.productId !== productId)
                 }
+            });
+        } else {
+            // If not selected and we're at the limit, show warning
+            if (livestream.selectedProducts.length >= MAX_PRODUCTS) {
+                setShowProductLimitModal(true);
+                return;
+            }
+
+            // Otherwise, add it to selected products
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
+                    selectedProducts: [...livestream.selectedProducts, product]
+                }
+            });
+        }
+    };
+
+    const handleContinue = () => {
+        if (livestream?.selectedProducts.length === 0) {
+            toast.error('Please select at least one product', {
+                description: 'You must select at least one product to continue',
+            });
+            return;
+        }
+
+        if (livestream?.title && livestream?.description && livestream?.category &&
+            livestream?.tags?.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
+
+            // Check for products with zero or negative quantity
+            const invalidProducts = livestream.selectedProducts.filter(product =>
+                product.quantity <= 0 || !product.quantity
+            );
+
+            if (invalidProducts.length > 0) {
+                setZeroQuantityProducts(invalidProducts);
+                setShowZeroQuantityModal(true);
+                return;
             }
 
             navigate('/dashboard/live-streams/submit-live-show');
@@ -470,12 +536,31 @@ const CreateLiveShow = () => {
                 description: 'Please fill all fields to continue',
             });
         }
-    }
+    };
+
+    // Handle pagination - next page
+    const handleNextPage = () => {
+        if (currentPage < pagination?.totalPages) {
+            setCurrentPage(currentPage + 1);
+        }
+    };
+
+    // Handle pagination - previous page
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
+
+    // Handle items per page change
+    const handleItemsPerPageChange = (newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1); // Reset to first page when changing items per page
+    };
 
     return (
-        <div className="flex flex-col gap-6  py-10">
-
-            <div className=" bg-white p-4 md:p-6 space-y-6">
+        <div className="flex flex-col gap-6 py-10">
+            <div className="bg-white p-4 md:p-6 space-y-6">
                 {/* Stream Title */}
                 <div className="space-y-2">
                     <h1 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Open Live Stream Title</h1>
@@ -614,7 +699,7 @@ const CreateLiveShow = () => {
                                 >
                                     <div className={`absolute left-0 top-1/2 transform -translate-y-1/2 flex rounded-tl-lg rounded-bl-lg items-center w-fit px-2 py-1 h-full justify-between ${startImmediately ? 'bg-gray-100 cursor-not-allowed' : 'bg-[#E9FCEF] hover:bg-[#D9F7E5]'}`}>
                                         <span className="">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </span>
@@ -843,7 +928,7 @@ const CreateLiveShow = () => {
                             <Icon icon="solar:info-circle-linear" className="ml-1 w-4 h-4" />
                         </button>
                     </div>
-                    
+
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                         <div className="p-4 md:p-6">
                             {videos.length > 0 ? (
@@ -860,9 +945,9 @@ const CreateLiveShow = () => {
                                             onClick={() => {
                                                 setVideos([]);
                                                 setSelectedFile(null);
-                                                livestreamDispatch({ 
-                                                    type: 'SET_LIVESTREAM_DATA', 
-                                                    payload: { video: null } 
+                                                livestreamDispatch({
+                                                    type: 'SET_LIVESTREAM_DATA',
+                                                    payload: { video: null }
                                                 });
                                             }}
                                         >
@@ -932,7 +1017,7 @@ const CreateLiveShow = () => {
                             )}
                         </div>
                     </div>
-                    
+
                     <p className="text-xs text-gray-500 max-w-2xl">
                         Adding a blip can increase your livestream&apos;s visibility and engagement by up to 40%. For best results, make it visually appealing and focus on key products you&apos;ll feature in your stream.
                     </p>
@@ -997,41 +1082,75 @@ const CreateLiveShow = () => {
                         id="tags-standard"
                         options={filteredTags}
                         value={livestream?.tags || []}
+                        freeSolo
                         onChange={(event, newValue) => {
+                            // Transform any string values into tag objects
+                            const formattedTags = newValue.map(tag => {
+                                // If tag is a string (user input), create a new tag object
+                                if (typeof tag === 'string') {
+                                    return {
+                                        id: `custom-${tag}`,
+                                        label: tag,
+                                        category: 'Custom Tags'
+                                    };
+                                }
+                                // Otherwise return the existing tag object
+                                return tag;
+                            });
+
                             livestreamDispatch({
                                 type: 'SET_LIVESTREAM_DATA',
-                                payload: { tags: [...newValue] }
+                                payload: { tags: formattedTags }
                             });
                         }}
-                        getOptionLabel={(option) => option.label}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        getOptionLabel={(option) => {
+                            // Handle both string values and option objects
+                            if (typeof option === 'string') {
+                                return option;
+                            }
+                            return option.label;
+                        }}
+                        isOptionEqualToValue={(option, value) => {
+                            // Handle custom tags
+                            if (typeof value === 'string') {
+                                return option.label === value;
+                            }
+                            return option.id === value.id;
+                        }}
                         groupBy={(option) => option.category}
                         renderTags={(tagValue, getTagProps) =>
-                            tagValue.map((option, index) => (
-                                <Chip
-                                    key={option.id}
-                                    label={option.label}
-                                    {...getTagProps({ index })}
-                                    disabled={fixedTags.find(tag => tag.id === option.id)}
-                                    sx={{
-                                        backgroundColor: '#f3f4f6',
-                                        '&.MuiChip-root': {
-                                            borderRadius: '9999px',
-                                            height: '28px',
-                                        },
-                                        '&.Mui-disabled': {
-                                            opacity: 1,
-                                            backgroundColor: '#e5e7eb',
-                                        }
-                                    }}
-                                />
-                            ))
+                            tagValue.map((option, index) => {
+                                const tagProps = getTagProps({ index });
+                                // Check for custom tags (string IDs starting with 'custom-')
+                                const isCustom = typeof option.id === 'string' && option.id.startsWith('custom-');
+                                const isDisabled = !isCustom && Boolean(fixedTags.find(tag => tag.id === option.id));
+
+                                return (
+                                    <Chip
+                                        key={option.id || option}
+                                        label={typeof option === 'string' ? option : option.label}
+                                        {...tagProps}
+                                        disabled={isDisabled}
+                                        sx={{
+                                            backgroundColor: isCustom ? '#e6f7ef' : '#f3f4f6',
+                                            '&.MuiChip-root': {
+                                                borderRadius: '9999px',
+                                                height: '28px',
+                                            },
+                                            '&.Mui-disabled': {
+                                                opacity: 1,
+                                                backgroundColor: '#e5e7eb',
+                                            }
+                                        }}
+                                    />
+                                );
+                            })
                         }
                         renderInput={(params) => (
                             <TextField
                                 {...params}
                                 variant="outlined"
-                                placeholder="Search for tags..."
+                                placeholder="Search or add new tags..."
                                 value={searchTag}
                                 onChange={handleSearchChange}
                                 sx={{
@@ -1068,69 +1187,173 @@ const CreateLiveShow = () => {
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
+                        <div className="text-sm text-gray-500">
+                            Selected: {allSelectedProducts.length}/{MAX_PRODUCTS}
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="min-w-full border-separate border-spacing-0">
                             <thead>
                                 <tr>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Select
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Products
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
+                                        Category
+                                    </th>
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         SKU
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
+                                        Price
+                                    </th>
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Quantity
-                                    </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
-                                        Min Bid
-                                    </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
-                                        Max Bid
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td colSpan="6" className="h-[300px]">
-                                        <div className="w-[300px] md:w-full h-full flex flex-col md:flex-row items-center justify-center space-y-2">
-                                            <div className="flex flex-col md:flex-row items-center gap-10" >
-                                                <div>
-                                                    <h3 className="text-base xl:text-lg font-semibold font-inter text-[#16192C]">Products Selection</h3>
-                                                    <p className="text-sm text-[#425466] font-inter max-w-[500px]  ">
-                                                        All products in your store are automatically selected for open live shows.
-                                                        To remove a product, you can deactivate the product from the product listings.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {livestream?.products?.length > 0 ? (
+                                    livestream.products.map((product) => {
+                                        // Check if this product is in selectedProducts array
+                                        const isSelected = livestream.selectedProducts.some(p => p.productId === product.productId);
+
+                                        return (
+                                            <tr
+                                                key={product.productId}
+                                                className={`transition-colors ${!isSelected ? 'bg-gray-50 opacity-60' : ''}`}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectProduct(product.productId)}
+                                                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                                    />
+                                                </td>
+                                                <td className="px-4 pr-12 xl:pr-0 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <img
+                                                            src={product?.images[0]?.url}
+                                                            alt={product?.name}
+                                                            className="w-10 h-10 bg-gray-200 rounded-lg object-cover"
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product?.name}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-500">
+                                                    {product.category}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-500">
+                                                    {product.sku}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-500 font-medium">₦{product?.price?.toLocaleString() || 0}</p>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-500 font-medium">{product?.quantity}</p>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-6 text-center text-sm text-gray-500">
+                                            No products available. Please add products to your store.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
 
+                    {/* Pagination Controls */}
+                    {pagination && pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-4">
+                            <div className="text-sm text-gray-500">
+                                Showing {products.length} of {pagination.totalProducts} products
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handlePreviousPage}
+                                    disabled={currentPage <= 1}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage <= 1
+                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                            : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
+                                    <span>Previous</span>
+                                </button>
+
+                                <span className="text-sm">
+                                    Page {currentPage} of {pagination.totalPages}
+                                </span>
+
+                                <button
+                                    onClick={handleNextPage}
+                                    disabled={currentPage >= pagination.totalPages}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage >= pagination.totalPages
+                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                            : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    <span>Next</span>
+                                    <Icon icon="heroicons:arrow-right-20-solid" className="w-4 h-4" />
+                                </button>
+
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                                    className="ml-2 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                                >
+                                    <option value={10}>10 per page</option>
+                                    <option value={20}>20 per page</option>
+                                    <option value={50}>50 per page</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex justify-end gap-3 pt-4">
-                        <button className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
                             Cancel
                         </button>
-                        <button onClick={handleContinue}>
-                            <button className="px-6 py-2 text-sm font-medium text-white bg-[#0BB248] rounded-lg hover:bg-[#0BB248]/90">
-                                Continue
-                            </button>
+                        <button
+                            onClick={handleContinue}
+                            disabled={!livestream?.coverPhoto}
+                            className={`px-6 py-2 text-sm font-medium text-white rounded-lg ${!livestream?.coverPhoto
+                                    ? 'bg-gray-300 cursor-not-allowed'
+                                    : 'bg-[#0BB248] hover:bg-[#0BB248]/90'
+                                }`}
+                        >
+                            Continue
                         </button>
                     </div>
                 </div>
             </div>
 
+            {/* Modals */}
             {showZeroQuantityModal && (
                 <ZeroQuantityProductsModal
                     products={zeroQuantityProducts}
                     onClose={() => setShowZeroQuantityModal(false)}
+                />
+            )}
+
+            {showProductLimitModal && (
+                <ProductLimitModal
+                    isOpen={showProductLimitModal}
+                    onClose={() => setShowProductLimitModal(false)}
                 />
             )}
         </div>
