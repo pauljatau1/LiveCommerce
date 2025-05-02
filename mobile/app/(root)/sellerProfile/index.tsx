@@ -236,8 +236,8 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           {seller?.storeInfo?.aboutStore && (
-            <Text style={styles.bio} numberOfLines={3}>
-              {seller?.storeInfo?.aboutStore?.slice(0, 170)}
+            <Text style={styles.bio} numberOfLines={4}>
+              {seller?.storeInfo?.aboutStore}
             </Text>
           )}
 
