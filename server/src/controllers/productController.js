@@ -128,7 +128,6 @@ exports.createProduct = async (req, res) => {
                 timestamps: ['00:00:01.000'],
                 filename: path.basename(thumbnailKey),
                 folder: path.dirname(tempThumbnailPath),
-                size: '180x?'
               })
               .on('end', resolve)
               .on('error', reject);
@@ -989,7 +988,6 @@ exports.updateProduct = async (req, res) => {
                   timestamps: ['00:00:01.000'],
                   filename: thumbnailKey,
                   folder: os.tmpdir(),
-                  size: '320x180'
                 })
                 .on('end', resolve)
                 .on('error', reject);
@@ -7050,7 +7048,6 @@ exports.addBlipToProduct = async (req, res) => {
               timestamps: ['00:00:01.000'],
               filename: path.basename(thumbnailKey),
               folder: path.dirname(tempThumbnailPath),
-              size: '180x?'
             })
             .on('end', resolve)
             .on('error', reject);
