@@ -8,6 +8,15 @@
 let mixpanelInstance = null;
 let clarityInitialized = false;
 let customerIOInitialized = false;
+let isInitializing = false;
+let initPromise = null;
+
+// Default configuration
+const DEFAULT_CONFIG = {
+  mixpanelToken: import.meta.env.VITE_MIXPANEL_PROJECT_TOKEN, // Default token if not provided
+  autoInit: true,
+  debug: false
+};
 
 /**
  * Lazy load and initialize Mixpanel
@@ -30,7 +39,7 @@ export const initMixpanel = async (token, options = {}) => {
     };
     
     const mergedOptions = { ...defaultOptions, ...options };
-    mixpanel.default.init(token, mergedOptions);
+    mixpanel.default.init(token || DEFAULT_CONFIG.mixpanelToken, mergedOptions);
     mixpanelInstance = mixpanel.default;
     
     return mixpanelInstance;
@@ -93,10 +102,10 @@ export const initCustomerIO = async (token) => {
       customerIOInitialized = true;
       return window.cioanalytics;
     }
-    return null;
+    return createNoopAnalytics();
   } catch (error) {
     console.error('Failed to initialize Customer.io:', error);
-    return null;
+    return createNoopAnalytics();
   }
 };
 
@@ -107,17 +116,23 @@ export const initCustomerIO = async (token) => {
  */
 export const trackEvent = async (eventName, properties = {}) => {
   try {
-    // Mixpanel tracking
-    if (mixpanelInstance) {
+    // Ensure Mixpanel is initialized
+    if (!mixpanelInstance) {
+      await ensureInitialized();
+    }
+    
+    // Mixpanel tracking (with safeguards)
+    if (mixpanelInstance && typeof mixpanelInstance.track === 'function') {
       mixpanelInstance.track(eventName, properties);
     }
     
-    // Customer.io tracking
-    if (window.cioanalytics) {
+    // Customer.io tracking (with safeguards)
+    if (window.cioanalytics && typeof window.cioanalytics.track === 'function') {
       window.cioanalytics.track(eventName, properties);
     }
   } catch (error) {
     console.error('Error tracking event:', error);
+    // Fail silently in production to avoid breaking the app
   }
 };
 
@@ -128,14 +143,24 @@ export const trackEvent = async (eventName, properties = {}) => {
  */
 export const identifyUser = async (userId, traits = {}) => {
   try {
-    // Mixpanel identify
-    if (mixpanelInstance) {
-      mixpanelInstance.identify(userId);
-      mixpanelInstance.people.set(traits);
+    // Ensure services are initialized
+    if (!mixpanelInstance) {
+      await ensureInitialized();
     }
     
-    // Customer.io identify
-    if (window.cioanalytics) {
+    // Mixpanel identify (with safeguards)
+    if (mixpanelInstance) {
+      if (typeof mixpanelInstance.identify === 'function') {
+        mixpanelInstance.identify(userId);
+      }
+      
+      if (mixpanelInstance.people && typeof mixpanelInstance.people.set === 'function') {
+        mixpanelInstance.people.set(traits);
+      }
+    }
+    
+    // Customer.io identify (with safeguards)
+    if (window.cioanalytics && typeof window.cioanalytics.identify === 'function') {
       window.cioanalytics.identify(userId, traits);
     }
     
@@ -146,6 +171,7 @@ export const identifyUser = async (userId, traits = {}) => {
     });
   } catch (error) {
     console.error('Error identifying user:', error);
+    // Fail silently in production
   }
 };
 
@@ -163,8 +189,43 @@ const createNoopAnalytics = () => {
       increment: noop
     },
     init: noop,
-    reset: noop
+    reset: noop,
+    load: noop,
+    page: noop,
+    user: noop
   };
+};
+
+/**
+ * Ensures all analytics systems are initialized
+ * Uses singleton pattern to prevent multiple simultaneous initializations
+ */
+export const ensureInitialized = async (options = {}) => {
+  // If already initialized, return immediately
+  if (mixpanelInstance) return { mixpanel: mixpanelInstance };
+  
+  // If initialization is in progress, wait for it to complete
+  if (isInitializing && initPromise) {
+    return initPromise;
+  }
+  
+  // Set initialization flag and create promise
+  isInitializing = true;
+  initPromise = initAllAnalytics(options);
+  
+  try {
+    const result = await initPromise;
+    return result;
+  } catch (error) {
+    console.error('Failed to initialize analytics:', error);
+    return { 
+      mixpanel: createNoopAnalytics(),
+      customerIO: createNoopAnalytics(),
+      clarityInitialized: false
+    };
+  } finally {
+    isInitializing = false;
+  }
 };
 
 /**
@@ -174,21 +235,40 @@ const createNoopAnalytics = () => {
  */
 export const initAllAnalytics = async (options = {}) => {
   const {
-    mixpanelToken = import.meta.env.MIXPANEL_PROJECT_TOKEN,
-    customerIOToken = import.meta.env.CIO_API_KEY,
-    userData = null
+    mixpanelToken = DEFAULT_CONFIG.mixpanelToken,
+    customerIOToken = import.meta.env.VITE_CIO_API_KEY,
+    userData = null,
+    debug = DEFAULT_CONFIG.debug
   } = options;
   
-  const mixpanel = await initMixpanel(mixpanelToken, options.mixpanelOptions);
-  const customerIO = await initCustomerIO(customerIOToken);
-  const clarity = await initClarity(userData);
-  
-  return {
-    mixpanel,
-    customerIO,
-    clarityInitialized: clarity
-  };
+  try {
+    const mixpanel = await initMixpanel(mixpanelToken, { 
+      debug,
+      ...options.mixpanelOptions 
+    });
+    
+    const customerIO = await initCustomerIO(customerIOToken);
+    const clarity = await initClarity(userData);
+    
+    return {
+      mixpanel,
+      customerIO,
+      clarityInitialized: clarity
+    };
+  } catch (error) {
+    console.error('Analytics initialization error:', error);
+    return {
+      mixpanel: createNoopAnalytics(),
+      customerIO: createNoopAnalytics(),
+      clarityInitialized: false
+    };
+  }
 };
+
+// Auto-initialize if configured
+if (DEFAULT_CONFIG.autoInit) {
+  ensureInitialized().catch(console.error);
+}
 
 // Export a default object for convenience
 export default {
@@ -197,5 +277,6 @@ export default {
   initCustomerIO,
   trackEvent,
   identifyUser,
-  initAllAnalytics
+  initAllAnalytics,
+  ensureInitialized
 }; 
