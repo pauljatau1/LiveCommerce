@@ -17,6 +17,7 @@ export const LivestreamProvider = ({ children }) => {
             video: null,
             tags: [],
             products: [],
+            selectedProducts: [],
             scheduledStartTime: null,
         },
         isLoading: false,
