@@ -34,7 +34,7 @@ const CreateLiveShow = () => {
     const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
     const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
     const [showProductLimitModal, setShowProductLimitModal] = useState(false);
-    
+
     // Blips related state
     const [videos, setVideos] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -48,13 +48,13 @@ const CreateLiveShow = () => {
     // State for tag search
     const [searchTag, setSearchTag] = useState('');
     const [filteredTags, setFilteredTags] = useState([]);
-    
+
     // Maximum number of products that can be selected
     const MAX_PRODUCTS = 10;
 
     // Store all selected products in local state
     const [allSelectedProducts, setAllSelectedProducts] = useState([]);
-    
+
     // New pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -69,14 +69,14 @@ const CreateLiveShow = () => {
         { id: 5, label: 'Pants', category: 'Fashion' },
         { id: 6, label: 'Traditional', category: 'Fashion' },
         { id: 7, label: 'Vintage', category: 'Fashion' },
-        
+
         // Footwear Category
         { id: 8, label: 'Shoes', category: 'Footwear' },
         { id: 9, label: 'Sneakers', category: 'Footwear' },
         { id: 10, label: 'Heels', category: 'Footwear' },
         { id: 11, label: 'Boots', category: 'Footwear' },
         { id: 12, label: 'Sandals', category: 'Footwear' },
-        
+
         // Accessories Category
         { id: 13, label: 'Accessories', category: 'Accessories' },
         { id: 14, label: 'Jewelry', category: 'Accessories' },
@@ -84,7 +84,7 @@ const CreateLiveShow = () => {
         { id: 16, label: 'Bags', category: 'Accessories' },
         { id: 17, label: 'Wallets', category: 'Accessories' },
         { id: 18, label: 'Belts', category: 'Accessories' },
-        
+
         // Electronics Category
         { id: 19, label: 'Electronics', category: 'Electronics' },
         { id: 20, label: 'Smartphones', category: 'Electronics' },
@@ -93,25 +93,25 @@ const CreateLiveShow = () => {
         { id: 23, label: 'Headphones', category: 'Electronics' },
         { id: 24, label: 'Speakers', category: 'Electronics' },
         { id: 25, label: 'Cameras', category: 'Electronics' },
-        
+
         // Home & Living Category
         { id: 26, label: 'Home Decor', category: 'Home & Living' },
         { id: 27, label: 'Furniture', category: 'Home & Living' },
         { id: 28, label: 'Kitchen', category: 'Home & Living' },
         { id: 29, label: 'Bedding', category: 'Home & Living' },
-        
+
         // Beauty Category
         { id: 30, label: 'Beauty', category: 'Beauty' },
         { id: 31, label: 'Makeup', category: 'Beauty' },
         { id: 32, label: 'Skincare', category: 'Beauty' },
         { id: 33, label: 'Haircare', category: 'Beauty' },
         { id: 34, label: 'Fragrance', category: 'Beauty' },
-        
+
         // Kids & Baby Category
         { id: 35, label: 'Kids', category: 'Kids & Baby' },
         { id: 36, label: 'Baby Clothes', category: 'Kids & Baby' },
         { id: 37, label: 'Toys', category: 'Kids & Baby' },
-        
+
         // Seasonal & Trending Tags
         { id: 38, label: 'Trending', category: 'Popular' },
         { id: 39, label: 'New Arrivals', category: 'Popular' },
@@ -119,7 +119,7 @@ const CreateLiveShow = () => {
         { id: 41, label: 'Limited Edition', category: 'Popular' },
         { id: 42, label: 'Exclusive', category: 'Popular' },
         { id: 43, label: 'Seasonal', category: 'Popular' },
-        
+
         // Sports & Fitness Tags
         { id: 44, label: 'Sports', category: 'Sports & Fitness' },
         { id: 45, label: 'Fitness', category: 'Sports & Fitness' },
@@ -135,6 +135,11 @@ const CreateLiveShow = () => {
         setFilteredTags(allTags);
     }, []);
 
+    // Cleanup on mount - reset livestream data
+    useEffect(() => {
+        livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
+    }, [livestreamDispatch]);
+
     // Fetch products for the current page
     useEffect(() => {
         dispatch(fetchSellerProducts({
@@ -142,7 +147,7 @@ const CreateLiveShow = () => {
             limit: itemsPerPage
         }));
     }, [dispatch, currentPage, itemsPerPage]);
-    
+
     // Process products when they're fetched
     useEffect(() => {
         if (message === 'Products fetched successfully') {
@@ -158,11 +163,11 @@ const CreateLiveShow = () => {
                     price: product.price,
                 };
             });
-            
+
             // Update the livestream context with these processed products
             livestreamDispatch({
                 type: 'SET_LIVESTREAM_DATA',
-                payload: { 
+                payload: {
                     products: processedProducts,
                     // Initialize selectedProducts to empty array on first fetch to avoid duplicates
                     selectedProducts: livestream?.selectedProducts || []
@@ -170,7 +175,7 @@ const CreateLiveShow = () => {
             });
         }
     }, [message, products, livestreamDispatch, livestream?.selectedProducts]);
-    
+
     // Initialize tags if they're undefined
     useEffect(() => {
         if (!livestream?.tags) {
@@ -186,14 +191,14 @@ const CreateLiveShow = () => {
         if (searchTag.trim() === '') {
             setFilteredTags(allTags);
         } else {
-            const filtered = allTags.filter(tag => 
-                tag.label.toLowerCase().includes(searchTag.toLowerCase()) || 
+            const filtered = allTags.filter(tag =>
+                tag.label.toLowerCase().includes(searchTag.toLowerCase()) ||
                 tag.category.toLowerCase().includes(searchTag.toLowerCase())
             );
             setFilteredTags(filtered);
         }
     }, [searchTag]);
-    
+
     // Replace with new useEffect that watches livestream.selectedProducts
     useEffect(() => {
         // Update local state to match context selectedProducts
@@ -209,7 +214,7 @@ const CreateLiveShow = () => {
         setHeaderName('Live Streams');
         setNavName('Create Live Show');
     }, [setHeaderName, setNavName]);
-
+    
     // Update the scheduled start time in context whenever date, time, or startImmediately changes
     useEffect(() => {
         const getScheduledStartTime = () => {
@@ -309,20 +314,20 @@ const CreateLiveShow = () => {
                     reader.readAsDataURL(blob);
                 });
             };
-            
+
             // Process image to base64
             const base64 = await convertBlobToBase64(file);
-            
+
             // Update the livestream context with the processed image data
-            livestreamDispatch({ 
-                type: 'SET_LIVESTREAM_DATA', 
-                payload: { 
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
                     coverPhoto: {
                         file: file, // Keep the file for preview
                         data: base64,
                         contentType: file.type
-                    } 
-                } 
+                    }
+                }
             });
         } catch (error) {
             console.error('Image processing failed:', error);
@@ -415,7 +420,7 @@ const CreateLiveShow = () => {
 
             const videoUrl = URL.createObjectURL(file);
             setVideos([{ url: videoUrl, file }]);
-            
+
             // Convert file to base64 before dispatching
             const convertBlobToBase64 = (blob) => {
                 return new Promise((resolve, reject) => {
@@ -425,19 +430,19 @@ const CreateLiveShow = () => {
                     reader.readAsDataURL(blob);
                 });
             };
-            
+
             // Process video to base64
             const base64 = await convertBlobToBase64(file);
-            
+
             // Update the livestream context with the processed video data
-            livestreamDispatch({ 
-                type: 'SET_LIVESTREAM_DATA', 
-                payload: { 
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
                     video: {
                         data: base64,
                         contentType: file.type || 'video/mp4'
-                    } 
-                } 
+                    }
+                }
             });
 
         } catch (error) {
@@ -474,10 +479,10 @@ const CreateLiveShow = () => {
     // Handle product selection with product limit checking
     const handleSelectProduct = (productId) => {
         const product = livestream.products.find(p => p.productId === productId);
-        
+
         // Check if product is already selected
         const isSelected = livestream.selectedProducts.some(p => p.productId === productId);
-        
+
         if (isSelected) {
             // If selected, remove it
             livestreamDispatch({
@@ -492,7 +497,7 @@ const CreateLiveShow = () => {
                 setShowProductLimitModal(true);
                 return;
             }
-            
+
             // Otherwise, add it to selected products
             livestreamDispatch({
                 type: 'SET_LIVESTREAM_DATA',
@@ -510,21 +515,21 @@ const CreateLiveShow = () => {
             });
             return;
         }
-        
-        if (livestream?.title && livestream?.description && livestream?.category && 
+
+        if (livestream?.title && livestream?.description && livestream?.category &&
             livestream?.tags?.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
-            
+
             // Check for products with zero or negative quantity
-            const invalidProducts = livestream.selectedProducts.filter(product => 
+            const invalidProducts = livestream.selectedProducts.filter(product =>
                 product.quantity <= 0 || !product.quantity
             );
-    
+
             if (invalidProducts.length > 0) {
                 setZeroQuantityProducts(invalidProducts);
                 setShowZeroQuantityModal(true);
                 return;
             }
-            
+
             navigate('/dashboard/live-streams/submit-live-show');
         } else {
             toast.error('Please fill all fields', {
@@ -546,7 +551,7 @@ const CreateLiveShow = () => {
             setCurrentPage(currentPage - 1);
         }
     };
-    
+
     // Handle items per page change
     const handleItemsPerPageChange = (newLimit) => {
         setItemsPerPage(newLimit);
@@ -694,7 +699,7 @@ const CreateLiveShow = () => {
                                 >
                                     <div className={`absolute left-0 top-1/2 transform -translate-y-1/2 flex rounded-tl-lg rounded-bl-lg items-center w-fit px-2 py-1 h-full justify-between ${startImmediately ? 'bg-gray-100 cursor-not-allowed' : 'bg-[#E9FCEF] hover:bg-[#D9F7E5]'}`}>
                                         <span className="">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </span>
@@ -923,7 +928,7 @@ const CreateLiveShow = () => {
                             <Icon icon="solar:info-circle-linear" className="ml-1 w-4 h-4" />
                         </button>
                     </div>
-                    
+
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                         <div className="p-4 md:p-6">
                             {videos.length > 0 ? (
@@ -940,9 +945,9 @@ const CreateLiveShow = () => {
                                             onClick={() => {
                                                 setVideos([]);
                                                 setSelectedFile(null);
-                                                livestreamDispatch({ 
-                                                    type: 'SET_LIVESTREAM_DATA', 
-                                                    payload: { video: null } 
+                                                livestreamDispatch({
+                                                    type: 'SET_LIVESTREAM_DATA',
+                                                    payload: { video: null }
                                                 });
                                             }}
                                         >
@@ -1012,7 +1017,7 @@ const CreateLiveShow = () => {
                             )}
                         </div>
                     </div>
-                    
+
                     <p className="text-xs text-gray-500 max-w-2xl">
                         Adding a blip can increase your livestream&apos;s visibility and engagement by up to 40%. For best results, make it visually appealing and focus on key products you&apos;ll feature in your stream.
                     </p>
@@ -1092,7 +1097,7 @@ const CreateLiveShow = () => {
                                 // Otherwise return the existing tag object
                                 return tag;
                             });
-                            
+
                             livestreamDispatch({
                                 type: 'SET_LIVESTREAM_DATA',
                                 payload: { tags: formattedTags }
@@ -1119,7 +1124,7 @@ const CreateLiveShow = () => {
                                 // Check for custom tags (string IDs starting with 'custom-')
                                 const isCustom = typeof option.id === 'string' && option.id.startsWith('custom-');
                                 const isDisabled = !isCustom && Boolean(fixedTags.find(tag => tag.id === option.id));
-                                
+
                                 return (
                                     <Chip
                                         key={option.id || option}
@@ -1216,7 +1221,7 @@ const CreateLiveShow = () => {
                                     livestream.products.map((product) => {
                                         // Check if this product is in selectedProducts array
                                         const isSelected = livestream.selectedProducts.some(p => p.productId === product.productId);
-                                        
+
                                         return (
                                             <tr
                                                 key={product.productId}
@@ -1235,7 +1240,7 @@ const CreateLiveShow = () => {
                                                         <img
                                                             src={product?.images[0]?.url}
                                                             alt={product?.name}
-                                                            className="w-10 h-10 rounded-lg object-cover"
+                                                            className="w-10 h-10 bg-gray-200 rounded-lg object-cover"
                                                         />
                                                         <div className="flex flex-col">
                                                             <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product?.name}</span>
@@ -1278,33 +1283,31 @@ const CreateLiveShow = () => {
                                 <button
                                     onClick={handlePreviousPage}
                                     disabled={currentPage <= 1}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                                        currentPage <= 1
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage <= 1
                                             ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                                             : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-                                    }`}
+                                        }`}
                                 >
                                     <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
                                     <span>Previous</span>
                                 </button>
-                                
+
                                 <span className="text-sm">
                                     Page {currentPage} of {pagination.totalPages}
                                 </span>
-                                
+
                                 <button
                                     onClick={handleNextPage}
                                     disabled={currentPage >= pagination.totalPages}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                                        currentPage >= pagination.totalPages
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage >= pagination.totalPages
                                             ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                                             : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-                                    }`}
+                                        }`}
                                 >
                                     <span>Next</span>
                                     <Icon icon="heroicons:arrow-right-20-solid" className="w-4 h-4" />
                                 </button>
-                                
+
                                 <select
                                     value={itemsPerPage}
                                     onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
@@ -1319,7 +1322,7 @@ const CreateLiveShow = () => {
                     )}
 
                     <div className="flex justify-end gap-3 pt-4">
-                        <button 
+                        <button
                             onClick={() => navigate(-1)}
                             className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
@@ -1328,11 +1331,10 @@ const CreateLiveShow = () => {
                         <button
                             onClick={handleContinue}
                             disabled={!livestream?.coverPhoto}
-                            className={`px-6 py-2 text-sm font-medium text-white rounded-lg ${
-                                !livestream?.coverPhoto
+                            className={`px-6 py-2 text-sm font-medium text-white rounded-lg ${!livestream?.coverPhoto
                                     ? 'bg-gray-300 cursor-not-allowed'
                                     : 'bg-[#0BB248] hover:bg-[#0BB248]/90'
-                            }`}
+                                }`}
                         >
                             Continue
                         </button>
@@ -1347,7 +1349,7 @@ const CreateLiveShow = () => {
                     onClose={() => setShowZeroQuantityModal(false)}
                 />
             )}
-            
+
             {showProductLimitModal && (
                 <ProductLimitModal
                     isOpen={showProductLimitModal}

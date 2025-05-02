@@ -126,6 +126,7 @@ export const LivestreamProvider = ({ children }) => {
                         coverPhoto: null,
                         tags: [],
                         products: [],
+                        selectedProducts: [],
                         scheduledStartTime: null
                     }
                 }

@@ -17,17 +17,24 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
+import ProductLimitModal from '../../Components/ProductLimitModal';
 
 const CreateLiveAuction = () => {
   const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
-  const { products, message } = useSelector((state) => state.product);
+  const { products, message, pagination } = useSelector((state) => state.product);
   const [dragActive, setDragActive] = useState(false);
   const [categories, setCategories] = useState([]);
   const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
+  const [showProductLimitModal, setShowProductLimitModal] = useState(false);
   const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Store all selected products in local state for tracking across pagination
+  const [allSelectedProducts, setAllSelectedProducts] = useState([]);
 
   // Date and time picker states
   const [startDate, setStartDate] = useState(dayjs());
@@ -121,6 +128,11 @@ const CreateLiveAuction = () => {
     setFilteredTags(allTags);
   }, []);
 
+  // Cleanup on mount - reset livestream data
+  useEffect(() => {
+    livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
+  }, [livestreamDispatch]);
+
   // Filter tags based on search input
   useEffect(() => {
     if (searchTag.trim() === '') {
@@ -173,8 +185,11 @@ const CreateLiveAuction = () => {
   }, [startDate, startTime, startImmediately, livestreamDispatch]);
 
   useEffect(() => {
-    dispatch(fetchSellerProducts());
-  }, [dispatch]);
+    dispatch(fetchSellerProducts({
+      page: currentPage,
+      limit: itemsPerPage
+    }));
+  }, [dispatch, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (message === 'Products fetched successfully') {
@@ -191,14 +206,15 @@ const CreateLiveAuction = () => {
               quantity: product?.stock,
               minBid: product?.price,
               maxBid: 0,
+              price: product?.price,
             }
           }),
-          // Initialize selectedProducts to empty to avoid duplicates when revisiting the page
-          selectedProducts: []
+          // Preserve selected products when changing pages
+          selectedProducts: livestream?.selectedProducts || []
         }
       });
     }
-  }, [message, products, livestreamDispatch])
+  }, [message, products, livestreamDispatch, livestream?.selectedProducts])
 
   // Initialize tags if they're undefined
   useEffect(() => {
@@ -494,11 +510,9 @@ const CreateLiveAuction = () => {
         }
       });
     } else {
-      // If not selected, add it to selectedProducts (checking if we're at the limit)
+      // If not selected and we're at the limit, show warning
       if (livestream.selectedProducts.length >= 10) {
-        // Show warning if trying to select more than 10 products
-        setZeroQuantityProducts([]);
-        setShowZeroQuantityModal(true);
+        setShowProductLimitModal(true);
         return;
       }
 
@@ -511,6 +525,34 @@ const CreateLiveAuction = () => {
       });
     }
   };
+
+  // Handle pagination - next page
+  const handleNextPage = () => {
+    if (currentPage < pagination?.totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Handle pagination - previous page
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  // Update local state whenever selected products change in context
+  useEffect(() => {
+    // Update local state to match context selectedProducts
+    setAllSelectedProducts(livestream?.selectedProducts || []);
+  }, [livestream?.selectedProducts]);
+
+  
 
   return (
     <div className="pt-4 md:pt-6">
@@ -1120,6 +1162,9 @@ const CreateLiveAuction = () => {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
+            <div className="text-sm text-gray-500">
+              Selected: {allSelectedProducts.length}/10
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1225,10 +1270,55 @@ const CreateLiveAuction = () => {
           </div>
 
           <div className="flex justify-between flex-wrap gap-10 lg:gap-0 items-center pt-4 border-t">
-            <div className="text-sm text-gray-500">
-              Showing {products.length} items out of {products.length} results found
-            </div>
-            <div className="flex gap-3">
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between w-full mt-4">
+                <div className="text-sm text-gray-500">
+                  Showing {products.length} of {pagination.totalProducts} products
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage <= 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
+                      currentPage <= 1
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  
+                  <span className="text-sm">
+                    Page {currentPage} of {pagination.totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage >= pagination.totalPages}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
+                      currentPage >= pagination.totalPages
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span>Next</span>
+                    <Icon icon="heroicons:arrow-right-20-solid" className="w-4 h-4" />
+                  </button>
+                  
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                    className="ml-2 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 mt-7 ml-auto">
               <button
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1251,6 +1341,14 @@ const CreateLiveAuction = () => {
         <ZeroQuantityProductsModal
           products={zeroQuantityProducts}
           onClose={() => setShowZeroQuantityModal(false)}
+        />
+      )}
+
+      {/* Modal for product limit */}
+      {showProductLimitModal && (
+        <ProductLimitModal
+          isOpen={showProductLimitModal}
+          onClose={() => setShowProductLimitModal(false)}
         />
       )}
     </div>
