@@ -7,7 +7,7 @@ const { createMessageNotifications, createNotification } = require('./notificati
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Helper function for sending campaign emails
 async function sendCampaignEmails(campaign, seller, recipients) {

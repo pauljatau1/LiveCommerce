@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 
 
-//Uncomment for local development
+// Uncomment for local development
 // AWS.config.update({
 //   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
 //   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

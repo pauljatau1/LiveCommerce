@@ -1077,6 +1077,18 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  *                             type: array
  *                             items:
  *                               type: string
+ *                 location:
+ *                   type: object
+ *                   properties:
+ *                     country:
+ *                       type: string
+ *                       example: "Nigeria"
+ *                     state:
+ *                       type: string
+ *                       example: "Lagos"
+ *                     city:
+ *                       type: string
+ *                       example: "Amuwo-Odofin"
  *                 metrics:
  *                   type: object
  *                   properties:

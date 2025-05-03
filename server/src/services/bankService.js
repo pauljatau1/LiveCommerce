@@ -13,7 +13,7 @@ const paystack = axios.create({
 
 // Add request interceptor to validate key before making requests
 paystack.interceptors.request.use((config) => {
-  if (!process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY === 'sk_test_REDACTED') {
+  if (!process.env.PAYSTACK_SECRET_KEY) {
     throw new Error('Invalid or missing Paystack secret key');
   }
   return config;
