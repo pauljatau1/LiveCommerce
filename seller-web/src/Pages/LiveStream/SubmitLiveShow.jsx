@@ -109,6 +109,7 @@ const SubmitLiveShow = () => {
                 contentType: livestream.coverPhoto.contentType
             },
             category: livestream.category,
+            subCategory: livestream.subCategory,
             tags: livestream.tags.map(tag => tag.label),
             products: selectedProducts.map(product => ({
                 product: {

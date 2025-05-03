@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { Icon } from "@iconify/react";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BASE_URL } from '../../Constants/Server';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -13,7 +13,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { useDispatch, useSelector } from 'react-redux';
 import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
+import { debounce } from 'lodash';
+import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import CreateAuctionIcon from '../../assets/Upload icon.png';
@@ -558,6 +559,74 @@ const CreateLiveShow = () => {
         setCurrentPage(1); // Reset to first page when changing items per page
     };
 
+    // Add these new state variables for CategorySelectionModal
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedSubCategory, setSelectedSubCategory] = useState('');
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [categorySearchQuery, setCategorySearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Add helper function to get subcategories
+    const getSubCategories = (categoryName) => {
+        const category = categories.find(cat => cat.name === categoryName);
+        return category ? category.subCategories : [];
+    };
+
+    // Add search function
+    const searchCategories = async (query) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const response = await axios.get(`${BASE_URL}/public/categories/search`, {
+                params: { query }
+            });
+
+            if (response.data.success) {
+                setSearchResults(response.data.results);
+            }
+        } catch (error) {
+            console.error('Error searching categories:', error);
+            toast.error('Failed to search categories');
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    // Debounce search function
+    const debouncedSearch = useCallback(
+        debounce((query) => {
+            if (query.trim()) {
+                searchCategories(query);
+            }
+        }, 400),
+        []
+    );
+
+    // Update search when query changes
+    useEffect(() => {
+        debouncedSearch(categorySearchQuery);
+    }, [categorySearchQuery, debouncedSearch]);
+
+    // Add handler for category selection
+    const handleCategorySelection = (category, subCategory) => {
+        setSelectedCategory(category);
+        setSelectedSubCategory(subCategory);
+        
+        // Update livestream context with the selected category and subcategory
+        livestreamDispatch({
+            type: 'SET_LIVESTREAM_DATA', 
+            payload: { 
+                category: category,
+                subCategory: subCategory
+            }
+        });
+    };
+
     return (
         <div className="flex flex-col gap-6 py-10">
             <div className="bg-white p-4 md:p-6 space-y-6">
@@ -1047,29 +1116,55 @@ const CreateLiveShow = () => {
                     </div>
                 </div>
 
-                {/* Stream Category */}
+                {/* Category Selection Modal */}
+                <CategorySelectionModal 
+                    isOpen={isCategoryModalOpen}
+                    onClose={() => setIsCategoryModalOpen(false)}
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    selectedSubCategory={selectedSubCategory}
+                    onApply={handleCategorySelection}
+                    isSearching={isSearching}
+                    searchResults={searchResults}
+                    categorySearchQuery={categorySearchQuery}
+                    setCategorySearchQuery={setCategorySearchQuery}
+                    getSubCategories={getSubCategories}
+                />
+
+                {/* Stream Category - Replace with button that opens modal */}
                 <div className="space-y-2">
                     <label className="text-sm md:text-base font-inter font-bold text-[#27272E]">Stream Category</label>
-                    <Select
-                        value={livestream?.category}
-                        onValueChange={(value) => {
-                            livestreamDispatch({ type: 'SET_LIVESTREAM_DATA', payload: { category: value } });
-                        }}
+                    <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="w-full flex items-center justify-between gap-2 p-3 border border-gray-300 bg-white rounded-lg hover:border-gray-400 transition-colors text-left"
                     >
-                        <SelectTrigger className="border border-gray-300 rounded-lg">
-                            <SelectValue placeholder="Choose a category..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {categories.map((category) => (
-                                <SelectItem
-                                    key={category._id}
-                                    value={category.name}
-                                >
-                                    {category.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        <div className="flex flex-col">
+                            <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                                {selectedCategory || "Choose a category..."}
+                            </span>
+                            {selectedCategory && selectedSubCategory && (
+                                <span className="text-xs text-gray-500 mt-0.5">
+                                    {selectedSubCategory}
+                                </span>
+                            )}
+                        </div>
+                        <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+                    </button>
+                    
+                    {/* Display selected values as badges if selected */}
+                    {selectedCategory && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#0BB248]/10 text-[#0BB248] border border-[#0BB248]/20">
+                                <span className="font-medium mr-1">Category:</span> {selectedCategory}
+                            </div>
+                            {selectedSubCategory && (
+                                <div className="inline-flex flex-wrap items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                                    <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Livestream Tags */}
@@ -1275,11 +1370,11 @@ const CreateLiveShow = () => {
 
                     {/* Pagination Controls */}
                     {pagination && pagination.totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-4">
+                        <div className="flex flex-wrap items-center gap-7 justify-end lg:justify-between mt-4">
                             <div className="text-sm text-gray-500">
                                 Showing {products.length} of {pagination.totalProducts} products
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap justify-end lg:justify-start items-center gap-3">
                                 <button
                                     onClick={handlePreviousPage}
                                     disabled={currentPage <= 1}
