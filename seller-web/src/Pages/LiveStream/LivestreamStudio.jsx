@@ -132,6 +132,7 @@ const LivestreamStudio = () => {
         products,
         type,
         viewers = [],
+        orders = [],
         _id
     } = liveStreamDetails !== null ? liveStreamDetails : {};
 
@@ -2317,8 +2318,9 @@ const LivestreamStudio = () => {
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
-                                                    isToolsSidebarOpen={isToolsSidebarOpen}
-                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    orders={orders}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
                                                 />
                                                 <AuctionStreamMobileUi
                                                     endStream={endStream}
@@ -2350,8 +2352,9 @@ const LivestreamStudio = () => {
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
-                                                    isToolsSidebarOpen={isToolsSidebarOpen}
-                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    orders={orders}
                                                 />
                                                 <StreamMobileUi
                                                     endStream={endStream}
