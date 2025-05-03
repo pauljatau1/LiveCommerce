@@ -1055,7 +1055,8 @@ exports.createOrder = async (req, res) => {
                 streamId: stream._id.toString(),
                 sellerId: stream.seller._id.toString(),
                 storeName: stream.seller.storeName || 'Unknown Store',
-                orders: orders
+                orders: orders,
+                streamOrders: stream.orders
               },
               timestamp: new Date()
             };
