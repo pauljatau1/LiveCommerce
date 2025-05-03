@@ -2801,7 +2801,8 @@ exports.endProductBidding = async (req, res) => {
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
-        product: stream.products[productIndex]
+        product: stream.products[productIndex],
+        orders: stream.orders
       },
       timestamp: new Date()
     };
