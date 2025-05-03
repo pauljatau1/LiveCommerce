@@ -23,6 +23,7 @@ exports.createStream = async (req, res) => {
       title,
       description,
       category,
+      subCategory,
       tags,
       scheduledStartTime,
       video,
@@ -186,6 +187,7 @@ exports.createStream = async (req, res) => {
       coverImage: imageData,
       video: videoData,
       category,
+      subCategory,
       tags: parsedTags,
       products: productsWithFullDetails.map(p => ({
         product: p.product,
@@ -1245,6 +1247,7 @@ exports.createOpenLiveShow = async (req, res) => {
       title,
       description,
       category,
+      subCategory,
       tags,
       scheduledStartTime,
       video,
@@ -1420,6 +1423,7 @@ exports.createOpenLiveShow = async (req, res) => {
       coverImage: imageData,
       video: videoData,
       category,
+      subCategory,
       tags: parsedTags,
       products: productsWithFullDetails.map(p => ({
         product: p.product

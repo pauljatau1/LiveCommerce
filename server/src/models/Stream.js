@@ -40,6 +40,9 @@ const streamSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  subCategory: {
+    type: String
+  },
   tags: [String],
   products: [{
     product: {
