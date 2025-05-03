@@ -946,18 +946,45 @@ exports.updateProduct = async (req, res) => {
       updates.images = imagesLinks;
     }
 
-    // Handle blips/videos
+    // Handle blips/videos with preservation of metadata
     if (updates.blips && Array.isArray(updates.blips)) {
+      // Create a map of existing blips by URL for quick lookup
+      const existingBlipsMap = {};
+      if (product.blips && Array.isArray(product.blips)) {
+        product.blips.forEach(blip => {
+          if (blip.url) {
+            existingBlipsMap[blip.url] = blip;
+          }
+        });
+      }
+
       const blipsLinks = [];
       for (let blip of updates.blips) {
         if (blip.data.startsWith('https://')) {
-          // Keep existing S3 video and its thumbnail
-          const thumbnailUrl = blip.thumbnail || null;
-          blipsLinks.push({ 
-            url: blip.data,
-            contentType: blip.contentType,
-            thumbnail: thumbnailUrl
-          });
+          // This is an existing blip - preserve its metadata
+          const existingBlip = existingBlipsMap[blip.data];
+          if (existingBlip) {
+            // Preserve existing metadata
+            blipsLinks.push({
+              url: blip.data,
+              contentType: blip.contentType || existingBlip.contentType,
+              thumbnail: blip.thumbnail || existingBlip.thumbnail,
+              likes: existingBlip.likes || [],
+              likesCount: existingBlip.likesCount || 0,
+              viewCount: existingBlip.viewCount || 0,
+              viewedBy: existingBlip.viewedBy || [],
+              comments: existingBlip.comments || [],
+              commentsCount: existingBlip.commentsCount || 0,
+              createdAt: existingBlip.createdAt
+            });
+          } else {
+            // It's a URL but not in our existing blips
+            blipsLinks.push({ 
+              url: blip.data,
+              contentType: blip.contentType,
+              thumbnail: blip.thumbnail || null
+            });
+          }
         } else {
           // Process new base64 video
           const buffer = Buffer.from(blip.data, 'base64');
@@ -1013,6 +1040,13 @@ exports.updateProduct = async (req, res) => {
               url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
               thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
+              likes: [],
+              likesCount: 0,
+              viewCount: 0,
+              viewedBy: [],
+              comments: [],
+              commentsCount: 0,
+              createdAt: new Date()
             });
           } catch (err) {
             console.error('Error generating thumbnail:', err);
@@ -1036,7 +1070,14 @@ exports.updateProduct = async (req, res) => {
             blipsLinks.push({ 
               url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
               contentType: blip.contentType,
-              thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
+              thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`,
+              likes: [],
+              likesCount: 0,
+              viewCount: 0,
+              viewedBy: [],
+              comments: [],
+              commentsCount: 0,
+              createdAt: new Date()
             });
           }
         }
@@ -1180,12 +1221,17 @@ exports.updateProduct = async (req, res) => {
     }
 
     // Protected fields that shouldn't be updated directly
-    const protectedFields = ['_id', 'seller', 'createdAt', 'reviews', 'analytics'];
+    const protectedFields = ['_id', 'seller', 'createdAt', 'reviews', 'analytics', 'stats'];
 
     // Remove protected fields from updates
     protectedFields.forEach(field => {
       delete updates[field];
     });
+    
+    // If blips aren't being updated, remove it from updates to preserve existing blips
+    if (!updates.blips) {
+      delete updates.blips;
+    }
 
     // Update all fields except protected ones
     Object.assign(product, {

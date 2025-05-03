@@ -11,7 +11,7 @@ const AWS = require('aws-sdk');
 
 AWS.config.credentials = new AWS.ECSCredentials({
   httpOptions: {timeout: 5000}, // 5 second timeout
-  maxRetries: 10, // retry 10 times
+  maxRetries: 10, 
 });
 
 const s3 = new AWS.S3();
