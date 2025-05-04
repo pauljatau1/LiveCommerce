@@ -530,19 +530,16 @@ const ProductDescription = () => {
         >
           <View className="flex flex-row items-center gap-[10px] shrink">
             <TouchableOpacity onPress={() => router.back()}>
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
+              <Entypo name="chevron-left" size={24} color="#fff" />
             </TouchableOpacity>
             <Pressable
               style={{
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: "#c6c6c6",
+                borderRadius: 15,
+                // borderWidth: 1,
+                // borderColor: "#c6c6c6",
                 // maxWidth: 250,
-                paddingVertical: 12,
+                backgroundColor: "#232323",
+                paddingVertical: 13,
                 flexDirection: "row",
                 paddingHorizontal: 12,
                 width: "100%",
@@ -553,9 +550,9 @@ const ProductDescription = () => {
             >
               <EvilIcons
                 name="search"
-                size={24}
-                color="#888787"
-                className={Platform.OS === "android" ? "mt-[-4px]" : ""}
+                size={20}
+                color="#909090"
+                className={Platform.OS === "android" ? "mt-[0px]" : ""}
               />
               <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
                 Search
@@ -635,52 +632,54 @@ const ProductDescription = () => {
             ) : (
               <>
                 <View className="">
-                  {productDetails && productDetails.images && (
-                    <Carousel
-                      loop
-                      width={width}
-                      height={400}
-                      enabled={productDetails?.images?.length > 1}
-                      // autoPlay={true}
-                      data={productDetails.images}
-                      scrollAnimationDuration={200}
-                      renderItem={({
-                        item,
-                        index,
-                      }: {
-                        item: any;
-                        index: number;
-                      }) => (
-                        <View>
-                          <Image
-                            source={{ uri: item.url || "" }}
-                            style={{
-                              width: "100%",
-                              height: 400,
-                              contentFit: "contain",
-                            }}
-                          />
-                          <View
-                            style={{
-                              backgroundColor: "rgba(255, 255, 255, 0.73)",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: 5,
-                              width: 47,
-                              borderRadius: 20,
-                              position: "absolute",
-                              bottom: 14,
-                              left: 32,
-                            }}
-                          >
-                            <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium">
-                              {index + 1}/{productDetails.images.length}
-                            </Text>
+                  <View className="h-[400px]">
+                    {productDetails && productDetails.images && (
+                      <Carousel
+                        loop
+                        width={width}
+                        height={400}
+                        enabled={productDetails?.images?.length > 1}
+                        // autoPlay={true}
+                        data={productDetails.images}
+                        scrollAnimationDuration={200}
+                        renderItem={({
+                          item,
+                          index,
+                        }: {
+                          item: any;
+                          index: number;
+                        }) => (
+                          <View>
+                            <Image
+                              source={{ uri: item.url || "" }}
+                              style={{
+                                width: "100%",
+                                height: 400,
+                                contentFit: "contain",
+                              }}
+                            />
+                            <View
+                              style={{
+                                backgroundColor: "rgba(255, 255, 255, 0.73)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: 5,
+                                width: 47,
+                                borderRadius: 20,
+                                position: "absolute",
+                                bottom: 14,
+                                left: 32,
+                              }}
+                            >
+                              <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium">
+                                {index + 1}/{productDetails.images.length}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
-                      )}
-                    />
-                  )}
+                        )}
+                      />
+                    )}
+                  </View>
 
                   <View className="py-[20px] px-[18px]">
                     {productDetails?.status == "offline_auction" && (

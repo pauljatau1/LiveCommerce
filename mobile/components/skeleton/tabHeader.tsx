@@ -5,7 +5,7 @@ import { Skeleton } from "@rneui/themed";
 const TabHeaderSkeleton = () => {
   return (
     <View
-      className="mt-8 border-b-[1px] flex-row items-center gap-[16px]"
+      className="mt-[17px] border-b-[1px] flex-row items-center gap-[16px]"
       style={{
         borderBottomColor: "rgba(255, 255, 255, 0.38)",
         paddingBottom: 11,

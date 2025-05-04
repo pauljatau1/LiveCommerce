@@ -117,7 +117,7 @@ const Blips = ({
       >
         <Entypo name="video" size={35} color="#ccc" style={{ opacity: 0.5 }} />
         <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          No Suggested Blips
+          This seller hasn't uploaded any Blips
         </Text>
       </View>
     );

@@ -86,21 +86,22 @@ const HomeHeader = () => {
       <Pressable
         className="flex-row w-full  px-[12px] items-center gap-[5px] shrink"
         style={{
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: "#c6c6c6",
+          borderRadius: 15,
+          // borderWidth: 1,
+          // borderColor: "#c6c6c6",
+          backgroundColor: "#232323",
           // maxWidth: 250,
-          paddingVertical: 12,
+          paddingVertical: 13,
         }}
         onPress={() => router.push("/(root)/(modals)/search")}
       >
         <EvilIcons
           name="search"
-          size={24}
-          color="#888787"
-          className={Platform.OS === "android" ? "mt-[-4px]" : ""}
+          size={20}
+          color="#909090"
+          className={Platform.OS === "android" ? "mt-[-2px]" : ""}
         />
-        <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
+        <Text className="text-[14px] text-[#909090] font-LexendDecaLight">
           Search
         </Text>
         {/* <TextInput

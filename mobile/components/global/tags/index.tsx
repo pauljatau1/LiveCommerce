@@ -18,7 +18,7 @@ const Tags = ({ tags, setSelected, selected }: any) => {
           alignItems: "center",
         },
       ]}
-      className=" mt-8 border-b-[1px]"
+      className=" mt-[17px] border-b-[1px]"
     >
       <FlatList
         horizontal

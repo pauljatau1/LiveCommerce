@@ -61,7 +61,7 @@ const ProductPreview = ({
                 </View>
                 <View className="flex-row justify-between items-center">
                   <Text className="text-[16px] font-LexendDeca text-[#425466]">
-                    In Stock
+                    {productDetails?.stock < 1 ? "Out of Stock" : "In Stock"}
                   </Text>
                   <View className="bg-[#EBF2FA] rounded-[100px] px-[10px] py-[2px]">
                     <Text className="text-[12px] font-LexendDeca text-[#A6B7D4]">

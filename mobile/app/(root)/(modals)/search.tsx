@@ -200,17 +200,18 @@ const Search = () => {
           <View
             className="flex-row w-full px-[12px] items-center gap-[5px] shrink"
             style={{
-              borderRadius: 6,
-              borderWidth: 1,
-              borderColor: keyboardFocused ? "#16783A" : "#c6c6c6",
-              paddingVertical: 12,
+              borderRadius: 15,
+              // borderWidth: 1,
+              // borderColor: keyboardFocused ? "#16783A" : "#c6c6c6",
+              backgroundColor: "#232323",
+              paddingVertical: 13,
             }}
           >
             <EvilIcons
               name="search"
-              size={24}
-              color="#888787"
-              className={Platform.OS === "android" ? "mt-[-4px]" : ""}
+              size={20}
+              color="#909090"
+              className={Platform.OS === "android" ? "mt-[-2px]" : ""}
             />
             <TextInput
               ref={searchRef}

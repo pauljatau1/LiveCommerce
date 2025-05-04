@@ -6,6 +6,7 @@ import {
   Platform,
   useWindowDimensions,
   StyleSheet,
+  Dimensions,
 } from "react-native";
 import React, { memo, useCallback, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -22,6 +23,8 @@ import CatalogCard from "@/components/catalog/catalogCard";
 import CatalogComponent from "@/components/catalog/catalogComponent";
 import LiveStreamCatalog from "@/components/catalog/liveStreamCatalog";
 import SellerCatalog from "@/components/catalog/SellerCatalog";
+
+const { width } = Dimensions.get("window");
 
 const CatalogPage = () => {
   const { id, searchTab } = useLocalSearchParams();
@@ -65,10 +68,10 @@ const CatalogPage = () => {
           <TabBar
             {...props}
             scrollEnabled={true}
-            activeColor="#16783A"
+            activeColor="#fff"
             inactiveColor="#ccc"
             tabStyle={{
-              width: "auto",
+              width: width / 3 - 8,
               paddingHorizontal: 4,
             }}
             style={{
@@ -78,14 +81,16 @@ const CatalogPage = () => {
               marginTop: 10,
             }}
             contentContainerStyle={{
-              marginLeft: 23,
+              paddingHorizontal: 8,
+              justifyContent: "center",
             }}
             indicatorStyle={{
-              backgroundColor: "#16783A",
+              backgroundColor: "#fff",
+              height: 1,
             }}
             indicatorContainerStyle={{
               backgroundColor: "#121212",
-              marginLeft: 23,
+              marginLeft: 4,
             }}
             renderTabBarItem={(props) => (
               <TabBarItem
@@ -119,19 +124,16 @@ const CatalogHeader = memo(
     return (
       <View className="flex-row items-center justify-between w-full px-[23px] gap-[10px]">
         <Pressable onPress={() => router.back()} style={{ marginLeft: -8 }}>
-          <Entypo
-            name="chevron-left"
-            size={24}
-            color="rgba(204, 204, 204, 0.8)"
-          />
+          <Entypo name="chevron-left" size={24} color="#fff" />
         </Pressable>
         <Pressable
           className="flex-row w-full px-[12px] items-center gap-[5px] shrink"
           style={{
-            borderRadius: 6,
-            borderWidth: 1,
-            borderColor: "#c6c6c6",
-            paddingVertical: 12,
+            borderRadius: 15,
+            // borderWidth: 1,
+            // borderColor: keyboardFocused ? "#16783A" : "#c6c6c6",
+            backgroundColor: "#232323",
+            paddingVertical: 13,
           }}
           onPress={() =>
             router.push({
@@ -142,9 +144,9 @@ const CatalogHeader = memo(
         >
           <EvilIcons
             name="search"
-            size={24}
-            color="#888787"
-            className={Platform.OS === "android" ? "mt-[-4px]" : ""}
+            size={20}
+            color="#909090"
+            className={Platform.OS === "android" ? "mt-[-2px]" : ""}
           />
           <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
             {searchQuery}
