@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
 import ChatSection from './ChatSection';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import StreamQualityIndicator from '../ui/StreamQualityIndicator';
 
 const StreamDesktopUi = ({
     viewers = [],
@@ -20,7 +21,10 @@ const StreamDesktopUi = ({
     seller,
     toggleMicrophone,
     isMicrophoneEnabled = true,
-    orders = []
+    orders = [],
+    onOpenVideoSettings,
+    streamQualityInfo,
+    onHideQualityInfo
 }) => {
     const { socket, notifications } = useLivestreamSocket();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
@@ -195,7 +199,10 @@ const StreamDesktopUi = ({
                                 <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
                             </button>*/}
-                            <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+                            <button 
+                                onClick={onOpenVideoSettings}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+                            >
                                 <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Settings</span>
                             </button>
@@ -280,6 +287,14 @@ const StreamDesktopUi = ({
                             }}
                         ></div>
                     </div>
+                    
+                    {/* Add StreamQualityIndicator */}
+                    {streamQualityInfo && (
+                        <StreamQualityIndicator 
+                            qualityInfo={streamQualityInfo}
+                            onClose={onHideQualityInfo}
+                        />
+                    )}
                 </div>
 
                 {/*desktop Right Sidebar - Activities */}
@@ -333,7 +348,30 @@ const StreamDesktopUi = ({
             {/* Sales Analysis Modal */}
             {salesModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl transition-all duration-300 transform">
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[80dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#14AE5C]/10 p-2 rounded-full">
@@ -463,7 +501,30 @@ const StreamDesktopUi = ({
             {/* Items Sold Modal */}
             {itemsModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl transition-all duration-300 transform">
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[65dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#EFF0FA]/10 p-2 rounded-full">
@@ -516,8 +577,8 @@ const StreamDesktopUi = ({
                                             if (!product) return null;
                                             
                                             return (
-                                                <div key={index} className="bg-[#161A1E] rounded-lg overflow-hidden flex">
-                                                    <div className="w-20 p-[5px] rounded-tl-xl rounded-bl-xl bg-gray-800 flex-shrink-0">
+                                                <div key={index} className="bg-[#161A1E] h-24 rounded-lg overflow-hidden flex">
+                                                    <div className="w-20 p-[5px] rounded-tl-xl h-full rounded-bl-xl bg-gray-800 flex-shrink-0">
                                                         {product.productImages && product.productImages[0]?.url ? (
                                                             <img 
                                                                 src={product.productImages[0].url} 
@@ -600,7 +661,10 @@ StreamDesktopUi.propTypes = {
     seller: PropTypes.object,
     toggleMicrophone: PropTypes.func,
     isMicrophoneEnabled: PropTypes.bool,
-    orders: PropTypes.array
+    orders: PropTypes.array,
+    onOpenVideoSettings: PropTypes.func,
+    streamQualityInfo: PropTypes.object,
+    onHideQualityInfo: PropTypes.func
 };
 
 export default StreamDesktopUi;

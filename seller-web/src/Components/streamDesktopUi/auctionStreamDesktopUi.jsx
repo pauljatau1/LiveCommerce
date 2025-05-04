@@ -10,6 +10,7 @@ import BidConfirmationModal from '../BidConfirmationModal';
 import ActiveBidProductCard from '../ActiveBidProductCard';
 import OngoingBidProductCard from '../OngoingBidProductCard';
 import EndedBidProductCard from '../EndedBidProductCard';
+import StreamQualityIndicator from '../ui/StreamQualityIndicator';
 
 const AuctionStreamDesktopUi = ({
     viewers = [],
@@ -25,16 +26,19 @@ const AuctionStreamDesktopUi = ({
     seller,
     orders = [],
     toggleMicrophone,
-    isMicrophoneEnabled = true
+    isMicrophoneEnabled = true,
+    onOpenVideoSettings,
+    streamQualityInfo,
+    onHideQualityInfo
 }) => {
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showBidModal, setShowBidModal] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false);
-    
+
     // Calculate initial sales from orders prop
     const initialSales = orders?.reduce((total, order) => total + (order.amount || 0), 0);
-    
+
     // Set initial states using orders prop as fallback
     const [totalSales, setTotalSales] = useState(initialSales || 0);
     const [itemsSold, setItemsSold] = useState(orders?.length || 0);
@@ -52,7 +56,7 @@ const AuctionStreamDesktopUi = ({
             console.log(`Desktop UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
             socket.subscribeToStreamNotifications(liveStreamDetails._id);
         }
-        
+
         // Cleanup function to unsubscribe when component unmounts
         return () => {
             if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
@@ -69,23 +73,23 @@ const AuctionStreamDesktopUi = ({
             const auctionEndNotifications = notifications.filter(
                 notification => notification.type === 'auction_end'
             );
-            
+
             if (auctionEndNotifications.length > 0) {
                 // Get the latest auction_end notification
                 const latestNotification = auctionEndNotifications[auctionEndNotifications.length - 1];
-                
+
                 if (latestNotification.data?.orders && latestNotification.data.orders.length > 0) {
                     // Store the orders data
                     setOrdersData(latestNotification.data.orders);
-                    
+
                     // Calculate total sales
                     const sales = latestNotification.data.orders.reduce((total, order) => {
                         return total + (order.amount || 0);
                     }, 0);
-                    
+
                     // Count total items sold
                     const items = latestNotification.data.orders.length;
-                    
+
                     // Update state
                     setTotalSales(sales);
                     setItemsSold(items);
@@ -97,37 +101,37 @@ const AuctionStreamDesktopUi = ({
     // Add useEffect to synchronize productStatuses with the products from liveStreamDetails
     useEffect(() => {
         if (!products || products.length === 0 || !updateProductStatus) return;
-        
+
         const updatedProducts = {};
-        
+
         // Create a new processed tracking object when products change
         processedProductsRef.current = {};
 
         // Set initial status in socket context for each product
         products.forEach(product => {
             const productId = product.product.productId;
-            
+
             // Only update if:
             // 1. The product has a bidStatus AND
             // 2. The socket status is not 'ongoing' (to prevent overriding timer-based status changes) AND
             // 3. We haven't processed this product with this status yet (to prevent infinite loops)
             const productKey = `${productId}-${product.bidStatus}`;
-            
+
             if (product.bidStatus &&
                 productStatuses[productId] !== 'ongoing' &&
                 !processedProductsRef.current[productKey]) {
-                
+
                 // Mark this product-status as processed
                 processedProductsRef.current[productKey] = true;
                 updatedProducts[productId] = product.bidStatus;
             }
         });
-        
+
         // Only proceed if we have actual updates to make
         if (Object.keys(updatedProducts).length === 0) return;
-        
+
         console.log('Batch updating product statuses:', updatedProducts);
-        
+
         // Make a single batch update for all products that need updating
         Object.entries(updatedProducts).forEach(([productId, status]) => {
             updateProductStatus(productId, status);
@@ -156,15 +160,15 @@ const AuctionStreamDesktopUi = ({
     useEffect(() => {
         if (notifications.length > 0) {
             const latestNotification = notifications[notifications.length - 1];
-            
+
             // Update viewer count for join/leave notifications
-            if ((latestNotification.type === 'join' || latestNotification.type === 'leave') && 
+            if ((latestNotification.type === 'join' || latestNotification.type === 'leave') &&
                 latestNotification.data?.viewerCount !== undefined) {
                 setViewerCount(latestNotification.data.viewerCount);
             }
         }
     }, [notifications, liveStreamDetails]);
-    
+
     // Monitor the video container to detect when it's ready
     useEffect(() => {
         const checkVideoReady = () => {
@@ -175,13 +179,13 @@ const AuctionStreamDesktopUi = ({
                 setIsVideoReady(false);
             }
         };
-        
+
         // Check initially
         checkVideoReady();
-        
+
         // Set up an interval to periodically check if the video container is ready
         const intervalId = setInterval(checkVideoReady, 1000);
-        
+
         // Clean up interval on unmount
         return () => clearInterval(intervalId);
     }, []);
@@ -196,11 +200,11 @@ const AuctionStreamDesktopUi = ({
 
         try {
             await activateProductBidding(liveStreamDetails._id, selectedProduct.product.productId);
-            
+
             // Immediately update the socket context with the new product status
             if (updateProductStatus) {
                 console.log(`Immediately updating product ${selectedProduct.product.name} status to 'active' in socket context`);
-                
+
                 // FIRST: Directly check and end all ongoing products in productStatuses
                 Object.entries(productStatuses).forEach(([pid, status]) => {
                     if (pid !== selectedProduct.product.productId && (status === 'active' || status === 'ongoing')) {
@@ -208,29 +212,29 @@ const AuctionStreamDesktopUi = ({
                         updateProductStatus(pid, 'ended');
                     }
                 });
-                
+
                 // Set the newly activated product to active
                 updateProductStatus(selectedProduct.product.productId, 'active');
-                
+
                 // THEN: Handle any products whose state might not be reflected in productStatuses yet
                 if (products) {
                     products.forEach(product => {
                         const pid = product.product.productId;
                         // Skip the newly activated product
                         if (pid === selectedProduct.product.productId) return;
-                        
+
                         // Force update the local bidStatus to 'ended' for all other products
                         if (product.bidStatus === 'active' || product.bidStatus === 'ongoing') {
                             console.log(`Forcing local product ${pid} bidStatus from ${product.bidStatus} to 'ended'`);
                             product.bidStatus = 'ended';
-                            
+
                             // Also ensure the socket context is updated
                             updateProductStatus(pid, 'ended');
                         }
                     });
                 }
             }
-            
+
             setShowBidModal(false);
             // The useEffect will handle socket notification
         } catch (error) {
@@ -242,20 +246,20 @@ const AuctionStreamDesktopUi = ({
     const getEffectiveStatus = useMemo(() => {
         return (product) => {
             if (!product?.product?.productId) return product?.bidStatus || 'pending';
-            
+
             const productId = product.product.productId;
             // Socket status takes precedence over local status if available
             const socketStatus = productStatuses[productId];
             const localStatus = product.bidStatus;
-            
+
             console.log(`GetEffectiveStatus for ${product.product.name} (${productId}): socket status = ${socketStatus}, product status = ${localStatus}`);
-            
+
             // If a new bid was just started, ensure 'active' status is shown for this product
             if (selectedProduct && selectedProduct.product.productId === productId && !showBidModal && !isActivatingBid) {
                 console.log(`Selected product just had bid confirmed, ensuring 'active' status`);
                 return 'active';
             }
-            
+
             if (socketStatus) {
                 return socketStatus;
             }
@@ -274,6 +278,13 @@ const AuctionStreamDesktopUi = ({
 
     return (
         <div className="hidden xl:block">
+            {/* Add StreamQualityIndicator */}
+            {streamQualityInfo && (
+                <StreamQualityIndicator
+                    qualityInfo={streamQualityInfo}
+                    onClose={onHideQualityInfo}
+                />
+            )}
             {/** HEADER */}
             <div className="grid grid-cols-1 md:grid-cols-6 xl:grid-cols-12 items-start xl:items-center gap-4 xl:gap-0">
                 <div className="flex justify-between md:justify-start md:col-span-3 items-center gap-2">
@@ -293,14 +304,14 @@ const AuctionStreamDesktopUi = ({
                         <Icon icon="fluent:share-16-regular" className="w-7 h-7" color='#14AE5C' />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">Shares ({totalShares})</p>
                     </div>
-                    <button 
+                    <button
                         onClick={toggleMicrophone}
                         className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300"
                     >
-                        <Icon 
-                            icon={isMicrophoneEnabled ? "heroicons:microphone-solid" : "bi:mic-mute-fill"} 
-                            className="w-5 h-5" 
-                            color={isMicrophoneEnabled ? '#14AE5C' : '#C74E5B'} 
+                        <Icon
+                            icon={isMicrophoneEnabled ? "heroicons:microphone-solid" : "bi:mic-mute-fill"}
+                            className="w-5 h-5"
+                            color={isMicrophoneEnabled ? '#14AE5C' : '#C74E5B'}
                         />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">
                             {isMicrophoneEnabled ? 'Mic On' : 'Mic Off'}
@@ -353,7 +364,10 @@ const AuctionStreamDesktopUi = ({
                                 <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
                             </button>*/}
-                            <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+                            <button
+                                onClick={onOpenVideoSettings}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+                            >
                                 <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Settings</span>
                             </button>
@@ -448,20 +462,20 @@ const AuctionStreamDesktopUi = ({
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center overflow-hidden">
                                 {/* Accurate Google Meet style background */}
                                 <div className="absolute inset-0 bg-[#1e3a25]/95"></div>
-                                
+
                                 {/* Subtle radial gradient for depth */}
                                 <div className="absolute inset-0" style={{
                                     background: 'radial-gradient(circle at center, rgba(40, 78, 48, 0.95) 0%, rgba(30, 58, 37, 0.90) 90%)'
                                 }}></div>
-                                
+
                                 {/* Light vignette around edges */}
                                 <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.5)]"></div>
-                                
+
                                 {/* Extremely subtle grain texture */}
                                 <div className="absolute inset-0 opacity-[0.02]" style={{
                                     backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
                                 }}></div>
-                                
+
                                 {/* Content */}
                                 <div className="relative z-20 flex flex-col items-center justify-center">
                                     <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm mb-6">
@@ -501,7 +515,7 @@ const AuctionStreamDesktopUi = ({
 
             {/* Bottom Stats */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 z-10">
-                <div 
+                <div
                     className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center cursor-pointer hover:bg-[#161A1E] transition-all duration-300"
                     onClick={() => setSalesModalOpen(true)}
                 >
@@ -515,7 +529,7 @@ const AuctionStreamDesktopUi = ({
                         </p>
                     </div>
                 </div>
-                <div 
+                <div
                     className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center cursor-pointer hover:bg-[#161A1E] transition-all duration-300"
                     onClick={() => setItemsModalOpen(true)}
                 >
@@ -537,7 +551,7 @@ const AuctionStreamDesktopUi = ({
 
             {/* Bid Confirmation Modal */}
             {showBidModal && (
-                <BidConfirmationModal
+                <BidConfirmationModal   
                     product={selectedProduct}
                     onClose={() => setShowBidModal(false)}
                     onConfirm={handleConfirmBid}
@@ -548,7 +562,31 @@ const AuctionStreamDesktopUi = ({
             {/* Sales Analysis Modal */}
             {salesModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl transition-all duration-300 transform">
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[80dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth 
+        [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#14AE5C]/10 p-2 rounded-full">
@@ -556,7 +594,7 @@ const AuctionStreamDesktopUi = ({
                                 </div>
                                 <h2 className="text-[#EFF0FA] font-lexend font-bold text-xl">Sales Analysis</h2>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setSalesModalOpen(false)}
                                 className="text-[#7A828A] hover:text-white transition-colors"
                             >
@@ -611,7 +649,7 @@ const AuctionStreamDesktopUi = ({
                                                                     day: 'numeric',
                                                                     month: 'short',
                                                                     year: 'numeric'
-                                                                }).replace(/(\d+)(?=\s)/, function(match) {
+                                                                }).replace(/(\d+)(?=\s)/, function (match) {
                                                                     const num = parseInt(match);
                                                                     const suffix = ['th', 'st', 'nd', 'rd'][num % 10 > 3 ? 0 : (num % 100 - num % 10 != 10 ? num % 10 : 0)];
                                                                     return num + suffix;
@@ -642,11 +680,11 @@ const AuctionStreamDesktopUi = ({
                                                 // Calculate height based on amount relative to max amount
                                                 const maxAmount = Math.max(...ordersData.slice(0, 5).map(o => o.amount || 0));
                                                 const height = maxAmount ? ((order.amount || 0) / maxAmount) * 150 : 0;
-                                                
+
                                                 return (
                                                     <div key={index} className="flex flex-col items-center">
-                                                        <div 
-                                                            className="w-10 bg-gradient-to-t from-[#14AE5C]/70 to-[#14AE5C] rounded-t-sm" 
+                                                        <div
+                                                            className="w-10 bg-gradient-to-t from-[#14AE5C]/70 to-[#14AE5C] rounded-t-sm"
                                                             style={{ height: `${height}px` }}
                                                         ></div>
                                                         <p className="text-[#7A828A] text-xs mt-2 truncate w-16 text-center">
@@ -664,8 +702,8 @@ const AuctionStreamDesktopUi = ({
                         </div>
 
                         <div className="p-4 border-t border-[#272A31] flex justify-end">
-                            <button 
-                                onClick={() => setSalesModalOpen(false)} 
+                            <button
+                                onClick={() => setSalesModalOpen(false)}
                                 className="px-4 py-2 bg-[#272A31] text-[#EFF0FA] rounded-md hover:bg-[#3A3E47] transition-colors"
                             >
                                 Close
@@ -678,7 +716,30 @@ const AuctionStreamDesktopUi = ({
             {/* Items Sold Modal */}
             {itemsModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl transition-all duration-300 transform">
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[65dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth  [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#EFF0FA]/10 p-2 rounded-full">
@@ -686,7 +747,7 @@ const AuctionStreamDesktopUi = ({
                                 </div>
                                 <h2 className="text-[#EFF0FA] font-lexend font-bold text-xl">Items Sold</h2>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setItemsModalOpen(false)}
                                 className="text-[#7A828A] hover:text-white transition-colors"
                             >
@@ -704,7 +765,7 @@ const AuctionStreamDesktopUi = ({
                                 <div className="bg-[#161A1E] p-4 rounded-lg">
                                     <p className="text-[#7A828A] text-sm mb-1">Unique Products</p>
                                     <p className="text-[#EFF0FA] text-xl font-semibold">
-                                        {new Set(ordersData.map(order => 
+                                        {new Set(ordersData.map(order =>
                                             order.orderDetails?.items?.[0]?.productName || ''
                                         )).size}
                                     </p>
@@ -713,8 +774,8 @@ const AuctionStreamDesktopUi = ({
                                     <p className="text-[#7A828A] text-sm mb-1">Avg. Price</p>
                                     <p className="text-[#EFF0FA] text-xl font-semibold">
                                         {formatCurrency(
-                                            ordersData.length 
-                                                ? ordersData.reduce((sum, order) => sum + (order.amount || 0), 0) / ordersData.length 
+                                            ordersData.length
+                                                ? ordersData.reduce((sum, order) => sum + (order.amount || 0), 0) / ordersData.length
                                                 : 0
                                         )}
                                     </p>
@@ -729,14 +790,14 @@ const AuctionStreamDesktopUi = ({
                                         ordersData.map((order, index) => {
                                             const product = order.orderDetails?.items?.[0];
                                             if (!product) return null;
-                                            
+
                                             return (
-                                                <div key={index} className="bg-[#161A1E] rounded-lg overflow-hidden flex">
-                                                    <div className="w-20 p-[5px] rounded-tl-xl rounded-bl-xl bg-gray-800 flex-shrink-0">
+                                                <div key={index} className="bg-[#161A1E] h-24 rounded-lg overflow-hidden flex">
+                                                    <div className="w-20 p-[5px] rounded-tl-xl h-full rounded-bl-xl bg-gray-800 flex-shrink-0">
                                                         {product.productImages && product.productImages[0]?.url ? (
-                                                            <img 
-                                                                src={product.productImages[0].url} 
-                                                                alt={product.productName} 
+                                                            <img
+                                                                src={product.productImages[0].url}
+                                                                alt={product.productName}
                                                                 className="w-full rounded-tl-xl rounded-bl-xl h-full object-cover"
                                                             />
                                                         ) : (
@@ -764,7 +825,7 @@ const AuctionStreamDesktopUi = ({
                                                         </div>
                                                         <div className="mt-1 text-xs">
                                                             <span className="inline-block px-2 py-1 bg-[#272A31] rounded-full text-[#EFF0FA]">
-                                                                {order?.createdAt 
+                                                                {order?.createdAt
                                                                     ? new Date(order.createdAt).toLocaleTimeString([], {
                                                                         hour: '2-digit',
                                                                         minute: '2-digit'
@@ -787,8 +848,8 @@ const AuctionStreamDesktopUi = ({
                         </div>
 
                         <div className="p-4 border-t border-[#272A31] flex justify-end">
-                            <button 
-                                onClick={() => setItemsModalOpen(false)} 
+                            <button
+                                onClick={() => setItemsModalOpen(false)}
                                 className="px-4 py-2 bg-[#272A31] text-[#EFF0FA] rounded-md hover:bg-[#3A3E47] transition-colors"
                             >
                                 Close
@@ -815,7 +876,10 @@ AuctionStreamDesktopUi.propTypes = {
     seller: PropTypes.object,
     orders: PropTypes.array,
     toggleMicrophone: PropTypes.func,
-    isMicrophoneEnabled: PropTypes.bool
+    isMicrophoneEnabled: PropTypes.bool,
+    onOpenVideoSettings: PropTypes.func,
+    streamQualityInfo: PropTypes.object,
+    onHideQualityInfo: PropTypes.func
 };
 
 export default AuctionStreamDesktopUi;

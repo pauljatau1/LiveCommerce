@@ -17,7 +17,8 @@ const PreStreamMobileUi = ({
     formatCurrency,
     viewers = [],
     liveStreamDetails,
-    isReconnecting
+    isReconnecting,
+    onOpenVideoSettings
 }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -265,6 +266,15 @@ const PreStreamMobileUi = ({
                     )}
                 </div>
             </div>
+
+            {/* Add settings button */}
+            <button 
+                onClick={onOpenVideoSettings}
+                className="flex items-center gap-2 px-3 py-2 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+            >
+                <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
+                <span className="text-[#EFF0FA] font-inter text-sm">Settings</span>
+            </button>
         </div>
     );
 };
@@ -283,7 +293,8 @@ PreStreamMobileUi.propTypes = {
     setIsToolsSidebarOpen: PropTypes.func,
     totalShares: PropTypes.number,
     liveStreamDetails: PropTypes.object,
-    isReconnecting: PropTypes.bool
+    isReconnecting: PropTypes.bool,
+    onOpenVideoSettings: PropTypes.func
 };
 
 export default PreStreamMobileUi;

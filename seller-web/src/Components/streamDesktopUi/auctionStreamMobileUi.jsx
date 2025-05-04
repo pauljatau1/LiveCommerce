@@ -13,7 +13,8 @@ const AuctionStreamMobileUi = ({
     viewers = [],
     switchCamera,
     toggleMicrophone,
-    isMicrophoneEnabled = true
+    isMicrophoneEnabled = true,
+    onOpenVideoSettings
 }) => {
     const { socket, notifications, sendStreamComment } = useLivestreamSocket();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
@@ -211,6 +212,12 @@ const AuctionStreamMobileUi = ({
     const handleEndStream = () => {
         if (endStream && typeof endStream === 'function') {
             endStream(false, false);
+        }
+    };
+
+    const handleOpenVideoSettings = () => {
+        if (onOpenVideoSettings && typeof onOpenVideoSettings === 'function') {
+            onOpenVideoSettings();
         }
     };
 
@@ -454,7 +461,8 @@ AuctionStreamMobileUi.propTypes = {
     totalShares: PropTypes.number,
     switchCamera: PropTypes.func,
     toggleMicrophone: PropTypes.func,
-    isMicrophoneEnabled: PropTypes.bool
+    isMicrophoneEnabled: PropTypes.bool,
+    onOpenVideoSettings: PropTypes.func
 };
 
 export default AuctionStreamMobileUi;
