@@ -128,31 +128,34 @@ const Marketplace = () => {
         }}
       >
         {selected && renderContent()}
-        <View>
-          <View className="w-full relative px-[23px] ">
-            <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
-              Still Searching
-            </Text>
-            <View className="flex-row w-full space-x-3 gap-4 justify-center pt-[18px]">
-              <CustomButton
-                title="Explore Categories"
-                textStyle="!font-LexendDecaSemiBold text-xs"
-                className="border !w-[47%]  rounded-md border-[#EDF2F7] bg-transparent"
-                onPress={() => {
-                  router.push("/(root)/(tabs)/explore/explore");
-                }}
-              />
-              <CustomButton
-                title="Visit Community"
-                textStyle="!font-LexendDecaSemiBold text-xs"
-                className="!w-[47%] !bg-primary-200  rounded-md  "
-                onPress={() => {
-                  router.push("/(root)/(tabs)/connect");
-                }}
-              />
+
+        {selected == "For You" ? (
+          <View>
+            <View className="w-full relative px-[23px] ">
+              <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
+                Still Searching
+              </Text>
+              <View className="flex-row w-full space-x-3 gap-4 justify-center pt-[18px]">
+                <CustomButton
+                  title="Explore Categories"
+                  textStyle="!font-LexendDecaSemiBold text-xs"
+                  className="border !w-[47%]  rounded-md border-[#EDF2F7] bg-transparent"
+                  onPress={() => {
+                    router.push("/(root)/(tabs)/explore/explore");
+                  }}
+                />
+                <CustomButton
+                  title="Visit Community"
+                  textStyle="!font-LexendDecaSemiBold text-xs"
+                  className="!w-[47%] !bg-primary-200  rounded-md  "
+                  onPress={() => {
+                    router.push("/(root)/(tabs)/connect");
+                  }}
+                />
+              </View>
             </View>
           </View>
-        </View>
+        ) : null}
       </ScrollView>
 
       <View className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">

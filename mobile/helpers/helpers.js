@@ -224,3 +224,5 @@ export const findVariantType = (obj) => {
   }
   return selectedType;
 };
+
+export const getSellerLocation = (seller) => {};

@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, FlatList } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useGetAllProductsQuery } from "@/services/products";
 import { ActivityIndicator } from "react-native-paper";
 import ProductCard from "@/components/global/product-card";
@@ -7,6 +7,7 @@ import CatalogCard from "@/components/catalog/catalogCard";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
 import { router } from "expo-router";
+import LottieView from "lottie-react-native";
 
 interface GeneralCategoryProps {
   name: string;
@@ -80,14 +81,41 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     return <ProductEmptyState />;
   };
 
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
   useEffect(() => {
-    if (data?.data?.products?.length > 0) {
+    if (data) {
       setProducts([...products, ...data?.data?.products]);
 
-      if (
-        data?.data?.pagination.currentPage == data?.pagination?.totalPages ||
-        data?.data?.pagination?.totalPages == 0
-      ) {
+      if (!data?.data?.pagination?.hasNextPage) {
+        console.log({
+          isFetching,
+          hasReachedEnd,
+        });
         setHasReachedEnd(true);
       }
     }
@@ -127,6 +155,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             }}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
+            ListFooterComponent={renderListFooter}
             onEndReached={fetchMoreProducts}
             onEndReachedThreshold={0.5}
           />
