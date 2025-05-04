@@ -96,7 +96,9 @@
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.24.1",
-    "expo-tracking-transparency": "~5.1.1"
+    "expo-tracking-transparency": "~5.1.1",
+    "@shopify/flash-list": "1.7.3",
+    "expo-video": "~2.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

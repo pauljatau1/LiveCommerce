@@ -1,4 +1,11 @@
-import React, { useRef, useEffect, useState, useCallback, memo } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  memo,
+  useMemo,
+} from "react";
 import {
   View,
   Dimensions,
@@ -56,6 +63,9 @@ import { RootState } from "@/store";
 import { EvilIcons, Fontisto } from "@expo/vector-icons";
 import { GlassImage } from "@/app/(root)/livestream/components";
 import { LinearGradient } from "expo-linear-gradient";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { useEvent, useEventListener } from "expo";
+
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -106,6 +116,19 @@ const VideoItem = ({
   const [liveStreamData, setLiveStreamData] = useState<any>();
   const [liveAuctionData, setLiveAuctionData] = useState<any>();
   const [bidTime, setBidTime] = useState<any>();
+
+  const player = useVideoPlayer(videoUrl, (player) => {
+    player.loop = true;
+    player.play();
+    // player.replay();
+  });
+  const { isPlaying } = useEvent(player, "playingChange", {
+    isPlaying: player.playing,
+  });
+
+  const { status, error } = useEvent(player, "statusChange", {
+    status: player.status,
+  });
 
   const handleActionBtn = () => {
     if (item?.stock < 1) {
@@ -217,27 +240,74 @@ const VideoItem = ({
     setComments(comments + 1);
   };
 
-  const PauseVideo = useCallback(() => {
-    if (paused && videoRef.current) {
-      videoRef.current.playAsync?.();
-    } else {
-      videoRef.current.pauseAsync?.();
-    }
-    setPaused(!paused);
-  }, [paused]);
-
   const closeCommentsSheet = useCallback(() => {
     setShowComments(false);
   }, []);
 
+  // const PauseVideo = useCallback(() => {
+  //   if (paused && videoRef.current) {
+  //     videoRef.current.playAsync?.();
+  //   } else {
+  //     videoRef.current.pauseAsync?.();
+  //   }
+  //   setPaused(!paused);
+  // }, [paused]);
+
+  // useEffect(() => {
+  //   if (isFocused && videoRef.current) {
+  //     if (isVisible) {
+  //       videoRef.current.playAsync?.();
+  //     } else {
+  //       if (paused) setPaused(false);
+  //       videoRef.current.pauseAsync?.();
+  //       videoRef.current?.setPositionAsync(0);
+  //     }
+  //     handleView();
+  //   }
+  // }, [isFocused, isVisible]);
+
+  // useEffect(() => {
+  //   if (!isFocused || !isVisible) {
+  //     setPaused(false);
+  //     videoRef.current.pauseAsync?.();
+  //   }
+  // }, [isFocused]);
+
+  // useEffect(() => {
+  //   return () => {
+  //     if (videoRef.current) {
+  //       videoRef.current.unloadAsync();
+  //     }
+  //   };
+  // }, []);
+
+  const PauseVideo = useCallback(() => {
+    if (status == "loading" || status !== "readyToPlay") {
+      return;
+    }
+    setPaused(isPlaying);
+    if (!isPlaying && videoRef.current) {
+      console.log("playing video ", {
+        isPlaying,
+      });
+
+      player.play();
+    } else {
+      console.log("pausing video ", {
+        isPlaying,
+      });
+      player.pause();
+    }
+  }, [paused, isPlaying]);
+
   useEffect(() => {
     if (isFocused && videoRef.current) {
       if (isVisible) {
-        videoRef.current.playAsync?.();
+        player.play();
       } else {
         if (paused) setPaused(false);
-        videoRef.current.pauseAsync?.();
-        videoRef.current?.setPositionAsync(0);
+        player.replay();
+        player.pause();
       }
       handleView();
     }
@@ -246,17 +316,18 @@ const VideoItem = ({
   useEffect(() => {
     if (!isFocused || !isVisible) {
       setPaused(false);
-      videoRef.current.pauseAsync?.();
+      player.pause();
     }
   }, [isFocused]);
 
   useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.unloadAsync();
-      }
-    };
-  }, []);
+    const statusTimeout = setTimeout(
+      () => setLoading(status == "loading"),
+      1000,
+    );
+
+    return () => clearTimeout(statusTimeout);
+  }, [status]);
 
   const tabBarHeight = !singularBlip ? useBottomTabBarHeight() : 10;
 
@@ -325,7 +396,7 @@ const VideoItem = ({
           },
         ]}
       >
-        <Video
+        {/* <Video
           ref={videoRef}
           source={{
             uri: videoUrl,
@@ -344,6 +415,22 @@ const VideoItem = ({
           isLooping
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           isMuted={false}
+        /> */}
+
+        <VideoView
+          ref={videoRef}
+          style={[
+            styles.video,
+            {
+              height: "100%",
+              position: "absolute",
+              top: Platform.OS == "ios" ? 0 : 0,
+              left: 0,
+            },
+          ]}
+          player={player}
+          nativeControls={false}
+          contentFit="cover"
         />
         <View
           className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"

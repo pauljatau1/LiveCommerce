@@ -186,7 +186,7 @@ const Blips = () => {
             onEndReached={fetchMoreVideos}
             onEndReachedThreshold={1}
             initialNumToRender={5}
-            maxToRenderPerBatch={5}
+            maxToRenderPerBatch={3}
             windowSize={5}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
@@ -200,6 +200,8 @@ const Blips = () => {
             onRefresh={refreshBlips}
             progressViewOffset={Platform.OS == "ios" ? 120 : 0}
             ListHeaderComponent={renderFooter}
+            removeClippedSubviews={false}
+            updateCellsBatchingPeriod={50}
           />
         )}
       </View>
