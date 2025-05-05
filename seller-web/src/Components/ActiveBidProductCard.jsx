@@ -108,7 +108,7 @@ const ActiveBidProductCard = ({ product, formatCurrency }) => {
                         <div className="flex items-center gap-1">
                             <Icon icon="solar:user-circle-bold-duotone" className="w-4 h-4" color="#718096" />
                             <p className="text-xs text-[#718096] font-inter">
-                                Current Bidder: <span className="text-[#EFF0FA]">
+                                Current Bidder: <span className="flex flex-wrap items-center text-[#EFF0FA]">
                                     {currentBidder?.firstName || ''} {currentBidder?.lastName || ''}
                                     {currentBidder?.username ? ` (${currentBidder.username})` : ''}
                                 </span>

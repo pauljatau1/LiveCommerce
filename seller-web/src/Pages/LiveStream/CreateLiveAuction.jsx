@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { BASE_URL } from '../../Constants/Server';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
@@ -18,6 +17,8 @@ import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
 import ProductLimitModal from '../../Components/ProductLimitModal';
+import { debounce } from 'lodash';
+import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 
 const CreateLiveAuction = () => {
   const { setHeaderName, setNavName } = useOutletContext()
@@ -32,7 +33,7 @@ const CreateLiveAuction = () => {
   const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Store all selected products in local state for tracking across pagination
   const [allSelectedProducts, setAllSelectedProducts] = useState([]);
 
@@ -52,6 +53,14 @@ const CreateLiveAuction = () => {
   // Comprehensive predefined tags grouped by categ
   const [searchTag, setSearchTag] = useState('');
   const [filteredTags, setFilteredTags] = useState([]);
+
+  // Add these new state variables for CategorySelectionModal
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const allTags = [
     // Fashion Category
@@ -539,7 +548,7 @@ const CreateLiveAuction = () => {
       setCurrentPage(currentPage - 1);
     }
   };
-  
+
   // Handle items per page change
   const handleItemsPerPageChange = (newLimit) => {
     setItemsPerPage(newLimit);
@@ -552,7 +561,65 @@ const CreateLiveAuction = () => {
     setAllSelectedProducts(livestream?.selectedProducts || []);
   }, [livestream?.selectedProducts]);
 
-  
+  // Add helper function to get subcategories
+  const getSubCategories = (categoryName) => {
+    const category = categories.find(cat => cat.name === categoryName);
+    return category ? category.subCategories : [];
+  };
+
+  // Add search function
+  const searchCategories = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${BASE_URL}/public/categories/search`, {
+        params: { query }
+      });
+
+      if (response.data.success) {
+        setSearchResults(response.data.results);
+      }
+    } catch (error) {
+      console.error('Error searching categories:', error);
+      toast.error('Failed to search categories');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounce search function
+  const debouncedSearch = useCallback(
+    debounce((query) => {
+      if (query.trim()) {
+        searchCategories(query);
+      }
+    }, 400),
+    []
+  );
+
+  // Update search when query changes
+  useEffect(() => {
+    debouncedSearch(categorySearchQuery);
+  }, [categorySearchQuery, debouncedSearch]);
+
+  // Add handler for category selection
+  const handleCategorySelection = (category, subCategory) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    
+    // Update livestream context with the selected category and subcategory
+    livestreamDispatch({
+      type: 'SET_LIVESTREAM_DATA', 
+      payload: { 
+        category: category,
+        subCategory: subCategory
+      }
+    });
+  };
 
   return (
     <div className="pt-4 md:pt-6">
@@ -1025,29 +1092,55 @@ const CreateLiveAuction = () => {
           </div>
         </div>
 
-        {/* Stream Category */}
+        {/* Category Selection Modal */}
+        <CategorySelectionModal 
+          isOpen={isCategoryModalOpen}
+          onClose={() => setIsCategoryModalOpen(false)}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          selectedSubCategory={selectedSubCategory}
+          onApply={handleCategorySelection}
+          isSearching={isSearching}
+          searchResults={searchResults}
+          categorySearchQuery={categorySearchQuery}
+          setCategorySearchQuery={setCategorySearchQuery}
+          getSubCategories={getSubCategories}
+        />
+
+        {/* Stream Category - Replace with button that opens modal */}
         <div className="space-y-2">
           <label className="text-sm md:text-base font-inter font-bold text-[#27272E]">Stream Category</label>
-          <Select
-            value={livestream?.category}
-            onValueChange={(value) => {
-              livestreamDispatch({ type: 'SET_LIVESTREAM_DATA', payload: { category: value } });
-            }}
+          <button
+            type="button"
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="w-full flex items-center justify-between gap-2 p-3 border border-gray-300 bg-white rounded-lg hover:border-gray-400 transition-colors text-left"
           >
-            <SelectTrigger className="border border-gray-300 rounded-lg">
-              <SelectValue placeholder="Choose a category..." />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem
-                  key={category._id}
-                  value={category.name}
-                >
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="flex flex-col">
+              <span className={selectedCategory ? "text-black" : "text-gray-500"}>
+                {selectedCategory || "Choose a category..."}
+              </span>
+              {selectedCategory && selectedSubCategory && (
+                <span className="text-xs text-gray-500 mt-0.5">
+                  {selectedSubCategory}
+                </span>
+              )}
+            </div>
+            <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
+          </button>
+          
+          {/* Display selected values as badges if selected */}
+          {selectedCategory && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              <div className="inline-flex items-center px-3 py-1 rounded-lg text-xs bg-[#0BB248]/10 text-[#0BB248] border border-[#0BB248]/20">
+                <span className="font-medium mr-1">Category:</span> {selectedCategory}
+              </div>
+              {selectedSubCategory && (
+                <div className="inline-flex flex-wrap items-center px-3 py-1 rounded-lg text-xs bg-[#17171B]/10 text-[#17171B] border border-[#17171B]/20">
+                  <span className="font-medium mr-1">Subcategory:</span> {selectedSubCategory}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Livestream Tags */}
@@ -1075,7 +1168,7 @@ const CreateLiveAuction = () => {
                 // Otherwise return the existing tag object
                 return tag;
               });
-              
+
               livestreamDispatch({
                 type: 'SET_LIVESTREAM_DATA',
                 payload: { tags: formattedTags }
@@ -1160,7 +1253,7 @@ const CreateLiveAuction = () => {
 
         {/* Select Products */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
             <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
             <div className="text-sm text-gray-500">
               Selected: {allSelectedProducts.length}/10
@@ -1271,41 +1364,39 @@ const CreateLiveAuction = () => {
 
           <div className="flex justify-between flex-wrap gap-10 lg:gap-0 items-center pt-4 border-t">
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between w-full mt-4">
+              <div className="flex flex-wrap items-center gap-7 justify-end lg:justify-between w-full mt-4">
                 <div className="text-sm text-gray-500">
                   Showing {products.length} of {pagination.totalProducts} products
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap justify-end lg:justify-start items-center gap-3">
                   <button
                     onClick={handlePreviousPage}
                     disabled={currentPage <= 1}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                      currentPage <= 1
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage <= 1
                         ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                         : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
                     <span>Previous</span>
                   </button>
-                  
+
                   <span className="text-sm">
                     Page {currentPage} of {pagination.totalPages}
                   </span>
-                  
+
                   <button
                     onClick={handleNextPage}
                     disabled={currentPage >= pagination.totalPages}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                      currentPage >= pagination.totalPages
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage >= pagination.totalPages
                         ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                         : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     <span>Next</span>
                     <Icon icon="heroicons:arrow-right-20-solid" className="w-4 h-4" />
                   </button>
-                  
+
                   <select
                     value={itemsPerPage}
                     onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}

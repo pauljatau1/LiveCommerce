@@ -31,7 +31,7 @@ const ProductLimitModal = ({ isOpen, onClose }) => {
           </h2>
 
           {/* Message */}
-          <p className="text-gray-600 text-sm md:text-base">
+          <p className="text-gray-600 text-sm lg:text-base">
             You can select a maximum of 10 products for your live show. Please deselect some products to continue.
           </p>
 

@@ -16,7 +16,8 @@ const PreStreamDesktopUi = ({
   products,
   formatCurrency,
   seller,
-  isReconnecting
+  isReconnecting,
+  onOpenVideoSettings
 }) => {
   return (
     <div className="hidden xl:block">
@@ -68,15 +69,18 @@ const PreStreamDesktopUi = ({
                 <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
               </button>
-              <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+              {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                 <Icon icon="solar:user-block-linear" className="w-5 h-5" color="#C74E5B" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Block/Kick User</span>
               </button>
               <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                 <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
-              </button>
-              <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+              </button>*/}
+              <button 
+                onClick={onOpenVideoSettings}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+              >
                 <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Settings</span>
               </button>
@@ -234,7 +238,8 @@ PreStreamDesktopUi.propTypes = {
   products: PropTypes.array,
   formatCurrency: PropTypes.func,
   seller: PropTypes.object,
-  isReconnecting: PropTypes.bool
+  isReconnecting: PropTypes.bool,
+  onOpenVideoSettings: PropTypes.func
 };
 
 export default PreStreamDesktopUi;

@@ -17,7 +17,8 @@ const PreStreamMobileUi = ({
     formatCurrency,
     viewers = [],
     liveStreamDetails,
-    isReconnecting
+    isReconnecting,
+    onOpenVideoSettings
 }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -92,77 +93,14 @@ const PreStreamMobileUi = ({
                             <div className="bg-[#1A1D24] rounded-md p-3">
                                 <p className="text-sm capitalize text-gray-300">Title: {liveStreamDetails?.title}</p>
                             </div>
-
-                            {/* Video Quality Dropdown */}
-                            <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
-                                    <div className="bg-[#1A1D24] rounded-md p-3 flex items-center justify-between cursor-pointer">
-                                        <p className="text-sm text-gray-300">Video Quality</p>
-                                        <div className="flex items-center">
-                                            <MdCheck className="text-green-500 mr-1" />
-                                            <span className="text-sm text-gray-300 mr-1">{videoQuality}</span>
-                                            <IoChevronDown className="text-gray-400" />
-                                        </div>
-                                    </div>
-                                </DropdownMenu.Trigger>
-
-                                <DropdownMenu.Portal>
-                                    <DropdownMenu.Content
-                                        className="bg-[#1A1D24] rounded-md p-1 z-50 shadow-lg min-w-[150px]"
-                                        sideOffset={5}
-                                        align="end"
-                                    >
-                                        {videoOptions.map((option) => (
-                                            <DropdownMenu.Item
-                                                key={option}
-                                                className={`text-sm p-2 rounded cursor-pointer ${videoQuality === option ? 'text-green-500 bg-black/30' : 'text-gray-300 hover:bg-black/20'}`}
-                                                onClick={() => setVideoQuality(option)}
-                                            >
-                                                <div className="flex items-center">
-                                                    {videoQuality === option && <MdCheck className="mr-1" />}
-                                                    {option}
-                                                </div>
-                                            </DropdownMenu.Item>
-                                        ))}
-                                    </DropdownMenu.Content>
-                                </DropdownMenu.Portal>
-                            </DropdownMenu.Root>
-
-                            {/* Audio Quality Dropdown */}
-                            <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
-                                    <div className="bg-[#1A1D24] rounded-md p-3 flex items-center justify-between cursor-pointer">
-                                        <p className="text-sm text-gray-300">Audio Quality</p>
-                                        <div className="flex items-center">
-                                            <MdCheck className="text-green-500 mr-1" />
-                                            <span className="text-sm text-gray-300 mr-1">{audioQuality}</span>
-                                            <IoChevronDown className="text-gray-400" />
-                                        </div>
-                                    </div>
-                                </DropdownMenu.Trigger>
-
-                                <DropdownMenu.Portal>
-                                    <DropdownMenu.Content
-                                        className="bg-[#1A1D24] rounded-md p-1 z-50 shadow-lg min-w-[150px]"
-                                        sideOffset={5}
-                                        align="end"
-                                    >
-                                        {audioOptions.map((option) => (
-                                            <DropdownMenu.Item
-                                                key={option}
-                                                className={`text-sm p-2 rounded cursor-pointer ${audioQuality === option ? 'text-green-500 bg-black/30' : 'text-gray-300 hover:bg-black/20'}`}
-                                                onClick={() => setAudioQuality(option)}
-                                            >
-                                                <div className="flex items-center">
-                                                    {audioQuality === option && <MdCheck className="mr-1" />}
-                                                    {option}
-                                                </div>
-                                            </DropdownMenu.Item>
-                                        ))}
-                                    </DropdownMenu.Content>
-                                </DropdownMenu.Portal>
-                            </DropdownMenu.Root>
-
+                            {/* Add settings button */}
+                            <button
+                                onClick={onOpenVideoSettings}
+                                className="flex items-center gap-2 bg-[#1A1D24] rounded-md p-3 w-full transition-all duration-300"
+                            >
+                                <Icon icon="solar:settings-linear" className="w-5 h-5" color="#EFF0FA" />
+                                <span className="text-[#EFF0FA] font-inter text-sm">Video Settings</span>
+                            </button>
                             <div className="bg-[#1A1D24] rounded-md p-3">
                                 <p className="text-sm text-gray-300">FAQ&apos;s</p>
                             </div>
@@ -222,7 +160,7 @@ const PreStreamMobileUi = ({
             {/* Custom Bottom Sheet (Fixed overlay) */}
             <div className={`absolute bottom-0 left-0 right-0 bg-black border-t border-gray-800 rounded-t-2xl shadow-2xl z-20 }`}>
                 <div className="w-12 h-1 bg-gray-600 rounded-full mx-auto my-2"></div>
-                
+
 
                 <div className="px-4 pb-6 pt-2">
                     <div className="flex items-center justify-between gap-2 mb-3">
@@ -283,7 +221,8 @@ PreStreamMobileUi.propTypes = {
     setIsToolsSidebarOpen: PropTypes.func,
     totalShares: PropTypes.number,
     liveStreamDetails: PropTypes.object,
-    isReconnecting: PropTypes.bool
+    isReconnecting: PropTypes.bool,
+    onOpenVideoSettings: PropTypes.func
 };
 
 export default PreStreamMobileUi;

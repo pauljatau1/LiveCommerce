@@ -13,7 +13,26 @@ import StreamDesktopUi from '../../Components/streamDesktopUi/streamDesktopUi';
 import StreamMobileUi from '../../Components/streamDesktopUi/streamMobileUi';
 import AuctionStreamDesktopUi from '../../Components/streamDesktopUi/auctionStreamDesktopUi';
 import AuctionStreamMobileUi from '../../Components/streamDesktopUi/auctionStreamMobileUi';
+import VideoSettingsModal from '../../Components/ui/VideoSettingsModal';
 
+// Default low data usage settings as recommended by Agora
+const DEFAULT_VIDEO_SETTINGS = {
+    videoConfig: {
+        width: 640,
+        height: 480,
+        frameRate: 15,
+        bitrateMin: 400,
+        bitrateMax: 600,
+        optimizationMode: 'motion',
+    },
+    audioConfig: {
+        sampleRate: 32000,
+        stereo: false,
+        bitrate: 24,
+    },
+    mirrorMode: true,
+    preset: '480p'
+};
 
 const client = AgoraRTC.createClient({
     mode: 'live',
@@ -45,6 +64,14 @@ const LivestreamStudio = () => {
     const [cameraFacingMode, setCameraFacingMode] = useState("user"); // "user" for front camera, "environment" for back camera
     const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
     const [isReconnecting, setIsReconnecting] = useState(true);
+    
+    // Add video settings state
+    const [videoSettings, setVideoSettings] = useState(DEFAULT_VIDEO_SETTINGS);
+    const [isVideoSettingsModalOpen, setIsVideoSettingsModalOpen] = useState(false);
+
+    // Add these state variables with the other useState declarations
+    const [mirrorMode, setMirrorMode] = useState(true);
+    const [streamQualityInfo, setStreamQualityInfo] = useState(null);
 
     const socket = useSocket();
     const existingLivestream = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
@@ -54,6 +81,21 @@ const LivestreamStudio = () => {
 
     // Add the livstreamSocket context
     const livestreamSocket = useLivestreamSocket();
+
+    // Load saved video settings from localStorage if available
+    useEffect(() => {
+        const savedSettings = localStorage.getItem(`video_settings_${id}`);
+        if (savedSettings) {
+            try {
+                const parsedSettings = JSON.parse(savedSettings);
+                setVideoSettings(parsedSettings);
+            } catch (error) {
+                console.error('Error parsing saved video settings:', error);
+                // Use default settings if parsing fails
+                setVideoSettings(DEFAULT_VIDEO_SETTINGS);
+            }
+        }
+    }, [id]);
 
     useEffect(() => {
         setHideSidebar(true);
@@ -132,6 +174,7 @@ const LivestreamStudio = () => {
         products,
         type,
         viewers = [],
+        orders = [],
         _id
     } = liveStreamDetails !== null ? liveStreamDetails : {};
 
@@ -141,6 +184,7 @@ const LivestreamStudio = () => {
 
     const sellerData = localStorage.getItem('seller');
     const seller = JSON.parse(sellerData);
+    console.log('stream seller', seller)
     const firstName = seller?.firstName;
     const lastName = seller?.lastName;
 
@@ -475,43 +519,37 @@ const LivestreamStudio = () => {
             const currentRole = client.role;
             console.log('Current role:', currentRole);
 
-            // 7. Create Agora tracks for audio and video
-            const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+            // 7. Create Agora tracks for audio and video using the current videoSettings
+            console.log('Using video settings:', videoSettings);
+            const tracks = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
                     encoderConfig: {
-                        sampleRate: 48000,
-                        stereo: true,
-                        bitrate: 128,
+                        sampleRate: videoSettings.audioConfig.sampleRate,
+                        stereo: videoSettings.audioConfig.stereo,
+                        bitrate: videoSettings.audioConfig.bitrate,
                     },
-                        AEC: true,
-                        ANS: true,
-                        AGC: true
+                    AEC: true,
+                    ANS: true,
+                    AGC: true
                 },
                 {
-                    encoderConfig: {
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        frameRate: 30,
-                        bitrateMin: 1500,
-                        bitrateMax: 4000,
-                        optimizationMode: 'motion',
-                        // Don't hardcode mirror property, will be set after initialization
-                    },
-                    facingMode: "user",
-                    mediaStreamTrack: previewStream.getVideoTracks()[0],
-                },
-                {
-                    timeout: 600000, // 10 minutes timeout to match checkDevicePermissions
-                    retry: 5       // Increase retry count
+                    // Use default low data usage settings as recommended by Agora
+                    encoderConfig: videoSettings.videoConfig,
+                    optimizationMode: videoSettings.videoConfig.optimizationMode,
+                    facingMode: 'user',
                 }
             );
-            console.log('📷 [STREAM INIT] Successfully created Agora tracks');
-            
+            console.log('🔄 [TRACK 2/6] Successfully created audio and video tracks');
+
+            setLocalTracks(tracks);
+
             // Set camera facing mode state
             setCameraFacingMode("user");
-            
-           
-            
+
+            // Apply mirror mode from settings
+            if (tracks[1].setMirror && typeof tracks[1].setMirror === 'function') {
+                tracks[1].setMirror(videoSettings.mirrorMode);
+            }
 
             // 8. Wait for DOM to be updated with video containers
             console.log('📷 [STREAM INIT] Waiting for video containers to be rendered in DOM');
@@ -523,7 +561,7 @@ const LivestreamStudio = () => {
 
             // Create a function to play video with proper error handling
             const playVideoInContainer = (containerId) => {
-                if (!videoTrack) return false;
+                if (!tracks[1]) return false;
                 try {
                     const container = document.getElementById(containerId);
                     if (!container) {
@@ -533,11 +571,11 @@ const LivestreamStudio = () => {
 
                     // Play the video track in this container - even if hidden
                     // This ensures it's ready when the container becomes visible
-                    videoTrack.play(container, {
+                    tracks[1].play(container, {
                         fit: 'cover'
                     });
-                    
-                    
+
+
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (e) {
@@ -570,7 +608,7 @@ const LivestreamStudio = () => {
                     if (!document.hidden && isStreaming) {
                         console.log('📷 [STREAM MONITOR] Document became visible, refreshing video in all containers');
                         // Stop all tracks and then restart them
-                        videoTrack.stop();
+                        tracks[1].stop();
 
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
@@ -595,7 +633,7 @@ const LivestreamStudio = () => {
                         // Add a small delay to allow the DOM to update
                         setTimeout(() => {
                             // Stop the video track completely
-                            videoTrack.stop();
+                            tracks[1].stop();
 
                             // Reset tracking states
                             Object.keys(containerStates).forEach(id => {
@@ -640,7 +678,7 @@ const LivestreamStudio = () => {
 
                     if (shouldRefresh) {
                         console.log('📷 [STREAM MONITOR] DOM changed significantly, refreshing video');
-                        videoTrack.stop();
+                        tracks[1].stop();
 
                         // Reset tracking states
                         Object.keys(containerStates).forEach(id => {
@@ -690,7 +728,7 @@ const LivestreamStudio = () => {
                     if (shouldLog) console.log('📷 [STREAM MONITOR] Performing periodic video track reset');
                     try {
                         // First stop all playback
-                        videoTrack.stop();
+                        tracks[1].stop();
 
                         // Reset last played timestamps to trigger replay in all containers
                         Object.keys(containerStates).forEach(id => {
@@ -751,7 +789,7 @@ const LivestreamStudio = () => {
             window.containerMonitorInterval = containerMonitor;
 
             console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
-            await client.publish([audioTrack, videoTrack]);
+            await client.publish([tracks[0], tracks[1]]);
             console.log('✅ [TRACK] Successfully published tracks to channel');
 
             // Store complete stream credentials in localStorage for reconnection
@@ -765,9 +803,19 @@ const LivestreamStudio = () => {
             localStorage.setItem(`stream_connected_${id}`, JSON.stringify(streamCredentialsForStorage));
 
             // Update tracks and start timer
-            setLocalTracks([audioTrack, videoTrack]);
-            startTimer();
+            setLocalTracks(tracks);
+            //startTimer();
             console.log('📷 [STREAM INIT] Stream initialization completed successfully');
+
+            // Initialize quality info display with current settings
+            const preset = videoSettings.preset || getQualityLabel(videoSettings.videoConfig);
+            setStreamQualityInfo({
+                resolution: `${videoSettings.videoConfig.width}×${videoSettings.videoConfig.height}`,
+                frameRate: `${videoSettings.videoConfig.frameRate} fps`,
+                bitrate: `${videoSettings.videoConfig.bitrateMax} Kbps`,
+                preset: preset,
+                dataUsage: calculateDataUsage(videoSettings.videoConfig, videoSettings.audioConfig)
+            });
 
         } catch (error) {
             if (error.code === 'DEVICE_NOT_FOUND') {
@@ -1310,13 +1358,13 @@ const LivestreamStudio = () => {
             console.log('✅ [RECONNECT] Successfully joined channel');
 
             // Create tracks after setting isStreaming - with extended timeout
-            console.log('🔄 [TRACK 1/6] Creating audio and video tracks');
+            console.log('🔄 [TRACK 1/6] Creating audio and video tracks with current settings');
             const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
                     encoderConfig: {
-                        sampleRate: 48000,
-                        stereo: true,
-                        bitrate: 128,
+                        sampleRate: videoSettings.audioConfig.sampleRate,
+                        stereo: videoSettings.audioConfig.stereo,
+                        bitrate: videoSettings.audioConfig.bitrate,
                         AEC: true,
                         ANS: true,
                         AGC: true
@@ -1324,18 +1372,23 @@ const LivestreamStudio = () => {
                 },
                 {
                     encoderConfig: {
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        frameRate: 60,
-                        bitrateMin: 1500,
-                        bitrateMax: 4000,
-                        optimizationMode: 'motion',
+                        width: videoSettings.videoConfig.width,
+                        height: videoSettings.videoConfig.height,
+                        frameRate: videoSettings.videoConfig.frameRate,
+                        bitrateMin: videoSettings.videoConfig.bitrateMin,
+                        bitrateMax: videoSettings.videoConfig.bitrateMax,
+                        optimizationMode: videoSettings.videoConfig.optimizationMode,
                     },
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 }
             );
             console.log('🔄 [TRACK 2/6] Successfully created audio and video tracks');
+
+            // Apply mirror mode from settings
+            if (videoTrack.setMirror && typeof videoTrack.setMirror === 'function') {
+                videoTrack.setMirror(videoSettings.mirrorMode);
+            }
 
             // Wait for DOM to be updated with video containers
             console.log('🔄 [TRACK 3/6] Waiting for video containers to be rendered in DOM');
@@ -1360,9 +1413,9 @@ const LivestreamStudio = () => {
                     videoTrack.play(container, {
                         fit: 'cover',
                     });
-                    
-                   
-                    
+
+
+
                     console.log(`📷 [STREAM INIT] Video playing in ${containerId}`);
                     return true;
                 } catch (e) {
@@ -1594,7 +1647,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            startTimer();
+            //startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
@@ -1652,6 +1705,7 @@ const LivestreamStudio = () => {
         }
 
         try {
+            console.log('switching camera')
             // Find the video track
             const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
             if (!videoTrack) {
@@ -1675,7 +1729,7 @@ const LivestreamStudio = () => {
 
                 console.log(`Available cameras (${cameras.length}):`,
                     cameras.map(d => `${d.label || 'Unnamed camera'} (${d.deviceId.substring(0, 8)}...)`));
-            
+
                 if (cameras.length < 2) {
                     console.error("Not enough cameras to switch between");
                     toast.dismiss(loadingToast);
@@ -1687,15 +1741,15 @@ const LivestreamStudio = () => {
                     });
                     return;
                 }
-            
+
                 console.log("STEP 2: Determining current and target cameras");
-                
+
                 // If a specific camera ID was provided, use that camera
                 let targetCamera;
                 if (specificCameraId) {
                     console.log(`Looking for specific camera with ID: ${specificCameraId.substring(0, 8)}...`);
                     targetCamera = cameras.find(cam => cam.deviceId === specificCameraId);
-                    
+
                     if (!targetCamera) {
                         console.error(`Camera with ID ${specificCameraId.substring(0, 8)}... not found`);
                         toast.dismiss(loadingToast);
@@ -1707,7 +1761,7 @@ const LivestreamStudio = () => {
                         });
                         return;
                     }
-                    
+
                     console.log(`Found specified camera: ${targetCamera.label || 'Unnamed camera'}`);
                 } else {
                     // No specific camera ID, use the default cycling behavior
@@ -1742,10 +1796,10 @@ const LivestreamStudio = () => {
                     // Get the next camera in sequence
                     const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
                     console.log(`Switching from camera ${currentCameraIndex} to camera ${nextCameraIndex}`);
-                    
+
                     targetCamera = cameras[nextCameraIndex];
                 }
-                
+
                 console.log(`Target camera: ${targetCamera.label || 'Unnamed camera'} (${targetCamera.deviceId.substring(0, 8)}...)`);
 
                 // Calculate the facing mode based on camera label
@@ -1776,7 +1830,7 @@ const LivestreamStudio = () => {
                 }
 
                 console.log(`Final calculated facing mode: ${calculatedFacingMode}`);
-                
+
                 console.log("STEP 3: AGGRESSIVE cleanup of all media resources");
                 // CRITICAL: Force release ALL media resources first
 
@@ -1792,7 +1846,7 @@ const LivestreamStudio = () => {
                                 console.log(`Stopping preview track: ${track.kind} (${track.label || 'unnamed'})`);
                                 track.stop();
                                 track.enabled = false;
-                    } catch (err) {
+                            } catch (err) {
                                 console.warn(`Failed to stop preview track: ${err.message}`);
                             }
                         });
@@ -1829,14 +1883,14 @@ const LivestreamStudio = () => {
                     console.log("3.1.5: Cleaning up any video elements in containers");
                     const desktopContainer = document.getElementById('desktop-video-container');
                     const mobileContainer = document.getElementById('mobile-video-container');
-                    
+
                     if (desktopContainer) {
                         console.log("Cleaning desktop video container");
                         while (desktopContainer.firstChild) {
                             desktopContainer.removeChild(desktopContainer.firstChild);
                         }
                     }
-                    
+
                     if (mobileContainer) {
                         console.log("Cleaning mobile video container");
                         while (mobileContainer.firstChild) {
@@ -1890,7 +1944,7 @@ const LivestreamStudio = () => {
                         try {
                             const facingModeConstraints = {
                                 video: { facingMode: { exact: "environment" } },
-                            audio: false
+                                audio: false
                             };
                             console.log("Using facingMode constraints:", JSON.stringify(facingModeConstraints, null, 2));
                             return await navigator.mediaDevices.getUserMedia(facingModeConstraints);
@@ -1910,7 +1964,7 @@ const LivestreamStudio = () => {
                                 video: {
                                     deviceId: { exact: targetCamera.deviceId }
                                 },
-                            audio: false
+                                audio: false
                             };
 
                             // Only add facingMode if we're trying to get the front camera
@@ -1971,8 +2025,8 @@ const LivestreamStudio = () => {
                                         console.log("Last resort: trying with generic video constraint");
                                         try {
                                             return await navigator.mediaDevices.getUserMedia({
-                            video: true,
-                            audio: false
+                                                video: true,
+                                                audio: false
                                             });
                                         } catch (lastError) {
                                             console.error("All camera access attempts failed:", lastError);
@@ -1997,8 +2051,8 @@ const LivestreamStudio = () => {
                 let testStream = null;
                 try {
                     testStream = await accessCamera();
-            console.log("Camera access successful!");
-            
+                    console.log("Camera access successful!");
+
                     // Validate that we got the right camera
                     const videoTrack = testStream.getVideoTracks()[0];
                     const settings = videoTrack?.getSettings();
@@ -2075,7 +2129,7 @@ const LivestreamStudio = () => {
                     console.log("Creating custom video track from camera stream");
                     newVideoTrack = AgoraRTC.createCustomVideoTrack({
                         mediaStreamTrack,
-                        optimizationMode: 'motion',
+                        optimizationMode: videoSettings.videoConfig.optimizationMode || 'motion',
                         facingMode: calculatedFacingMode
                     });
 
@@ -2088,13 +2142,13 @@ const LivestreamStudio = () => {
                         console.log("Trying fallback with createCameraVideoTrack");
                         newVideoTrack = await AgoraRTC.createCameraVideoTrack({
                             cameraId: targetCamera.deviceId,
-                encoderConfig: {
-                                width: { ideal: 1280, min: 640 },
-                                height: { ideal: 1080, min: 480 },
-                    frameRate: 30,
-                                bitrateMin: 1000,
-                                bitrateMax: 2500,
-                                optimizationMode: 'motion'
+                            encoderConfig: {
+                                width: videoSettings.videoConfig.width,
+                                height: videoSettings.videoConfig.height,
+                                frameRate: videoSettings.videoConfig.frameRate,
+                                bitrateMin: videoSettings.videoConfig.bitrateMin,
+                                bitrateMax: videoSettings.videoConfig.bitrateMax,
+                                optimizationMode: videoSettings.videoConfig.optimizationMode
                             },
                             facingMode: calculatedFacingMode
                         });
@@ -2113,10 +2167,12 @@ const LivestreamStudio = () => {
                 }
 
                 console.log("STEP 7: Configuring mirror mode and playing video");
-                // Configure mirror mode based on camera type
+                // Configure mirror mode based on camera type and settings
                 if (newVideoTrack.setMirror) {
-                    const shouldMirror = calculatedFacingMode === "user";
-                    console.log(`Setting mirror mode: ${shouldMirror}`);
+                    // For front camera (user), use the mirrorMode from settings
+                    // For back camera (environment), always set to false (no mirror)
+                    const shouldMirror = calculatedFacingMode === "user" ? videoSettings.mirrorMode : false;
+                    console.log(`Setting mirror mode: ${shouldMirror} (facingMode: ${calculatedFacingMode}, settings mirror: ${videoSettings.mirrorMode})`);
                     newVideoTrack.setMirror(shouldMirror);
                 }
 
@@ -2165,7 +2221,7 @@ const LivestreamStudio = () => {
                 // Publish the new track
                 console.log("Publishing new track to Agora channel");
                 await client.publish(newVideoTrack);
-                console.log("Track published successfully");
+                console.log(`Track published successfully`);
 
                 // Update state and local storage
                 setCameraFacingMode(calculatedFacingMode);
@@ -2201,7 +2257,7 @@ const LivestreamStudio = () => {
             });
         }
     };
-    
+
     // Add code to load camera state from localStorage in initializeStream
     useEffect(() => {
         // Load camera facing mode from localStorage when livestream ID is available
@@ -2251,6 +2307,138 @@ const LivestreamStudio = () => {
         }
     };
 
+    // Handle video settings changes
+    const handleApplyVideoSettings = (newSettings) => {
+        console.log('Applying new video settings:', newSettings);
+        setVideoSettings(newSettings);
+        
+        // Save settings to localStorage for persistence
+        localStorage.setItem(`video_settings_${id}`, JSON.stringify(newSettings));
+        
+        // If we're already streaming, update the tracks with new settings
+        if (isStreaming && localTracks.length > 0) {
+            updateVideoTrackSettings(newSettings);
+        }
+    };
+    
+    // Update video track settings while streaming
+    const updateVideoTrackSettings = async (settings) => {
+        try {
+            if (!localTracks) return;
+            
+            const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
+            if (!videoTrack) return;
+            
+            // Apply mirror mode if available
+            if (settings.mirrorMode !== undefined) {
+              setMirrorMode(settings.mirrorMode);
+              // Check if setMirrorMode method exists before calling it
+              if (videoTrack.setMirror && typeof videoTrack.setMirror === 'function') {
+                await videoTrack.setMirror(settings.mirrorMode);
+              } else if (videoTrack.setMirrorMode && typeof videoTrack.setMirrorMode === 'function') {
+                await videoTrack.setMirrorMode(settings.mirrorMode);
+              } else {
+                console.log('Mirror mode method not available on this video track');
+              }
+            }
+            
+            // Get device capabilities before applying settings
+            const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : null;
+            
+            // Adjust encoder configuration based on device capabilities
+            const encoderConfig = { ...settings.videoConfig };
+            
+            // If capabilities are available, ensure we don't exceed them
+            if (capabilities) {
+              if (capabilities.width && capabilities.width.max && encoderConfig.width > capabilities.width.max) {
+                encoderConfig.width = capabilities.width.max;
+              }
+              
+              if (capabilities.height && capabilities.height.max && encoderConfig.height > capabilities.height.max) {
+                encoderConfig.height = capabilities.height.max;
+              }
+              
+              if (capabilities.frameRate && capabilities.frameRate.max && encoderConfig.frameRate > capabilities.frameRate.max) {
+                encoderConfig.frameRate = Math.floor(capabilities.frameRate.max);
+              }
+            }
+            
+            // Before applying the settings, let's show a toast to the user
+            toast.info('Applying video quality settings...');
+            
+            // Apply the video settings
+            await videoTrack.setEncoderConfiguration(encoderConfig);
+            
+            // Update audio settings if provided and audio track exists
+            if (settings.audioConfig) {
+              const audioTrack = localTracks.find(track => track.trackMediaType === 'audio');
+              if (audioTrack) {
+                // Apply audio settings here - this depends on what Agora supports
+                if (audioTrack.setEncoderConfiguration) {
+                  await audioTrack.setEncoderConfiguration(settings.audioConfig);
+                }
+              }
+            }
+            
+            // Save the current settings for later reference
+            setVideoSettings({
+              ...settings,
+              videoConfig: encoderConfig, // Store the adjusted config
+              appliedAt: new Date().toISOString()
+            });
+            
+            // Show success message
+            toast.success('Video quality settings applied successfully');
+            
+            // Add a quality indicator on screen
+            const preset = settings.preset || getQualityLabel(encoderConfig);
+            setStreamQualityInfo({
+              resolution: `${encoderConfig.width}×${encoderConfig.height}`,
+              frameRate: `${encoderConfig.frameRate} fps`,
+              bitrate: `${encoderConfig.bitrateMax} Kbps`,
+              preset: preset,
+              dataUsage: calculateDataUsage(encoderConfig, settings.audioConfig)
+            });
+            
+          } catch (error) {
+            console.error('Failed to update video settings:', error);
+            toast.error('Failed to update video settings');
+          }
+    };
+
+    // Helper function to get quality label based on encoder config
+    const getQualityLabel = (config) => {
+      if (config.width >= 1920) return '1080p';
+      if (config.width >= 1280) return '720p';
+      if (config.width >= 640 && config.height >= 480) return '480p';
+      if (config.width >= 640) return '360p';
+      return '240p';
+    };
+
+    // Handler for opening video settings modal
+    const handleOpenVideoSettings = () => {
+        setIsVideoSettingsModalOpen(true);
+    };
+
+    // Add this function where appropriate
+    const calculateDataUsage = (videoConfig, audioConfig) => {
+      if (!videoConfig || !audioConfig) return null;
+      
+      // Calculate video data usage in MB per hour
+      // Formula: bitrate (kbps) * 60 * 60 / 8 / 1024 = MB per hour
+      const videoBitrate = videoConfig.bitrateMax || 0;
+      const audioBitrate = audioConfig.bitrate || 0;
+      
+      const totalBitrateKbps = videoBitrate + audioBitrate;
+      const mbPerHour = Math.round((totalBitrateKbps * 60 * 60) / (8 * 1024));
+      
+      // Format based on size
+      if (mbPerHour >= 1000) {
+        return `${(mbPerHour / 1000).toFixed(1)}GB`;
+      }
+      return `${mbPerHour}MB`;
+    };
+
     return (
         <div className="min-h-screen xl:p-6 bg-[#000000] text-white">
             {
@@ -2282,6 +2470,7 @@ const LivestreamStudio = () => {
                                             formatCurrency={formatCurrency}
                                             seller={seller}
                                             isReconnecting={isReconnecting}
+                                            onOpenVideoSettings={handleOpenVideoSettings}
                                         />
                                         <PreStreamMobileUi
                                             handleStartStream={handleStartStream}
@@ -2299,6 +2488,7 @@ const LivestreamStudio = () => {
                                             viewers={viewers}
                                             totalShares={totalShares}
                                             isReconnecting={isReconnecting}
+                                            onOpenVideoSettings={handleOpenVideoSettings}
                                         />
                                     </div>
                                 ) : (
@@ -2317,8 +2507,12 @@ const LivestreamStudio = () => {
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
-                                                    isToolsSidebarOpen={isToolsSidebarOpen}
-                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    orders={orders}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    onOpenVideoSettings={handleOpenVideoSettings}
+                                                    streamQualityInfo={streamQualityInfo}
+                                                    onHideQualityInfo={() => setStreamQualityInfo(null)}
                                                 />
                                                 <AuctionStreamMobileUi
                                                     endStream={endStream}
@@ -2334,6 +2528,10 @@ const LivestreamStudio = () => {
                                                     setIsToolsSidebarOpen={setIsToolsSidebarOpen}
                                                     viewers={viewers}
                                                     totalShares={totalShares}
+                                                    switchCamera={switchCamera}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    onOpenVideoSettings={handleOpenVideoSettings}
                                                 />
                                             </>
                                         ) : (
@@ -2350,8 +2548,12 @@ const LivestreamStudio = () => {
                                                     products={products}
                                                     formatCurrency={formatCurrency}
                                                     seller={seller}
-                                                    isToolsSidebarOpen={isToolsSidebarOpen}
-                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    orders={orders}
+                                                    onOpenVideoSettings={handleOpenVideoSettings}
+                                                    streamQualityInfo={streamQualityInfo}
+                                                    onHideQualityInfo={() => setStreamQualityInfo(null)}
                                                 />
                                                 <StreamMobileUi
                                                     endStream={endStream}
@@ -2370,6 +2572,7 @@ const LivestreamStudio = () => {
                                                     switchCamera={switchCamera}
                                                     toggleMicrophone={toggleMicrophone}
                                                     isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    onOpenVideoSettings={handleOpenVideoSettings}
                                                 />
                                             </>
                                         )}
@@ -2380,6 +2583,15 @@ const LivestreamStudio = () => {
                     </>
                 )
             }
+
+            {/* Video Settings Modal */}
+            <VideoSettingsModal
+                isOpen={isVideoSettingsModalOpen}
+                onClose={() => setIsVideoSettingsModalOpen(false)}
+                currentSettings={videoSettings}
+                onApplySettings={handleApplyVideoSettings}
+                isStreaming={isStreaming}
+            />
         </div>
     );
 

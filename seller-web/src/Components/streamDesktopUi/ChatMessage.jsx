@@ -23,6 +23,8 @@ const getUsernameColor = (username) => {
 };
 
 const ChatMessage = ({ message }) => {
+
+  console.log('chat message', message);
   // Get a consistent color for this username
   const usernameColor = useMemo(() =>
     getUsernameColor((message && message.user) || 'user'),
