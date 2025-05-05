@@ -184,6 +184,7 @@ const LivestreamStudio = () => {
 
     const sellerData = localStorage.getItem('seller');
     const seller = JSON.parse(sellerData);
+    console.log('stream seller', seller)
     const firstName = seller?.firstName;
     const lastName = seller?.lastName;
 
@@ -803,7 +804,7 @@ const LivestreamStudio = () => {
 
             // Update tracks and start timer
             setLocalTracks(tracks);
-            startTimer();
+            //startTimer();
             console.log('📷 [STREAM INIT] Stream initialization completed successfully');
 
             // Initialize quality info display with current settings
@@ -1646,7 +1647,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            startTimer();
+            //startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
@@ -1704,6 +1705,7 @@ const LivestreamStudio = () => {
         }
 
         try {
+            console.log('switching camera')
             // Find the video track
             const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
             if (!videoTrack) {
@@ -2127,7 +2129,7 @@ const LivestreamStudio = () => {
                     console.log("Creating custom video track from camera stream");
                     newVideoTrack = AgoraRTC.createCustomVideoTrack({
                         mediaStreamTrack,
-                        optimizationMode: 'motion',
+                        optimizationMode: videoSettings.videoConfig.optimizationMode || 'motion',
                         facingMode: calculatedFacingMode
                     });
 
@@ -2141,12 +2143,12 @@ const LivestreamStudio = () => {
                         newVideoTrack = await AgoraRTC.createCameraVideoTrack({
                             cameraId: targetCamera.deviceId,
                             encoderConfig: {
-                                width: { ideal: 1280, min: 640 },
-                                height: { ideal: 1080, min: 480 },
-                                frameRate: 30,
-                                bitrateMin: 1000,
-                                bitrateMax: 2500,
-                                optimizationMode: 'motion'
+                                width: videoSettings.videoConfig.width,
+                                height: videoSettings.videoConfig.height,
+                                frameRate: videoSettings.videoConfig.frameRate,
+                                bitrateMin: videoSettings.videoConfig.bitrateMin,
+                                bitrateMax: videoSettings.videoConfig.bitrateMax,
+                                optimizationMode: videoSettings.videoConfig.optimizationMode
                             },
                             facingMode: calculatedFacingMode
                         });
@@ -2165,10 +2167,12 @@ const LivestreamStudio = () => {
                 }
 
                 console.log("STEP 7: Configuring mirror mode and playing video");
-                // Configure mirror mode based on camera type
+                // Configure mirror mode based on camera type and settings
                 if (newVideoTrack.setMirror) {
-                    const shouldMirror = calculatedFacingMode === "user";
-                    console.log(`Setting mirror mode: ${shouldMirror}`);
+                    // For front camera (user), use the mirrorMode from settings
+                    // For back camera (environment), always set to false (no mirror)
+                    const shouldMirror = calculatedFacingMode === "user" ? videoSettings.mirrorMode : false;
+                    console.log(`Setting mirror mode: ${shouldMirror} (facingMode: ${calculatedFacingMode}, settings mirror: ${videoSettings.mirrorMode})`);
                     newVideoTrack.setMirror(shouldMirror);
                 }
 
@@ -2217,7 +2221,7 @@ const LivestreamStudio = () => {
                 // Publish the new track
                 console.log("Publishing new track to Agora channel");
                 await client.publish(newVideoTrack);
-                console.log("Track published successfully");
+                console.log(`Track published successfully`);
 
                 // Update state and local storage
                 setCameraFacingMode(calculatedFacingMode);
@@ -2524,6 +2528,9 @@ const LivestreamStudio = () => {
                                                     setIsToolsSidebarOpen={setIsToolsSidebarOpen}
                                                     viewers={viewers}
                                                     totalShares={totalShares}
+                                                    switchCamera={switchCamera}
+                                                    toggleMicrophone={toggleMicrophone}
+                                                    isMicrophoneEnabled={isMicrophoneEnabled}
                                                     onOpenVideoSettings={handleOpenVideoSettings}
                                                 />
                                             </>

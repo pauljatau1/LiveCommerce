@@ -342,7 +342,7 @@ const VideoSettingsModal = ({
             <div className="bg-[#272A31] p-2 rounded-full">
               <Icon icon="solar:settings-linear" className="w-5 h-5 text-[#14AE5C]" />
             </div>
-            <h2 className="font-lexend text-xl font-bold text-[#EFF0FA]">Stream Settings</h2>
+            <h2 className="font-lexend text-lg xl:text-xl font-bold text-[#EFF0FA]">Stream Settings</h2>
           </div>
           <button 
             onClick={onClose}
@@ -404,19 +404,19 @@ const VideoSettingsModal = ({
               {configMode === 'quick' ? (
                 /* Quick Presets */
                 <div className="space-y-5">
-                  <p className="text-[#EFF0FA] mb-3 text-center">Choose a pre-configured quality setting:</p>
+                  <p className="text-[#EFF0FA] text-sm mb-3 text-center">Choose a pre-configured quality setting:</p>
                   {Object.entries(VIDEO_PRESETS).map(([key, preset]) => (
                     <div 
                       key={key}
                       className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${selectedPreset === key ? 'border-[#14AE5C] bg-[#14AE5C]/10' : 'border-[#272A31] hover:bg-[#161A1E]'}`}
                       onClick={() => setSelectedPreset(key)}
                     >
-                      <div className={`w-5 h-5 rounded-full flex-shrink-0 ${selectedPreset === key ? 'bg-[#14AE5C]' : 'border border-[#7A828A]'}`}>
-                        {selectedPreset === key && <Icon icon="heroicons:check" className="w-5 h-5 text-white" />}
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${selectedPreset === key ? 'bg-[#14AE5C]' : 'border border-[#7A828A]'}`}>
+                        {selectedPreset === key && <Icon icon="heroicons:check" className="w-3 h-3 text-white" />}
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-[#EFF0FA] font-medium">{preset.name}</h3>
-                        <p className="text-[#7A828A] text-sm">{preset.description}</p>
+                        <h3 className="text-[#EFF0FA] text-sm font-medium">{preset.name}</h3>
+                        <p className="text-[#7A828A] text-xs">{preset.description}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className="text-xs px-2 py-1 bg-[#272A31] rounded-full text-[#EFF0FA]">
                             {preset.encoderConfig.width}×{preset.encoderConfig.height}
@@ -447,7 +447,7 @@ const VideoSettingsModal = ({
                       {RESOLUTION_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${resolution === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
+                          className={`px-3 py-2 text-xs xl:text-sm rounded-lg transition-colors ${resolution === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
                           onClick={() => setResolution(option.value)}
                         >
                           {option.label}
@@ -463,7 +463,7 @@ const VideoSettingsModal = ({
                       {FRAMERATE_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${frameRate === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
+                          className={`px-3 py-2 text-xs xl:text-sm rounded-lg transition-colors ${frameRate === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
                           onClick={() => setFrameRate(option.value)}
                         >
                           {option.label}
@@ -479,7 +479,7 @@ const VideoSettingsModal = ({
                       {BITRATE_OPTIONS.map((option, index) => (
                         <button
                           key={index}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${bitrate.max === option.max ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
+                          className={`px-3 py-2 text-xs xl:text-sm rounded-lg transition-colors ${bitrate.max === option.max ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
                           onClick={() => setBitrate({ min: option.min, max: option.max })}
                         >
                           {option.label}
@@ -495,7 +495,7 @@ const VideoSettingsModal = ({
                       {OPTIMIZATION_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${optimizationMode === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
+                          className={`px-3 py-2 text-xs xl:text-sm rounded-lg transition-colors ${optimizationMode === option.value ? 'bg-[#14AE5C] text-white' : 'bg-[#161A1E] text-[#7A828A] hover:bg-[#272A31]'}`}
                           onClick={() => setOptimizationMode(option.value)}
                         >
                           {option.label}
@@ -511,7 +511,7 @@ const VideoSettingsModal = ({
                       {AUDIO_QUALITY_OPTIONS.map((option, index) => (
                         <button
                           key={index}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                          className={`px-3 py-2 text-xs xl:text-sm rounded-lg transition-colors ${
                             audioQuality.bitrate === option.value.bitrate && 
                             audioQuality.stereo === option.value.stereo ? 
                             'bg-[#14AE5C] text-white' : 
@@ -531,14 +531,14 @@ const VideoSettingsModal = ({
               <div className="mt-6 bg-[#161A1E] p-4 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-[#EFF0FA] font-medium">Mirror Mode</h3>
-                    <p className="text-[#7A828A] text-sm">When using front camera, mirror the view</p>
+                    <h3 className="text-[#EFF0FA] text-sm font-medium">Mirror Mode</h3>
+                    <p className="text-[#7A828A] text-xs xl:text-sm">When using front camera, mirror the view</p>
                   </div>
                   <button 
                     onClick={() => setMirrorMode(!mirrorMode)}
                     className={`w-12 h-6 rounded-full relative transition-colors ${mirrorMode ? 'bg-[#14AE5C]' : 'bg-[#272A31]'}`}
                   >
-                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${mirrorMode ? 'translate-x-6' : ''}`} />
+                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${mirrorMode ? 'translate-x-5 md:translate-x-6' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -575,8 +575,8 @@ const VideoSettingsModal = ({
                   <div className="flex items-start gap-3">
                     <Icon icon="heroicons:exclamation-triangle" className="w-5 h-5 text-[#C74E5B] flex-shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-[#C74E5B] font-medium mb-1">Stream Will Update</h4>
-                      <p className="text-[#EFF0FA] text-sm">
+                      <h4 className="text-[#C74E5B] text-sm font-medium mb-1">Stream Will Update</h4>
+                      <p className="text-[#EFF0FA] text-xs md:text-sm">
                         Changing stream settings during an active stream may cause a brief interruption for your viewers.
                       </p>
                     </div>

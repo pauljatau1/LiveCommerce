@@ -227,6 +227,9 @@ const StreamDesktopUi = ({
                                                     <p className="text-sm text-[#718096] font-inter font-medium">
                                                         {formatCurrency(item?.product?.price)}
                                                     </p>
+                                                    <p className="text-sm text-[#718096] font-inter font-medium">
+                                                        Orders: <span className="text-[#EFF0FA] font-inter font-medium">10</span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         ))

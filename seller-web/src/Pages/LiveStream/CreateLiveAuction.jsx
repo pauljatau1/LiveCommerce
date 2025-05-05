@@ -1253,7 +1253,7 @@ const CreateLiveAuction = () => {
 
         {/* Select Products */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
             <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
             <div className="text-sm text-gray-500">
               Selected: {allSelectedProducts.length}/10

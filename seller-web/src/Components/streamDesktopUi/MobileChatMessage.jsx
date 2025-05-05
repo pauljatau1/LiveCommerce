@@ -215,7 +215,7 @@ const MobileChatMessage = ({ message }) => {
               <div className="flex items-center gap-1">
                 <Icon icon="game-icons:trophy-cup" className="w-3 h-3 text-[#FFD700]" />
                 <p className="text-[11px] font-semibold text-[#FFD700]">
-                  {message.user} won!
+                  {message?.data?.bidWinner?.buyer?.username} won!
                 </p>
               </div>
               {message.data?.bidAmount && (
