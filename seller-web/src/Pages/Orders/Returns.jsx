@@ -1,13 +1,13 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table"
+import { Button } from "@/Components/ui/button"
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card } from "@/Components/ui/card"
+import { Badge } from "@/Components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 import { CalendarIcon, FilterIcon, ChevronRight, Package, AlertTriangle } from "lucide-react"
 import { BASE_URL } from "@/Constants/Server"
 import { useOutletContext, useNavigate } from "react-router-dom"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 
 export default function ReturnsDashboard() {
     const { setHeaderName, setNavName } = useOutletContext()

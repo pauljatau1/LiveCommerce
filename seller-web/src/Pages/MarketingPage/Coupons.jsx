@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Input } from "@/Components/ui/input"
+import { Label } from "@/Components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"
+import { Checkbox } from "@/Components/ui/checkbox"
+import { Button } from "@/Components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table"
 import { Search } from "lucide-react"
 import { BASE_URL } from "@/Constants/Server"
 import axios from "axios"
@@ -14,18 +14,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/Components/ui/dialog"
 import { useNavigate } from "react-router-dom"
 import { CheckCircle, AlertCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/Components/ui/badge"
 import { InfoIcon } from "lucide-react"
 import { Calendar as CalendarIcon } from "lucide-react"
-import { Calendar } from "@/components/ui/calendar"
+import { Calendar } from "@/Components/ui/calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/Components/ui/popover"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import PropTypes from "prop-types";

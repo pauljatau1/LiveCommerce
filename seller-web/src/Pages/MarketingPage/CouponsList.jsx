@@ -9,9 +9,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+} from "@/Components/ui/table"
+import { Button } from "@/Components/ui/button"
+import { Badge } from "@/Components/ui/badge"
 import { Edit2, Trash2, CheckCircle, XCircle, Plus, CalendarIcon, ShoppingBag, AlertTriangle } from "lucide-react"
 import {
   Dialog,
@@ -20,12 +20,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/Components/ui/dialog"
+import { Input } from "@/Components/ui/input"
+import { Label } from "@/Components/ui/label"
 import { Loader2 } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"
+import { Checkbox } from "@/Components/ui/checkbox"
 
 export default function CouponsList() {
   const [coupons, setCoupons] = useState([])

@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/Components/ui/card"
+import { Badge } from "@/Components/ui/badge"
 import { format } from "date-fns"
 import { BASE_URL } from "@/Constants/Server"
 import { Eye, ShoppingCart, Star, Package, Barcode, Store, ShoppingBag } from "lucide-react"
-import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
+import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/Components/ui/table"
+import { Skeleton } from "@/Components/ui/skeleton"
+import { Button } from "@/Components/ui/button"
 
 export default function ShopTab({ sellerId }) {
   const [products, setProducts] = useState([])

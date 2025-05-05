@@ -1,13 +1,13 @@
 import React, { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table"
+import { Button } from "@/Components/ui/button"
 import { Link } from "react-router-dom"
 import { format } from "date-fns"
 import { CalendarIcon, ShoppingBag, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Badge } from "@/components/ui/badge"
+import { Calendar } from "@/Components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/Components/ui/popover"
+import { Badge } from "@/Components/ui/badge"
 import PropTypes from "prop-types";
 
 const OrdersTable = ({ orders = { orders: [] } }) => {

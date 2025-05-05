@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useOutletContext, Link } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/Components/ui/button"
+import { Card, CardContent, CardFooter, CardHeader } from "@/Components/ui/card"
+import { Badge } from "@/Components/ui/badge"
 import { HiSpeakerphone } from "react-icons/hi"
 import { IoTicketSharp, IoFlashSharp } from "react-icons/io5"
 import { BiMessageRoundedDots } from "react-icons/bi"

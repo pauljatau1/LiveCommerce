@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback} from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader } from "@/Components/ui/card";
+import { Avatar, AvatarFallback} from "@/Components/ui/avatar";
 import { Star, Send, MessageCircle, ThumbsUp, Calendar, Award, Reply, DollarSign } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { BASE_URL } from "@/Constants/Server";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/Components/ui/badge";
+import { Button } from "@/Components/ui/button";
+import { Textarea } from "@/Components/ui/textarea";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/Components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "@/Components/ui/dialog";
 import PropTypes from "prop-types";
 export default function ReviewsTab({ sellerId }) {
   const [reviews, setReviews] = useState([]);
