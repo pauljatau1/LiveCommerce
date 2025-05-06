@@ -43,14 +43,14 @@
         "disabled": true
       },
       "ios": {
-        "image": "latest",
+        "image": "macos-sonoma-14.6-xcode-16.0",
         "resourceClass": "m-medium"
       }
     }
   },
   "submit": {
-   "production": {
-      "ios":{
+    "production": {
+      "ios": {
         "appleId": "wmford@gmail.com",
         "ascAppId": "6744903818",
         "appleTeamId": "X7YD37D846"
