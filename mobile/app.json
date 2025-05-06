@@ -25,9 +25,9 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "associatedDomains": [
-        "applinks:app.auqli.live"
-      ]
+      "associatedDomains": ["applinks:app.auqli.live"],
+      "usesIcloudStorage": false,
+      "bitcode": false
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
@@ -49,17 +49,11 @@
               "pathPrefix": "/"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "INTERNET",
-        "RECORD_AUDIO"
-      ]
+      "permissions": ["INTERNET", "RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -86,7 +80,12 @@
       "expo-dev-client",
       "@react-native-google-signin/google-signin",
       "expo-tracking-transparency",
-      "expo-video"
+      [
+        "expo-video",
+        {
+          "cachingEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
