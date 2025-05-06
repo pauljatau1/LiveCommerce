@@ -1,38 +1,33 @@
-version: '3'
-
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: auqli-mongodb
+  api:
+    image: node:20
+    # command: sh -c "apt-get update  && apt-get install bcrypt -y && cd usr/src/app && npm install && npm run dev"
+    command: sh -c "cd usr/src/app && npm install && npm run dev"
+    #command: "sleep 3600"
     ports:
-      - '27017:27017'
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - auqli-network
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: auqli-server
-    restart: unless-stopped
-    ports:
-      - '8000:8000'
+      - "8000:8000"
     depends_on:
       - mongodb
     environment:
-      - NODE_ENV=production
-      - PORT=8000
-      - MONGODB_URI=mongodb://mongodb:27017/auqli
-      - MONGODB_CONNECTION_RETRIES=5
-      - MONGODB_RETRY_INTERVAL=5000
-    networks:
-      - auqli-network
-
-networks:
-  auqli-network:
-    driver: bridge
-
+      - MONGODB_URI=mongodb://mongodb:27017/api?replicaSet=rs0
+      - NODE_ENV=development
+    volumes:
+      - .:/usr/src/app
+  mongodb:
+    image: mongo:latest
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017',priority:1}]}) }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 volumes:
   mongodb_data:
