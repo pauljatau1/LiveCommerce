@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Smartphone, Laptop, MoreVertical, Lock } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/Components/ui/card"
+import { Button } from "@/Components/ui/button"
+import { Input } from "@/Components/ui/input"
+import { Label } from "@/Components/ui/label"
 import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 

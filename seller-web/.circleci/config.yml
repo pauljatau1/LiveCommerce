@@ -3,12 +3,12 @@ parameters:
   working_dir:
     type: string
     default: "/tmp/project"
-  vendor_path:
+  build_path:
     type: string
-    default: "node_modules"
+    default: "dist"
   docker_base_image_version:
     type: string
-    default: "node:20"
+    default: "node:20.19.1"
   docker_job_image:
     type: string
     default: "cimg/python:3.9.1"
@@ -28,6 +28,7 @@ executors:
 orbs:
   aws-ecr: circleci/aws-ecr@9.3.4
   aws-ecs: circleci/aws-ecs@2.2.1
+  aws-cli: circleci/aws-cli@5.1.1
 
 commands:
   login_with_web_identity:
@@ -71,23 +72,15 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            npm install yarn@1.22.22
-            npm install @rollup/rollup-linux-x64-gnu@4.9.5 --ignore-scripts
-            npm install @esbuild/linux-x64 --ignore-scripts
-            npm install --no-optional
-            npm install --platform=linux --arch=x64
-            for component in table dialog avatar command select; do
-              if [ ! -f "src/Components/ui/${component}.jsx" ]; then
-                npx shadcn-ui@latest add ${component} --yes
-              fi
-            done
+            npm install
+            npm run build
       - store_artifacts:
           path: package-lock.json
       - save_cache:
           name: Save vendor cache
           key: v1-seller-{{ .Revision }}
           paths:
-            - << pipeline.parameters.vendor_path >>
+            - << pipeline.parameters.build_path >>
   vendor_restore_cache:
     description: Restore vendor cache
     steps:
@@ -123,6 +116,42 @@ commands:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  invalidate_cache_staging:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "298884149618"
+      - run:
+         name: Invalidate CDN cache
+         command: aws cloudfront create-invalidation --distribution-id E2A1RA51EP2VY4 --paths "/index.html"
+  invalidate_cache_production:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "090877363449"
+      - run:
+         name: Invalidate CDN cache
+         command: aws cloudfront create-invalidation --distribution-id E1UAP4XRDDBXUX --paths "/index.html"
+  deploy_to_s3_staging:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "298884149618"
+      - run:
+         name: Deploy new code
+         command: cd dist/ && aws s3 sync . s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+  deploy_to_s3_production:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "090877363449"
+      - run:
+         name: Deploy new code
+         command: cd dist/ && aws s3 sync . s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
 
 jobs:
   build:
@@ -131,6 +160,16 @@ jobs:
       - add_deploy_key
       - checkout
       - vendor_install_with_cache
+
+  remove_cache_production:
+    executor: build
+    steps:
+      - invalidate_cache_production
+
+  remove_cache_staging:
+    executor: build
+    steps:
+      - invalidate_cache_staging
 
   build-and-push-backend-image-staging:
     executor: docker-machine
@@ -150,71 +189,80 @@ jobs:
       - build_backend_image:
           account_id: "090877363449"
 
+  deploy_to_staging:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - deploy_to_s3_staging
+
+  deploy_to_production:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - deploy_to_s3_production
+
 workflows:
   build-test-and-approval-deploy:
     jobs:
-      - build
-
-      - approve-build-backend-image-staging:
-          type: approval
-          requires:
-            - build
-
-      - build-and-push-backend-image-staging:
-          requires:
-          - approve-build-backend-image-staging
+      - build:
+          name: build_staging
           context:
-            - foundations_auqli_staging
+            - auqli_seller_staging_context
 
       - approve-staging-backend-deploy:
           type: approval
           requires:
-            - build-and-push-backend-image-staging
-          context:
-            - foundations_auqli_staging
+            - build_staging
 
-      - aws-ecs/deploy-service-update:
+      - deploy_to_staging:
           name: deploy-to-staging-backend
           context:
             - foundations_auqli_staging
           requires:
             - approve-staging-backend-deploy
-          cluster-name: 'staging-auqli'
-          family: 'staging-auqli-seller-dashboard'
-          service-name: 'staging-auqli-seller-dashboard'
-          container-image-name-updates: 'container=staging-auqli-seller,tag=$CIRCLE_SHA1'
-          container-env-var-updates: 'container=staging-auqli-seller,name=APP_ENV,value=staging,container=staging-auqli-seller,name=BRANCH,value=$CIRCLE_BRANCH'
-          verify-revision-is-deployed: true
-          docker-image-for-job: << pipeline.parameters.docker_job_image >>
 
-      - approve-build-backend-image-production:
-          type: approval
+      - remove_cache_staging:
           requires:
-            - build
-
-      - build-and-push-backend-image-production:
-          requires:
-          - approve-build-backend-image-production
+            - deploy-to-staging-backend
+     
+      - build:
+          name: build_production
           context:
-            - foundations_auqli_production
+            - auqli_seller_production_context
+          filters:
+            branches:
+              only:
+                - main
 
       - approve-production-backend-deploy:
           type: approval
           requires:
-            - build-and-push-backend-image-production
-          context:
-            - foundations_auqli_production
+            - build_production
+          filters:
+            branches:
+              only:
+                - main
 
-      - aws-ecs/deploy-service-update:
+      - deploy_to_production:
           name: deploy-to-production-backend
           context:
             - foundations_auqli_production
           requires:
             - approve-production-backend-deploy
-          cluster-name: 'production-auqli'
-          family: 'production-auqli-seller-dashboard'
-          service-name: 'production-auqli-seller-dashboard'
-          container-image-name-updates: 'container=production-auqli-seller,tag=$CIRCLE_SHA1'
-          container-env-var-updates: 'container=production-auqli-seller,name=APP_ENV,value=production,container=production-auqli-seller,name=BRANCH,value=$CIRCLE_BRANCH'
-          verify-revision-is-deployed: true
-          docker-image-for-job: << pipeline.parameters.docker_job_image >>
+          filters:
+            branches:
+              only:
+                - main
+
+      - remove_cache_production:
+          requires:
+            - deploy-to-production-backend
+          filters:
+            branches:
+              only:
+                - main
+
