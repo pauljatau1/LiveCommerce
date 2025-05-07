@@ -850,6 +850,12 @@ exports.createOrder = async (req, res) => {
         senderEmail: sellerSenderInfo.senderEmail || seller.email || '',
       };
       
+      // Add cashOnDeliveryAmount for COD orders
+      if (isItemCod && !paidFromWallet) {
+        const orderTotal = order.totalAmount + sellerShippingFee;
+        fezRequest.cashOnDeliveryAmount = orderTotal.toString();
+      }
+      
       // Add optional fields if provided
       if (pickUpDate) {
         fezRequest.pickUpDate = pickUpDate;
@@ -891,6 +897,16 @@ exports.createOrder = async (req, res) => {
     // Skip Fez API call for store pickup orders
     let fezResponse = { data: { status: 'Success', orderNos: {} } };
     if (!isStorePickup) {
+      // Log the complete request being sent to Fez API
+      console.log('FEZ API REQUEST DETAILS:');
+      console.log('URL:', `${FEZ_API_URL}/order`);
+      console.log('Headers:', {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY,
+        'Content-Type': 'application/json'
+      });
+      console.log('Request Body:', JSON.stringify(fezRequests, null, 2));
+
       // Make API call to Fez Delivery with fresh token
       fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
         headers: {
