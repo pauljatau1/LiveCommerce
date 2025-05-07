@@ -205,9 +205,30 @@ exports.createStream = async (req, res) => {
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)
-      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
 
+    // Initialize stream-specific notification room if socket.io is available
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+      console.log(`Initialized stream notification room: ${streamRoom}`);
+      
+      // Create initialization notification for room to ensure it exists in Socket.IO's room registry
+      const initNotification = {
+        id: Date.now().toString(),
+        type: 'room_init',
+        content: 'Stream notification room initialized',
+        data: {
+          streamId: stream._id.toString(),
+          streamType: stream.type,
+          status: 'scheduled'
+        },
+        timestamp: new Date()
+      };
+      
+      io.to(streamRoom).emit('stream_room_initialized', initNotification);
+    }
 
     res.status(201).json({
       message: 'Stream created successfully',
@@ -317,7 +338,7 @@ exports.startStream = async (req, res) => {
       );
 
       // Send push notifications to all followers
-      if (seller.followers && seller.followers.length > 0) {
+      {/*if (seller.followers && seller.followers.length > 0) {
         const notifications = await Promise.all(
           seller.followers.map(async (follower) => {
             const userToken = await getToken(follower.buyerId);
@@ -337,7 +358,7 @@ exports.startStream = async (req, res) => {
         if (validNotifications.length > 0) {
           await expo.sendPushNotificationsAsync(validNotifications);
         }
-      }
+      }*/}
 
       // After updating the stream to 'live' status
       // Add this code to notify subscribers
@@ -1442,6 +1463,27 @@ exports.createOpenLiveShow = async (req, res) => {
       .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
 
+    // Initialize stream-specific notification room if socket.io is available
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+      console.log(`Initialized stream notification room: ${streamRoom}`);
+      
+      // Create initialization notification for room to ensure it exists in Socket.IO's room registry
+      const initNotification = {
+        id: Date.now().toString(),
+        type: 'room_init',
+        content: 'Stream notification room initialized',
+        data: {
+          streamId: stream._id.toString(),
+          streamType: stream.type,
+          status: 'scheduled'
+        },
+        timestamp: new Date()
+      };
+      
+      io.to(streamRoom).emit('stream_room_initialized', initNotification);
+    }
 
     res.status(201).json({
       message: 'Open live show created successfully',
