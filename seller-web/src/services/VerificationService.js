@@ -27,19 +27,19 @@ export const VerificationService = {
 
       console.log('response', response);
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 1: Account Type Selected", {
-          "Account Type": accountType,
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 1: Account Type Selected", {
+      //     "Account Type": accountType,
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       
       return response.data;
@@ -68,24 +68,24 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 2: Individual Information Updated", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Country": individualInfo.country,
-          "State": individualInfo.state,
-          "City": individualInfo.city,
-          "Address Line 1": individualInfo.addressLine1,
-          "Address Line 2": individualInfo.addressLine2,
-          "Zip Code": individualInfo.zipCode,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 2: Individual Information Updated", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Country": individualInfo.country,
+      //     "State": individualInfo.state,
+      //     "City": individualInfo.city,
+      //     "Address Line 1": individualInfo.addressLine1,
+      //     "Address Line 2": individualInfo.addressLine2,
+      //     "Zip Code": individualInfo.zipCode,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -130,21 +130,21 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 3: Individual Verification Documents Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Individual Tax ID": documents.individualTaxId ? "Uploaded" : "Not Uploaded",
-          "Government ID": documents.governmentId ? "Uploaded" : "Not Uploaded",
-          "Proof of Address": documents.proofOfAddress ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 3: Individual Verification Documents Uploaded", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Individual Tax ID": documents.individualTaxId ? "Uploaded" : "Not Uploaded",
+      //     "Government ID": documents.governmentId ? "Uploaded" : "Not Uploaded",
+      //     "Proof of Address": documents.proofOfAddress ? "Uploaded" : "Not Uploaded",
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -172,21 +172,21 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 4: Business Details Added", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Business Name": businessDetails.businessName,
-          "Business Type": businessDetails.businessType,
-          "Tax Information": businessDetails.taxInformation,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 4: Business Details Added", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Business Name": businessDetails.businessName,
+      //     "Business Type": businessDetails.businessType,
+      //     "Tax Information": businessDetails.taxInformation,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
     } catch (error) {
       console.error('Error adding business details:', error);
@@ -213,24 +213,24 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 5: Business Information Added", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Business Number": businessInfo.businessNumber,
-          "Business Email": businessInfo.businessEmail,
-          "Business Country": businessInfo.businessAddress.country,
-          "Business State": businessInfo.businessAddress.state,
-          "Business City": businessInfo.businessAddress.city,
-          "Business Address": businessInfo.businessAddress.addressLine1,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 5: Business Information Added", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Business Number": businessInfo.businessNumber,
+      //     "Business Email": businessInfo.businessEmail,
+      //     "Business Country": businessInfo.businessAddress.country,
+      //     "Business State": businessInfo.businessAddress.state,
+      //     "Business City": businessInfo.businessAddress.city,
+      //     "Business Address": businessInfo.businessAddress.addressLine1,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -271,20 +271,20 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 6: Company Verification Documents Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
-          "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 6: Company Verification Documents Uploaded", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
+      //     "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -343,19 +343,19 @@ export const VerificationService = {
         }
       );
       
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 7: Categories Selected", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Categories": categories.map(cat => cat.name).join(', '),
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 7: Categories Selected", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Categories": categories.map(cat => cat.name).join(', '),
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       return response.data;
     } catch (error) {
       console.error('Error selecting categories:', error);
@@ -382,26 +382,26 @@ export const VerificationService = {
         }
       );
       
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 8: Bank Details Added", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Bank Country": bankDetails.bankCountry,
-          "Bank Name": bankDetails.bankName,
-          "Account Type": bankDetails.accountType,
-          "Account Currency": bankDetails.accountCurrency,
-          "Account Number": bankDetails.accountNumber,
-          "Account Name": bankDetails.accountName,
-          "SWIFT Code": bankDetails.swiftCode,
-          "Bank Identifier Code": bankDetails.bankIdentifierCode,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 8: Bank Details Added", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Bank Country": bankDetails.bankCountry,
+      //     "Bank Name": bankDetails.bankName,
+      //     "Account Type": bankDetails.accountType,
+      //     "Account Currency": bankDetails.accountCurrency,
+      //     "Account Number": bankDetails.accountNumber,
+      //     "Account Name": bankDetails.accountName,
+      //     "SWIFT Code": bankDetails.swiftCode,
+      //     "Bank Identifier Code": bankDetails.bankIdentifierCode,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -435,19 +435,19 @@ export const VerificationService = {
         }
       );
       
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 9: Store Avatar Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Avatar": avatarFile ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 9: Store Avatar Uploaded", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Avatar": avatarFile ? "Uploaded" : "Not Uploaded",
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
@@ -481,19 +481,19 @@ export const VerificationService = {
         }
       );
       
-      if (response.status === 200) {
-        mixpanel.track("seller onboarding step 10: Store Banner Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Banner": bannerFile ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("seller onboarding step 10: Store Banner Uploaded", {
+      //     "seller id": sellerData._id,
+      //     "seller email": sellerData.email,
+      //     "seller store name": sellerData.storeName,
+      //     "seller first name": sellerData.firstName,
+      //     "seller last name": sellerData.lastName,
+      //     "seller phone number": sellerData.phoneNumber,
+      //     "Banner": bannerFile ? "Uploaded" : "Not Uploaded",
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       return response.data;
     } catch (error) {
       console.error('Error uploading store banner:', error);
@@ -520,45 +520,45 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        mixpanel.track("Seller Final Onboarding Step: Store Profile Updated", {
-          "Seller ID": sellerData._id,
-          "Seller Email": sellerData.email,
-          "Seller Store Name": sellerData.storeName,
-          "Seller First Name": sellerData.firstName,
-          "Seller Last Name": sellerData.lastName,
-          "Seller Phone Number": sellerData.phoneNumber,
-          "New Store Name": storeProfile.storeName,
-          "New Store Bio": storeProfile.storeBio,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
+      // if (response.status === 200) {
+      //   mixpanel.track("Seller Final Onboarding Step: Store Profile Updated", {
+      //     "Seller ID": sellerData._id,
+      //     "Seller Email": sellerData.email,
+      //     "Seller Store Name": sellerData.storeName,
+      //     "Seller First Name": sellerData.firstName,
+      //     "Seller Last Name": sellerData.lastName,
+      //     "Seller Phone Number": sellerData.phoneNumber,
+      //     "New Store Name": storeProfile.storeName,
+      //     "New Store Bio": storeProfile.storeBio,
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
 
-        // Track seller profile completion with Customer.io
-        if (window.cioanalytics) {
-          // First re-identify the user to ensure the connection is active
-          window.cioanalytics.identify(sellerData._id, {
-            seller_id: sellerData._id,
-            email: sellerData.email,
-            first_name: sellerData.firstName,
-            last_name: sellerData.lastName,
-            store_name: sellerData.storeName,
-            created_at: Math.floor(new Date(sellerData.createdAt).getTime() / 1000),
-            user_type: 'seller'
-          });
+      //   // Track seller profile completion with Customer.io
+      //   if (window.cioanalytics) {
+      //     // First re-identify the user to ensure the connection is active
+      //     window.cioanalytics.identify(sellerData._id, {
+      //       seller_id: sellerData._id,
+      //       email: sellerData.email,
+      //       first_name: sellerData.firstName,
+      //       last_name: sellerData.lastName,
+      //       store_name: sellerData.storeName,
+      //       created_at: Math.floor(new Date(sellerData.createdAt).getTime() / 1000),
+      //       user_type: 'seller'
+      //     });
           
-          // Then track the event after a small delay
-          setTimeout(() => {
-            window.cioanalytics.track('seller_profile_completed', {
-              seller_id: sellerData._id,
-              store_name: storeProfile.storeName,
-              first_name: sellerData.firstName,
-              last_name: sellerData.lastName,
-              location: `${sellerData?.businessAddress?.country || ''}, ${sellerData?.businessAddress?.city || ''}, ${sellerData?.businessAddress?.state || ''}`
-            });
-          }, 500);
-        }
-      }
+      //     // Then track the event after a small delay
+      //     setTimeout(() => {
+      //       window.cioanalytics.track('seller_profile_completed', {
+      //         seller_id: sellerData._id,
+      //         store_name: storeProfile.storeName,
+      //         first_name: sellerData.firstName,
+      //         last_name: sellerData.lastName,
+      //         location: `${sellerData?.businessAddress?.country || ''}, ${sellerData?.businessAddress?.city || ''}, ${sellerData?.businessAddress?.state || ''}`
+      //       });
+      //     }, 500);
+      //   }
+      // }
       
       return response.data;
     } catch (error) {
@@ -586,19 +586,19 @@ export const VerificationService = {
         }
       );
       
-      if (response.status === 200) {
-        mixpanel.track("Seller onboarding step 12: Account Pending Status Updated", {
-          "Seller ID": sellerData._id,
-          "Seller Email": sellerData.email,
-          "Seller Store Name": sellerData.storeName,
-          "Seller First Name": sellerData.firstName,
-          "Seller Last Name": sellerData.lastName,
-          "Seller Phone Number": sellerData.phoneNumber,
-          "Pending Status": status ? "Pending" : "Not Pending",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
+      // if (response.status === 200) {
+      //   mixpanel.track("Seller onboarding step 12: Account Pending Status Updated", {
+      //     "Seller ID": sellerData._id,
+      //     "Seller Email": sellerData.email,
+      //     "Seller Store Name": sellerData.storeName,
+      //     "Seller First Name": sellerData.firstName,
+      //     "Seller Last Name": sellerData.lastName,
+      //     "Seller Phone Number": sellerData.phoneNumber,
+      //     "Pending Status": status ? "Pending" : "Not Pending",
+      //     "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+      //     "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+      //   });
+      // }
       
       return response.data;
     } catch (error) {
