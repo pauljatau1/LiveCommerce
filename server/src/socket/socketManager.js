@@ -998,9 +998,12 @@ function initializeSocket(server) {
         socket.join(roomName);
         console.log(`User ${socket.user.id} subscribed to notifications for stream ${data.streamId}`);
       } else {
-        // Join the general notification room for backward compatibility
-        socket.join('stream_notifications');
-        console.log(`User ${socket.user.id} subscribed to general stream notifications`);
+        // Send error instead of joining general room
+        socket.emit('stream_notification_error', { 
+          error: 'Missing streamId parameter', 
+          message: 'StreamId is required to subscribe to stream notifications' 
+        });
+        console.log(`User ${socket.user.id} attempted to subscribe to stream notifications without providing streamId`);
       }
     });
 
