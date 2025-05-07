@@ -9,15 +9,25 @@ import { useOutletContext } from 'react-router-dom';
 import LiveAuctionProductsCard from '../../Components/LiveAuctionProductsCard';
 import PropTypes from 'prop-types';
 
-const SuccessModal = ({ isOpen, onClose }) => {
+const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) => {
     const navigate = useNavigate();
-    const { setHeaderName, setNavName } = useOutletContext()
-    useEffect(() => {
-        setHeaderName('Live Streams')
-        setNavName('Submit Live Auction')
-    }, [])
 
     if (!isOpen) return null;
+
+    const handleStartImmediately = () => {
+        if (shouldStartImmediately) {
+            navigate(`/dashboard/live-streams/live-stream-studio/${livestream._id}`)
+        } else {
+            return (
+                <button
+                    onClick={() => navigate('/dashboard/live-streams/scheduled-shows')}
+                    className="flex-1 px-4 py-2.5 whitespace-nowrap text-xs font-medium text-white bg-[#16783A] rounded-sm hover:bg-[#16783A]/90 transition-all duration-300"
+                >
+                    GO TO SCHEDULED SHOWS
+                </button>
+            )
+        }
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-lg">
@@ -53,12 +63,7 @@ const SuccessModal = ({ isOpen, onClose }) => {
 
                     {/* Buttons */}
                     <div className="flex flex-col md:flex-row gap-3 w-full pt-4">
-                        <button
-                            onClick={() => navigate('/dashboard/live-streams/scheduled-shows')}
-                            className="flex-1 px-4 py-2.5 whitespace-nowrap text-xs font-medium text-white bg-[#16783A] rounded-sm hover:bg-[#16783A]/90 transition-all duration-300"
-                        >
-                            GO TO SCHEDULED SHOWS
-                        </button>
+                        {handleStartImmediately()}
                         <button
                             onClick={onClose}
                             className="px-6 py-2.5 w-full text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 flex items-center justify-center gap-2"
@@ -83,6 +88,8 @@ const SuccessModal = ({ isOpen, onClose }) => {
 SuccessModal.propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
+    shouldStartImmediately: PropTypes.bool.isRequired,
+    livestream: PropTypes.object.isRequired
 };
 
 const SubmitLiveAuction = () => {
@@ -90,11 +97,20 @@ const SubmitLiveAuction = () => {
     const { livestream, scheduleLiveAuction, isLoading, message } = useLivestreamContext();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const { setHeaderName, setNavName } = useOutletContext();
+    const [shouldStartImmediately, setShouldStartImmediately] = useState(false);
+    const [livestreamData, setLivestreamData] = useState(null);
 
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Submit Live Auction');
     }, [setHeaderName, setNavName]);
+
+    useEffect(() => {
+        if (livestream.startImmediately) {
+            console.log('startImmediately', livestream.startImmediately);
+            setShouldStartImmediately(livestream.startImmediately);
+        }
+    }, []);
 
     useEffect(() => {
         if (message === 'livestream scheduled successfully') {
@@ -135,7 +151,10 @@ const SubmitLiveAuction = () => {
 
         try {
             if (streamData.title && streamData.description && streamData.coverImage && streamData.products.length > 0) {
-                await scheduleLiveAuction(streamData);
+                const response = await scheduleLiveAuction(streamData);
+                if (response) {
+                    setLivestreamData(response);
+                }
             } else {
                 toast.error('Please fill in all fields', {
                     style: {
@@ -301,6 +320,8 @@ const SubmitLiveAuction = () => {
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={() => setShowSuccessModal(false)}
+                shouldStartImmediately={shouldStartImmediately}
+                livestream={livestreamData}
             />
         </>
     );
