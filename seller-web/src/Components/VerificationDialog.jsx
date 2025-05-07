@@ -86,7 +86,7 @@ function VerificationDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md rounded-xl shadow-xl border border-orange-100">
+        <DialogContent className="max-w-xl rounded-xl shadow-xl border border-orange-100">
           <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center gap-3 text-orange-600 text-xl font-semibold">
               <div className="bg-orange-100 p-2 rounded-full">

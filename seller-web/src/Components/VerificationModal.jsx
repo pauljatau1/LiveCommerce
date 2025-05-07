@@ -8,7 +8,6 @@ import {
   User, 
   Upload, 
   CheckCircle, 
-  ListChecks, 
   FileText, 
   Home, 
   MapPin, 
@@ -20,8 +19,6 @@ import {
   FileCheck, 
   Shield, 
   ShieldCheck, 
-  Tag, 
-  BookOpen, 
   Store, 
   Sparkles,
   CheckSquare,
@@ -146,17 +143,12 @@ const VerificationModal = ({ isOpen, onClose }) => {
   const [accountType, setAccountType] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [apiCategories, setApiCategories] = useState([]);
   const [previewUrls, setPreviewUrls] = useState({
     storeBanner: null,
     storeProfileImage: null
   });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [displayedCategories, setDisplayedCategories] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState({
-    submission: false,
-    categories: false
+    submission: false
   });
   const [formData, setFormData] = useState({
     // Personal Information (Individual)
@@ -183,14 +175,9 @@ const VerificationModal = ({ isOpen, onClose }) => {
     businessEmail: '',
     businessPhone: '',
     
-    // Business Address (uses the same fields as personal address)
-    
     // Business Documentation
     certificateOfIncorporation: null,
     businessTaxId: null,
-    
-    // Categories (shared)
-    categories: [],
     
     // Bank Information (shared)
     bankName: '',
@@ -226,22 +213,22 @@ const VerificationModal = ({ isOpen, onClose }) => {
   };
 
   // Fetch categories when component mounts
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setIsLoading(prev => ({ ...prev, categories: true }));
-        const categoriesData = await VerificationService.getCategories();
-        setApiCategories(categoriesData);
-      } catch (error) {
-        console.error('Failed to fetch categories:', error);
-        toast.error('Failed to load product categories');
-      } finally {
-        setIsLoading(prev => ({ ...prev, categories: false }));
-      }
-    };
+  // useEffect(() => {
+  //   const fetchCategories = async () => {
+  //     try {
+  //       setIsLoading(prev => ({ ...prev, categories: true }));
+  //       const categoriesData = await VerificationService.getCategories();
+  //       setApiCategories(categoriesData);
+  //     } catch (error) {
+  //       console.error('Failed to fetch categories:', error);
+  //       toast.error('Failed to load product categories');
+  //     } finally {
+  //       setIsLoading(prev => ({ ...prev, categories: false }));
+  //     }
+  //   };
     
-    fetchCategories();
-  }, []);
+  //   fetchCategories();
+  // }, []);
 
   // Update preview URLs when files are selected
   useEffect(() => {
@@ -330,17 +317,9 @@ const VerificationModal = ({ isOpen, onClose }) => {
     });
   };
 
-  const handleCategoryToggle = (category) => {
-    const updatedCategories = formData.categories.includes(category)
-      ? formData.categories.filter(c => c !== category)
-      : [...formData.categories, category];
-    
-    setFormData({
-      ...formData,
-      categories: updatedCategories
-    });
-  };
+  
 
+  
   const handleSubmit = async () => {
     try {
       setIsLoading(prev => ({ ...prev, submission: true }));
@@ -350,10 +329,13 @@ const VerificationModal = ({ isOpen, onClose }) => {
       
       // 2. Process steps based on account type
       if (accountType === 'individual') {
+        // Get seller data from localStorage for name
+        const seller = JSON.parse(localStorage.getItem('seller')) || {};
+        
         // Update individual information
         const individualInfo = {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+          firstName: seller.firstName || '',
+          lastName: seller.lastName || '',
           sellerAddress: {
             country: formData.country,
             state: formData.state,
@@ -388,9 +370,12 @@ const VerificationModal = ({ isOpen, onClose }) => {
         await VerificationService.addBusinessDetails(businessDetails);
         
         // Step 2: Add business contact and address information
+        // Get seller data from localStorage for email and phone
+        const seller = JSON.parse(localStorage.getItem('seller')) || {};
+        
         const businessInfo = {
-          businessEmail: formData.businessEmail,
-          businessNumber: formData.businessPhone,
+          businessEmail: seller.email || '',  // Use email from seller data
+          businessNumber: seller.phoneNumber || '', // Use phone number from seller data
           businessAddress: {
             country: formData.country,
             state: formData.state,
@@ -414,19 +399,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
         }
       }
       
-      // 3. Select categories
-      const categoryData = formData.categories.map(cat => {
-        const apiCategory = apiCategories.find(c => c.name === cat);
-        return {
-          name: cat,
-          id: apiCategory?._id || '',
-          subCategories: [] // We would implement sub-category selection if needed
-        };
-      });
-      
-      await VerificationService.selectCategories(categoryData);
-      
-      // 4. Update bank details
+      // 3. Update bank details
       const bankDetails = {
         bankCountry: formData.bankCountry,
         bankName: formData.bankName,
@@ -440,7 +413,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       
       await VerificationService.addBankDetails(bankDetails);
       
-      // 5. Upload store images if they exist
+      // 4. Upload store images if they exist
       if (formData.storeProfileImage) {
         await VerificationService.uploadStoreAvatar(formData.storeProfileImage);
       }
@@ -449,7 +422,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
         await VerificationService.uploadStoreBanner(formData.storeBanner);
       }
       
-      // 6. Update store profile
+      // 5. Update store profile
       const storeProfile = {
         storeName: formData.storeName || undefined,
         aboutStore: formData.storeBio
@@ -457,7 +430,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       
       await VerificationService.updateStoreProfile(storeProfile);
       
-      // 7. Set account status to pending for review
+      // 6. Set account status to pending for review
       const response = await VerificationService.updateAccountPendingStatus(true);
       
       // Immediately update the localStorage seller data to reflect the pending status
@@ -556,32 +529,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
     );
   };
 
-  // Define the handler for category search
-  const handleSearchChange = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    
-    if (query.trim().length === 0) {
-      setDisplayedCategories([]);
-      setIsSearching(false);
-      return;
-    }
-    
-    setIsSearching(true);
-    
-    try {
-      if (query.trim().length >= 2) {
-        const results = await VerificationService.searchCategories(query);
-        setDisplayedCategories(results);
-      }
-    } catch (error) {
-      console.error('Error searching categories:', error);
-      toast.error('Failed to search categories');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   // Let's update the validateCurrentStep function to require all document uploads
   const validateCurrentStep = () => {
     // Account Type selection validation
@@ -604,7 +551,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
     if (accountType === 'individual') {
       // Personal Information
       if (currentStepInfo.id === 'personal-info') {
-        return formData.firstName && formData.lastName && formData.country && formData.state && 
+        return formData.country && formData.state && 
                formData.city && formData.streetAddress1 && formData.zipCode;
       }
       
@@ -624,8 +571,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       
       // Business Contact and Address
       if (currentStepInfo.id === 'business-contact') {
-        return formData.businessEmail && formData.businessPhone && 
-               formData.country && formData.state && formData.city && 
+        return formData.country && formData.state && formData.city && 
                formData.streetAddress1 && formData.zipCode;
       }
       
@@ -636,11 +582,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
     }
     
     // Common validations for both account types
-    // Categories
-    if (currentStepInfo.id === 'categories') {
-      return formData.categories.length > 0;
-    }
-    
     // Bank Information
     if (currentStepInfo.id === 'bank-information') {
       return formData.bankName && 
@@ -679,38 +620,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
             <p className="text-sm text-blue-700 dark:text-blue-300">
               This information will be used to verify your identity and for payment processing. Please ensure all details are accurate.
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName" className="flex items-center gap-1.5 text-sm font-medium">
-                <User className="h-4 w-4 text-gray-500" /> First Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleInputChange}
-                placeholder="Your first name"
-                required
-                className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="lastName" className="flex items-center gap-1.5 text-sm font-medium">
-                <User className="h-4 w-4 text-gray-500" /> Last Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleInputChange}
-                placeholder="Your last name"
-                required
-                className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10"
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -932,168 +841,125 @@ const VerificationModal = ({ isOpen, onClose }) => {
     },
     {
       id: 'business-contact',
-      title: "Business Contact Information",
-      description: "How customers can reach your business",
+      title: "Business Address",
+      description: "Where your business is located",
       content: (
         <div className="space-y-4 py-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4 flex items-center gap-3">
             <InfoIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              This contact information will be used for business communications and may be displayed to customers.
+              Please provide your business address details. This information will be used for verification and may appear on invoices.
             </p>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="businessEmail" className="flex items-center gap-1.5 text-sm font-medium">
-              <Mail className="h-4 w-4 text-gray-500" /> Business Email <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="businessEmail"
-              name="businessEmail"
-              type="email"
-              value={formData.businessEmail}
-              onChange={handleInputChange}
-              placeholder="contact@yourbusiness.com"
-              required
-              className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Your official business email for communication with Auqli and customers
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="country" className="flex items-center gap-1.5 text-sm font-medium">
+                <Globe className="h-4 w-4 text-gray-500" /> Country <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Select
+                  value={formData.country}
+                  onValueChange={(value) => setFormData({...formData, country: value})}
+                  defaultValue="nigeria"
+                >
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
+                    <SelectValue placeholder="Select your country" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-100">
+                    <SelectItem value="nigeria">Nigeria</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="state" className="flex items-center gap-1.5 text-sm font-medium">
+                <MapPin className="h-4 w-4 text-gray-500" /> State/Province <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Select
+                  value={formData.state}
+                  onValueChange={handleStateChange}
+                >
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
+                    <SelectValue placeholder="Select your state" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-100 max-h-[300px]">
+                    {NIGERIAN_STATES.map((state) => (
+                      <SelectItem key={state} value={state}>{state}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="businessPhone" className="flex items-center gap-1.5 text-sm font-medium">
-              <Phone className="h-4 w-4 text-gray-500" /> Business Phone Number <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="businessPhone"
-              name="businessPhone"
-              value={formData.businessPhone}
-              onChange={handleInputChange}
-              placeholder="+234 000 0000 000"
-              required
-              className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Include country code (e.g., +234 for Nigeria)
-            </p>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-blue-600" /> Business Address
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="country" className="flex items-center gap-1.5 text-sm font-medium">
-                  <Globe className="h-4 w-4 text-gray-500" /> Country <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Select
-                    value={formData.country}
-                    onValueChange={(value) => setFormData({...formData, country: value})}
-                    defaultValue="nigeria"
-                  >
-                    <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
-                      <SelectValue placeholder="Select your country" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-100">
-                      <SelectItem value="nigeria">Nigeria</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="state" className="flex items-center gap-1.5 text-sm font-medium">
-                  <MapPin className="h-4 w-4 text-gray-500" /> State/Province <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Select
-                    value={formData.state}
-                    onValueChange={handleStateChange}
-                  >
-                    <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
-                      <SelectValue placeholder="Select your state" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-100 max-h-[300px]">
-                      {NIGERIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>{state}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="city" className="flex items-center gap-1.5 text-sm font-medium">
+                <Home className="h-4 w-4 text-gray-500" /> City <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Select
+                  value={formData.city}
+                  onValueChange={(value) => setFormData({...formData, city: value})}
+                  disabled={!formData.state}
+                >
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
+                    <SelectValue placeholder={formData.state ? "Select your city" : "Select state first"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-100 max-h-[300px]">
+                    {formData.state && NIGERIAN_CITIES[formData.state]?.map((city) => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="city" className="flex items-center gap-1.5 text-sm font-medium">
-                  <Home className="h-4 w-4 text-gray-500" /> City <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Select
-                    value={formData.city}
-                    onValueChange={(value) => setFormData({...formData, city: value})}
-                    disabled={!formData.state}
-                  >
-                    <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10">
-                      <SelectValue placeholder={formData.state ? "Select your city" : "Select state first"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-100 max-h-[300px]">
-                      {formData.state && NIGERIAN_CITIES[formData.state]?.map((city) => (
-                        <SelectItem key={city} value={city}>{city}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zipCode" className="flex items-center gap-1.5 text-sm font-medium">
-                  <MapPin className="h-4 w-4 text-gray-500" /> Zip/Postal Code <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="zipCode"
-                  name="zipCode"
-                  value={formData.zipCode}
-                  onChange={handleInputChange}
-                  placeholder="Zip/Postal code"
-                  required
-                  className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="streetAddress1" className="flex items-center gap-1.5 text-sm font-medium">
-                <Home className="h-4 w-4 text-gray-500" /> Street Address Line 1 <span className="text-red-500">*</span>
+            <div className="space-y-2">
+              <Label htmlFor="zipCode" className="flex items-center gap-1.5 text-sm font-medium">
+                <MapPin className="h-4 w-4 text-gray-500" /> Zip/Postal Code <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="streetAddress1"
-                name="streetAddress1"
-                value={formData.streetAddress1}
+                id="zipCode"
+                name="zipCode"
+                value={formData.zipCode}
                 onChange={handleInputChange}
-                placeholder="Street address, P.O. box, company name"
+                placeholder="Zip/Postal code"
                 required
-                className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
+                className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10"
               />
             </div>
-            
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="streetAddress2" className="flex items-center gap-1.5 text-sm font-medium">
-                <Home className="h-4 w-4 text-gray-500" /> Street Address Line 2
-              </Label>
-              <Input
-                id="streetAddress2"
-                name="streetAddress2"
-                value={formData.streetAddress2}
-                onChange={handleInputChange}
-                placeholder="Apartment, suite, unit, building, floor, etc."
-                className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
-              />
-            </div>
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="streetAddress1" className="flex items-center gap-1.5 text-sm font-medium">
+              <Home className="h-4 w-4 text-gray-500" /> Street Address Line 1 <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="streetAddress1"
+              name="streetAddress1"
+              value={formData.streetAddress1}
+              onChange={handleInputChange}
+              placeholder="Street address, P.O. box, company name"
+              required
+              className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
+            />
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="streetAddress2" className="flex items-center gap-1.5 text-sm font-medium">
+              <Home className="h-4 w-4 text-gray-500" /> Street Address Line 2
+            </Label>
+            <Input
+              id="streetAddress2"
+              name="streetAddress2"
+              value={formData.streetAddress2}
+              onChange={handleInputChange}
+              placeholder="Apartment, suite, unit, building, floor, etc."
+              className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10"
+            />
           </div>
         </div>
       ),
@@ -1123,204 +989,6 @@ const VerificationModal = ({ isOpen, onClose }) => {
   ];
 
   const getCommonEndingSteps = () => [
-    {
-      id: 'categories',
-      title: "Product Categories",
-      description: "Select the categories of products you'll be selling",
-      content: (
-        <div className="py-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6 flex items-center gap-3 border border-blue-100 dark:border-blue-800">
-            <Tag className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              Choose the categories that best match the products you plan to sell on Auqli.
-              You can select multiple categories.
-            </p>
-          </div>
-          
-          {/* Search Input */}
-          <div className="mb-6 relative">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Search for categories..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="w-full pl-10 h-10 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              {searchQuery && (
-                <button 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDisplayedCategories([]);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Search by category or subcategory name
-            </p>
-          </div>
-          
-          {isLoading.categories ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-10 w-10 text-green-600 animate-spin mb-4" />
-              <p className="text-gray-600 dark:text-gray-300">Loading categories...</p>
-            </div>
-          ) : (
-            <>
-              {searchQuery ? (
-                // Show search results
-                displayedCategories.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {displayedCategories.map(category => (
-                      <div 
-                        key={category._id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
-                          formData.categories.includes(category.name) 
-                            ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
-                            : 'border-gray-200 dark:border-gray-700'
-                        }`}
-                        onClick={() => handleCategoryToggle(category.name)}
-                      >
-                        <div className={`p-2 rounded-full ${
-                          formData.categories.includes(category.name)
-                            ? 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-400' 
-                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                        }`}>
-                          {category.image?.url ? (
-                            <img 
-                              src={category.image.url} 
-                              alt={category.name} 
-                              className="h-4 w-4 object-cover"
-                            />
-                          ) : (
-                            <Tag className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <Label 
-                            htmlFor={`category-${category._id}`} 
-                            className="cursor-pointer font-medium text-sm"
-                          >
-                            {category.name}
-                          </Label>
-                          {category.matchingSubCategories && category.matchingSubCategories.length > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              <span className="text-gray-400">Matches: </span>
-                              {category.matchingSubCategories.map((sub, idx) => (
-                                <span key={idx} className="text-green-600 dark:text-green-400">
-                                  {sub.name} {idx < category.matchingSubCategories.length - 1 ? ', ' : ''}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <Checkbox 
-                          id={`category-${category._id}`}
-                          checked={formData.categories.includes(category.name)}
-                          className={`h-5 w-5 ${
-                            formData.categories.includes(category.name)
-                              ? 'text-green-600 dark:text-green-500'
-                              : ''
-                          }`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-4 py-8 text-center text-sm text-gray-500 bg-gray-50/50">
-                    {isSearching ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
-                        <span>Searching...</span>
-                      </div>
-                    ) : (
-                      'No categories found'
-                    )}
-                  </div>
-                )
-              ) : (
-                // Show all categories
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {apiCategories
-                    .sort((a, b) => a.name.localeCompare(b.name)) // Sort categories alphabetically
-                    .map(category => (
-                    <div 
-                      key={category._id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
-                        formData.categories.includes(category.name) 
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
-                          : 'border-gray-200 dark:border-gray-700'
-                      }`}
-                      onClick={() => handleCategoryToggle(category.name)}
-                    >
-                      <div className={`p-2 rounded-full ${
-                        formData.categories.includes(category.name)
-                          ? 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-400' 
-                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                      }`}>
-                        {category.image?.url ? (
-                          <img 
-                            src={category.image.url} 
-                            alt={category.name} 
-                            className="h-4 w-4 object-cover"
-                          />
-                        ) : (
-                          <Tag className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <Label 
-                          htmlFor={`category-${category._id}`} 
-                          className="cursor-pointer font-medium text-sm"
-                        >
-                          {category.name}
-                        </Label>
-                      </div>
-                      <Checkbox 
-                        id={`category-${category._id}`}
-                        checked={formData.categories.includes(category.name)}
-                        className={`h-5 w-5 ${
-                          formData.categories.includes(category.name)
-                            ? 'text-green-600 dark:text-green-500'
-                            : ''
-                        }`}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-          
-          {formData.categories.length > 0 && (
-            <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-              <h4 className="text-sm font-medium text-green-800 dark:text-green-300 mb-2 flex items-center gap-2">
-                <ListChecks className="h-4 w-4" />
-                Selected Categories ({formData.categories.length})
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {formData.categories
-                  .sort((a, b) => a.localeCompare(b)) // Sort selected categories alphabetically
-                  .map(cat => (
-                  <div key={cat} className="bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 text-xs px-2 py-1 rounded-full border border-green-200 dark:border-green-700 flex items-center gap-1.5">
-                    <CheckCircle className="h-3 w-3" /> {cat}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ),
-    },
     {
       id: 'bank-information',
       title: "Bank Information",
@@ -2021,9 +1689,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
               {currentStepData.id === 'documentation' && <FileCheck className="h-5 w-5 text-green-600" />}
               {currentStepData.id === 'business-details' && <Building className="h-5 w-5 text-blue-600" />}
               {currentStepData.id === 'business-contact' && <Phone className="h-5 w-5 text-blue-600" />}
-              {currentStepData.id === 'business-address' && <MapPin className="h-5 w-5 text-blue-600" />}
               {currentStepData.id === 'business-documentation' && <FileText className="h-5 w-5 text-blue-600" />}
-              {currentStepData.id === 'categories' && <Tag className="h-5 w-5 text-purple-600" />}
               {currentStepData.id === 'bank-information' && <CreditCard className="h-5 w-5 text-blue-600" />}
               {currentStepData.id === 'store-bio' && <Store className="h-5 w-5 text-purple-600" />}
               {currentStepData.id === 'terms-conditions' && <ShieldCheck className="h-5 w-5 text-purple-600" />}
@@ -2136,7 +1802,10 @@ const VerificationModal = ({ isOpen, onClose }) => {
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="mt-0">Return to Verification</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={onClose}
+              onClick={() => {
+                setShowConfirmDialog(false);
+                onClose();
+              }}
               className="bg-red-600 text-white hover:bg-red-700"
             >
               Leave Anyway
