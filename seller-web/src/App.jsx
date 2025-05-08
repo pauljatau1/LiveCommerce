@@ -78,8 +78,8 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <ProtectedRoute>
-          <SocketProvider>
-            <LivestreamSocketProvider>
+          <LivestreamSocketProvider>
+            <SocketProvider>
               <OnboardingProvider>
                 <TooltipProvider>
                   <Suspense fallback={<Loader />}>
@@ -87,8 +87,8 @@ const router = createBrowserRouter([
                   </Suspense>
                 </TooltipProvider>
               </OnboardingProvider>
-            </LivestreamSocketProvider>
-          </SocketProvider>
+            </SocketProvider>
+          </LivestreamSocketProvider>
         </ProtectedRoute>
       </AuthProvider>
     ),
@@ -117,9 +117,11 @@ const router = createBrowserRouter([
           <AuthProvider>
             <ProtectedRoute>
               <SocketProvider>
-                <OnboardingProvider>
-                  <OnboardingLayout />
-                </OnboardingProvider>
+                <LivestreamSocketProvider>
+                  <OnboardingProvider>
+                    <OnboardingLayout />
+                  </OnboardingProvider>
+                </LivestreamSocketProvider>
               </SocketProvider>
             </ProtectedRoute>
           </AuthProvider >
@@ -208,11 +210,13 @@ const router = createBrowserRouter([
           <AuthProvider>
             <DashboardRoute>
               <SocketProvider>
-                <OnboardingProvider>
-                  <ProductProvider>
-                    <DashboardLayout />
-                  </ProductProvider>
-                </OnboardingProvider>
+                <LivestreamSocketProvider>
+                  <OnboardingProvider>
+                    <ProductProvider>
+                      <DashboardLayout />
+                    </ProductProvider>
+                  </OnboardingProvider>
+                </LivestreamSocketProvider>
               </SocketProvider>
             </DashboardRoute>
           </AuthProvider>
@@ -424,7 +428,7 @@ function App() {
   const handleConsentAccept = () => {
     // Get user data if available
     const seller = JSON.parse(localStorage.getItem('seller'));
-    
+
     // Initialize all analytics systems with user data if available
     initAllAnalytics({
       userData: seller ? {
