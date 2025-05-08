@@ -151,7 +151,7 @@ commands:
           account_id: "090877363449"
       - run:
          name: Deploy new code
-         command: cd dist/ && aws s3 sync . s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+         command: cd dist/ && aws s3 sync . s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
 
 jobs:
   build:
