@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import VerificationModal from "../../Components/VerificationModal";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { Icon } from "@iconify/react";
-import mixpanel from "mixpanel-browser";
+import { trackEvent } from "@/util/analytics";
 
 export default function AccountPage() {
   const { setHeaderName } = useOutletContext();
@@ -343,7 +343,7 @@ export default function AccountPage() {
         isOpen={verificationModalOpen} 
         onClose={() => {
           setVerificationModalOpen(false);
-          mixpanel.track("Seller Skipped Onboarding Verification", {
+          trackEvent("Seller Skipped Onboarding Verification", {
             "seller id": profile._id,
             "seller email": profile.email,
             "seller store name": profile.storeName,
@@ -362,7 +362,7 @@ export default function AccountPage() {
           isOpen={verificationDialogOpen}
           onClose={() => {
             setVerificationDialogOpen(false);
-            mixpanel.track("Seller Skipped Onboarding Verification", {
+            trackEvent("Seller Skipped Onboarding Verification", {
               "seller id": profile._id,
               "seller email": profile.email,
               "seller store name": profile.storeName,

@@ -89,17 +89,22 @@ export const initClarity = async (userData = null) => {
 
 /**
  * Initialize Customer.io
- * @param {string} token - Customer.io site ID
  * @returns {Promise<any>} - The Customer.io instance
  */
-export const initCustomerIO = async (token) => {
+export const initCustomerIO = async () => {
   if (customerIOInitialized && window.cioanalytics) return window.cioanalytics;
   
   try {
     if (window.cioanalytics) {
-      window.cioanalytics.load(token);
-      window.cioanalytics.page();
+      // The snippet already creates window.cioanalytics
+      // Just mark as initialized if it exists
       customerIOInitialized = true;
+      
+      // Only call page() if it's a function
+      if (typeof window.cioanalytics.page === 'function') {
+        window.cioanalytics.page();
+      }
+      
       return window.cioanalytics;
     }
     return createNoopAnalytics();
@@ -236,7 +241,6 @@ export const ensureInitialized = async (options = {}) => {
 export const initAllAnalytics = async (options = {}) => {
   const {
     mixpanelToken = DEFAULT_CONFIG.mixpanelToken,
-    customerIOToken = import.meta.env.VITE_CIO_API_KEY,
     userData = null,
     debug = DEFAULT_CONFIG.debug
   } = options;
@@ -247,7 +251,7 @@ export const initAllAnalytics = async (options = {}) => {
       ...options.mixpanelOptions 
     });
     
-    const customerIO = await initCustomerIO(customerIOToken);
+    const customerIO = await initCustomerIO();
     const clarity = await initClarity(userData);
     
     return {

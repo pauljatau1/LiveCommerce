@@ -3,7 +3,7 @@ import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import axios from "axios";
-import mixpanel from "mixpanel-browser";
+import { trackEvent } from "../util/analytics";
 
 const LivestreamContext = createContext();
 
@@ -163,7 +163,7 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
-                mixpanel.track("Live Show Scheduled", {
+                trackEvent("Live Show Scheduled", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -238,7 +238,7 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
-                mixpanel.track("Live Auction Scheduled", {
+                trackEvent("Live Auction Scheduled", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -357,7 +357,7 @@ export const LivestreamProvider = ({ children }) => {
                     }
                 });
 
-                mixpanel.track("Live Show Started", {
+                trackEvent("Live Show Started", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -458,7 +458,7 @@ export const LivestreamProvider = ({ children }) => {
                 });
 
                 // Track the livestream end event
-                mixpanel.track("Live Stream Ended", {
+                trackEvent("Live Stream Ended", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
