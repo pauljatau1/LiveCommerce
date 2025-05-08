@@ -3,10 +3,9 @@ import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
 import { Button } from "@/Components/ui/button"
 import { Textarea } from "@/Components/ui/textarea"
-import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { Checkbox } from "@/Components/ui/checkbox"
-import { Search, Trash2, HelpCircle } from "lucide-react"
+import { Search, Trash2, HelpCircle, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { BASE_URL } from "@/Constants/Server"
@@ -21,40 +20,122 @@ export default function CreateCampaign() {
   const [selectedImage, setSelectedImage] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
-    audienceType: "all",
+    audienceType: "all", // Default to all followers
     message: "",
     selectedProducts: [],
     scheduledFor: null
   })
+  
+  // Submission loading state
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [paginationData, setPaginationData] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0
+  })
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
 
-  useEffect(() => {
-    const fetchSellerData = async () => {
-      try {
+  // Fetch products with optional search
+  const fetchProducts = async (page = currentPage, search = "") => {
+    setLoading(true)
+    try {
+      const sellerString = localStorage.getItem('seller')
+      let sellerId
+      
+      if (!sellerString) {
+        // If seller isn't in localStorage, get it from the profile
         const sellerToken = localStorage.getItem('sellerToken')
-        if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken)
-          const token = tokenData.data
-
-          const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-
-          const sellerId = profileResponse.data._id
-          console.log("Current Seller ID:", sellerId)
-
-          // Fetch seller's products
-          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`)
-          setProducts(productsResponse.data.products)
+        if (!sellerToken) {
+          throw new Error("Authentication token not found")
         }
-      } catch (error) {
-        setError("Failed to fetch data: " + error.message)
-      } finally {
-        setLoading(false)
-      }
-    }
+        
+        const tokenData = JSON.parse(sellerToken)
+        const token = tokenData.data
 
-    fetchSellerData()
-  }, [])
+        // Get seller profile
+        const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        sellerId = profileResponse.data._id
+        
+        // Save seller ID to localStorage
+        localStorage.setItem('seller', JSON.stringify({ _id: sellerId }))
+      } else {
+        // Use seller ID from localStorage
+        sellerId = JSON.parse(sellerString)._id
+      }
+
+      // Build API endpoint and params
+      let endpoint = `${BASE_URL}/products/seller/${sellerId}`
+      let params = {
+        page: page,
+        limit: itemsPerPage,
+        sortBy: 'newest'
+      }
+      
+      // If search term exists, use search endpoint
+      if (search) {
+        endpoint = `${BASE_URL}/products/seller/${sellerId}/search`
+        params.query = search
+      }
+      
+      console.log(`Fetching products from ${endpoint} with params:`, params)
+      
+      const productsResponse = await axios.get(endpoint, { params })
+      
+      console.log("Products API Response:", productsResponse.data)
+      
+      // Set products
+      if (productsResponse.data) {
+        // Handle different response formats
+        if (Array.isArray(productsResponse.data.products)) {
+          setProducts(productsResponse.data.products)
+        } else if (Array.isArray(productsResponse.data.data)) {
+          // Search endpoint might return data in a different format
+          setProducts(productsResponse.data.data)
+        } else {
+          console.error("Unknown response format:", productsResponse.data)
+          setProducts([])
+        }
+        
+        // Handle pagination data (also handle different formats)
+        if (productsResponse.data.pagination) {
+          setPaginationData({
+            currentPage: productsResponse.data.pagination.currentPage || page,
+            totalPages: productsResponse.data.pagination.totalPages || 1,
+            totalProducts: productsResponse.data.pagination.totalProducts || 0
+          })
+        } else {
+          setPaginationData({
+            currentPage: productsResponse.data.currentPage || page,
+            totalPages: productsResponse.data.totalPages || 1,
+            totalProducts: productsResponse.data.totalProducts || 0
+          })
+        }
+      } else {
+        setProducts([])
+      }
+    } catch (error) {
+      console.error("Fetch error:", error)
+      setError("Failed to fetch data: " + error.message)
+    } finally {
+      setLoading(false)
+      setIsSearching(false)
+    }
+  }
+
+  // Initial load
+  useEffect(() => {
+    fetchProducts(currentPage, searchQuery)
+  }, [currentPage])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -62,6 +143,24 @@ export default function CreateCampaign() {
       ...prev,
       [name]: value
     }))
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleSearch = (e) => {
+    e.preventDefault() // Prevent form submission
+    setIsSearching(true)
+    setCurrentPage(1) // Reset to first page on new search
+    fetchProducts(1, searchQuery)
+  }
+
+  const clearSearch = (e) => {
+    e.preventDefault() // Prevent form submission
+    setSearchQuery("")
+    setCurrentPage(1)
+    fetchProducts(1, "")
   }
 
   const handleProductSelect = (productId) => {
@@ -90,9 +189,28 @@ export default function CreateCampaign() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate form
+    if (!formData.title.trim()) {
+      toast.error("Please enter a campaign name")
+      return
+    }
+    
+    if (!formData.message.trim()) {
+      toast.error("Please enter a message for your campaign")
+      return
+    }
+    
+    if (formData.selectedProducts.length === 0) {
+      toast.error("Please select at least one product")
+      return
+    }
+    
+    setIsSubmitting(true)
+    
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
-      await axios.post(
+      const response = await axios.post(
         `${BASE_URL}/campaigns`,
         formData,
         {
@@ -100,10 +218,28 @@ export default function CreateCampaign() {
         }
       )
       
+      console.log("Campaign created response:", response.data)
       toast.success("Campaign created successfully")
       navigate("/dashboard/inbox-campaigns/list")
     } catch (error) {
+      console.error("Campaign creation error:", error)
       toast.error(error.response?.data?.message || "Failed to create campaign")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handlePreviousPage = (e) => {
+    e.preventDefault() // Prevent form submission
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = (e) => {
+    e.preventDefault() // Prevent form submission
+    if (currentPage < paginationData.totalPages) {
+      setCurrentPage(currentPage + 1)
     }
   }
 
@@ -119,26 +255,8 @@ export default function CreateCampaign() {
             value={formData.title}
             onChange={handleInputChange}
             placeholder="Announcing a Live Shopping Event"
+            required
           />
-        </div>
-
-        {/* Target Audience */}
-        <div className="space-y-2">
-          <Label>Target Audience</Label>
-          <Select
-            name="audienceType"
-            value={formData.audienceType}
-            onValueChange={(value) => handleInputChange({ target: { name: 'audienceType', value } })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select audience" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All followers</SelectItem>
-              <SelectItem value="active">Active followers</SelectItem>
-              <SelectItem value="inactive">Inactive followers</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Message Content */}
@@ -171,6 +289,7 @@ Enjoy 50% off your next purchase for the next 7 days.
 
 Click here to shop: www.augli.live"
                 className="min-h-[200px]"
+                required
               />
               <p className="text-sm text-muted-foreground">
                 * Only Augli URL, No phone number or Instagram usernames or competitors allowed
@@ -191,6 +310,7 @@ Click here to shop: www.augli.live"
                     size="sm" 
                     className="absolute -top-2 -right-2"
                     onClick={handleRemoveImage}
+                    type="button"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -217,31 +337,46 @@ Click here to shop: www.augli.live"
           </CardContent>
         </Card>
 
-        {/* Send Frequency */}
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="text-lg font-semibold mb-4">Send Frequency</h2>
-            <RadioGroup defaultValue="recipient-time">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="one-time" id="one-time" />
-                <Label htmlFor="one-time">One-time (Default)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="recipient-time" id="recipient-time" />
-                <Label htmlFor="recipient-time">Send based on recipient's local time</Label>
-              </div>
-            </RadioGroup>
-          </CardContent>
-        </Card>
-
         {/* Select Products */}
         <Card>
           <CardContent className="pt-6">
             <h2 className="text-lg font-semibold mb-4">Select Products</h2>
 
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-              <Input className="pl-10" placeholder="Search" />
+            {/* Search Form */}
+            <div className="relative mb-4 flex">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                <Input 
+                  className="pl-10 pr-3" 
+                  placeholder="Search" 
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+              </div>
+              <Button 
+                type="button" 
+                onClick={handleSearch} 
+                className="ml-2 bg-[#0BB248] hover:bg-[#0BB248]/90"
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Searching...
+                  </>
+                ) : "Search"}
+              </Button>
+              {searchQuery && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={clearSearch} 
+                  className="ml-2"
+                  disabled={isSearching}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
 
             <div className="rounded-lg border">
@@ -255,10 +390,12 @@ Click here to shop: www.augli.live"
 
               <div className="divide-y">
                 {loading ? (
-                  <div className="p-4 text-center">Loading products...</div>
+                  <div className="p-4 text-center flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#0BB248]" />
+                  </div>
                 ) : error ? (
                   <div className="p-4 text-center text-red-500">{error}</div>
-                ) : (
+                ) : products.length > 0 ? (
                   products.map((product) => (
                     <div key={product._id} className="grid grid-cols-12 gap-4 p-4 items-center">
                       <div className="col-span-6">
@@ -275,25 +412,47 @@ Click here to shop: www.augli.live"
                           <span className="font-medium">{product.name}</span>
                         </div>
                       </div>
-                      <div className="col-span-3">{product.stock}</div>
-                      <div className="col-span-3">N {product.price.toLocaleString()}</div>
+                      <div className="col-span-3">{product.stock || 0}</div>
+                      <div className="col-span-3">N {(product.price || 0).toLocaleString()}</div>
                     </div>
                   ))
+                ) : (
+                  <div className="p-4 text-center">No products found</div>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-4 text-sm text-muted-foreground">
-              <span>Showing 10 items out of 250 results found</span>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <span className="sr-only">Previous page</span>←
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <span className="sr-only">Next page</span>→
-                </Button>
+            {/* Pagination controls */}
+            {!loading && products.length > 0 && (
+              <div className="flex justify-between items-center mt-4 text-sm text-muted-foreground">
+                <span>Showing {products.length} items out of {paginationData.totalProducts} results found</span>
+                <div className="flex items-center gap-3">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage <= 1}
+                    type="button"
+                  >
+                    <span className="sr-only">Previous page</span>←
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {paginationData.totalPages}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={handleNextPage}
+                    disabled={currentPage >= paginationData.totalPages}
+                    type="button"
+                  >
+                    <span className="sr-only">Next page</span>→
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -303,10 +462,22 @@ Click here to shop: www.augli.live"
             type="button" 
             variant="outline"
             onClick={() => navigate("/dashboard/inbox-campaigns/list")}
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button type="submit">Publish Campaign</Button>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="min-w-[140px]"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Publishing...
+              </>
+            ) : "Publish Campaign"}
+          </Button>
         </div>
       </form>
     </div>
