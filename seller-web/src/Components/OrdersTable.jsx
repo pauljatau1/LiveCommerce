@@ -1,9 +1,9 @@
 import React, { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table"
 import { Button } from "@/Components/ui/button"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { format } from "date-fns"
-import { CalendarIcon, ShoppingBag, ExternalLink } from "lucide-react"
+import { CalendarIcon, ShoppingBag, ExternalLink, FilterX } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/Components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/Components/ui/popover"
@@ -12,6 +12,7 @@ import PropTypes from "prop-types";
 
 const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
+  const navigate = useNavigate();
 
   const getStatusColor = (status) => {
     const statusColors = {
@@ -217,6 +218,14 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
                     >
                       Clear Filters
                     </Button>
+                    <Button 
+                      variant="default" 
+                      className="bg-green-600 hover:bg-green-700 text-white ml-3"
+                      onClick={() => navigate("/dashboard/products")}
+                    >
+                      <ShoppingBag className="w-4 h-4 mr-2" />
+                      View Products
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -326,7 +335,16 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
                 className="border-slate-300 hover:bg-slate-100 text-xs"
                 onClick={() => setDate(null)}
               >
+                <FilterX className="w-3 h-3 mr-2" />
                 Clear Filters
+              </Button>
+              <Button 
+                variant="default" 
+                className="bg-green-600 hover:bg-green-700 text-white text-xs mt-2"
+                onClick={() => navigate("/dashboard/products")}
+              >
+                <ShoppingBag className="w-3 h-3 mr-2" />
+                View Products
               </Button>
             </div>
           </div>

@@ -6,14 +6,13 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
 import { Button } from "@/Components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Badge } from "@/Components/ui/badge";
 import { BASE_URL } from "@/Constants/Server";
 import { Input } from "@/Components/ui/input";
-import { useOutletContext } from "react-router-dom";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from "@/Components/ui/drawer";
 
 const OrderSkeleton = () => {
@@ -150,6 +149,7 @@ const OrderSkeleton = () => {
 
 export default function OrdersDashboard() {
   const { setHeaderName, setNavName } = useOutletContext();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
