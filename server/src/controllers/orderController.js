@@ -31,6 +31,7 @@ const { agenda } = require('../config/agenda');
 const crypto = require('crypto');
 const notificationController = require('../controllers/notificationController');
 const { mixpanel } = require('../app');
+const { trackPurchase } = require('../controllers/campaignController');
 
 // Initialize Paystack
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
@@ -711,6 +712,29 @@ exports.createOrder = async (req, res) => {
         orderId: order._id.toString(),
         order_id: order.order_id
       });
+      
+      // Track campaign attribution if campaign ID is provided
+      if (req.body.campaignId) {
+        try {
+          console.log(`Attributing order ${order.order_id} to campaign ${req.body.campaignId}`);
+          // Track purchase attribution without awaiting to avoid blocking the order process
+          // Note: This operation is independent of the transaction
+          trackPurchase(req.body.campaignId, buyerId, sellerTotal)
+            .then(success => {
+              if (success) {
+                console.log(`✅ Successfully attributed order ${order.order_id} to campaign ${req.body.campaignId}`);
+              } else {
+                console.log(`⚠️ Could not attribute order ${order.order_id} to campaign ${req.body.campaignId}`);
+              }
+            })
+            .catch(err => {
+              console.error(`Error attributing order to campaign: ${err.message}`);
+            });
+        } catch (campaignError) {
+          // Log error but don't interrupt order flow
+          console.error(`Failed to track campaign purchase: ${campaignError.message}`);
+        }
+      }
       
       // Schedule job to delete order if still unpaid after 1 minute (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
