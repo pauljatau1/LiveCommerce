@@ -150,7 +150,7 @@ export default function PaymentSettings() {
           bankCountry: editForm.bankCountry,
           bankName: editForm.bankName,
           bankAccountType: editForm.bankAccountType,
-          accountCurrency: editForm.accountCurrency,
+          accountCurrency: "NGN",
           accountNumber: editForm.accountNumber,
           accountName: editForm.accountName,
           swiftCode: editForm.swiftCode,
@@ -246,20 +246,13 @@ export default function PaymentSettings() {
 
             <div className="grid gap-2">
               <Label>Account Currency</Label>
-              <Select 
-                defaultValue={bankDetails.accountCurrency}
-                onValueChange={(value) => setEditForm({...editForm, accountCurrency: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NGN">NGN (Nigerian Naira)</SelectItem>
-                  <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                  <SelectItem value="EUR">EUR (Euro)</SelectItem>
-                  <SelectItem value="GBP">GBP (British Pound)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input 
+                value="NGN"
+                disabled
+                className="bg-gray-100"
+                onChange={(e) => setEditForm({...editForm, accountCurrency: "NGN"})}
+              />
+              <p className="text-xs text-muted-foreground">Nigerian Naira (NGN) is the only supported currency</p>
             </div>
 
             <div className="grid gap-2">
@@ -367,7 +360,7 @@ export default function PaymentSettings() {
               variant="default" 
               className="bg-green-500 hover:bg-green-600"
               onClick={() => {
-                setEditForm(bankDetails);
+                setEditForm({...bankDetails, accountCurrency: "NGN"});
                 setIsEditing(true);
               }}
               disabled={pendingRequest}
