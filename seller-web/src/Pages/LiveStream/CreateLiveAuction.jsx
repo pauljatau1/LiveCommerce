@@ -190,7 +190,7 @@ const CreateLiveAuction = () => {
 
     livestreamDispatch({
       type: 'SET_LIVESTREAM_DATA',
-      payload: { scheduledStartTime: getScheduledStartTime() }
+      payload: { scheduledStartTime: getScheduledStartTime(), startImmediately: startImmediately }
     });
   }, [startDate, startTime, startImmediately, livestreamDispatch]);
 

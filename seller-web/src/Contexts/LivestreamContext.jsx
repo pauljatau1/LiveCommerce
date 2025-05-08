@@ -20,6 +20,7 @@ export const LivestreamProvider = ({ children }) => {
             products: [],
             selectedProducts: [],
             scheduledStartTime: null,
+            startImmediately: false
         },
         isLoading: false,
         error: null,
@@ -129,7 +130,8 @@ export const LivestreamProvider = ({ children }) => {
                         tags: [],
                         products: [],
                         selectedProducts: [],
-                        scheduledStartTime: null
+                        scheduledStartTime: null,
+                        startImmediately: false
                     }
                 }
             case 'SET_JOIN_LIVE_STREAM_DATA':
@@ -206,6 +208,8 @@ export const LivestreamProvider = ({ children }) => {
                 } catch (trackingError) {
                     console.error('Failed to track live event scheduling:', trackingError);
                 }
+
+                return response.data.stream;
             }
         } catch (error) {
             console.error(error);
@@ -281,6 +285,8 @@ export const LivestreamProvider = ({ children }) => {
                 } catch (trackingError) {
                     console.error('Failed to track live event scheduling:', trackingError);
                 }
+
+                return response.data.stream;
             }
         } catch (error) {
             console.error(error);
