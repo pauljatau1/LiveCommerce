@@ -3,14 +3,14 @@ import { Icon } from '@iconify/react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useIntercomChat } from '../../Hooks/useIntercom';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 import Modal from '../../Components/Modal';
 import Logo from '../../assets/auqli-official-logo.png';
 import LoginImage from '../../assets/login-image.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import Emoji from '../../assets/Emoji -_.png'
 import OtpInput from 'react-otp-input';
-import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
-import { useIntercomChat } from '../../Hooks/useIntercom';
 
 
 
