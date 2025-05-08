@@ -45,6 +45,38 @@ export default function AccountPage() {
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
 
+  const fetchProfile = async () => {
+    try {
+      const sellerToken = localStorage.getItem("sellerToken");
+      if (!sellerToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const tokenData = JSON.parse(sellerToken);
+      const response = await fetch(`${BASE_URL}/seller/profile`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch profile data");
+      }
+
+      const data = await response.json();
+      setProfile(data);
+      
+      // Fetch review stats
+      if (data._id) {
+        fetchReviewStats(data._id);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     setHeaderName("Account");
     
@@ -69,38 +101,6 @@ export default function AccountPage() {
   }, []);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const sellerToken = localStorage.getItem("sellerToken");
-        if (!sellerToken) {
-          throw new Error("No authentication token found");
-        }
-
-        const tokenData = JSON.parse(sellerToken);
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
-          headers: {
-            Authorization: `Bearer ${tokenData.data}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile data");
-        }
-
-        const data = await response.json();
-        setProfile(data);
-        
-        // Fetch review stats
-        if (data._id) {
-          fetchReviewStats(data._id);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProfile();
   }, []);
 

@@ -641,7 +641,15 @@ const HomePage = () => {
                     <AnnouncementCard key={announcement._id} announcement={announcement} />
                   ))
                 ) : (
-                  <Skeleton count={3} height={100} className="mb-4" />
+                  isDataLoading ? (
+                    <Skeleton count={3} height={100} className="mb-4" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+                      <Icon icon="line-md:clipboard-list" className="text-gray-400 w-20 h-20" />
+                      <p className="text-base font-medium text-[#425466] font-inter mt-3">No announcements available</p>
+                      <p className="text-sm text-[#425466] font-inter mt-1">Check back later for updates from Auqli</p>
+                    </div>
+                  )
                 )
               }
             </div>
