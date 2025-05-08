@@ -142,7 +142,9 @@ commands:
           account_id: "298884149618"
       - run:
          name: Deploy new code
-         command: cd dist/ && aws s3 sync . s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+         command: |
+           aws s3 sync dist/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+           aws s3 sync public/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
   deploy_to_s3_production:
     description: Install aws-cli
     steps:
@@ -151,7 +153,9 @@ commands:
           account_id: "090877363449"
       - run:
          name: Deploy new code
-         command: cd dist/ && aws s3 sync . s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
+         command: |
+           aws s3 sync dist/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
+           aws s3 sync public/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
 
 jobs:
   build:
