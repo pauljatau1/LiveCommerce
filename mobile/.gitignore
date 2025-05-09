@@ -4,7 +4,7 @@
 node_modules/
 
 #environment variables
-# .env
+.env
 
 
 # Expo
@@ -48,8 +48,8 @@ app-example
 
 GoogleServices-info.plist
 
-# GoogleService-Info.plist
-# google-services.json
+GoogleService-Info.plist
+google-services.json
 
 android
 ios
