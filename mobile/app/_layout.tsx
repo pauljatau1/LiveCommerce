@@ -41,24 +41,22 @@ function RootLayoutNav() {
     "LexendDeca-Thin": require("../assets/fonts/LexendDeca-Thin.ttf"),
   });
 
+  const handleDeepLink = async () => {
+    const url = await Linking.getInitialURL();
+    if (url) {
+      const path = url.replace(/^https?:\/\/[^/]+/, "");
+      console.log("safe path", path);
+
+      router.replace(path);
+    }
+  };
+
   useEffect(() => {
-    const handleDeepLink = async () => {
-      const url = await Linking.getInitialURL();
-      if (url) {
-        const path = url.replace(/^https?:\/\/[^/]+/, "");
-        console.log("safe path", path);
-
-        router.replace(path);
-      }
-    };
-    handleDeepLink();
-  }, []);
-
-  // useEffect(() => {
-  //   if (loaded) {
-  //     SplashScreen.hideAsync();
-  //   }
-  // }, [loaded]);
+    if (loaded) {
+      SplashScreen.hideAsync();
+      handleDeepLink();
+    }
+  }, [loaded]);
 
   if (!loaded) {
     return null;

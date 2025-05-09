@@ -16,7 +16,13 @@ import {
   Alert,
   BackHandler,
 } from "react-native";
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLivestream } from "@/contexts/livestreamContext";
 import { WebView } from "react-native-webview";
@@ -79,11 +85,22 @@ import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 import GlassImage from "./components/GlassImage";
 // Import the AuctionSkeletonLoader component
-import { AuctionSkeletonLoader } from './components/AuctionSkeletonLoader';
+import { AuctionSkeletonLoader } from "./components/AuctionSkeletonLoader";
+import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 
 const { width, height } = Dimensions.get("window");
 
-const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
+const LiveAuctionStudio = ({
+  id,
+  isVisible,
+  onInteractionStart,
+  shared,
+}: {
+  id: any;
+  isVisible: boolean;
+  onInteractionStart?: () => void;
+  shared: boolean;
+}) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
@@ -206,6 +223,14 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
   // Add ref for heart animation
   const heartsRef = useRef<FloatingHeartsRef>(null);
 
+  const { displayShareDialog } = useShareAppLinks();
+
+  const shareLinkUrl = useMemo(
+    () =>
+      `https://app.auqli.live/livestream/feed?id=${id}&type=${activeStreamDetails?.stream?.type}&itmSource=share`,
+    [id, activeStreamDetails],
+  );
+
   // Update detailedViewers when activeStreamDetails changes
   useEffect(() => {
     if (activeStreamDetails?.stream?.viewers) {
@@ -319,7 +344,10 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
         // Set products from stream data
         if (streamDetails.products && streamDetails.products.length > 0) {
-          console.log('Setting products from streamDetails.products:', JSON.stringify(streamDetails.products));
+          console.log(
+            "Setting products from streamDetails.products:",
+            JSON.stringify(streamDetails.products),
+          );
 
           // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
           const productsWithStatus = streamDetails.products.map((product) => ({
@@ -355,7 +383,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
           //console.log('productsWithStatus', productsWithStatus);
           setStreamProducts(productsWithStatus);
-          console.log('streamProductsFirstAllocation', streamProducts);
+          console.log("streamProductsFirstAllocation", streamProducts);
 
           // Find if there's an active product for bidding and set it as current
           const activeProductIndex = productsWithStatus.findIndex(
@@ -546,7 +574,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
           setIsBidSending,
           handleBidTimerUpdate,
           handleBidTimerComplete,
-          handleAuctionOrderCreated
+          handleAuctionOrderCreated,
         );
       }
     } catch (error) {
@@ -600,9 +628,9 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                       viewer._id &&
                       viewer._id.toString() === buyerId.toString()) ||
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] ||
+                      notification?.data?.buyerName?.split(" ")[0] ||
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -702,7 +730,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
           break;
 
         case "auction_start":
-          console.log('Auction started for product:', notification);
+          console.log("Auction started for product:", notification);
           // Update UI to show auction start event
           setLiveComments((prev) => [...prev, notification]);
 
@@ -713,7 +741,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
             // Find the product in streamProducts and update it
             const productId = notification.data.product.product?.productId;
-            console.log('realtime bid productId:', productId);
+            console.log("realtime bid productId:", productId);
 
             if (productId) {
               setStreamProducts((prevProducts) => {
@@ -723,12 +751,15 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                 const productIndex = prevProducts.findIndex(
                   (p) => p.product.productId === productId,
                 );
-                console.log('realtime bid productIndex:', productIndex);
+                console.log("realtime bid productIndex:", productIndex);
 
                 // If product found, set it as the current product
                 if (productIndex !== -1) {
                   setCurrentProductIndex(productIndex);
-                  console.log('Setting current product index to:', productIndex);
+                  console.log(
+                    "Setting current product index to:",
+                    productIndex,
+                  );
 
                   // IMPORTANT: Also update the selectedBidProduct to prevent race condition
                   // when user clicks bid before the UI fully updates
@@ -1090,6 +1121,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
   const handleShare = () => {
     // Implement share functionality
     //console.log('Share stream');
+    displayShareDialog(shareLinkUrl);
   };
 
   // Toggle audio mute/unmute
@@ -1178,7 +1210,17 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
           avatarSource = item.avatar; // It's already a require() or imported image
         }
 
-        return <GlassImage source={avatarSource} imageStyle={styles.commentAvatar} glassStyle={styles.commentAvatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />;
+        return (
+          <GlassImage
+            source={avatarSource}
+            imageStyle={styles.commentAvatar}
+            glassStyle={styles.commentAvatar}
+            placeholderColor="rgba(255, 255, 255, 0.1)"
+            blurIntensity={20}
+            tint="dark"
+            showActivityIndicator={false}
+          />
+        );
       } else {
         // Use first letter of username with a random background color
         const firstLetter =
@@ -1537,7 +1579,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
           }
         `);
         // Give a small delay to allow the WebView to process the leave command
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       // Call the leaveStream API endpoint
@@ -1549,7 +1591,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
       // Navigate back to previous screen
       if (!backButton) {
-        router.back();
+        shared ? router.push("/(root)/(tabs)/home/home") : router.back();
       }
     } catch (error) {
       //console.error('Error leaving stream:', error);
@@ -1671,14 +1713,17 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
     try {
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
-      const response = await followSellerThroughStream(sellerId, storeInfo.name);
+      const response = await followSellerThroughStream(
+        sellerId,
+        storeInfo.name,
+      );
       setIsFollowing(true);
 
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
-        setStreamDetails(prev => ({
+        setStreamDetails((prev) => ({
           ...prev,
-          sellerFollowers: response.sellerFollowCount
+          sellerFollowers: response.sellerFollowCount,
         }));
       }
     } catch (error) {
@@ -1690,7 +1735,9 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
         topPosition: 18,
       });
     } finally {
-      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
+      isStreamInfo
+        ? setIsFollowingLoading2(false)
+        : setIsFollowingLoading(false);
     }
   };
 
@@ -1702,14 +1749,17 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
 
     try {
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
-      const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
+      const response = await unfollowSellerThroughStream(
+        sellerId,
+        storeInfo.name,
+      );
       setIsFollowing(false);
 
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
-        setStreamDetails(prev => ({
+        setStreamDetails((prev) => ({
           ...prev,
-          sellerFollowers: response.sellerFollowCount
+          sellerFollowers: response.sellerFollowCount,
         }));
       }
     } catch (error) {
@@ -1721,7 +1771,9 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
         topPosition: 18,
       });
     } finally {
-      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
+      isStreamInfo
+        ? setIsFollowingLoading2(false)
+        : setIsFollowingLoading(false);
     }
   };
 
@@ -1752,22 +1804,25 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
   const animationFrameRef = useRef<number | null>(null);
 
   // Debounced socket event emitter
-  const debouncedSocketEmit = useCallback((eventType: string) => {
-    if (socketThrottleTimeout.current) {
-      clearTimeout(socketThrottleTimeout.current);
-    }
-
-    socketThrottleTimeout.current = setTimeout(() => {
-      const socketInstance = getSocket();
-      if (socketInstance) {
-        socketInstance.emit("stream_reaction", {
-          type: eventType,
-          streamId: id,
-        });
+  const debouncedSocketEmit = useCallback(
+    (eventType: string) => {
+      if (socketThrottleTimeout.current) {
+        clearTimeout(socketThrottleTimeout.current);
       }
-      socketThrottleTimeout.current = null;
-    }, 1000);
-  }, [id]);
+
+      socketThrottleTimeout.current = setTimeout(() => {
+        const socketInstance = getSocket();
+        if (socketInstance) {
+          socketInstance.emit("stream_reaction", {
+            type: eventType,
+            streamId: id,
+          });
+        }
+        socketThrottleTimeout.current = null;
+      }, 1000);
+    },
+    [id],
+  );
 
   // Improved heart press handler with better state management
   const handleHeartPress = useCallback(() => {
@@ -1876,49 +1931,57 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                 />
 
                 {/* Show play loader while video is loading, but not if we know there's no host */}
-                {(isLoading || showNoHostAlert2 || (!isVideoPlaying && isHostPresent)) && (
+                {(isLoading ||
+                  showNoHostAlert2 ||
+                  (!isVideoPlaying && isHostPresent)) && (
                   <AuctionSkeletonLoader type="loading" />
                 )}
 
                 {/* No Host Alert */}
-                {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
-                  <View style={styles.noHostOverlay}>
-                    <View style={styles.noHostAlertContainer}>
-                      <View style={styles.noHostIconContainer}>
-                        <MaterialIcons
-                          name="videocam-off"
-                          size={36}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                      <Text style={styles.noHostTitle}>Host Unavailable</Text>
-                      <Text style={styles.noHostMessage}>
-                        The host is not in the room at the moment. Please wait
-                        or check back later.
-                      </Text>
-                      <View style={styles.buttonContainer}>
-                        <TouchableOpacity
-                          style={styles.waitButton}
-                          onPress={() => setShowNoHostAlert(false)}
-                        >
-                          <Text style={styles.waitButtonText}>Wait</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.leaveButton}
-                          onPress={() => {
-                            const backButton = false;
-                            handleLeaveStream(backButton);
-                          }}
-                        >
-                          <Text style={styles.leaveButtonText}>Leave</Text>
-                          {isLeavingStream && (
-                            <ActivityIndicator size={12} color="white" style={{ marginLeft: 5 }} />
-                          )}
-                        </TouchableOpacity>
+                {showNoHostAlert &&
+                  !isLoading &&
+                  !keyboardVisibleRef.current && (
+                    <View style={styles.noHostOverlay}>
+                      <View style={styles.noHostAlertContainer}>
+                        <View style={styles.noHostIconContainer}>
+                          <MaterialIcons
+                            name="videocam-off"
+                            size={36}
+                            color="#FFFFFF"
+                          />
+                        </View>
+                        <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                        <Text style={styles.noHostMessage}>
+                          The host is not in the room at the moment. Please wait
+                          or check back later.
+                        </Text>
+                        <View style={styles.buttonContainer}>
+                          <TouchableOpacity
+                            style={styles.waitButton}
+                            onPress={() => setShowNoHostAlert(false)}
+                          >
+                            <Text style={styles.waitButtonText}>Wait</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.leaveButton}
+                            onPress={() => {
+                              const backButton = false;
+                              handleLeaveStream(backButton);
+                            }}
+                          >
+                            <Text style={styles.leaveButtonText}>Leave</Text>
+                            {isLeavingStream && (
+                              <ActivityIndicator
+                                size={12}
+                                color="white"
+                                style={{ marginLeft: 5 }}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                )}
+                  )}
               </>
             ) : (
               <AuctionSkeletonLoader type="loading" />
@@ -1932,15 +1995,18 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
               <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                 <View className={`flex-row justify-between items-center px-4`}>
                   <View className="flex-row items-center gap-4 ">
-                    <TouchableOpacity className="flex-row items-center gap-2" onPress={() => {
-                      router.push({
-                        pathname: "/sellerProfile",
-                        params: {
-                          sellerId: sellerId,
-                          sellerAvatar: storeInfo?.avatar,
-                        }
-                      })
-                    }}>
+                    <TouchableOpacity
+                      className="flex-row items-center gap-2"
+                      onPress={() => {
+                        router.push({
+                          pathname: "/sellerProfile",
+                          params: {
+                            sellerId: sellerId,
+                            sellerAvatar: storeInfo?.avatar,
+                          },
+                        });
+                      }}
+                    >
                       <GlassImage
                         source={storeInfo?.avatar}
                         containerClassName="w-10 h-10 rounded-full"
@@ -2113,7 +2179,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                     nestedScrollEnabled={true}
                     onTouchStart={(e) => {
                       // Prevent event from propagating to parent
-                      e.stopPropagation(); 
+                      e.stopPropagation();
                       // Notify parent to temporarily disable scrolling
                       onInteractionStart?.();
                     }}
@@ -2191,8 +2257,6 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                       </TouchableOpacity>
                       <Text style={styles.actionText2}>Like</Text>
                     </View>
-
-                    
                   </ScrollView>
                 )}
 
@@ -2237,7 +2301,6 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                   </ScrollView>
                 )}
               </View>
-
 
               {/* Bottom Area */}
               <View style={styles.bottomArea}>
@@ -2312,8 +2375,8 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                           <>
                             <LiveAuctionProductCard
                               product={{
-                                name: streamProducts[currentProductIndex].product
-                                  .name,
+                                name: streamProducts[currentProductIndex]
+                                  .product.name,
                                 description:
                                   streamProducts[currentProductIndex].product
                                     .description,
@@ -2338,8 +2401,8 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
                                   streamProducts[currentProductIndex].product
                                     .quantity,
                                 bidStatus:
-                                  streamProducts[currentProductIndex].bidStatus ||
-                                  "pending",
+                                  streamProducts[currentProductIndex]
+                                    .bidStatus || "pending",
                               }}
                               onBid={(amount) => {
                                 // Set the selectedBidProduct to ensure future interactions work correctly
@@ -2513,7 +2576,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
         <StreamInfo
           storeInfo={{
             ...storeInfo,
-            following: isFollowing
+            following: isFollowing,
           }}
           streamInfo={streamDetails}
           isLoading={isLoading}
@@ -2538,10 +2601,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
         onRequestClose={() => setShowOrders(false)}
         keyboardBehavior="interactive"
       >
-        <StreamOrders
-          streamId={id}
-          closeSheet={() => setShowOrders(false)}
-        />
+        <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
       </BottomSheet>
 
       {/* Add Bid Error Bottom Sheet */}
@@ -2607,11 +2667,7 @@ const LiveAuctionStudio = ({ id, isVisible, onInteractionStart }: { id: any, isV
       </BottomSheet>
 
       {/* Add the FloatingHeartsAnimation component */}
-      <FloatingHeartsAnimation
-        ref={heartsRef}
-        count={15}
-        color="#16783A"
-      />
+      <FloatingHeartsAnimation ref={heartsRef} count={15} color="#16783A" />
     </GestureHandlerRootView>
   );
 };
