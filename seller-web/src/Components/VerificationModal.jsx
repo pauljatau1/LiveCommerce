@@ -404,7 +404,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
         bankCountry: formData.bankCountry,
         bankName: formData.bankName,
         bankAccountType: formData.accountType,
-        accountCurrency: formData.accountCurrency,
+        accountCurrency: "NGN",
         accountNumber: formData.accountNumber,
         accountName: formData.accountName,
         swiftCode: formData.swiftCode || undefined,
@@ -1078,22 +1078,13 @@ const VerificationModal = ({ isOpen, onClose }) => {
               <Label htmlFor="accountCurrency" className="flex items-center gap-1.5 text-sm font-medium">
                 <CreditCard className="h-4 w-4 text-gray-500" /> Account Currency <span className="text-red-500">*</span>
               </Label>
-              <Select 
-                value={formData.accountCurrency}
-                onValueChange={(value) => setFormData({...formData, accountCurrency: value})}
-              >
-                <SelectTrigger className="h-10 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-100">
-                  <SelectItem value="NGN">Nigerian Naira (NGN)</SelectItem>
-                  <SelectItem value="GHS">Ghanaian Cedi (GHS)</SelectItem>
-                  <SelectItem value="KES">Kenyan Shilling (KES)</SelectItem>
-                  <SelectItem value="USD">US Dollar (USD)</SelectItem>
-                  <SelectItem value="GBP">British Pound (GBP)</SelectItem>
-                  <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input 
+                value="NGN"
+                disabled
+                className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10 bg-gray-100"
+                placeholder="Nigerian Naira (NGN)"
+              />
+              <p className="text-xs text-gray-500 mt-1">Nigerian Naira (NGN) is the only supported currency.</p>
             </div>
           </div>
           
