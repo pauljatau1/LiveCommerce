@@ -12,7 +12,13 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLivestream } from "@/contexts/livestreamContext";
 import { WebView } from "react-native-webview";
@@ -53,12 +59,23 @@ import { useToast } from "@/contexts/ToastContext";
 import ShopBottomSheet from "./shopBottomSheet";
 import { FloatingHeartsAnimation } from "./components/FloatingHeartsAnimation";
 import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
-import { GlassImage } from './components';
-import { SkeletonLoader } from './components/SkeletonLoader';
+import { GlassImage } from "./components";
+import { SkeletonLoader } from "./components/SkeletonLoader";
+import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 
 const { height } = Dimensions.get("window");
 
-const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, isVisible: boolean, onInteractionStart?: () => void }) => {
+const LivestreamStudioFeed = ({
+  id,
+  isVisible,
+  onInteractionStart,
+  shared,
+}: {
+  id: any;
+  isVisible: boolean;
+  onInteractionStart?: () => void;
+  shared: boolean;
+}) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
@@ -107,13 +124,13 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
     Array<{
       id: string;
       type:
-      | "comment"
-      | "join"
-      | "purchase"
-      | "hostLeft"
-      | "hostRejoin"
-      | "leave"
-      | "liveshow_order";
+        | "comment"
+        | "join"
+        | "purchase"
+        | "hostLeft"
+        | "hostRejoin"
+        | "leave"
+        | "liveshow_order";
       user: string;
       avatar?: any;
       content: string;
@@ -167,6 +184,14 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
   const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
   // Add state to manage heart animations
   const heartsRef = useRef<FloatingHeartsRef>(null);
+
+  const { displayShareDialog } = useShareAppLinks();
+
+  const shareLinkUrl = useMemo(
+    () =>
+      `https://app.auqli.live/livestream/feed?id=${id}&type=${activeStreamDetails?.stream?.type}&itmSource=share`,
+    [id, activeStreamDetails],
+  );
 
   // Update detailedViewers when activeStreamDetails changes
   useEffect(() => {
@@ -277,7 +302,10 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
           streamDetails.stream?.products &&
           streamDetails.stream.products.length > 0
         ) {
-          console.log("New Stream products:", JSON.stringify(streamDetails.stream.products));
+          console.log(
+            "New Stream products:",
+            JSON.stringify(streamDetails.stream.products),
+          );
           setStreamProducts(streamDetails.stream.products);
         }
 
@@ -501,9 +529,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] &&
+                      notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -605,16 +633,19 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
 
           // Show a brief toast notification with the order details
           if (notification.data?.orders) {
-            const orderCount = Array.isArray(notification.data.orders) ?
-              notification.data.orders.length : 1;
+            const orderCount = Array.isArray(notification.data.orders)
+              ? notification.data.orders.length
+              : 1;
 
-            {/*show({
+            {
+              /*show({
               text1: "💰 New Order Placed!",
               text2: `${orderCount} item(s) ordered from this stream`,
               type: "success",
               duration: 3000,
               topPosition: 18,
-            });*/}
+            });*/
+            }
           }
 
           // Update UI to show order event in chat
@@ -783,6 +814,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
   const handleShare = () => {
     // Implement share functionality
     console.log("Share stream");
+    displayShareDialog(shareLinkUrl);
   };
 
   // Toggle audio mute/unmute
@@ -871,7 +903,17 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
           avatarSource = item.avatar; // It's already a require() or imported image
         }
 
-        return <GlassImage source={avatarSource} imageStyle={styles.commentAvatar} glassStyle={styles.commentAvatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />;
+        return (
+          <GlassImage
+            source={avatarSource}
+            imageStyle={styles.commentAvatar}
+            glassStyle={styles.commentAvatar}
+            placeholderColor="rgba(255, 255, 255, 0.1)"
+            blurIntensity={20}
+            tint="dark"
+            showActivityIndicator={false}
+          />
+        );
       } else {
         // Use first letter of username with a random background color
         const firstLetter =
@@ -1049,7 +1091,6 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
       } else {
         console.error("Socket not connected, comment only saved locally");
       }
-
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -1111,7 +1152,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
           }
         `);
         // Give a small delay to allow the WebView to process the leave command
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       // Call the leaveStream API endpoint
@@ -1123,7 +1164,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
 
       // Navigate back to previous screen
       if (!backButton) {
-        router.back();
+        shared ? router.push("/(root)/(tabs)/home/home") : router.back();
       }
     } catch (error) {
       console.error("Error leaving stream:", error);
@@ -1150,14 +1191,17 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
 
     try {
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
-      const response = await followSellerThroughStream(sellerId, storeInfo.name);
+      const response = await followSellerThroughStream(
+        sellerId,
+        storeInfo.name,
+      );
       setIsFollowing(true);
 
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
-        setStreamDetails(prev => ({
+        setStreamDetails((prev) => ({
           ...prev,
-          sellerFollowers: response.sellerFollowCount
+          sellerFollowers: response.sellerFollowCount,
         }));
       }
     } catch (error) {
@@ -1169,7 +1213,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         topPosition: 18,
       });
     } finally {
-      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
+      isStreamInfo
+        ? setIsFollowingLoading2(false)
+        : setIsFollowingLoading(false);
     }
   };
 
@@ -1181,14 +1227,17 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
 
     try {
       isStreamInfo ? setIsFollowingLoading2(true) : setIsFollowingLoading(true);
-      const response = await unfollowSellerThroughStream(sellerId, storeInfo.name);
+      const response = await unfollowSellerThroughStream(
+        sellerId,
+        storeInfo.name,
+      );
       setIsFollowing(false);
 
       // Update the follow count with the latest from API
       if (response && response.sellerFollowCount !== undefined) {
-        setStreamDetails(prev => ({
+        setStreamDetails((prev) => ({
           ...prev,
-          sellerFollowers: response.sellerFollowCount
+          sellerFollowers: response.sellerFollowCount,
         }));
       }
     } catch (error) {
@@ -1200,7 +1249,9 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         topPosition: 18,
       });
     } finally {
-      isStreamInfo ? setIsFollowingLoading2(false) : setIsFollowingLoading(false);
+      isStreamInfo
+        ? setIsFollowingLoading2(false)
+        : setIsFollowingLoading(false);
     }
   };
 
@@ -1231,22 +1282,25 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
   const animationFrameRef = useRef<number | null>(null);
 
   // Debounced socket event emitter
-  const debouncedSocketEmit = useCallback((eventType: string) => {
-    if (socketThrottleTimeout.current) {
-      clearTimeout(socketThrottleTimeout.current);
-    }
-
-    socketThrottleTimeout.current = setTimeout(() => {
-      const socketInstance = getSocket();
-      if (socketInstance) {
-        socketInstance.emit("stream_reaction", {
-          type: eventType,
-          streamId: id,
-        });
+  const debouncedSocketEmit = useCallback(
+    (eventType: string) => {
+      if (socketThrottleTimeout.current) {
+        clearTimeout(socketThrottleTimeout.current);
       }
-      socketThrottleTimeout.current = null;
-    }, 1000);
-  }, [id]);
+
+      socketThrottleTimeout.current = setTimeout(() => {
+        const socketInstance = getSocket();
+        if (socketInstance) {
+          socketInstance.emit("stream_reaction", {
+            type: eventType,
+            streamId: id,
+          });
+        }
+        socketThrottleTimeout.current = null;
+      }, 1000);
+    },
+    [id],
+  );
 
   // Improved heart press handler with better state management
   const handleHeartPress = useCallback(() => {
@@ -1355,49 +1409,57 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                 />
 
                 {/* Show play loader while video is loading, but not if we know there's no host */}
-                {(isLoading || showNoHostAlert2 || (!isVideoPlaying && isHostPresent)) && (
+                {(isLoading ||
+                  showNoHostAlert2 ||
+                  (!isVideoPlaying && isHostPresent)) && (
                   <SkeletonLoader type="loading" />
                 )}
 
                 {/* No Host Alert */}
-                {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
-                  <View style={styles.noHostOverlay}>
-                    <View style={styles.noHostAlertContainer}>
-                      <View style={styles.noHostIconContainer}>
-                        <MaterialIcons
-                          name="videocam-off"
-                          size={36}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                      <Text style={styles.noHostTitle}>Host Unavailable</Text>
-                      <Text style={styles.noHostMessage}>
-                        The host is not in the room at the moment. Please wait
-                        or check back later.
-                      </Text>
-                      <View style={styles.buttonContainer}>
-                        <TouchableOpacity
-                          style={styles.waitButton}
-                          onPress={() => setShowNoHostAlert(false)}
-                        >
-                          <Text style={styles.waitButtonText}>Wait</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.leaveButton}
-                          onPress={() => {
-                            const backButton = false;
-                            handleLeaveStream(backButton);
-                          }}
-                        >
-                          <Text style={styles.leaveButtonText}>Leave</Text>
-                          {isLeavingStream && (
-                            <ActivityIndicator size={12} color="white" style={{ marginLeft: 5 }} />
-                          )}
-                        </TouchableOpacity>
+                {showNoHostAlert &&
+                  !isLoading &&
+                  !keyboardVisibleRef.current && (
+                    <View style={styles.noHostOverlay}>
+                      <View style={styles.noHostAlertContainer}>
+                        <View style={styles.noHostIconContainer}>
+                          <MaterialIcons
+                            name="videocam-off"
+                            size={36}
+                            color="#FFFFFF"
+                          />
+                        </View>
+                        <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                        <Text style={styles.noHostMessage}>
+                          The host is not in the room at the moment. Please wait
+                          or check back later.
+                        </Text>
+                        <View style={styles.buttonContainer}>
+                          <TouchableOpacity
+                            style={styles.waitButton}
+                            onPress={() => setShowNoHostAlert(false)}
+                          >
+                            <Text style={styles.waitButtonText}>Wait</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.leaveButton}
+                            onPress={() => {
+                              const backButton = false;
+                              handleLeaveStream(backButton);
+                            }}
+                          >
+                            <Text style={styles.leaveButtonText}>Leave</Text>
+                            {isLeavingStream && (
+                              <ActivityIndicator
+                                size={12}
+                                color="white"
+                                style={{ marginLeft: 5 }}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                )}
+                  )}
               </>
             ) : (
               <SkeletonLoader type="loading" />
@@ -1419,8 +1481,8 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                           params: {
                             sellerId: sellerId,
                             sellerAvatar: storeInfo?.avatar,
-                          }
-                        })
+                          },
+                        });
                       }}
                     >
                       <GlassImage
@@ -1675,15 +1737,17 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <Text style={styles.actionText}>Shop</Text>
                     </View>
 
-                    {<View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleHeartPress}
-                      >
-                        <AntDesign name="hearto" size={24} color="#16783A" />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText2}>Like</Text>
-                    </View>}
+                    {
+                      <View style={styles.actionItem}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={handleHeartPress}
+                        >
+                          <AntDesign name="hearto" size={24} color="#16783A" />
+                        </TouchableOpacity>
+                        <Text style={styles.actionText2}>Like</Text>
+                      </View>
+                    }
                   </ScrollView>
                 )}
 
@@ -1767,7 +1831,6 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
                       <Carousel
                         loop={false}
                         autoPlay={false}
-
                         width={screenWidth - 32}
                         height={110}
                         data={streamProducts}
@@ -1870,12 +1933,12 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
+        //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
             ...storeInfo,
-            following: isFollowing
+            following: isFollowing,
           }}
           streamInfo={streamDetails}
           isLoading={isLoading}
@@ -1900,10 +1963,7 @@ const LivestreamStudioFeed = ({ id, isVisible, onInteractionStart }: { id: any, 
         onRequestClose={() => setShowOrders(false)}
         keyboardBehavior="interactive"
       >
-        <StreamOrders
-          streamId={id}
-          closeSheet={() => setShowOrders(false)}
-        />
+        <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
       </BottomSheet>
 
       {/* Shop Bottom Sheet */}

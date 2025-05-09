@@ -1,4 +1,12 @@
-import { View, Text, Dimensions, FlatList, Image, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import {
+  View,
+  Text,
+  Dimensions,
+  FlatList,
+  Image,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from "react-native";
 import React, { useCallback, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { useSelector } from "react-redux";
@@ -12,7 +20,7 @@ import LottieView from "lottie-react-native";
 const { height } = Dimensions.get("window");
 
 const LivestreamFeed = () => {
-  const { id, type } = useLocalSearchParams();
+  const { id, type, itmSource } = useLocalSearchParams();
   const token = useSelector((state: RootState) => state.authState.token);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingNext, setLoadingNext] = useState<boolean>(false);
@@ -66,7 +74,9 @@ const LivestreamFeed = () => {
     }
   };
 
-  const handleScrollBegin = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const handleScrollBegin = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
     // Save the starting position of the scroll
     scrollBeginOffset.current = event.nativeEvent.contentOffset.y;
     isScrolling.current = true;
@@ -76,8 +86,10 @@ const LivestreamFeed = () => {
     // More aggressive tracking during scroll
     if (isScrolling.current) {
       const currentOffset = event.nativeEvent.contentOffset.y;
-      const scrollDistance = Math.abs(currentOffset - scrollBeginOffset.current);
-      
+      const scrollDistance = Math.abs(
+        currentOffset - scrollBeginOffset.current,
+      );
+
       // If we've scrolled a significant distance but less than the threshold,
       // prepare for a possible aggressive snap back
       if (scrollDistance > 20 && scrollDistance < scrollThreshold) {
@@ -88,36 +100,36 @@ const LivestreamFeed = () => {
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!isScrolling.current) return;
-    
+
     isScrolling.current = false;
     const endOffset = event.nativeEvent.contentOffset.y;
     const scrollDistance = Math.abs(endOffset - scrollBeginOffset.current);
-    
+
     // If scroll didn't move far enough, force snap back to original position
     if (scrollDistance < scrollThreshold) {
       // Force snap back to the original position
       flatlistRef.current?.scrollToOffset({
         offset: currentIndex * height,
-        animated: true
+        animated: true,
       });
     } else {
       // Determine if we should move to next or previous
       const direction = endOffset > scrollBeginOffset.current ? 1 : -1;
       const targetIndex = currentIndex + direction;
-      
+
       // Ensure index is within bounds
       if (targetIndex >= 0 && targetIndex < lives.length) {
         flatlistRef.current?.scrollToIndex({
           index: targetIndex,
           animated: true,
-          viewPosition: 0
+          viewPosition: 0,
         });
         setCurrentIndex(targetIndex);
       } else {
         // Snap back if out of bounds
         flatlistRef.current?.scrollToOffset({
           offset: currentIndex * height,
-          animated: true
+          animated: true,
         });
       }
     }
@@ -142,6 +154,7 @@ const LivestreamFeed = () => {
           <LivestreamStudioFeed
             id={item._id}
             isVisible={index == currentIndex}
+            shared={itmSource?.toString() == "share"}
           />
         );
       }
@@ -149,6 +162,7 @@ const LivestreamFeed = () => {
         <LiveAuctionStudioFeed
           id={item._id}
           isVisible={index == currentIndex}
+          shared={itmSource?.toString() == "share"}
         />
       );
     },
