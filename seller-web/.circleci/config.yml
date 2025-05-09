@@ -144,7 +144,7 @@ commands:
          name: Deploy new code
          command: |
            aws s3 sync dist/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
-           aws s3 sync public/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+           aws s3 sync public/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd
   deploy_to_s3_production:
     description: Install aws-cli
     steps:
@@ -155,7 +155,7 @@ commands:
          name: Deploy new code
          command: |
            aws s3 sync dist/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
-           aws s3 sync public/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
+           aws s3 sync public/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj
 
 jobs:
   build:
