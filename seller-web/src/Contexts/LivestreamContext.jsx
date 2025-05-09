@@ -638,6 +638,45 @@ export const LivestreamProvider = ({ children }) => {
         return Math.round((endTime - startTime) / (1000 * 60));
     };
 
+    // Function to renew Agora token for a livestream
+    const renewAgoraToken = async (streamId) => {
+        try {
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+
+            if (!tokenData?.data) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Requesting new Agora token for stream:', streamId);
+            const response = await axios.get(
+                `${BASE_URL}/streams/${streamId}/renew-token`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.data.success || !response.data.token) {
+                throw new Error('Invalid token response from server');
+            }
+
+            console.log('Successfully obtained new Agora token');
+            return response.data.token;
+        } catch (error) {
+            console.error('Failed to fetch new Agora token:', error);
+            toast.error('Failed to refresh stream connection', {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        }
+    };
+
     return (
         <LivestreamContext.Provider value={{
             ...state,
@@ -649,6 +688,7 @@ export const LivestreamProvider = ({ children }) => {
             endLiveStream,
             joinLiveStreamAsHost,
             activateProductBidding,
+            renewAgoraToken,
             dispatch
         }}>
             {children}
