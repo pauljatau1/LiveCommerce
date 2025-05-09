@@ -11,6 +11,33 @@ router.get('/track/click/:trackingId', campaignController.trackEmailClick);
 
 /**
  * @swagger
+ * /api/campaigns/performance:
+ *   get:
+ *     summary: Get detailed campaign performance metrics
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [7, 30, 90, 180, 365]
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Detailed campaign performance metrics
+ *       500:
+ *         description: Server error
+ */
+router.get('/performance',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  campaignController.getCampaignPerformance
+);
+
+/**
+ * @swagger
  * /api/campaigns:
  *   post:
  *     summary: Create a new campaign

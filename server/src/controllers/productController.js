@@ -2329,7 +2329,8 @@ exports.getSuggestedBlips = async (req, res) => {
       ? { createdAt: -1 } // Newest first for category-matched content
       : { 'blipEngagement.viewCount': -1, 'blipEngagement.likesCount': -1 }; // Most popular based on views and likes
     
-    const blips = await mongoose.model('Product').aggregate([
+    // Get all potential blips - we'll filter for unique sellers in JS
+    const allBlips = await mongoose.model('Product').aggregate([
       // Match products that have blips (and match category if authenticated)
       { $match: matchStage },
       // Unwind the blips array
@@ -2504,16 +2505,31 @@ exports.getSuggestedBlips = async (req, res) => {
         }
       },
       // Sort by popularity or recency
-      { $sort: sortStage },
-      // Skip and limit for pagination
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
+      { $sort: sortStage }
     ]);
 
-    console.log(`Found ${blips.length} suggested blips`);
+    // Filter to ensure unique sellers
+    const uniqueSellerBlips = [];
+    const seenSellerIds = new Set();
+    
+    for (const blip of allBlips) {
+      const sellerId = blip.seller._id.toString();
+      if (!seenSellerIds.has(sellerId)) {
+        uniqueSellerBlips.push(blip);
+        seenSellerIds.add(sellerId);
+      }
+    }
+
+    // Apply pagination after ensuring unique sellers
+    const totalBlips = uniqueSellerBlips.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedBlips = uniqueSellerBlips.slice(startIndex, endIndex);
+
+    console.log(`Found ${paginatedBlips.length} suggested blips with unique sellers`);
 
     // Process blips to add isFollowing property
-    const processedBlips = blips.map(blip => {
+    const processedBlips = paginatedBlips.map(blip => {
       // Create a new object without the followers array
       const { seller, ...rest } = blip;
       
@@ -2524,30 +2540,14 @@ exports.getSuggestedBlips = async (req, res) => {
       };
     });
 
-    // Count total number of blips matching the criteria
-    const totalQuery = { 
-      blips: { $exists: true, $ne: [] },
-      $nor: [
-        {
-          status: 'offline_auction', 
-          'auction.status': 'ended'
-        }
-      ]
-    };
-    if (preferredCategories.length > 0) {
-      totalQuery.category = { $in: preferredCategories };
-    }
-    
-    const total = await mongoose.model('Product').countDocuments(totalQuery);
-
-    console.log(`Total suggested blips count: ${total}`);
+    console.log(`Total suggested blips count (unique sellers): ${totalBlips}`);
 
     res.json({
       blips: processedBlips,
       isPersonalized: preferredCategories.length > 0,
       currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalBlips: total
+      totalPages: Math.ceil(totalBlips / limit),
+      totalBlips
     });
   } catch (error) {
     console.error('Detailed error in getSuggestedBlips:', error);

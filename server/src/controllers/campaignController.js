@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { createMessageNotifications, createNotification } = require('./notificationController');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const mongoose = require('mongoose');
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -503,26 +504,72 @@ exports.getCampaigns = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
+      .populate({
+        path: 'recipients.buyer',
+        select: 'orders _id'
+      })
       .lean();
 
+    // Fetch related orders to calculate revenue from campaigns
+    const Order = mongoose.model('Order');
+    
     // Calculate stats for each campaign
-    const campaignsWithStats = campaigns.map(campaign => {
-      const openRate = campaign.stats.totalRecipients > 0 
-        ? ((campaign.stats.opened / campaign.stats.totalRecipients) * 100).toFixed(1)
-        : 0;
+    const campaignsWithStats = await Promise.all(campaigns.map(async (campaign) => {
+      // Get orders created after this campaign was sent
+      const campaignDate = new Date(campaign.createdAt);
+      const ordersAfterCampaign = await Order.find({
+        seller: sellerId,
+        'buyer': { $in: campaign.recipients.map(r => r.buyer?._id).filter(id => id) },
+        createdAt: { $gt: campaignDate },
+        // Looking at orders created within 7 days of campaign
+        $and: [{ 
+          createdAt: { 
+            $lt: new Date(campaignDate.getTime() + 7 * 24 * 60 * 60 * 1000) 
+          } 
+        }]
+      });
       
-      const clickRate = campaign.stats.totalRecipients > 0
-        ? ((campaign.stats.clicked / campaign.stats.totalRecipients) * 100).toFixed(1)
+      // Calculate campaign metrics
+      const totalRevenue = ordersAfterCampaign.reduce((sum, order) => 
+        sum + (order.totalAmount || 0), 0);
+      
+      const conversionRate = campaign.stats.totalRecipients > 0 
+        ? (ordersAfterCampaign.length / campaign.stats.totalRecipients * 100).toFixed(1)
         : 0;
+        
+      // Unique buyers who made purchases after the campaign
+      const uniqueBuyers = [...new Set(ordersAfterCampaign.map(order => order.buyer.toString()))];
+      
+      // Calculate engagement score (normalized 0-100 scale)
+      // Based on opens, clicks, and conversions
+      const engagementScore = Math.min(100, Math.round(
+        ((campaign.stats.opened * 1) + 
+         (campaign.stats.clicked * 3) + 
+         (ordersAfterCampaign.length * 10)) / 
+        Math.max(1, campaign.stats.totalRecipients) * 20
+      ));
+
+      // Calculate ROI if we have cost data (simplified version)
+      // Assuming a fixed cost per recipient of $0.01
+      const estimatedCost = campaign.stats.totalRecipients * 0.01;
+      const roi = estimatedCost > 0 ? 
+        (((totalRevenue - estimatedCost) / estimatedCost) * 100).toFixed(1) : 0;
 
       return {
         ...campaign,
-        openRate: `${openRate}%`,
-        clickRate: `${clickRate}%`,
-        followers: campaign.stats.totalRecipients,
-        sales: `N ${campaign.stats.sales.toLocaleString()}`
+        stats: {
+          ...campaign.stats,
+          revenue: totalRevenue,
+          conversionRate: `${conversionRate}%`,
+          uniqueBuyers: uniqueBuyers.length,
+          ordersGenerated: ordersAfterCampaign.length,
+          engagementScore,
+          roi: `${roi}%`
+        },
+        recipients: campaign.recipients.length, // Just return the count instead of the full array
+        formattedDate: new Date(campaign.createdAt).toLocaleDateString()
       };
-    });
+    }));
 
     const total = await Campaign.countDocuments(query);
 
@@ -536,6 +583,7 @@ exports.getCampaigns = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Error fetching campaigns:', error);
     res.status(500).json({
       message: 'Failed to retrieve campaigns',
       error: error.message
@@ -794,6 +842,132 @@ exports.trackEmailClick = async (req, res) => {
   } catch (error) {
     console.error('Error tracking email click:', error);
     res.redirect(req.query.url || '/');
+  }
+};
+
+// Track a purchase attribution to a campaign
+exports.trackPurchase = async (campaignId, buyerId, orderAmount) => {
+  try {
+    console.log(`Tracking purchase: Campaign ${campaignId}, Buyer ${buyerId}, Amount ${orderAmount}`);
+    
+    // Find campaign with this buyer as a recipient
+    const campaign = await Campaign.findOne({
+      _id: campaignId,
+      'recipients.buyer': buyerId
+    });
+
+    if (!campaign) {
+      console.log('No matching campaign found for this purchase');
+      return false;
+    }
+
+    // Check if purchase happened within attribution window (7 days)
+    const campaignDate = new Date(campaign.createdAt);
+    const now = new Date();
+    const daysSinceCampaign = Math.floor((now - campaignDate) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceCampaign > 7) {
+      console.log('Purchase outside of 7-day attribution window');
+      return false;
+    }
+
+    // Update campaign stats
+    await Campaign.updateOne(
+      { _id: campaignId },
+      { 
+        $inc: { 
+          'stats.sales': orderAmount,
+          'stats.conversions': 1 
+        }
+      }
+    );
+
+    // Update recipient status
+    await Campaign.updateOne(
+      { 
+        _id: campaignId,
+        'recipients.buyer': buyerId
+      },
+      { 
+        $set: { 
+          'recipients.$.status': 'converted',
+          'recipients.$.convertedAt': now,
+          'recipients.$.orderAmount': orderAmount
+        }
+      }
+    );
+
+    console.log(`Successfully attributed purchase to campaign ${campaignId}`);
+    return true;
+  } catch (error) {
+    console.error('Error tracking purchase attribution:', error);
+    return false;
+  }
+};
+
+// Get campaign performance metrics (for dashboard)
+exports.getCampaignPerformance = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { period = '30' } = req.query; // Default to 30 days
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(period));
+    
+    // Get campaign data for period
+    const campaigns = await Campaign.find({
+      seller: sellerId,
+      createdAt: { $gte: startDate }
+    });
+    
+    // Calculate aggregate performance metrics
+    const totalSent = campaigns.reduce((sum, c) => sum + c.stats.totalRecipients, 0);
+    const totalOpened = campaigns.reduce((sum, c) => sum + c.stats.opened, 0);
+    const totalClicked = campaigns.reduce((sum, c) => sum + c.stats.clicked, 0);
+    const totalSales = campaigns.reduce((sum, c) => sum + c.stats.sales, 0);
+    const totalConversions = campaigns.reduce((sum, c) => sum + (c.stats.conversions || 0), 0);
+    
+    // Calculate rates
+    const openRate = totalSent > 0 ? (totalOpened / totalSent * 100).toFixed(1) : 0;
+    const clickRate = totalSent > 0 ? (totalClicked / totalSent * 100).toFixed(1) : 0;
+    const conversionRate = totalSent > 0 ? (totalConversions / totalSent * 100).toFixed(1) : 0;
+
+    // Get top performing campaigns by revenue
+    const topCampaigns = campaigns
+      .sort((a, b) => (b.stats.sales || 0) - (a.stats.sales || 0))
+      .slice(0, 5)
+      .map(c => ({
+        id: c._id,
+        title: c.title,
+        revenue: c.stats.sales || 0,
+        conversionRate: c.stats.totalRecipients > 0 
+          ? ((c.stats.conversions || 0) / c.stats.totalRecipients * 100).toFixed(1) + '%' 
+          : '0%',
+        date: new Date(c.createdAt).toLocaleDateString()
+      }));
+
+    // Return performance data
+    res.json({
+      summary: {
+        totalCampaigns: campaigns.length,
+        totalRecipients: totalSent,
+        totalOpened,
+        totalClicked,
+        totalSales,
+        totalConversions,
+        openRate: openRate + '%',
+        clickRate: clickRate + '%',
+        conversionRate: conversionRate + '%',
+        averageOrderValue: totalConversions > 0 ? (totalSales / totalConversions).toFixed(2) : 0
+      },
+      topCampaigns
+    });
+  } catch (error) {
+    console.error('Error getting campaign performance:', error);
+    res.status(500).json({
+      message: 'Failed to get campaign performance data',
+      error: error.message
+    });
   }
 };
 
