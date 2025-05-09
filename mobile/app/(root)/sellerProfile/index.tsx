@@ -179,7 +179,11 @@ const CollapsibleHeader = memo(
                 source={require("../../../assets/icons/location.png")}
                 style={styles.infoBubbleImage}
               />
-              <Text style={styles.infoBubbleText}>Lagos, Nigeria</Text>
+              <Text style={styles.infoBubbleText}>
+                {seller?.location?.state
+                  ? seller?.location?.state + ", " + seller?.location?.country
+                  : "Lagos, Nigeria"}
+              </Text>
             </View>
 
             {seller?.storeInfo?.socialMedia?.instagram ||
