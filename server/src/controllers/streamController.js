@@ -213,7 +213,7 @@ exports.createStream = async (req, res) => {
       const io = req.app.get('io');
       const streamRoom = `stream_notifications_${stream._id.toString()}`;
       console.log(`Initialized stream notification room: ${streamRoom}`);
-      
+
       // Create initialization notification for room to ensure it exists in Socket.IO's room registry
       const initNotification = {
         id: Date.now().toString(),
@@ -226,7 +226,7 @@ exports.createStream = async (req, res) => {
         },
         timestamp: new Date()
       };
-      
+
       io.to(streamRoom).emit('stream_room_initialized', initNotification);
     }
 
@@ -1468,7 +1468,7 @@ exports.createOpenLiveShow = async (req, res) => {
       const io = req.app.get('io');
       const streamRoom = `stream_notifications_${stream._id.toString()}`;
       console.log(`Initialized stream notification room: ${streamRoom}`);
-      
+
       // Create initialization notification for room to ensure it exists in Socket.IO's room registry
       const initNotification = {
         id: Date.now().toString(),
@@ -1481,7 +1481,7 @@ exports.createOpenLiveShow = async (req, res) => {
         },
         timestamp: new Date()
       };
-      
+
       io.to(streamRoom).emit('stream_room_initialized', initNotification);
     }
 
@@ -3561,6 +3561,84 @@ exports.getStreamOrders = async (req, res) => {
     console.error('Error fetching stream orders:', error);
     res.status(500).json({
       message: 'Failed to fetch stream orders',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Renew Agora token for a stream
+ * @route GET /api/streams/:streamId/renew-token
+ * @access Private
+ */
+exports.renewAgoraToken = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Find stream by ID
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stream not found'
+      });
+    }
+
+    // Determine role based on user type
+    let tokenRole, tokenUid;
+
+    if (userRole === 'Seller') {
+      // For sellers, use their agoraUid and Publisher role
+      const seller = await Seller.findById(userId).select('agoraUid');
+
+      if (!seller || !seller.agoraUid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Seller Agora UID not found'
+        });
+      }
+
+      tokenRole = RtcRole.PUBLISHER;
+      tokenUid = seller.agoraUid;
+    } else if (userRole === 'Buyer') {
+      // For buyers, create a deterministic but unique uid based on user ID and stream ID
+      const userIdNum = parseInt(userId.substring(0, 8), 16);
+      const streamIdNum = parseInt(stream._id.toString().substring(0, 8), 16);
+      // Combine and constrain to be within Agora's allowed range
+      tokenUid = ((userIdNum ^ streamIdNum) % 999000) + 1000;
+      tokenRole = RtcRole.SUBSCRIBER;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid user role for token renewal'
+      });
+    }
+
+    // Generate fresh token
+    const freshToken = agoraService.generateToken(
+      stream.channelName,
+      tokenUid,
+      tokenRole
+    );
+
+    // Return the new token
+    res.status(200).json({
+      success: true,
+      token: freshToken,
+      tokenExpiration: Date.now() + (tokenRole === RtcRole.PUBLISHER ? 3600 : 14400) * 1000,
+      uid: tokenUid,
+      role: tokenRole === RtcRole.PUBLISHER ? 'publisher' : 'subscriber',
+      channelName: stream.channelName
+    });
+
+  } catch (error) {
+    console.error('Renew Agora token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to renew Agora token',
       error: error.message
     });
   }
