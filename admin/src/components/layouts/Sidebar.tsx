@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useSidebar } from '@/context/sidebarContext';
+import { useAuth } from '@/context/authContext';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
@@ -79,6 +80,7 @@ const bottomLinks = [
 function Sidebar() {
   const location = useLocation();
   const { isOpen, close } = useSidebar();
+  const { logout } = useAuth();
   const [pendingSellersCount, setPendingSellersCount] = useState(0);
   const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
@@ -129,6 +131,17 @@ function Sidebar() {
     if (path === '/dashboard/withdrawals') return pendingWithdrawalsCount;
     if (path === '/dashboard/bankrequests') return pendingBankRequestsCount;
     return 0;
+  };
+
+  const handleLogout = (e: React.MouseEvent, path: string) => {
+    if (path === '/logout') {
+      e.preventDefault();
+      logout();
+    }
+    
+    if (window.innerWidth < 768) {
+      close();
+    }
   };
 
   return (
@@ -214,11 +227,7 @@ function Sidebar() {
                     "bg-secondary text-primary" :
                     "text-muted-foreground"
                 )}
-                onClick={() => {
-                  if (window.innerWidth < 768) {
-                    close();
-                  }
-                }}
+                onClick={(e) => handleLogout(e, link.path)}
               >
                 <Icon className="h-5 w-5" />
                 <span>{link.label}</span>

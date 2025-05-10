@@ -4,7 +4,13 @@ import {
   ArrowUpRight,
   Eye,
   Download,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  Filter,
+  X
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -30,6 +36,17 @@ import { useEffect, useState, useMemo } from "react"
 import { api } from "@/api/axios"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 
 // Define TypeScript interfaces
 interface Order {
@@ -73,7 +90,21 @@ function Orders() {
   const [fezDialogOpen, setFezDialogOpen] = useState(false)
   const [fezOrderNo, setFezOrderNo] = useState("")
   const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
-
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [isLoadingPage, setIsLoadingPage] = useState(false)
+  
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: "",
+    status: "all" // 'all', 'open', 'closed'
+  })
+  
+  // Search input state (separate from filter state to avoid immediate API calls)
+  const [searchInput, setSearchInput] = useState("")
+  
   // Calculate total revenue from paid orders using useMemo
   const totalRevenue = useMemo(() => {
     return ordersData?.orders
@@ -88,20 +119,70 @@ function Orders() {
       ?.length || 0
   }, [ordersData?.orders])
 
+  // Fetch orders when page, limit, or filters change
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await api.get('/api/admin/orders?page=1&limit=100')
-        setOrdersData(response.data)
-      } catch (error) {
-        console.error('Error fetching orders:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    fetchOrders(currentPage, limit)
+  }, [currentPage, limit, filters])
 
-    fetchOrders()
-  }, [])
+  const fetchOrders = async (page: number, pageLimit: number) => {
+    try {
+      setIsLoadingPage(true)
+      
+      // Build query string with all filters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pageLimit.toString()
+      })
+      
+      if (filters.search) params.append('search', filters.search)
+      if (filters.status !== 'all') params.append('status', filters.status)
+      
+      const response = await api.get(`/api/admin/orders?${params.toString()}`)
+      setOrdersData(response.data)
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+      toast.error("Failed to load orders")
+    } finally {
+      setLoading(false)
+      setIsLoadingPage(false)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || (ordersData && page > ordersData.totalPages)) {
+      return
+    }
+    setCurrentPage(page)
+  }
+
+  const handleLimitChange = (value: string) => {
+    setLimit(parseInt(value))
+    setCurrentPage(1) // Reset to first page when changing limit
+  }
+  
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setCurrentPage(1) // Reset to first page when changing filters
+  }
+  
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value)
+  }
+  
+  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleFilterChange('search', searchInput)
+    }
+  }
+  
+  const handleApplySearch = () => {
+    handleFilterChange('search', searchInput)
+  }
+  
+  const clearFilters = () => {
+    setFilters({ search: "", status: "all" })
+    setSearchInput("")
+  }
 
   const handleDeleteFezOrder = async () => {
     if (!fezOrderNo.trim()) {
@@ -117,9 +198,8 @@ function Orders() {
       setFezDialogOpen(false);
       setFezOrderNo("");
       
-      // Refresh orders data
-      const refreshedOrders = await api.get('/api/admin/orders?page=1&limit=100');
-      setOrdersData(refreshedOrders.data);
+      // Refresh orders data with current pagination
+      fetchOrders(currentPage, limit);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to cancel Fez order");
     } finally {
@@ -228,9 +308,101 @@ function Orders() {
         </Card>
       </div>
 
+      {/* Order Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Search by order ID or customer name..."
+              value={searchInput}
+              onChange={handleSearchInputChange}
+              onKeyDown={handleSearchSubmit}
+              className="pl-9"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="absolute right-0 top-0 h-full rounded-l-none"
+              onClick={handleApplySearch}
+            >
+              Search
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Select
+              value={filters.status}
+              onValueChange={(value) => handleFilterChange('status', value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <span className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <SelectValue placeholder="Filter by status" />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="open">Open Orders</SelectItem>
+                <SelectItem value="closed">Closed Orders</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={clearFilters}
+              disabled={!filters.search && filters.status === "all"}
+              title="Clear filters"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Active filters display */}
+        {(filters.search || filters.status !== "all") && (
+          <div className="flex items-center gap-2 mt-4 text-sm">
+            <span className="text-muted-foreground">Active filters:</span>
+            {filters.search && (
+              <Badge variant="secondary" className="px-2 py-1">
+                Search: {filters.search}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('search', '')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )}
+            {filters.status !== "all" && (
+              <Badge variant="secondary" className="px-2 py-1">
+                Status: {filters.status === "open" ? "Open" : "Closed"}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('status', 'all')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )}
+          </div>
+        )}
+      </Card>
+
       {/* Orders Table */}
       <Card className="p-6 overflow-auto">
-        <div className="w-full min-w-max md:min-w-0">
+        <div className="w-full min-w-max md:min-w-0 relative">
+          {isLoadingPage && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
@@ -289,6 +461,109 @@ function Orders() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination UI */}
+          {ordersData && ordersData.totalPages > 0 && (
+            <div className="flex flex-col md:flex-row justify-between items-center mt-4 gap-4">
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <span className="text-muted-foreground">Show</span>
+                <Select
+                  value={limit.toString()}
+                  onValueChange={handleLimitChange}
+                >
+                  <SelectTrigger className="h-8 w-16">
+                    <SelectValue placeholder={limit.toString()} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground">per page</span>
+              </div>
+              
+              <div className="text-xs sm:text-sm text-muted-foreground text-center">
+                Showing {ordersData.orders.length ? ((ordersData.currentPage - 1) * limit) + 1 : 0}-
+                {Math.min(ordersData.currentPage * limit, ordersData.totalOrders)} of {ordersData.totalOrders} orders
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1 || isLoadingPage}
+                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+                >
+                  <span className="sr-only">First Page</span>
+                  <span>«</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isLoadingPage}
+                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+                >
+                  <span className="sr-only">Previous Page</span>
+                  <span>‹</span>
+                </Button>
+                
+                {/* Generate page links */}
+                {Array.from({ length: Math.min(5, ordersData.totalPages) }, (_, i) => {
+                  // Calculate which page numbers to show
+                  let pageNum = i + 1;
+                  if (ordersData.totalPages > 5) {
+                    if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= ordersData.totalPages - 2) {
+                      pageNum = ordersData.totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      disabled={isLoadingPage}
+                      className="h-7 sm:h-8 w-7 sm:w-8 p-0 hidden xs:flex xs:items-center xs:justify-center"
+                    >
+                      <span className="sr-only">Page {pageNum}</span>
+                      <span>{pageNum}</span>
+                    </Button>
+                  );
+                })}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === ordersData.totalPages || isLoadingPage}
+                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+                >
+                  <span className="sr-only">Next Page</span>
+                  <span>›</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(ordersData.totalPages)}
+                  disabled={currentPage === ordersData.totalPages || isLoadingPage}
+                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+                >
+                  <span className="sr-only">Last Page</span>
+                  <span>»</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </div>

@@ -9,9 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Copy, Download, Trash2 } from "lucide-react";
+import { Loader2, Copy, Download, Trash2, Eye, Search, Filter } from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface Buyer {
   _id: string;
@@ -50,11 +54,37 @@ interface Buyer {
   isIdentityVerified: boolean;
 }
 
+interface PaginatedResponse {
+  success: boolean;
+  currentPage: number;
+  totalPages: number;
+  totalUsers: number;
+  usersPerPage: number;
+  users: Buyer[];
+}
+
 function Buyers() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  // Filtering and pagination state
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // New state for input value
+  const [verificationFilter, setVerificationFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [totalUsers, setTotalUsers] = useState(0);
+  
+  // Data state
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Operations state
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -63,17 +93,79 @@ function Buyers() {
 
   useEffect(() => {
     fetchBuyers();
-  }, []);
+  }, [currentPage, limit, verificationFilter, statusFilter, sortBy, countryFilter]);
 
   const fetchBuyers = async () => {
+    setLoading(true);
     try {
-      const response = await api.get("/api/admin/users");
-      setBuyers(response.data);
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append("page", currentPage.toString());
+      params.append("limit", limit.toString());
+      
+      if (search) params.append("search", search);
+      
+      if (verificationFilter && verificationFilter !== "all") {
+        params.append("isVerified", verificationFilter === "verified" ? "true" : "false");
+      }
+      
+      if (statusFilter && statusFilter !== "all") {
+        params.append("isDisabled", statusFilter === "disabled" ? "true" : "false");
+      }
+      
+      if (countryFilter && countryFilter !== "all") {
+        params.append("country", countryFilter);
+      }
+      
+      // Map sortBy values to backend sort options
+      if (sortBy) {
+        let sortParam;
+        switch (sortBy) {
+          case "name_asc":
+            sortParam = "name_asc";
+            break;
+          case "name_desc":
+            sortParam = "name_desc";
+            break;
+          case "oldest":
+            sortParam = "oldest";
+            break;
+          case "email":
+            sortParam = "email";
+            break;
+          default:
+            sortParam = "newest"; // Default is newest first
+        }
+        params.append("sortBy", sortParam);
+      }
+      
+      const response = await api.get<PaginatedResponse>(`/api/admin/users?${params.toString()}`);
+      setBuyers(response.data.users);
+      setTotalPages(response.data.totalPages);
+      setTotalUsers(response.data.totalUsers);
+      setCurrentPage(response.data.currentPage);
     } catch (err) {
       setError("Failed to fetch buyers");
       console.error("Error fetching buyers:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // New handlers for search
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value);
+  };
+
+  const handleSearchSubmit = () => {
+    setSearch(searchInput);
+    setCurrentPage(1); // Reset to first page on new search
+    fetchBuyers();
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
     }
   };
 
@@ -176,7 +268,35 @@ function Buyers() {
     });
   };
 
-  if (loading) {
+  const navigateToBuyerDetails = (buyerId: string) => {
+    navigate(`/dashboard/buyer-detail/${buyerId}`);
+  };
+
+  // Updated handlePageChange
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  // Updated handleLimitChange
+  const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setLimit(Number(event.target.value));
+    setCurrentPage(1); // Reset to first page when limit changes
+  };
+
+  // Add filter reset function
+  const resetFilters = () => {
+    setSearch("");
+    setSearchInput("");
+    setVerificationFilter("all");
+    setStatusFilter("all");
+    setCountryFilter("all");
+    setSortBy("newest");
+    setCurrentPage(1);
+    // Fetch buyers with reset filters
+    fetchBuyers();
+  };
+
+  if (loading && buyers.length === 0) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -184,7 +304,7 @@ function Buyers() {
     );
   }
 
-  if (error) {
+  if (error && buyers.length === 0) {
     return (
       <div className="text-center text-destructive p-4">
         <p>{error}</p>
@@ -199,7 +319,100 @@ function Buyers() {
         <p className="text-muted-foreground">Manage your platform buyers</p>
       </div>
 
+      {/* Search and Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-medium">Filters</h3>
+            <Button 
+              variant="ghost" 
+              onClick={resetFilters}
+              className="text-xs h-8"
+            >
+              Reset All
+            </Button>
+          </div>
+          
+          <div className="flex gap-2 flex-1 min-w-[200px]">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Search buyers..."
+                value={searchInput}
+                onChange={handleSearchInputChange}
+                onKeyDown={handleSearchKeyDown}
+                className="pr-16"
+              />
+              <Button 
+                variant="secondary" 
+                onClick={handleSearchSubmit}
+                className="absolute right-0 top-0 h-full rounded-l-none"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <Select value={verificationFilter} onValueChange={setVerificationFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Verification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="verified">Verified</SelectItem>
+                <SelectItem value="unverified">Unverified</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="disabled">Disabled</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="name_asc">Name A-Z</SelectItem>
+                <SelectItem value="name_desc">Name Z-A</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={countryFilter} onValueChange={setCountryFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Countries</SelectItem>
+                <SelectItem value="US">United States</SelectItem>
+                <SelectItem value="UK">United Kingdom</SelectItem>
+                <SelectItem value="CA">Canada</SelectItem>
+                <SelectItem value="AU">Australia</SelectItem>
+                {/* Add more countries as needed */}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
+
       <Card className="p-6 overflow-auto">
+        {loading && buyers.length > 0 && (
+          <div className="flex justify-center my-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
+        
         <div className="min-w-[1000px]">
           <Table>
             <TableHeader>
@@ -288,38 +501,18 @@ function Buyers() {
                   <TableCell>{formatDate(buyer.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {buyer.identityDocument?.url ? (
-                        <>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => verifyIdentity(buyer._id, 'verified')}
-                            disabled={verifyingId === buyer._id}
-                          >
-                            {verifyingId === buyer._id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            ) : null}
-                            Verify
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => verifyIdentity(buyer._id, 'rejected')}
-                            disabled={verifyingId === buyer._id}
-                          >
-                            {verifyingId === buyer._id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            ) : null}
-                            Reject
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          Document Pending
-                        </span>
-                      )}
-                      
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigateToBuyerDetails(buyer._id)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Details
+                      </Button>
+                      
+                      
+                      
+                      {/* <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteClick(buyer)}
@@ -331,7 +524,7 @@ function Buyers() {
                           <Trash2 className="h-4 w-4 mr-1" />
                         )}
                         Delete
-                      </Button>
+                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -339,6 +532,102 @@ function Buyers() {
             </TableBody>
           </Table>
         </div>
+        
+        {/* Improved Pagination */}
+        {totalPages > 0 && (
+          <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <span className="text-muted-foreground">Show</span>
+              <select
+                className="h-8 rounded-md bg-background border border-input px-2"
+                value={limit}
+                onChange={handleLimitChange}
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span className="text-muted-foreground">per page</span>
+            </div>
+            
+            <div className="text-xs sm:text-sm text-muted-foreground text-center">
+              Showing {buyers.length ? ((currentPage - 1) * limit) + 1 : 0}-
+              {Math.min(currentPage * limit, totalUsers)} of {totalUsers} buyers
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+              >
+                <span className="sr-only">First Page</span>
+                <span>«</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+              >
+                <span className="sr-only">Previous Page</span>
+                <span>‹</span>
+              </Button>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // Calculate which page numbers to show
+                let pageNum = i + 1;
+                if (totalPages > 5) {
+                  if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                }
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={pageNum === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(pageNum)}
+                    className="h-7 sm:h-8 w-7 sm:w-8 p-0 hidden xs:flex xs:items-center xs:justify-center"
+                  >
+                    <span className="sr-only">Page {pageNum}</span>
+                    <span>{pageNum}</span>
+                  </Button>
+                );
+              })}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+              >
+                <span className="sr-only">Next Page</span>
+                <span>›</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+              >
+                <span className="sr-only">Last Page</span>
+                <span>»</span>
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
       
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

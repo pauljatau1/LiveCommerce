@@ -22,8 +22,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Package, Truck, MapPin, Clock, AlertCircle, CreditCard, Store, FileText, Banknote, User, CheckCircle, XCircle, Trash2 } from 'lucide-react'
+import { Package, Truck, MapPin, Clock, AlertCircle, CreditCard, Store, FileText, Banknote, User, CheckCircle, XCircle, Trash2, Bell } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface OrderDetail {
   order: {
@@ -165,6 +172,10 @@ function OrderDetail() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [fezOrderNo, setFezOrderNo] = useState("")
   const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false)
+  const [webhookFezOrderNo, setWebhookFezOrderNo] = useState("")
+  const [webhookStatus, setWebhookStatus] = useState("")
+  const [isSimulatingWebhook, setIsSimulatingWebhook] = useState(false)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -225,6 +236,39 @@ function OrderDetail() {
     }
   };
 
+  const handleSimulateWebhook = async () => {
+    if (!webhookFezOrderNo.trim()) {
+      toast.error("Please enter a valid Fez order number");
+      return;
+    }
+    
+    if (!webhookStatus) {
+      toast.error("Please select a status");
+      return;
+    }
+    
+    try {
+      setIsSimulatingWebhook(true);
+      const response = await api.post('/api/notifications/simulate-fez-webhook', {
+        orderNumber: webhookFezOrderNo.trim(),
+        status: webhookStatus
+      });
+      
+      toast.success(response.data.message || "Webhook simulated successfully");
+      setWebhookDialogOpen(false);
+      setWebhookFezOrderNo("");
+      setWebhookStatus("");
+      
+      // Refresh order data
+      const updatedOrder = await api.get(`/api/order/${id}`);
+      setOrderData(updatedOrder.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to simulate webhook");
+    } finally {
+      setIsSimulatingWebhook(false);
+    }
+  };
+
   if (loading) return <div>Loading...</div>
   if (!orderData) return <div>Order not found</div>
 
@@ -255,6 +299,71 @@ function OrderDetail() {
               {orderData.order.orderStatus.isOpen ? "Open" : "Closed"}
             </span>
           </div>
+
+          {/* Webhook Simulator Button */}
+          <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline"
+                className="ml-2 text-white"
+                title="Simulate Fez Webhook"
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Simulate Webhook
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+              <DialogHeader>
+                <DialogTitle>Simulate Fez Webhook</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Simulate a webhook event from Fez Delivery to update order status.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-white">Fez Order Number</label>
+                  <Input
+                    placeholder="Enter Fez Order Number"
+                    value={webhookFezOrderNo}
+                    onChange={(e) => setWebhookFezOrderNo(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-white">Status</label>
+                  <Select onValueChange={setWebhookStatus} value={webhookStatus}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                      <SelectItem value="Pending Pick-Up">Pending Pick-Up</SelectItem>
+                      <SelectItem value="Picked-Up">Picked-Up</SelectItem>
+                      <SelectItem value="Dispatched">Dispatched</SelectItem>
+                      <SelectItem value="Delivered">Delivered</SelectItem>
+                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setWebhookDialogOpen(false)}
+                  className="bg-gray-800 text-white hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSimulateWebhook}
+                  disabled={!webhookFezOrderNo.trim() || !webhookStatus || isSimulatingWebhook}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSimulatingWebhook ? "Simulating..." : "Simulate Webhook"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button 
