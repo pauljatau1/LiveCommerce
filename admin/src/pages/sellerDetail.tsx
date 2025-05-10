@@ -835,7 +835,7 @@ function SellerDetail() {
           </DropdownMenu>
           
           {/* Delete All Products Button */}
-          <Button 
+          {/* <Button 
             variant="destructive" 
             size="sm"
             onClick={() => setShowDeleteAllProductsModal(true)}
@@ -843,7 +843,7 @@ function SellerDetail() {
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete All Products
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -935,7 +935,7 @@ function SellerDetail() {
                 <span className="text-sm text-zinc-400">Store Visits</span>
                 <div className="mt-2 flex items-center gap-2">
                   <Eye className="h-5 w-5 text-blue-400" />
-                  <span className="text-2xl font-bold text-white">{seller.storeVisits?.toLocaleString() || 0}</span>
+                  <span className="text-2xl font-semibold text-white">{seller.storeVisits?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </Card>
@@ -945,7 +945,7 @@ function SellerDetail() {
                 <span className="text-sm text-zinc-400">Wallet Balance</span>
                 <div className="mt-2 flex items-center gap-2">
                   <Wallet className="h-5 w-5 text-green-400" />
-                  <span className="text-2xl font-bold text-white">${seller.walletBalance?.toLocaleString() || 0}</span>
+                  <span className="text-2xl font-semibold text-white">NGN {seller.walletBalance?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </Card>
@@ -955,7 +955,7 @@ function SellerDetail() {
                 <span className="text-sm text-zinc-400">Avg. Rating</span>
                 <div className="mt-2 flex items-center gap-2">
                   <Star className="h-5 w-5 text-yellow-400" />
-                  <span className="text-2xl font-bold text-white">{seller.stats?.averageRating || 0}</span>
+                  <span className="text-2xl font-semibold text-white">{seller.stats?.averageRating || 0}</span>
                 </div>
               </div>
             </Card>
@@ -965,7 +965,7 @@ function SellerDetail() {
                 <span className="text-sm text-zinc-400">Total Reviews</span>
                 <div className="mt-2 flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-purple-400" />
-                  <span className="text-2xl font-bold text-white">{seller.stats?.totalReviews || 0}</span>
+                  <span className="text-2xl font-semibold text-white">{seller.stats?.totalReviews || 0}</span>
                 </div>
               </div>
             </Card>
@@ -979,7 +979,7 @@ function SellerDetail() {
                   <span className="text-sm text-zinc-400">Total Orders</span>
                   <div className="mt-2 flex items-center gap-2">
                     <Package className="h-5 w-5 text-orange-400" />
-                    <span className="text-2xl font-bold text-white">{metrics.ordersCount || 0}</span>
+                    <span className="text-2xl font-semibold text-white">{metrics.ordersCount || 0}</span>
                   </div>
                 </div>
               </Card>
@@ -989,7 +989,7 @@ function SellerDetail() {
                   <span className="text-sm text-zinc-400">Total Products</span>
                   <div className="mt-2 flex items-center gap-2">
                     <Store className="h-5 w-5 text-indigo-400" />
-                    <span className="text-2xl font-bold text-white">{metrics.productsCount || 0}</span>
+                    <span className="text-2xl font-semibold text-white">{metrics.productsCount || 0}</span>
                   </div>
                 </div>
               </Card>
@@ -999,7 +999,7 @@ function SellerDetail() {
                   <span className="text-sm text-zinc-400">Streams</span>
                   <div className="mt-2 flex items-center gap-2">
                     <Video className="h-5 w-5 text-pink-400" />
-                    <span className="text-2xl font-bold text-white">{metrics.streamsCount || 0}</span>
+                    <span className="text-2xl font-semibold text-white">{metrics.streamsCount || 0}</span>
                   </div>
                 </div>
               </Card>
@@ -1009,7 +1009,7 @@ function SellerDetail() {
                   <span className="text-sm text-zinc-400">Total Revenue</span>
                   <div className="mt-2 flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-emerald-400" />
-                    <span className="text-2xl font-bold text-white">${metrics.totalRevenue?.toLocaleString(undefined, {
+                    <span className="text-2xl font-semibold text-white">${metrics.totalRevenue?.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     }) || 0}</span>

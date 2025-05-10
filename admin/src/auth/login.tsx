@@ -19,8 +19,10 @@ import {
   Lock, 
   User, 
   AlertCircle,
-  Loader2 
+  Loader2,
+  Info
 } from "lucide-react";
+import { Link } from 'react-router-dom';
 
 function Login() {
   const { login } = useAuth();
@@ -28,17 +30,62 @@ function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockoutTime, setLockoutTime] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setAttemptsLeft(null);
+    setLockoutTime(null);
 
     try {
       await login(username, password);
-    } catch (error) {
-      setError('Failed to login. Please try again.' + error);
+    } catch (error: any) {
+      // Handle specific error responses from the backend
+      if (error.response) {
+        const { status, data } = error.response;
+        
+        // Extract the most useful error message
+        let errorMessage = '';
+        
+        if (data.message) {
+          errorMessage = data.message;
+          
+          // If there's a more detailed error field, use that instead
+          if (data.error && typeof data.error === 'string') {
+            errorMessage = data.error;
+          }
+        } else {
+          errorMessage = 'Failed to login. Please try again.';
+        }
+        
+        if (status === 429) {
+          // Rate limit error - IP is locked
+          setError(errorMessage);
+          
+          // Try to extract lockout time if it's in the message
+          const lockoutMatch = errorMessage.match(/after\s+(\d+)\s+minutes/i);
+          if (lockoutMatch && lockoutMatch[1]) {
+            setLockoutTime(lockoutMatch[1]);
+          }
+        } else if (status === 401) {
+          // Invalid credentials with attempts tracking
+          setError(errorMessage);
+          if (data.attemptsLeft) {
+            setAttemptsLeft(data.attemptsLeft);
+          }
+        } else if (status === 500 && data.error) {
+          // Server error with details
+          setError(data.error);
+        } else {
+          setError(errorMessage);
+        }
+      } else {
+        setError('Failed to login. Please check your connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -66,15 +113,33 @@ function Login() {
             </Alert>
           )}
           
+          {attemptsLeft !== null && (
+            <Alert className="mb-6 bg-amber-50 border-amber-500">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-700">
+                You have {attemptsLeft} login {attemptsLeft === 1 ? 'attempt' : 'attempts'} remaining before your IP is locked for some time.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {lockoutTime && (
+            <Alert className="mb-6 bg-amber-50 border-amber-500">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-700">
+                Your IP is temporarily locked. Please try again after {lockoutTime} minutes.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Username or Email</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="username"
                   type="text"
-                  placeholder="Username"
+                  placeholder="Username or Email"
                   className="pl-10"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -115,7 +180,7 @@ function Login() {
             <Button 
               type="submit" 
               className="w-full py-6"
-              disabled={isLoading}
+              disabled={isLoading || lockoutTime !== null}
             >
               {isLoading ? (
                 <>
@@ -129,6 +194,9 @@ function Login() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center mt-4">
+            Need help? Contact the system administrator.
+          </div>
           <div className="relative w-full">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
