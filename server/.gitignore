@@ -3,3 +3,9 @@
 .env
 
 node_modules
+
+playground.txt
+
+client.jsx
+
+client.tsx
