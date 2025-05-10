@@ -162,7 +162,7 @@ router.get('/for-you',
  *       500:
  *         description: Server error
  */
-router.post('/create', 
+router.post('/create',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
   streamController.createStream
@@ -1026,7 +1026,7 @@ router.get('/search', (req, res, next) => {
  *       500:
  *         description: Server error
  */
-router.get('/favorite-sellers', 
+router.get('/favorite-sellers',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
   streamController.getStreamsFromFavoriteSellers
@@ -1894,5 +1894,65 @@ router.get('/:streamId/is-subscribed',
  *         description: Server error
  */
 router.get('/:streamId/orders', streamController.getStreamOrders);
+
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/renew-token:
+ *   get:
+ *     summary: Renew Agora token for a stream
+ *     description: Generates a fresh Agora token for the specified stream based on user role (Seller gets PUBLISHER role, Buyer gets SUBSCRIBER role)
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream to renew token for
+ *     responses:
+ *       200:
+ *         description: Successfully renewed Agora token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   description: The renewed Agora token
+ *                 tokenExpiration:
+ *                   type: number
+ *                   description: Timestamp when the token expires
+ *                 uid:
+ *                   type: number
+ *                   description: User ID for Agora
+ *                 role:
+ *                   type: string
+ *                   enum: [publisher, subscriber]
+ *                   description: Role in the stream
+ *                 channelName:
+ *                   type: string
+ *                   description: Channel name for the stream
+ *       400:
+ *         description: Invalid request or seller Agora UID not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Invalid user role
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/renew-token',
+  authMiddleware.verifyToken,
+  streamController.renewAgoraToken
+);
 
 module.exports = router; 
