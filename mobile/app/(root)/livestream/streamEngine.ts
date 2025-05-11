@@ -133,40 +133,60 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
       
       async function subscribeToUser(user) {
         try {
-          // Subscribe to the video/audio tracks
-          await client.subscribe(user, "video");
-          window.ReactNativeWebView.postMessage("subscribed_video:" + user.uid);
-          
-          await client.subscribe(user, "audio");
-          window.ReactNativeWebView.postMessage("subscribed_audio:" + user.uid);
-          
-          // Play audio immediately
-          if (user.audioTrack) {
-            user.audioTrack.play();
-            window.ReactNativeWebView.postMessage("audio_playing:" + user.uid);
-          }
-          
-          // Play video onto the host-video div
-          if (user.videoTrack) {
-            // Create a guaranteed unique ID
-            const playerDiv = document.getElementById("host-video");
-            if (playerDiv) {
-              // Play the video - use cover to fill container
-              user.videoTrack.play(playerDiv, { fit: "cover" });
-              window.ReactNativeWebView.postMessage("video_playing:" + user.uid);
+          // Check if user has published video and subscribe only if available
+          if (user.hasVideo) {
+            try {
+              await client.subscribe(user, "video");
+              window.ReactNativeWebView.postMessage("subscribed_video:" + user.uid);
               
-              // Mark that we have detected host video
-              hasHostVideo = true;
-              
-              // Clear any timeout for host check since we found a host
-              if (hostCheckTimeout) {
-                clearTimeout(hostCheckTimeout);
-                hostCheckTimeout = null;
+              // Play video onto the host-video div
+              if (user.videoTrack) {
+                const playerDiv = document.getElementById("host-video");
+                if (playerDiv) {
+                  // Play the video - use cover to fill container
+                  user.videoTrack.play(playerDiv, { fit: "cover" });
+                  window.ReactNativeWebView.postMessage("video_playing:" + user.uid);
+                  
+                  // Mark that we have detected host video
+                  hasHostVideo = true;
+                  
+                  // Clear any timeout for host check since we found a host
+                  if (hostCheckTimeout) {
+                    clearTimeout(hostCheckTimeout);
+                    hostCheckTimeout = null;
+                  }
+                } else {
+                  window.ReactNativeWebView.postMessage("error:video_container_missing");
+                }
               }
-            } else {
-              window.ReactNativeWebView.postMessage("error:video_container_missing");
+            } catch (videoErr) {
+              window.ReactNativeWebView.postMessage("error:subscribe_video:" + videoErr.message);
             }
           }
+          
+          // Check if user has published audio and subscribe only if available
+          if (user.hasAudio) {
+            try {
+              await client.subscribe(user, "audio");
+              window.ReactNativeWebView.postMessage("subscribed_audio:" + user.uid);
+              
+              // Play audio immediately
+              if (user.audioTrack) {
+                user.audioTrack.play();
+                window.ReactNativeWebView.postMessage("audio_playing:" + user.uid);
+              }
+            } catch (audioErr) {
+              window.ReactNativeWebView.postMessage("error:subscribe_audio:" + audioErr.message);
+            }
+          } else {
+            window.ReactNativeWebView.postMessage("audio_not_published:" + user.uid);
+          }
+          
+          // If no audio but video exists, still consider the host present
+          if (user.hasVideo && !user.hasAudio) {
+            window.ReactNativeWebView.postMessage("host_video_only:" + user.uid);
+          }
+          
         } catch (err) {
           window.ReactNativeWebView.postMessage("error:subscribe:" + err.message);
         }

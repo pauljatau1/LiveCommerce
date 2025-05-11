@@ -40,7 +40,9 @@ import {
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { ActivityIndicator } from "react-native";
-import Carousel from "react-native-reanimated-carousel";
+// Replace the original import
+// import Carousel from "react-native-reanimated-carousel";
+import CustomCarousel from "@/components/livestream/CustomCarousel";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import moment from "moment";
@@ -85,7 +87,7 @@ import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 import AuctionShopBottomSheet from "./auctionShopBottomSheet";
 import GlassImage from "./components/GlassImage";
 // Import the AuctionSkeletonLoader component
-import { AuctionSkeletonLoader } from "./components/AuctionSkeletonLoader";
+import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 
 const { width, height } = Dimensions.get("window");
@@ -1018,7 +1020,7 @@ const LiveAuctionStudio = ({
       // Host has left
       setIsHostPresent(false);
       setShowNoHostAlert(true);
-      setShowNoHostAlert2(true);
+      setShowNoHostAlert2(false);
       setStatus("Host left the stream");
     } else if (message.startsWith("user_unpublished:")) {
       const parts = message.split(":");
@@ -1930,11 +1932,24 @@ const LiveAuctionStudio = ({
                   originWhitelist={["*"]}
                 />
 
+                {/* Gradient Overlay for better contrast */}
+                <LinearGradient
+                  colors={[
+                    'rgba(0,0,0,0.1)',     // Slight darkening at top
+                    'rgba(0,0,0,0.45)',     // Medium darkening in middle
+                    'rgba(0,0,0,0.65)',    // Darker toward bottom
+                    'rgba(0,0,0,1)',    // Darkest at bottom
+                  ]}
+                  locations={[0, 0.5, 0.85, 1]}
+                  style={styles.gradientOverlay}
+                  pointerEvents="none"
+                />
+
                 {/* Show play loader while video is loading, but not if we know there's no host */}
                 {(isLoading ||
                   showNoHostAlert2 ||
                   (!isVideoPlaying && isHostPresent)) && (
-                  <AuctionSkeletonLoader type="loading" />
+                  <SkeletonLoader type="loading" />
                 )}
 
                 {/* No Host Alert */}
@@ -1984,7 +1999,7 @@ const LiveAuctionStudio = ({
                   )}
               </>
             ) : (
-              <AuctionSkeletonLoader type="loading" />
+              <SkeletonLoader type="loading" />
             )}
           </View>
 
@@ -2078,7 +2093,7 @@ const LiveAuctionStudio = ({
                           position: "absolute",
                           right: 0,
                           top: 40,
-                          backgroundColor: "rgba(255,255,255,0.1)",
+                          backgroundColor: "rgba(0,0,0,0.2)",
                           borderRadius: 8,
                           paddingVertical: 8,
                           paddingHorizontal: 10,
@@ -2169,7 +2184,7 @@ const LiveAuctionStudio = ({
             )}
 
             {/* Main Content Area */}
-            <View style={{ height: height + 20 }}>
+            <View style={{ height: keyboardVisibleRef.current ? "67%" : height - 25, justifyContent: "flex-end" }}>
               <View style={styles.mainContentArea}>
                 {/* Right Side Actions */}
                 {shouldShowUI && !keyboardVisibleRef.current && (
@@ -2680,6 +2695,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     backgroundColor: "#000",
   },
+  gradientOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 5,
+  },
   fullScreen2: {
     flex: 1,
     width: "100%",
@@ -2699,16 +2720,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   contentContainer: {
-    flex: 1,
+    height: height,
     position: "relative",
   },
   mainContentArea: {
-    height: "51%",
+    //height: "53%",
     position: "relative",
   },
   bottomArea: {
     position: "relative",
     paddingBottom: Platform.OS === "ios" ? 20 : 10,
+    zIndex: 15
   },
   bottomProductCardContainer: {
     position: "relative",
@@ -2717,19 +2739,19 @@ const styles = StyleSheet.create({
   },
   commentInputContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
     zIndex: 10,
   },
   rightActionsContainer: {
     position: "absolute",
     right: 13,
-    bottom: 10,
-    maxHeight: 250,
+    bottom: 0,
+    maxHeight: 300,
     zIndex: 10,
   },
   commentsContainer: {
     position: "absolute",
-    bottom: 10,
+    bottom: 0,
     left: 0,
     width: "70%",
     maxHeight: 200,
@@ -2891,6 +2913,7 @@ const styles = StyleSheet.create({
   winningNotificationContainer: {
     flexDirection: "row",
     alignItems: "center",
+    paddingTop: 5,
     paddingLeft: 16,
     paddingRight: 16,
   },
