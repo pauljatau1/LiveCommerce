@@ -162,6 +162,15 @@ const Layout = () => {
       />
 
       <Stack.Screen
+        name="catalog/subCategoriesStreams"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="messageRoom/[id]"
         options={{
           headerTitle: "",
