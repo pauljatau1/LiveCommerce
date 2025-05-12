@@ -5,6 +5,7 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -29,7 +30,6 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import SortSheet from "@/components/explore/exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
 import ExploreMarkets from "@/components/explore/exploreMarkets";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const SingleExplore = () => {
   const { id, name: categoryName, subCategories } = useLocalSearchParams();
@@ -65,26 +65,35 @@ const SingleExplore = () => {
     setProducts(groupedforYouProducts);
   }, [data]);
 
-  const renderSubCategory = (subCat: string) => {
-    return (
-      <TouchableOpacity
-        className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
-        style={{
-          marginRight: 10,
-        }}
-        onPress={() =>
-          router.push({
-            pathname: "/(root)/catalog/subCategoriesCatalog",
-            params: { name: subCat, mainCat: categoryName, subCat },
-          })
-        }
-      >
-        <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
-          {subCat}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderSubCategory = useCallback(
+    (subCat: string) => {
+      return (
+        <TouchableOpacity
+          className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
+          style={{
+            marginRight: 10,
+          }}
+          onPress={() => {
+            if (mode == "liveshow") {
+              return router.push({
+                pathname: "/(root)/catalog/subCategoriesStreams",
+                params: { category: categoryName, subCategory: subCat },
+              });
+            }
+            router.push({
+              pathname: "/(root)/catalog/subCategoriesCatalog",
+              params: { name: subCat, mainCat: categoryName, subCat },
+            });
+          }}
+        >
+          <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
+            {subCat}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [mode],
+  );
 
   return (
     <>
