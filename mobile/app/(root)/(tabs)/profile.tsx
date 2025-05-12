@@ -2,7 +2,6 @@ import {
   View,
   Text,
   Dimensions,
-  SafeAreaView,
   Animated,
   useWindowDimensions,
   TouchableOpacity,
@@ -21,7 +20,10 @@ import React, {
 } from "react";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import AllPostsList from "@/components/profile/myPostsList";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";

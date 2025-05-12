@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
@@ -30,6 +29,7 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import SortSheet from "@/components/explore/exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
 import ExploreMarkets from "@/components/explore/exploreMarkets";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const SingleExplore = () => {
   const { id, name: categoryName, subCategories } = useLocalSearchParams();

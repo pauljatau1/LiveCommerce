@@ -19,7 +19,6 @@ import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { color } from "@rneui/base";
 import OrderItem from "@/components/orders/mainOrderItem";
 import { ActivityIndicator } from "react-native-paper";
 import LottieView from "lottie-react-native";
