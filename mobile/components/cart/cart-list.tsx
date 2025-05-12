@@ -92,7 +92,7 @@ const CartItem = memo(
       <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row mb-[20px]">
         <View className="gap-[16px] shrink">
           <View className=" flex-row items-center justify-between w-full">
-            <View className=" flex-row items-center justify-between">
+            <View className=" flex-row items-center justify-between shrink">
               <View className="">
                 <BouncyCheckbox
                   isChecked={includeInOrder}
@@ -105,7 +105,10 @@ const CartItem = memo(
                   }}
                 />
               </View>
-              <Text className="text-[16px] text-white font-LexendDecaSemiBold">
+              <Text
+                className="text-[16px] text-white font-LexendDecaSemiBold shrink"
+                numberOfLines={1}
+              >
                 {cartItem?.seller?.storeInfo?.storeName ||
                   cartItem?.seller?.storeName}
               </Text>

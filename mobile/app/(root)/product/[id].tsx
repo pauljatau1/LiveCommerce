@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   ScrollView,
   Dimensions,
   TouchableOpacity,
@@ -54,6 +53,10 @@ import CartSheet from "@/components/product/productCartSheet";
 import AddedToCart from "@/components/product/productAddedToCart";
 import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
 import { Image } from "expo-image";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -65,6 +68,7 @@ const { width, height } = Dimensions.get("window");
 const bidIncrement = 500;
 
 const ProductDescription = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const { id } = useLocalSearchParams();
   const {
     data: product,
@@ -303,61 +307,65 @@ const ProductDescription = () => {
   }, [sellerInfo]);
 
   useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected to auctions");
-    });
+    if (product?.status == "offline_auction") {
+      socket.on("connect", () => {
+        console.log("Connected to auctions");
+      });
 
-    socket.on("bid_update", (data) => {
-      setAuctionData(data);
-      console.log("gotten bid update", data);
-    });
-    socket.on("auction_error", (error) => {
-      // Handle auction end
-      // setPlacingBid(false);
-      console.log("error with auction ", error);
-    });
+      socket.on("bid_update", (data) => {
+        setAuctionData(data);
+        console.log("gotten bid update", data);
+      });
+      socket.on("auction_error", (error) => {
+        // Handle auction end
+        // setPlacingBid(false);
+        console.log("error with auction ", error);
+      });
 
-    socket.emit("join_auction", id);
+      socket.emit("join_auction", id);
 
-    socket.on("auction_data", (data) => {
-      setAuctionData(data);
-      console.log("listening to auction data ", data);
-    });
+      socket.on("auction_data", (data) => {
+        setAuctionData(data);
+        console.log("listening to auction data ", data);
+      });
 
-    return () => {
-      console.log("leaving");
-      socket.emit("leave_auction", id);
-      socket.off("auction_data");
-      socket.off("bid_update");
-      socket.off("auction_error");
-      socket.off("connect");
-      socket.disconnect();
-    };
-  }, []);
+      return () => {
+        console.log("leaving");
+        socket.emit("leave_auction", id);
+        socket.off("auction_data");
+        socket.off("bid_update");
+        socket.off("auction_error");
+        socket.off("connect");
+        socket.disconnect();
+      };
+    }
+  }, [product]);
 
   useEffect(() => {
-    socket.on("bid_error", (error) => {
-      console.log("Bid error:", error);
-      // setPlacingBid(false);
-      toast.error(error?.message || "Error placing bid");
-    });
+    if (product?.status == "offline_auction") {
+      socket.on("bid_error", (error) => {
+        console.log("Bid error:", error);
+        // setPlacingBid(false);
+        toast.error(error?.message || "Error placing bid");
+      });
 
-    socket.on("bid_placed", (data) => {
-      console.log("Bid successfully placed:", data);
-      toast.success("bid placed successfully");
-      // setPlacingBid(false);
-    });
+      socket.on("bid_placed", (data) => {
+        console.log("Bid successfully placed:", data);
+        toast.success("bid placed successfully");
+        // setPlacingBid(false);
+      });
 
-    socket.on("auction_ended", (data) => {
-      // setPlacingBid(false);
-      // Handle auction end
-    });
-    return () => {
-      socket.off("auction_ended");
-      socket.off("bid_placed");
-      socket.off("bid_error");
-    };
-  }, [socket]);
+      socket.on("auction_ended", (data) => {
+        // setPlacingBid(false);
+        // Handle auction end
+      });
+      return () => {
+        socket.off("auction_ended");
+        socket.off("bid_placed");
+        socket.off("bid_error");
+      };
+    }
+  }, [product, socket]);
 
   useEffect(() => {
     if (product?.status == "offline_auction") {
@@ -423,9 +431,7 @@ const ProductDescription = () => {
     ) {
       return toast.error("This Auction has ended!");
     }
-    if (!user?.wallet?.availableBalance && !shippingFee) {
-      return toast.error("Unable to place bid . Please try again");
-    }
+
     if (
       (user?.wallet?.availableBalance || user?.wallet?.balance) <
       amount + shippingFee
@@ -435,6 +441,10 @@ const ProductDescription = () => {
 
     if (user?.shippingAddresses?.length < 1) {
       return toast.info("Please add a correct address to bid");
+    }
+
+    if (!user?.wallet?.availableBalance && !shippingFee) {
+      return toast.error("Unable to place bid . Please try again");
     }
 
     socket.emit(
@@ -484,46 +494,46 @@ const ProductDescription = () => {
     return formattedDate;
   };
 
-  const renderSpecifications = () => {
-    return (
-      <View
-        style={{
-          paddingHorizontal: 61,
-          paddingVertical: 10,
-          backgroundColor: "#000",
-          borderTopWidth: 1,
-          borderTopColor: "rgba(159, 159, 159, 0.23)",
-          gap: 10,
-        }}
-      >
-        {Object.entries(productSpecifications).map(
-          ([key, value]: any, index: number) =>
-            value.length > 0 ? (
-              <View key={key} className="flex-row items-center justify-between">
-                <Text className="text-[14px] text-[#fff] font-LexendDeca">
-                  {key}
-                </Text>
-                <View
-                  className="rounded-[50px] px-[10px] py-[2px]"
-                  style={{ backgroundColor: "rgba(22, 120, 58, 0.30)" }}
-                >
-                  <Text className="text-[12px] text-[#fff] font-LexendDeca">
-                    {value}
-                  </Text>
-                </View>
-              </View>
-            ) : null,
-        )}
-      </View>
-    );
-  };
+  // const renderSpecifications = () => {
+  //   return (
+  //     <View
+  //       style={{
+  //         paddingHorizontal: 61,
+  //         paddingVertical: 10,
+  //         backgroundColor: "#000",
+  //         borderTopWidth: 1,
+  //         borderTopColor: "rgba(159, 159, 159, 0.23)",
+  //         gap: 10,
+  //       }}
+  //     >
+  //       {Object.entries(productSpecifications).map(
+  //         ([key, value]: any, index: number) =>
+  //           value.length > 0 ? (
+  //             <View key={key} className="flex-row items-center justify-between">
+  //               <Text className="text-[14px] text-[#fff] font-LexendDeca">
+  //                 {key}
+  //               </Text>
+  //               <View
+  //                 className="rounded-[50px] px-[10px] py-[2px]"
+  //                 style={{ backgroundColor: "rgba(22, 120, 58, 0.30)" }}
+  //               >
+  //                 <Text className="text-[12px] text-[#fff] font-LexendDeca">
+  //                   {value}
+  //                 </Text>
+  //               </View>
+  //             </View>
+  //           ) : null,
+  //       )}
+  //     </View>
+  //   );
+  // };
 
   return (
     <View style={{ position: "relative", minHeight: height, flex: 1 }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView
-        className="h-full bg-[#121212]"
-        style={{ minHeight: height, flex: 1 }}
+      <View
+        className="flex-1 h-full bg-[#121212]"
+        style={{ paddingTop: insets.top }}
       >
         <View
           className={`pt-[30px] pb-[12px] px-[12px] flex flex-row justify-between items-center gap-[12px]`}
@@ -1321,7 +1331,7 @@ const ProductDescription = () => {
             )}
           </ScrollView>
         </View>
-      </SafeAreaView>
+      </View>
 
       {isLoading || isFetching ? null : (
         <View
