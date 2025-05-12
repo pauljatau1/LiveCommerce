@@ -3643,3 +3643,96 @@ exports.renewAgoraToken = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get streams by category and subcategory
+ * @route GET /api/streams/category/:category/subcategory/:subcategory
+ * @access Public
+ */
+exports.getStreamsByCategoryAndSubcategory = async (req, res) => {
+  try {
+    const { category, subcategory } = req.params;
+    const { status, type, page = 1, limit = 10, sortByViews } = req.query;
+
+    // Build query with case-insensitive category and subcategory matching
+    const query = {
+      category: { $regex: new RegExp(`^${category}$`, 'i') },  // Case-insensitive exact match
+      subCategory: { $regex: new RegExp(`^${subcategory}$`, 'i') }  // Case-insensitive exact match
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Build aggregation pipeline
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $addFields: {
+          viewerCount: { $size: "$viewers" }
+        }
+      }
+    ];
+
+    // Add sort stage based on sortByViews parameter
+    if (sortByViews) {
+      aggregationPipeline.push({
+        $sort: {
+          viewerCount: sortByViews === 'asc' ? 1 : -1,
+          scheduledStartTime: -1,
+          createdAt: -1
+        }
+      });
+    } else {
+      aggregationPipeline.push({
+        $sort: {
+          scheduledStartTime: -1,
+          createdAt: -1
+        }
+      });
+    }
+
+    // Add pagination
+    aggregationPipeline.push(
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) }
+    );
+
+    // Execute aggregation and populate references
+    const streams = await Stream.aggregate(aggregationPipeline)
+      .exec()
+      .then(async streams => {
+        // Populate the references after aggregation
+        return await Stream.populate(streams, [
+          { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+          { path: 'products.product', select: 'name description images price' }
+        ]);
+      });
+
+    // Get total count for pagination
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streams.map(stream => ({
+        ...stream,
+        viewerCount: stream.viewers ? stream.viewers.length : 0
+      })),
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get streams by category and subcategory error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch streams by category and subcategory',
+      error: error.message
+    });
+  }
+};
