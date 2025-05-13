@@ -111,7 +111,26 @@ export const usePushNotifications = (): PushNotificationState => {
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         setNotification(response.notification);
-        router.push(response.notification.request.content.data.url);
+        console.log(
+          "notification :",
+          response.notification.request.content.data,
+        );
+
+        const notificationData = response.notification.request.content.data;
+        if (notificationData?.type === "message") {
+          router.push({
+            pathname: `../../messageRoom/${notificationData.senderId}`,
+            params: {
+              conversationId: notificationData.conversationId,
+
+              model: notificationData.senderModel,
+            },
+          });
+        } else if (notificationData?.type?.includes("order")) {
+          router.push(`/orders/${notificationData?.orderId}`);
+        } else {
+          router.push("/(root)/(tabs)/home/home");
+        }
       });
 
     return () => {

@@ -27,6 +27,7 @@ import { MaterialCommunityIcons, SimpleLineIcons } from "@expo/vector-icons";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
+  pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
@@ -137,6 +138,7 @@ const SingleOrder = () => {
               )}
               {[
                 "pending",
+                "pending_pickup",
                 "picked_up",
                 "dispatched",
                 "in_transit",
@@ -296,7 +298,7 @@ const SingleOrder = () => {
                         style={{ width: "100%" }}
                         onPress={() =>
                           router.push({
-                            pathname: `../../(root)/messageRoom/${order.seller}`,
+                            pathname: `../../(root)/messageRoom/${order.seller?._id}`,
                             params: {
                               name:
                                 order.items[0].product?.seller?.storeName ||

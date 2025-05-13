@@ -54,6 +54,8 @@ import ChatSettings from "@/components/messages/optionsSheet";
 import ReportUserSheet from "@/components/connect/reportUserSheet";
 import { toast } from "@/core/toast";
 import CampaignMessageItem from "@/components/messages/campaignMessageItem";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 const { width, height } = Dimensions.get("window");
 
@@ -75,11 +77,7 @@ const autoOrderMessagesText = {
 const MessageRoom = () => {
   const {
     id,
-    name,
-    avatar,
     conversationId,
-    userId,
-    token,
     model,
     isOnline,
     lastActive,
@@ -87,6 +85,7 @@ const MessageRoom = () => {
     isMuted,
     orderId = "",
   } = useLocalSearchParams();
+  const { user, token } = useSelector((state: RootState) => state.authState);
   // const socket = io(process.env.EXPO_PUBLIC_API_URL, {
   //   transports: ["websocket"],
   //   auth: {
@@ -96,6 +95,9 @@ const MessageRoom = () => {
   const socket = initializeSocket(token);
   socket.connect();
 
+  const [userId, setUserid] = useState(user?._id || "");
+  const [name, setName] = useState<string>("");
+  const [avatar, setAvatar] = useState<string>("");
   const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
@@ -211,6 +213,25 @@ const MessageRoom = () => {
     } finally {
       setMessagesLoading(false);
       handleReadMessages();
+    }
+  };
+
+  const getSellerInfo = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/public/sellers/" + id,
+      );
+      const sellerInfo = response.data;
+      setName(
+        sellerInfo?.storeName ||
+          sellerInfo?.personalInfo?.firstName +
+            " " +
+            sellerInfo?.personalInfo?.lastName ||
+          sellerInfo?.businessInfo?.businessName,
+      );
+      setAvatar(sellerInfo?.storePresence?.storeAvatar?.url);
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -463,6 +484,10 @@ const MessageRoom = () => {
     },
     [showProducts, selectedProduct],
   );
+
+  useEffect(() => {
+    getSellerInfo();
+  }, []);
 
   useEffect(() => {
     getAllMessages();
