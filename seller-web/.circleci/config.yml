@@ -216,11 +216,19 @@ workflows:
           name: build_staging
           context:
             - auqli_seller_staging_context
+          filters:
+            branches:
+              ignore:
+                - main
 
       - approve-staging-backend-deploy:
           type: approval
           requires:
             - build_staging
+          filters:
+            branches:
+              ignore:
+                - main
 
       - deploy_to_staging:
           name: deploy-to-staging-backend
@@ -228,10 +236,18 @@ workflows:
             - foundations_auqli_staging
           requires:
             - approve-staging-backend-deploy
+          filters:
+            branches:
+              ignore:
+                - main
 
       - remove_cache_staging:
           requires:
             - deploy-to-staging-backend
+          filters:
+            branches:
+              ignore:
+                - main
      
       - build:
           name: build_production
