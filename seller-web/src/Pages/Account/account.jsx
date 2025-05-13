@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import VerificationModal from "../../Components/VerificationModal";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { Icon } from "@iconify/react";
-import mixpanel from "mixpanel-browser";
+import { trackEvent } from "@/util/analytics";
 
 export default function AccountPage() {
   const { setHeaderName } = useOutletContext();
@@ -45,6 +45,38 @@ export default function AccountPage() {
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
 
+  const fetchProfile = async () => {
+    try {
+      const sellerToken = localStorage.getItem("sellerToken");
+      if (!sellerToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const tokenData = JSON.parse(sellerToken);
+      const response = await fetch(`${BASE_URL}/seller/profile`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch profile data");
+      }
+
+      const data = await response.json();
+      setProfile(data);
+      
+      // Fetch review stats
+      if (data._id) {
+        fetchReviewStats(data._id);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     setHeaderName("Account");
     
@@ -69,38 +101,6 @@ export default function AccountPage() {
   }, []);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const sellerToken = localStorage.getItem("sellerToken");
-        if (!sellerToken) {
-          throw new Error("No authentication token found");
-        }
-
-        const tokenData = JSON.parse(sellerToken);
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
-          headers: {
-            Authorization: `Bearer ${tokenData.data}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile data");
-        }
-
-        const data = await response.json();
-        setProfile(data);
-        
-        // Fetch review stats
-        if (data._id) {
-          fetchReviewStats(data._id);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProfile();
   }, []);
 
@@ -343,7 +343,7 @@ export default function AccountPage() {
         isOpen={verificationModalOpen} 
         onClose={() => {
           setVerificationModalOpen(false);
-          mixpanel.track("Seller Skipped Onboarding Verification", {
+          trackEvent("Seller Skipped Onboarding Verification", {
             "seller id": profile._id,
             "seller email": profile.email,
             "seller store name": profile.storeName,
@@ -362,7 +362,7 @@ export default function AccountPage() {
           isOpen={verificationDialogOpen}
           onClose={() => {
             setVerificationDialogOpen(false);
-            mixpanel.track("Seller Skipped Onboarding Verification", {
+            trackEvent("Seller Skipped Onboarding Verification", {
               "seller id": profile._id,
               "seller email": profile.email,
               "seller store name": profile.storeName,

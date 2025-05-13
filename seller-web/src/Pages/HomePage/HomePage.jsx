@@ -587,7 +587,7 @@ const HomePage = () => {
                   to="/dashboard/analytics-insights"
                   className="flex items-center w-fit px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow"
                 >
-                  View all
+                  View Analytics
                   <svg className="ml-1.5 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
@@ -641,7 +641,15 @@ const HomePage = () => {
                     <AnnouncementCard key={announcement._id} announcement={announcement} />
                   ))
                 ) : (
-                  <Skeleton count={3} height={100} className="mb-4" />
+                  isDataLoading ? (
+                    <Skeleton count={3} height={100} className="mb-4" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+                      <Icon icon="line-md:clipboard-list" className="text-gray-400 w-20 h-20" />
+                      <p className="text-base font-medium text-[#425466] font-inter mt-3">No announcements available</p>
+                      <p className="text-sm text-[#425466] font-inter mt-1">Check back later for updates from Auqli</p>
+                    </div>
+                  )
                 )
               }
             </div>

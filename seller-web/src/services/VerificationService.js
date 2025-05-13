@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { BASE_URL } from '../Constants/Server';
-import mixpanel from 'mixpanel-browser';
+import { trackEvent } from '../util/analytics';
 
 /**
  * Service for handling all verification-related API calls
@@ -28,7 +28,7 @@ export const VerificationService = {
       console.log('response', response);
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 1: Account Type Selected", {
+        trackEvent("seller onboarding step 1: Account Type Selected", {
           "Account Type": accountType,
           "seller id": sellerData._id,
           "seller email": sellerData.email,
@@ -40,7 +40,6 @@ export const VerificationService = {
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      
       
       return response.data;
     } catch (error) {
@@ -69,7 +68,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 2: Individual Information Updated", {
+        trackEvent("seller onboarding step 2: Individual Information Updated", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -131,7 +130,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 3: Individual Verification Documents Uploaded", {
+        trackEvent("seller onboarding step 3: Individual Verification Documents Uploaded", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -173,7 +172,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 4: Business Details Added", {
+        trackEvent("seller onboarding step 4: Business Details Added", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -214,7 +213,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 5: Business Information Added", {
+        trackEvent("seller onboarding step 5: Business Information Added", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -272,7 +271,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 6: Company Verification Documents Uploaded", {
+        trackEvent("seller onboarding step 6: Company Verification Documents Uploaded", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -344,7 +343,7 @@ export const VerificationService = {
       );
       
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 7: Categories Selected", {
+        trackEvent("seller onboarding step 7: Categories Selected", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -383,7 +382,7 @@ export const VerificationService = {
       );
       
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 8: Bank Details Added", {
+        trackEvent("seller onboarding step 8: Bank Details Added", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -436,7 +435,7 @@ export const VerificationService = {
       );
       
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 9: Store Avatar Uploaded", {
+        trackEvent("seller onboarding step 9: Store Avatar Uploaded", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -482,7 +481,7 @@ export const VerificationService = {
       );
       
       if (response.status === 200) {
-        mixpanel.track("seller onboarding step 10: Store Banner Uploaded", {
+        trackEvent("seller onboarding step 10: Store Banner Uploaded", {
           "seller id": sellerData._id,
           "seller email": sellerData.email,
           "seller store name": sellerData.storeName,
@@ -521,7 +520,7 @@ export const VerificationService = {
       );
 
       if (response.status === 200) {
-        mixpanel.track("Seller Final Onboarding Step: Store Profile Updated", {
+        trackEvent("Seller Final Onboarding Step: Store Profile Updated", {
           "Seller ID": sellerData._id,
           "Seller Email": sellerData.email,
           "Seller Store Name": sellerData.storeName,
@@ -533,31 +532,6 @@ export const VerificationService = {
           "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
-
-        // Track seller profile completion with Customer.io
-        if (window.cioanalytics) {
-          // First re-identify the user to ensure the connection is active
-          window.cioanalytics.identify(sellerData._id, {
-            seller_id: sellerData._id,
-            email: sellerData.email,
-            first_name: sellerData.firstName,
-            last_name: sellerData.lastName,
-            store_name: sellerData.storeName,
-            created_at: Math.floor(new Date(sellerData.createdAt).getTime() / 1000),
-            user_type: 'seller'
-          });
-          
-          // Then track the event after a small delay
-          setTimeout(() => {
-            window.cioanalytics.track('seller_profile_completed', {
-              seller_id: sellerData._id,
-              store_name: storeProfile.storeName,
-              first_name: sellerData.firstName,
-              last_name: sellerData.lastName,
-              location: `${sellerData?.businessAddress?.country || ''}, ${sellerData?.businessAddress?.city || ''}, ${sellerData?.businessAddress?.state || ''}`
-            });
-          }, 500);
-        }
       }
       
       return response.data;
@@ -587,7 +561,7 @@ export const VerificationService = {
       );
       
       if (response.status === 200) {
-        mixpanel.track("Seller onboarding step 12: Account Pending Status Updated", {
+        trackEvent("Seller onboarding step 12: Account Pending Status Updated", {
           "Seller ID": sellerData._id,
           "Seller Email": sellerData.email,
           "Seller Store Name": sellerData.storeName,

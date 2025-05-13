@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import mixpanel from "mixpanel-browser";
+import { trackEvent, identifyUser } from "../util/analytics";
 import { getClientIP } from '../Utilities/networkUtils';
 import { useIntercomChat } from '../Hooks/useIntercom';
 
@@ -243,8 +243,7 @@ function AuthProvider({ children }) {
 
                 // Track signup event
                 try {
-                    mixpanel.identify(response.data.user._id);
-                    mixpanel.track("Seller Signed Up", {
+                    const userData = {
                         "Seller ID": response.data.user._id,
                         "Seller Email": email,
                         "Seller Full Name": `${firstName} ${lastName}`,
@@ -255,7 +254,10 @@ function AuthProvider({ children }) {
                         "Referrer ID": response.data.referrerId || "None",
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
-                    });
+                    };
+                    
+                    await identifyUser(response.data.user._id, userData);
+                    await trackEvent("Seller Signed Up", userData);
                     
                     // Track seller account creation with Customer.io
                     if (window.cioanalytics) {
@@ -283,7 +285,7 @@ function AuthProvider({ children }) {
                         }, 500);
                     }
                 } catch (e) {
-                    console.error('Mixpanel tracking error:', e);
+                    console.error('Analytics tracking error:', e);
                 }
 
                 return true; // Return success
@@ -322,7 +324,7 @@ function AuthProvider({ children }) {
                     dispatch({ type: 'FETCH_ONBOARDING_PROCESS', payload: response.onboardingProcess });
 
                     // Update the tracking call in getOnboardingProcess
-                    mixpanel.track("Onboarding Completed", {
+                    trackEvent("Onboarding Completed", {
                         "Time to Complete": formatOnboardingTime(
                             Math.round((Date.now() - new Date(response.data.user.createdAt)) / 1000 / 60)
                         ),
@@ -509,53 +511,39 @@ function AuthProvider({ children }) {
                         console.error('IP tracking failed:', e);
                     }
 
-                    // Use safer analytics approach - check if mixpanel is initialized
-                    if (mixpanel && mixpanel.get_distinct_id) {
-                        try {
-                            // Mixpanel User Identification
-                            mixpanel.identify(response?.data?.user?._id);
-
-                            // Set user properties
-                            mixpanel.people.set({
-                                "$email": response?.data?.user?.email,
-                                "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                                "Store Name": response?.data?.user?.storeName,
-                                "User Type": "Seller",
-                                "Seller Account Type": response?.data?.user?.accountType,
-                                "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                                "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
-                                "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
-                                "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
-                                "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                                "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
-                                "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                                "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                                "IP Address": clientIP,
-                            });
-
-                            // Track login event with device context and IP
-                            mixpanel.track("Seller Login", {
-                                "$email": response?.data?.user?.email,
-                                "seller id": response?.data?.user?._id,
-                                "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                                "Store Name": response?.data?.user?.storeName,
-                                "User Type": "Seller",
-                                "Seller Account Type": response?.data?.user?.accountType,
-                                "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                                "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
-                                "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
-                                "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
-                                "Primary Payment Account Bank": response?.data?.user?.bankDetails?.bankName || "None",
-                                "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
-                                "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                                "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                                "IP Address": clientIP,
-                                "Device Type": getDeviceType(),
-                                "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
-                            });
-                        } catch (analyticError) {
-                            console.error('Mixpanel tracking error:', analyticError);
-                        }
+                    // Track analytics using our utility
+                    try {
+                        // User properties for identification
+                        const userTraits = {
+                            "$email": response?.data?.user?.email,
+                            "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                            "Store Name": response?.data?.user?.storeName,
+                            "User Type": "Seller",
+                            "Seller Account Type": response?.data?.user?.accountType,
+                            "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
+                            "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
+                            "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
+                            "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
+                            "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                            "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
+                            "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                            "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                            "IP Address": clientIP,
+                        };
+                        
+                        // Identify user
+                        await identifyUser(response?.data?.user?._id, userTraits);
+                        
+                        // Track login event with device context and IP
+                        await trackEvent("Seller Login", {
+                            ...userTraits,
+                            "seller id": response?.data?.user?._id,
+                            "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                            "Device Type": getDeviceType(),
+                            "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
+                        });
+                    } catch (analyticError) {
+                        console.error('Analytics tracking error:', analyticError);
                     }
 
                     // Also identify the user in Microsoft Clarity
@@ -755,7 +743,7 @@ function AuthProvider({ children }) {
                     response.data.isProfileComplete
                 );
 
-                mixpanel.track("Seller Profile Completed", {
+                trackEvent("Seller Profile Completed", {
                     "seller id": response.data._id,
                     "seller email": response.data.email,
                     "seller store name": response.data.storeName,

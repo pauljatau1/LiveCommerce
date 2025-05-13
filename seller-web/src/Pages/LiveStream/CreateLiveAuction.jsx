@@ -14,6 +14,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 import dayjs from 'dayjs';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
 import ProductLimitModal from '../../Components/ProductLimitModal';
@@ -189,7 +190,7 @@ const CreateLiveAuction = () => {
 
     livestreamDispatch({
       type: 'SET_LIVESTREAM_DATA',
-      payload: { scheduledStartTime: getScheduledStartTime() }
+      payload: { scheduledStartTime: getScheduledStartTime(), startImmediately: startImmediately }
     });
   }, [startDate, startTime, startImmediately, livestreamDispatch]);
 
@@ -610,11 +611,11 @@ const CreateLiveAuction = () => {
   const handleCategorySelection = (category, subCategory) => {
     setSelectedCategory(category);
     setSelectedSubCategory(subCategory);
-    
+
     // Update livestream context with the selected category and subcategory
     livestreamDispatch({
-      type: 'SET_LIVESTREAM_DATA', 
-      payload: { 
+      type: 'SET_LIVESTREAM_DATA',
+      payload: {
         category: category,
         subCategory: subCategory
       }
@@ -1093,7 +1094,7 @@ const CreateLiveAuction = () => {
         </div>
 
         {/* Category Selection Modal */}
-        <CategorySelectionModal 
+        <CategorySelectionModal
           isOpen={isCategoryModalOpen}
           onClose={() => setIsCategoryModalOpen(false)}
           categories={categories}
@@ -1127,7 +1128,7 @@ const CreateLiveAuction = () => {
             </div>
             <Icon icon="heroicons:chevron-right" className="w-5 h-5 text-gray-400" />
           </button>
-          
+
           {/* Display selected values as badges if selected */}
           {selectedCategory && (
             <div className="flex flex-wrap gap-2 mt-2">
@@ -1148,104 +1149,111 @@ const CreateLiveAuction = () => {
           <label className="text-sm md:text-base font-inter font-bold text-[#27272E]">
             Livestream Tags
           </label>
-          <Autocomplete
-            multiple
-            id="tags-standard"
-            options={filteredTags}
-            value={livestream?.tags || []}
-            freeSolo
-            onChange={(event, newValue) => {
-              // Transform any string values into tag objects
-              const formattedTags = newValue.map(tag => {
-                // If tag is a string (user input), create a new tag object
-                if (typeof tag === 'string') {
-                  return {
-                    id: `custom-${tag}`,
-                    label: tag,
-                    category: 'Custom Tags'
-                  };
-                }
-                // Otherwise return the existing tag object
-                return tag;
-              });
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Autocomplete
+                multiple
+                id="tags-standard"
+                options={filteredTags}
+                value={livestream?.tags || []}
+                freeSolo
+                onChange={(event, newValue) => {
+                  // Transform any string values into tag objects
+                  const formattedTags = newValue.map(tag => {
+                    // If tag is a string (user input), create a new tag object
+                    if (typeof tag === 'string') {
+                      return {
+                        id: `custom-${tag}`,
+                        label: tag,
+                        category: 'Custom Tags'
+                      };
+                    }
+                    // Otherwise return the existing tag object
+                    return tag;
+                  });
 
-              livestreamDispatch({
-                type: 'SET_LIVESTREAM_DATA',
-                payload: { tags: formattedTags }
-              });
-            }}
-            getOptionLabel={(option) => {
-              // Handle both string values and option objects
-              if (typeof option === 'string') {
-                return option;
-              }
-              return option.label;
-            }}
-            isOptionEqualToValue={(option, value) => {
-              // Handle custom tags
-              if (typeof value === 'string') {
-                return option.label === value;
-              }
-              return option.id === value.id;
-            }}
-            groupBy={(option) => option.category}
-            renderTags={(tagValue, getTagProps) =>
-              tagValue.map((option, index) => {
-                // Check for custom tags (string IDs starting with 'custom-')
-                const isCustom = typeof option.id === 'string' && option.id.startsWith('custom-');
-                return (
-                  <Chip
-                    key={option.id || option}
-                    label={typeof option === 'string' ? option : option.label}
-                    {...getTagProps({ index })}
-                    disabled={!isCustom && fixedTags.find(tag => tag.id === option.id)}
+                  livestreamDispatch({
+                    type: 'SET_LIVESTREAM_DATA',
+                    payload: { tags: formattedTags }
+                  });
+                }}
+                getOptionLabel={(option) => {
+                  // Handle both string values and option objects
+                  if (typeof option === 'string') {
+                    return option;
+                  }
+                  return option.label;
+                }}
+                isOptionEqualToValue={(option, value) => {
+                  // Handle custom tags
+                  if (typeof value === 'string') {
+                    return option.label === value;
+                  }
+                  return option.id === value.id;
+                }}
+                groupBy={(option) => option.category}
+                renderTags={(tagValue, getTagProps) =>
+                  tagValue.map((option, index) => {
+                    // Check for custom tags (string IDs starting with 'custom-')
+                    const isCustom = typeof option.id === 'string' && option.id.startsWith('custom-');
+                    return (
+                      <Chip
+                        key={option.id || option}
+                        label={typeof option === 'string' ? option : option.label}
+                        {...getTagProps({ index })}
+                        disabled={!isCustom && fixedTags.find(tag => tag.id === option.id)}
+                        sx={{
+                          backgroundColor: isCustom ? '#e6f7ef' : '#f3f4f6',
+                          '&.MuiChip-root': {
+                            borderRadius: '9999px',
+                            height: '28px',
+                          },
+                          '&.Mui-disabled': {
+                            opacity: 1,
+                            backgroundColor: '#e5e7eb',
+                          }
+                        }}
+                      />
+                    );
+                  })
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    placeholder="Search or add new tags..."
+                    value={searchTag}
+                    onChange={handleSearchChange}
                     sx={{
-                      backgroundColor: isCustom ? '#e6f7ef' : '#f3f4f6',
-                      '&.MuiChip-root': {
-                        borderRadius: '9999px',
-                        height: '28px',
+                      '& .MuiOutlinedInput-root': {
+                        padding: '4px 8px',
+                        '& fieldset': {
+                          borderColor: '#d1d5db',
+                          borderRadius: '8px',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#d1d5db',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#d1d5db',
+                          borderWidth: '2px',
+                        },
                       },
-                      '&.Mui-disabled': {
-                        opacity: 1,
-                        backgroundColor: '#e5e7eb',
-                      }
                     }}
                   />
-                );
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                variant="outlined"
-                placeholder="Search or add new tags..."
-                value={searchTag}
-                onChange={handleSearchChange}
+                )}
                 sx={{
-                  '& .MuiOutlinedInput-root': {
-                    padding: '4px 8px',
-                    '& fieldset': {
-                      borderColor: '#d1d5db',
-                      borderRadius: '8px',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#d1d5db',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#d1d5db',
-                      borderWidth: '2px',
-                    },
+                  width: '100%',
+                  '& .MuiAutocomplete-tag': {
+                    margin: '2px',
                   },
                 }}
               />
-            )}
-            sx={{
-              width: '100%',
-              '& .MuiAutocomplete-tag': {
-                margin: '2px',
-              },
-            }}
-          />
+            </TooltipTrigger>
+            <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+              <p>Press enter to add custom tags</p>
+            </TooltipContent>
+          </Tooltip>
           <p className="text-xs text-gray-500">
             Select relevant tags for your stream. Some tags are fixed and cannot be removed.
           </p>
@@ -1373,8 +1381,8 @@ const CreateLiveAuction = () => {
                     onClick={handlePreviousPage}
                     disabled={currentPage <= 1}
                     className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage <= 1
-                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
                       }`}
                   >
                     <Icon icon="heroicons:arrow-left-20-solid" className="w-4 h-4" />
@@ -1389,8 +1397,8 @@ const CreateLiveAuction = () => {
                     onClick={handleNextPage}
                     disabled={currentPage >= pagination.totalPages}
                     className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${currentPage >= pagination.totalPages
-                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
                       }`}
                   >
                     <span>Next</span>

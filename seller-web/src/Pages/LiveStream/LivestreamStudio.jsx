@@ -48,7 +48,7 @@ const LivestreamStudio = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowBackButton } = useOutletContext();
-    const { startLiveStream, endLiveStream, getLiveStreamFullDetails, isLoading, liveStreamDetails, joinLiveStreamAsHost } = useLivestreamContext();
+    const { startLiveStream, endLiveStream, getLiveStreamFullDetails, isLoading, liveStreamDetails, joinLiveStreamAsHost, renewAgoraToken } = useLivestreamContext();
     const [localTracks, setLocalTracks] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
     const [deviceError, setDeviceError] = useState(null);
@@ -509,7 +509,7 @@ const LivestreamStudio = () => {
 
             // 6. Join channel with fresh token
             await client.join(
-                "6170309cbdb94a6dbdda39aa8a4143d1",
+                import.meta.env.VITE_AGORA_API_KEY,
                 streamCredentials.channelName,
                 streamCredentials.agoraToken,
                 seller.agoraUid,
@@ -1185,29 +1185,76 @@ const LivestreamStudio = () => {
         };
     }, [isStreaming, channelName, id, seller.agoraUid, socket]);
 
-    {/*// Listen for token expiring event
+    // Listen for token expiring event
     useEffect(() => {
-        client.on('token-privilege-will-expire', async () => {
+        if (!client || !isStreaming || !_id) return;
+        
+        // Handler for token about to expire event
+        const handleTokenWillExpire = async () => {
             try {
                 console.log('Agora token is about to expire, requesting new token...');
-                // Call your backend to get a fresh token
-                const response = await getLiveStreamFullDetails(id);
-                if (response?.agoraToken) {
-                    // Renew the token
-                    await client.renewToken(response.agoraToken);
-                    console.log('Agora token renewed successfully');
+                
+                // Get a fresh token from our backend through the context
+                const newToken = await renewAgoraToken(_id);
+                
+                // Renew the token through Agora client
+                await client.renewToken(newToken);
+                
+                console.log('Agora token renewed successfully');
+                
+                // Update token in localStorage for potential reconnection
+                if (existingLivestream) {
+                    const updatedStorage = {
+                        ...existingLivestream,
+                        agoraToken: newToken,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem(`stream_connected_${_id}`, JSON.stringify(updatedStorage));
                 }
+                
+                // Notify UI if desired
+                toast.success('Stream connection refreshed', {
+                    id: 'token-renewal',
+                    duration: 3000,
+                    style: { background: '#161A1E', color: '#fff' }
+                });
             } catch (error) {
                 console.error('Failed to renew Agora token:', error);
-                toast.error('Stream token expired. Please refresh the page.');
+                toast.error('Stream token expiring soon. Stream may disconnect.', {
+                    id: 'token-renewal-error',
+                    duration: 10000,
+                    style: { background: '#161A1E', color: '#fff' }
+                });
             }
-        });
-
+        };
+        
+        // Set up token privilege will expire event listener
+        client.on('token-privilege-will-expire', handleTokenWillExpire);
+        
+        // Set up additional safety check - check token status periodically
+        // This helps in case the token-privilege-will-expire event is missed
+        const tokenCheckInterval = setInterval(() => {
+            if (existingLivestream && existingLivestream.agoraToken) {
+                // Get token creation time from localStorage
+                const tokenTimestamp = existingLivestream.timestamp || Date.now();
+                // Calculate time elapsed since token creation (in seconds)
+                const tokenAge = (Date.now() - tokenTimestamp) / 1000;
+                
+                // If token is older than 50 minutes (3000 seconds), proactively renew
+                // The backend typically issues 1-hour tokens for publishers
+                if (tokenAge > 3000) {
+                    console.log(`Token age: ${tokenAge}s, proactively renewing`);
+                    handleTokenWillExpire();
+                }
+            }
+        }, 60000); // Check every minute
+        
         // Cleanup
         return () => {
-            client.off('token-privilege-will-expire');
+            client.off('token-privilege-will-expire', handleTokenWillExpire);
+            clearInterval(tokenCheckInterval);
         };
-    }, [client, id]);*/}
+    }, [client, isStreaming, _id, existingLivestream, renewAgoraToken]);
 
     // Check for any existing livestream and reconnect
     const checkForExistingStream = async () => {
@@ -1350,7 +1397,7 @@ const LivestreamStudio = () => {
             // Join channel with fresh token
             console.log('🔄 [RECONNECT 18/18] Joining channel with fresh token. Client state:', client.connectionState);
             await client.join(
-                "6170309cbdb94a6dbdda39aa8a4143d1",
+                import.meta.env.VITE_AGORA_API_KEY,
                 streamCredentials.channelName,
                 streamCredentials.agoraToken,
                 mostRecentStream.agoraUid,

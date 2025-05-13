@@ -70,7 +70,7 @@ const ChatMessage = ({ message }) => {
   switch (message.type) {
     case 'comment':
       return (
-        <div className="flex items-start gap-2 mb-2 hover:bg-[#161A1E] py-2 px-4 rounded transition-colors duration-200">
+        <div className="flex items-start gap-2 mb-2 hover:bg-[#161A1E] py-2 rounded transition-colors duration-200">
           {renderAvatar()}
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">

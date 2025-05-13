@@ -10,86 +10,110 @@ import { useOutletContext } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import LiveShowProductsCard from '../../Components/LiveShowProductsCard';
 
-const SuccessModal = ({ isOpen, onClose }) => {
-  const navigate = useNavigate();
+const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) => {
+    const navigate = useNavigate();
 
-  if (!isOpen) return null;
+    if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-lg">
-      <div className="relative bg-white rounded-2xl max-w-md w-full p-6 space-y-6">
-        {/* Close button */}
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
 
-        {/* Content */}
-        <div className="flex flex-col items-center text-center space-y-4">
-          {/* Success Icon */}
-          <img 
-            src={LiveStreamSuccessIcon} 
-            alt="Success" 
-            className="w-20 h-20 object-contain"
-          />
+    const handleStartImmediately = () => {
+        if (shouldStartImmediately) {
+            navigate(`/dashboard/live-streams/live-stream-studio/${livestream._id}`)
+        } else {
+            return (
+                <button
+                    onClick={() => navigate('/dashboard/live-streams/scheduled-shows')}
+                    className="flex-1 px-4 py-2.5 whitespace-nowrap text-xs font-medium text-white bg-[#16783A] rounded-sm hover:bg-[#16783A]/90 transition-all duration-300"
+                >
+                    GO TO SCHEDULED SHOWS
+                </button>
+            )
+        }
+    }
 
-          {/* Title */}
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Congrats
-          </h2>
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-lg">
+            <div className="relative bg-white rounded-2xl max-w-md w-full p-6 space-y-6">
+                {/* Close button */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
 
-          {/* Message */}
-          <p className="text-gray-600 text-sm">
-            Congratulations! Your show is scheduled! We will send a notification to your followers and interested users about your show! We will also send a notification when you go live!
-          </p>
+                {/* Content */}
+                <div className="flex flex-col items-center text-center space-y-4">
+                    {/* Success Icon */}
+                    <img
+                        src={LiveStreamSuccessIcon}
+                        alt="Success"
+                        className="w-20 h-20 object-contain"
+                    />
 
-          {/* Buttons */}
-          <div className="flex flex-col md:flex-row gap-3 w-full pt-4">
-            <button
-              onClick={() => navigate('/dashboard/live-streams/scheduled-shows')}
-              className="flex-1 px-4 py-2.5 whitespace-nowrap text-xs font-medium text-white bg-[#16783A] rounded-sm hover:bg-[#16783A]/90 transition-all duration-300"
-            >
-              GO TO SCHEDULED SHOWS
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 w-full text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 flex items-center justify-center gap-2"
-            >
-              SHARE
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 12H16M16 12L12 8M16 12L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </div>
+                    {/* Title */}
+                    <h2 className="text-2xl font-semibold text-gray-900">
+                        Congrats
+                    </h2>
 
-          {/* Footer Text */}
-          <p className="text-sm text-gray-500 pt-2">
-            Prepare your studio. Make sure to enter studio an hour before going live to make sure everything is set. HAPPY STREAMING!
-          </p>
+                    {/* Message */}
+                    <p className="text-gray-600 text-sm">
+                        Congratulations! Your show is scheduled! We will send a notification to your followers and interested users about your show! We will also send a notification when you go live!
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col md:flex-row gap-3 w-full pt-4">
+                        {handleStartImmediately()}
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2.5 w-full text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 flex items-center justify-center gap-2"
+                        >
+                            SHARE
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 12H16M16 12L12 8M16 12L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Footer Text */}
+                    <p className="text-sm text-gray-500 pt-2">
+                        Prepare your studio. Make sure to enter studio an hour before going live to make sure everything is set. HAPPY STREAMING!
+                    </p>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 SuccessModal.propTypes = {
     isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired
+    onClose: PropTypes.func.isRequired,
+    shouldStartImmediately: PropTypes.bool.isRequired,
+    livestream: PropTypes.object.isRequired
 };
 
 const SubmitLiveShow = () => {
     const { livestream, scheduleLiveShow, isLoading, message } = useLivestreamContext();
     const { setHeaderName, setNavName } = useOutletContext();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [shouldStartImmediately, setShouldStartImmediately] = useState(false);
+    const [livestreamData, setLivestreamData] = useState(null);
+
+
 
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Submit Live Show');
     }, [setHeaderName, setNavName]);
+
+    useEffect(() => {
+        if (livestream.startImmediately) {
+            console.log('startImmediately', livestream.startImmediately);
+            setShouldStartImmediately(livestream.startImmediately);
+        }
+    }, []);
 
     useEffect(() => {
         if (message === 'livestream scheduled successfully') {
@@ -129,7 +153,10 @@ const SubmitLiveShow = () => {
 
         try {
             if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0 && selectedProducts.length > 0) {
-                await scheduleLiveShow(streamData);
+                const response = await scheduleLiveShow(streamData);
+                if (response) {
+                    setLivestreamData(response)
+                }
             } else {
                 toast.error('Please fill in all fields', {
                     style: {
@@ -155,7 +182,7 @@ const SubmitLiveShow = () => {
                                 <div className="flex items-center mb-10 md:mb-20 justify-between gap-4">
                                     <img src={LiveShowIcon} alt="Live Show Icon" className="w-10 h-10 md:w-14 md:h-14 xl:w-16 xl:h-16 object-cover" />
                                     <h4 className="text-base md:text-lg font-semibold font-inter text-[#16192C]">Open Live show Summary</h4>
-                                    <p className="text-xs xl:text-sm font-inter text-[#718096]">Preview</p>    
+                                    <p className="text-xs xl:text-sm font-inter text-[#718096]">Preview</p>
                                 </div>
                                 {/* Title Section */}
                                 <div className="space-y-2 mb-10">
@@ -195,7 +222,7 @@ const SubmitLiveShow = () => {
                                                 <div className="w-full h-full flex items-center justify-center bg-black">
                                                     <video
                                                         src={URL.createObjectURL(new Blob(
-                                                            [Uint8Array.from(atob(livestream.video.data), c => c.charCodeAt(0))], 
+                                                            [Uint8Array.from(atob(livestream.video.data), c => c.charCodeAt(0))],
                                                             { type: livestream.video.contentType }
                                                         ))}
                                                         className="w-full h-full object-contain"
@@ -284,7 +311,7 @@ const SubmitLiveShow = () => {
                         >
                             Go Back
                         </NavLink>
-                        <button 
+                        <button
                             onClick={handleSchedulingLiveShow}
                             disabled={isLoading || selectedProducts.length === 0}
                             className="px-6 w-[200px] whitespace-nowrap py-2.5 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50"
@@ -296,9 +323,11 @@ const SubmitLiveShow = () => {
             </div>
 
             {/* Success Modal */}
-            <SuccessModal 
-                isOpen={showSuccessModal} 
-                onClose={() => setShowSuccessModal(false)} 
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                shouldStartImmediately={shouldStartImmediately}
+                livestream={livestreamData}
             />
         </>
     );

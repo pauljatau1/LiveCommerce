@@ -1,0 +1,9 @@
+# Allow all robots complete access
+User-agent: *
+Allow: /
+
+# Crawl-delay to prevent overwhelming the server
+Crawl-delay: 10
+
+# Sitemap location (update with your actual sitemap URL when available)
+Sitemap: https://seller.auqli.live/sitemap.xml

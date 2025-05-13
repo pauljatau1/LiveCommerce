@@ -157,6 +157,12 @@ export default function Payout() {
   }, []);
 
   const handleWithdrawalRequest = async () => {
+    // Check if bank details are missing
+    if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName) {
+      setError('Please add your bank account information in Settings before requesting a withdrawal.');
+      return;
+    }
+
     if (withdrawalAmount < 1000) {
       setError('Minimum withdrawal amount is ₦1,000');
       return;
@@ -392,30 +398,58 @@ export default function Payout() {
                       <div className="space-y-3 sm:space-y-4">
                         <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-100">
                           <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Current Bank Details</h4>
-                          <div className="space-y-1 sm:space-y-2">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Bank:</span>
-                              <span className="font-medium">{bankDetails.bankName}</span>
+                          
+                          {!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName ? (
+                            <div className="space-y-2">
+                              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <div className="flex items-start gap-2">
+                                  <Info className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs sm:text-sm text-yellow-700 font-medium">Bank details not completed</p>
+                                    <p className="text-xs text-yellow-600 mt-1">
+                                      You need to add your bank account information before you can make a withdrawal.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                className="mt-1 sm:mt-2 w-full text-green-600 text-xs sm:text-sm border-green-200 hover:bg-green-50"
+                                onClick={() => {
+                                  document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
+                                  window.location.href = "/dashboard/settings?tab=payment";
+                                }}
+                              >
+                                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                Add Bank Details
+                              </Button>
                             </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Account:</span>
-                              <span className="font-medium">{bankDetails.accountNumber}</span>
+                          ) : (
+                            <div className="space-y-1 sm:space-y-2">
+                              <div className="flex justify-between text-xs sm:text-sm">
+                                <span className="text-gray-600">Bank:</span>
+                                <span className="font-medium">{bankDetails.bankName}</span>
+                              </div>
+                              <div className="flex justify-between text-xs sm:text-sm">
+                                <span className="text-gray-600">Account:</span>
+                                <span className="font-medium">{bankDetails.accountNumber}</span>
+                              </div>
+                              <div className="flex justify-between text-xs sm:text-sm">
+                                <span className="text-gray-600">Name:</span>
+                                <span className="font-medium">{bankDetails.accountName}</span>
+                              </div>
+                              <Button
+                                variant="link"
+                                className="mt-1 sm:mt-2 h-auto p-0 text-green-600 text-xs sm:text-sm"
+                                onClick={() => {
+                                  document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
+                                  window.location.href = "/dashboard/settings?tab=payment";
+                                }}
+                              >
+                                Change Bank Details
+                              </Button>
                             </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Name:</span>
-                              <span className="font-medium">{bankDetails.accountName}</span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="link"
-                            className="mt-1 sm:mt-2 h-auto p-0 text-green-600 text-xs sm:text-sm"
-                            onClick={() => {
-                              document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
-                              window.location.href = "/dashboard/settings?tab=payment";
-                            }}
-                          >
-                            Change Bank Details
-                          </Button>
+                          )}
                         </div>
 
                         <div>
@@ -444,7 +478,7 @@ export default function Payout() {
                     <DialogFooter className="flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-end">
                       <Button
                         onClick={handleWithdrawalRequest}
-                        disabled={loading || !withdrawalAmount}
+                        disabled={loading || !withdrawalAmount || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName}
                         className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm rounded-lg"
                       >
                         {loading ? 'Processing...' : 'Withdraw'}

@@ -3,7 +3,7 @@ import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import axios from "axios";
-import mixpanel from "mixpanel-browser";
+import { trackEvent } from "../util/analytics";
 
 const LivestreamContext = createContext();
 
@@ -20,6 +20,7 @@ export const LivestreamProvider = ({ children }) => {
             products: [],
             selectedProducts: [],
             scheduledStartTime: null,
+            startImmediately: false
         },
         isLoading: false,
         error: null,
@@ -129,7 +130,8 @@ export const LivestreamProvider = ({ children }) => {
                         tags: [],
                         products: [],
                         selectedProducts: [],
-                        scheduledStartTime: null
+                        scheduledStartTime: null,
+                        startImmediately: false
                     }
                 }
             case 'SET_JOIN_LIVE_STREAM_DATA':
@@ -163,7 +165,7 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
-                mixpanel.track("Live Show Scheduled", {
+                trackEvent("Live Show Scheduled", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -206,6 +208,8 @@ export const LivestreamProvider = ({ children }) => {
                 } catch (trackingError) {
                     console.error('Failed to track live event scheduling:', trackingError);
                 }
+
+                return response.data.stream;
             }
         } catch (error) {
             console.error(error);
@@ -238,7 +242,7 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
                 dispatch({ type: "RESET_SCHEDULE_DATA" })
-                mixpanel.track("Live Auction Scheduled", {
+                trackEvent("Live Auction Scheduled", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -281,6 +285,8 @@ export const LivestreamProvider = ({ children }) => {
                 } catch (trackingError) {
                     console.error('Failed to track live event scheduling:', trackingError);
                 }
+
+                return response.data.stream;
             }
         } catch (error) {
             console.error(error);
@@ -357,7 +363,7 @@ export const LivestreamProvider = ({ children }) => {
                     }
                 });
 
-                mixpanel.track("Live Show Started", {
+                trackEvent("Live Show Started", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -458,7 +464,7 @@ export const LivestreamProvider = ({ children }) => {
                 });
 
                 // Track the livestream end event
-                mixpanel.track("Live Stream Ended", {
+                trackEvent("Live Stream Ended", {
                     "seller id": sellerData._id,
                     "seller email": sellerData.email,
                     "seller store name": sellerData.storeName,
@@ -632,6 +638,45 @@ export const LivestreamProvider = ({ children }) => {
         return Math.round((endTime - startTime) / (1000 * 60));
     };
 
+    // Function to renew Agora token for a livestream
+    const renewAgoraToken = async (streamId) => {
+        try {
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+
+            if (!tokenData?.data) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Requesting new Agora token for stream:', streamId);
+            const response = await axios.get(
+                `${BASE_URL}/streams/${streamId}/renew-token`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.data.success || !response.data.token) {
+                throw new Error('Invalid token response from server');
+            }
+
+            console.log('Successfully obtained new Agora token');
+            return response.data.token;
+        } catch (error) {
+            console.error('Failed to fetch new Agora token:', error);
+            toast.error('Failed to refresh stream connection', {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        }
+    };
+
     return (
         <LivestreamContext.Provider value={{
             ...state,
@@ -643,6 +688,7 @@ export const LivestreamProvider = ({ children }) => {
             endLiveStream,
             joinLiveStreamAsHost,
             activateProductBidding,
+            renewAgoraToken,
             dispatch
         }}>
             {children}
