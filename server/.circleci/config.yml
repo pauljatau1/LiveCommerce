@@ -182,12 +182,20 @@ workflows:
           type: approval
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - main
 
       - build-and-push-backend-image-production:
           requires:
           - approve-build-backend-image-production
           context:
             - foundations_auqli_production
+          filters:
+            branches:
+              only:
+                - main
 
       - approve-production-backend-deploy:
           type: approval
@@ -195,6 +203,10 @@ workflows:
             - build-and-push-backend-image-production
           context:
             - foundations_auqli_production
+          filters:
+            branches:
+              only:
+                - main
 
       - aws-ecs/deploy-service-update:
           name: deploy-to-production-backend
@@ -209,3 +221,7 @@ workflows:
           container-env-var-updates: 'container=production-auqli-backend,name=APP_ENV,value=production,container=production-auqli-backend,name=BRANCH,value=$CIRCLE_BRANCH'
           verify-revision-is-deployed: true
           docker-image-for-job: << pipeline.parameters.docker_job_image >>
+          filters:
+            branches:
+              only:
+                - main

@@ -2949,4 +2949,210 @@ router.delete(
   adminController.deleteAllSellerProducts
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/send-onboarding-reminder:
+ *   post:
+ *     summary: Send an onboarding reminder email to a seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Onboarding reminder email sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Onboarding reminder email sent successfully
+ *                 incompleteSteps:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Personal Address", "Bank Details"]
+ *       400:
+ *         description: Invalid seller ID or seller has already completed onboarding
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/sellers/:sellerId/send-onboarding-reminder',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.sendOnboardingReminderEmail
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/bulk/send-onboarding-reminders:
+ *   post:
+ *     summary: Send onboarding reminder emails to all sellers with incomplete onboarding
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bulk onboarding reminder emails sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Onboarding reminder emails sent to 15 sellers
+ *                 count:
+ *                   type: integer
+ *                   example: 15
+ *                 processedSellers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       sellerId:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       businessName:
+ *                         type: string
+ *                       incompleteSteps:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/sellers/bulk/send-onboarding-reminders',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.sendBulkOnboardingReminders
+);
+
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}/details:
+ *   get:
+ *     summary: Get detailed information about a specific buyer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Buyer ID
+ *     responses:
+ *       200:
+ *         description: Detailed buyer information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     buyer:
+ *                       type: object
+ *                       description: All buyer information from the Buyer model
+ *                     metrics:
+ *                       type: object
+ *                       properties:
+ *                         ordersCount:
+ *                           type: number
+ *                           example: 24
+ *                         totalSpent:
+ *                           type: number
+ *                           example: 75000
+ *                         pendingOrders:
+ *                           type: number
+ *                           example: 2
+ *                         completedOrders:
+ *                           type: number
+ *                           example: 20
+ *                         cancelledOrders:
+ *                           type: number
+ *                           example: 2
+ *                         postsCount:
+ *                           type: number
+ *                           example: 15
+ *                         wishlistCount:
+ *                           type: number
+ *                           example: 8
+ *                         conversationsCount:
+ *                           type: number
+ *                           example: 6
+ *                         walletBalance:
+ *                           type: number
+ *                           example: 15000
+ *                         walletTransactions:
+ *                           type: object
+ *                           properties:
+ *                             totalTransactions:
+ *                               type: number
+ *                               example: 30
+ *                             creditTransactions:
+ *                               type: number
+ *                               example: 20
+ *                             debitTransactions:
+ *                               type: number
+ *                               example: 10
+ *                             totalCredit:
+ *                               type: number
+ *                               example: 30000
+ *                             totalDebit:
+ *                               type: number
+ *                               example: 15000
+ *                     recentActivity:
+ *                       type: object
+ *                       properties:
+ *                         orders:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         wishlist:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         conversations:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *       400:
+ *         description: Invalid buyer ID format
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/buyers/:buyerId/details', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.getBuyerDetails
+);
+
 module.exports = router;

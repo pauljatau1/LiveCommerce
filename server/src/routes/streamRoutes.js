@@ -1477,9 +1477,95 @@ router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStat
  *         description: Server error
  */
 router.get('/category/:category', (req, res, next) => {
-  console.log(`[DEBUG] /category/${req.params.category} route matched`);
+  console.log("[DEBUG] Route triggered: GET /category/:category");
   next();
 }, streamController.getStreamsByCategory);
+
+
+/**
+ * @swagger
+ * /api/streams/category/{category}/subcategory/{subcategory}:
+ *   get:
+ *     summary: Get streams by category and subcategory
+ *     description: Retrieves streams filtered by both a main category and its subcategory
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The main category to filter streams by
+ *       - in: path
+ *         name: subcategory
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The subcategory within the main category to filter streams by
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter by stream status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter by stream type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortByViews
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort by viewer count (ascending or descending)
+ *     responses:
+ *       200:
+ *         description: A list of streams matching the specified category and subcategory
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Total number of streams
+ *                     pages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: integer
+ *                       description: Current page number
+ *                     hasMore:
+ *                       type: boolean
+ *                       description: Whether there are more pages available
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category/subcategory/:subcategory', (req, res, next) => {
+  console.log("[DEBUG] Route triggered: GET /category/:category/subcategory/:subcategory");
+  next();
+}, streamController.getStreamsByCategoryAndSubcategory);
 
 /**
  * @swagger

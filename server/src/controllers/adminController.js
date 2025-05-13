@@ -66,35 +66,185 @@ cloudinary.config({
 
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
+const { sendAdminLoginNotificationEmail } = require('../utils/emailService');
+const rateLimit = require('express-rate-limit');
 
-
+// Create a map to track failed login attempts
+const loginAttempts = new Map();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
-    const newAdmin = new Admin({ username, email, password });
+    // Check if the email is in the allowed list (this is also validated in the model)
+    const ALLOWED_EMAILS = [
+      'bolu@auqli.com',
+      'admin@auqli.com',
+      'joseph@auqli.com', 
+      'paul@auqli.com'
+    ];
+    
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({
+        success: false,
+        message: 'This email is not authorized to register as an admin.'
+      });
+    }
+
+    // Check if admin with this email or username already exists
+    const existingAdmin = await Admin.findOne({
+      $or: [{ email: email.toLowerCase() }, { username }]
+    });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'An admin with this email or username already exists.'
+      });
+    }
+
+    // Strong password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.'
+      });
+    }
+
+    // Create and save the new admin
+    const newAdmin = new Admin({ 
+      username, 
+      email: email.toLowerCase(), 
+      password 
+    });
+    
     await newAdmin.save();
-    res.status(201).json({ message: 'Admin registered successfully!' });
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Admin registered successfully!'
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ 
+      success: false,
+      message: 'Registration failed',
+      error: error.message 
+    });
   }
 };
 
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
+  const clientIP = req.ip || req.connection.remoteAddress;
+  const userAgent = req.headers['user-agent'] || 'Unknown';
 
   try {
-    const admin = await Admin.findOne({ username });
-    if (!admin || !(await admin.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Check if the IP is currently locked out
+    const ipKey = `ip_${clientIP}`;
+    const ipAttempts = loginAttempts.get(ipKey) || { count: 0, lockUntil: 0 };
+    
+    if (ipAttempts.lockUntil > Date.now()) {
+      return res.status(429).json({ 
+        success: false,
+        message: `Too many failed login attempts. Please try again after ${Math.ceil((ipAttempts.lockUntil - Date.now()) / 60000)} minutes.` 
+      });
     }
 
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: '80h' });
-    res.json({ token });
+    // Find the admin by username or email
+    const admin = await Admin.findOne({
+      $or: [
+        { username: username },
+        { email: username.toLowerCase() } // Allow login with email too
+      ]
+    });
+
+    // If admin not found or password doesn't match
+    if (!admin || !(await admin.comparePassword(password))) {
+      // Update failed attempts for this IP
+      ipAttempts.count += 1;
+      
+      if (ipAttempts.count >= MAX_FAILED_ATTEMPTS) {
+        ipAttempts.lockUntil = Date.now() + LOCKOUT_TIME;
+        loginAttempts.set(ipKey, ipAttempts);
+        
+        return res.status(429).json({
+          success: false,
+          message: `Too many failed login attempts. Your IP has been temporarily locked for ${LOCKOUT_TIME/60000} minutes.`
+        });
+      }
+      
+      loginAttempts.set(ipKey, ipAttempts);
+      
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials',
+        attemptsLeft: MAX_FAILED_ATTEMPTS - ipAttempts.count
+      });
+    }
+
+    // Reset login attempts on successful login
+    loginAttempts.delete(ipKey);
+
+    // Update last login timestamp
+    admin.lastLogin = new Date();
+    await admin.save();
+    
+    // Generate JWT token with shorter expiration for security
+    const token = jwt.sign(
+      { id: admin._id, role: 'admin' }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '8h' }
+    );
+
+    // Prepare login notification metadata
+    const loginMetadata = {
+      ip: clientIP,
+      userAgent: userAgent,
+      timestamp: new Date()
+    };
+    
+    console.log('Admin login successful for:', admin.username);
+    console.log('SENDGRID_API_KEY configured:', !!process.env.SENDGRID_API_KEY);
+    
+    // Send the notification email asynchronously 
+    try {
+      console.log(`Attempting to send login notification to admin: ${admin.email}`);
+      
+      // This is now a fire-and-forget operation, don't await it
+      sendAdminLoginNotificationEmail(admin.email, admin.username, loginMetadata)
+        .then(success => {
+          if (success) {
+            console.log(`Login notification email successfully sent to ${admin.email}`);
+          } else {
+            console.error(`Could not send login notification email to ${admin.email}`);
+          }
+        })
+        .catch(err => {
+          console.error(`Error in login notification email promise:`, err);
+        });
+    } catch (emailError) {
+      console.error('Exception when attempting to send login notification:', emailError);
+      // Still continue with login process even if email fails
+    }
+
+    // Return success response
+    res.json({ 
+      success: true,
+      token,
+      username: admin.username,
+      email: admin.email
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'An error occurred during login',
+      error: error.message 
+    });
   }
 };
 
@@ -112,19 +262,193 @@ exports.getProfile = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await Buyer.find();
-    res.json(users);
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Build filter object based on query parameters
+    const filter = {};
+    
+    // Filter by name or email
+    if (req.query.search) {
+      filter.$or = [
+        { firstName: { $regex: req.query.search, $options: 'i' } },
+        { lastName: { $regex: req.query.search, $options: 'i' } },
+        { email: { $regex: req.query.search, $options: 'i' } },
+      ];
+    }
+    
+    // Filter by account status
+    if (req.query.isDisabled !== undefined) {
+      filter.isDisabled = req.query.isDisabled === 'true';
+    }
+
+    // Filter by verification status
+    if (req.query.isVerified !== undefined) {
+      filter.isVerified = req.query.isVerified === 'true';
+    }
+
+    // Filter by country
+    if (req.query.country) {
+      filter['address.country'] = { $regex: req.query.country, $options: 'i' };
+    }
+
+    // Determine sort options
+    let sortOptions = { createdAt: -1 }; // Default: newest first
+    
+    if (req.query.sortBy) {
+      switch(req.query.sortBy) {
+        case 'name_asc':
+          sortOptions = { firstName: 1, lastName: 1 };
+          break;
+        case 'name_desc':
+          sortOptions = { firstName: -1, lastName: -1 };
+          break;
+        case 'oldest':
+          sortOptions = { createdAt: 1 };
+          break;
+        case 'email':
+          sortOptions = { email: 1 };
+          break;
+        default:
+          sortOptions = { createdAt: -1 };
+      }
+    }
+
+    // Count total number of users for pagination metadata
+    const totalUsers = await Buyer.countDocuments(filter);
+    
+    // Get paginated users
+    const users = await Buyer.find(filter)
+      .select('-password -refreshToken')
+      .skip(skip)
+      .limit(limit)
+      .sort(sortOptions);
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      totalUsers,
+      usersPerPage: limit,
+      users
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch users',
+      error: error.message 
+    });
   }
 };
 
 exports.getAllSellers = async (req, res) => {
   try {
-    const sellers = await Seller.find();
-    res.json(sellers);
+    // Extract pagination parameters from query with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Build filter object based on query parameters
+    const filter = {};
+    
+    // Filter by name (first name, last name), business name, or store name
+    if (req.query.search) {
+      filter.$or = [
+        { firstName: { $regex: req.query.search, $options: 'i' } },
+        { lastName: { $regex: req.query.search, $options: 'i' } },
+        { businessName: { $regex: req.query.search, $options: 'i' } },
+        { storeName: { $regex: req.query.search, $options: 'i' } },
+      ];
+    }
+    
+    // Filter by verification status
+    if (req.query.isVerified !== undefined) {
+      filter.isVerified = req.query.isVerified === 'true';
+    }
+
+    // Filter by account status
+    if (req.query.isDisabled !== undefined) {
+      filter.isDisabled = req.query.isDisabled === 'true';
+    }
+
+    // Filter by country
+    if (req.query.country) {
+      filter.$or = [
+        { 'sellerAddress.country': req.query.country },
+        { 'businessAddress.country': req.query.country },
+        { 'warehouseDetails.address.country': req.query.country }
+      ];
+    }
+
+    // Filter by category
+    if (req.query.category) {
+      filter['categories.name'] = req.query.category;
+    }
+
+    // Determine sort options
+    let sortOptions = { createdAt: -1 }; // Default: newest first
+    
+    if (req.query.sortBy) {
+      switch(req.query.sortBy) {
+        case 'name_asc':
+          sortOptions = { firstName: 1, lastName: 1 };
+          break;
+        case 'name_desc':
+          sortOptions = { firstName: -1, lastName: -1 };
+          break;
+        case 'oldest':
+          sortOptions = { createdAt: 1 };
+          break;
+        case 'business_name':
+          sortOptions = { businessName: 1 };
+          break;
+        case 'store_name':
+          sortOptions = { storeName: 1 };
+          break;
+        default:
+          sortOptions = { createdAt: -1 }; // newest first
+      }
+    }
+
+    // Count total number of sellers for pagination metadata
+    const totalSellers = await Seller.countDocuments(filter);
+    
+    // Get paginated sellers
+    const sellers = await Seller.find(filter)
+      .select('-password -refreshToken')
+      .skip(skip)
+      .limit(limit)
+      .sort(sortOptions);
+
+    // Get product counts for each seller
+    const Product = mongoose.model('Product');
+    const sellersWithProductCount = await Promise.all(
+      sellers.map(async (seller) => {
+        const productCount = await Product.countDocuments({ seller: seller._id });
+        const sellerObj = seller.toObject();
+        sellerObj.productCount = productCount;
+        return sellerObj;
+      })
+    );
+
+    // Return paginated response
+    res.json({
+      success: true,
+      currentPage: page,
+      totalPages: Math.ceil(totalSellers / limit),
+      totalSellers,
+      sellersPerPage: limit,
+      sellers: sellersWithProductCount
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch sellers',
+      error: error.message 
+    });
   }
 };
 
@@ -6081,3 +6405,461 @@ exports.deleteAllSellerProducts = async (req, res) => {
     });
   }
 };
+
+/**
+ * @function sendOnboardingReminderEmail
+ * @description Send a reminder email to a seller to complete their onboarding process
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response indicating success or failure
+ */
+exports.sendOnboardingReminderEmail = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    
+    
+    
+    
+    // Set up email content
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Complete Your Auqli Seller Onboarding',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #333; text-align: center;">Complete Your Seller Onboarding</h2>
+          
+          <p>Dear ${seller.firstName},</p>
+          
+          <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
+          
+          
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+            <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
+            <ul style="margin-top: 10px;">
+              <li>List and sell products to customers</li>
+              <li>Access seller analytics and insights</li>
+              <li>Process orders and grow your business</li>
+              <li>Participate in promotions and campaigns</li>
+            </ul>
+          </div>
+          
+          <p style="margin-top: 20px;">To complete your onboarding, simply log in to your Auqli seller account and follow the prompts in your dashboard.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
+          </div>
+          
+          <p>If you're experiencing any issues or have questions about the onboarding process, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+          
+          <p>Best regards,<br>The Auqli Team</p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
+            <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p>
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    // Send the email
+    await sgMail.send(emailMsg);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Onboarding reminder email sent successfully',
+     
+    });
+    
+  } catch (error) {
+    console.error('Error sending onboarding reminder email:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send onboarding reminder email',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @function sendBulkOnboardingReminders
+ * @description Send reminder emails to all sellers with incomplete onboarding process
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response indicating success or failure
+ */
+exports.sendBulkOnboardingReminders = async (req, res) => {
+  try {
+   
+    
+    const emailPromises = [];
+    const processedSellers = [];
+    
+    // Process each seller with incomplete onboarding
+    for (const seller of incompleteSellers) {
+      // Identify incomplete steps for this seller
+     
+      
+     
+      
+      // Set up email content
+      const emailMsg = {
+        to: seller.email,
+        from: 'Auqli Admin <support@auqli.com>',
+        subject: 'Complete Your Auqli Seller Onboarding',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #333; text-align: center;">Complete Your Seller Onboarding</h2>
+            
+            <p>Dear ${seller.firstName},</p>
+            
+            <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
+            
+           
+            
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+              <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
+              <ul style="margin-top: 10px;">
+                <li>List and sell products to customers</li>
+                <li>Access seller analytics and insights</li>
+                <li>Process orders and grow your business</li>
+                <li>Participate in promotions and campaigns</li>
+              </ul>
+            </div>
+            
+            <p style="margin-top: 20px;">To complete your onboarding, simply log in to your Auqli seller account and follow the prompts in your dashboard.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://auqli.live/seller/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
+            </div>
+            
+            <p>If you're experiencing any issues or have questions about the onboarding process, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+            
+            <p>Best regards,<br>The Auqli Team</p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
+              <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+              <p>
+                <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+                <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+              </p>
+            </div>
+          </div>
+        `
+      };
+      
+      // Add to email promises array
+      emailPromises.push(sgMail.send(emailMsg));
+      
+      // Add to processed sellers with summary info
+      processedSellers.push({
+        sellerId: seller._id,
+        email: seller.email,
+        name: `${seller.firstName} ${seller.lastName}`,
+        businessName: seller.businessName || 'N/A',
+       
+      });
+    }
+    
+    // Send all emails in parallel
+    await Promise.allSettled(emailPromises);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Onboarding reminder emails sent to ${processedSellers.length} sellers`,
+      count: processedSellers.length,
+      processedSellers
+    });
+    
+  } catch (error) {
+    console.error('Error sending bulk onboarding reminder emails:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send bulk onboarding reminder emails',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get comprehensive buyer details
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} Detailed buyer information with orders, transactions, etc.
+ */
+exports.getBuyerDetails = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+
+    // Validate buyerId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid buyer ID format'
+      });
+    }
+
+    // Fetch buyer with selected fields
+    const buyer = await Buyer.findById(buyerId)
+      .select('-password -resetPasswordToken -resetPasswordExpires -resetPasswordOTP -resetPasswordOTPExpires -otp -phoneVerification.otp');
+    
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+    
+    // Get additional metrics and related data concurrently
+    const [
+      ordersData,
+      postsCount,
+      wishlistProducts,
+      messageThreads,
+      transactionStats
+    ] = await Promise.all([
+      // Get buyer's orders with pagination (most recent 10)
+      Order.find({ buyer: buyerId })
+        .populate('seller', 'firstName lastName businessName storeName')
+        .populate('items.product', 'name images')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      
+      // Fix: Count buyer's posts with the correct schema structure
+      Post.countDocuments({ 'author.userId': buyerId, 'author.userModel': 'Buyer' }),
+      
+      // Get wishlist items with product details
+      Promise.all((buyer.wishlist || []).map(async (item) => {
+        const product = await Product.findById(item.product)
+          .populate('seller', 'storeName businessName')
+          .select('name price images status discountPrice');
+        
+        if (product) {
+          return {
+            addedAt: item.addedAt,
+            productId: product._id,
+            name: product.name,
+            price: product.price,
+            discountPrice: product.discountPrice,
+            image: product.images && product.images.length > 0 ? product.images[0] : null,
+            seller: product.seller,
+            status: product.status
+          };
+        }
+        return null;
+      })),
+      
+      // Get conversation threads
+      Conversation.find({ 
+        participants: { 
+          $elemMatch: { 
+            participantId: buyerId, 
+            participantType: 'buyer' 
+          } 
+        } 
+      })
+      .populate({
+        path: 'participants.participantId',
+        select: 'firstName lastName storeName businessName profileImage',
+      })
+      .sort({ updatedAt: -1 })
+      .limit(5),
+      
+      // Get wallet transaction statistics
+      getWalletTransactionStats(buyer)
+    ]);
+    
+    // Filter out null wishlist items (products that may have been deleted)
+    const filteredWishlist = wishlistProducts.filter(item => item !== null);
+    
+    // Calculate order metrics
+    const orderMetrics = calculateOrderMetrics(ordersData);
+    
+    // Format response data
+    const responseData = {
+      buyer: {
+        _id: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        phoneNumber: buyer.phoneNumber,
+        username: buyer.username,
+        country: buyer.country,
+        createdAt: buyer.createdAt,
+        emailVerified: buyer.emailVerified,
+        phoneVerified: buyer.phoneVerified,
+        profileImage: buyer.profileImage,
+        isActive: buyer.isActive,
+        isDisabled: buyer.isDisabled,
+        isIdentityVerified: buyer.isIdentityVerified,
+        identityDocument: buyer.identityDocument,
+        shippingAddresses: buyer.shippingAddresses,
+        bio: buyer.bio,
+        preferredLanguage: buyer.preferredLanguage,
+        preferredCurrency: buyer.preferredCurrency,
+        authProvider: buyer.authProvider,
+        wallet: {
+          balance: buyer.wallet?.balance || 0,
+          currency: buyer.wallet?.currency || 'NGN',
+          onHoldAmount: buyer.wallet?.onHoldAmount || 0,
+          onHoldItems: buyer.wallet?.onHoldItems || []
+        },
+        notificationPreferences: buyer.notificationPreferences
+      },
+      metrics: {
+        ordersCount: orderMetrics.totalOrders,
+        totalSpent: orderMetrics.totalSpent,
+        pendingOrders: orderMetrics.pendingOrders,
+        completedOrders: orderMetrics.completedOrders,
+        cancelledOrders: orderMetrics.cancelledOrders,
+        postsCount,
+        wishlistCount: filteredWishlist.length,
+        conversationsCount: messageThreads.length,
+        walletBalance: buyer.wallet?.balance || 0,
+        walletTransactions: {
+          totalTransactions: transactionStats.totalCount,
+          creditTransactions: transactionStats.creditCount,
+          debitTransactions: transactionStats.debitCount,
+          totalCredit: transactionStats.totalCredit,
+          totalDebit: transactionStats.totalDebit
+        }
+      },
+      recentActivity: {
+        orders: ordersData.map(order => ({
+          _id: order._id,
+          order_id: order.order_id,
+          totalAmount: order.totalAmount,
+          status: order.status || 'pending',
+          createdAt: order.createdAt,
+          seller: order.seller ? {
+            _id: order.seller._id,
+            name: order.seller.businessName || order.seller.storeName || `${order.seller.firstName} ${order.seller.lastName}`
+          } : null,
+          items: order.items.length
+        })),
+        wishlist: filteredWishlist,
+        conversations: messageThreads.map(conversation => {
+          // Find the other participant (not the buyer)
+          const otherParticipant = conversation.participants.find(
+            p => p.participantId._id.toString() !== buyerId.toString()
+          );
+          
+          return {
+            _id: conversation._id,
+            lastUpdated: conversation.updatedAt,
+            unreadCount: conversation.unreadCount || 0,
+            otherParticipant: otherParticipant ? {
+              _id: otherParticipant.participantId._id,
+              type: otherParticipant.participantType,
+              name: otherParticipant.participantType === 'seller' 
+                ? (otherParticipant.participantId.storeName || otherParticipant.participantId.businessName) 
+                : `${otherParticipant.participantId.firstName} ${otherParticipant.participantId.lastName}`,
+              profileImage: otherParticipant.participantId.profileImage
+            } : null
+          };
+        })
+      }
+    };
+    
+    // Return successful response
+    res.status(200).json({
+      success: true,
+      data: responseData
+    });
+    
+  } catch (error) {
+    console.error('Error fetching buyer details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch buyer details',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Helper function to calculate order metrics
+ * @param {Array} orders - List of buyer orders
+ * @returns {Object} Metrics about orders
+ */
+function calculateOrderMetrics(orders) {
+  return orders.reduce((metrics, order) => {
+    metrics.totalOrders++;
+    metrics.totalSpent += order.totalAmount || 0;
+    
+    // Count orders by status
+    if (order.status === 'delivered') {
+      metrics.completedOrders++;
+    } else if (order.status === 'cancelled') {
+      metrics.cancelledOrders++;
+    } else {
+      metrics.pendingOrders++;
+    }
+    
+    return metrics;
+  }, {
+    totalOrders: 0,
+    totalSpent: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0
+  });
+}
+
+/**
+ * Helper function to get wallet transaction statistics
+ * @param {Object} buyer - Buyer document
+ * @returns {Object} Transaction statistics
+ */
+async function getWalletTransactionStats(buyer) {
+  if (!buyer.wallet || !buyer.wallet.transactions) {
+    return {
+      totalCount: 0,
+      creditCount: 0,
+      debitCount: 0,
+      totalCredit: 0,
+      totalDebit: 0
+    };
+  }
+  
+  return buyer.wallet.transactions.reduce((stats, transaction) => {
+    stats.totalCount++;
+    
+    if (transaction.type === 'credit') {
+      stats.creditCount++;
+      stats.totalCredit += transaction.amount || 0;
+    } else if (transaction.type === 'debit') {
+      stats.debitCount++;
+      stats.totalDebit += transaction.amount || 0;
+    }
+    
+    return stats;
+  }, {
+    totalCount: 0,
+    creditCount: 0,
+    debitCount: 0,
+    totalCredit: 0,
+    totalDebit: 0
+  });
+}
