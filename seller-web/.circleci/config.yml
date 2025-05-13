@@ -254,7 +254,7 @@ workflows:
       - deploy_to_production:
           name: deploy-to-production-backend
           context:
-            - foundations_auqli_production
+            - auqli_seller_production_context
           requires:
             - approve-production-backend-deploy
           filters:
