@@ -33,7 +33,7 @@ import {
 } from "@expo/vector-icons";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import BottomSheet from "@/components/global/bottom-sheet";
-import Carousel from "react-native-reanimated-carousel";
+import CustomCarousel from "@/components/livestream/CustomCarousel";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import {
   StreamConfig,
@@ -62,6 +62,8 @@ import type { FloatingHeartsRef } from "./components/FloatingHeartsAnimation";
 import { GlassImage } from "./components";
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
+import { LinearGradient } from "expo-linear-gradient";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const { height } = Dimensions.get("window");
 
@@ -711,7 +713,7 @@ const LivestreamStudioFeed = ({
       // Host has left
       setIsHostPresent(false);
       setShowNoHostAlert(true);
-      setShowNoHostAlert2(true);
+      setShowNoHostAlert2(false);
       setStatus("Host left the stream");
     } else if (message.startsWith("user_unpublished:")) {
       const parts = message.split(":");
@@ -1382,9 +1384,9 @@ const LivestreamStudioFeed = ({
   }, []);
 
   return (
-    <>
+    <GestureHandlerRootView style={{ height }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <View style={{ height }}>
+      <View style={{ height: height }}>
         <View className="h-full bg-black">
           {/* Agora Video Container */}
           <View className="absolute w-full h-full">
@@ -1406,6 +1408,19 @@ const LivestreamStudioFeed = ({
                   allowsInlineMediaPlayback={true}
                   mediaPlaybackRequiresUserAction={false}
                   originWhitelist={["*"]}
+                />
+                
+                {/* Gradient Overlay for better contrast */}
+                <LinearGradient
+                  colors={[
+                    'rgba(0,0,0,0.1)',     // Slight darkening at top
+                    'rgba(0,0,0,0.45)',     // Medium darkening in middle
+                    'rgba(0,0,0,0.65)',    // Darker toward bottom
+                    'rgba(0,0,0,1)',    // Darkest at bottom
+                  ]}
+                  locations={[0, 0.5, 0.85, 1]}
+                  style={styles.gradientOverlay}
+                  pointerEvents="none"
                 />
 
                 {/* Show play loader while video is loading, but not if we know there's no host */}
@@ -1555,7 +1570,7 @@ const LivestreamStudioFeed = ({
                           position: "absolute",
                           right: 0,
                           top: 40,
-                          backgroundColor: "rgba(255,255,255,0.1)",
+                          backgroundColor: "rgba(0,0,0,0.2)",
                           borderRadius: 8,
                           paddingVertical: 8,
                           paddingHorizontal: 10,
@@ -1564,7 +1579,7 @@ const LivestreamStudioFeed = ({
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: 0.25,
                           shadowRadius: 3.84,
-                          zIndex: 1000,
+                          zIndex: 50,
                         }}
                       >
                         <TouchableOpacity
@@ -1652,12 +1667,13 @@ const LivestreamStudioFeed = ({
               color="#16783A"
             />
 
-            <View style={{ height: height + 20 }}>
+            <View style={{ height: keyboardVisibleRef.current ? "67%" : height - 25, justifyContent: "flex-end" }}>
               {/* Main Content Area */}
+              
               <View
                 style={[
                   styles.mainContentArea,
-                  { height: keyboardVisibleRef.current ? "53%" : "67%" },
+                  //{ height: keyboardVisibleRef.current ? "53%" : "69%"},
                 ]}
               >
                 {/* Right Side Actions */}
@@ -1828,13 +1844,14 @@ const LivestreamStudioFeed = ({
                   streamProducts.length > 0 &&
                   !keyboardVisibleRef.current && (
                     <View style={styles.bottomProductCardContainer}>
-                      <Carousel
+                      <CustomCarousel
                         loop={false}
                         autoPlay={false}
                         width={screenWidth - 32}
                         height={110}
                         data={streamProducts}
                         scrollAnimationDuration={500}
+                        showPagination={false}
                         onSnapToItem={(index) => setCurrentProductIndex(index)}
                         renderItem={({ item, index }) => (
                           <LiveShowProductCard
@@ -1984,7 +2001,7 @@ const LivestreamStudioFeed = ({
           closeSheet={() => setShowShop(false)}
         />
       </BottomSheet>
-    </>
+    </GestureHandlerRootView>
   );
 };
 
@@ -1995,6 +2012,12 @@ const styles = StyleSheet.create({
     height: "100%",
     position: "absolute",
     backgroundColor: "#000",
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 5,
   },
   fullScreen2: {
     flex: 1,
@@ -2015,20 +2038,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   contentContainer: {
-    flex: 1,
+    height: height,
     position: "relative",
   },
   mainContentArea: {
-    height: "67%",
     position: "relative",
   },
   bottomArea: {
     position: "relative",
     paddingBottom: Platform.OS === "ios" ? 20 : 10,
+    zIndex: 15
   },
   bottomProductCardContainer: {
     position: "relative",
-    padding: 16,
+    paddingHorizontal: 16,
     //marginTop: 10,
   },
   commentInputContainer: {
@@ -2039,13 +2062,13 @@ const styles = StyleSheet.create({
   rightActionsContainer: {
     position: "absolute",
     right: 13,
-    bottom: 10,
+    bottom: 0,
     maxHeight: 300,
     zIndex: 10,
   },
   commentsContainer: {
     position: "absolute",
-    bottom: 10,
+    bottom: 0,
     left: 0,
     width: "70%",
     maxHeight: 250,

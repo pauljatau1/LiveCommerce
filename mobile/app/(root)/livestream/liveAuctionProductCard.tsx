@@ -2,8 +2,8 @@ import { Product } from '@/types/streams/livestreamStudio';
 import { GlassImage } from './components';
 import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import React, { useEffect } from 'react';
-import RenderHtml, { defaultSystemFonts, TBlock, CustomBlockRenderer } from "react-native-render-html";
+import React, { useEffect, useMemo } from 'react';
+//import RenderHtml from "react-native-render-html";
 
 interface LiveAuctionProductCardProps {
     product: {
@@ -69,6 +69,26 @@ const LiveAuctionProductCard = ({
         return Number(bidTimeRemaining) < 10;
     };
 
+    // Improved function to extract and simplify description
+    const simplifiedDescription = useMemo(() => {
+        if (!product?.description) return "";
+
+        // First, try to get the first heading or paragraph content
+        const firstTagMatch = product.description.match(/<(h[1-6]|p)[^>]*>([^<]+)<\/\1>/);
+        if (firstTagMatch && firstTagMatch[2]) {
+            return firstTagMatch[2].trim();
+        }
+        
+        // Second approach: extract text between any tags
+        const textMatch = product.description.match(/<[^>]*>([^<]+)<\/[^>]*>/);
+        if (textMatch && textMatch[1]) {
+            return textMatch[1].trim();
+        }
+        
+        // Last resort: strip all HTML tags
+        return product.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    }, [product?.description]);
+
     console.log('current bid product image:', product?.images?.[0]?.url);
     console.log('using bid increment:', bidIncrement);
     console.log('bid time remaining:', bidTimeRemaining);
@@ -102,19 +122,15 @@ const LiveAuctionProductCard = ({
                         <Text numberOfLines={2} style={styles.productName}>
                             {product?.name}
                         </Text>
-                        <RenderHtml
-                            source={{ html: product?.description || "" }}
-                            tagsStyles={{
-                                body: {
-                                    color: "#AAAAAA",
-                                    fontSize: 13,
-                                    marginBottom: 4,
-                                },
-                            }}
-                            defaultTextProps={{
-                                numberOfLines: 1
-                            }}
-                        />
+                        <View style={styles.descriptionContainer}>
+                            <Text
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                                style={styles.productDescription}
+                            >
+                                {simplifiedDescription}
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
@@ -221,7 +237,7 @@ const styles = StyleSheet.create({
     },
     productDescription: {
         fontSize: 13,
-        color: '#AAAAAA', // Lighter gray for better visibility on dark background
+        color: '#AAAAAA',
         marginBottom: 4,
     },
     priceRow: {
@@ -379,6 +395,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.7)',
+    },
+    descriptionContainer: {
+        marginVertical: 2,
     },
 });
 

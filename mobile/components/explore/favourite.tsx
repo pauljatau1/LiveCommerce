@@ -15,7 +15,7 @@ const FavouriteExplore = ({ category }: any) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [spotLight, setSpotLight] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("");
-  const [liveFilter, setLiveFilter] = useState<string>("open_show");
+  const [liveFilter, setLiveFilter] = useState<string>("");
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
   const [filteredStreams, setFilteredStremas] = useState<any[]>([]);
@@ -281,4 +281,4 @@ const FavouriteExplore = ({ category }: any) => {
   );
 };
 
-export default FavouriteExplore;
+export default React.memo(FavouriteExplore);

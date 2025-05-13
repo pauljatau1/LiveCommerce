@@ -8,7 +8,10 @@ import {
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useCallback, useEffect, useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { FlatList, Pressable } from "react-native-gesture-handler";
 import { router } from "expo-router";
@@ -22,6 +25,7 @@ import { GlassImage } from "../../livestream/components";
 import ExploreSkeleton from "@/components/skeleton/exploreSkeleton";
 
 const Explore = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const isFocused = useIsFocused();
   const { data, isLoading, refetch } = useGetAllCategoriesQuery({});
   const [categoriesData, setCategoriesData] = useState<any[]>([]);
@@ -31,76 +35,80 @@ const Explore = () => {
   //     setCategoriesData(data);
   //   }, [data]);
 
-  const renderCategories = (category: any, index: number) => {
-    const subCats = category?.subCategories?.map((sub: any) => sub?.name);
-    return (
-      <Pressable
-        onPress={() =>
-          router.push({
-            pathname: `../explore/${category._id}`,
-            params: {
-              name: category.name,
-              subCategories: subCats,
-            },
-          })
-        }
-        style={{
-          marginBottom: 12,
-          flexShrink: 1,
-          width: "100%",
-          // flexBasis: "48%",
-        }}
-      >
-        <View className="relative items-center rounded-[8px] overflow-hidden pb-[8px] bg-[#2e2e2e] gap-[8px]">
-          <GlassImage
-            source={{ uri: category?.image?.url }}
-            resizeMode="cover"
-            imageStyle={{
-              width: "100%",
-              height: 100,
-            }}
-            glassStyle={{
-              width: "100%",
-              height: 100,
-            }}
-            containerStyle={{
-              width: "100%",
-              height: 100,
-            }}
-            placeholderColor="rgba(255, 255, 255, 0.1)"
-            tint="dark"
-            blurIntensity={25}
-            showActivityIndicator={false}
-          />
+  const renderCategories = useCallback(
+    (category: any, index: number) => {
+      const subCats = category?.subCategories?.map((sub: any) => sub?.name);
+      return (
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: `../explore/${category._id}`,
+              params: {
+                name: category.name,
+                subCategories: subCats,
+              },
+            })
+          }
+          style={{
+            marginBottom: 12,
+            flexShrink: 1,
+            width: "100%",
+            // flexBasis: "48%",
+          }}
+        >
+          <View className="relative items-center rounded-[8px] overflow-hidden pb-[8px] bg-[#2e2e2e] gap-[8px]">
+            <GlassImage
+              source={{ uri: category?.image?.url }}
+              resizeMode="cover"
+              imageStyle={{
+                width: "100%",
+                height: 100,
+              }}
+              glassStyle={{
+                width: "100%",
+                height: 100,
+              }}
+              containerStyle={{
+                width: "100%",
+                height: 100,
+              }}
+              placeholderColor="rgba(255, 255, 255, 0.1)"
+              tint="dark"
+              blurIntensity={25}
+              showActivityIndicator={false}
+            />
 
-          <View className=" shrink flex-row items-center justify-between">
-            <View className="gap-[6px] shrink px-[4px]">
-              <Text
-                className="text-[#fff] text-[12px] font-LexendDecaMedium shrink text-center self-center"
-                numberOfLines={1}
-              >
-                {category.name}
-              </Text>
-              <View className="flex-row gap-[4px] items-center justify-center">
-                <View
-                  className="rounded-[4px] p-[2px] bg-[#DEFFEE] items-center justify-center"
-                  style={{
-                    backgroundColor: "#DEFFEE",
-                  }}
+            <View className=" shrink flex-row items-center justify-between">
+              <View className="gap-[6px] shrink px-[4px]">
+                <Text
+                  className="text-[#fff] text-[12px] font-LexendDecaMedium shrink text-center self-center"
+                  numberOfLines={1}
                 >
-                  <SimpleLineIcons name="chart" size={7} color="#66CB9F" />
-                </View>
-                <Text className="text-[8px] text-[#fff] font-LexendDeca">
-                  {formatNumber(category?.statistics?.streams?.active)} Streams
-                  | {formatNumber(category?.statistics?.totalProducts)} Products
+                  {category.name}
                 </Text>
+                <View className="flex-row gap-[4px] items-center justify-center">
+                  <View
+                    className="rounded-[4px] p-[2px] bg-[#DEFFEE] items-center justify-center"
+                    style={{
+                      backgroundColor: "#DEFFEE",
+                    }}
+                  >
+                    <SimpleLineIcons name="chart" size={7} color="#66CB9F" />
+                  </View>
+                  <Text className="text-[8px] text-[#fff] font-LexendDeca">
+                    {formatNumber(category?.statistics?.streams?.active)}{" "}
+                    Streams |{" "}
+                    {formatNumber(category?.statistics?.totalProducts)} Products
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </Pressable>
-    );
-  };
+        </Pressable>
+      );
+    },
+    [filter, categoriesData],
+  );
 
   useEffect(() => {
     if (isFocused) {
@@ -169,12 +177,15 @@ const Explore = () => {
   }, [filter]);
 
   return (
-    <SafeAreaView className="h-full flex-1 bg-[#121212]">
+    <View
+      className="flex-1 h-full bg-[#121212]"
+      style={{ paddingTop: insets.top }}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <View className="pt-[30px] flex-1">
         <HomeHeader />
 
-        <View className="">
+        <View className="flex-1">
           {isLoading ? (
             <ExploreSkeleton numOfLoaders={8} padding={16} height={140} />
           ) : (
@@ -198,7 +209,7 @@ const Explore = () => {
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -1,11 +1,11 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -65,26 +65,35 @@ const SingleExplore = () => {
     setProducts(groupedforYouProducts);
   }, [data]);
 
-  const renderSubCategory = (subCat: string) => {
-    return (
-      <TouchableOpacity
-        className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
-        style={{
-          marginRight: 10,
-        }}
-        onPress={() =>
-          router.push({
-            pathname: "/(root)/catalog/subCategoriesCatalog",
-            params: { name: subCat, mainCat: categoryName, subCat },
-          })
-        }
-      >
-        <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
-          {subCat}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderSubCategory = useCallback(
+    (subCat: string) => {
+      return (
+        <TouchableOpacity
+          className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
+          style={{
+            marginRight: 10,
+          }}
+          onPress={() => {
+            if (mode == "liveshow") {
+              return router.push({
+                pathname: "/(root)/catalog/subCategoriesStreams",
+                params: { category: categoryName, subCategory: subCat },
+              });
+            }
+            router.push({
+              pathname: "/(root)/catalog/subCategoriesCatalog",
+              params: { name: subCat, mainCat: categoryName, subCat },
+            });
+          }}
+        >
+          <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
+            {subCat}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [mode],
+  );
 
   return (
     <>
