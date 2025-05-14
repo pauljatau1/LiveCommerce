@@ -14,11 +14,6 @@ import { ScrollView } from "react-native-virtualized-view";
 import UpComing from "./upcoming-shows";
 
 const AuqliLive = () => {
-  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
-    useLivestream();
-  const [filteredActiveLivestream, setFilteredActiveLivestream] = useState([]);
-  // const [liveStreamLoading, setLiveStreamLoading] = useState<boolean>(true);
-
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = () => {
     setRefreshing(true);
@@ -26,16 +21,6 @@ const AuqliLive = () => {
     const refreshTimeout = setTimeout(() => setRefreshing(false), 1000);
     return () => clearTimeout(refreshTimeout);
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetchAllActiveLiveStreams();
-      setFilteredActiveLivestream(response);
-      // setLiveStreamLoading(false);
-    };
-
-    fetchData();
-  }, []);
 
   return (
     <ScrollView
