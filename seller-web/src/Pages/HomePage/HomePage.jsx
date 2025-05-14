@@ -15,6 +15,7 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
 import AnnouncementCard from "../../Components/AnnouncementCard";
 import DashboardSkeleton from "../../Components/ui/DashboardSkeleton";
+import DisabledAccountDialog from "../../Components/DisabledAccountDialog";
 import axios from "axios";
 import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
@@ -67,7 +68,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
-  const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
+  const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications, logout, isAccountDisabled } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
   // State management for dashboard data and UI
@@ -80,6 +81,7 @@ const HomePage = () => {
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   useEffect(() => {
     setHeaderName("Dashboard")
@@ -139,6 +141,26 @@ const HomePage = () => {
     // Only allow temporary dismissal
     // It will reappear on next page load or navigation
     setShowVerificationDialog(false);
+  };
+
+  // Check for disabled account
+  useEffect(() => {
+    if (isAccountDisabled) {
+      // Add a small delay to ensure the page is fully loaded
+      // before showing the dialog to prevent analytics errors
+      const timer = setTimeout(() => {
+        setShowDisabledDialog(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAccountDisabled]);
+
+  // Handler for when the disabled account dialog is closed
+  const handleCloseDisabledDialog = () => {
+    setShowDisabledDialog(false);
+    // Log the user out when they close the dialog
+    logout();
   };
 
   // Main data fetching effect with loading optimization
@@ -361,6 +383,12 @@ const HomePage = () => {
 
   return (
     <>
+      {/* Disabled Account Dialog */}
+      <DisabledAccountDialog
+        isOpen={showDisabledDialog}
+        onClose={handleCloseDisabledDialog}
+      />
+
       {/* Verification Dialog */}
       <VerificationDialog 
         isOpen={showVerificationDialog} 

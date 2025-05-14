@@ -1,18 +1,38 @@
 import { useAuthContext } from '../Hooks/useAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BASE_URL } from '../Constants/Server';
 import axios from 'axios';
+import DisabledAccountDialog from './DisabledAccountDialog';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchSellerDetails, seller: contextSeller, token, dispatch } = useAuthContext();
+  const { fetchSellerDetails, seller: contextSeller, token, dispatch, isAccountDisabled, logout } = useAuthContext();
+  const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   console.log('Protected route activated')
   console.log('contextSeller', contextSeller)
   console.log('context token', token)
+
+  // Handle disabled account dialog
+  useEffect(() => {
+    if (isAccountDisabled) {
+      // Add a small delay before showing dialog to prevent analytics errors
+      const timer = setTimeout(() => {
+        setShowDisabledDialog(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAccountDisabled]);
+
+  const handleCloseDisabledDialog = () => {
+    setShowDisabledDialog(false);
+    // Log the user out when they close the dialog
+    logout();
+  };
 
   useEffect(() => {
     const fetchSeller = async () => {
@@ -36,6 +56,12 @@ const ProtectedRoute = ({ children }) => {
     const tokenData = storedToken ? JSON.parse(storedToken) : token;
     const seller = localStorage.getItem('seller');
     const sellerData = seller ? JSON.parse(seller) : contextSeller
+
+    // Check for disabled account in stored data
+    if (sellerData?.isDisabled === true) {
+      dispatch({ type: 'ACCOUNT_DISABLED' });
+      return;
+    }
 
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
     const isSignUpRoute = location.pathname.startsWith('/signup');
@@ -158,7 +184,15 @@ const ProtectedRoute = ({ children }) => {
     return () => controller.abort();
   }, [navigate]);
 
-  return children;
+  return (
+    <>
+      <DisabledAccountDialog
+        isOpen={showDisabledDialog}
+        onClose={handleCloseDisabledDialog}
+      />
+      {children}
+    </>
+  );
 };
 
 export default ProtectedRoute

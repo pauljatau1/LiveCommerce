@@ -31,7 +31,8 @@ function AuthProvider({ children }) {
         isForgotPasswordRequestSuccessful: false,
         passwordResetSuccessful: false,
         isDataReady: false,
-        emailVerified: false
+        emailVerified: false,
+        isAccountDisabled: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -198,6 +199,11 @@ function AuthProvider({ children }) {
                 }
             case 'SET_DATA_READY':
                 return { ...state, isDataReady: action.payload };
+            case "ACCOUNT_DISABLED":
+                return {
+                    ...state,
+                    isAccountDisabled: true
+                }
             default:
                 return state;
         }
@@ -482,6 +488,28 @@ function AuthProvider({ children }) {
             });
             dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
+                // Check if account is disabled
+                if (response.data.user.isDisabled === true) {
+                    dispatch({ type: 'ACCOUNT_DISABLED' });
+                    
+                    // Store minimal data needed for the disabled dialog
+                    localStorage.setItem('seller', JSON.stringify(response.data.user));
+                    localStorage.setItem('sellerToken', JSON.stringify({
+                        data: response.data.token,
+                        isVerified: false
+                    }));
+                    
+                    toast.error('Account Disabled', {
+                        description: 'Your account has been disabled. Please contact support.',
+                        style: {
+                            background: '#fff',
+                            color: '#05031F',
+                        }
+                    });
+                    
+                    return;
+                }
+                
                 // Check if email is verified before setting authenticated state
                 const isEmailVerified = response.data.user.emailVerified === true || response.data.user.isVerified === true;
 
@@ -711,6 +739,12 @@ function AuthProvider({ children }) {
                 }
             });
             if (response.status === 200) {
+                // Check if account is disabled
+                if (response.data.isDisabled === true) {
+                    dispatch({ type: 'ACCOUNT_DISABLED' });
+                    return null;
+                }
+
                 // Explicitly check emailVerified status from response
                 const isEmailVerified = response.data.emailVerified === true || response.data.isVerified === true;
 

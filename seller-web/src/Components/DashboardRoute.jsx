@@ -3,13 +3,33 @@ import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
 import { useAuthContext } from '../Hooks/useAuthContext';
+import DisabledAccountDialog from './DisabledAccountDialog';
 
 const DashboardRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token, seller: contextSeller } = useAuthContext();
+  const { token, seller: contextSeller, isAccountDisabled, logout, dispatch } = useAuthContext();
   const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDisabledDialog, setShowDisabledDialog] = useState(false);
+
+  // Handle disabled account
+  useEffect(() => {
+    if (isAccountDisabled) {
+      // Add a small delay before showing dialog to prevent analytics errors
+      const timer = setTimeout(() => {
+        setShowDisabledDialog(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAccountDisabled]);
+
+  const handleCloseDisabledDialog = () => {
+    setShowDisabledDialog(false);
+    // Log the user out when they close the dialog
+    logout();
+  };
 
   useEffect(() => {
     const checkAuth = () => {
@@ -17,6 +37,13 @@ const DashboardRoute = ({ children }) => {
       const tokenData = storedToken ? JSON.parse(storedToken) : token;
       const seller = localStorage.getItem('seller');
       const sellerData = seller ? JSON.parse(seller) : contextSeller;
+
+      // Check for disabled account in stored data
+      if (sellerData?.isDisabled === true) {
+        dispatch({ type: 'ACCOUNT_DISABLED' });
+        setIsLoading(false);
+        return;
+      }
 
       // Check only if token exists, don't block dashboard access based on verification
       if (!tokenData || !tokenData.data) {
@@ -74,7 +101,15 @@ const DashboardRoute = ({ children }) => {
     return null;
   }
 
-  return children;
+  return (
+    <>
+      <DisabledAccountDialog
+        isOpen={showDisabledDialog}
+        onClose={handleCloseDisabledDialog}
+      />
+      {children}
+    </>
+  );
 };
 
 DashboardRoute.propTypes = {
