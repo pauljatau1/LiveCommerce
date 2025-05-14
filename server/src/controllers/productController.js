@@ -3672,6 +3672,40 @@ exports.toggleBlipLike = async (req, res) => {
       return res.status(400).json({ message: 'Failed to update like status' });
     }
 
+    // Create notification for the seller when a blip is liked
+    try {
+      const notificationController = require('./notificationController');
+      const Buyer = require('../models/Buyer');
+
+      // Get buyer information
+      const buyer = await Buyer.findById(buyerId).select('firstName lastName');
+      const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : 'A buyer';
+
+      // Get complete product info for notification since our current product object only has blips field
+      const completeProduct = await Product.findById(id).select('name seller');
+      if (!completeProduct) {
+        throw new Error('Could not find complete product information');
+      }
+
+      // Create notification for seller
+      await notificationController.createNotification(
+        completeProduct.seller,
+        'blip_like',
+        {
+          productId: completeProduct._id,
+          productName: completeProduct.name,
+          blipId: blipId,
+          buyerId: buyerId,
+          buyerName: buyerName
+        }
+      );
+
+      console.log('Seller notification created for blip like');
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Continue execution even if notification fails
+    }
+
     res.json({
       message: likeIndex === -1 ? 'Blip liked successfully' : 'Blip unliked successfully',
       liked: likeIndex === -1,
@@ -3715,6 +3749,35 @@ exports.addBlipComment = async (req, res) => {
     });
 
     await product.save();
+
+    // Create notification for the seller when a comment is added
+    try {
+      const notificationController = require('./notificationController');
+      const Buyer = require('../models/Buyer');
+
+      // Get buyer information
+      const buyer = await Buyer.findById(buyerId).select('firstName lastName');
+      const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : 'A buyer';
+
+      // Create notification for seller
+      await notificationController.createNotification(
+        product.seller,
+        'blip_comment',
+        {
+          productId: product._id,
+          productName: product.name,
+          blipId: blipId,
+          buyerId: buyerId,
+          buyerName: buyerName,
+          comment: comment.length > 50 ? `${comment.substring(0, 47)}...` : comment
+        }
+      );
+
+      console.log('Seller notification created for blip comment');
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Continue execution even if notification fails
+    }
 
     res.status(201).json({
       message: 'Comment added successfully',
