@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const publicController = require('../controllers/publicController');
 const Announcement = require('../models/Annoucement')
 const Resource = require('../models/Resource')
 const Seller = require('../models/Seller');
@@ -1110,6 +1111,81 @@ router.get('/buyers/:id', async (req, res) => {
     res.status(500).json({ message: 'Error fetching buyer details', error: error.message });
   }
 });
+
+/**
+ * @swagger
+ * /api/public/platform-notifications:
+ *   get:
+ *     summary: Get all active platform notifications
+ *     tags: [Public, Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of notifications per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [info, warning, announcement, update, promotional, maintenance]
+ *         description: Filter by notification type
+ *     responses:
+ *       200:
+ *         description: List of active platform notifications retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     notifications:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           title:
+ *                             type: string
+ *                           content:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           isActive:
+ *                             type: boolean
+ *                           startDate:
+ *                             type: string
+ *                             format: date-time
+ *                           endDate:
+ *                             type: string
+ *                             format: date-time
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalNotifications:
+ *                       type: integer
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/platform-notifications', publicController.getActivePlatformNotifications);
 
 module.exports = router;
 
