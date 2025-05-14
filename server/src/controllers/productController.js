@@ -425,7 +425,8 @@ const sellerPopulationFields = [
   'phoneNumber',
   'businessAddress',      
   'warehouseDetails',    
-  'sellerAddress'       
+  'sellerAddress',
+  'offersStorePickup'       
 ];
 
 // Get all products
@@ -573,6 +574,7 @@ exports.getProduct = async (req, res) => {
             storeName aboutStore storeAvatar storeBanner 
             shippingOptions warehouseDetails categories followers
             isVerified accountType storeVisits products customers
+            offersStorePickup
           `
         })
         .populate({
@@ -623,7 +625,8 @@ exports.getProduct = async (req, res) => {
           },
           shippingInfo: {
             shippingOptions: formattedProduct.seller.shippingOptions,
-            warehouseDetails: formattedProduct.seller.warehouseDetails
+            warehouseDetails: formattedProduct.seller.warehouseDetails,
+            offersStorePickup: formattedProduct.seller.offersStorePickup
           },
           addresses: {
             businessAddress: formattedProduct.seller.businessAddress,
@@ -783,7 +786,8 @@ exports.getProduct = async (req, res) => {
             },
             shippingInfo: {
               shippingOptions: '$sellerInfo.shippingOptions',
-              warehouseDetails: '$sellerInfo.warehouseDetails'
+              warehouseDetails: '$sellerInfo.warehouseDetails',
+              offersStorePickup: '$sellerInfo.offersStorePickup'
             },
             addresses: {
               businessAddress: '$sellerInfo.businessAddress',
@@ -1555,7 +1559,7 @@ exports.getBuyerFeedProducts = async (req, res) => {
       ]
     })
     .sort({ createdAt: -1 })
-    .populate('seller', 'name avatarUrl about')
+    .populate('seller', 'name avatarUrl about offersStorePickup')
     .populate('reviews.buyer', 'firstName lastName');
 
     res.json(products);
@@ -1623,7 +1627,7 @@ exports.getTrendingProductsByCategory = async (req, res) => {
 
     await Product.populate(products, {
       path: 'seller',
-      select: 'name avatarUrl about'
+      select: 'name avatarUrl about offersStorePickup'
     });
 
     res.json(products);
@@ -1642,7 +1646,7 @@ exports.getProductsByCategory = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .populate('seller', 'name avatarUrl about')
+      .populate('seller', 'name avatarUrl about offersStorePickup')
       .populate('reviews.buyer', 'firstName lastName');
 
     const total = await Product.countDocuments({ category });
@@ -1732,7 +1736,7 @@ exports.getWishlist = async (req, res) => {
         select: 'name description price images category brand',
         populate: {
           path: 'seller',
-          select: 'name avatarUrl about'
+          select: 'name avatarUrl about offersStorePickup'
         }
       });
 
