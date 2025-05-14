@@ -50,18 +50,16 @@ export default Tags;
 
 const styles = StyleSheet.create({
   tagText: {
-    fontSize: 13,
+    fontSize: 14,
     paddingVertical: 11,
     paddingHorizontal: 14,
     color: "#938F8F",
-    fontWeight: "400",
-    fontFamily: "LexendDeca",
+    fontFamily: "LexendDeca-Medium",
   },
   isSelected: {
     color: "#00A353",
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
     borderColor: "#00A353",
-    fontWeight: "600",
   },
   container: {
     marginVertical: 0,

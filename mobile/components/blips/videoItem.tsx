@@ -117,11 +117,14 @@ const VideoItem = ({
   const [liveAuctionData, setLiveAuctionData] = useState<any>();
   const [bidTime, setBidTime] = useState<any>();
 
-  const player = useVideoPlayer(videoUrl, (player) => {
-    player.loop = true;
-    player.play();
-    // player.replay();
-  });
+  const player = useVideoPlayer(
+    { uri: videoUrl, useCaching: true },
+    (player) => {
+      player.loop = true;
+      player.play();
+      // player.replay();
+    },
+  );
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });

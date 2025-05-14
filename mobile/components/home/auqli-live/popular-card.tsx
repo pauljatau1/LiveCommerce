@@ -7,23 +7,38 @@ import {
   Pressable,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 import { icons } from "@/constants";
 import { router } from "expo-router";
+import axios from "axios";
 
 const { width } = Dimensions.get("window");
 
 const PopularCard = () => {
-  const {
-    isLoading,
-    activeLivestream,
-    isDataReady,
-    fetchAllActiveLiveStreams,
-  } = useLivestream();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [popular, setPopular] = useState<any[]>([]);
+  const fetchPopularLiveStreams = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/popular?status=live`,
+      );
+      if (response.status === 200) {
+        setPopular(response.data?.streams);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPopularLiveStreams();
+  }, []);
 
   const renderEmptyStreams = useCallback(() => {
     return (
@@ -82,21 +97,21 @@ const PopularCard = () => {
         </View>
       </View>
     );
-  }, [activeLivestream]);
+  }, [popular]);
 
   return (
     <View className="pt-[16px] mb-5 w-full">
       <SectionHeader title="Popular Now" btnText="" />
-      {isLoading ? (
+      {loading ? (
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
-      ) : activeLivestream?.length > 0 ? (
+      ) : popular?.length > 0 ? (
         <View
           style={{
             paddingLeft: 16,
           }}
         >
           <FlatList
-            data={activeLivestream}
+            data={popular}
             renderItem={({ item }) => (
               <View
                 style={{
