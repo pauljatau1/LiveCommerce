@@ -804,7 +804,7 @@ const LivestreamStudio = () => {
 
             // Update tracks and start timer
             setLocalTracks(tracks);
-            //startTimer();
+            startTimer();
             console.log('📷 [STREAM INIT] Stream initialization completed successfully');
 
             // Initialize quality info display with current settings
@@ -1694,7 +1694,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            //startTimer();
+            startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
