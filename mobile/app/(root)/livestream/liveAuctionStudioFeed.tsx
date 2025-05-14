@@ -22,6 +22,7 @@ import React, {
   useRef,
   useCallback,
   useMemo,
+  memo,
 } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLivestream } from "@/contexts/livestreamContext";
@@ -90,9 +91,200 @@ import GlassImage from "./components/GlassImage";
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 
+// Extract dimensions outside component to avoid recreation on each render
 const { width, height } = Dimensions.get("window");
 
-const LiveAuctionStudio = ({
+// Extend the StreamNotification type to include isCurrentUser property
+interface ExtendedStreamNotificationData {
+  isCurrentUser?: boolean;
+  message?: string;
+  sellerId?: string;
+  sellerName?: string;
+  buyerId?: string;
+  buyerName?: string;
+  buyerUsername?: string;
+  buyerAvatar?: string;
+  viewerCount?: number;
+  isError?: boolean;
+  streamId?: string;
+  productId?: string;
+  productName?: string;
+  bidAmount?: number;
+  product?: any;
+  currentBidder?: any;
+  bidWinner?: any;
+  viewers?: any[];
+}
+
+interface CommentItemProps {
+  item: {
+    type: string;
+    user: string;
+    content: string;
+    data?: ExtendedStreamNotificationData;
+    [key: string]: any;
+  };
+  renderAvatar: () => React.ReactNode;
+  styles: any;
+}
+
+interface ActionButtonProps {
+  icon: React.ReactNode;
+  text: string;
+  onPress: () => void;
+  textStyle?: any;
+}
+
+// Create reusable styled components for better performance
+const CommentItem = memo(({ item, renderAvatar, styles }: CommentItemProps) => {
+  if (item.type === "join") {
+    const isCurrentUser = item.data?.isCurrentUser;
+    return (
+      <View
+        style={[
+          styles.joinCommentItem,
+          isCurrentUser && styles.currentUserJoinItem,
+        ]}
+      >
+        {renderAvatar()}
+        <View style={styles.joinCommentContent}>
+          <Text
+            style={[
+              styles.commentUser,
+              isCurrentUser && styles.currentUserText,
+            ]}
+          >
+            {isCurrentUser ? "You" : item.user}
+          </Text>
+          <Text style={styles.joinCommentText}>
+            {item.content}
+            {isCurrentUser ? " 👋 Welcome!" : " 👋"}
+          </Text>
+        </View>
+      </View>
+    );
+  } else if (item.type === "leave") {
+    return (
+      <View style={styles.leaveCommentItem}>
+        {renderAvatar()}
+        <View style={styles.leaveCommentContent}>
+          <Text style={styles.commentUser}>{item.user}</Text>
+          <Text style={styles.leaveCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  } else if (item.type === "purchase") {
+    return (
+      <View style={styles.purchaseCommentItem}>
+        {renderAvatar()}
+        <View style={styles.purchaseCommentContent}>
+          <Text style={styles.commentUser}>{item.user}</Text>
+          <Text style={styles.purchaseCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  } else if (item.type === "hostLeft") {
+    return (
+      <View style={styles.hostLeftCommentItem}>
+        {renderAvatar()}
+        <View style={styles.hostLeftCommentContent}>
+          <Text style={styles.commentUser}>{item.user}</Text>
+          <Text style={styles.hostLeftCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  } else if (item.type === "hostRejoin") {
+    return (
+      <View style={styles.hostRejoinedCommentItem}>
+        {renderAvatar()}
+        <View style={styles.hostRejoinedCommentContent}>
+          <Text style={styles.commentUser}>{item.user}</Text>
+          <Text style={styles.hostRejoinedCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  } else if (item.type === "auction_start") {
+    return (
+      <View style={styles.auctionStartCommentItem}>
+        {renderAvatar()}
+        <View style={styles.auctionStartCommentContent}>
+          <Text style={styles.auctionCommentUser}>{item.user}</Text>
+          <Text style={styles.auctionStartCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  } else {
+    return (
+      <View style={styles.regularCommentItem}>
+        {renderAvatar()}
+        <View style={styles.regularCommentContent}>
+          <Text style={styles.commentUser}>{item.user}</Text>
+          <Text style={styles.regularCommentText}>{item.content}</Text>
+        </View>
+      </View>
+    );
+  }
+});
+
+// Create reusable styled components for better performance
+const ActionButton = memo(({ icon, text, onPress, textStyle }: ActionButtonProps) => (
+  <View style={styles.actionItem}>
+    <TouchableOpacity style={styles.actionButton} onPress={onPress}>
+      {icon}
+    </TouchableOpacity>
+    <Text style={textStyle || styles.actionText}>{text}</Text>
+  </View>
+));
+
+// Extract helper functions outside component for better performance
+const getInitials = (firstName?: string, lastName?: string): string => {
+  let initials = "";
+  if (firstName && firstName.length > 0) {
+    initials += firstName[0].toUpperCase();
+  }
+  if (lastName && lastName.length > 0) {
+    initials += lastName[0].toUpperCase();
+  }
+  return initials || "?";
+};
+
+// Generate a consistent color based on the username
+const getAvatarColor = (username: string) => {
+  // Array of vibrant background colors for letter avatars
+  const colors = [
+    "#FF5733", // Red-Orange
+    "#33A1FF", // Blue
+    "#33FF57", // Green
+    "#BD33FF", // Purple
+    "#FFD133", // Yellow
+    "#33FFBD", // Turquoise
+    "#FF33BD", // Pink
+    "#7D33FF", // Indigo
+    "#FF7D33", // Orange
+    "#33FF7D", // Mint
+    "#FF3333", // Red
+    "#33A8FF", // Light Blue
+    "#000000",
+  ];
+
+  // Use the sum of character codes to select a color
+  const charSum = username
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return colors[charSum % colors.length];
+};
+
+// Format price correctly for Naira (₦)
+const formatPrice = (price: number) => {
+  // The price is already in Naira, not cents
+  return `₦${price.toLocaleString("en-NG", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
+};
+
+// Create a memo-wrapped component for LiveAuctionStudio
+const LiveAuctionStudio = memo(({
   id,
   isVisible,
   onInteractionStart,
@@ -103,10 +295,10 @@ const LiveAuctionStudio = ({
   onInteractionStart?: () => void;
   shared: boolean;
 }) => {
+  // These are all the declaration that should be early in the component
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { show } = useToast();
-  // const { id } = useLocalSearchParams();
   const {
     activeStreamDetails,
     joinStream,
@@ -116,6 +308,8 @@ const LiveAuctionStudio = ({
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
   } = useLivestream() as LivestreamContextType;
+
+  // Initialize all state
   const [streamConfig, setStreamConfig] = useState<any>(null);
   const [streamData, setStreamData] = useState<any>(null);
   const [currentProduct, setCurrentProduct] = useState<any>(null);
@@ -148,7 +342,6 @@ const LiveAuctionStudio = ({
   });
   const [viewerCount, setViewerCount] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const webViewRef = useRef<WebView>(null);
 
   // Bottom sheet state for product preview and checkout
   const [showProductPreview, setShowProductPreview] = useState(false);
@@ -227,10 +420,23 @@ const LiveAuctionStudio = ({
 
   const { displayShareDialog } = useShareAppLinks();
 
+  // Initialize all refs
+  const webViewRef = useRef<WebView>(null);
+  const tapCount = useRef(0);
+  const lastTapTime = useRef(0);
+  const isAnimating = useRef(false);
+  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
+  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Constants
+  const TAP_THRESHOLD = 150;
+
+  // Memoize the shared link URL
   const shareLinkUrl = useMemo(
     () =>
       `https://app.auqli.live/livestream/feed?id=${id}&type=${activeStreamDetails?.stream?.type}&itmSource=share`,
-    [id, activeStreamDetails],
+    [id, activeStreamDetails]
   );
 
   // Update detailedViewers when activeStreamDetails changes
@@ -240,18 +446,6 @@ const LiveAuctionStudio = ({
       //console.log('Initialized detailedViewers with:', activeStreamDetails.stream.viewers);
     }
   }, [activeStreamDetails]);
-
-  // Helper function to get initials from name
-  const getInitials = (firstName?: string, lastName?: string): string => {
-    let initials = "";
-    if (firstName && firstName.length > 0) {
-      initials += firstName[0].toUpperCase();
-    }
-    if (lastName && lastName.length > 0) {
-      initials += lastName[0].toUpperCase();
-    }
-    return initials || "?";
-  };
 
   // Setup and cleanup effect
   useEffect(() => {
@@ -328,274 +522,96 @@ const LiveAuctionStudio = ({
     }, [id]);*/
   }
 
-  const setupLivestream = async () => {
-    if (!id) return;
-    try {
-      setStatus("Joining stream...");
+  // Define timer update, bid completion, etc. handlers first
+  const handleBidTimerUpdate = useCallback(
+    (data: BidTimerUpdate) => {
+      // Convert format from "00.11" to "00:11" by replacing the period with a colon
+      const formattedTime = data.formattedTime.replace(".", ":");
 
-      // Join the stream using the stream ID from route parameters
-      const streamDetails = await joinStream(id as string);
-      //console.log('Stream details:', streamDetails);
-      //console.log('stream viewers', streamDetails?.stream?.viewers);
+      // Store the timer data using productId as key with the converted format
+      setBidTimerData((prev) => ({
+        ...prev,
+        [data.productId]: formattedTime,
+      }));
 
-      // Set stream metadata if available from API
-      if (streamDetails) {
-        // Update likes and comments if available from API
-        if (streamDetails.likes) setLikes(streamDetails.likes);
-        if (streamDetails.comments) setComments(streamDetails.comments);
-
-        // Set products from stream data
-        if (streamDetails.products && streamDetails.products.length > 0) {
-          console.log(
-            "Setting products from streamDetails.products:",
-            JSON.stringify(streamDetails.products),
-          );
-
-          // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
-          const productsWithStatus = streamDetails.products.map((product) => ({
-            ...product,
-            bidStatus: product.bidStatus || "pending",
-          }));
-          setStreamProducts(productsWithStatus);
-
-          // Find if there's an active product for bidding and set it as current
-          const activeProductIndex = productsWithStatus.findIndex(
-            (product) =>
-              product.bidStatus === "active" || product.bidStatus === "ongoing",
-          );
-
-          //console.log('Active product index on join:', activeProductIndex);
-
-          if (activeProductIndex !== -1) {
-            setCurrentProductIndex(activeProductIndex);
-            //console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
-          }
-        } else if (
-          streamDetails?.stream?.products &&
-          streamDetails?.stream?.products?.length > 0
-        ) {
-          //console.log('Setting products from streamDetails.stream.products:', streamDetails.stream.products);
-          // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
-          const productsWithStatus = streamDetails.stream.products.map(
-            (product) => ({
-              ...product,
-              bidStatus: product.bidStatus || "pending",
-            }),
-          );
-
-          //console.log('productsWithStatus', productsWithStatus);
-          setStreamProducts(productsWithStatus);
-          console.log("streamProductsFirstAllocation", streamProducts);
-
-          // Find if there's an active product for bidding and set it as current
-          const activeProductIndex = productsWithStatus.findIndex(
-            (product) =>
-              product.bidStatus === "active" || product.bidStatus === "ongoing",
-          );
-
-          //console.log('Active product index on join:', activeProductIndex);
-
-          if (activeProductIndex !== -1) {
-            setCurrentProductIndex(activeProductIndex);
-            //console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
-          }
-        }
-
-        // Debug seller information
-        //console.log('Seller info from API:', streamDetails.seller);
-        //console.log('Stream info:', streamDetails.stream);
-
-        // Based on the console log, we can see the seller info is in streamDetails.stream.seller
-        if (streamDetails.stream && streamDetails.stream.seller) {
-          // Get seller data from stream.seller with type assertion
-          const sellerData = streamDetails.stream.seller as {
-            _id: string;
-            businessName: string;
-            storeAvatar: {
-              url: string;
-            };
-            storeName: string;
-          };
-          //console.log('Using seller data from stream.seller:', sellerData);
-
-          const newStoreInfo = {
-            name:
-              sellerData.storeName || sellerData.businessName || "Store Name",
-            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
-            avatar: sellerData.storeAvatar?.url
-              ? { uri: sellerData.storeAvatar.url }
-              : require("@/assets/icons/animoji.png"),
-          };
-
-          //console.log('Setting store info to:', newStoreInfo);
-          setStoreInfo(newStoreInfo);
-
-          // Set the seller ID and check if user is following the seller
-          if (sellerData._id) {
-            setSellerId(sellerData._id);
-            try {
-              const sellerProfileData =
-                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              console.log("Seller profile data:", sellerProfileData);
-              setIsFollowing(
-                sellerProfileData?.storeInfo?.isFollowing || false,
-              );
-            } catch (error) {
-              console.error("Error checking if seller is followed:", error);
+      // Update streamProducts to ensure bidStatus is 'active' for this product
+      setStreamProducts((prev) => {
+        return prev.map((product) => {
+          // Check if product ID matches using only productId property
+          if (
+            product.product.productId &&
+            product.product.productId.toString() === data.productId
+          ) {
+            // Only update if status isn't already active to avoid unnecessary rerenders
+            if (product.bidStatus !== "active") {
+              return {
+                ...product,
+                bidStatus: "active",
+              };
             }
           }
-        }
-        // If seller info is directly in streamDetails
-        else if (streamDetails.seller) {
-          //console.log('Using seller data from streamDetails.seller');
-
-          const sellerData = streamDetails.seller;
-          const newStoreInfo = {
-            name:
-              sellerData.storeName || sellerData.businessName || "Store Name",
-            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
-            avatar: sellerData.storeAvatar?.url
-              ? { uri: sellerData.storeAvatar.url }
-              : require("@/assets/icons/animoji.png"),
-          };
-
-          //console.log('Setting store info to:', newStoreInfo);
-          setStoreInfo(newStoreInfo);
-
-          // Set the seller ID and check if user is following the seller
-          if (sellerData._id) {
-            setSellerId(sellerData._id);
-            try {
-              const sellerProfileData =
-                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              console.log("Seller profile data:", sellerProfileData);
-              setIsFollowing(
-                sellerProfileData?.storeInfo?.isFollowing || false,
-              );
-            } catch (error) {
-              console.error("Error checking if seller is followed:", error);
-            }
-          }
-        }
-
-        // Set stream details
-        if (streamDetails.stream) {
-          const stream = streamDetails.stream as any;
-          setStreamDetails({
-            title: stream.title || "Live Auction",
-            description:
-              stream.description ||
-              "Join our live auction and bid on exclusive items!",
-            category: stream.category || "Shopping",
-            tags: stream.tags || ["auction", "shopping", "live"],
-            viewerCount:
-              typeof stream.viewerCount === "number"
-                ? stream.viewerCount
-                : Array.isArray(stream.viewers)
-                  ? stream.viewers.length
-                  : 0,
-            scheduledStartTime:
-              stream.scheduledStartTime || new Date().toISOString(),
-            actualStartTime: stream.startTime || new Date().toISOString(),
-            status: stream.status || "live",
-            type: "auction",
-            sellerFollowers: stream.sellerFollowers || 0,
-          });
-        }
-      }
-
-      // Set initial viewer count if available
-      if (streamDetails?.stream) {
-        const streamData = streamDetails.stream as any;
-        //console.log('Stream view count data:', streamData);
-        if (typeof streamData.viewerCount === "number") {
-          //console.log('Viewer count:', streamData.viewerCount);
-          setViewerCount(streamData.viewerCount);
-        } else if (Array.isArray(streamData.viewers)) {
-          //console.log('Viewer count:', streamData.viewers.length);
-          setViewerCount(streamData.viewers.length);
-        }
-      }
-
-      setStreamConfig({
-        appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || "",
-        channel: streamDetails?.channelName || "",
-        token: streamDetails?.token || "",
-        uid: streamDetails?.uid || "",
-      });
-
-      // Initialize with chat interactions from the stream
-      const chatInteractions =
-        (streamDetails.stream as any)?.chatInteractions || [];
-
-      // Get the current user's information
-      const user = await getUser();
-
-      // Create a join event for the current user
-      const userJoinEvent = {
-        id: Date.now().toString(),
-        type: "join" as const,
-        user: user?.firstName || "You",
-        avatar:
-          user?.profileImage?.url || require("@/assets/icons/animoji.png"),
-        content: "joined the stream",
-        timestamp: new Date(),
-        data: {
-          isCurrentUser: true, // Add this flag to identify the current user's join event
-        },
-      };
-
-      // Add the user's join event to the beginning of chat interactions
-      const updatedChatInteractions = [...chatInteractions, userJoinEvent];
-
-      // Set the live comments with the updated data
-      setLiveComments(updatedChatInteractions);
-
-      //console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
-
-      // Use requestAnimationFrame and setTimeout for more reliable scrolling
-      if (updatedChatInteractions.length > 0) {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            if (commentsListRef.current) {
-              commentsListRef.current.scrollToEnd({
-                animated: true,
-              });
-            }
-          }, 500); // Increased timeout to ensure layout is complete
+          return product;
         });
-      }
+      });
+    },
+    [setBidTimerData, setStreamProducts]
+  );
 
-      // Initialize socket connection for real-time chat with bid timer handlers
-      const userToken = await getToken();
-      if (userToken) {
-        initializeSocket(
-          userToken,
-          handleStreamNotification,
-          id as string, // Add streamId parameter as the third argument
-          setIsBidSending,
-          handleBidTimerUpdate,
-          handleBidTimerComplete,
-          handleAuctionOrderCreated,
-        );
-      }
-    } catch (error) {
-      console.error("Error setting up livestream:", error);
-      setStatus("Error: " + (error as Error).message);
-    }
-  };
+  const handleBidTimerComplete = useCallback((data: BidTimerComplete) => {
+    // Clear timer data for this product
+    setBidTimerData((prev) => {
+      const newData = { ...prev };
+      delete newData[data.productId];
+      return newData;
+    });
 
-  //console.log('streamProductsSecondAllocation', streamProducts);
+    // Update product status to 'ongoing' while waiting for winner determination
+    setStreamProducts((prev) => {
+      return prev.map((product) => {
+        // Check if product ID matches using only productId property
+        if (
+          product.product.productId &&
+          product.product.productId.toString() === data.productId
+        ) {
+          return {
+            ...product,
+            bidStatus: "ongoing",
+          };
+        }
+        return product;
+      });
+    });
+  }, [setBidTimerData, setStreamProducts]);
 
-  // Handler for WebSocket notifications (joins, comments, purchases, host left/rejoined)
+  const handleAuctionOrderCreated = useCallback(
+    (data: AuctionOrderCreated) => {
+      // Store the order data
+      setActiveOrderCreated(data);
+
+      // Show notification
+      setShowOrderCreatedNotification(true);
+
+      // Get first 3 words of product name
+      const truncatedName = data.productName.split(" ").slice(0, 3).join(" ");
+
+      // You can also show a toast notification
+      show({
+        text1: "Order Created",
+        text2: `Your order for ${truncatedName}... has been created`,
+        type: "success",
+        duration: 5000,
+        topPosition: 18,
+      });
+    },
+    [show, setActiveOrderCreated, setShowOrderCreatedNotification]
+  );
+
+  // Define stream notification handler
   const handleStreamNotification = useCallback(
     (notification: StreamNotification) => {
-      //console.log('Stream notification received:', notification.type, notification);
-
       // Process notification based on type
       switch (notification.type) {
-        case "join":
-          //console.log('User joined stream:', notification.user);
+        case "join": {
           // Update UI to show join event
           setLiveComments((prev) => [...prev, notification]);
 
@@ -665,12 +681,11 @@ const LiveAuctionStudio = ({
             }
           }
           break;
+        }
 
-        case "comment":
-          //console.log('New comment received:', notification.content);
+        case "comment": {
           // Check if this is an error notification from bid_error event
           if (notification.data?.isError) {
-            //console.log('Displaying bid error message:', notification.content);
             // Use the message field directly if available, otherwise extract from content
             const errorMessage =
               notification.data.message ||
@@ -683,30 +698,20 @@ const LiveAuctionStudio = ({
           // Increment comment count
           setComments((prev) => prev + 1);
           break;
+        }
 
         case "purchase":
-          //console.log('New purchase made:', notification.content);
-          // Update UI to show purchase
-          setLiveComments((prev) => [...prev, notification]);
-          break;
-
         case "hostLeft":
-          //console.log('Host left stream:', notification.user);
-          // Update UI to show host left event
+        case "hostRejoin": {
+          // Update UI to show event
           setLiveComments((prev) => [...prev, notification]);
           break;
+        }
 
-        case "hostRejoin":
-          //console.log('Host rejoined stream:', notification.user);
-          // Update UI to show host rejoined event
-          setLiveComments((prev) => [...prev, notification]);
-          break;
-
-        case "leave":
-          //console.log('User left stream:', notification.user);
+        case "leave": {
           // Update UI to show leave event
           setLiveComments((prev) => [...prev, notification]);
-          // Update viewer count and detailed viewers if available in notification data
+          // Update viewer count if available in notification data
           if (notification.data) {
             if ("viewerCount" in notification.data) {
               setViewerCount(notification.data.viewerCount as number);
@@ -718,27 +723,18 @@ const LiveAuctionStudio = ({
               setDetailedViewers((prev) =>
                 prev.filter((viewer) => viewer._id !== buyerId),
               );
-              //console.log('Removed viewer with ID:', buyerId);
-            }
-
-            // If the server provides a full viewers array, use it instead
-            {
-              /*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
-                        setDetailedViewers(notification.data.viewers);
-                        console.log('Updated viewers from server data:', notification.data.viewers);
-                    }*/
             }
           }
           break;
+        }
 
-        case "auction_start":
+        case "auction_start": {
           console.log("Auction started for product:", notification);
           // Update UI to show auction start event
           setLiveComments((prev) => [...prev, notification]);
 
           // Update the active auction product from the notification data
           if (notification.data && notification.data.product) {
-            //console.log('Setting active auction product:', notification.data.product);
             setActiveAuctionProduct(notification.data.product);
 
             // Find the product in streamProducts and update it
@@ -747,8 +743,6 @@ const LiveAuctionStudio = ({
 
             if (productId) {
               setStreamProducts((prevProducts) => {
-                //console.log('prevProducts in functional update:', prevProducts);
-
                 // Find the index of the product in the current streamProducts array
                 const productIndex = prevProducts.findIndex(
                   (p) => p.product.productId === productId,
@@ -804,35 +798,19 @@ const LiveAuctionStudio = ({
             setCurrentBidWinner(null);
           }
           break;
+        }
 
-        case "new_bid":
-          //console.log('New bid received:', notification);
+        case "new_bid": {
           // Update UI to show new bid event
           setLiveComments((prev) => [...prev, notification]);
 
           // Update the product with new bid amount
           if (notification.data && notification.data.product) {
-            //console.log('Updating product with new bid:', notification.data.product);
-
             // Find the product in streamProducts and update it
             const productId = notification.data.product.product?.productId;
-            //console.log('realtime bid productId:', productId);
 
             if (productId) {
               setStreamProducts((prevProducts) => {
-                //console.log('prevProducts in functional update:', prevProducts);
-
-                // Find the index of the product in the current streamProducts array
-                const productIndex = prevProducts.findIndex(
-                  (p) => p.product.productId === productId,
-                );
-                //console.log('realtime bid productIndex:', productIndex);
-
-                // If product found, don't change current product index since we're in an active bid
-                if (productIndex !== -1) {
-                  //console.log('Updating product at index:', productIndex);
-                }
-
                 // Update the product
                 return prevProducts.map((p) => {
                   if (p.product.productId === productId) {
@@ -866,35 +844,19 @@ const LiveAuctionStudio = ({
             }
           }
           break;
+        }
 
-        case "auction_winner":
-          //console.log('Auction winner notification:', notification);
+        case "auction_winner": {
           // Update UI to show auction winner event
           setLiveComments((prev) => [...prev, notification]);
 
           // Update the product with the winner and mark as ongoing
           if (notification.data && notification.data.product) {
-            //console.log('Updating product with winner:', notification.data.product);
-
             // Find the product in streamProducts and update it
             const productId = notification.data.product.product?.productId;
-            //console.log('auction winner productId:', productId);
 
             if (productId) {
               setStreamProducts((prevProducts) => {
-                //console.log('prevProducts in functional update:', prevProducts);
-
-                // Find the index of the product in the current streamProducts array
-                const productIndex = prevProducts.findIndex(
-                  (p) => p.product.productId === productId,
-                );
-                //console.log('auction winner productIndex:', productIndex);
-
-                // If product found, don't change current product index yet
-                if (productIndex !== -1) {
-                  //console.log('Updating product at index to ongoing:', productIndex);
-                }
-
                 // Update the product status to ongoing
                 return prevProducts.map((p) => {
                   if (p.product.productId === productId) {
@@ -932,9 +894,9 @@ const LiveAuctionStudio = ({
             }
           }
           break;
+        }
 
-        case "auction_end":
-          //console.log('Auction ended for product:', notification);
+        case "auction_end": {
           // Update UI to show auction end event
           setLiveComments((prev) => [...prev, notification]);
 
@@ -957,12 +919,13 @@ const LiveAuctionStudio = ({
             }
           }
           break;
+        }
 
-        default:
-          //console.log('Unhandled notification type:', notification.type);
+        default: {
           // Add to comments for display
           setLiveComments((prev) => [...prev, notification]);
           break;
+        }
       }
 
       // Use requestAnimationFrame to ensure UI has updated before scrolling
@@ -975,10 +938,26 @@ const LiveAuctionStudio = ({
         }, 100);
       });
     },
-    [liveComments, streamProducts, detailedViewers],
+    [
+      detailedViewers,
+      setLiveComments,
+      setViewerCount,
+      setDetailedViewers,
+      setBidErrorMessage,
+      setShowBidError,
+      setComments,
+      setActiveAuctionProduct,
+      setStreamProducts,
+      setCurrentProductIndex,
+      setSelectedBidProduct,
+      setCurrentBidWinner,
+      commentsListRef,
+      getInitials
+    ],
   );
 
-  const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
+  // Optimize WebView message handler with useCallback
+  const handleWebViewMessage = useCallback((event: { nativeEvent: { data: string } }) => {
     const message = event.nativeEvent.data;
     console.log("WebView message:", message);
 
@@ -1118,7 +1097,8 @@ const LiveAuctionStudio = ({
     } else {
       setStatus(message);
     }
-  };
+  }, [setStatus, setIsLoading, setIsHostPresent, setShowNoHostAlert, setShowNoHostAlert2, 
+      setIsVideoPlaying, storeInfo.name, storeInfo.avatar, liveComments, commentsListRef, setLiveComments]);
 
   const handleShare = () => {
     // Implement share functionality
@@ -1256,99 +1236,17 @@ const LiveAuctionStudio = ({
       }
     };
 
-    if (item.type === "join") {
-      const isCurrentUser = item.data?.isCurrentUser;
-      return (
-        <View
-          style={[
-            styles.joinCommentItem,
-            isCurrentUser && styles.currentUserJoinItem,
-          ]}
-        >
-          {renderAvatar()}
-          <View style={styles.joinCommentContent}>
-            <Text
-              style={[
-                styles.commentUser,
-                isCurrentUser && styles.currentUserText,
-              ]}
-            >
-              {isCurrentUser ? "You" : item.user}
-            </Text>
-            <Text style={styles.joinCommentText}>
-              {item.content}
-              {isCurrentUser ? " 👋 Welcome!" : " 👋"}
-            </Text>
-          </View>
-        </View>
-      );
-    } else if (item.type === "leave") {
-      // Handle viewer leave comments
-      const isCurrentUser = item.data?.buyerId === (getUser() as any)?._id;
-      return (
-        <View style={styles.leaveCommentItem}>
-          {renderAvatar()}
-          <View style={styles.leaveCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
-            <Text style={styles.leaveCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    } else if (item.type === "purchase") {
-      return (
-        <View style={styles.purchaseCommentItem}>
-          {renderAvatar()}
-          <View style={styles.purchaseCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
-            <Text style={styles.purchaseCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    } else if (item.type === "hostLeft") {
-      return (
-        <View style={styles.hostLeftCommentItem}>
-          {renderAvatar()}
-          <View style={styles.hostLeftCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
-            <Text style={styles.hostLeftCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    } else if (item.type === "hostRejoin") {
-      return (
-        <View style={styles.hostRejoinedCommentItem}>
-          {renderAvatar()}
-          <View style={styles.hostRejoinedCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
-            <Text style={styles.hostRejoinedCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    } else if (item.type === "auction_start") {
-      // Handle auction start notification
-      return (
-        <View style={styles.auctionStartCommentItem}>
-          {renderAvatar()}
-          <View style={styles.auctionStartCommentContent}>
-            <Text style={styles.auctionCommentUser}>{item.user}</Text>
-            <Text style={styles.auctionStartCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    } else {
-      return (
-        <View style={styles.regularCommentItem}>
-          {renderAvatar()}
-          <View style={styles.regularCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
-            <Text style={styles.regularCommentText}>{item.content}</Text>
-          </View>
-        </View>
-      );
-    }
+    return (
+      <CommentItem
+        item={item}
+        renderAvatar={renderAvatar}
+        styles={styles}
+      />
+    );
   };
 
-  const handleSendComment = async () => {
+  // Optimize with useCallback
+  const handleSendComment = useCallback(async () => {
     if (!commentInput.trim()) return;
 
     try {
@@ -1356,7 +1254,6 @@ const LiveAuctionStudio = ({
       const user = await getUser();
 
       if (!token || !user) {
-        //console.log('User not authenticated');
         return;
       }
 
@@ -1373,9 +1270,6 @@ const LiveAuctionStudio = ({
         content: commentContent,
         timestamp: new Date(),
       };
-
-      // Add to local state for immediate feedback
-      //setLiveComments(prev => [...prev, localComment]);
 
       // Increment comment count locally
       setComments((prev) => prev + 1);
@@ -1396,20 +1290,14 @@ const LiveAuctionStudio = ({
           streamId,
           content: commentContent,
         });
-
-        //console.log('Comment sent to server via WebSocket');
-      } else {
-        //console.error('Socket not connected, comment only saved locally');
       }
     } catch (error) {
-      //console.error('Error sending comment:', error);
+      console.error('Error sending comment:', error);
     }
-  };
+  }, [commentInput, id, commentsListRef, setCommentInput, setComments]);
 
-  // Create a single condition to check if UI should be shown
-  const shouldShowUI =
-    streamConfig && !isLoading && isVideoPlaying && isVisible;
-
+  
+  
   const handleIncreaseCommentCount = () => {
     setComments(comments + 1);
   };
@@ -1425,15 +1313,6 @@ const LiveAuctionStudio = ({
   //     disconnectSocket();
   //   };
   // }, []);
-
-  // Format price correctly for Naira (₦)
-  const formatPrice = (price: number) => {
-    // The price is already in Naira, not cents
-    return `₦${price.toLocaleString("en-NG", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })}`;
-  };
 
   // Function to handle bid submissions
   const handleSubmitBid = (bidAmount: number) => {
@@ -1564,13 +1443,12 @@ const LiveAuctionStudio = ({
     setShowShop(true);
   };
 
-  // Update handleLeaveStream function to actually leave the stream
-  const handleLeaveStream = async (backButton: boolean) => {
+  // Optimize with useCallback
+  const handleLeaveStream = useCallback(async (backButton: boolean) => {
     if (!id) return;
 
     try {
       setIsLeavingStream(true);
-      //console.log('User requested to leave the stream');
 
       // First tell the WebView to leave the Agora channel
       if (webViewRef.current) {
@@ -1586,7 +1464,6 @@ const LiveAuctionStudio = ({
 
       // Call the leaveStream API endpoint
       const result = await leaveStream(id as string);
-      //console.log('Leave stream result:', result);
 
       // Disconnect the socket
       disconnectSocket();
@@ -1596,7 +1473,7 @@ const LiveAuctionStudio = ({
         shared ? router.push("/(root)/(tabs)/home/home") : router.back();
       }
     } catch (error) {
-      //console.error('Error leaving stream:', error);
+      console.error('Error leaving stream:', error);
       // Show error message to user if needed
       disconnectSocket();
       router.back();
@@ -1605,109 +1482,10 @@ const LiveAuctionStudio = ({
       setIsLeavingStream(false);
       setShowMenuPopover(false);
     }
-  };
+  }, [id, webViewRef, leaveStream, router, shared, setIsLeavingStream, setShowMenuPopover]);
 
-  // Add handler functions for bid timer events
-  const handleBidTimerUpdate = useCallback(
-    (data: BidTimerUpdate) => {
-      //console.log('Bid timer update received:', data);
-      //console.log('Received formattedTime:', data.formattedTime, 'for product:', data.productId);
-
-      // Convert format from "00.11" to "00:11" by replacing the period with a colon
-      const formattedTime = data.formattedTime.replace(".", ":");
-      //console.log('Converted formattedTime:', formattedTime);
-
-      // Store the timer data using productId as key with the converted format
-      setBidTimerData((prev) => ({
-        ...prev,
-        [data.productId]: formattedTime,
-      }));
-
-      // Log the contents of bidTimerData after update
-      setTimeout(() => {
-        //console.log('Current bidTimerData:', bidTimerData);
-      }, 100);
-
-      // Update streamProducts to ensure bidStatus is 'active' for this product
-      setStreamProducts((prev) => {
-        return prev.map((product) => {
-          // Check if product ID matches using only productId property
-          if (
-            product.product.productId &&
-            product.product.productId.toString() === data.productId
-          ) {
-            // Only update if status isn't already active to avoid unnecessary rerenders
-            if (product.bidStatus !== "active") {
-              return {
-                ...product,
-                bidStatus: "active",
-              };
-            }
-          }
-          return product;
-        });
-      });
-    },
-    [bidTimerData],
-  );
-
-  // Handle bid timer complete event
-  const handleBidTimerComplete = useCallback((data: BidTimerComplete) => {
-    //console.log('Bid timer complete received:', data);
-
-    // Clear timer data for this product
-    setBidTimerData((prev) => {
-      const newData = { ...prev };
-      delete newData[data.productId];
-      return newData;
-    });
-
-    // Update product status to 'ongoing' while waiting for winner determination
-    setStreamProducts((prev) => {
-      return prev.map((product) => {
-        // Check if product ID matches using only productId property
-        if (
-          product.product.productId &&
-          product.product.productId.toString() === data.productId
-        ) {
-          return {
-            ...product,
-            bidStatus: "ongoing",
-          };
-        }
-        return product;
-      });
-    });
-  }, []);
-
-  // Handle auction order created event
-  const handleAuctionOrderCreated = useCallback(
-    (data: AuctionOrderCreated) => {
-      //console.log('Auction order created received:', data);
-
-      // Store the order data
-      setActiveOrderCreated(data);
-
-      // Show notification
-      setShowOrderCreatedNotification(true);
-
-      // Get first 3 words of product name
-      const truncatedName = data.productName.split(" ").slice(0, 3).join(" ");
-
-      // You can also show a toast notification
-      show({
-        text1: "Order Created",
-        text2: `Your order for ${truncatedName}... has been created`,
-        type: "success",
-        duration: 5000,
-        topPosition: 18,
-      });
-    },
-    [show],
-  );
-
-  // Add follow/unfollow handler functions
-  const handleFollowSeller = async (isStreamInfo: boolean) => {
+  // Optimize with useCallback
+  const handleFollowSeller = useCallback(async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
@@ -1741,9 +1519,18 @@ const LiveAuctionStudio = ({
         ? setIsFollowingLoading2(false)
         : setIsFollowingLoading(false);
     }
-  };
+  }, [
+    sellerId, 
+    storeInfo.name, 
+    followSellerThroughStream,
+    setIsFollowingLoading, 
+    setIsFollowingLoading2, 
+    setIsFollowing, 
+    setStreamDetails,
+    show
+  ]);
 
-  const handleUnfollowSeller = async (isStreamInfo: boolean) => {
+  const handleUnfollowSeller = useCallback(async (isStreamInfo: boolean) => {
     if (!sellerId) {
       console.error("No seller ID available");
       return;
@@ -1777,35 +1564,20 @@ const LiveAuctionStudio = ({
         ? setIsFollowingLoading2(false)
         : setIsFollowingLoading(false);
     }
-  };
+  }, [
+    sellerId, 
+    storeInfo.name, 
+    unfollowSellerThroughStream,
+    setIsFollowingLoading, 
+    setIsFollowingLoading2, 
+    setIsFollowing, 
+    setStreamDetails,
+    show
+  ]);
 
-  // Handle sending heart reaction
-  const handleReactWithHeart = useCallback(() => {
-    // Trigger the heart animation
-    if (heartsRef.current) {
-      heartsRef.current.generateHearts();
-    }
-
-    // Send the reaction to the server via socket
-    const socketInstance = getSocket();
-    if (socketInstance) {
-      socketInstance.emit("stream_reaction", {
-        streamId: id,
-        type: "heart",
-      });
-    }
-  }, [id]);
-
-  // Gesture handler for rapid heart taps with improved state management
-  const tapCount = useRef(0);
-  const lastTapTime = useRef(0);
-  const isAnimating = useRef(false);
-  const TAP_THRESHOLD = 150;
-  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-
-  // Debounced socket event emitter
+  // Optimize heart reaction handling with better state management
+  
+  // Debounced socket event emitter with useCallback
   const debouncedSocketEmit = useCallback(
     (eventType: string) => {
       if (socketThrottleTimeout.current) {
@@ -1826,7 +1598,24 @@ const LiveAuctionStudio = ({
     [id],
   );
 
-  // Improved heart press handler with better state management
+  // Handle sending heart reaction with useCallback
+  const handleReactWithHeart = useCallback(() => {
+    // Trigger the heart animation
+    if (heartsRef.current) {
+      heartsRef.current.generateHearts();
+    }
+
+    // Send the reaction to the server via socket
+    const socketInstance = getSocket();
+    if (socketInstance) {
+      socketInstance.emit("stream_reaction", {
+        streamId: id,
+        type: "heart",
+      });
+    }
+  }, [id]);
+
+  // Improved heart press handler with useCallback and better state management
   const handleHeartPress = useCallback(() => {
     const now = performance.now ? performance.now() : Date.now();
     const elapsed = now - lastTapTime.current;
@@ -1904,6 +1693,256 @@ const LiveAuctionStudio = ({
       tapCount.current = 0;
     };
   }, []);
+
+  // Define setupLivestream function
+  const setupLivestream = useCallback(async () => {
+    if (!id) return;
+    try {
+      setStatus("Joining stream...");
+
+      // Join the stream using the stream ID from route parameters
+      const streamDetails = await joinStream(id as string);
+
+      // Set stream metadata if available from API
+      if (streamDetails) {
+        // Update likes and comments if available from API
+        if (streamDetails.likes) setLikes(streamDetails.likes);
+        if (streamDetails.comments) setComments(streamDetails.comments);
+
+        // Set products from stream data
+        if (streamDetails.products && streamDetails.products.length > 0) {
+          console.log(
+            "Setting products from streamDetails.products:",
+            JSON.stringify(streamDetails.products),
+          );
+
+          // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
+          const productsWithStatus = streamDetails.products.map((product) => ({
+            ...product,
+            bidStatus: product.bidStatus || "pending",
+          }));
+          setStreamProducts(productsWithStatus);
+
+          // Find if there's an active product for bidding and set it as current
+          const activeProductIndex = productsWithStatus.findIndex(
+            (product) =>
+              product.bidStatus === "active" || product.bidStatus === "ongoing",
+          );
+
+          if (activeProductIndex !== -1) {
+            setCurrentProductIndex(activeProductIndex);
+          }
+        } else if (
+          streamDetails?.stream?.products &&
+          streamDetails?.stream?.products?.length > 0
+        ) {
+          // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
+          const productsWithStatus = streamDetails.stream.products.map(
+            (product) => ({
+              ...product,
+              bidStatus: product.bidStatus || "pending",
+            }),
+          );
+
+          setStreamProducts(productsWithStatus);
+          console.log("streamProductsFirstAllocation", streamProducts);
+
+          // Find if there's an active product for bidding and set it as current
+          const activeProductIndex = productsWithStatus.findIndex(
+            (product) =>
+              product.bidStatus === "active" || product.bidStatus === "ongoing",
+          );
+
+          if (activeProductIndex !== -1) {
+            setCurrentProductIndex(activeProductIndex);
+          }
+        }
+
+        // Get seller information from stream details
+        if (streamDetails.stream && streamDetails.stream.seller) {
+          // Get seller data from stream.seller with type assertion
+          const sellerData = streamDetails.stream.seller as {
+            _id: string;
+            businessName: string;
+            storeAvatar: {
+              url: string;
+            };
+            storeName: string;
+          };
+
+          const newStoreInfo = {
+            name:
+              sellerData.storeName || sellerData.businessName || "Store Name",
+            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
+            avatar: sellerData.storeAvatar?.url
+              ? { uri: sellerData.storeAvatar.url }
+              : require("@/assets/icons/animoji.png"),
+          };
+
+          setStoreInfo(newStoreInfo);
+
+          // Set the seller ID and check if user is following the seller
+          if (sellerData._id) {
+            setSellerId(sellerData._id);
+            try {
+              const sellerProfileData =
+                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+              console.log("Seller profile data:", sellerProfileData);
+              setIsFollowing(
+                sellerProfileData?.storeInfo?.isFollowing || false,
+              );
+            } catch (error) {
+              console.error("Error checking if seller is followed:", error);
+            }
+          }
+        }
+        // If seller info is directly in streamDetails
+        else if (streamDetails.seller) {
+          const sellerData = streamDetails.seller;
+          const newStoreInfo = {
+            name:
+              sellerData.storeName || sellerData.businessName || "Store Name",
+            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
+            avatar: sellerData.storeAvatar?.url
+              ? { uri: sellerData.storeAvatar.url }
+              : require("@/assets/icons/animoji.png"),
+          };
+
+          setStoreInfo(newStoreInfo);
+
+          // Set the seller ID and check if user is following the seller
+          if (sellerData._id) {
+            setSellerId(sellerData._id);
+            try {
+              const sellerProfileData =
+                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+              console.log("Seller profile data:", sellerProfileData);
+              setIsFollowing(
+                sellerProfileData?.storeInfo?.isFollowing || false,
+              );
+            } catch (error) {
+              console.error("Error checking if seller is followed:", error);
+            }
+          }
+        }
+
+        // Set stream details
+        if (streamDetails.stream) {
+          const stream = streamDetails.stream as any;
+          setStreamDetails({
+            title: stream.title || "Live Auction",
+            description:
+              stream.description ||
+              "Join our live auction and bid on exclusive items!",
+            category: stream.category || "Shopping",
+            tags: stream.tags || ["auction", "shopping", "live"],
+            viewerCount:
+              typeof stream.viewerCount === "number"
+                ? stream.viewerCount
+                : Array.isArray(stream.viewers)
+                  ? stream.viewers.length
+                  : 0,
+            scheduledStartTime:
+              stream.scheduledStartTime || new Date().toISOString(),
+            actualStartTime: stream.startTime || new Date().toISOString(),
+            status: stream.status || "live",
+            type: "auction",
+            sellerFollowers: stream.sellerFollowers || 0,
+          });
+        }
+      }
+
+      // Set initial viewer count if available
+      if (streamDetails?.stream) {
+        const streamData = streamDetails.stream as any;
+        if (typeof streamData.viewerCount === "number") {
+          setViewerCount(streamData.viewerCount);
+        } else if (Array.isArray(streamData.viewers)) {
+          setViewerCount(streamData.viewers.length);
+        }
+      }
+
+      setStreamConfig({
+        appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || "",
+        channel: streamDetails?.channelName || "",
+        token: streamDetails?.token || "",
+        uid: streamDetails?.uid || "",
+      });
+
+      // Initialize with chat interactions from the stream
+      const chatInteractions =
+        (streamDetails.stream as any)?.chatInteractions || [];
+
+      // Get the current user's information
+      const user = await getUser();
+
+      // Create a join event for the current user
+      const userJoinEvent = {
+        id: Date.now().toString(),
+        type: "join" as const,
+        user: user?.firstName || "You",
+        avatar:
+          user?.profileImage?.url || require("@/assets/icons/animoji.png"),
+        content: "joined the stream",
+        timestamp: new Date(),
+        data: {
+          isCurrentUser: true, // Add this flag to identify the current user's join event
+        },
+      };
+
+      // Add the user's join event to the beginning of chat interactions
+      const updatedChatInteractions = [...chatInteractions, userJoinEvent];
+
+      // Set the live comments with the updated data
+      setLiveComments(updatedChatInteractions);
+
+      // Use requestAnimationFrame and setTimeout for more reliable scrolling
+      if (updatedChatInteractions.length > 0) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (commentsListRef.current) {
+              commentsListRef.current.scrollToEnd({
+                animated: true,
+              });
+            }
+          }, 500); // Increased timeout to ensure layout is complete
+        });
+      }
+
+      // Initialize socket connection for real-time chat with bid timer handlers
+      const userToken = await getToken();
+      if (userToken) {
+        initializeSocket(
+          userToken,
+          handleStreamNotification,
+          id as string, // Add streamId parameter as the third argument
+          setIsBidSending,
+          handleBidTimerUpdate,
+          handleBidTimerComplete,
+          handleAuctionOrderCreated,
+        );
+      }
+    } catch (error) {
+      console.error("Error setting up livestream:", error);
+      setStatus("Error: " + (error as Error).message);
+    }
+  }, [
+    id, 
+    joinStream, 
+    handleStreamNotification, 
+    handleBidTimerUpdate, 
+    handleBidTimerComplete, 
+    handleAuctionOrderCreated,
+    // other dependencies
+  ]);
+
+
+   // Create a single condition to check if UI should be shown
+  // Now create the derived value from state
+  const shouldShowUI = useMemo(() => 
+    streamConfig && !isLoading && isVideoPlaying && isVisible, 
+    [streamConfig, isLoading, isVideoPlaying, isVisible]
+  );
 
   return (
     <GestureHandlerRootView style={{ height }}>
@@ -2207,71 +2246,35 @@ const LiveAuctionStudio = ({
                     scrollEventThrottle={16}
                     contentContainerStyle={{ paddingBottom: 20 }}
                   >
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShare}
-                      >
-                        <SimpleLineIcons
-                          name="share-alt"
-                          size={22}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Share</Text>
-                    </View>
+                    <ActionButton
+                      icon={<SimpleLineIcons name="share-alt" size={22} color="white" />}
+                      text="Share"
+                      onPress={handleShare}
+                    />
 
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowStreamInfo}
-                      >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Info</Text>
-                    </View>
+                    <ActionButton
+                      icon={<Ionicons name="information-circle-outline" size={24} color="white" />}
+                      text="Info"
+                      onPress={handleShowStreamInfo}
+                    />
 
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowOrders}
-                      >
-                        <MaterialCommunityIcons
-                          name="package-variant-closed"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Orders</Text>
-                    </View>
+                    <ActionButton
+                      icon={<MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />}
+                      text="Orders"
+                      onPress={handleShowOrders}
+                    />
 
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowShop}
-                      >
-                        <MaterialCommunityIcons
-                          name="storefront-outline"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Shop</Text>
-                    </View>
+                    <ActionButton
+                      icon={<MaterialCommunityIcons name="storefront-outline" size={24} color="white" />}
+                      text="Shop"
+                      onPress={handleShowShop}
+                    />
 
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleHeartPress}
-                      >
-                        <AntDesign name="hearto" size={24} color="#16783A" />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText2}>Like</Text>
-                    </View>
+                    <ActionButton
+                      icon={<AntDesign name="hearto" size={24} color="#16783A" />}
+                      text="Like"
+                      onPress={handleHeartPress}
+                    />
                   </ScrollView>
                 )}
 
@@ -2685,7 +2688,7 @@ const LiveAuctionStudio = ({
       <FloatingHeartsAnimation ref={heartsRef} count={15} color="#16783A" />
     </GestureHandlerRootView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   fullScreen: {
@@ -3127,68 +3130,57 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   noHostAlertContainer: {
+    backgroundColor: "#111111",
+    borderRadius: 12,
+    padding: 20,
     width: "80%",
-    backgroundColor: "#1E1E1E",
-    borderRadius: 16,
-    padding: 24,
+    maxWidth: 300,
     alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 20,
   },
   noHostIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "#FF5555",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#333333",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
   },
   noHostTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 12,
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
   },
   noHostMessage: {
-    fontSize: 16,
     color: "#CCCCCC",
-    marginBottom: 24,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
+    marginBottom: 20,
   },
   buttonContainer: {
     flexDirection: "row",
-    width: "100%",
     justifyContent: "space-between",
-    gap: 10,
+    width: "100%",
   },
   waitButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "#333333",
+    borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 30,
+    paddingHorizontal: 20,
+    marginRight: 10,
     flex: 1,
     alignItems: "center",
   },
   waitButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "bold",
   },
   leaveButton: {
-    backgroundColor: "#16783A",
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 30,
+    paddingHorizontal: 20,
     flex: 1,
     alignItems: "center",
     flexDirection: "row",
@@ -3196,7 +3188,6 @@ const styles = StyleSheet.create({
   },
   leaveButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "bold",
   },
 });

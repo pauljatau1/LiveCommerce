@@ -1,5 +1,5 @@
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Dimensions, Animated, ScrollView } from 'react-native';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo, memo, useReducer } from 'react';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -22,108 +22,60 @@ interface StreamViewersProps {
   closeSheet: () => void;
 }
 
+// Pre-calculate dimensions once
 const { width } = Dimensions.get('window');
 
-const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProps) => {
-  console.log('bottom sheet viewers', viewers);
-  console.log('bottom sheet hostInfo', hostInfo);
+// Pre-define default avatar for consistent reference
+const DEFAULT_AVATAR = require('@/assets/icons/animoji.png');
 
-  // Animation values
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-  const breatheAnim = useRef(new Animated.Value(0)).current;
-  const [isLoading, setIsLoading] = useState(true);
+// Pre-computed array for skeleton items
+const SKELETON_ARRAY = Array(8).fill(null);
 
-  // Safely validate viewers data
-  const safeViewers = Array.isArray(viewers) ? viewers : [];
+// Pre-define colors for better performance
+const COLORS = {
+  primary: '#16783A',
+  white: '#FFFFFF',
+  dark: '#121212',
+  transparent: 'transparent',
+  border: 'rgba(255,255,255,0.1)',
+  borderLight: 'rgba(255,255,255,0.05)',
+  textSecondary: 'rgba(255,255,255,0.6)',
+  textTertiary: 'rgba(255,255,255,0.5)',
+  textQuaternary: 'rgba(255,255,255,0.3)',
+  backgroundLight: 'rgba(255,255,255,0.1)',
+  gold: '#FFD700',
+  avatarFallback: '#333',
+};
 
-  // Start animations
-  useEffect(() => {
-    // Breathing pulse animation for new users
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      ])
-    ).start();
-
-    // Breathing animation for skeleton loaders
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breatheAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: false,
-        }),
-        Animated.timing(breatheAnim, {
-          toValue: 0,
-          duration: 1200,
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
-    // Auto-hide loading state
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const getInitials = (firstName?: string, lastName?: string, username?: string) => {
-    if (firstName && lastName) {
-      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-    } else if (firstName) {
-      return firstName.charAt(0).toUpperCase();
-    } else if (username) {
-      return username.charAt(0).toUpperCase();
-    }
-    return '?';
-  };
-
-  // Function to generate a consistent avatar color based on the id
-  const getAvatarColor = (id: string) => {
-    if (!id) return '#33A1FF'; // Default color if id is missing
-
-    const colors = [
+// Pre-define avatar colors for consistent references
+const AVATAR_COLORS = [
       '#FF5733', '#33A1FF', '#33FF57', '#BD33FF',
       '#FFD133', '#33FFBD', '#FF33BD', '#7D33FF',
       '#FF7D33', '#33FF7D', '#FF3333', '#33A8FF'
     ];
 
-    // Use a simple hash function to get a consistent color
-    let sum = 0;
-    for (let i = 0; i < id.length; i++) {
-      sum += id.charCodeAt(i);
-    }
-
-    return colors[sum % colors.length];
-  };
-
-  // Skeleton loader item with breathing animation
-  const SkeletonItem = ({ index = 0 }: { index?: number }) => {
-    // Stagger the animations slightly based on index
-    const delayFactor = index * 0.1;
-    const animatedOpacity = breatheAnim.interpolate({
+// Memoized Skeleton Item Component
+const SkeletonItem = memo(({ index = 0, breatheAnim }: { index?: number, breatheAnim: Animated.Value }) => {
+  // Calculate styles outside of render when possible
+  const delayFactor = index * 0.1;
+  
+  // Memoize interpolated values to prevent recalculation
+  const animatedOpacity = useMemo(() => {
+    return breatheAnim.interpolate({
       inputRange: [0, 1],
       outputRange: [0.3, 0.7]
     });
+  }, [breatheAnim]);
 
-    const pulseStyles = {
+  const pulseStyles = useMemo(() => {
+    return {
       opacity: Animated.add(animatedOpacity, new Animated.Value(-delayFactor)).interpolate({
         inputRange: [0, 1],
         outputRange: [0.3, 0.7],
         extrapolate: 'clamp'
       })
     };
+  }, [animatedOpacity, delayFactor]);
 
     return (
       <Animated.View style={[styles.viewerItem, pulseStyles]}>
@@ -131,59 +83,72 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           <Animated.View
             style={[
               styles.avatar,
-              { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+            { backgroundColor: COLORS.backgroundLight },
               pulseStyles
             ]}
           />
         </View>
 
         <View style={styles.viewerInfo}>
-          <Animated.View style={[{
-            height: 16,
-            width: '60%',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: 4,
-            marginBottom: 8
-          }, pulseStyles]} />
-          <Animated.View style={[{
-            height: 12,
-            width: '40%',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: 4
-          }, pulseStyles]} />
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>In this stream</Text>
-          <View style={styles.viewerCount}>
-            <Ionicons name="people" size={16} color="#FFF" />
-            <Text style={styles.viewerCountText}>{safeViewers.length}</Text>
-          </View>
-        </View>
-        {/*<TouchableOpacity onPress={closeSheet} style={styles.closeButton}>
-          <AntDesign name="close" size={18} color="#FFF" />
-        </TouchableOpacity>*/}
+        <Animated.View style={[styles.skeletonName, pulseStyles]} />
+        <Animated.View style={[styles.skeletonUsername, pulseStyles]} />
       </View>
-    </View>
+    </Animated.View>
   );
+});
 
-  const renderViewerItem = ({ item, index }: { item: Viewer; index: number }) => {
-    if (!item || !item._id) {
-      return null; // Skip invalid items
+// Memoized Viewer Item Component
+const ViewerItem = memo(({ 
+  item, 
+  index, 
+  totalViewers, 
+  hostInfo, 
+  pulseAnim 
+}: { 
+  item: Viewer; 
+  index: number; 
+  totalViewers: number; 
+  hostInfo?: { name: string; avatar: any; }; 
+  pulseAnim: Animated.Value;
+}) => {
+  // Skip invalid items
+  if (!item || !item._id) return null;
+
+  // Memoize computed values
+  const initials = useMemo(() => {
+    if (item.firstName && item.lastName) {
+      return `${item.firstName.charAt(0)}${item.lastName.charAt(0)}`.toUpperCase();
+    } else if (item.firstName) {
+      return item.firstName.charAt(0).toUpperCase();
+    } else if (item.username) {
+      return item.username.charAt(0).toUpperCase();
     }
+    return '?';
+  }, [item.firstName, item.lastName, item.username]);
 
-    const initials = getInitials(item.firstName, item.lastName, item.username);
-    const avatarColor = getAvatarColor(item._id);
-    const displayName = (item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` :(item.firstName || 'Anonymous')) || item.username ;
+  const avatarColor = useMemo(() => {
+    if (!item._id) return AVATAR_COLORS[0];
+    
+    // Fast hash calculation
+    let sum = 0;
+    const id = item._id;
+    const len = Math.min(id.length, 6); // Limit to first 6 chars for speed
+    for (let i = 0; i < len; i++) {
+      sum += id.charCodeAt(i);
+    }
+    
+    return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+  }, [item._id]);
 
-    const isHost = hostInfo && hostInfo.name === displayName;
-    const isNew = index > safeViewers.length - 2;
+  const displayName = useMemo(() => {
+    return (item.firstName && item.lastName 
+      ? `${item.firstName} ${item.lastName}` 
+      : (item.firstName || 'Anonymous')) || item.username;
+  }, [item.firstName, item.lastName, item.username]);
+
+  // Calculate flags once
+  const isHost = useMemo(() => hostInfo && hostInfo.name === displayName, [hostInfo, displayName]);
+  const isNew = useMemo(() => index > totalViewers - 2, [index, totalViewers]);
 
     return (
       <View style={styles.viewerItem}>
@@ -192,7 +157,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
             <Image
               source={{ uri: item.profileImage.url }}
               style={styles.avatar}
-              defaultSource={require('@/assets/icons/animoji.png')}
+            defaultSource={DEFAULT_AVATAR}
             />
           ) : (
             <View style={[styles.avatarFallback, { backgroundColor: avatarColor }]}>
@@ -206,7 +171,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
                 style={[
                   StyleSheet.absoluteFill,
                   {
-                    backgroundColor: '#16783A',
+                  backgroundColor: COLORS.primary,
                     opacity: pulseAnim,
                     borderRadius: 5,
                   }
@@ -217,7 +182,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
 
           {isHost && (
             <View style={styles.hostBadge}>
-              <MaterialIcons name="verified" size={12} color="#16783A" />
+            <MaterialIcons name="verified" size={12} color={COLORS.primary} />
             </View>
           )}
         </View>
@@ -241,18 +206,117 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         )}
       </View>
     );
-  };
+}, (prevProps, nextProps) => {
+  // Custom equality check to prevent unnecessary re-renders
+  return (
+    prevProps.item._id === nextProps.item._id &&
+    prevProps.index === nextProps.index &&
+    prevProps.totalViewers === nextProps.totalViewers &&
+    prevProps.hostInfo?.name === nextProps.hostInfo?.name
+  );
+});
 
-  const renderHostSection = () => {
-    if (!hostInfo || !hostInfo.name) return null;
+// State reducer for more efficient state updates
+type StreamViewersState = {
+  isLoading: boolean;
+  safeViewers: Viewer[];
+};
 
-    // Safely handle host avatar
-    const getHostAvatarSource = () => {
-      try {
-        if (!hostInfo.avatar) {
-          return require('@/assets/icons/animoji.png');
-        }
+type StreamViewersAction = 
+  | { type: 'SET_LOADING', payload: boolean }
+  | { type: 'SET_VIEWERS', payload: Viewer[] };
 
+const viewersReducer = (state: StreamViewersState, action: StreamViewersAction): StreamViewersState => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_VIEWERS':
+      return { ...state, safeViewers: action.payload };
+    default:
+      return state;
+  }
+};
+
+// Main component
+const StreamViewers = memo(function StreamViewers({ viewers = [], hostInfo, closeSheet }: StreamViewersProps) {
+  // Use reducer for better state management
+  const [state, dispatch] = useReducer(viewersReducer, {
+    isLoading: true,
+    safeViewers: []
+  });
+  
+  const { isLoading, safeViewers } = state;
+
+  // Animation values - using refs to prevent rerenders
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const breatheAnim = useRef(new Animated.Value(0)).current;
+  
+  // List ref to prevent scroll recreations
+  const listRef = useRef<FlatList>(null);
+
+  // Process viewers data only when it changes
+  useEffect(() => {
+    // Safely validate viewers data
+    const processedViewers = Array.isArray(viewers) ? viewers : [];
+    dispatch({ type: 'SET_VIEWERS', payload: processedViewers });
+  }, [viewers]);
+
+  // Setup animations once
+  useEffect(() => {
+    // Breathing pulse animation for new users
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ])
+    );
+    
+    // Breathing animation for skeleton loaders
+    const breatheAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+        Animated.timing(breatheAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+
+    pulseAnimation.start();
+    breatheAnimation.start();
+
+    // Auto-hide loading state
+    const timer = setTimeout(() => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }, 1200);
+
+    return () => {
+      pulseAnimation.stop();
+      breatheAnimation.stop();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Memoized Host Avatar Source function
+  const getHostAvatarSource = useCallback(() => {
+    if (!hostInfo || !hostInfo.avatar) {
+      return DEFAULT_AVATAR;
+    }
+
+    try {
         if (typeof hostInfo.avatar === 'string') {
           return { uri: hostInfo.avatar };
         }
@@ -265,12 +329,31 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           return hostInfo.avatar; // Require'd image resource ID
         }
 
-        return require('@/assets/icons/animoji.png');
+      return DEFAULT_AVATAR;
       } catch (error) {
-        console.error('Error handling host avatar:', error);
-        return require('@/assets/icons/animoji.png');
-      }
-    };
+      return DEFAULT_AVATAR;
+    }
+  }, [hostInfo]);
+
+  // Memoized render functions to prevent recreation on every render
+  const renderHeader = useCallback(() => (
+    <View style={styles.header}>
+      <View style={styles.headerContent}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>In this stream</Text>
+          <View style={styles.viewerCount}>
+            <Ionicons name="people" size={16} color={COLORS.white} />
+            <Text style={styles.viewerCountText}>{safeViewers.length}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  ), [safeViewers.length]);
+
+  const renderHostSection = useCallback(() => {
+    if (!hostInfo || !hostInfo.name) return null;
+
+    const hostAvatarSource = getHostAvatarSource();
 
     return (
       <View style={styles.hostSection}>
@@ -281,12 +364,12 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           <View style={styles.hostContent}>
             <View style={styles.hostAvatarContainer}>
               <Image
-                source={getHostAvatarSource()}
+                source={hostAvatarSource}
                 style={styles.hostAvatar}
-                defaultSource={require('@/assets/icons/animoji.png')}
+                defaultSource={DEFAULT_AVATAR}
               />
               <View style={styles.hostIconBadge}>
-                <MaterialIcons name="stars" size={14} color="#FFD700" />
+                <MaterialIcons name="stars" size={14} color={COLORS.gold} />
               </View>
             </View>
 
@@ -298,48 +381,82 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         </LinearGradient>
       </View>
     );
-  };
+  }, [hostInfo, getHostAvatarSource]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <MaterialIcons name="people-outline" size={50} color="rgba(255,255,255,0.3)" />
+      <MaterialIcons name="people-outline" size={50} color={COLORS.textQuaternary} />
       <Text style={styles.emptyStateText}>No viewers yet</Text>
       <Text style={styles.emptyStateSubText}>Share the stream to invite friends</Text>
     </View>
-  );
+  ), []);
+  
+  // Optimized renderItem function
+  const renderViewerItem = useCallback(({ item, index }: { item: Viewer; index: number }) => (
+    <ViewerItem 
+      item={item} 
+      index={index} 
+      totalViewers={safeViewers.length} 
+      hostInfo={hostInfo} 
+      pulseAnim={pulseAnim} 
+    />
+  ), [safeViewers.length, hostInfo, pulseAnim]);
 
+  // Optimized keyExtractor
+  const keyExtractor = useCallback((item: Viewer) => `viewer-${item._id || Math.random()}`, []);
+
+  // Render skeleton items with optimized rendering
+  const renderSkeletonItems = useCallback(() => (
+    <View style={styles.skeletonContainer}>
+      {SKELETON_ARRAY.map((_, i) => (
+        <SkeletonItem key={`skeleton-${i}`} index={i} breatheAnim={breatheAnim} />
+      ))}
+    </View>
+  ), [breatheAnim]);
+
+  // Main render function - optimized to avoid unnecessary calculations
   return (
-    <ScrollView showsVerticalScrollIndicator={false} style={styles.container}>
+    <ScrollView 
+      showsVerticalScrollIndicator={false} 
+      style={styles.container}
+      removeClippedSubviews={true}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       {renderHeader()}
 
       {hostInfo && renderHostSection()}
 
-      {isLoading ? (
-        <View style={styles.skeletonContainer}>
-          {[...Array(8)].map((_, i) => (
-            <SkeletonItem key={`skeleton-${i}`} index={i} />
-          ))}
-        </View>
-      ) : (
+      {isLoading ? renderSkeletonItems() : (
         <FlatList
+          ref={listRef}
           scrollEnabled={false}
           data={safeViewers}
           renderItem={renderViewerItem}
-          keyExtractor={(item) => `viewer-${item._id}`}
+          keyExtractor={keyExtractor}
           ListEmptyComponent={renderEmptyState}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          windowSize={5}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          getItemLayout={(data, index) => ({
+            length: 79, // height of item + vertical padding + border
+            offset: 79 * index,
+            index,
+          })}
         />
       )}
     </ScrollView>
   );
-};
+});
 
+// Pre-compute styles once
 const styles = StyleSheet.create({
   container: {
-    //flex: 1,
     height: 300,
-    backgroundColor: '#121212',
+    backgroundColor: COLORS.dark,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -348,7 +465,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: COLORS.border,
   },
   headerContent: {
     flexDirection: 'row',
@@ -362,19 +479,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.white,
     marginRight: 12,
   },
   viewerCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.backgroundLight,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   viewerCountText: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 14,
     marginLeft: 4,
   },
@@ -382,7 +499,7 @@ const styles = StyleSheet.create({
     width: 33,
     height: 33,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -396,10 +513,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: COLORS.borderLight,
+    height: 79, // Fixed height for getItemLayout optimization
   },
   skeletonContainer: {
     paddingTop: 10,
+  },
+  skeletonName: {
+    height: 16,
+    width: '60%',
+    backgroundColor: COLORS.backgroundLight,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonUsername: {
+    height: 12,
+    width: '40%',
+    backgroundColor: COLORS.backgroundLight,
+    borderRadius: 4,
   },
   avatarContainer: {
     position: 'relative',
@@ -409,7 +540,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#333',
+    backgroundColor: COLORS.avatarFallback,
   },
   avatarFallback: {
     width: 46,
@@ -419,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -430,26 +561,26 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#16783A',
+    borderColor: COLORS.primary,
   },
   viewerInfo: {
     flex: 1,
   },
   viewerName: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
   },
   viewerUsername: {
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
   hostText: {
-    color: '#16783A',
+    color: COLORS.primary,
     fontWeight: 'normal',
   },
   newBadge: {
@@ -458,10 +589,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(22, 120, 58, 0.2)',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#16783A',
+    borderColor: COLORS.primary,
   },
   newBadgeText: {
-    color: '#16783A',
+    color: COLORS.primary,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -489,7 +620,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#16783A',
+    borderColor: COLORS.primary,
   },
   hostIconBadge: {
     position: 'absolute',
@@ -498,23 +629,23 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#16783A',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#121212',
+    borderColor: COLORS.dark,
   },
   hostInfo: {
     flex: 1,
   },
   hostName: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   hostLabel: {
-    color: '#16783A',
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -524,13 +655,13 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyStateText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.textSecondary,
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 12,
   },
   emptyStateSubText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.textTertiary,
     fontSize: 14,
     marginTop: 8,
   },
@@ -541,9 +672,9 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#16783A',
+    backgroundColor: COLORS.primary,
     borderWidth: 1,
-    borderColor: '#121212',
+    borderColor: COLORS.dark,
     overflow: 'hidden',
   },
 });
