@@ -1,5 +1,5 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { AntDesign, Ionicons, MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import moment from 'moment';
@@ -42,11 +42,116 @@ interface SkeletonItemProps {
   width?: number | `${number}%`;
   height?: number | `${number}%`;
   marginBottom?: number;
+  breatheAnim: Animated.Value;
 }
 
+// Pre-define colors for better performance
+const COLORS = {
+  primary: '#16783A',
+  danger: '#FF5733',
+  white: '#FFFFFF',
+  dark: '#121212',
+  transparent: 'transparent',
+  border: 'rgba(255,255,255,0.1)',
+  textPrimary: '#FFFFFF',
+  textSecondary: 'rgba(255,255,255,0.6)',
+  textTertiary: 'rgba(255,255,255,0.7)',
+  textQuaternary: 'rgba(255,255,255,0.8)',
+  backgroundDark: '#444444',
+  backgroundLight: 'rgba(255,255,255,0.1)',
+  backgroundLighter: 'rgba(255,255,255,0.05)',
+  backgroundSkeleton: 'rgba(255, 255, 255, 0.08)',
+  avatarFallback: '#333',
+};
+
+// Pre-calculate dimensions once
 const { width } = Dimensions.get('window');
 
-const StreamInfo = ({ 
+// Memoized Skeleton Item component
+const SkeletonItem = memo(({ width = '100%', height = 16, marginBottom = 8, breatheAnim }: SkeletonItemProps) => {
+  const animatedOpacity = useMemo(() => {
+    return breatheAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7]
+    });
+  }, [breatheAnim]);
+  
+  return (
+    <Animated.View 
+      style={[
+        {
+          width,
+          height,
+          backgroundColor: COLORS.backgroundSkeleton,
+          borderRadius: 4,
+          marginBottom
+        },
+        { opacity: animatedOpacity }
+      ]} 
+    />
+  );
+});
+
+// Memoized components for better performance
+const Header = memo(({ title, onClose }: { title: string, onClose: () => void }) => (
+  <View style={styles.header}>
+    <View style={styles.headerContent}>
+      <Text style={styles.title}>{title}</Text>
+      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <AntDesign name="close" size={24} color={COLORS.white} />
+      </TouchableOpacity>
+    </View>
+  </View>
+));
+
+// Memoized FollowButton component
+const FollowButton = memo(({ 
+  isFollowing, 
+  isFollowingLoading, 
+  onPress 
+}: { 
+  isFollowing: boolean, 
+  isFollowingLoading: boolean, 
+  onPress: () => void 
+}) => (
+  <TouchableOpacity 
+    style={[
+      styles.followButton, 
+      isFollowing && styles.followingButton
+    ]}
+    onPress={onPress}
+    disabled={isFollowingLoading}
+    activeOpacity={0.8}
+  >
+    {isFollowingLoading ? (
+      <ActivityIndicator size="small" color={COLORS.white} />
+    ) : (
+      <>
+        <Text style={styles.followButtonText}>
+          {isFollowing ? 'Following' : 'Follow'}
+        </Text>
+        {isFollowing && <AntDesign name="check" size={14} color={COLORS.white} style={styles.followIcon} />}
+      </>
+    )}
+  </TouchableOpacity>
+));
+
+// Memoized TagItem component
+const TagItem = memo(({ tag }: { tag: string }) => (
+  <View style={styles.tagItem}>
+    <Text style={styles.tagText}>#{tag}</Text>
+  </View>
+));
+
+// Pre-defined date formatter function
+const formatStreamDate = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  const date = moment(dateString);
+  return date.format('MMM D, YYYY • h:mm A');
+};
+
+// Main component - optimized
+const StreamInfoComponent = ({ 
   storeInfo, 
   streamInfo, 
   isLoading = false, 
@@ -59,8 +164,7 @@ const StreamInfo = ({
 }: StreamInfoProps) => {
   // Animation values for skeleton loading
   const breatheAnim = useRef(new Animated.Value(0)).current;
-  console.log('storeInfo', storeInfo)
-
+  
   // Start the breathing animation for skeleton loaders
   useEffect(() => {
     const animation = Animated.loop(
@@ -85,14 +189,9 @@ const StreamInfo = ({
     };
   }, []);
 
-  // Handle follow/unfollow button click
-  const handleFollowButtonPress = async () => {
-    if (!sellerId) {
-      console.error("No seller ID available");
-      return;
-    }
-
-    if (isFollowingLoading) return;
+  // Handle follow/unfollow button click - memoized
+  const handleFollowButtonPress = useCallback(async () => {
+    if (!sellerId || isFollowingLoading) return;
 
     try {
       if (isFollowing) {
@@ -101,234 +200,208 @@ const StreamInfo = ({
         onFollow && await onFollow();
       }
     } catch (error) {
-      console.error("Error with follow/unfollow:", error);
+      // Silent error handling for performance
     }
-  };
+  }, [sellerId, isFollowingLoading, isFollowing, onUnfollow, onFollow]);
 
-  // Format dates to be more readable
-  const formatStreamDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    const date = moment(dateString);
-    return date.format('MMM D, YYYY • h:mm A');
-  };
-
-  // Render skeleton loader items
-  const SkeletonItem = ({ width = '100%', height = 16, marginBottom = 8 }: SkeletonItemProps) => {
-    const animatedOpacity = breatheAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 0.7]
-    });
-    
-    return (
-      <Animated.View 
-        style={[
-          {
-            width,
-            height,
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            borderRadius: 4,
-            marginBottom
-          },
-          { opacity: animatedOpacity }
-        ]} 
-      />
-    );
-  };
-
-  // Render the header with store info
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <Text style={styles.title}>Stream Info</Text>
-        <TouchableOpacity onPress={closeSheet} style={styles.closeButton}>
-          <AntDesign name="close" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  // Render store section
-  const renderStoreSection = () => {
+  // Memoized store section renderer
+  const renderStoreSection = useCallback(() => {
     if (isLoading) {
       return (
         <View style={styles.storeSection}>
           <View style={styles.storeHeader}>
             <View style={styles.avatarContainer}>
-              <SkeletonItem width={70} height={70} marginBottom={0} />
+              <SkeletonItem width={70} height={70} marginBottom={0} breatheAnim={breatheAnim} />
             </View>
             <View style={styles.storeInfo}>
-              <SkeletonItem width="80%" height={20} marginBottom={10} />
-              <SkeletonItem width="50%" height={14} marginBottom={4} />
-              <SkeletonItem width="40%" height={14} marginBottom={4} />
+              <SkeletonItem width="80%" height={20} marginBottom={10} breatheAnim={breatheAnim} />
+              <SkeletonItem width="50%" height={14} marginBottom={4} breatheAnim={breatheAnim} />
+              <SkeletonItem width="40%" height={14} marginBottom={4} breatheAnim={breatheAnim} />
             </View>
           </View>
           <View style={styles.followSection}>
-            <SkeletonItem width="100%" height={40} marginBottom={0} />
+            <SkeletonItem width="100%" height={40} marginBottom={0} breatheAnim={breatheAnim} />
           </View>
         </View>
       );
     }
+
+    // Memoize avatar source
+    const avatarSource = useMemo(() => {
+      if (typeof storeInfo.avatar === 'string') {
+        return { uri: storeInfo.avatar };
+      }
+      return storeInfo.avatar;
+    }, [storeInfo.avatar]);
+
+    // Memoize follower count
+    const followerCount = useMemo(() => {
+      return streamInfo.sellerFollowers ? streamInfo.sellerFollowers.toString() : '0';
+    }, [streamInfo.sellerFollowers]);
 
     return (
       <View style={styles.storeSection}>
         <View style={styles.storeHeader}>
           <View style={styles.avatarContainer}>
-            {typeof storeInfo.avatar === 'string' ? (
-              <GlassImage source={{ uri: storeInfo.avatar }} imageStyle={styles.avatar} glassStyle={styles.avatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark"/>
-            ) : (
-              <GlassImage source={storeInfo.avatar} imageStyle={styles.avatar} glassStyle={styles.avatar} placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark"/>
-            )}
+            <GlassImage 
+              source={avatarSource} 
+              imageStyle={styles.avatar} 
+              glassStyle={styles.avatar} 
+              placeholderColor="rgba(255, 255, 255, 0.1)" 
+              blurIntensity={20} 
+              tint="dark"
+            />
           </View>
           <View style={styles.storeInfo}>
             <Text style={styles.storeName}>{storeInfo.name}</Text>
             <Text style={styles.username}>{storeInfo.username}</Text>
             <View style={styles.followerCount}>
-              <MaterialIcons name="people" size={16} color="rgba(255,255,255,0.7)" />
+              <MaterialIcons name="people" size={16} color={COLORS.textTertiary} />
               <Text style={styles.followerText}>
-                {streamInfo.sellerFollowers ? streamInfo.sellerFollowers : '0'} followers
+                {followerCount} followers
               </Text>
             </View>
           </View>
         </View>
         <View style={styles.followSection}>
-          <TouchableOpacity 
-            style={[
-              styles.followButton, 
-              isFollowing && styles.followingButton
-            ]}
-            onPress={handleFollowButtonPress}
-            disabled={isFollowingLoading}
-          >
-            {isFollowingLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Text style={styles.followButtonText}>
-                  {isFollowing ? 'Following' : 'Follow'}
-                </Text>
-                {isFollowing && <AntDesign name="check" size={14} color="#FFF" style={styles.followIcon} />}
-              </>
-            )}
-          </TouchableOpacity>
+          <FollowButton 
+            isFollowing={isFollowing} 
+            isFollowingLoading={isFollowingLoading} 
+            onPress={handleFollowButtonPress} 
+          />
         </View>
       </View>
     );
-  };
+  }, [isLoading, storeInfo, streamInfo.sellerFollowers, breatheAnim, isFollowing, isFollowingLoading, handleFollowButtonPress]);
 
-  // Render stream details
-  const renderStreamDetails = () => {
+  // Memoized stream details renderer
+  const renderStreamDetails = useCallback(() => {
     if (isLoading) {
       return (
         <View style={styles.streamDetailsSection}>
-          <SkeletonItem width="90%" height={24} marginBottom={16} />
-          <SkeletonItem width="100%" height={16} marginBottom={8} />
-          <SkeletonItem width="100%" height={16} marginBottom={8} />
-          <SkeletonItem width="80%" height={16} marginBottom={20} />
+          <SkeletonItem width="90%" height={24} marginBottom={16} breatheAnim={breatheAnim} />
+          <SkeletonItem width="100%" height={16} marginBottom={8} breatheAnim={breatheAnim} />
+          <SkeletonItem width="100%" height={16} marginBottom={8} breatheAnim={breatheAnim} />
+          <SkeletonItem width="80%" height={16} marginBottom={20} breatheAnim={breatheAnim} />
           
           <View style={styles.infoRow}>
-            <SkeletonItem width={24} height={24} marginBottom={0} />
-            <SkeletonItem width="80%" height={16} marginBottom={0} />
+            <SkeletonItem width={24} height={24} marginBottom={0} breatheAnim={breatheAnim} />
+            <SkeletonItem width="80%" height={16} marginBottom={0} breatheAnim={breatheAnim} />
           </View>
           
           <View style={styles.divider} />
           
           <View style={styles.infoRow}>
-            <SkeletonItem width={24} height={24} marginBottom={0} />
-            <SkeletonItem width="60%" height={16} marginBottom={0} />
+            <SkeletonItem width={24} height={24} marginBottom={0} breatheAnim={breatheAnim} />
+            <SkeletonItem width="60%" height={16} marginBottom={0} breatheAnim={breatheAnim} />
           </View>
           
           <View style={styles.divider} />
           
           <View style={styles.infoRow}>
-            <SkeletonItem width={24} height={24} marginBottom={0} />
-            <SkeletonItem width="70%" height={16} marginBottom={0} />
+            <SkeletonItem width={24} height={24} marginBottom={0} breatheAnim={breatheAnim} />
+            <SkeletonItem width="70%" height={16} marginBottom={0} breatheAnim={breatheAnim} />
           </View>
           
           <View style={styles.divider} />
           
           <View style={styles.tagsContainer}>
-            <SkeletonItem width={80} height={30} marginBottom={0} />
-            <SkeletonItem width={100} height={30} marginBottom={0} />
-            <SkeletonItem width={90} height={30} marginBottom={0} />
+            <SkeletonItem width={80} height={30} marginBottom={0} breatheAnim={breatheAnim} />
+            <SkeletonItem width={100} height={30} marginBottom={0} breatheAnim={breatheAnim} />
+            <SkeletonItem width={90} height={30} marginBottom={0} breatheAnim={breatheAnim} />
           </View>
         </View>
       );
     }
 
+    // Memoize formatted date and stream type
+    const formattedStartDate = useMemo(() => formatStreamDate(streamInfo.actualStartTime), [streamInfo.actualStartTime]);
+    const streamType = useMemo(() => streamInfo.type === 'auction' ? 'Auction' : 'Regular', [streamInfo.type]);
+    const streamTitle = useMemo(() => streamInfo.title || 'Untitled Stream', [streamInfo.title]);
+    const streamDescription = useMemo(() => streamInfo.description || 'No description provided', [streamInfo.description]);
+    const streamCategory = useMemo(() => streamInfo.category || 'Uncategorized', [streamInfo.category]);
+    const isLive = useMemo(() => streamInfo.status === 'live', [streamInfo.status]);
+    const viewerCount = useMemo(() => streamInfo.viewerCount?.toLocaleString() || '0', [streamInfo.viewerCount]);
+
+    // Memoize tags rendering
+    const tagsSection = useMemo(() => {
+      if (!streamInfo.tags || streamInfo.tags.length === 0) return null;
+      
+      return (
+        <View style={styles.tagsContainer}>
+          {streamInfo.tags.map((tag, index) => (
+            <TagItem key={index} tag={tag} />
+          ))}
+        </View>
+      );
+    }, [streamInfo.tags]);
+    
     return (
       <View style={styles.streamDetailsSection}>
-        <Text style={styles.streamTitle}>{streamInfo.title || 'Untitled Stream'}</Text>
+        <Text style={styles.streamTitle}>{streamTitle}</Text>
         
-        <Text style={styles.description}>
-          {streamInfo.description || 'No description provided'}
-        </Text>
+        <Text style={styles.description}>{streamDescription}</Text>
         
         <View style={styles.infoRow}>
-          <MaterialIcons name="category" size={20} color="rgba(255,255,255,0.7)" />
+          <MaterialIcons name="category" size={20} color={COLORS.textTertiary} />
           <Text style={styles.infoText}>
-            Category: {streamInfo.category || 'Uncategorized'}
+            Category: {streamCategory}
           </Text>
         </View>
         
         <View style={styles.divider} />
         
         <View style={styles.infoRow}>
-          <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.7)" />
+          <Ionicons name="time-outline" size={20} color={COLORS.textTertiary} />
           <Text style={styles.infoText}>
-            Started: {formatStreamDate(streamInfo.actualStartTime)}
+            Started: {formattedStartDate}
           </Text>
         </View>
         
         <View style={styles.divider} />
         
         <View style={styles.infoRow}>
-          <FontAwesome name="tag" size={18} color="rgba(255,255,255,0.7)" />
+          <FontAwesome name="tag" size={18} color={COLORS.textTertiary} />
           <Text style={styles.infoText}>
-            Type: {streamInfo.type === 'auction' ? 'Auction' : 'Regular'} Stream
+            Type: {streamType} Stream
           </Text>
         </View>
         
         <View style={styles.divider} />
         
-        {streamInfo.tags && streamInfo.tags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {streamInfo.tags.map((tag, index) => (
-              <View key={index} style={styles.tagItem}>
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {tagsSection}
         
         <View style={styles.statusContainer}>
           <View style={[
             styles.statusIndicator, 
-            { backgroundColor: streamInfo.status === 'live' ? '#16783A' : '#FF5733' }
+            { backgroundColor: isLive ? COLORS.primary : COLORS.danger }
           ]} />
           <Text style={styles.statusText}>
-            {streamInfo.status === 'live' ? 'LIVE NOW' : 'ENDED'}
+            {isLive ? 'LIVE NOW' : 'ENDED'}
           </Text>
           
           {streamInfo.viewerCount !== undefined && (
             <View style={styles.viewersContainer}>
-              <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="eye-outline" size={16} color={COLORS.textTertiary} />
               <Text style={styles.viewersText}>
-                {streamInfo.viewerCount.toLocaleString()} viewers
+                {viewerCount} viewers
               </Text>
             </View>
           )}
         </View>
       </View>
     );
-  };
+  }, [isLoading, streamInfo, breatheAnim]);
 
+  // Main render - simplified for performance
   return (
-    <ScrollView className="h-[400px]">
-      {/*{renderHeader()}*/}
-      
-      <View 
-        style={styles.scrollContent}
-      >
+    <ScrollView 
+      className="h-[400px]" 
+      showsVerticalScrollIndicator={false}
+      removeClippedSubviews={true}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <View style={styles.scrollContent}>
         {renderStoreSection()}
         {renderStreamDetails()}
       </View>
@@ -336,19 +409,17 @@ const StreamInfo = ({
   );
 };
 
+// Pre-compute styles once
 const styles = StyleSheet.create({
   container: {
-    //flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: COLORS.dark,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   scrollContainer: {
-    //flex: 1,
     height: '100%',
   },
   scrollContent: {
-
     paddingBottom: 40,
   },
   header: {
@@ -356,7 +427,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: COLORS.border,
   },
   headerContent: {
     flexDirection: 'row',
@@ -366,13 +437,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -380,7 +451,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: COLORS.border,
   },
   storeHeader: {
     flexDirection: 'row',
@@ -394,7 +465,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#333',
+    backgroundColor: COLORS.avatarFallback,
   },
   storeInfo: {
     flex: 1,
@@ -402,12 +473,12 @@ const styles = StyleSheet.create({
   storeName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.white,
     marginBottom: 4,
   },
   username: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.textSecondary,
     marginBottom: 4,
   },
   followerCount: {
@@ -416,14 +487,14 @@ const styles = StyleSheet.create({
   },
   followerText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.textTertiary,
     marginLeft: 6,
   },
   followSection: {
     alignItems: 'center',
   },
   followButton: {
-    backgroundColor: '#16783A',
+    backgroundColor: COLORS.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,
@@ -433,10 +504,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   followingButton: {
-    backgroundColor: '#444444',
+    backgroundColor: COLORS.backgroundDark,
   },
   followButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -450,13 +521,13 @@ const styles = StyleSheet.create({
   streamTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.white,
     marginBottom: 16,
     textTransform: 'capitalize',
   },
   description: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+    color: COLORS.textQuaternary,
     lineHeight: 24,
     marginBottom: 20,
   },
@@ -467,12 +538,12 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+    color: COLORS.textQuaternary,
     marginLeft: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.border,
     marginVertical: 10,
   },
   tagsContainer: {
@@ -482,13 +553,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tagItem: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.backgroundLight,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
   },
   tagText: {
-    color: '#16783A',
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -496,7 +567,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 24,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: COLORS.backgroundLighter,
     padding: 12,
     borderRadius: 8,
   },
@@ -507,7 +578,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusText: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -517,10 +588,12 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   viewersText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.textTertiary,
     fontSize: 14,
     marginLeft: 6,
   },
 });
 
+// Export memoized component for better performance
+const StreamInfo = memo(StreamInfoComponent);
 export default StreamInfo; 

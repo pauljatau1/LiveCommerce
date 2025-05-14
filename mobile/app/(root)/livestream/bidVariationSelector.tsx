@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import React, { useState, useEffect, useMemo } from 'react';
-import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import React, { useState, useMemo, useCallback, memo } from 'react';
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 
 // Predefined bid increment options
@@ -14,6 +14,130 @@ interface BidVariationSelectorProps {
   closeSheet: () => void;
 }
 
+// Create memoized sub-components for better performance
+const Header = memo(({ title, subtitle }: { title: string; subtitle: string }) => (
+  <View style={styles.header}>
+    <Text style={styles.title}>{title}</Text>
+    <Text style={styles.subtitle}>{subtitle}</Text>
+  </View>
+));
+
+const VariationButton = memo(({ 
+  variation, 
+  isSelected, 
+  formattedPrice, 
+  onPress 
+}: { 
+  variation: number; 
+  isSelected: boolean; 
+  formattedPrice: string; 
+  onPress: () => void 
+}) => (
+  <TouchableOpacity
+    style={[
+      styles.variationButton,
+      isSelected && styles.selectedVariation
+    ]}
+    onPress={onPress}
+  >
+    <Text style={[
+      styles.variationText,
+      isSelected && styles.selectedVariationText
+    ]}>
+      {formattedPrice}
+    </Text>
+  </TouchableOpacity>
+));
+
+const Divider = memo(() => <View style={styles.divider} />);
+
+const CustomBidInput = memo(({ 
+  customBidAmount, 
+  setCustomBidAmount, 
+  customBidMode, 
+  setCustomBidMode, 
+  customBidValidation 
+}: { 
+  customBidAmount: string;
+  setCustomBidAmount: (value: string) => void;
+  customBidMode: boolean;
+  setCustomBidMode: (value: boolean) => void;
+  customBidValidation: { isValid: boolean; message: string } | null;
+}) => (
+  <View style={styles.customBidContainer}>
+    <Text style={styles.sectionTitle}>Or enter custom amount:</Text>
+    <View style={[
+      styles.customBidInputContainer,
+      customBidMode && customBidAmount && !customBidValidation?.isValid && styles.invalidBidInput,
+      customBidMode && customBidAmount && customBidValidation?.isValid && styles.validBidInput
+    ]}>
+      <Text style={styles.currencySymbol}>₦</Text>
+      <BottomSheetTextInput
+        style={styles.customBidInput}
+        value={customBidAmount}
+        onChangeText={setCustomBidAmount}
+        placeholder="Enter amount"
+        placeholderTextColor="#888"
+        keyboardType="numeric"
+        onFocus={() => setCustomBidMode(true)}
+      />
+      {customBidMode && customBidAmount && (
+        <View style={styles.validationIconContainer}>
+          {customBidValidation?.isValid ? (
+            <AntDesign name="checkcircle" size={18} color="#16783A" />
+          ) : (
+            <AntDesign name="exclamationcircle" size={18} color="#FF5733" />
+          )}
+        </View>
+      )}
+    </View>
+
+    {customBidMode && customBidAmount && (
+      <Text style={[
+        styles.bidValidationMessage,
+        customBidValidation?.isValid ? styles.validBidText : styles.invalidBidText
+      ]}>
+        {customBidValidation?.message}
+      </Text>
+    )}
+  </View>
+));
+
+const ActionButtons = memo(({ 
+  onCancel, 
+  onSubmit, 
+  isDisabled,
+  nextBidText = null
+}: { 
+  onCancel: () => void; 
+  onSubmit: () => void; 
+  isDisabled: boolean;
+  nextBidText?: string | null;
+}) => (
+  <View style={styles.summaryContainer}>
+    {nextBidText && (
+      <Text style={styles.nextBidText}>{nextBidText}</Text>
+    )}
+
+    <View style={styles.actionButtons}>
+      <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+        <Text style={styles.cancelButtonText}>Cancel</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.submitButton,
+          isDisabled ? styles.disabledButton : {}
+        ]}
+        onPress={onSubmit}
+        disabled={isDisabled}
+      >
+        <Text style={styles.submitButtonText}>Place Bid</Text>
+        <MaterialIcons name="arrow-forward-ios" size={16} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  </View>
+));
+
 const BidVariationSelector = ({
   currentBid,
   onSelectBidAmount,
@@ -21,33 +145,34 @@ const BidVariationSelector = ({
   formatPrice,
   closeSheet
 }: BidVariationSelectorProps) => {
+  // State is localized and minimized
   const [selectedVariation, setSelectedVariation] = useState<number | null>(BID_VARIATIONS[0]);
   const [customBidAmount, setCustomBidAmount] = useState('');
   const [customBidMode, setCustomBidMode] = useState(false);
 
-  // Format prices consistently
-  const formatPriceDisplay = (price: number) => {
+  // Memoize the price formatting function to prevent recreation on every render
+  const formatPriceDisplay = useCallback((price: number) => {
     if (formatPrice) {
       return formatPrice(price);
     }
     return `₦${price.toLocaleString()}`;
-  };
+  }, [formatPrice]);
 
-  // Handle selection of a bid variation
-  const handleSelectVariation = (variation: number) => {
-    setSelectedVariation(variation);
-    setCustomBidMode(false);
-  };
+  // Memoize the header subtitle
+  const headerSubtitle = useMemo(
+    () => `Current bid: ${formatPriceDisplay(currentBid)}`,
+    [currentBid, formatPriceDisplay]
+  );
 
-  // Toggle to custom bid input mode
-  const toggleCustomBidMode = () => {
-    setCustomBidMode(!customBidMode);
-    if (!customBidMode) {
-      setSelectedVariation(null);
+  // Memoize the next bid text
+  const nextBidText = useMemo(() => {
+    if (!customBidMode && selectedVariation !== null) {
+      return `Next bid will be: ${formatPriceDisplay(currentBid + selectedVariation)}`;
     }
-  };
+    return null;
+  }, [customBidMode, selectedVariation, currentBid, formatPriceDisplay]);
 
-  // Live validation of custom bid amount
+  // Live validation of custom bid amount - already using useMemo which is good
   const customBidValidation = useMemo(() => {
     if (!customBidAmount) return null;
 
@@ -78,10 +203,40 @@ const BidVariationSelector = ({
       isValid: true,
       message: `Valid bid: ${formatPriceDisplay(numericAmount)}`
     };
-  }, [customBidAmount, currentBid]);
+  }, [customBidAmount, currentBid, formatPriceDisplay]);
 
-  // Handle bid submission
-  const handleSubmitBid = () => {
+  // Memoize the submit button disabled state
+  const isSubmitDisabled = useMemo(() => 
+    (customBidMode && (!customBidAmount || !customBidValidation?.isValid)) ||
+    (!customBidMode && !selectedVariation),
+    [customBidMode, customBidAmount, customBidValidation, selectedVariation]
+  );
+
+  // Handle selection of a bid variation with useCallback
+  const handleSelectVariation = useCallback((variation: number) => {
+    setSelectedVariation(variation);
+    setCustomBidMode(false);
+  }, []);
+
+  // Memoize bid variation buttons for better performance
+  const variationButtons = useMemo(() => 
+    BID_VARIATIONS.map((variation) => {
+      const isSelected = selectedVariation === variation && !customBidMode;
+      return (
+        <VariationButton
+          key={variation}
+          variation={variation}
+          isSelected={isSelected}
+          formattedPrice={formatPriceDisplay(variation)}
+          onPress={() => handleSelectVariation(variation)}
+        />
+      );
+    }),
+    [selectedVariation, customBidMode, formatPriceDisplay, handleSelectVariation]
+  );
+
+  // Handle bid submission with useCallback
+  const handleSubmitBid = useCallback(() => {
     if (customBidMode) {
       // Process custom bid amount
       const customAmount = Number(customBidAmount);
@@ -106,108 +261,47 @@ const BidVariationSelector = ({
       onSelectBidAmount(nextBidAmount);
       closeSheet();
     }
-  };
+  }, [
+    customBidMode, 
+    customBidAmount, 
+    currentBid, 
+    selectedVariation, 
+    onCustomBid, 
+    onSelectBidAmount, 
+    closeSheet, 
+    formatPriceDisplay
+  ]);
 
   return (
     <BottomSheetView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Place your bid</Text>
-        <Text style={styles.subtitle}>Current bid: {formatPriceDisplay(currentBid)}</Text>
-      </View>
+      <Header title="Place your bid" subtitle={headerSubtitle} />
 
       {/* Standard Bid Variations */}
       <View style={styles.variationsContainer}>
         <Text style={styles.sectionTitle}>Select increment amount:</Text>
         <View style={styles.variationsGrid}>
-          {BID_VARIATIONS.map((variation) => (
-            <TouchableOpacity
-              key={variation}
-              style={[
-                styles.variationButton,
-                selectedVariation === variation && !customBidMode && styles.selectedVariation
-              ]}
-              onPress={() => handleSelectVariation(variation)}
-            >
-              <Text style={[
-                styles.variationText,
-                selectedVariation === variation && !customBidMode && styles.selectedVariationText
-              ]}>
-                {formatPriceDisplay(variation)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {variationButtons}
         </View>
       </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
+      <Divider />
 
-      {/* Custom Bid Option */}
-      <View style={styles.customBidContainer}>
-        <Text style={styles.sectionTitle}>Or enter custom amount:</Text>
-        <View style={[
-          styles.customBidInputContainer,
-          customBidMode && customBidAmount && !customBidValidation?.isValid && styles.invalidBidInput,
-          customBidMode && customBidAmount && customBidValidation?.isValid && styles.validBidInput
-        ]}>
-          <Text style={styles.currencySymbol}>₦</Text>
-          <BottomSheetTextInput
-            style={styles.customBidInput}
-            value={customBidAmount}
-            onChangeText={setCustomBidAmount}
-            placeholder="Enter amount"
-            placeholderTextColor="#888"
-            keyboardType="numeric"
-            onFocus={() => setCustomBidMode(true)}
-          />
-          {customBidMode && customBidAmount && (
-            <View style={styles.validationIconContainer}>
-              {customBidValidation?.isValid ? (
-                <AntDesign name="checkcircle" size={18} color="#16783A" />
-              ) : (
-                <AntDesign name="exclamationcircle" size={18} color="#FF5733" />
-              )}
-            </View>
-          )}
-        </View>
+      {/* Custom Bid Input */}
+      <CustomBidInput
+        customBidAmount={customBidAmount}
+        setCustomBidAmount={setCustomBidAmount}
+        customBidMode={customBidMode}
+        setCustomBidMode={setCustomBidMode}
+        customBidValidation={customBidValidation}
+      />
 
-        {customBidMode && customBidAmount && (
-          <Text style={[
-            styles.bidValidationMessage,
-            customBidValidation?.isValid ? styles.validBidText : styles.invalidBidText
-          ]}>
-            {customBidValidation?.message}
-          </Text>
-        )}
-      </View>
-
-      {/* Summary and Action Buttons */}
-      <View style={styles.summaryContainer}>
-        {!customBidMode && selectedVariation !== null && (
-          <Text style={styles.nextBidText}>
-            Next bid will be: {formatPriceDisplay(currentBid + selectedVariation)}
-          </Text>
-        )}
-
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.cancelButton} onPress={closeSheet}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (customBidMode && (!customBidAmount || !customBidValidation?.isValid)) ||
-                (!customBidMode && !selectedVariation) ? styles.disabledButton : {}
-            ]}
-            onPress={handleSubmitBid}
-            disabled={(customBidMode && (!customBidAmount || !customBidValidation?.isValid)) ||
-              (!customBidMode && !selectedVariation)}
-          >
-            <Text style={styles.submitButtonText}>Place Bid</Text>
-            <MaterialIcons name="arrow-forward-ios" size={16} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Action Buttons */}
+      <ActionButtons
+        onCancel={closeSheet}
+        onSubmit={handleSubmitBid}
+        isDisabled={isSubmitDisabled}
+        nextBidText={nextBidText}
+      />
     </BottomSheetView>
   );
 };
@@ -374,4 +468,5 @@ const styles = StyleSheet.create({
   }
 });
 
-export default BidVariationSelector; 
+// Export the component with React.memo for additional performance optimization
+export default memo(BidVariationSelector); 

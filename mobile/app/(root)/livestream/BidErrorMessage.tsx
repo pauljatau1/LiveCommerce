@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -8,45 +8,62 @@ interface BidErrorMessageProps {
   closeSheet: () => void;
 }
 
+// Memoized icon component to prevent re-rendering
+const ErrorIcon = memo(() => (
+  <View style={styles.iconContainer}>
+    <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
+  </View>
+));
 
+// Memoized button component for address redirect
+const AddressButton = memo(({ onPress }: { onPress: () => void }) => (
+  <TouchableOpacity style={styles.button} onPress={onPress}>
+    <Text style={styles.buttonText}>Add Shipping Address</Text>
+  </TouchableOpacity>
+));
 
-const BidErrorMessage = ({ errorMessage, closeSheet }: BidErrorMessageProps) => {
+// Memoized dismiss button
+const DismissButton = memo(({ onPress }: { onPress: () => void }) => (
+  <TouchableOpacity style={styles.button} onPress={onPress}>
+    <Text style={styles.buttonText}>Dismiss</Text>
+  </TouchableOpacity>
+));
+
+const BidErrorMessage = memo(({ errorMessage, closeSheet }: BidErrorMessageProps) => {
   const router = useRouter();
 
-  const buttonDisplayUi = () => {
-    if (errorMessage == "Please add a shipping address to your profile before bidding") {
-      return (
-        <TouchableOpacity style={styles.button} onPress={() => {
-          router.push("/addresses/addAddress")
-          closeSheet()
-        }}>
-          <Text style={styles.buttonText}>Add Shipping Address</Text>
-        </TouchableOpacity>
-      )
-    } else {
-      return (
-        <TouchableOpacity style={styles.button} onPress={closeSheet}>
-          <Text style={styles.buttonText}>Dismiss</Text>
-        </TouchableOpacity>
-      )
+  // Memoize the navigation function to avoid recreating on each render
+  const navigateToAddress = useCallback(() => {
+    router.push("/addresses/addAddress");
+    closeSheet();
+  }, [router, closeSheet]);
+
+  // Memoize the button component based on the error message
+  const ActionButton = useMemo(() => {
+    if (errorMessage === "Please add a shipping address to your profile before bidding") {
+      return <AddressButton onPress={navigateToAddress} />;
     }
-  }
+    return <DismissButton onPress={closeSheet} />;
+  }, [errorMessage, closeSheet, navigateToAddress]);
+
+  // Memoize the content to prevent unnecessary re-renders
+  const content = useMemo(() => (
+    <>
+      <ErrorIcon />
+      <Text style={styles.title}>Bid Error</Text>
+      <Text style={styles.message}>{errorMessage}</Text>
+      {ActionButton}
+    </>
+  ), [errorMessage, ActionButton]);
 
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
-      </View>
-
-      <Text style={styles.title}>Bid Error</Text>
-
-      <Text style={styles.message}>{errorMessage}</Text>
-
-      {buttonDisplayUi()}
+      {content}
     </View>
   );
-};
+});
 
+// Styles are static and don't need to be recreated on each render
 const styles = StyleSheet.create({
   container: {
     padding: 24,
@@ -84,5 +101,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+// DisplayName helps with debugging
+BidErrorMessage.displayName = 'BidErrorMessage';
 
 export default BidErrorMessage; 

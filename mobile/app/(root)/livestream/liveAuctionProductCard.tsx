@@ -1,9 +1,8 @@
 import { Product } from '@/types/streams/livestreamStudio';
 import { GlassImage } from './components';
-import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import React, { useEffect, useMemo } from 'react';
-//import RenderHtml from "react-native-render-html";
+import React, { useMemo } from 'react';
 
 interface LiveAuctionProductCardProps {
     product: {
@@ -28,7 +27,7 @@ interface LiveAuctionProductCardProps {
     bidTimeRemaining?: string;
 }
 
-const LiveAuctionProductCard = ({
+function LiveAuctionProductCard({
     product,
     onBid,
     onCustom,
@@ -38,23 +37,31 @@ const LiveAuctionProductCard = ({
     bidIncrement = 500,
     isBidSending = false,
     bidTimeRemaining = "00:30"
-}: LiveAuctionProductCardProps) => {
-    // Calculate the next bid amount with a fixed default increment of 500
-    const currentBid = product.currentBid || product.minBid || product.price;
-    const minBid = product.minBid || product.price;
-    // Use the provided bidIncrement or default to 500
-    const nextBidAmount = currentBid + bidIncrement;
+}: LiveAuctionProductCardProps) {
+    // Memoize all calculations to prevent recalculating on every render
+    const currentBid = useMemo(() => 
+        product.currentBid || product.minBid || product.price, 
+        [product.currentBid, product.minBid, product.price]
+    );
+    
+    const nextBidAmount = useMemo(() => 
+        currentBid + bidIncrement, 
+        [currentBid, bidIncrement]
+    );
 
-    // Format the prices for display
-    const formatPriceDisplay = (price: number) => {
-        if (formatPrice) {
-            return formatPrice(price);
-        }
-        return `₦${price.toLocaleString()}`;
-    };
+    // Memoize the price formatting function
+    const formatPriceDisplay = useMemo(() => 
+        (price: number) => {
+            if (formatPrice) {
+                return formatPrice(price);
+            }
+            return `₦${price.toLocaleString()}`;
+        }, 
+        [formatPrice]
+    );
 
-    // Determine if timer is in critical state (less than 10 seconds)
-    const isTimerCritical = () => {
+    // Memoize the timer critical state calculation
+    const isTimerCritical = useMemo(() => {
         if (!bidTimeRemaining) return false;
 
         // If format is MM:SS or MM.SS, convert to seconds
@@ -67,9 +74,9 @@ const LiveAuctionProductCard = ({
 
         // If format is just seconds
         return Number(bidTimeRemaining) < 10;
-    };
+    }, [bidTimeRemaining]);
 
-    // Improved function to extract and simplify description
+    // Improved function to extract and simplify description with proper memoization
     const simplifiedDescription = useMemo(() => {
         if (!product?.description) return "";
 
@@ -89,22 +96,9 @@ const LiveAuctionProductCard = ({
         return product.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     }, [product?.description]);
 
-    console.log('current bid product image:', product?.images?.[0]?.url);
-    console.log('using bid increment:', bidIncrement);
-    console.log('bid time remaining:', bidTimeRemaining);
-    console.log('product bid status:', product.bidStatus);
-    console.log('timer critical status:', isTimerCritical());
-
-    useEffect(() => {
-        console.log('LiveAuctionProductCard received new bidTimeRemaining:', bidTimeRemaining);
-        if (product.bidStatus === 'active') {
-            console.log('Product is active, displaying timer:', bidTimeRemaining);
-        }
-    }, [bidTimeRemaining, product.bidStatus]);
-
     return (
         <View style={styles.container}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <View style={styles.topContainer}>
                 <View style={styles.contentRow}>
                     {/* Product Image */}
                     <GlassImage
@@ -147,21 +141,20 @@ const LiveAuctionProductCard = ({
             <View style={styles.timerContainer}>
                 <Text style={[
                     styles.timerText,
-                    isTimerCritical() && styles.criticalTimerText
+                    isTimerCritical && styles.criticalTimerText
                 ]}>
                     {product.bidStatus === 'active' ? bidTimeRemaining : '00:30'}
                 </Text>
             </View>
 
             {/* Category and Tags */}
-            {
-                tag && category && (
-                    <View style={styles.categoryTagsContainer}>
-                        <Text style={styles.categoryTagsText}>
-                            {category} <Text style={styles.dotSeparator}>•</Text> {Array.isArray(tag) ? tag.join(', ') : tag}
-                        </Text>
-                    </View>)
-            }
+            {tag && category && (
+                <View style={styles.categoryTagsContainer}>
+                    <Text style={styles.categoryTagsText}>
+                        {category} <Text style={styles.dotSeparator}>•</Text> {Array.isArray(tag) ? tag.join(', ') : tag}
+                    </Text>
+                </View>
+            )}
 
             {/* Action Buttons */}
             <View style={styles.buttonsRow}>
@@ -208,13 +201,17 @@ const LiveAuctionProductCard = ({
             </View>
         </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     container: {
         borderRadius: 12,
         paddingVertical: 6,
         marginVertical: 8,
+    },
+    topContainer: {
+        flexDirection: "row", 
+        justifyContent: "space-between"
     },
     contentRow: {
         flexDirection: 'row',
@@ -266,38 +263,12 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     stockContainer: {
-        //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingVertical: 2,
         borderRadius: 4,
     },
     stockText: {
-        //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         fontWeight: 'bold',
         color: '#16783A', // Green color
-    },
-    bidRangeContainer: {
-        alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)', // Translucent glass-like effect
-        borderRadius: 6,
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        marginBottom: 12,
-    },
-    bidRangeText: {
-        fontSize: 12,
-        color: '#FFFFFF',
-    },
-    shippingContainer: {
-        alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)', // Translucent glass-like effect
-        borderRadius: 6,
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        marginBottom: 12,
-    },
-    shippingText: {
-        fontSize: 12,
-        color: '#FFFFFF',
     },
     buttonsRow: {
         flexDirection: 'row',
@@ -344,11 +315,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: 'bold',
         color: 'white',
-    },
-    bidArrow: {
-        fontSize: 20,
-        color: 'white',
-        fontWeight: 'bold',
     },
     categoryTagsContainer: {
         alignSelf: 'flex-start',
@@ -401,4 +367,5 @@ const styles = StyleSheet.create({
     },
 });
 
-export default LiveAuctionProductCard;
+// Create a memoized version of the component
+export default React.memo(LiveAuctionProductCard);
