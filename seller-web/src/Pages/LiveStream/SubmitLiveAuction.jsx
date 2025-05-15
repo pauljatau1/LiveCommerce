@@ -310,7 +310,7 @@ const SubmitLiveAuction = () => {
                             disabled={isLoading}
                             className="px-6 w-[200px] whitespace-nowrap py-2.5 order-1 md:order-2 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50 transition-all duration-300"
                         >
-                            {isLoading ? <CircularProgress size={20} color="#fff" /> : 'Schedule Live Show'}
+                            {isLoading ? <CircularProgress size={20} color="#fff" /> : shouldStartImmediately ? 'Start Now' : 'Schedule Live Auction'}
                         </button>
                     </div>
                 </div>
