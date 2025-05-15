@@ -2619,6 +2619,7 @@ const LivestreamStudio = () => {
                                                     switchCamera={switchCamera}
                                                     toggleMicrophone={toggleMicrophone}
                                                     isMicrophoneEnabled={isMicrophoneEnabled}
+                                                    orders={orders}
                                                     onOpenVideoSettings={handleOpenVideoSettings}
                                                 />
                                             </>

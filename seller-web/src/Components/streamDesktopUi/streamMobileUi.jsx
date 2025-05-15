@@ -17,7 +17,8 @@ const StreamMobileUi = ({
     isMicrophoneEnabled = true,
     onOpenVideoSettings,
     products = [],
-    formatCurrency = (val) => `$${val}`
+    formatCurrency = (val) => `$${val}`,
+    orders = []
 }) => {
     const { socket, notifications, sendStreamComment } = useLivestreamSocket();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
@@ -33,6 +34,28 @@ const StreamMobileUi = ({
     const [availableCameras, setAvailableCameras] = useState([]);
     const [isLoadingCameras, setIsLoadingCameras] = useState(false);
     const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false);
+    const [productOrderCounts, setProductOrderCounts] = useState({});
+    const [ordersData, setOrdersData] = useState(orders || []);
+
+    // Initialize product order counts from the initial orders data
+    useEffect(() => {
+        if (orders && orders.length > 0) {
+            const initialCounts = {};
+            
+            orders.forEach(order => {
+                // Extract product ID from order
+                const productId = order.product || 
+                                 (order.orderDetails?.items && 
+                                  order.orderDetails.items[0]?.product);
+                
+                if (productId) {
+                    initialCounts[productId] = (initialCounts[productId] || 0) + 1;
+                }
+            });
+            
+            setProductOrderCounts(initialCounts);
+        }
+    }, [orders]);
 
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
@@ -82,9 +105,50 @@ const StreamMobileUi = ({
                     }
                     return [...prevMessages, latestNotification];
                 });
+                
+                // Update orders data and product order counts for liveshow_order notifications
+                if (latestNotification.type === 'liveshow_order' && 
+                    latestNotification.data?.streamOrders && 
+                    latestNotification.data.streamOrders.length > 0) {
+                    
+                    // Update orders data
+                    setOrdersData(prevOrdersData => {
+                        // Check if there are new orders
+                        if (latestNotification.data.streamOrders.length > prevOrdersData.length) {
+                            // Find the new order by comparing order IDs
+                            const existingOrderIds = new Set(prevOrdersData.map(order => order.orderId));
+                            const newOrders = latestNotification.data.streamOrders.filter(
+                                order => !existingOrderIds.has(order.orderId)
+                            );
+
+                            // Only increment counts for new orders
+                            newOrders.forEach(order => {
+                                const productId = order.product || 
+                                                (order.orderDetails?.items && 
+                                                 order.orderDetails.items[0]?.product);
+                                
+                                if (productId) {
+                                    setProductOrderCounts(prevCounts => ({
+                                        ...prevCounts,
+                                        [productId]: (prevCounts[productId] || 0) + 1
+                                    }));
+                                }
+                            });
+                            
+                            return latestNotification.data.streamOrders;
+                        }
+                        
+                        return prevOrdersData;
+                    });
+                }
             }
         }
     }, [notifications, liveStreamDetails]);
+
+    // Helper function to get order count for a product
+    const getOrderCountForProduct = (productId) => {
+        return productOrderCounts[productId] || 0;
+    };
 
     // Check if new messages have arrived and the user is scrolled up
     useEffect(() => {
@@ -412,7 +476,7 @@ const StreamMobileUi = ({
                                             {formatCurrency(item?.product?.price)}
                                         </p>
                                         <p className="text-sm text-[#718096] font-inter font-medium">
-                                            Orders: <span className="text-[#EFF0FA] font-inter font-medium">10</span>
+                                            Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(item?.product?.productId)}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -518,7 +582,8 @@ StreamMobileUi.propTypes = {
     isMicrophoneEnabled: PropTypes.bool,
     onOpenVideoSettings: PropTypes.func,
     products: PropTypes.array,
-    formatCurrency: PropTypes.func
+    formatCurrency: PropTypes.func,
+    orders: PropTypes.array
 };
 
 export default StreamMobileUi;
