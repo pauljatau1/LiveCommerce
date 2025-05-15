@@ -401,7 +401,21 @@ const StreamDesktopUi = ({
             {/* Sales Analysis Modal */}
             {salesModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div>
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[80dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#14AE5C]/10 p-2 rounded-full">
@@ -488,10 +502,24 @@ const StreamDesktopUi = ({
                             {/* Chart View - Simplified Version */}
                             <div>
                                 <h3 className="text-[#EFF0FA] font-medium text-lg mb-3">Revenue Breakdown</h3>
-                                <div className="bg-[#161A1E] p-4 rounded-lg min-h-[200px] flex items-center justify-center">
+                                <div className="bg-[#161A1E] p-4 rounded-lg min-h-[200px] overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:h-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] flex items-center justify-center">
                                     {ordersData.length > 0 ? (
                                         <div className="w-full flex gap-2 items-end h-[180px]">
-                                            {ordersData.slice(0, 5).map((order, index) => {
+                                            {ordersData?.map((order, index) => {
                                                 // Calculate height based on amount relative to max amount
                                                 const maxAmount = Math.max(...ordersData.slice(0, 5).map(o => o.amount || 0));
                                                 const height = maxAmount ? ((order.amount || 0) / maxAmount) * 150 : 0;
@@ -531,7 +559,21 @@ const StreamDesktopUi = ({
             {/* Items Sold Modal */}
             {itemsModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div>
+                    <div className="bg-[#0D0F12] border border-[#272A31] h-[65dvh] rounded-xl w-full max-w-3xl overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] shadow-2xl transition-all duration-300 transform">
                         <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#272A31]">
                             <div className="flex items-center gap-3">
                                 <div className="bg-[#EFF0FA]/10 p-2 rounded-full">
