@@ -1409,14 +1409,14 @@ const LivestreamStudioFeed = ({
                   mediaPlaybackRequiresUserAction={false}
                   originWhitelist={["*"]}
                 />
-                
+
                 {/* Gradient Overlay for better contrast */}
                 <LinearGradient
                   colors={[
-                    'rgba(0,0,0,0.1)',     // Slight darkening at top
-                    'rgba(0,0,0,0.45)',     // Medium darkening in middle
-                    'rgba(0,0,0,0.65)',    // Darker toward bottom
-                    'rgba(0,0,0,1)',    // Darkest at bottom
+                    "rgba(0,0,0,0.1)", // Slight darkening at top
+                    "rgba(0,0,0,0.45)", // Medium darkening in middle
+                    "rgba(0,0,0,0.65)", // Darker toward bottom
+                    "rgba(0,0,0,1)", // Darkest at bottom
                   ]}
                   locations={[0, 0.5, 0.85, 1]}
                   style={styles.gradientOverlay}
@@ -1667,9 +1667,16 @@ const LivestreamStudioFeed = ({
               color="#16783A"
             />
 
-            <View style={{ height: keyboardVisibleRef.current ? "67%" : height - 25, justifyContent: "flex-end" }}>
+            <View
+              style={{
+                height: keyboardVisibleRef.current
+                  ? "67%"
+                  : height - (Platform.OS === "ios" ? insets.top + 25 : 25),
+                justifyContent: "flex-end",
+              }}
+            >
               {/* Main Content Area */}
-              
+
               <View
                 style={[
                   styles.mainContentArea,
@@ -2014,9 +2021,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   gradientOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     zIndex: 5,
   },
   fullScreen2: {
@@ -2047,7 +2054,7 @@ const styles = StyleSheet.create({
   bottomArea: {
     position: "relative",
     paddingBottom: Platform.OS === "ios" ? 20 : 10,
-    zIndex: 15
+    zIndex: 15,
   },
   bottomProductCardContainer: {
     position: "relative",
