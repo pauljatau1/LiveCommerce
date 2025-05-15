@@ -126,13 +126,13 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-      | "comment"
-      | "join"
-      | "purchase"
-      | "hostLeft"
-      | "hostRejoin"
-      | "leave"
-      | "liveshow_order";
+        | "comment"
+        | "join"
+        | "purchase"
+        | "hostLeft"
+        | "hostRejoin"
+        | "leave"
+        | "liveshow_order";
       user: string;
       avatar?: any;
       content: string;
@@ -531,9 +531,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] &&
+                      notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1413,10 +1413,10 @@ const LivestreamStudioFeed = ({
                 {/* Gradient Overlay for better contrast */}
                 <LinearGradient
                   colors={[
-                    'rgba(0,0,0,0.1)',     // Slight darkening at top
-                    'rgba(0,0,0,0.45)',     // Medium darkening in middle
-                    'rgba(0,0,0,0.65)',    // Darker toward bottom
-                    'rgba(0,0,0,1)',    // Darkest at bottom
+                    "rgba(0,0,0,0.1)", // Slight darkening at top
+                    "rgba(0,0,0,0.45)", // Medium darkening in middle
+                    "rgba(0,0,0,0.65)", // Darker toward bottom
+                    "rgba(0,0,0,1)", // Darkest at bottom
                   ]}
                   locations={[0, 0.5, 0.85, 1]}
                   style={styles.gradientOverlay}
@@ -1427,8 +1427,8 @@ const LivestreamStudioFeed = ({
                 {(isLoading ||
                   showNoHostAlert2 ||
                   (!isVideoPlaying && isHostPresent)) && (
-                    <SkeletonLoader type="loading" />
-                  )}
+                  <SkeletonLoader type="loading" />
+                )}
 
                 {/* No Host Alert */}
                 {showNoHostAlert &&
@@ -1667,7 +1667,14 @@ const LivestreamStudioFeed = ({
               color="#16783A"
             />
 
-            <View style={{ height: keyboardVisibleRef.current ? "67%" : height - (Platform.OS === "ios" ? 45 : 25), justifyContent: "flex-end" }}>
+            <View
+              style={{
+                height: keyboardVisibleRef.current
+                  ? "67%"
+                  : height - (Platform.OS === "ios" ? insets.top + 25 : 25),
+                justifyContent: "flex-end",
+              }}
+            >
               {/* Main Content Area */}
 
               <View
@@ -1950,7 +1957,7 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
+        //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -2014,9 +2021,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   gradientOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     zIndex: 5,
   },
   fullScreen2: {
@@ -2047,7 +2054,7 @@ const styles = StyleSheet.create({
   bottomArea: {
     position: "relative",
     paddingBottom: Platform.OS === "ios" ? 20 : 10,
-    zIndex: 15
+    zIndex: 15,
   },
   bottomProductCardContainer: {
     position: "relative",
