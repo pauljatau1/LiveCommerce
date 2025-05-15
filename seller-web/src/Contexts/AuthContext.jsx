@@ -367,11 +367,33 @@ function AuthProvider({ children }) {
                     data: response.data.token,
                 }));
                 dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
+                return true;
             }
         } catch (error) {
-            if (error.response.status === 401) {
-                console.log("Token is invalid", error);
-                toast.error("Token is invalid", {
+            console.log("Token validation error:", error);
+            
+            // Handle invalid token response specifically
+            if (error.response?.data?.message === "Invalid token" || error.response?.status === 401) {
+                console.log("Invalid token detected, redirecting to login");
+                
+                // Clean up auth state
+                localStorage.removeItem('sellerToken');
+                localStorage.removeItem('seller');
+                dispatch({ type: 'LOGOUT' });
+                
+                // Show error toast
+                toast.error("Session expired", {
+                    description: "Please log in again",
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+                
+                // Redirect to login
+                navigate('/login', { replace: true });
+            } else {
+                toast.error("Authentication error", {
                     description: error.response?.data?.message || error.message,
                     style: {
                         background: '#05031F',
@@ -379,6 +401,9 @@ function AuthProvider({ children }) {
                     }
                 });
             }
+            
+            dispatch({ type: 'CHECK_TOKEN_FAILED' });
+            return false;
         }
     }
 
@@ -789,8 +814,29 @@ function AuthProvider({ children }) {
                 });
             }
         } catch (error) {
-            console.log(error);
-            if (error.response?.status === 404) {
+            console.log("Fetch seller details error:", error);
+            
+            // Handle invalid token or authentication errors
+            if (error.response?.data?.message === "Invalid token" || error.response?.status === 401) {
+                console.log("Invalid token detected in fetchSellerDetails, redirecting to login");
+                
+                // Clean up auth state
+                localStorage.removeItem('sellerToken');
+                localStorage.removeItem('seller');
+                dispatch({ type: 'LOGOUT' });
+                
+                // Show error toast
+                toast.error("Session expired", {
+                    description: "Please log in again",
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+                
+                // Redirect to login page
+                navigate('/login', { replace: true });
+            } else if (error.response?.status === 404) {
                 console.log("Seller not found, clearing auth state");
                 dispatch({ type: 'BLOCKED_USER' });
                 localStorage.removeItem('sellerToken');

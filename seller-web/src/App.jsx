@@ -1,5 +1,5 @@
 import AuthProvider from './Contexts/AuthContext';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useNavigate } from 'react-router-dom';
 import { Suspense, useEffect, lazy } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
@@ -20,6 +20,7 @@ import IntercomWrapper from './Components/IntercomProvider';
 import OnboardingLayout from './Components/OnboardingLayout';
 // Import analytics utilities instead of Mixpanel directly
 import { initAllAnalytics } from './util/analytics';
+import { setupAxiosInterceptors } from './util/axiosInterceptors';
 
 // Lazy load all page components to reduce initial bundle size
 const LoginPage = lazy(() => import('./Pages/LoginPage/LoginPage'));
@@ -72,9 +73,25 @@ const Returns = lazy(() => import('./Pages/Orders/Returns'));
 const ReturnDetail = lazy(() => import('./Pages/Orders/ReturnDetail'));
 const Account = lazy(() => import('./Pages/Account/account'));
 
+// Create an AppWrapper component to use hooks and initialize interceptors
+function AppInitializer() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Setup axios interceptors with navigate function
+    setupAxiosInterceptors(navigate);
+    
+    // Initialize Mixpanel based on existing consent
+    initAllAnalytics();
+  }, [navigate]);
+
+  return null; // This component only handles initialization
+}
+
 // Create router configuration with Suspense boundary for each lazy-loaded component
 const router = createBrowserRouter([
   {
+    path: '/',
     element: (
       <AuthProvider>
         <ProtectedRoute>
@@ -84,6 +101,7 @@ const router = createBrowserRouter([
                 <TooltipProvider>
                   <Suspense fallback={<Loader />}>
                     <AppLayout />
+                    <AppInitializer />
                   </Suspense>
                 </TooltipProvider>
               </OnboardingProvider>
@@ -93,7 +111,6 @@ const router = createBrowserRouter([
       </AuthProvider>
     ),
     errorElement: <Suspense fallback={<Loader />}><NotFoundPage /></Suspense>,
-
     children: [
       {
         path: '/',
@@ -420,11 +437,6 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  useEffect(() => {
-    // Initialize Mixpanel based on existing consent
-    initAllAnalytics();
-  }, []);
-
   const handleConsentAccept = () => {
     // Get user data if available
     const seller = JSON.parse(localStorage.getItem('seller'));
@@ -466,4 +478,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
