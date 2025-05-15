@@ -557,6 +557,12 @@ const ProductsPage = () => {
                                     >
                                         Offline Auctions
                                     </button>
+                                    <NavLink
+                                        to="/dashboard/blips"
+                                        className="px-2 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-base transition-all duration-300 bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]"
+                                    >
+                                        Product Blips
+                                    </NavLink>
                                 </div>
 
                                 {/* Add Product Button - Always visible */}

@@ -626,6 +626,12 @@ const HomePage = () => {
                                 navigate('/dashboard/marketing/inbox-campaigns/list');
                                 break;
                               
+                              case 'blip_like':
+                              case 'blip_comment':
+                                // Just navigate to the blips page without opening any specific details
+                                navigate('/dashboard/blips');
+                                break;
+                              
                               default:
                                 // Default to dashboard if no specific route
                                 navigate('/dashboard/home');

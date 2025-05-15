@@ -15,6 +15,24 @@ const initialState = {
     deletedProductId: '',
     auctionProducts: [],
     isLoadingAuctions: false,
+    blips: [],
+    sellerBlipsInfo: {},
+    isLoadingBlips: false,
+    blipDetails: null,
+    blipComments: [],
+    isLoadingBlipDetails: false,
+    isLoadingBlipComments: false,
+    blipCommentsPagination: {
+        total: 0,
+        pages: 0,
+        currentPage: 1,
+        hasMore: false
+    },
+    blipsPagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalBlips: 0
+    },
     pagination: {
         currentPage: 1,
         totalPages: 1,
@@ -171,12 +189,65 @@ export const searchSellerProducts = createAsyncThunk('product/searchSellerProduc
     }
 });
 
+export const fetchSellerBlips = createAsyncThunk('product/fetchSellerBlips', async (params = { page: 1, limit: 10 }) => {
+    try {
+        const seller = JSON.parse(localStorage.getItem('seller'));
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/blips`, {
+            params: {
+                page: params.page,
+                limit: params.limit
+            }
+        });
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        console.log(error);
+        throw error;
+    }
+});
+
+export const fetchBlipDetails = createAsyncThunk('product/fetchBlipDetails', async ({ productId, blipId }) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/products/${productId}/blips/${blipId}`);
+        if (response.status === 200) {
+            console.log('Blip details response:', response.data);
+            return response.data;
+        }
+    } catch (error) {
+        console.error('Error fetching blip details:', error);
+        throw error;
+    }
+});
+
+export const fetchBlipComments = createAsyncThunk(
+    'product/fetchBlipComments', 
+    async ({ productId, blipId, page = 1, limit = 10 }) => {
+        try {
+            const response = await axios.get(
+                `${BASE_URL}/products/${productId}/blips/${blipId}/comments`, 
+                { params: { page, limit } }
+            );
+            if (response.status === 200) {
+                return response.data;
+            }
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
+    }
+);
+
 const productSlice = createSlice({
     name: "product",
     initialState,
     reducers: {
         resetResponse: (state) => {
             state.response = '';
+        },
+        clearBlipDetails: (state) => {
+            state.blipDetails = null;
+            state.blipComments = [];
         }
     },
     extraReducers: (builder) => builder.addCase(
@@ -397,9 +468,90 @@ const productSlice = createSlice({
                 }
             });
         })
+        .addCase(fetchSellerBlips.pending, (state) => {
+            state.isLoadingBlips = true;
+        })
+        .addCase(fetchSellerBlips.fulfilled, (state, action) => {
+            state.isLoadingBlips = false;
+            state.blips = action.payload.blips;
+            state.sellerBlipsInfo = action.payload.seller;
+            state.blipsPagination = {
+                currentPage: action.payload.currentPage,
+                totalPages: action.payload.totalPages,
+                totalBlips: action.payload.totalBlips
+            };
+        })
+        .addCase(fetchSellerBlips.rejected, (state, action) => {
+            state.isLoadingBlips = false;
+            state.error = action.error.message;
+            toast.error('Failed to fetch blips', {
+                description: "Please reload the page and try again",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(fetchBlipDetails.pending, (state) => {
+            state.isLoadingBlipDetails = true;
+        })
+        .addCase(fetchBlipDetails.fulfilled, (state, action) => {
+            state.isLoadingBlipDetails = false;
+            console.log('Full blip details response:', action.payload);
+            
+            // Handle different possible response structures
+            if (action.payload && action.payload.blip) {
+                // Response has the expected structure with a blip object
+                state.blipDetails = action.payload.blip;
+            } else if (action.payload && action.payload.blips && action.payload.blips.length > 0) {
+                // Response has blips in an array (actual structure from the API)
+                state.blipDetails = action.payload.blips[0];
+                console.log('Extracted blip from blips array:', action.payload.blips[0]);
+            } else if (action.payload && typeof action.payload === 'object') {
+                // Response might have the blip data directly in the payload
+                state.blipDetails = action.payload;
+            } else {
+                console.error('Unexpected blip details response structure:', action.payload);
+                state.blipDetails = null;
+            }
+            
+            console.log('Blip details stored in Redux:', state.blipDetails);
+        })
+        .addCase(fetchBlipDetails.rejected, (state, action) => {
+            state.isLoadingBlipDetails = false;
+            console.error('Error in fetchBlipDetails:', action.error);
+            state.error = action.error.message || 'Failed to fetch blip details';
+            
+            toast.error('Failed to fetch blip details', {
+                description: action.error.message || "Please try again",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(fetchBlipComments.pending, (state) => {
+            state.isLoadingBlipComments = true;
+        })
+        .addCase(fetchBlipComments.fulfilled, (state, action) => {
+            state.isLoadingBlipComments = false;
+            state.blipComments = action.payload.comments;
+            state.blipCommentsPagination = action.payload.pagination;
+        })
+        .addCase(fetchBlipComments.rejected, (state, action) => {
+            state.isLoadingBlipComments = false;
+            state.error = action.error.message;
+            toast.error('Failed to fetch blip comments', {
+                description: "Please try again",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
 });
 
-export const { resetResponse } = productSlice.actions;
+export const { resetResponse, clearBlipDetails } = productSlice.actions;
 
 export default productSlice.reducer;
 

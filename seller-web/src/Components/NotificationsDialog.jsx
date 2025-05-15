@@ -40,6 +40,9 @@ function NotificationsDialog({ notifications, onClose }) {
       case 'new_campaign':
       case 'campaign_scheduled':
         return "material-symbols:campaign-outline";
+      case 'blip_like':
+      case 'blip_comment':
+        return "material-symbols:comment-outline";
       default:
         return "material-symbols:notifications-outline";
     }
@@ -119,6 +122,12 @@ function NotificationsDialog({ notifications, onClose }) {
       case 'new_campaign':
       case 'campaign_scheduled':
         navigate('/dashboard/marketing/inbox-campaigns/list');
+        break;
+
+      case 'blip_like':
+      case 'blip_comment':
+        // Just navigate to the blips page without opening any specific details
+        navigate('/dashboard/blips');
         break;
 
       default:

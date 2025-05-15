@@ -47,6 +47,7 @@ const ProductsPage = lazy(() => import('./Pages/ProductsPage/ProductsPage'));
 const AddProduct = lazy(() => import('./Pages/ProductsPage/AddProduct'));
 const EditProduct = lazy(() => import('./Pages/ProductsPage/EditProduct'));
 const Drafts = lazy(() => import('./Pages/ProductsPage/Drafts'));
+const Blips = lazy(() => import('./Pages/ProductsPage/Blips'));
 const OrderDetails = lazy(() => import('./Pages/Orders/OrderDetails'));
 const OrdersDashboard = lazy(() => import('./Pages/Orders/Orders'));
 const MarketingPage = lazy(() => import('./Pages/MarketingPage/MarketingPage'));
@@ -302,6 +303,11 @@ const router = createBrowserRouter([
           {
             path: 'drafts',
             element: <Drafts />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'blips',
+            element: <Blips />,
             errorElement: <NotFoundPage />
           },
           {
