@@ -39,24 +39,24 @@ function LiveAuctionProductCard({
     bidTimeRemaining = "00:30"
 }: LiveAuctionProductCardProps) {
     // Memoize all calculations to prevent recalculating on every render
-    const currentBid = useMemo(() => 
-        product.currentBid || product.minBid || product.price, 
+    const currentBid = useMemo(() =>
+        product.currentBid || product.minBid || product.price,
         [product.currentBid, product.minBid, product.price]
     );
-    
-    const nextBidAmount = useMemo(() => 
-        currentBid + bidIncrement, 
+
+    const nextBidAmount = useMemo(() =>
+        currentBid + bidIncrement,
         [currentBid, bidIncrement]
     );
 
     // Memoize the price formatting function
-    const formatPriceDisplay = useMemo(() => 
+    const formatPriceDisplay = useMemo(() =>
         (price: number) => {
             if (formatPrice) {
                 return formatPrice(price);
             }
             return `₦${price.toLocaleString()}`;
-        }, 
+        },
         [formatPrice]
     );
 
@@ -85,13 +85,13 @@ function LiveAuctionProductCard({
         if (firstTagMatch && firstTagMatch[2]) {
             return firstTagMatch[2].trim();
         }
-        
+
         // Second approach: extract text between any tags
         const textMatch = product.description.match(/<[^>]*>([^<]+)<\/[^>]*>/);
         if (textMatch && textMatch[1]) {
             return textMatch[1].trim();
         }
-        
+
         // Last resort: strip all HTML tags
         return product.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     }, [product?.description]);
@@ -176,11 +176,20 @@ function LiveAuctionProductCard({
                                 styles.bidButton,
                                 isBidSending && styles.disabledBidButton
                             ]}
-                            onPress={() => onBid(nextBidAmount)}
+                            onPress={() => {
+                                if (isBidSending) return;
+                                onBid(nextBidAmount);
+                            }}
                             disabled={isBidSending}
                         >
-                            <View style={styles.bidButtonContent}>
-                                <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
+                            <View style={[styles.bidButtonContent, { backgroundColor: isBidSending ? "#444444" : "#16783A" }]}>
+                                {
+                                    isBidSending ? (
+                                        <Text style={styles.bidButtonText}>Waiting...</Text>
+                                    ) : (
+                                        <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
+                                    )
+                                }
                                 {isBidSending ? (
                                     <ActivityIndicator size="small" color="white" />
                                 ) : (
@@ -210,7 +219,7 @@ const styles = StyleSheet.create({
         marginVertical: 8,
     },
     topContainer: {
-        flexDirection: "row", 
+        flexDirection: "row",
         justifyContent: "space-between"
     },
     contentRow: {
@@ -308,8 +317,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         height: '100%',
         paddingHorizontal: 5,
-        borderRadius: 30,
-        backgroundColor: '#16783A',
+        borderRadius: 30
     },
     bidButtonText: {
         fontSize: 15,
