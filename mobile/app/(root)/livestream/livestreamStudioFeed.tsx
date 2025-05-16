@@ -1670,7 +1670,7 @@ const LivestreamStudioFeed = ({
             <View
               style={{
                 height: keyboardVisibleRef.current
-                  ? "67%"
+                  ? height - keyboardHeightRef?.current + 15
                   : height - (Platform.OS === "ios" ? insets.top + 25 : 25),
                 justifyContent: "flex-end",
               }}

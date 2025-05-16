@@ -18,7 +18,7 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
   }, []);
   return (
     <Pressable
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%]"
+      className=" bg-black rounded-lg overflow-hidden  w-[100%]"
       onPress={() => {
         if (closeSheet) {
           closeSheet();
@@ -32,40 +32,47 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
         resizeMode="cover"
         className="w-[100%] h-[157px]"
       />
-      {/* Product Details */}
       <View
-        className="w-full mb-[2px]"
         style={{
-          marginBottom: 2,
+          paddingHorizontal: 8,
+          paddingBottom: 8,
         }}
       >
-        <Text
-          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
-          numberOfLines={1}
+        {/* Product Details */}
+        <View
+          className="w-full mb-[2px]"
+          style={{
+            marginBottom: 2,
+          }}
         >
-          {item?.name}
-        </Text>
-        <View className="relative flex-row items-center gap-x-2">
-          <Text className="text-white font-LexendDecaSemiBold text-[14px]">
-            ₦
-            {(
-              item?.auction?.currentHighestBid?.amount || item?.auction?.minBid
-            ).toLocaleString()}
+          <Text
+            className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
+            numberOfLines={1}
+          >
+            {item?.name}
           </Text>
-          {/* <Text className="font-LexendDecaBold text-[#FFD700]  text-[8px]">
+          <View className="relative flex-row items-center gap-x-2">
+            <Text className="text-white font-LexendDecaSemiBold text-[14px]">
+              ₦
+              {(
+                item?.auction?.currentHighestBid?.amount ||
+                item?.auction?.minBid
+              ).toLocaleString()}
+            </Text>
+            {/* <Text className="font-LexendDecaBold text-[#FFD700]  text-[8px]">
             ₦ +1.4K Shipping{" "}
           </Text> */}
-        </View>
-        <View className="relative flex-row items-center gap-x-2 ">
-          <Text className="text-primary-200 font-LexendDeca  text-[10px]">
-            {item?.auction?.bids?.length} Bids
-          </Text>
-          <View className="w-[6px] h-[6px] bg-white rounded-full" />
-          <Text className="font-LexendDecaBold !text-[#FF6600E5]  text-[8px]">
-            {bidTime || formatTimeFromNow(item?.auction?.endDate)}
-          </Text>
-        </View>
-        {/* <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
+          </View>
+          <View className="relative flex-row items-center gap-x-2 ">
+            <Text className="text-primary-200 font-LexendDeca  text-[10px]">
+              {item?.auction?.bids?.length} Bids
+            </Text>
+            <View className="w-[6px] h-[6px] bg-white rounded-full" />
+            <Text className="font-LexendDecaBold !text-[#FF6600E5]  text-[8px]">
+              {bidTime || formatTimeFromNow(item?.auction?.endDate)}
+            </Text>
+          </View>
+          {/* <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
           {item?.auction?.currentHighestBid?.buyer?.firstName
             ? item?.auction?.currentHighestBid?.buyer?.firstName +
               " " +
@@ -73,68 +80,69 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
               " is winning"
             : "no current winner"}
         </Text> */}
-      </View>
-      {/* Seller Information */}
-      <View className="relative flex-row gap-x-2">
-        <View>
-          <Image
-            source={{ uri: item?.seller?.storeAvatar?.url }}
-            className="w-[20px] h-[20px] rounded-[10px]"
-            resizeMode="cover"
-          />
         </View>
-        <View>
-          <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            {item?.seller?.storeName}
-          </Text>
-          <View className="flex-row items-center gap-x-1">
-            {item?.seller?.isVerified && (
-              <View
-                style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 1,
-                  borderRadius: 1.5,
-                  backgroundColor: "#A0EEBD",
-                }}
-              >
-                <Text
-                  className="font-LexendDecaMedium text-[4px] "
+        {/* Seller Information */}
+        <View className="relative flex-row gap-x-2">
+          <View>
+            <Image
+              source={{ uri: item?.seller?.storeAvatar?.url }}
+              className="w-[20px] h-[20px] rounded-[10px]"
+              resizeMode="cover"
+            />
+          </View>
+          <View>
+            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+              {item?.seller?.storeName}
+            </Text>
+            <View className="flex-row items-center gap-x-1">
+              {item?.seller?.isVerified && (
+                <View
                   style={{
-                    fontSize: 5,
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 1.5,
+                    backgroundColor: "#A0EEBD",
                   }}
                 >
-                  Verified
+                  <Text
+                    className="font-LexendDecaMedium text-[4px] "
+                    style={{
+                      fontSize: 5,
+                    }}
+                  >
+                    Verified
+                  </Text>
+                </View>
+              )}
+              <View className="flex-row items-center">
+                <Image source={icons?.starIcon} />
+                <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
+                  {item?.seller?.stats?.averageRating?.toFixed(1)}
                 </Text>
               </View>
-            )}
-            <View className="flex-row items-center">
-              <Image source={icons?.starIcon} />
-              <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
-                {item?.seller?.stats?.averageRating?.toFixed(1)}
-              </Text>
             </View>
           </View>
         </View>
-      </View>
-      {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[8px]">
+        {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[8px]">
         {item?.seller?.warehouseDetails?.address.state},{" "}
         {item?.seller?.warehouseDetails?.address.country}
       </Text> */}
 
-      <CustomButton
-        textStyle="!text-[8px] !font-semibold  !py-0"
-        title={item?.auction?.status == "ended" ? "Auction Ended" : "Bid"}
-        style={{
-          opacity: item?.auction?.status == "ended" ? 0.5 : 1,
-        }}
-        className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
-        onPress={() => {
-          if (closeSheet) {
-            closeSheet();
-          }
-          router.push(`/product/${item?._id}`);
-        }}
-      />
+        <CustomButton
+          textStyle="!text-[8px] !font-semibold  !py-0"
+          title={item?.auction?.status == "ended" ? "Auction Ended" : "Bid"}
+          style={{
+            opacity: item?.auction?.status == "ended" ? 0.5 : 1,
+          }}
+          className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
+          onPress={() => {
+            if (closeSheet) {
+              closeSheet();
+            }
+            router.push(`/product/${item?._id}`);
+          }}
+        />
+      </View>
     </Pressable>
   );
 };

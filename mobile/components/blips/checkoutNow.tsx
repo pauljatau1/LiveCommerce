@@ -52,11 +52,11 @@ const paymentOptions = [
     name: "Auqli Wallet",
     description: "",
   },
-  {
-    icon: require("../../assets/icons/cod.png"),
-    name: "Cash on Delivery",
-    description: "Pay with cash on Delivery",
-  },
+  // {
+  //   icon: require("../../assets/icons/cod.png"),
+  //   name: "Cash on Delivery",
+  //   description: "Pay with cash on Delivery",
+  // },
 ];
 
 interface Props {
@@ -104,6 +104,10 @@ const CheckoutNow = ({
 
   const [paystackKey, setPaystackKey] = useState<any>();
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
+
+  const eligibleForPickup = useMemo(() => {
+    return product?.seller?.shippingInfo?.offersStorePickup;
+  }, [product, productId]);
 
   const getPaystackKey = useCallback(async () => {
     const token = await getToken();
@@ -701,52 +705,57 @@ const CheckoutNow = ({
                 Delivery Options
               </Text>
               {mockDeliveryOtions?.map((item: any, index: number) => (
-                <Pressable
-                  className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                  key={index}
-                  onPress={() => setSelectedDeliveryOpt(index)}
-                >
-                  <View className="flex-row gap-[16px] shrink items-center">
-                    {/* <Image
-                                      source={require("../../../assets/icons/delivery-icon.png")}
-                                      resizeMode="contain"
-                                      style={{ width: 23, height: 23, marginTop: 4 }}
-                                    /> */}
-                    {item?.icon}
-                    <View className="gap-[4px] shrink">
-                      <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                        {item.name}
-                      </Text>
-                      <View className="gap-[2px]">
-                        <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                          {item?.description}
-                        </Text>
-                        {/* <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
-                                        Your order will be processed and shipped with care,
-                                        ensuring delivery within the estimated timeframe.
-                                        Enjoy a smooth and hassle-free shopping experience!
-                                      </Text> */}
-                      </View>
-                    </View>
-                  </View>
-                  <View
-                    className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                <View key={index}>
+                  <Pressable
+                    className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
                     style={{
-                      borderColor:
-                        selectedDeliveryOpt == index ? "#16783A" : "#f2f2f2",
-                      borderWidth: 2,
+                      backgroundColor: "rgba(41, 41, 41, 0.81)",
+                      opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
+                    }}
+                    key={index}
+                    onPress={() => {
+                      if (!eligibleForPickup && index == 1) {
+                        return;
+                      }
+                      setSelectedDeliveryOpt(index);
                     }}
                   >
+                    <View className="flex-row gap-[16px] shrink items-center">
+                      {item?.icon}
+                      <View className="gap-[4px] shrink">
+                        <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                          {item.name}
+                        </Text>
+                        <View className="gap-[2px]">
+                          <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                            {item?.description}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
                     <View
-                      className="w-[12px] h-[12px] rounded-[12px]"
+                      className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
                       style={{
-                        backgroundColor:
-                          selectedDeliveryOpt == index ? "#16783A" : "",
+                        borderColor:
+                          selectedDeliveryOpt == index ? "#16783A" : "#f2f2f2",
+                        borderWidth: 2,
                       }}
-                    ></View>
-                  </View>
-                </Pressable>
+                    >
+                      <View
+                        className="w-[12px] h-[12px] rounded-[12px]"
+                        style={{
+                          backgroundColor:
+                            selectedDeliveryOpt == index ? "#16783A" : "",
+                        }}
+                      ></View>
+                    </View>
+                  </Pressable>
+                  {!eligibleForPickup && index == 1 && (
+                    <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
+                      * This seller does not offer store pickup
+                    </Text>
+                  )}
+                </View>
               ))}
             </View>
 
@@ -939,7 +948,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
         <View className="flex-row gap-[16px] ">
           <Image
             source={{ uri: cartItem?.images?.[0]?.url }}
-            contentFit="contain"
+            contentFit="cover"
             style={{
               width: 115,
               height: 136,
@@ -968,6 +977,12 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {cartItem?._id?.toLocaleString()}
             </Text>
+            {(cartItem?.seller?.offersStorePickup ||
+              cartItem?.seller?.shippingInfo?.offersStorePickup) && (
+              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                Store Pickup Available
+              </Text>
+            )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{
