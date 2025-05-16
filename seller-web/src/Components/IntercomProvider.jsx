@@ -1,4 +1,5 @@
 import { IntercomProvider } from 'react-use-intercom';
+import PropTypes from 'prop-types';
 
 const IntercomWrapper = ({ children }) => {
   return (
@@ -13,6 +14,10 @@ const IntercomWrapper = ({ children }) => {
       {children}
     </IntercomProvider>
   );
+};
+
+IntercomWrapper.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default IntercomWrapper; 
