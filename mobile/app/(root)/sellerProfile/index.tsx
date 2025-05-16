@@ -41,6 +41,7 @@ import Shows from "@/components/sellerProfile/shows";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -385,7 +386,7 @@ const TabScene = memo(
 
 const SellerProfile = () => {
   const { user, token } = useSelector((state: RootState) => state.authState);
-  const { sellerId, sellerAvatar } = useLocalSearchParams();
+  const { sellerId, itmSource } = useLocalSearchParams();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
@@ -398,6 +399,14 @@ const SellerProfile = () => {
     { key: 3, title: "Shows" },
     { key: 4, title: "Reviews" },
   ]);
+
+  const { displayShareDialog } = useShareAppLinks();
+
+  const shareLinkUrl = useMemo(
+    () =>
+      `https://app.auqli.live/sellerProfile?sellerId=${sellerId}&itmSource=share`,
+    [sellerId],
+  );
 
   const [seller, setSeller] = useState<any>({});
   const [profile, setProfile] = useState<any>({});
@@ -450,7 +459,7 @@ const SellerProfile = () => {
     </Animated.View>
   );
 
-  const getSellerProfile = useCallback(async () => {
+  const getSellerProfile = async () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
@@ -464,7 +473,7 @@ const SellerProfile = () => {
     } catch (error) {
       console.error("Error fetching blips:", error);
     }
-  }, []);
+  };
 
   const handleGetConversations = async () => {
     try {
@@ -552,17 +561,23 @@ const SellerProfile = () => {
           backgroundColor: "#121212",
           zIndex: 3,
           flexDirection: "row",
-          justifyContent: "center",
+          justifyContent: "space-between",
           alignItems: "center",
+          gap: 8,
         }}
       >
         <TouchableOpacity
           className=""
-          onPress={() => router.back()}
-          style={{
-            position: "absolute",
-            left: 12,
+          onPress={() => {
+            if (itmSource?.toString() == "share") {
+              return router.push("/(root)/(tabs)/home/home");
+            }
+            router.back();
           }}
+          // style={{
+          //   position: "absolute",
+          //   left: 12,
+          // }}
         >
           <Entypo
             name="chevron-left"
@@ -571,7 +586,7 @@ const SellerProfile = () => {
           />
         </TouchableOpacity>
         <View
-          className="flex-row items-center gap-[8px]"
+          className="flex-row items-center gap-[8px] shrink"
           style={{ alignItems: "center" }}
         >
           {seller?.storeInfo?.isFeatured && (
@@ -587,8 +602,10 @@ const SellerProfile = () => {
             </View>
           )}
 
-          <View>
-            <Text style={styles.userName}>{storeName}</Text>
+          <View className="shrink">
+            <Text style={styles.userName} numberOfLines={1}>
+              {storeName}
+            </Text>
           </View>
 
           {seller?.reviews?.averageRating > 0 && (
@@ -601,7 +618,7 @@ const SellerProfile = () => {
           )}
         </View>
 
-        {/* <View
+        <View
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -609,16 +626,14 @@ const SellerProfile = () => {
           }}
         >
           <TouchableOpacity
-            onPress={() => null}
+            onPress={() => {
+              displayShareDialog(shareLinkUrl);
+            }}
             className="items-center gap-[2px]"
           >
-            <MaterialCommunityIcons
-              name="dots-vertical-circle-outline"
-              size={24}
-              color="#ccc"
-            />
+            <Entypo name="share" size={20} color="#ccc" />
           </TouchableOpacity>
-        </View> */}
+        </View>
       </View>
 
       <ScrollView

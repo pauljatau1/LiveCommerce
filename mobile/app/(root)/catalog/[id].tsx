@@ -138,7 +138,7 @@ const CatalogHeader = memo(
           onPress={() =>
             router.push({
               pathname: "/(root)/(modals)/search",
-              params: { searchTab },
+              params: { searchTab, prevQuery: searchQuery },
             })
           }
         >
@@ -148,7 +148,7 @@ const CatalogHeader = memo(
             color="#909090"
             className={Platform.OS === "android" ? "mt-[-2px]" : ""}
           />
-          <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
+          <Text className="text-[14px] text-[#fff] font-LexendDecaLight">
             {searchQuery}
           </Text>
         </Pressable>

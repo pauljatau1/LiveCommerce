@@ -155,6 +155,17 @@ const CollapsibleHeader = memo(
                   <Text className="text-white font-LexendDeca text-[10px]">
                     Share Profile
                   </Text>
+                  <Image
+                    source={require("../../../assets/icons/coming-soon.png")}
+                    style={{
+                      width: 56,
+                      height: 22,
+                      position: "absolute",
+                      right: -15,
+                      top: -15,
+                    }}
+                    contentFit="contain"
+                  />
                 </Pressable>
                 <Pressable
                   className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px] bg-[#16783A]"

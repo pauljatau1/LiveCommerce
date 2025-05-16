@@ -7,12 +7,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { Link, useLocalSearchParams } from "expo-router";
-import { useVerifyEmailMutation } from "@/services/auth";
+import {
+  useResendEmailOTPMutation,
+  useVerifyEmailMutation,
+} from "@/services/auth";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "@/core/toast";
 import { router } from "expo-router";
@@ -20,6 +23,7 @@ import { icons } from "@/constants";
 import { OtpInput } from "react-native-otp-entry";
 import CustomButton from "@/components/global/button/CustomButton";
 import LoadingModal from "@/components/global/loading-modal";
+import axios from "axios";
 
 const VerifyCodeOtp = () => {
   const params = useLocalSearchParams();
@@ -41,9 +45,24 @@ const VerifyCodeOtp = () => {
 
   const data = watch();
 
-  // const [resendEmailOTP, { isFetching }] = useLazyResendEmailOTPQuery();
-
   const [verify, { isLoading }] = useVerifyEmailMutation();
+
+  const resendOtp = async (actioned: boolean) => {
+    try {
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/resend-otp`,
+        {
+          email,
+        },
+      );
+      if (actioned) {
+        toast.success("OTP has been Resent");
+      }
+    } catch (error: any) {
+      console.log(error);
+      toast.error(error.data.message);
+    }
+  };
 
   const onSubmit = async () => {
     try {
@@ -62,6 +81,10 @@ const VerifyCodeOtp = () => {
       toast.error(error.data.message);
     }
   };
+
+  useEffect(() => {
+    resendOtp(false);
+  }, []);
 
   return (
     <>
@@ -89,12 +112,12 @@ const VerifyCodeOtp = () => {
                 We sent a code to you at {"\n"}
                 {email}
               </Text>
-              <Link
+              {/* <Link
                 href={"/(root)/(auth)/sign-up"}
                 className="text-center text-[10px] font-LexendDecaMedium underline text-primary-100 mt-2"
               >
                 Change email
-              </Link>
+              </Link> */}
             </View>
           </View>
           <Controller
@@ -135,7 +158,11 @@ const VerifyCodeOtp = () => {
             <Text className="font-LexendDeca text-sm text-gray-200">
               Didn’t receive any OTP code?
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                resendOtp(true);
+              }}
+            >
               <Text className="underline text-gray-200 text-base font-LexendDecaBold pl-1">
                 Resend code
               </Text>
