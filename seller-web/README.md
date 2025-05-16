@@ -6,7 +6,7 @@ A modern React project bootstrapped with Vite for optimal development experience
 
 - ⚡️ Lightning-fast development server with HMR (Hot Module Replacement)
 - 🔧 Out-of-the-box ESLint configuration
-- ⚛️ React 18+ support
+- ⚛️ React 18+ support 
 - 📦 Efficient build optimization
 - 🎯 TypeScript support (if configured)
 
