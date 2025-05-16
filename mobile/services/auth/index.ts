@@ -40,11 +40,8 @@ export const auth = createApi({
     verifyEmail: builder.mutation<VerifyEmailResponse, VerifyEmailRequest>({
       query: (credentials) => postRequest("/buyer/verify-otp", credentials),
     }),
-    resendEmailOTP: builder.query<
-      ResendEmailOTPResponse,
-      ResendEmailOTPRequest
-    >({
-      query: (credentials) => getRequest("/resendEmailOtp", credentials),
+    resendEmailOTP: builder.mutation<any, any>({
+      query: (credentials) => postRequest("/buyer/resend-otp", credentials),
     }),
     forgotPassword: builder.mutation<
       ForgotPasswordResponse,
@@ -78,4 +75,5 @@ export const {
   useResetPasswordMutation,
   useRequestDeleteMutation,
   useConfirmDeleteMutation,
+  useResendEmailOTPMutation,
 } = auth;

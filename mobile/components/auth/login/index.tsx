@@ -24,6 +24,7 @@ import { useLoginMutation } from "@/services/auth";
 import {
   getToken,
   setPassword,
+  setToken,
   setUserEmail,
 } from "@/store/features/auth/utils";
 import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
@@ -31,6 +32,7 @@ import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import LoadingModal from "@/components/global/loading-modal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -78,6 +80,16 @@ const Login = () => {
         password,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
+      if (!result?.user?.emailVerified) {
+        await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+        return router.push({
+          pathname: "/(root)/(auth)/verify-code",
+          params: {
+            email,
+            fromLogin: "true",
+          },
+        });
+      }
       dispatch(signIn(result));
       setPassword(password);
       setUserEmail(email);
