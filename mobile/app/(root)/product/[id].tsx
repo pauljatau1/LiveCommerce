@@ -397,7 +397,7 @@ const ProductDescription = () => {
   }, [isFocused]);
 
   useEffect(() => {
-    scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
+    // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
 
     if (productDetails?.seller?._id) {
       getSellerInfo(productDetails.seller._id);

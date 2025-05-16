@@ -10,6 +10,7 @@ const Layout = () => {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(categories)" options={{ headerShown: false }} />
       <Stack.Screen
+        getId={({ params }) => Math.random().toString(36).substring(7)}
         name="product/[id]"
         options={{
           headerTitle: "",

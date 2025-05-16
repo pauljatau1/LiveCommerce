@@ -150,7 +150,7 @@ const CartItem = memo(
             <View>
               <Image
                 source={{ uri: cartItem?.images[0].url }}
-                resizeMode="contain"
+                resizeMode="cover"
                 className="w-[115px] h-[136px] rounded-[5px]"
                 style={
                   {
@@ -218,6 +218,14 @@ const CartItem = memo(
                 >
                   <AntDesign name="plus" size={14} color="black" />
                 </TouchableOpacity>
+              </View>
+              <View>
+                {(cartItem?.seller?.offersStorePickup ||
+                  cartItem?.seller?.shippingInfo?.offersStorePickup) && (
+                  <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                    Store Pickup Available
+                  </Text>
+                )}
               </View>
               <View
                 className="flex-row justify-between items-center gap-8 mt-[4px] w-full"
