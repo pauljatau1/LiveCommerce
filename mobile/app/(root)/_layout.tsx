@@ -1,9 +1,11 @@
+import useInitializeAuthState from "@/hooks/useInitializeAuthState";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack } from "expo-router";
 import { TouchableOpacity, View, Text } from "react-native";
 
 const Layout = () => {
+  useInitializeAuthState();
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

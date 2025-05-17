@@ -385,7 +385,7 @@ const TabScene = memo(
 );
 
 const SellerProfile = () => {
-  const { user, token } = useSelector((state: RootState) => state.authState);
+  const { user } = useSelector((state: RootState) => state.authState);
   const { sellerId, itmSource } = useLocalSearchParams();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -460,6 +460,7 @@ const SellerProfile = () => {
   );
 
   const getSellerProfile = async () => {
+    const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
@@ -476,6 +477,7 @@ const SellerProfile = () => {
   };
 
   const handleGetConversations = async () => {
+    const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/conversations",
@@ -492,6 +494,7 @@ const SellerProfile = () => {
   };
 
   const handleSendMessage = async () => {
+    const token = await getToken();
     try {
       router.push({
         pathname: `../(root)/messageRoom/${sellerId}`,

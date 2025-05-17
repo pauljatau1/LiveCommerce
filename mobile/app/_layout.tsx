@@ -19,6 +19,7 @@ import {
   SafeAreaProvider,
 } from "react-native-safe-area-context";
 import { ToastProvider } from "@/contexts/ToastContext";
+import useInitializeAuthState from "@/hooks/useInitializeAuthState";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -29,6 +30,7 @@ export default function RootLayout() {
 }
 function RootLayoutNav() {
   const router = useRouter();
+
   const [loaded] = useFonts({
     LexendDeca: require("../assets/fonts/LexendDeca-Regular.ttf"),
     "LexendDeca-Black": require("../assets/fonts/LexendDeca-Black.ttf"),
@@ -54,7 +56,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      handleDeepLink();
+      // handleDeepLink();
     }
   }, [loaded]);
 

@@ -10,7 +10,7 @@ import * as SplashScreen from "expo-splash-screen";
 
 const Home = () => {
   const { expoPushToken } = usePushNotifications();
-  useInitializeAuthState();
+  // useInitializeAuthState();
   console.log("expoPushToken", expoPushToken);
 
   useEffect(() => {
