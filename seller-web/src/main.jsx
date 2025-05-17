@@ -2,16 +2,15 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux';
 import './index.css'
-import App from './App.jsx';
+import AppWithErrorBoundary from './AppWithErrorBoundary.jsx';
 import store from './Redux/Store';
 import { LivestreamSocketProvider } from './Contexts/LivestreamSocketContext';
-
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
       <LivestreamSocketProvider>
-        <App />
+        <AppWithErrorBoundary />
       </LivestreamSocketProvider>
     </Provider>
   </StrictMode>,

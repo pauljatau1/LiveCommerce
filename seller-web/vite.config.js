@@ -2,6 +2,7 @@ import path from "path"
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { fileURLToPath } from 'url'
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // Define __dirname equivalent for ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -10,9 +11,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   server: {
     host: "0.0.0.0",
-    allowedHosts: ["seller.staging.auqli.live", "seller.production.auqli.live", "seller.auqli.live"]
+    allowedHosts: ["seller.staging.auqli.live", "seller.production.auqli.live", "seller.auqli.live"],
+      watch: {
+      usePolling: true,
+    },
   },
-  plugins: [react()],
+  plugins: [
+    react(),
+    sentryVitePlugin({
+      org: "commercejet",
+      project: "auqli-seller",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      release: process.env.VITE_RELEASE_HASH,
+      telemetry: false,
+    })
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -61,7 +74,8 @@ export default defineConfig({
           ]
         }
       }
-    }
+    },
+    sourcemap: true,
   },
   esbuild: {
     drop: ['console', 'debugger'], // Remove console and debugger statements in production

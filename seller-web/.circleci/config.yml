@@ -74,6 +74,8 @@ commands:
           command: |
             npm install
             npm run build
+          environment:
+            VITE_RELEASE_HASH: $CIRCLE_SHA1
       - store_artifacts:
           path: package-lock.json
       - save_cache:
