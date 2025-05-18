@@ -3368,4 +3368,24 @@ router.delete('/platform-notifications/:id',
   adminController.deletePlatformNotification
 );
 
+/**
+ * @swagger
+ * /api/admin/notifications/cleanup-tokens:
+ *   post:
+ *     summary: Clean up invalid push notification tokens
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token cleanup completed successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/notifications/cleanup-tokens', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.cleanupPushTokens
+);
+
 module.exports = router;

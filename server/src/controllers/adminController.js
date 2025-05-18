@@ -6872,7 +6872,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     // Get all buyers with expo push tokens
     const buyers = await Buyer.find(
       { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
-      'expoPushToken'
+      'expoPushToken email'
     );
     
     if (!buyers || buyers.length === 0) {
@@ -6884,6 +6884,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     
     // Create messages array
     const messages = [];
+    const buyersByToken = {};
     
     // Add message for each buyer with a valid token
     for (const buyer of buyers) {
@@ -6891,7 +6892,12 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
       
       // Check if the push token is valid
       if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
-        console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token`);
+        console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token for buyer ${buyer._id}`);
+        // Update buyer record to clear invalid token
+        await Buyer.updateOne(
+          { _id: buyer._id },
+          { $unset: { expoPushToken: "" } }
+        );
         continue;
       }
       
@@ -6901,8 +6907,18 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         sound: 'default',
         title: title,
         body: body,
-        data: { ...data, type: 'platform_notification' }
+        data: { ...data, type: 'platform_notification' },
+        priority: 'high',
+        channelId: 'default',
       });
+      
+      // Store buyer info for error tracking
+      buyersByToken[buyer.expoPushToken] = buyer;
+    }
+    
+    if (messages.length === 0) {
+      console.log('No valid push tokens found after validation');
+      return;
     }
     
     // Chunk the messages array to follow Expo's guidelines
@@ -6910,26 +6926,96 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     
     // Send each chunk
     const tickets = [];
+    let successCount = 0;
+    let errorCount = 0;
+    
     for (const chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
-        console.log('Push notification chunk sent:', ticketChunk);
+        console.log(`Push notification chunk sent: ${ticketChunk.length} messages`);
       } catch (error) {
         console.error('Error sending push notification chunk:', error);
+        errorCount += chunk.length;
       }
     }
     
-    // Process tickets (For debugging/handling errors)
+    // Process tickets and handle failed tokens
+    const receiptIds = [];
+    const tokensToRemove = [];
+    
     tickets.forEach((ticket, index) => {
-      if (ticket.status === 'error') {
-        console.error(`Push notification to ${messages[index]?.to} failed:`, ticket.message);
+      const targetToken = messages[index]?.to;
+      const buyer = buyersByToken[targetToken];
+      
+      if (ticket.status === 'ok') {
+        successCount++;
+        if (ticket.id) {
+          receiptIds.push(ticket.id);
+        }
+      } else if (ticket.status === 'error') {
+        errorCount++;
+        console.error(`Push notification to ${targetToken} failed:`, ticket.message);
+        
+        // Check for specific error types that indicate we should remove the token
+        if (
+          ticket.details?.error === 'DeviceNotRegistered' ||
+          ticket.details?.error === 'InvalidCredentials' ||
+          ticket.details?.error === 'MessageTooBig' ||
+          ticket.details?.error === 'MessageRateExceeded'
+        ) {
+          console.log(`Removing invalid token for buyer ${buyer?._id || 'unknown'}`);
+          if (buyer && buyer._id) {
+            tokensToRemove.push(buyer._id);
+          }
+        }
       }
     });
     
-    return tickets;
+    // Remove invalid tokens in bulk
+    if (tokensToRemove.length > 0) {
+      try {
+        const result = await Buyer.updateMany(
+          { _id: { $in: tokensToRemove } },
+          { $unset: { expoPushToken: "" } }
+        );
+        console.log(`Removed ${result.modifiedCount} invalid tokens from database`);
+      } catch (error) {
+        console.error('Error removing invalid tokens:', error);
+      }
+    }
+    
+    // Optionally check for receipts (can be used to confirm delivery)
+    // This helps with debugging delivery issues
+    if (receiptIds.length > 0 && process.env.CHECK_NOTIFICATION_RECEIPTS === 'true') {
+      try {
+        setTimeout(async () => {
+          const receiptChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+          for (const chunk of receiptChunks) {
+            const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+            console.log('Notification delivery receipts:', receipts);
+          }
+        }, 5000); // Check after 5 seconds
+      } catch (error) {
+        console.error('Error checking notification receipts:', error);
+      }
+    }
+    
+    console.log(`Push notification summary: ${successCount} sent successfully, ${errorCount} failed`);
+    
+    return {
+      success: true,
+      totalBuyers: buyers.length,
+      validTokens: messages.length,
+      successCount,
+      errorCount
+    };
   } catch (error) {
     console.error('Error in sendPushNotificationsToAllBuyers:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -6959,7 +7045,7 @@ exports.createPlatformNotification = async (req, res) => {
 
     // Send push notifications to all buyers if the notification is active
     if (platformNotification.isActive) {
-      await sendPushNotificationsToAllBuyers(
+      const notificationResult = await sendPushNotificationsToAllBuyers(
         platformNotification.title,
         platformNotification.content,
         {
@@ -6967,6 +7053,8 @@ exports.createPlatformNotification = async (req, res) => {
           type: platformNotification.type
         }
       );
+      
+      console.log('Push notification result:', notificationResult);
     }
 
     res.status(201).json({
@@ -7093,7 +7181,7 @@ exports.updatePlatformNotification = async (req, res) => {
     
     // If notification was inactive and is now being activated, send push notification
     if (wasInactive && willBeActive) {
-      await sendPushNotificationsToAllBuyers(
+      const notificationResult = await sendPushNotificationsToAllBuyers(
         notification.title,
         notification.content,
         {
@@ -7101,6 +7189,8 @@ exports.updatePlatformNotification = async (req, res) => {
           type: notification.type
         }
       );
+      
+      console.log('Push notification result:', notificationResult);
     }
     
     res.json({
@@ -7139,6 +7229,66 @@ exports.deletePlatformNotification = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete platform notification',
+      error: error.message
+    });
+  }
+};
+
+// Clean up invalid push tokens
+exports.cleanupPushTokens = async (req, res) => {
+  try {
+    const buyers = await Buyer.find(
+      { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
+      'expoPushToken'
+    );
+    
+    if (!buyers || buyers.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No push tokens found to clean up',
+        counts: {
+          total: 0,
+          invalid: 0,
+          removed: 0
+        }
+      });
+    }
+    
+    // Check each token for validity
+    const invalidTokens = [];
+    for (const buyer of buyers) {
+      if (!buyer.expoPushToken) continue;
+      
+      if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
+        invalidTokens.push(buyer._id);
+      }
+    }
+    
+    let removedCount = 0;
+    if (invalidTokens.length > 0) {
+      // Remove invalid tokens
+      const result = await Buyer.updateMany(
+        { _id: { $in: invalidTokens } },
+        { $unset: { expoPushToken: "" } }
+      );
+      removedCount = result.modifiedCount;
+    }
+    
+    // Return cleanup stats
+    res.json({
+      success: true,
+      message: `Push token cleanup completed`,
+      counts: {
+        total: buyers.length,
+        invalid: invalidTokens.length,
+        removed: removedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error cleaning up push tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clean up push tokens',
       error: error.message
     });
   }
