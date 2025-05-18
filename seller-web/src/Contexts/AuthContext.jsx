@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { trackEvent, identifyUser } from "../util/analytics";
+import { trackEvent, identifyUserMixpanel, identifyUserCustomerIO } from "../util/analytics";
 import { getClientIP } from '../Utilities/networkUtils';
 import { useIntercomChat } from '../Hooks/useIntercom';
 
@@ -251,18 +251,18 @@ function AuthProvider({ children }) {
                 try {
                     const userData = {
                         "Seller ID": response.data.user._id,
-                        "Seller Email": email,
-                        "Seller Full Name": `${firstName} ${lastName}`,
+                        "$email": email,                           // Use reserved property
+                        "$name": `${firstName} ${lastName}`,       // Use reserved property
                         "Seller Phone Number": phoneNumber,
                         "Seller Store Name": storeName,
-                        "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
+                        "Signup Method": "Email",
                         "Referral Used": response.data.referralUsed ? "Yes" : "No",
                         "Referrer ID": response.data.referrerId || "None",
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     };
                     
-                    await identifyUser(response.data.user._id, userData);
+                    await identifyUserMixpanel(response.data.user._id, userData);
                     await trackEvent("Seller Signed Up", userData);
                     
                     // Track seller account creation with Customer.io
@@ -585,7 +585,7 @@ function AuthProvider({ children }) {
                         };
                         
                         // Identify user
-                        await identifyUser(response?.data?.user?._id, userTraits);
+                        await identifyUserMixpanel(response?.data?.user?._id, userTraits);
                         
                         // Track login event with device context and IP
                         await trackEvent("Seller Login", {
