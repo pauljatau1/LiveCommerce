@@ -217,12 +217,9 @@ const LivestreamStudio = () => {
                     try {
                         console.log(`📷 [DEVICE] Attempting to access camera/mic (attempt ${retryCount + 1})`);
 
+                        // Use less restrictive constraints to accommodate external webcams
                         const stream = await navigator.mediaDevices.getUserMedia({
-                            video: {
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 },
-                                frameRate: { ideal: 30 }
-                            },
+                            video: true, // Simplified to allow any video source
                             audio: {
                                 echoCancellation: true,
                                 noiseSuppression: true,
