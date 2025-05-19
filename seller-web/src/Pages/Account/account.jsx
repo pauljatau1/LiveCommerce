@@ -4,7 +4,7 @@ import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, AlertTriangle } from "lucide-react";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, AlertTriangle, Copy, Link2 } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server";
@@ -20,6 +20,7 @@ import VerificationModal from "../../Components/VerificationModal";
 import VerificationDialog from "../../Components/VerificationDialog";
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ui/tooltip";
 
 export default function AccountPage() {
   const { setHeaderName } = useOutletContext();
@@ -312,6 +313,24 @@ export default function AccountPage() {
     setVerificationDialogOpen(true);
   };
 
+  const handleCopyProfileLink = () => {
+    if (profile?._id) {
+      const profileUrl = `https://app.auqli.live/sellerProfile?sellerId=${profile._id}&itmSource=share`;
+      navigator.clipboard.writeText(profileUrl)
+        .then(() => {
+          toast.success("Profile link copied to clipboard");
+          trackEvent("Seller Copied Profile Link", {
+            "seller id": profile._id,
+            "seller store name": profile.storeName,
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to copy link:", error);
+          toast.error("Failed to copy link to clipboard");
+        });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -523,15 +542,36 @@ export default function AccountPage() {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 sm:mt-0 hover:bg-green-600/10 hover:text-green-600 text-xs sm:text-sm self-start h-8 sm:h-9"
-                onClick={() => navigate('/dashboard/settings')}
-              >
-                <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                Edit Profile
-              </Button>
+              <div className="flex items-center gap-2 mt-2 sm:mt-0 self-start">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                       
+                        size="sm"
+                        className="hover:bg-green-600/10 hover:text-green-600 text-blue-600 border border-blue-600 bg-blue-50 text-xs sm:text-sm h-8 sm:h-9"
+                        onClick={handleCopyProfileLink}
+                      >
+                        <Link2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                        Copy Profile Link
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Share this link with buyers to find your profile in the app</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hover:bg-green-600/10 hover:text-green-600 border border-gray-800 text-xs sm:text-sm h-8 sm:h-9"
+                  onClick={() => navigate('/dashboard/settings')}
+                >
+                  <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                  Edit Profile
+                </Button>
+              </div>
             </div>
 
             {/* Description */}

@@ -114,14 +114,14 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
 
   const desktopGoLiveButton = (
     <>
-      <div className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out">
+      <div 
+        onClick={() => navigate('/dashboard/live-streams/live-stream')}
+        className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out"
+      >
         <Icon icon="mdi:record" className="h-4 w-4 animate-pulse" color="#ffffff" />
-        <button
-          onClick={() => navigate('/dashboard/live-streams/live-stream')}
-          className="inline-flex items-center font-lexend  border border-transparent text-sm font-medium text-[#ffffff] "
-        >
+        <span className="inline-flex items-center font-lexend border border-transparent text-sm font-medium text-[#ffffff]">
           Go Live
-        </button>
+        </span>
       </div>
       <button
         onClick={() => navigate('/dashboard/live-streams')}
@@ -129,7 +129,6 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
         <Icon icon="material-symbols:screen-record" className="h-4 w-4 animate-pulse" color="#ffffff" />
       </button>
     </>
-
   )
 
   const desktopNotificationsButton = (

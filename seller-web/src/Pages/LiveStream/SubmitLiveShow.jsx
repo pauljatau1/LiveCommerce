@@ -280,7 +280,7 @@ const SubmitLiveShow = () => {
                                 <div className="bg-blue-50 rounded-lg p-4 space-y-2">
                                     <h3 className="text-sm font-medium text-blue-800">Key reminder</h3>
                                     <p className="text-sm text-blue-600">
-                                        Your scheduled show will be visible to all users in BAYO. It is recommended to login 1hr before your show to setup your studio by providing your stream URL and Stream Key. Test your audio, video and playback before going live! Happy streaming!
+                                        Your scheduled show will be visible to users. It is recommended to login 1hr before your show to setup your studio by providing your stream URL and Stream Key. Test your audio, video and playback before going live! Happy streaming!
                                     </p>
                                 </div>
                             </div>
@@ -316,7 +316,7 @@ const SubmitLiveShow = () => {
                             disabled={isLoading || selectedProducts.length === 0}
                             className="px-6 w-[200px] whitespace-nowrap py-2.5 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50"
                         >
-                            {isLoading ? <CircularProgress size={20} color="#fff" /> : 'Schedule Live Show'}
+                            {isLoading ? <CircularProgress size={20} color="#fff" /> : shouldStartImmediately ? 'Start Now' : 'Schedule Live Show'}
                         </button>
                     </div>
                 </div>

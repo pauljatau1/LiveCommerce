@@ -138,11 +138,6 @@ const CreateLiveAuction = () => {
     setFilteredTags(allTags);
   }, []);
 
-  // Cleanup on mount - reset livestream data
-  useEffect(() => {
-    livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
-  }, [livestreamDispatch]);
-
   // Filter tags based on search input
   useEffect(() => {
     if (searchTag.trim() === '') {
@@ -1335,7 +1330,7 @@ const CreateLiveAuction = () => {
                           <input
                             type="text"
                             min="0"
-                            value={isSelected ? (livestream.selectedProducts.find(p => p.productId === product.productId)?.minBid || product.minBid).toLocaleString() : product.minBid ? product.minBid.toLocaleString() : ''}
+                            value={isSelected ? (livestream?.selectedProducts?.find(p => p.productId === product?.productId)?.minBid || product?.minBid)?.toLocaleString() : product?.minBid ? product?.minBid?.toLocaleString() : ''}
                             disabled={!isSelected}
                             onChange={(e) => {
                               const value = e.target.value.replace(/,/g, '');
@@ -1352,7 +1347,7 @@ const CreateLiveAuction = () => {
                           <input
                             type="text"
                             min="0"
-                            value={isSelected ? (livestream.selectedProducts.find(p => p.productId === product.productId)?.maxBid || 0).toLocaleString() : ''}
+                            value={isSelected ? (livestream?.selectedProducts?.find(p => p.productId === product?.productId)?.maxBid || 0)?.toLocaleString() : ''}
                             disabled={!isSelected}
                             onChange={(e) => {
                               const value = e.target.value.replace(/,/g, '');

@@ -34,8 +34,19 @@ const LoginPage = () => {
 
 
   useEffect(() => {
+    // Clear any token error handling flags to prevent error messages
+    localStorage.removeItem('tokenErrorHandled');
+    
+    // If user is coming to login page directly, we can clear any stale tokens
+    // but don't show error messages
+    const wasRedirected = document.referrer.includes(window.location.host);
+    if (!wasRedirected) {
+      localStorage.removeItem('sellerToken');
+      localStorage.removeItem('seller');
+    }
+    
     initVisitor();
-  }, [])
+  }, []);
 
 
   useEffect(() => {

@@ -120,20 +120,42 @@ export const initCustomerIO = async () => {
  * @param {Object} properties - Event properties
  */
 export const trackEvent = async (eventName, properties = {}) => {
+  // Don't proceed without an event name
+  if (!eventName) {
+    console.warn('trackEvent called without an event name');
+    return;
+  }
+  
   try {
     // Ensure Mixpanel is initialized
     if (!mixpanelInstance) {
       await ensureInitialized();
     }
     
-    // Mixpanel tracking (with safeguards)
-    if (mixpanelInstance && typeof mixpanelInstance.track === 'function') {
-      mixpanelInstance.track(eventName, properties);
+    // Mixpanel tracking (with enhanced safeguards)
+    if (mixpanelInstance) {
+      try {
+        if (typeof mixpanelInstance.track === 'function') {
+          mixpanelInstance.track(eventName, properties);
+        }
+      } catch (mpError) {
+        console.error('Error tracking event with Mixpanel:', mpError);
+        // Continue with other services
+      }
     }
     
-    // Customer.io tracking (with safeguards)
-    if (window.cioanalytics && typeof window.cioanalytics.track === 'function') {
-      window.cioanalytics.track(eventName, properties);
+    // Customer.io tracking (with enhanced safeguards)
+    if (window.cioanalytics) {
+      try {
+        if (typeof window.cioanalytics.track === 'function') {
+          // Add small delay to allow identification to complete if recently called
+          setTimeout(() => {
+            window.cioanalytics.track(eventName, properties);
+          }, 100);
+        }
+      } catch (cioError) {
+        console.error('Error tracking event with Customer.io:', cioError);
+      }
     }
   } catch (error) {
     console.error('Error tracking event:', error);
@@ -147,33 +169,64 @@ export const trackEvent = async (eventName, properties = {}) => {
  * @param {Object} traits - User traits/properties
  */
 export const identifyUser = async (userId, traits = {}) => {
+  // Don't proceed with invalid userId
+  if (!userId) {
+    console.warn('identifyUser called with invalid userId');
+    return;
+  }
+  
   try {
     // Ensure services are initialized
     if (!mixpanelInstance) {
       await ensureInitialized();
     }
     
-    // Mixpanel identify (with safeguards)
+    // Mixpanel identify (with additional safeguards)
     if (mixpanelInstance) {
-      if (typeof mixpanelInstance.identify === 'function') {
-        mixpanelInstance.identify(userId);
-      }
-      
-      if (mixpanelInstance.people && typeof mixpanelInstance.people.set === 'function') {
-        mixpanelInstance.people.set(traits);
+      try {
+        if (typeof mixpanelInstance.identify === 'function') {
+          mixpanelInstance.identify(userId);
+        }
+        
+        if (mixpanelInstance.people && 
+            typeof mixpanelInstance.people.set === 'function' && 
+            mixpanelInstance.people.set !== undefined) {
+          // Extra check for load_prop
+          if (mixpanelInstance.people && 
+              mixpanelInstance.people.__loaded !== false && 
+              mixpanelInstance.people.load_prop === undefined) {
+            // Create a dummy load_prop if missing to prevent errors
+            mixpanelInstance.people.load_prop = () => {};
+          }
+          
+          mixpanelInstance.people.set(traits);
+        }
+      } catch (mpError) {
+        console.error('Error in Mixpanel identification:', mpError);
+        // Continue with other analytics services
       }
     }
     
     // Customer.io identify (with safeguards)
-    if (window.cioanalytics && typeof window.cioanalytics.identify === 'function') {
-      window.cioanalytics.identify(userId, traits);
+    if (window.cioanalytics) {
+      try {
+        if (typeof window.cioanalytics.identify === 'function') {
+          window.cioanalytics.identify(userId, traits);
+        }
+      } catch (cioError) {
+        console.error('Error in Customer.io identification:', cioError);
+      }
     }
     
     // Clarity identify
-    await initClarity({
-      id: userId,
-      ...traits
-    });
+    try {
+      await initClarity({
+        id: userId,
+        ...traits
+      });
+    } catch (clarityError) {
+      console.error('Error in Clarity identification:', clarityError);
+    }
   } catch (error) {
     console.error('Error identifying user:', error);
     // Fail silently in production

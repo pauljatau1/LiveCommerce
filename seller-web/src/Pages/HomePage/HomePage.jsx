@@ -15,6 +15,7 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
 import AnnouncementCard from "../../Components/AnnouncementCard";
 import DashboardSkeleton from "../../Components/ui/DashboardSkeleton";
+import DisabledAccountDialog from "../../Components/DisabledAccountDialog";
 import axios from "axios";
 import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
@@ -31,6 +32,7 @@ import Skeleton from 'react-loading-skeleton';
 import VerificationDialog from "../../Components/VerificationDialog";
 import AuqliUniversity from "../../Components/AuqliUniversity";
 import { toast } from "sonner";
+import { handleApiError } from "../../util/tokenValidation";
 
 
 
@@ -47,6 +49,10 @@ const formatMetricValue = (value) => {
 const getSellerAnalytics = async () => {
   try {
     const token = localStorage.getItem('sellerToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
     const { data: authToken } = JSON.parse(token);
 
     const response = await axios.get(
@@ -58,7 +64,8 @@ const getSellerAnalytics = async () => {
     return response.data;
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    return null;
+    // Let the parent function handle the error for consistent token validation
+    throw error;
   }
 };
 
@@ -67,7 +74,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
-  const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
+  const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications, logout, isAccountDisabled } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
   // State management for dashboard data and UI
@@ -80,6 +87,7 @@ const HomePage = () => {
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   useEffect(() => {
     setHeaderName("Dashboard")
@@ -141,6 +149,26 @@ const HomePage = () => {
     setShowVerificationDialog(false);
   };
 
+  // Check for disabled account
+  useEffect(() => {
+    if (isAccountDisabled) {
+      // Add a small delay to ensure the page is fully loaded
+      // before showing the dialog to prevent analytics errors
+      const timer = setTimeout(() => {
+        setShowDisabledDialog(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAccountDisabled]);
+
+  // Handler for when the disabled account dialog is closed
+  const handleCloseDisabledDialog = () => {
+    setShowDisabledDialog(false);
+    // Log the user out when they close the dialog
+    logout();
+  };
+
   // Main data fetching effect with loading optimization
   useEffect(() => {
     const controller = new AbortController();
@@ -150,57 +178,90 @@ const HomePage = () => {
       try {
         setIsDataLoading(true);
 
+        // Add a timeout to abort the request if it takes too long
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          console.log('Dashboard data fetch timed out, showing placeholder data');
+          
+          // Show minimal UI with placeholder data rather than blocking the dashboard
+          setIsDataReady(true);
+          setIsDataLoading(false);
+        }, 10000); // 10 second timeout
+
         // Authentication setup
         const token = localStorage.getItem('sellerToken');
+        if (!token) {
+          navigate('/login', { replace: true });
+          clearTimeout(timeoutId);
+          return;
+        }
+        
         const { data: authToken } = JSON.parse(token);
         const seller = JSON.parse(localStorage.getItem('seller'));
 
         // Split API calls into critical and non-critical data
-        const [analyticsResponse, ordersResponse] = await Promise.all([
-          getSellerAnalytics(),
-          axios.get(
-            `${BASE_URL}/order/seller/${seller._id}`,
-            {
-              headers: { Authorization: `Bearer ${authToken}` },
-              signal
-            }
-          ),
-        ]);
-        console.log('analyticsResponse', analyticsResponse);
+        try {
+          const [analyticsResponse, ordersResponse] = await Promise.all([
+            getSellerAnalytics(),
+            axios.get(
+              `${BASE_URL}/order/seller/${seller._id}`,
+              {
+                headers: { Authorization: `Bearer ${authToken}` },
+                signal
+              }
+            ),
+          ]);
+          console.log('analyticsResponse', analyticsResponse);
 
-        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
+          // Clear timeout since data loaded successfully
+          clearTimeout(timeoutId);
 
+          const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
 
-        // Update critical data immediately
-        const initialAnalyticsData = prepareAnalyticsData(
-          newOrders,
-          analyticsResponse,
-          seller // Pass the entire seller object
-        );
+          // Update critical data immediately
+          const initialAnalyticsData = prepareAnalyticsData(
+            newOrders,
+            analyticsResponse,
+            seller // Pass the entire seller object
+          );
 
-        setOrders(newOrders);
-        setHomeAnalyticsCardData(initialAnalyticsData);
-        setIsDataReady(true);
-        setIsDataLoading(false);
+          setOrders(newOrders);
+          setHomeAnalyticsCardData(initialAnalyticsData);
+          setIsDataReady(true);
+          setIsDataLoading(false);
 
-        // Non-critical data (load after)
-        const [customersResponse, platformAnnouncementResponse, publicResourcesResponse] = await Promise.all([
-          getTotalSellerUCustomers(),
-          getPlatformAnnouncement(),
-          getPublicResources(),
-        ]);
+          // Non-critical data (load after)
+          try {
+            const [customersResponse, platformAnnouncementResponse, publicResourcesResponse] = await Promise.all([
+              getTotalSellerUCustomers(),
+              getPlatformAnnouncement(),
+              getPublicResources(),
+            ]);
 
-        // Update analytics with complete data
-        const finalAnalyticsData = prepareAnalyticsData(
-          newOrders,
-          analyticsResponse,
-          seller
-        );
+            // Update analytics with complete data
+            const finalAnalyticsData = prepareAnalyticsData(
+              newOrders,
+              analyticsResponse,
+              seller
+            );
 
-        setHomeAnalyticsCardData(finalAnalyticsData);
-        setPlatformAnnouncement(platformAnnouncementResponse);
-        setPublicResources(publicResourcesResponse);
-
+            setHomeAnalyticsCardData(finalAnalyticsData);
+            setPlatformAnnouncement(platformAnnouncementResponse);
+            setPublicResources(publicResourcesResponse);
+          } catch (nonCriticalError) {
+            // Log but don't block UI for non-critical data
+            console.error('Error loading non-critical dashboard data:', nonCriticalError);
+          }
+        } catch (apiError) {
+          clearTimeout(timeoutId);
+          
+          // Handle token validation errors with our utility function
+          const wasHandled = handleApiError(apiError, navigate);
+          if (wasHandled) return;
+          
+          // If the error wasn't handled by our utility, throw it for the outer catch
+          throw apiError;
+        }
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('Fetch aborted');
@@ -208,12 +269,18 @@ const HomePage = () => {
         }
         setError(error.message);
         console.error('Dashboard loading error:', error);
+        
+        // Ensure UI is not blocked even if data fetch fails
+        setIsDataReady(true);
+        setIsDataLoading(false);
       }
     };
 
     fetchDashboardData();
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -361,6 +428,12 @@ const HomePage = () => {
 
   return (
     <>
+      {/* Disabled Account Dialog */}
+      <DisabledAccountDialog
+        isOpen={showDisabledDialog}
+        onClose={handleCloseDisabledDialog}
+      />
+
       {/* Verification Dialog */}
       <VerificationDialog 
         isOpen={showVerificationDialog} 
@@ -551,6 +624,12 @@ const HomePage = () => {
                               case 'new_campaign':
                               case 'campaign_scheduled':
                                 navigate('/dashboard/marketing/inbox-campaigns/list');
+                                break;
+                              
+                              case 'blip_like':
+                              case 'blip_comment':
+                                // Just navigate to the blips page without opening any specific details
+                                navigate('/dashboard/blips');
                                 break;
                               
                               default:

@@ -137,11 +137,6 @@ const CreateLiveShow = () => {
         setFilteredTags(allTags);
     }, []);
 
-    // Cleanup on mount - reset livestream data
-    useEffect(() => {
-        livestreamDispatch({ type: 'RESET_SCHEDULE_DATA' });
-    }, [livestreamDispatch]);
-
     // Fetch products for the current page
     useEffect(() => {
         dispatch(fetchSellerProducts({

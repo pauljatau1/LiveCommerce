@@ -29,24 +29,45 @@ const StreamDesktopUi = ({
     const { socket, notifications } = useLivestreamSocket();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [isVideoReady, setIsVideoReady] = useState(false);
-    
+    const [productOrderCounts, setProductOrderCounts] = useState({});
+
     // Calculate initial sales from orders prop
     const initialSales = orders?.reduce((total, order) => total + (order.amount || 0), 0);
-    
+
     // Set initial states for analytics
     const [totalSales, setTotalSales] = useState(initialSales || 0);
     const [itemsSold, setItemsSold] = useState(orders?.length || 0);
     const [salesModalOpen, setSalesModalOpen] = useState(false);
     const [itemsModalOpen, setItemsModalOpen] = useState(false);
     const [ordersData, setOrdersData] = useState(orders || []);
-    
+
+    // Initialize product order counts from the initial orders data
+    useEffect(() => {
+        if (orders && orders.length > 0) {
+            const initialCounts = {};
+
+            orders.forEach(order => {
+                // Extract product ID from order
+                const productId = order.product ||
+                    (order.orderDetails?.items &&
+                        order.orderDetails.items[0]?.product);
+
+                if (productId) {
+                    initialCounts[productId] = (initialCounts[productId] || 0) + 1;
+                }
+            });
+
+            setProductOrderCounts(initialCounts);
+        }
+    }, [orders]);
+
     // Subscribe to stream-specific notifications when component mounts
     useEffect(() => {
         if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
             console.log(`Desktop UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
             socket.subscribeToStreamNotifications(liveStreamDetails._id);
         }
-        
+
         // Cleanup function to unsubscribe when component unmounts
         return () => {
             if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
@@ -61,42 +82,66 @@ const StreamDesktopUi = ({
         if (notifications.length > 0) {
             // Update viewer count for join/leave notifications
             const latestNotification = notifications[notifications.length - 1];
-            
+
             // Update viewer count for join/leave notifications
-            if ((latestNotification.type === 'join' || latestNotification.type === 'leave') && 
+            if ((latestNotification.type === 'join' || latestNotification.type === 'leave') &&
                 latestNotification.data?.viewerCount !== undefined) {
                 setViewerCount(latestNotification.data.viewerCount);
             }
-            
+
             // Find liveshow_order notifications
             const liveshowOrderNotifications = notifications.filter(
                 notification => notification.type === 'liveshow_order'
             );
-            
+
             if (liveshowOrderNotifications.length > 0) {
                 // Get the latest liveshow_order notification
                 const latestOrderNotification = liveshowOrderNotifications[liveshowOrderNotifications.length - 1];
-                
+
                 if (latestOrderNotification.data?.streamOrders && latestOrderNotification.data.streamOrders.length > 0) {
                     // Store the orders data
                     setOrdersData(latestOrderNotification.data.streamOrders);
-                    
+
                     // Calculate total sales
                     const sales = latestOrderNotification.data.streamOrders.reduce((total, order) => {
                         return total + (order.amount || 0);
                     }, 0);
-                    
+
                     // Count total items sold
                     const items = latestOrderNotification.data.streamOrders.length;
-                    
+
                     // Update state
                     setTotalSales(sales);
                     setItemsSold(items);
+                    
+                    // Update product order counts
+                    // Check if there's a new order that wasn't in the previous ordersData
+                    if (latestOrderNotification.data.streamOrders.length > ordersData.length) {
+                        // Find the new order by comparing order IDs
+                        const existingOrderIds = new Set(ordersData.map(order => order.orderId));
+                        const newOrders = latestOrderNotification.data.streamOrders.filter(
+                            order => !existingOrderIds.has(order.orderId)
+                        );
+
+                        // Only increment counts for new orders
+                        newOrders.forEach(order => {
+                            const productId = order.product || 
+                                            (order.orderDetails?.items && 
+                                             order.orderDetails.items[0]?.product);
+                            
+                            if (productId) {
+                                setProductOrderCounts(prevCounts => ({
+                                    ...prevCounts,
+                                    [productId]: (prevCounts[productId] || 0) + 1
+                                }));
+                            }
+                        });
+                    }
                 }
             }
         }
     }, [notifications]);
-    
+
     // Monitor the video container to detect when it's ready
     useEffect(() => {
         const checkVideoReady = () => {
@@ -107,17 +152,22 @@ const StreamDesktopUi = ({
                 setIsVideoReady(false);
             }
         };
-        
+
         // Check initially
         checkVideoReady();
-        
+
         // Set up an interval to periodically check if the video container is ready
         const intervalId = setInterval(checkVideoReady, 1000);
-        
+
         // Clean up interval on unmount
         return () => clearInterval(intervalId);
     }, []);
-    
+
+    // Helper function to get order count for a product
+    const getOrderCountForProduct = (productId) => {
+        return productOrderCounts[productId] || 0;
+    };
+
     return (
         <div className="hidden xl:block">
             {/** HEADER */}
@@ -139,14 +189,14 @@ const StreamDesktopUi = ({
                         <Icon icon="fluent:share-16-regular" className="w-7 h-7" color='#14AE5C' />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">Shares ({totalShares})</p>
                     </div>
-                    <button 
+                    <button
                         onClick={toggleMicrophone}
                         className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300"
                     >
-                        <Icon 
-                            icon={isMicrophoneEnabled ? "heroicons:microphone-solid" : "bi:mic-mute-fill"} 
-                            className="w-5 h-5" 
-                            color={isMicrophoneEnabled ? '#14AE5C' : '#C74E5B'} 
+                        <Icon
+                            icon={isMicrophoneEnabled ? "heroicons:microphone-solid" : "bi:mic-mute-fill"}
+                            className="w-5 h-5"
+                            color={isMicrophoneEnabled ? '#14AE5C' : '#C74E5B'}
                         />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">
                             {isMicrophoneEnabled ? 'Mic On' : 'Mic Off'}
@@ -199,7 +249,7 @@ const StreamDesktopUi = ({
                                 <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
                             </button>*/}
-                            <button 
+                            <button
                                 onClick={onOpenVideoSettings}
                                 className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
                             >
@@ -214,7 +264,7 @@ const StreamDesktopUi = ({
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item, index) => (
-                                            <div key={item?.product._id || index} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
+                                            <div key={item?.product?.productId || index} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
                                                 <div className="">
                                                     <img
                                                         src={item?.product?.images[0]?.url}
@@ -228,7 +278,7 @@ const StreamDesktopUi = ({
                                                         {formatCurrency(item?.product?.price)}
                                                     </p>
                                                     <p className="text-sm text-[#718096] font-inter font-medium">
-                                                        Orders: <span className="text-[#EFF0FA] font-inter font-medium">10</span>
+                                                        Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(item?.product?.productId)}</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -252,20 +302,20 @@ const StreamDesktopUi = ({
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center overflow-hidden">
                                 {/* Accurate Google Meet style background */}
                                 <div className="absolute inset-0 bg-[#1e3a25]/95"></div>
-                                
+
                                 {/* Subtle radial gradient for depth */}
                                 <div className="absolute inset-0" style={{
                                     background: 'radial-gradient(circle at center, rgba(40, 78, 48, 0.95) 0%, rgba(30, 58, 37, 0.95) 90%)'
                                 }}></div>
-                                
+
                                 {/* Light vignette around edges */}
                                 <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.5)]"></div>
-                                
+
                                 {/* Extremely subtle grain texture */}
                                 <div className="absolute inset-0 opacity-[0.02]" style={{
                                     backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
                                 }}></div>
-                                
+
                                 {/* Content */}
                                 <div className="relative z-20 flex flex-col items-center justify-center">
                                     <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm mb-6">
@@ -290,10 +340,10 @@ const StreamDesktopUi = ({
                             }}
                         ></div>
                     </div>
-                    
+
                     {/* Add StreamQualityIndicator */}
                     {streamQualityInfo && (
-                        <StreamQualityIndicator 
+                        <StreamQualityIndicator
                             qualityInfo={streamQualityInfo}
                             onClose={onHideQualityInfo}
                         />
@@ -303,7 +353,7 @@ const StreamDesktopUi = ({
                 {/*desktop Right Sidebar - Activities */}
                 <div className="hidden xl:block col-span-12 md:col-span-3 xl:col-span-3 bg-[#0D0F12] rounded-xl p-4">
                     {liveStreamDetails && (
-                        <ChatSection 
+                        <ChatSection
                             streamId={liveStreamDetails._id}
                             seller={seller}
                             liveStreamDetails={liveStreamDetails}
@@ -314,7 +364,7 @@ const StreamDesktopUi = ({
 
             {/* Bottom Stats */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 z-10">
-                <div 
+                <div
                     className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center cursor-pointer hover:bg-[#161A1E] transition-all duration-300"
                     onClick={() => setSalesModalOpen(true)}
                 >
@@ -328,7 +378,7 @@ const StreamDesktopUi = ({
                         </p>
                     </div>
                 </div>
-                <div 
+                <div
                     className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center cursor-pointer hover:bg-[#161A1E] transition-all duration-300"
                     onClick={() => setItemsModalOpen(true)}
                 >
@@ -362,15 +412,6 @@ const StreamDesktopUi = ({
         [&::-webkit-scrollbar-track]:hover:opacity-100
         [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
         [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
         [&::-webkit-scrollbar-thumb]:rounded-full
         [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
         [&::-webkit-scrollbar-thumb]:mx-0.5
@@ -382,7 +423,7 @@ const StreamDesktopUi = ({
                                 </div>
                                 <h2 className="text-[#EFF0FA] font-lexend font-bold text-xl">Sales Analysis</h2>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setSalesModalOpen(false)}
                                 className="text-[#7A828A] hover:text-white transition-colors"
                             >
@@ -437,7 +478,7 @@ const StreamDesktopUi = ({
                                                                     day: 'numeric',
                                                                     month: 'short',
                                                                     year: 'numeric'
-                                                                }).replace(/(\d+)(?=\s)/, function(match) {
+                                                                }).replace(/(\d+)(?=\s)/, function (match) {
                                                                     const num = parseInt(match);
                                                                     const suffix = ['th', 'st', 'nd', 'rd'][num % 10 > 3 ? 0 : (num % 100 - num % 10 != 10 ? num % 10 : 0)];
                                                                     return num + suffix;
@@ -461,18 +502,32 @@ const StreamDesktopUi = ({
                             {/* Chart View - Simplified Version */}
                             <div>
                                 <h3 className="text-[#EFF0FA] font-medium text-lg mb-3">Revenue Breakdown</h3>
-                                <div className="bg-[#161A1E] p-4 rounded-lg min-h-[200px] flex items-center justify-center">
+                                <div className="bg-[#161A1E] p-4 rounded-lg min-h-[200px] overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:h-1
+        [&::-webkit-scrollbar]:inset-0
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-[#272A31]
+        [&::-webkit-scrollbar-track]:mx-1
+        [&::-webkit-scrollbar-track]:my-1
+        [&::-webkit-scrollbar-track]:z-10
+        [&::-webkit-scrollbar-track]:opacity-0
+        [&::-webkit-scrollbar-track]:hover:opacity-100
+        [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
+        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
+        [&::-webkit-scrollbar-thumb]:mx-0.5
+        hover:[&::-webkit-scrollbar-thumb]:bg-[#9CA3AF] flex items-center justify-center">
                                     {ordersData.length > 0 ? (
                                         <div className="w-full flex gap-2 items-end h-[180px]">
-                                            {ordersData.slice(0, 5).map((order, index) => {
+                                            {ordersData?.map((order, index) => {
                                                 // Calculate height based on amount relative to max amount
                                                 const maxAmount = Math.max(...ordersData.slice(0, 5).map(o => o.amount || 0));
                                                 const height = maxAmount ? ((order.amount || 0) / maxAmount) * 150 : 0;
-                                                
+
                                                 return (
                                                     <div key={index} className="flex flex-col items-center">
-                                                        <div 
-                                                            className="w-10 bg-gradient-to-t from-[#14AE5C]/70 to-[#14AE5C] rounded-t-sm" 
+                                                        <div
+                                                            className="w-10 bg-gradient-to-t from-[#14AE5C]/70 to-[#14AE5C] rounded-t-sm"
                                                             style={{ height: `${height}px` }}
                                                         ></div>
                                                         <p className="text-[#7A828A] text-xs mt-2 truncate w-16 text-center">
@@ -490,8 +545,8 @@ const StreamDesktopUi = ({
                         </div>
 
                         <div className="p-4 border-t border-[#272A31] flex justify-end">
-                            <button 
-                                onClick={() => setSalesModalOpen(false)} 
+                            <button
+                                onClick={() => setSalesModalOpen(false)}
                                 className="px-4 py-2 bg-[#272A31] text-[#EFF0FA] rounded-md hover:bg-[#3A3E47] transition-colors"
                             >
                                 Close
@@ -515,15 +570,6 @@ const StreamDesktopUi = ({
         [&::-webkit-scrollbar-track]:hover:opacity-100
         [&::-webkit-scrollbar-track]:hover:bg-gray-200/10
         [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
-        [&::-webkit-scrollbar-track]:hover:border-gray-200/10
         [&::-webkit-scrollbar-thumb]:rounded-full
         [&::-webkit-scrollbar-thumb]:bg-[#7A828A]
         [&::-webkit-scrollbar-thumb]:mx-0.5
@@ -535,7 +581,7 @@ const StreamDesktopUi = ({
                                 </div>
                                 <h2 className="text-[#EFF0FA] font-lexend font-bold text-xl">Items Sold</h2>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setItemsModalOpen(false)}
                                 className="text-[#7A828A] hover:text-white transition-colors"
                             >
@@ -553,7 +599,7 @@ const StreamDesktopUi = ({
                                 <div className="bg-[#161A1E] p-4 rounded-lg">
                                     <p className="text-[#7A828A] text-sm mb-1">Unique Products</p>
                                     <p className="text-[#EFF0FA] text-xl font-semibold">
-                                        {new Set(ordersData.map(order => 
+                                        {new Set(ordersData.map(order =>
                                             order.orderDetails?.items?.[0]?.productName || ''
                                         )).size}
                                     </p>
@@ -562,8 +608,8 @@ const StreamDesktopUi = ({
                                     <p className="text-[#7A828A] text-sm mb-1">Avg. Price</p>
                                     <p className="text-[#EFF0FA] text-xl font-semibold">
                                         {formatCurrency(
-                                            ordersData.length 
-                                                ? ordersData.reduce((sum, order) => sum + (order.amount || 0), 0) / ordersData.length 
+                                            ordersData.length
+                                                ? ordersData.reduce((sum, order) => sum + (order.amount || 0), 0) / ordersData.length
                                                 : 0
                                         )}
                                     </p>
@@ -578,14 +624,14 @@ const StreamDesktopUi = ({
                                         ordersData.map((order, index) => {
                                             const product = order.orderDetails?.items?.[0];
                                             if (!product) return null;
-                                            
+
                                             return (
-                                                <div key={index} className="bg-[#161A1E] h-24 rounded-lg overflow-hidden flex">
+                                                <div key={index} className="bg-[#161A1E] h-28 rounded-lg overflow-hidden flex">
                                                     <div className="w-20 p-[5px] rounded-tl-xl h-full rounded-bl-xl bg-gray-800 flex-shrink-0">
                                                         {product.productImages && product.productImages[0]?.url ? (
-                                                            <img 
-                                                                src={product.productImages[0].url} 
-                                                                alt={product.productName} 
+                                                            <img
+                                                                src={product.productImages[0].url}
+                                                                alt={product.productName}
                                                                 className="w-full rounded-tl-xl rounded-bl-xl h-full object-cover"
                                                             />
                                                         ) : (
@@ -594,9 +640,9 @@ const StreamDesktopUi = ({
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div className="p-3 flex-1">
+                                                    <div className="p-3 flex-1 flex flex-col justify-between">
                                                         <div className="flex justify-between items-start">
-                                                            <h4 className="text-[#EFF0FA] font-medium line-clamp-1">{product.productName}</h4>
+                                                            <h4 className="text-[#EFF0FA] font-medium line-clamp-1 text-ellipsis max-w-[150px]">{product.productName}</h4>
                                                             <span className="text-[#14AE5C] font-medium text-sm">
                                                                 {formatCurrency(product.price || 0)}
                                                             </span>
@@ -613,7 +659,7 @@ const StreamDesktopUi = ({
                                                         </div>
                                                         <div className="mt-1 text-xs">
                                                             <span className="inline-block px-2 py-1 bg-[#272A31] rounded-full text-[#EFF0FA]">
-                                                                {order?.createdAt 
+                                                                {order?.createdAt
                                                                     ? new Date(order.createdAt).toLocaleTimeString([], {
                                                                         hour: '2-digit',
                                                                         minute: '2-digit'
@@ -636,8 +682,8 @@ const StreamDesktopUi = ({
                         </div>
 
                         <div className="p-4 border-t border-[#272A31] flex justify-end">
-                            <button 
-                                onClick={() => setItemsModalOpen(false)} 
+                            <button
+                                onClick={() => setItemsModalOpen(false)}
                                 className="px-4 py-2 bg-[#272A31] text-[#EFF0FA] rounded-md hover:bg-[#3A3E47] transition-colors"
                             >
                                 Close
