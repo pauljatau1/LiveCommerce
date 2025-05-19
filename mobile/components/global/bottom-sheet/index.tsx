@@ -13,7 +13,7 @@ import {
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import type { FC } from "react";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, memo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -31,11 +31,12 @@ type Props = {
   showCloseIcon?: boolean;
   enablePanDownToClose?: boolean;
   footerComponent?: FC<BottomSheetFooterProps>;
-  keyboardBehavior: any;
+  keyboardBehavior?: "interactive" | "extend" | "fillParent";
   enableContentPanningGesture?: boolean;
+  handleIndicatorStyle?: any;
 };
 
-const BottomSheet = ({
+const BottomSheetComponent = ({
   show = false,
   children,
   title = "",
@@ -47,98 +48,151 @@ const BottomSheet = ({
   showCloseIcon = true,
   enablePanDownToClose = true,
   footerComponent,
-  bgColor,
+  bgColor = "#FDFFFC",
   childrenStyle,
   enableContentPanningGesture = false,
+  keyboardBehavior = "interactive",
   ...rest
 }: Props) => {
+  // Use a persistent ref to avoid unnecessary re-creation of the ref
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  
+  // Cache the onRequestClose function to avoid recreating it on each render
+  const onRequestCloseRef = useRef(onRequestClose);
+  
+  // Get safe area insets at the top level
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+  
+  // Update ref when onRequestClose changes
+  useEffect(() => {
+    onRequestCloseRef.current = onRequestClose;
+  }, [onRequestClose]);
 
+  // Memoize snapPoints to prevent unnecessary recalculations
   const _snapPoints = useMemo(() => snapPoints, [snapPoints]);
 
+  // Optimized backdrop/background styles
+  const backgroundStyle = useMemo(() => ({ 
+    ...styles.bottomSheet, 
+    backgroundColor: bgColor 
+  }), [bgColor]);
+
+  // Handle indicator style optimization
+  const handleIndicatorStyle = useMemo(() => ({
+    backgroundColor: "#94A3B1",
+    width: !enableDynamicSizing ? 0 : 40,
+  }), [enableDynamicSizing]);
+
+  // Memoize styles for content container to reduce recalculation
+  const contentContainerStyle = useMemo(() => ({
+    marginBottom: safeAreaBottom
+  }), [safeAreaBottom]);
+
+  // Optimize child container style with className
+  const childrenContainerClassName = useMemo(() => (
+    cn(`px-4`, childrenStyle)
+  ), [childrenStyle]);
+  
+  // Optimize title className
+  const titleClassName = useMemo(() => (
+    cn(
+      `flex-row justify-end px-4 text-lg font-LexendDecaBold font-semibold text-white mb-[26px] mt-[31px] ${titleColor || ''}`,
+      {
+        "text-center": titleCenter,
+      },
+    )
+  ), [titleColor, titleCenter]);
+
+  // Use useEffect with show dependency to present/dismiss the sheet
   useEffect(() => {
-    if (show) {
-      bottomSheetModalRef.current?.present();
-    } else {
-      bottomSheetModalRef.current?.dismiss();
-    }
+    const timeoutId = setTimeout(() => {
+      if (show) {
+        bottomSheetModalRef.current?.present();
+      } else {
+        bottomSheetModalRef.current?.dismiss();
+      }
+    }, 0);
+    
+    return () => clearTimeout(timeoutId);
   }, [show]);
 
-  const handleSheetChanges = useCallback(
-    (index: number) => {
-      if (index < 0) {
-        onRequestClose && onRequestClose();
-      }
-    },
-    [onRequestClose],
-  );
+  // Highly optimized callback for sheet index changes
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index < 0 && onRequestCloseRef.current) {
+      onRequestCloseRef.current();
+    }
+  }, []);
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        opacity={0.7}
-        enableTouchThrough={false}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        style={[{ backgroundColor: "#121212" }, StyleSheet.absoluteFillObject]}
-        pressBehavior={enablePanDownToClose ? "close" : "none"}
-        {...props}
-      />
-    ),
-    [enablePanDownToClose],
-  );
+  // Memoized backdrop component for better performance
+  const renderBackdrop = useCallback((props: BottomSheetBackdropProps) => (
+    <BottomSheetBackdrop
+      opacity={0.7}
+      enableTouchThrough={false}
+      appearsOnIndex={0}
+      disappearsOnIndex={-1}
+      style={styles.backdrop}
+      pressBehavior={enablePanDownToClose ? "close" : "none"}
+      {...props}
+    />
+  ), [enablePanDownToClose]);
 
-  const { bottom } = useSafeAreaInsets();
+  // Handle close button press with useCallback
+  const handleClosePress = useCallback(() => {
+    if (onRequestCloseRef.current) {
+      onRequestCloseRef.current();
+    }
+  }, []);
+
+  // High-performance rendering of title and close icon
+  const renderHeader = useMemo(() => {
+    if (!title && !showCloseIcon) return null;
+    
+    return (
+      <>
+        {showCloseIcon && (
+          <Pressable
+            onPress={handleClosePress}
+            className="flex-row justify-end px-4"
+            hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}
+          >
+            <AntDesign name="closecircle" size={30} color="#F9C7B3" />
+          </Pressable>
+        )}
+        {title ? (
+          <Text className={titleClassName}>
+            {title}
+          </Text>
+        ) : null}
+      </>
+    );
+  }, [title, showCloseIcon, handleClosePress, titleClassName]);
 
   return (
     <BottomSheetModal
       ref={bottomSheetModalRef}
       enableDynamicSizing={enableDynamicSizing}
       snapPoints={_snapPoints}
+      keyboardBehavior={keyboardBehavior}
       keyboardBlurBehavior="restore"
       enablePanDownToClose={enablePanDownToClose}
-      backgroundStyle={{ ...styles.bottomSheet, backgroundColor: bgColor }}
+      backgroundStyle={backgroundStyle}
       onChange={handleSheetChanges}
       handleComponent={enablePanDownToClose ? BottomSheetHandle : null}
       enableHandlePanningGesture={enablePanDownToClose}
       backdropComponent={renderBackdrop}
-      handleIndicatorStyle={{
-        backgroundColor: "#94A3B1",
-        width: !enableDynamicSizing ? 0 : 40,
-      }}
+      handleIndicatorStyle={handleIndicatorStyle}
       footerComponent={footerComponent}
       enableContentPanningGesture={enableContentPanningGesture}
-      style={{
-        zIndex: 10000000,
-      }}
+      animateOnMount
+      overDragResistanceFactor={8}
+      style={styles.modal}
       {...rest}
     >
-      <BottomSheetView>
-        {showCloseIcon && (
-          <Pressable
-            onPress={() => {
-              onRequestClose && onRequestClose();
-            }}
-            className="flex-row justify-end px-4"
-          >
-            <AntDesign name="closecircle" size={30} color="#F9C7B3" />
-          </Pressable>
-        )}
-        {title && (
-          <Text
-            className={cn(
-              `flex-row justify-end px-4 text-lg font-LexendDecaBold font-semibold text-white mb-[26px] mt-[31px] ${titleColor && titleColor}`,
-              {
-                "text-center": titleCenter,
-              },
-            )}
-          >
-            {title}
-          </Text>
-        )}
+      <BottomSheetView style={styles.contentView}>
+        {renderHeader}
         <View
-          style={{ marginBottom: bottom }}
-          className={cn(`px-4`, childrenStyle)}
+          style={contentContainerStyle}
+          className={childrenContainerClassName}
         >
           {children}
         </View>
@@ -147,8 +201,10 @@ const BottomSheet = ({
   );
 };
 
-export default BottomSheet;
+// Memoize the BottomSheet component to prevent unnecessary re-renders
+const BottomSheet = memo(BottomSheetComponent);
 
+// Performance optimized styles using StyleSheet.create
 const styles = StyleSheet.create({
   bottomSheet: {
     borderTopEndRadius: 20,
@@ -157,4 +213,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
   },
+  backdrop: {
+    backgroundColor: "#121212", 
+    ...StyleSheet.absoluteFillObject
+  },
+  modal: {
+    zIndex: 10000000,
+  },
+  contentView: {
+    flex: 1,
+  }
 });
+
+export default BottomSheet;

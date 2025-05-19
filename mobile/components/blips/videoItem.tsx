@@ -705,7 +705,7 @@ const VideoItem = ({
                 />
                 <View className="shrink justify-between gap-[4px]">
                   <Text
-                    className="text-[12px] text-[#f2f2f2] font-LexendDecaSemiBold shrink"
+                    className="text-[12px] text-[#f2f2f2] max-w-[200px] font-LexendDecaSemiBold shrink"
                     numberOfLines={1}
                     style={styles.text}
                   >
@@ -826,6 +826,9 @@ const VideoItem = ({
           enableDynamicSizing={false}
           onRequestClose={() => setShowComments(false)}
           keyboardBehavior="extend"
+          handleIndicatorStyle={{
+            backgroundColor: "white",
+          }}
         >
           <CommentsSheet
             handleIncreaseCommentCount={handleIncreaseCommentCount}
@@ -884,6 +887,9 @@ const VideoItem = ({
           onRequestClose={() => setShowShop(false)}
           keyboardBehavior={"interactive"}
           enableDynamicSizing={false}
+          handleIndicatorStyle={{
+            backgroundColor: "white",
+          }}
         >
           <BlipsShop id={seller._id} closeSheet={() => setShowShop(false)} />
         </BottomSheet>
