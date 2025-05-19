@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  BackHandler,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
@@ -36,7 +37,8 @@ const mockDeliveryOtions = [
   },
   {
     name: "Store Pickup",
-    description: "Go to the sellers store and pickup your order",
+    description:
+      "Go to the seller's store and pick up your order, Present your order ID. You can also chat seller to arrange pick ups",
     icon: <MaterialIcons name="storefront" size={24} color="white" />,
   },
 ];
@@ -489,6 +491,21 @@ const CheckoutNow = ({
 
     // getCart();
   }, []);
+
+  useEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        closeSheet();
+        return true;
+      };
+
+      BackHandler.addEventListener("hardwareBackPress", onBackPress);
+
+      return () => {
+        BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+      };
+    }, []),
+  );
 
   useEffect(() => {
     if (orderId) {

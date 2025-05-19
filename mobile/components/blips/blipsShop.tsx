@@ -166,15 +166,15 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
         <View className="h-[100%]">
           <View
             className="w-full flex-row items-center justify-between "
-            style={{ marginBottom: 10, paddingHorizontal: 16 }}
+            style={{ marginBottom: 10, paddingHorizontal: 0 }}
           >
             <Pressable
               onPress={closeSheet}
               className="flex-end "
               style={{ marginLeft: "auto" }}
             >
-              <View className="bg-[#16783A] w-[30px] h-[30px] rounded-[50%]">
-                <AntDesign name="closecircle" size={30} color="#fff" />
+              <View className=" w-[30px] h-[30px] rounded-[50%]">
+                <AntDesign name="close" size={20} color="#fff" />
               </View>
             </Pressable>
           </View>
