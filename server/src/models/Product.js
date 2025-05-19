@@ -166,7 +166,7 @@ const productSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true,
     autopopulate: {
-      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions offersStorePickup'
     }
   },
   images: [{

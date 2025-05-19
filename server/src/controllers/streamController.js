@@ -13,6 +13,7 @@ const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
 const orderController = require('./orderController');
 const mixpanel = require('../config/mixpanel');
+const { generateStreamLink } = require('../utils/helpers');
 
 const expo = new Expo();
 
@@ -201,6 +202,8 @@ exports.createStream = async (req, res) => {
       type: 'auction',
       status: 'scheduled'
     });
+
+    stream.streamLink = generateStreamLink(stream._id,stream.type)
 
     await stream.save();
 
@@ -1457,6 +1460,8 @@ exports.createOpenLiveShow = async (req, res) => {
       status: 'scheduled'
     });
 
+    stream.streamLink = generateStreamLink(stream._id,stream.type)
+    
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)

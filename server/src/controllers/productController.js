@@ -425,7 +425,8 @@ const sellerPopulationFields = [
   'phoneNumber',
   'businessAddress',      
   'warehouseDetails',    
-  'sellerAddress'       
+  'sellerAddress',
+  'offersStorePickup'       
 ];
 
 // Get all products
@@ -573,6 +574,7 @@ exports.getProduct = async (req, res) => {
             storeName aboutStore storeAvatar storeBanner 
             shippingOptions warehouseDetails categories followers
             isVerified accountType storeVisits products customers
+            offersStorePickup
           `
         })
         .populate({
@@ -623,7 +625,8 @@ exports.getProduct = async (req, res) => {
           },
           shippingInfo: {
             shippingOptions: formattedProduct.seller.shippingOptions,
-            warehouseDetails: formattedProduct.seller.warehouseDetails
+            warehouseDetails: formattedProduct.seller.warehouseDetails,
+            offersStorePickup: formattedProduct.seller.offersStorePickup
           },
           addresses: {
             businessAddress: formattedProduct.seller.businessAddress,
@@ -783,7 +786,8 @@ exports.getProduct = async (req, res) => {
             },
             shippingInfo: {
               shippingOptions: '$sellerInfo.shippingOptions',
-              warehouseDetails: '$sellerInfo.warehouseDetails'
+              warehouseDetails: '$sellerInfo.warehouseDetails',
+              offersStorePickup: '$sellerInfo.offersStorePickup'
             },
             addresses: {
               businessAddress: '$sellerInfo.businessAddress',
@@ -1555,7 +1559,7 @@ exports.getBuyerFeedProducts = async (req, res) => {
       ]
     })
     .sort({ createdAt: -1 })
-    .populate('seller', 'name avatarUrl about')
+    .populate('seller', 'name avatarUrl about offersStorePickup')
     .populate('reviews.buyer', 'firstName lastName');
 
     res.json(products);
@@ -1623,7 +1627,7 @@ exports.getTrendingProductsByCategory = async (req, res) => {
 
     await Product.populate(products, {
       path: 'seller',
-      select: 'name avatarUrl about'
+      select: 'name avatarUrl about offersStorePickup'
     });
 
     res.json(products);
@@ -1642,7 +1646,7 @@ exports.getProductsByCategory = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .populate('seller', 'name avatarUrl about')
+      .populate('seller', 'name avatarUrl about offersStorePickup')
       .populate('reviews.buyer', 'firstName lastName');
 
     const total = await Product.countDocuments({ category });
@@ -1732,7 +1736,7 @@ exports.getWishlist = async (req, res) => {
         select: 'name description price images category brand',
         populate: {
           path: 'seller',
-          select: 'name avatarUrl about'
+          select: 'name avatarUrl about offersStorePickup'
         }
       });
 
@@ -3672,6 +3676,40 @@ exports.toggleBlipLike = async (req, res) => {
       return res.status(400).json({ message: 'Failed to update like status' });
     }
 
+    // Create notification for the seller when a blip is liked
+    try {
+      const notificationController = require('./notificationController');
+      const Buyer = require('../models/Buyer');
+
+      // Get buyer information
+      const buyer = await Buyer.findById(buyerId).select('firstName lastName');
+      const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : 'A buyer';
+
+      // Get complete product info for notification since our current product object only has blips field
+      const completeProduct = await Product.findById(id).select('name seller');
+      if (!completeProduct) {
+        throw new Error('Could not find complete product information');
+      }
+
+      // Create notification for seller
+      await notificationController.createNotification(
+        completeProduct.seller,
+        'blip_like',
+        {
+          productId: completeProduct._id,
+          productName: completeProduct.name,
+          blipId: blipId,
+          buyerId: buyerId,
+          buyerName: buyerName
+        }
+      );
+
+      console.log('Seller notification created for blip like');
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Continue execution even if notification fails
+    }
+
     res.json({
       message: likeIndex === -1 ? 'Blip liked successfully' : 'Blip unliked successfully',
       liked: likeIndex === -1,
@@ -3715,6 +3753,35 @@ exports.addBlipComment = async (req, res) => {
     });
 
     await product.save();
+
+    // Create notification for the seller when a comment is added
+    try {
+      const notificationController = require('./notificationController');
+      const Buyer = require('../models/Buyer');
+
+      // Get buyer information
+      const buyer = await Buyer.findById(buyerId).select('firstName lastName');
+      const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : 'A buyer';
+
+      // Create notification for seller
+      await notificationController.createNotification(
+        product.seller,
+        'blip_comment',
+        {
+          productId: product._id,
+          productName: product.name,
+          blipId: blipId,
+          buyerId: buyerId,
+          buyerName: buyerName,
+          comment: comment.length > 50 ? `${comment.substring(0, 47)}...` : comment
+        }
+      );
+
+      console.log('Seller notification created for blip comment');
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Continue execution even if notification fails
+    }
 
     res.status(201).json({
       message: 'Comment added successfully',

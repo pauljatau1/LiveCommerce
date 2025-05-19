@@ -16,13 +16,15 @@ const Stream = require('../models/Stream');
 const Post = require('../models/Post');
 const Campaign = require('../models/Campaign');
 const Conversation = require('../models/Conversation');
+const PlatformNotification = require('../models/PlatformNotification');
+const { Expo } = require('expo-server-sdk');
+const axios = require('axios');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
-const axios = require('axios');
 
-
-
+// Initialize Expo SDK client
+const expo = new Expo();
 
 // Update Paystack configuration with logging
 const paystack = axios.create({
@@ -6863,3 +6865,281 @@ async function getWalletTransactionStats(buyer) {
     totalDebit: 0
   });
 }
+
+// Helper function to send push notifications to all buyers
+async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
+  try {
+    // Get all buyers with expo push tokens
+    const buyers = await Buyer.find(
+      { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
+      'expoPushToken'
+    );
+    
+    if (!buyers || buyers.length === 0) {
+      console.log('No buyers with push tokens found');
+      return;
+    }
+    
+    console.log(`Sending push notifications to ${buyers.length} buyers`);
+    
+    // Create messages array
+    const messages = [];
+    
+    // Add message for each buyer with a valid token
+    for (const buyer of buyers) {
+      if (!buyer.expoPushToken) continue;
+      
+      // Check if the push token is valid
+      if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
+        console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token`);
+        continue;
+      }
+      
+      // Add the message to the array
+      messages.push({
+        to: buyer.expoPushToken,
+        sound: 'default',
+        title: title,
+        body: body,
+        data: { ...data, type: 'platform_notification' }
+      });
+    }
+    
+    // Chunk the messages array to follow Expo's guidelines
+    const chunks = expo.chunkPushNotifications(messages);
+    
+    // Send each chunk
+    const tickets = [];
+    for (const chunk of chunks) {
+      try {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+        console.log('Push notification chunk sent:', ticketChunk);
+      } catch (error) {
+        console.error('Error sending push notification chunk:', error);
+      }
+    }
+    
+    // Process tickets (For debugging/handling errors)
+    tickets.forEach((ticket, index) => {
+      if (ticket.status === 'error') {
+        console.error(`Push notification to ${messages[index]?.to} failed:`, ticket.message);
+      }
+    });
+    
+    return tickets;
+  } catch (error) {
+    console.error('Error in sendPushNotificationsToAllBuyers:', error);
+  }
+}
+
+// Create a new platform notification
+exports.createPlatformNotification = async (req, res) => {
+  try {
+    const { title, content, type, isActive, startDate, endDate } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and content are required for platform notifications'
+      });
+    }
+
+    const platformNotification = new PlatformNotification({
+      title,
+      content,
+      type: type || 'info',
+      isActive: isActive !== undefined ? isActive : true,
+      startDate: startDate || Date.now(),
+      endDate: endDate || null,
+      createdBy: req.user.id
+    });
+
+    await platformNotification.save();
+
+    // Send push notifications to all buyers if the notification is active
+    if (platformNotification.isActive) {
+      await sendPushNotificationsToAllBuyers(
+        platformNotification.title,
+        platformNotification.content,
+        {
+          notificationId: platformNotification._id,
+          type: platformNotification.type
+        }
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Platform notification created successfully',
+      data: platformNotification
+    });
+  } catch (error) {
+    console.error('Error creating platform notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create platform notification',
+      error: error.message
+    });
+  }
+};
+
+// Get all platform notifications
+exports.getAllPlatformNotifications = async (req, res) => {
+  try {
+    // Add pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Add filtering options
+    const filter = {};
+    if (req.query.type) {
+      filter.type = req.query.type;
+    }
+    if (req.query.isActive === 'true') {
+      filter.isActive = true;
+    } else if (req.query.isActive === 'false') {
+      filter.isActive = false;
+    }
+
+    // Get notifications
+    const notifications = await PlatformNotification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('createdBy', 'username email');
+
+    // Get total count
+    const total = await PlatformNotification.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalNotifications: total
+      }
+    });
+  } catch (error) {
+    console.error('Error getting platform notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve platform notifications',
+      error: error.message
+    });
+  }
+};
+
+// Get a specific platform notification
+exports.getPlatformNotification = async (req, res) => {
+  try {
+    const notification = await PlatformNotification.findById(req.params.id)
+      .populate('createdBy', 'username email');
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Platform notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error getting platform notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve platform notification',
+      error: error.message
+    });
+  }
+};
+
+// Update a platform notification
+exports.updatePlatformNotification = async (req, res) => {
+  try {
+    const { title, content, type, isActive, startDate, endDate } = req.body;
+    
+    // Find the notification to update
+    const notification = await PlatformNotification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Platform notification not found'
+      });
+    }
+    
+    // Check if notification is being activated
+    const wasInactive = !notification.isActive;
+    const willBeActive = isActive !== undefined ? isActive : notification.isActive;
+    
+    // Update fields if provided
+    if (title) notification.title = title;
+    if (content) notification.content = content;
+    if (type) notification.type = type;
+    if (isActive !== undefined) notification.isActive = isActive;
+    if (startDate) notification.startDate = startDate;
+    if (endDate) notification.endDate = endDate;
+    
+    // Update the updatedAt timestamp
+    notification.updatedAt = Date.now();
+    
+    await notification.save();
+    
+    // If notification was inactive and is now being activated, send push notification
+    if (wasInactive && willBeActive) {
+      await sendPushNotificationsToAllBuyers(
+        notification.title,
+        notification.content,
+        {
+          notificationId: notification._id,
+          type: notification.type
+        }
+      );
+    }
+    
+    res.json({
+      success: true,
+      message: 'Platform notification updated successfully',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error updating platform notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update platform notification',
+      error: error.message
+    });
+  }
+};
+
+// Delete a platform notification
+exports.deletePlatformNotification = async (req, res) => {
+  try {
+    const notification = await PlatformNotification.findByIdAndDelete(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Platform notification not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Platform notification deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting platform notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete platform notification',
+      error: error.message
+    });
+  }
+};

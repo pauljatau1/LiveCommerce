@@ -3155,4 +3155,217 @@ router.get('/buyers/:buyerId/details',
   adminController.getBuyerDetails
 );
 
+/**
+ * @swagger
+ * /api/admin/platform-notifications:
+ *   post:
+ *     summary: Create a new platform notification
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - content
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Title of the notification
+ *               content:
+ *                 type: string
+ *                 description: Content of the notification
+ *               type:
+ *                 type: string
+ *                 enum: [info, warning, announcement, update, promotional, maintenance]
+ *                 default: info
+ *                 description: Type of notification
+ *               isActive:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether the notification is active
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When the notification should start displaying
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When the notification should stop displaying
+ *     responses:
+ *       201:
+ *         description: Platform notification created successfully
+ *       400:
+ *         description: Bad request - missing required fields
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/platform-notifications', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.createPlatformNotification
+);
+
+/**
+ * @swagger
+ * /api/admin/platform-notifications:
+ *   get:
+ *     summary: Get all platform notifications
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [info, warning, announcement, update, promotional, maintenance]
+ *         description: Filter by notification type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: List of platform notifications
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/platform-notifications', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getAllPlatformNotifications
+);
+
+/**
+ * @swagger
+ * /api/admin/platform-notifications/{id}:
+ *   get:
+ *     summary: Get a specific platform notification
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Platform notification ID
+ *     responses:
+ *       200:
+ *         description: Platform notification details
+ *       404:
+ *         description: Platform notification not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/platform-notifications/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getPlatformNotification
+);
+
+/**
+ * @swagger
+ * /api/admin/platform-notifications/{id}:
+ *   put:
+ *     summary: Update a platform notification
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Platform notification ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Title of the notification
+ *               content:
+ *                 type: string
+ *                 description: Content of the notification
+ *               type:
+ *                 type: string
+ *                 enum: [info, warning, announcement, update, promotional, maintenance]
+ *                 description: Type of notification
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether the notification is active
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When the notification should start displaying
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When the notification should stop displaying
+ *     responses:
+ *       200:
+ *         description: Platform notification updated successfully
+ *       404:
+ *         description: Platform notification not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/platform-notifications/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.updatePlatformNotification
+);
+
+/**
+ * @swagger
+ * /api/admin/platform-notifications/{id}:
+ *   delete:
+ *     summary: Delete a platform notification
+ *     tags: [Admin, Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Platform notification ID
+ *     responses:
+ *       200:
+ *         description: Platform notification deleted successfully
+ *       404:
+ *         description: Platform notification not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/platform-notifications/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.deletePlatformNotification
+);
+
 module.exports = router;

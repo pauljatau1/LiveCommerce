@@ -82,6 +82,10 @@ const getNotificationTitle = (type) => {
       return 'New Reply to Your Comment';
     case 'stream_start':
       return 'Live Stream Started';
+    case 'blip_like':
+      return 'New Like on Your Product Blip';
+    case 'blip_comment':
+      return 'New Comment on Your Product Blip';
     default:
       return 'Notification';
   }
@@ -213,8 +217,12 @@ const getNotificationMessage = (type, data) => {
     case 'stream_start': 
       const streamType = data.streamType === 'auction' ? 'auction' : 'show';
       return `${data.storeName || 'A seller'} has started a live ${streamType}: "${data.streamTitle || 'Live Stream'}". Join now!`;
+    case 'blip_like':
+      return `${data.buyerName || 'Someone'} liked your product blip for "${data.productName || 'your product'}".`;
+    case 'blip_comment':
+      return `${data.buyerName || 'Someone'} commented on your product blip for "${data.productName || 'your product'}": "${data.comment || ''}".`;
     default:
-      return 'You have a new notification.';
+      return data.message || 'New notification received.';
   }
 };
 
@@ -1538,6 +1546,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             </div>
             
            
+            
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
               <p>Thank you for shopping with Auqli!</p>
               <p>If you have any questions about your orders, please contact our customer service team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
