@@ -15,6 +15,18 @@ const Blips = () => {
   const [selectedBlip, setSelectedBlip] = useState(null);
   const [isBlipModalOpen, setIsBlipModalOpen] = useState(false);
 
+  // Function to safely format dates
+  const safeFormatDate = (dateString) => {
+    try {
+      if (!dateString) return 'Unknown date';
+      const date = new Date(dateString);
+      // Check if date is valid
+      return isNaN(date.getTime()) ? 'Unknown date' : formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return 'Unknown date';
+    }
+  };
+
   useEffect(() => {
     dispatch(fetchSellerBlips({ page: currentPage, limit: itemsPerPage }));
   }, [dispatch, currentPage, itemsPerPage]);
@@ -169,7 +181,8 @@ const Blips = () => {
   }
 
   // Mobile card view for each blip
-  const renderMobileCard = (blip) => (
+  const renderMobileCard = (blip) => {
+    return (
     <div key={blip._id} className="bg-white rounded-lg shadow p-4 mb-4">
       <div className="flex items-center mb-3">
         <img 
@@ -200,7 +213,7 @@ const Blips = () => {
         </div>
         <div>
           <span className="text-gray-500">Created:</span> 
-          <span className="font-medium ml-1">{formatDistanceToNow(new Date(blip.createdAt), { addSuffix: true })}</span>
+          <span className="font-medium ml-1">{safeFormatDate(blip.createdAt)}</span>
         </div>
         <div className="col-span-2 flex space-x-4 mt-1">
           <span className="text-xs flex items-center"><span className="mr-1">❤️</span> {blip.blipEngagement?.likesCount || 0}</span>
@@ -218,7 +231,7 @@ const Blips = () => {
         </button>
       </div>
     </div>
-  );
+  )};
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
@@ -281,7 +294,7 @@ const Blips = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Link to={`/dashboard/edit-product/${blip.productId}`} className="text-blue-600 hover:underline">
-                            {blip.productName}
+                            {blip.productName.length > 30 ? `${blip.productName.substring(0, 30)}...` : blip.productName}
                           </Link>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -304,8 +317,8 @@ const Blips = () => {
                             <span className="text-xs">👁️ {blip.blipEngagement?.viewCount || 0}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDistanceToNow(new Date(blip.createdAt), { addSuffix: true })}
+                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                          {safeFormatDate(blip.createdAt) || 'Unknown date'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
