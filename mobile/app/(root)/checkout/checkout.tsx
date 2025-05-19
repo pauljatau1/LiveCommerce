@@ -49,7 +49,8 @@ const mockDeliveryOtions = [
   },
   {
     name: "Store Pickup",
-    description: "Go to the sellers store and pickup your order",
+    description:
+      "Go to the seller's store and pick up your order, Present your order ID. You can also chat seller to arrange pick ups",
     icon: <MaterialIcons name="storefront" size={24} color="white" />,
   },
 ];

@@ -272,9 +272,10 @@ const CollapsibleHeader = memo(
               <View style={styles.policyText}>
                 <Text style={styles.policyTextLabel}>Pay on Delivery</Text>
                 <Text style={styles.policyTextValue}>
-                  {seller?.storePolicies?.delivery?.allowsCod
+                  {/* {seller?.storePolicies?.delivery?.allowsCod
                     ? "Available"
-                    : "unavailable"}
+                    : "unavailable"} */}
+                  Coming Soon
                 </Text>
               </View>
             </View>
