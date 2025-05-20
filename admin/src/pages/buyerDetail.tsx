@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, User, ShoppingBag, CreditCard, MessageSquare, Heart, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, User, ShoppingBag, CreditCard, MessageSquare, Heart, AlertTriangle, Plus, Minus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -17,6 +17,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface BuyerDetails {
   buyer: {
@@ -95,9 +107,17 @@ interface BuyerDetails {
 function BuyerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [buyerDetails, setBuyerDetails] = useState<BuyerDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Wallet operation states
+  const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const [walletOperation, setWalletOperation] = useState<'add' | 'deduct'>('add');
+  const [walletAmount, setWalletAmount] = useState("");
+  const [walletReason, setWalletReason] = useState("");
+  const [processingWallet, setProcessingWallet] = useState(false);
 
   useEffect(() => {
     fetchBuyerDetails();
@@ -129,6 +149,52 @@ function BuyerDetail() {
       style: "currency",
       currency: "NGN",
     }).format(amount);
+  };
+
+  const handleWalletOperation = (operation: 'add' | 'deduct') => {
+    setWalletOperation(operation);
+    setWalletAmount("");
+    setWalletReason("");
+    setShowWalletDialog(true);
+  };
+
+  const executeWalletOperation = async () => {
+    if (!id || !walletAmount || isNaN(parseFloat(walletAmount)) || parseFloat(walletAmount) <= 0) {
+      toast({
+        variant: "destructive",
+        description: "Please enter a valid amount",
+      });
+      return;
+    }
+
+    setProcessingWallet(true);
+    try {
+      const endpoint = walletOperation === 'add' 
+        ? `/api/admin/buyers/${id}/wallet/add`
+        : `/api/admin/buyers/${id}/wallet/deduct`;
+      
+      await api.post(endpoint, {
+        amount: parseFloat(walletAmount),
+        reason: walletReason || `Admin ${walletOperation === 'add' ? 'added' : 'deducted'} funds`,
+      });
+
+      toast({
+        description: `Successfully ${walletOperation === 'add' ? 'added to' : 'deducted from'} wallet`,
+      });
+
+      // Refresh buyer details
+      await fetchBuyerDetails();
+      setShowWalletDialog(false);
+    } catch (err: any) {
+      console.error(`Error ${walletOperation}ing wallet funds:`, err);
+      const errorMessage = err.response?.data?.message || `Failed to ${walletOperation} funds`;
+      toast({
+        variant: "destructive",
+        description: errorMessage,
+      });
+    } finally {
+      setProcessingWallet(false);
+    }
   };
 
   if (loading) {
@@ -397,6 +463,25 @@ function BuyerDetail() {
                 </div>
               </div>
 
+              <div className="flex gap-2 mb-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleWalletOperation('add')}
+                  className="flex-1"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Funds
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleWalletOperation('deduct')}
+                  className="flex-1"
+                >
+                  <Minus className="h-4 w-4 mr-2" />
+                  Deduct Funds
+                </Button>
+              </div>
+
               <h3 className="text-sm font-medium mb-3">Transaction Summary</h3>
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="border rounded-md p-3 space-y-2">
@@ -466,6 +551,61 @@ function BuyerDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Wallet Operation Dialog */}
+      <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {walletOperation === 'add' ? 'Add Funds to Wallet' : 'Deduct Funds from Wallet'}
+            </DialogTitle>
+            <DialogDescription>
+              {walletOperation === 'add' 
+                ? 'Enter the amount to add to the buyer\'s wallet.'
+                : 'Enter the amount to deduct from the buyer\'s wallet.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={walletAmount}
+                onChange={(e) => setWalletAmount(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason (Optional)</Label>
+              <Textarea
+                id="reason"
+                placeholder={`Reason for ${walletOperation === 'add' ? 'adding' : 'deducting'} funds...`}
+                value={walletReason}
+                onChange={(e) => setWalletReason(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWalletDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant={walletOperation === 'add' ? 'default' : 'destructive'}
+              onClick={executeWalletOperation}
+              disabled={processingWallet || !walletAmount || isNaN(parseFloat(walletAmount)) || parseFloat(walletAmount) <= 0}
+            >
+              {processingWallet && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {walletOperation === 'add' ? 'Add Funds' : 'Deduct Funds'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
