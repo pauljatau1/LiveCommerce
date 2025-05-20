@@ -1530,6 +1530,11 @@ exports.getStreamsByStatus = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1584,6 +1589,11 @@ exports.getSellerStreamsByStatus = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1681,6 +1691,11 @@ exports.getPopularStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1751,6 +1766,11 @@ exports.getSpotlightStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1822,6 +1842,11 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1876,6 +1901,11 @@ exports.getStreamsByCategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -2989,6 +3019,11 @@ exports.searchStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended', 'expired'].includes(status)) {
       searchQuery.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        searchQuery.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -3687,6 +3722,11 @@ exports.getStreamsByCategoryAndSubcategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
