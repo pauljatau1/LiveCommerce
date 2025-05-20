@@ -1476,8 +1476,10 @@ agenda.define('delete_unpaid_orders', async (job) => {
     
     const Order = mongoose.model('Order');
     
-    // Find the order
-    const order = await Order.findById(orderId);
+    // Find the order with populated buyer and seller
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
     
     if (!order) {
       console.log(`Order ${orderId} not found, may have been already deleted`);
@@ -1518,23 +1520,23 @@ agenda.define('delete_unpaid_orders', async (job) => {
           const authToken = await getFezAuthToken();
           
           // Cancel Fez shipment
-          const FEZ_API_URL = process.env.FEZ_API_URL;
-          const cancelResponse = await axios.post(
-            `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
-            {},
-            {
-              headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'secret-key': process.env.FEZ_SECRET_KEY,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
+          // const FEZ_API_URL = process.env.FEZ_API_URL;
+          // const cancelResponse = await axios.post(
+          //   `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
+          //   {},
+          //   {
+          //     headers: {
+          //       'Authorization': `Bearer ${authToken}`,
+          //       'secret-key': process.env.FEZ_SECRET_KEY,
+          //       'Content-Type': 'application/json'
+          //     }
+          //   }
+          // );
           
-          console.log(`Fez shipment cancellation response for order ${order.order_id}:`, {
-            status: cancelResponse.status,
-            data: cancelResponse.data
-          });
+          // console.log(`Fez shipment cancellation response for order ${order.order_id}:`, {
+          //   status: cancelResponse.status,
+          //   data: cancelResponse.data
+          // });
           
           // Also delete the order from Fez
           const deleteResponse = await axios.delete(
@@ -1556,6 +1558,80 @@ agenda.define('delete_unpaid_orders', async (job) => {
           console.error(`Error with Fez operations for order ${order.order_id}:`, fezError.message);
           // Continue with order deletion even if Fez operations fail
         }
+      }
+      
+      // Send notification emails to buyer and seller before deleting the order
+      try {
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        
+        // Format item list for email
+        const itemsList = order.items.map(item => 
+          `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
+        ).join('<br>');
+        
+        // Buyer notification email
+        const buyerEmail = {
+          to: order.buyer.email,
+          from: 'Auqli Orders <support@auqli.com>',
+          subject: 'Order deleted - Payment Not Completed - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order deleted</h2>
+              <p>Dear ${order.buyer.firstName},</p>
+              <p>Your order #${order.order_id} has been deleted because the payment was not completed within the required time frame.</p>
+              
+              <p><strong>Order Details:</strong></p>
+              <ul>
+                <li>Order ID: ${order.order_id}</li>
+                <li>Seller: ${order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+                <li>Items:<br>${itemsList}</li>
+                <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+              </ul>
+              
+              <p>If you still wish to purchase these items, please place a new order.</p>
+              <p>Thank you for your understanding.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        };
+        
+        // Seller notification email
+        const sellerEmail = {
+          to: order.seller.email,
+          from: 'Auqli Orders <support@auqli.com>',
+          subject: 'Order deleted - Payment Not Completed - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order deleted</h2>
+              <p>Dear ${order.seller.firstName},</p>
+              <p>Order #${order.order_id} has been deleted because the buyer did not complete the payment within the required time frame.</p>
+              
+              <p><strong>Order Details:</strong></p>
+              <ul>
+                <li>Order ID: ${order.order_id}</li>
+                <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+                <li>Items:<br>${itemsList}</li>
+                <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+              </ul>
+              
+              <p>The items have been returned to your inventory.</p>
+              <p>Thank you for your understanding.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        };
+        
+        // Send both emails
+        await Promise.all([
+          sgMail.send(buyerEmail),
+          sgMail.send(sellerEmail)
+        ]);
+        
+        console.log(`Sent cancellation notification emails for unpaid order ${order.order_id}`);
+      } catch (emailError) {
+        console.error(`Error sending cancellation emails for order ${order.order_id}:`, emailError);
+        // Continue with order deletion even if email sending fails
       }
       
       // Delete the order

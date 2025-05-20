@@ -1011,11 +1011,17 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
     await notification.save();
     console.log('Buyer notification saved successfully');
     
-    // Send push notification if buyer has expo token
+    // Send push notification if buyer has expo token (skip for order_placed)
     try {
-      const buyer = await mongoose.model('Buyer').findById(actualBuyerId).select('expoPushToken');
-      if (buyer && buyer.expoPushToken) {
-        await exports.sendPushNotification(buyer.expoPushToken, title, message, data);
+      // Don't send push notification for initial order creation
+      if (type !== 'order_placed') {
+        const buyer = await mongoose.model('Buyer').findById(actualBuyerId).select('expoPushToken');
+        if (buyer && buyer.expoPushToken) {
+          console.log(`Sending push notification for ${type}`);
+          await exports.sendPushNotification(buyer.expoPushToken, title, message, data);
+        }
+      } else {
+        console.log('Skipping push notification for initial order creation');
       }
     } catch (pushError) {
       console.error('Error sending push notification:', pushError);
