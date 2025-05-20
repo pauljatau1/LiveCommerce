@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchBlipDetails, fetchBlipComments, clearBlipDetails } from '../../Redux/Slices/ProductSlice';
+import { fetchBlipDetails, fetchBlipComments, clearBlipDetails, addReplyToBlipComment } from '../../Redux/Slices/ProductSlice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../Components/ui/dialog';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../Components/ui/pagination';
 import Loader from '../../Components/Loader';
@@ -18,6 +18,8 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
   } = useSelector((state) => state.product);
   const [commentsPage, setCommentsPage] = useState(1);
   const [commentsLimit] = useState(10);
+  const [replyText, setReplyText] = useState('');
+  const [activeReplyId, setActiveReplyId] = useState(null);
 
   useEffect(() => {
     if (isOpen && productId && blipId) {
@@ -177,6 +179,45 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
     return links;
   };
 
+  // Handle reply submission
+  const handleReplySubmit = (commentId) => {
+    if (!replyText.trim()) return;
+    
+    dispatch(addReplyToBlipComment({
+      productId,
+      blipId,
+      commentId,
+      comment: replyText
+    }))
+    .unwrap()
+    .then(() => {
+      // Reset form after successful submission
+      setReplyText('');
+      setActiveReplyId(null);
+      
+      // Refresh comments to show the new reply
+      dispatch(fetchBlipComments({ 
+        productId, 
+        blipId, 
+        page: commentsPage, 
+        limit: commentsLimit 
+      }));
+    })
+    .catch(error => {
+      console.error('Error submitting reply:', error);
+    });
+  };
+
+  // Show reply form for a specific comment
+  const toggleReplyForm = (commentId) => {
+    if (activeReplyId === commentId) {
+      setActiveReplyId(null); // Close the form if it's already open
+    } else {
+      setActiveReplyId(commentId); // Open the form for this comment
+      setReplyText(''); // Clear any previous reply text
+    }
+  };
+
   if (!isOpen) return null;
 
   console.log('Current state in BlipDetails:', {
@@ -277,13 +318,13 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                           {safeGet(comment, 'buyer.profileImage.url') ? (
                             <img 
-                              src={comment.buyer.profileImage.url} 
+                              src={safeGet(comment, 'buyer.profileImage.url')} 
                               alt={`${safeGet(comment, 'buyer.firstName')} ${safeGet(comment, 'buyer.lastName')}`}
                               className="w-full h-full object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600">
-                              {safeGet(comment, 'buyer.firstName[0]', 'U')}
+                              {safeGet(comment, 'buyer.firstName', 'U')[0]}
                             </div>
                           )}
                         </div>
@@ -305,14 +346,44 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
                           {/* Comment Stats */}
                           <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
                             <span className="flex items-center gap-1">
-                              <span>❤️</span> {safeGet(comment, 'likesCount', 0)}
+                              <span>{safeGet(comment, 'isLiked', false) ? '❤️' : '🤍'}</span> {safeGet(comment, 'likesCount', 0)}
                             </span>
                             {safeGet(comment, 'repliesCount', 0) > 0 && (
                               <span className="flex items-center gap-1">
                                 <span>💬</span> {comment.repliesCount}
                               </span>
                             )}
+                            
+                            {/* Reply button */}
+                            <button 
+                              onClick={() => toggleReplyForm(comment._id)}
+                              className="text-blue-600 hover:text-blue-800 text-xs font-medium ml-auto"
+                            >
+                              {activeReplyId === comment._id ? 'Cancel' : 'Reply'}
+                            </button>
                           </div>
+                          
+                          {/* Reply form */}
+                          {activeReplyId === comment._id && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                className="w-full px-3 py-2 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="Write your reply..."
+                                rows={2}
+                              />
+                              <div className="flex justify-end mt-1">
+                                <button
+                                  onClick={() => handleReplySubmit(comment._id)}
+                                  disabled={!replyText.trim()}
+                                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Post Reply
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Replies if any */}
                           {comment.replies && comment.replies.length > 0 && (
@@ -324,13 +395,13 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
                                     <div className="h-6 w-6 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                                       {safeGet(reply, 'user.profileImage.url') ? (
                                         <img 
-                                          src={reply.user.profileImage.url} 
+                                          src={safeGet(reply, 'user.profileImage.url')} 
                                           alt={`${safeGet(reply, 'user.firstName')} ${safeGet(reply, 'user.lastName')}`}
                                           className="w-full h-full object-cover"
                                         />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-xs">
-                                          {safeGet(reply, 'user.firstName[0]', 'U')}
+                                          {safeGet(reply, 'user.firstName', 'U')[0]}
                                         </div>
                                       )}
                                     </div>
@@ -342,17 +413,22 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
                                           {reply.user 
                                             ? `${safeGet(reply, 'user.firstName')} ${safeGet(reply, 'user.lastName')}` 
                                             : 'Unknown User'}
+                                          {safeGet(reply, 'userType') === 'Seller' && (
+                                            <span className="ml-1 text-blue-600">
+                                              (Seller{safeGet(reply, 'user.storeName') ? ` - ${safeGet(reply, 'user.storeName')}` : ''})
+                                            </span>
+                                          )}
                                         </p>
                                         <span className="text-xs text-gray-500">
                                           {formatDate(reply.createdAt)}
                                         </span>
                                       </div>
-                                      <p className="text-xs mt-1 break-words">{reply.text}</p>
+                                      <p className="text-xs mt-1 break-words">{reply.comment || reply.text}</p>
                                       
                                       {/* Reply Stats */}
                                       <div className="flex items-center gap-3 mt-1 text-xs text-gray-600">
                                         <span className="flex items-center gap-1">
-                                          <span>❤️</span> {safeGet(reply, 'likesCount', 0)}
+                                          <span>{safeGet(reply, 'isLiked', false) ? '❤️' : '🤍'}</span> {safeGet(reply, 'likesCount', 0)}
                                         </span>
                                       </div>
                                     </div>

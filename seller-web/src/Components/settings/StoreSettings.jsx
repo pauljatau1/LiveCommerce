@@ -1026,7 +1026,7 @@ export default function StoreSettings() {
                   </div>
                   
                   {/* Update Cash on Delivery to use Select */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label>Cash on Delivery</Label>
                     <Select
                       value={formData.storePolicy.allowsCod ? "true" : "false"}
@@ -1040,7 +1040,7 @@ export default function StoreSettings() {
                         <SelectItem value="false">No</SelectItem> 
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                   {/* Add Store Pickup Option */}
                   <div className="space-y-2">
