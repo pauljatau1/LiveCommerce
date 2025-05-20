@@ -20,14 +20,15 @@ import { RootState } from "@/store";
 import BlipCard from "@/components/blips/blipCard";
 import SuggestedBlipsSkeleton from "@/components/skeleton/suggestedBlipsSkeleton";
 import { Entypo } from "@expo/vector-icons";
+import { getToken } from "@/store/features/auth/utils";
 
 const { width } = Dimensions.get("window");
 
 const SuggestedBlips = () => {
-  const token = useSelector((state: RootState) => state.authState.token);
   const [loading, setLoading] = useState<boolean>(true);
   const [blips, setBlips] = useState<any[]>([]);
   const fetchSpotlightLiveStreams = async () => {
+    const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +

@@ -28,7 +28,7 @@ const LiveStreamCatalog = ({ query }: any) => {
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>("desc");
-  const [liveFilter, setLiveFilter] = useState<string>("open_show");
+  const [liveFilter, setLiveFilter] = useState<string>("");
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
 

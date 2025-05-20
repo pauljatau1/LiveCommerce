@@ -120,7 +120,10 @@ const Message = () => {
             <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
               {item.participant.name}
             </Text>
-            <Text className="text-[13px] text-[#ccc] font-LexendDecaLight shrink">
+            <Text
+              className="text-[13px] text-[#ccc] font-LexendDecaLight shrink"
+              numberOfLines={1}
+            >
               {item.lastMessage.messageType == "text"
                 ? item.lastMessage.content?.length > 40
                   ? item.lastMessage.content.slice(0, 40) + "..."

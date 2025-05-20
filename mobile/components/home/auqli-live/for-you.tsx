@@ -9,12 +9,14 @@ import { router } from "expo-router";
 import { icons } from "@/constants";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { getToken, setUser } from "@/store/features/auth/utils";
 
 const ForYou = () => {
-  const token = useSelector((state: RootState) => state.authState.token);
+  const [userToken, setUserToken] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [foryou, setFouyou] = useState<any[]>([]);
   const fetchForYouLiveStreams = async () => {
+    const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
@@ -32,6 +34,7 @@ const ForYou = () => {
       console.log(error);
     } finally {
       setLoading(false);
+      setUserToken(token);
     }
   };
 
@@ -94,13 +97,22 @@ const ForYou = () => {
             Follow your favourite sellers to get notified when they go live.
           </Text>
 
-          {token && (
+          {userToken ? (
             <Pressable
               className="px-[20px] py-[12px] items-center justify-center rounded-[6px] bg-[#16783A] mt-[16px]"
               onPress={() => router.push("/settings/updateCategories")}
             >
               <Text className="text-white text-[12px] font-LexendDecaSemiBold">
                 Add a Category
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              className="px-[20px] py-[12px] items-center justify-center rounded-[6px] bg-[#16783A] mt-[16px]"
+              onPress={() => router.push("/(root)/(auth)/sign-in")}
+            >
+              <Text className="text-white text-[12px] font-LexendDecaSemiBold">
+                Login
               </Text>
             </Pressable>
           )}

@@ -226,3 +226,51 @@ export const findVariantType = (obj) => {
 };
 
 export const getSellerLocation = (seller) => {};
+
+export const processDates = (msgs) => {
+  if (!msgs.length) return [];
+
+  const result = [];
+  let currentDate = null;
+
+  msgs.forEach((msg) => {
+    const messageDate = moment(msg.createdAt).startOf("day");
+
+    // If date changes, add a date header
+    if (!currentDate || !messageDate.isSame(currentDate, "day")) {
+      currentDate = messageDate;
+
+      // Create date header based on relative time
+      let dateHeader;
+      if (messageDate.isSame(moment(), "day")) {
+        dateHeader = "Today";
+      } else if (messageDate.isSame(moment().subtract(1, "days"), "day")) {
+        dateHeader = "Yesterday";
+      } else if (messageDate.isAfter(moment().subtract(7, "days"))) {
+        dateHeader = messageDate.format("dddd"); // Day name
+      } else {
+        dateHeader = messageDate.format("MMMM D, YYYY"); // Full date
+      }
+
+      result.push({
+        _id: `date-${messageDate.format("YYYY-MM-DD")}`,
+        messageType: "date",
+        content: dateHeader,
+      });
+    }
+    // else {
+    //   result.push({
+    //     _id: msg?.createdAt,
+    //     messageType: "filler",
+    //     content: "",
+    //   });
+    // }
+
+    // Add the message
+    result.push({
+      ...msg,
+    });
+  });
+
+  return result;
+};

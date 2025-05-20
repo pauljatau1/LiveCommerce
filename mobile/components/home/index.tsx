@@ -173,4 +173,4 @@ const TabWrapper = ({ children }: { children: any }) => {
   );
 };
 
-export default Home;
+export default React.memo(Home);
