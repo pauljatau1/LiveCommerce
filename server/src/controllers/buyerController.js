@@ -16,6 +16,7 @@ const { Expo } = require('expo-server-sdk');
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const { agenda } = require('../config/agenda');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // Load environment variables from a .env file
 require('dotenv').config();
@@ -534,9 +535,22 @@ exports.verifyOTP = async (req, res) => {
 
     if (buyer.otp === otp) {
       buyer.emailVerified = true;
-      buyer.otp = undefined; // Clear the OTP after verification
+      buyer.otp = undefined; 
       await buyer.save();
-      return res.json({ message: 'Email verified successfully.' });
+
+      // Schedule the welcome bonus to be credited after 10 seconds
+      await agenda.schedule('in 10 seconds', 'credit_welcome_bonus', { buyerId: buyer._id });
+      console.log(`Scheduled welcome bonus for buyer ${buyer._id} in 10 seconds`);
+
+      return res.json({ 
+        message: 'Email verified successfully.',
+        bonus: {
+          coming: true,
+          amount: 2000,
+          currency: 'NGN',
+          timeToCredit: '10 seconds'
+        }
+      });
     } else {
       return res.status(400).json({ message: 'Invalid OTP.' });
     }

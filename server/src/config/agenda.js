@@ -1774,6 +1774,140 @@ agenda.define('monthly_livestream_analytics', async (job) => {
   }
 });
 
+// Define job for crediting welcome bonus to newly verified buyers
+agenda.define('credit_welcome_bonus', async (job) => {
+  try {
+    const { buyerId } = job.attrs.data;
+    console.log(`Starting welcome bonus credit for buyer: ${buyerId}`);
+    
+    const Buyer = mongoose.model('Buyer');
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    // Find the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      console.error(`Buyer not found for welcome bonus: ${buyerId}`);
+      return;
+    }
+    
+    // Check if they're eligible (email is verified)
+    if (!buyer.emailVerified) {
+      console.log(`Buyer ${buyerId} not eligible for welcome bonus: email not verified`);
+      return;
+    }
+    
+    // Check if they already received a welcome bonus
+    const hasWelcomeBonus = buyer.wallet.transactions.some(
+      t => t.description?.includes('Welcome bonus')
+    );
+    
+    if (hasWelcomeBonus) {
+      console.log(`Buyer ${buyerId} already received welcome bonus`);
+      return;
+    }
+    
+    // Add the welcome bonus transaction
+    const bonusAmount = 2000; // 2000 NGN
+    const transaction = {
+      type: 'credit',
+      amount: bonusAmount,
+      paymentReference: `WELCOME-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      description: 'Welcome bonus for verifying your email',
+      status: 'completed',
+      createdAt: new Date()
+    };
+    
+    // Update buyer's wallet
+    buyer.wallet.transactions.push(transaction);
+    buyer.wallet.balance += bonusAmount;
+    await buyer.save();
+    
+    console.log(`Welcome bonus of ${bonusAmount} NGN credited to buyer ${buyerId}`);
+    
+    // Send email notification
+    const formattedAmount = bonusAmount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const msg = {
+      to: buyer.email,
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli Support'
+      },
+      subject: 'Welcome Bonus Added to Your Wallet! 🎉',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+            </div>
+            
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Welcome Bonus Credited! 🎉</h1>
+              
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Thanks for verifying your email, ${buyer.firstName}! We've added a welcome bonus to your wallet.</p>
+              
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Welcome Bonus</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${formattedAmount}</p>
+              </div>
+              
+              <div style="background-color: #1a1a1a; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #999; width: 50%;">Transaction ID:</td>
+                    <td style="padding: 8px 0; color: #fff;">${transaction.paymentReference}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #999;">Date:</td>
+                    <td style="padding: 8px 0; color: #fff;">${new Date().toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #999;">Current Balance:</td>
+                    <td style="padding: 8px 0; color: #4CAF50; font-weight: bold;">${formattedBalance}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <p style="font-size: 16px; color: #bbb; text-align: center;">You can use this amount to shop on Auqli right away!</p>
+              
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://app.auqli.live/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
+              </div>
+            </div>
+            
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+    
+    try {
+      await sgMail.send(msg);
+      console.log(`Welcome bonus email sent to: ${buyer.email}`);
+    } catch (emailError) {
+      console.error('Error sending welcome bonus email:', emailError);
+    }
+    
+  } catch (error) {
+    console.error('Error in credit_welcome_bonus job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
@@ -1803,4 +1937,8 @@ const startAgenda = async () => {
   console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
 };
 
-module.exports = { agenda, startAgenda }; 
+// Export agenda instance and startAgenda function
+module.exports = {
+  agenda,
+  startAgenda
+}; 
