@@ -151,6 +151,7 @@ const CollapsibleHeader = memo(
                 <Pressable
                   className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"
                   style={{ paddingVertical: 7.5, width: 100 }}
+                  // onPress={() => router.push(`/s/68239d726b46a600343c4eeeA`)}
                 >
                   <Text className="text-white font-LexendDeca text-[10px]">
                     Share Profile

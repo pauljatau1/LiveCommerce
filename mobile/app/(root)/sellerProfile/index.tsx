@@ -405,7 +405,8 @@ const SellerProfile = () => {
 
   const shareLinkUrl = useMemo(
     () =>
-      `https://app.auqli.live/sellerProfile?sellerId=${sellerId}&itmSource=share`,
+      // `https://app.auqli.live/sellerProfile?sellerId=${sellerId}&itmSource=share`,
+      `https://app.auqli.live/s/${sellerId}B`,
     [sellerId],
   );
 

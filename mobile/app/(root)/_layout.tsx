@@ -11,6 +11,15 @@ const Layout = () => {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(categories)" options={{ headerShown: false }} />
+
+      <Stack.Screen
+        name="s/[id]"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
       <Stack.Screen
         getId={({ params }) => Math.random().toString(36).substring(7)}
         name="product/[id]"
