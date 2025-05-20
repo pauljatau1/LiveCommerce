@@ -83,9 +83,10 @@ exports.register = async (req, res) => {
     // Check if the email is in the allowed list (this is also validated in the model)
     const ALLOWED_EMAILS = [
       'bolu@auqli.com',
-      'admin@auqli.com',
+      'support@auqli.com',
       'joseph@auqli.com', 
-      'paul@auqli.com'
+      'paul@auqli.com',
+      'matt@auqli.com'
     ];
     
     if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
@@ -7234,62 +7235,268 @@ exports.deletePlatformNotification = async (req, res) => {
   }
 };
 
-// Clean up invalid push tokens
-exports.cleanupPushTokens = async (req, res) => {
+// ... existing code ...
+
+// Function to send wallet transaction notification email to buyer
+async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newBalance) {
   try {
-    const buyers = await Buyer.find(
-      { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
-      'expoPushToken'
-    );
+    // Ensure SendGrid API key is set
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     
-    if (!buyers || buyers.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No push tokens found to clean up',
-        counts: {
-          total: 0,
-          invalid: 0,
-          removed: 0
-        }
+    const formattedAmount = amount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedBalance = newBalance.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedDate = new Date().toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const isCredit = type === 'credit';
+    
+    const emailMsg = {
+      to: buyer.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: isCredit ? 'Funds Added to Your Wallet - Auqli' : 'Funds Deducted from Your Wallet - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+          </div>
+          
+          <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+            <h2 style="color: #333; margin-bottom: 20px; text-align: center;">${isCredit ? 'Wallet Credit Notice' : 'Wallet Deduction Notice'}</h2>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              ${isCredit 
+                ? `Your wallet has been credited with ${formattedAmount}.` 
+                : `${formattedAmount} has been deducted from your wallet.`}
+            </p>
+            
+            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+              <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Transaction Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #777; width: 40%;">Amount:</td>
+                  <td style="padding: 8px 0; color: ${isCredit ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+                    ${isCredit ? '+' : '-'}${formattedAmount}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Reason:</td>
+                  <td style="padding: 8px 0; color: #333;">${reason || (isCredit ? 'Administrative credit' : 'Administrative deduction')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Date & Time:</td>
+                  <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Status:</td>
+                  <td style="padding: 8px 0; color: #333;">
+                    <span style="color: #4CAF50; font-weight: bold;">Completed</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Current Balance:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedBalance}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              ${isCredit 
+                ? 'You can now use this balance to make purchases on Auqli.' 
+                : 'If you have any questions regarding this transaction, please contact our support team.'}
+            </p>
+          </div>
+          
+          <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+            <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p>
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(emailMsg);
+    console.log(`Wallet ${type} email sent to buyer: ${buyer.email}`);
+    return true;
+  } catch (error) {
+    console.error(`Error sending wallet ${type} email to buyer:`, error);
+    return false;
+  }
+}
+
+// Deduct from buyer wallet
+exports.deductFromBuyerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { buyerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
       });
     }
     
-    // Check each token for validity
-    const invalidTokens = [];
-    for (const buyer of buyers) {
-      if (!buyer.expoPushToken) continue;
-      
-      if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
-        invalidTokens.push(buyer._id);
-      }
+    const buyer = await Buyer.findById(buyerId).session(session);
+    
+    if (!buyer) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Buyer not found' 
+      });
     }
     
-    let removedCount = 0;
-    if (invalidTokens.length > 0) {
-      // Remove invalid tokens
-      const result = await Buyer.updateMany(
-        { _id: { $in: invalidTokens } },
-        { $unset: { expoPushToken: "" } }
-      );
-      removedCount = result.modifiedCount;
+    // Check if buyer has sufficient balance
+    if (!buyer.wallet || buyer.wallet.balance < amount) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Insufficient wallet balance',
+        currentBalance: buyer.wallet ? buyer.wallet.balance : 0
+      });
     }
     
-    // Return cleanup stats
-    res.json({
+    // Create transaction record in buyer's wallet
+    const transaction = {
+      type: 'debit',
+      amount: amount,
+      paymentReference: `ADMIN-DEDUCT-${Date.now()}`,
+      description: reason || 'Administrative deduction',
+      status: 'completed',
+      createdAt: new Date()
+    };
+    
+    // Update buyer's wallet balance
+    const previousBalance = buyer.wallet.balance;
+    buyer.wallet.balance -= amount;
+    buyer.wallet.transactions.push(transaction);
+    await buyer.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendBuyerWalletTransactionEmail(buyer, amount, 'debit', reason, buyer.wallet.balance);
+    
+    res.status(200).json({
       success: true,
-      message: `Push token cleanup completed`,
-      counts: {
-        total: buyers.length,
-        invalid: invalidTokens.length,
-        removed: removedCount
-      }
+      message: 'Amount deducted from buyer wallet successfully',
+      transaction: transaction,
+      previousBalance,
+      newBalance: buyer.wallet.balance
     });
+    
   } catch (error) {
-    console.error('Error cleaning up push tokens:', error);
+    await session.abortTransaction();
+    console.error('Error deducting from buyer wallet:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to clean up push tokens',
+      message: 'Failed to deduct from buyer wallet',
       error: error.message
     });
+  } finally {
+    session.endSession();
   }
 };
+
+// Add to buyer wallet
+exports.addToBuyerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { buyerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
+      });
+    }
+    
+    const buyer = await Buyer.findById(buyerId).session(session);
+    
+    if (!buyer) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Buyer not found' 
+      });
+    }
+    
+    // Ensure the wallet object exists
+    if (!buyer.wallet) {
+      buyer.wallet = {
+        balance: 0,
+        onHoldAmount: 0,
+        currency: 'NGN',
+        transactions: [],
+        onHoldItems: []
+      };
+    }
+    
+    // Create transaction record
+    const transaction = {
+      type: 'credit',
+      amount: amount,
+      paymentReference: `ADMIN-CREDIT-${Date.now()}`,
+      description: reason || 'Administrative credit',
+      status: 'completed',
+      createdAt: new Date()
+    };
+    
+    // Update buyer's wallet balance
+    const previousBalance = buyer.wallet.balance;
+    buyer.wallet.balance += amount;
+    buyer.wallet.transactions.push(transaction);
+    await buyer.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendBuyerWalletTransactionEmail(buyer, amount, 'credit', reason, buyer.wallet.balance);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Amount added to buyer wallet successfully',
+      transaction: transaction,
+      previousBalance,
+      newBalance: buyer.wallet.balance
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error adding to buyer wallet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add to buyer wallet',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ... existing code ...

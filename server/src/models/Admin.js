@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 // List of allowed admin emails
 const ALLOWED_ADMIN_EMAILS = [
   'bolu@auqli.com',
-  'admin@auqli.com',
+  'support@auqli.com',
   'joseph@auqli.com',
   'paul@auqli.com'
 ];

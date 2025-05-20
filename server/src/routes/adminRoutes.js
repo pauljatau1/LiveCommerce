@@ -3157,6 +3157,98 @@ router.get('/buyers/:buyerId/details',
 
 /**
  * @swagger
+ * /api/admin/buyers/{buyerId}/wallet/deduct:
+ *   post:
+ *     summary: Deduct money from a buyer's wallet
+ *     tags: [Admin, Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Buyer ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to deduct from the wallet
+ *                 required: true
+ *               reason:
+ *                 type: string
+ *                 description: Reason for the deduction
+ *     responses:
+ *       200:
+ *         description: Amount deducted successfully
+ *       400:
+ *         description: Invalid amount or insufficient balance
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/buyers/:buyerId/wallet/deduct',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deductFromBuyerWallet
+);
+
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}/wallet/add:
+ *   post:
+ *     summary: Add money to a buyer's wallet
+ *     tags: [Admin, Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Buyer ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to add to the wallet
+ *                 required: true
+ *               reason:
+ *                 type: string
+ *                 description: Reason for adding the funds
+ *     responses:
+ *       200:
+ *         description: Amount added successfully
+ *       400:
+ *         description: Invalid amount
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/buyers/:buyerId/wallet/add',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.addToBuyerWallet
+);
+
+/**
+ * @swagger
  * /api/admin/platform-notifications:
  *   post:
  *     summary: Create a new platform notification
