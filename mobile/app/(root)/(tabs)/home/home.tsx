@@ -13,6 +13,7 @@ import { RootState } from "@/store";
 import CreateAccountModal from "@/components/global/create-account-prompt";
 import OrderPopup from "@/components/global/orders/order-popup";
 import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
+import PromotionModal from "@/components/modals/promotion";
 
 const { width, height } = Dimensions.get("window");
 
@@ -35,7 +36,26 @@ const Homepage = () => {
   };
 
   const closeModal = useCallback(() => {
+    console.log("calling out");
+
     setIsVisible(false);
+  }, [isVisible]);
+
+  const showPromotion = useCallback(async () => {
+    const isFirstTime = await AsyncStorage.getItem("isFirstTime");
+    const fromVerify = await AsyncStorage.getItem("fromVerify");
+    const verifyPayload = JSON.parse(fromVerify!);
+    const token = await AsyncStorage.getItem("token");
+
+    if (
+      isFirstTime &&
+      verifyPayload &&
+      verifyPayload.bonus?.amount == 2000 &&
+      token
+    ) {
+      setTimeout(() => setIsVisible(true), 3000);
+      await AsyncStorage.removeItem("fromVerify");
+    }
   }, []);
 
   useEffect(() => {
@@ -51,8 +71,9 @@ const Homepage = () => {
       }
     }
     requestTrackingPermission();
+    showPromotion();
     setIsFirstTime();
-    checkIfLoggedIn();
+    // checkIfLoggedIn();
   }, []);
   return (
     <>
@@ -62,8 +83,8 @@ const Homepage = () => {
         style={{ paddingTop: insets.top }}
       >
         <Home />
-        <CreateAccountModal isVisible={isVisible} closeModal={closeModal} />
-        {/* <OrderPopup isVisible={true} closeModal={closeModal} /> */}
+        {/* <CreateAccountModal isVisible={isVisible} closeModal={closeModal} /> */}
+        <PromotionModal isVisible={isVisible} closeModal={closeModal} />
       </View>
     </>
   );

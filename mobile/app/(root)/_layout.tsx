@@ -138,6 +138,18 @@ const Layout = () => {
       />
 
       <Stack.Screen
+        name="(modals)/popup"
+        options={{
+          presentation: "transparentModal",
+          animation: "slide_from_bottom",
+          animationDuration: 150,
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="catalog/[id]"
         options={{
           headerTitle: "",

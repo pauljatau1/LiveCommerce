@@ -24,6 +24,7 @@ import { OtpInput } from "react-native-otp-entry";
 import CustomButton from "@/components/global/button/CustomButton";
 import LoadingModal from "@/components/global/loading-modal";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const VerifyCodeOtp = () => {
   const params = useLocalSearchParams();
@@ -72,6 +73,7 @@ const VerifyCodeOtp = () => {
         otp,
       }).unwrap();
       toast.success("success");
+      await AsyncStorage.setItem("fromVerify", JSON.stringify(result));
       // router.push({
       //     pathname: '/(root)/(auth)/sign-in',
       // });
