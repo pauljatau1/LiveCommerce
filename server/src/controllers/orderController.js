@@ -736,10 +736,10 @@ exports.createOrder = async (req, res) => {
         }
       }
       
-      // Schedule job to delete order if still unpaid after 1 minute (for Paystack orders only)
+      // Schedule job to delete order if still unpaid after 30 minutes (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
-        agenda.schedule('in 1 minute', 'delete_unpaid_orders', { orderId: order._id });
-        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 1 minute`);
+        agenda.schedule('in 30 minutes', 'delete_unpaid_orders', { orderId: order._id });
+        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 30 minutes`);
       }
       
       // Add buyer to seller's customers list if not already a customer
