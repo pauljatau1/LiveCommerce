@@ -63,7 +63,9 @@ commands:
           name: Install dependencies
           command: |
             npm install
-            eas build —platform Android
+            npx expo install expo-dev-client
+            npx expo run:android
+            #eas build —platform Android
       - store_artifacts:
           path: package-lock.json
       - save_cache:
