@@ -917,89 +917,564 @@ const LivestreamStudio = () => {
     // Function to switch between front and back cameras - wrapped in useCallback
     const switchCamera = useCallback(async (specificCameraId) => {
         if (!isStreaming || localTracks.length === 0) {
+            console.log("Cannot switch camera: not streaming or no local tracks");
             return;
         }
 
         try {
+            console.log('switching camera')
             // Find the video track
             const videoTrack = localTracks.find(track => track.trackMediaType === 'video');
-            if (!videoTrack) return;
-
-            // Show loading toast
-            const loadingToast = toast.loading('Switching camera...');
-
-            // Implementation details...
-            // Note: Keeping implementation but removing log statements to save space
-
-            // Get all cameras
-            const mediaDevices = await navigator.mediaDevices.enumerateDevices();
-            const cameras = mediaDevices.filter(device => device.kind === 'videoinput');
-
-            if (cameras.length < 2) {
-                toast.dismiss(loadingToast);
-                toast.error("Device has only one camera");
+            if (!videoTrack) {
+                console.error("No video track found to switch");
                 return;
             }
 
-            // Determine target camera
-            let targetCamera;
-            if (specificCameraId) {
-                targetCamera = cameras.find(cam => cam.deviceId === specificCameraId);
-                if (!targetCamera) {
+            // Show loading toast
+            const loadingToast = toast.loading('Switching camera...', {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+
+            try {
+                console.log("STEP 1: Identifying all available cameras");
+                // Get available camera devices using the browser API
+                const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = mediaDevices.filter(device => device.kind === 'videoinput');
+
+                console.log(`Available cameras (${cameras.length}):`,
+                    cameras.map(d => `${d.label || 'Unnamed camera'} (${d.deviceId.substring(0, 8)}...)`));
+
+                if (cameras.length < 2) {
+                    console.error("Not enough cameras to switch between");
                     toast.dismiss(loadingToast);
-                    toast.error("Selected camera not found. Try again.");
+                    toast.error("Device has only one camera", {
+                        style: {
+                            background: '#161A1E',
+                            color: '#fff',
+                        }
+                    });
                     return;
                 }
-            } else {
-                // Find current camera index
-                let currentCameraIndex = -1;
-                if (videoTrack._deviceId) {
-                    currentCameraIndex = cameras.findIndex(cam => cam.deviceId === videoTrack._deviceId);
-                }
-                if (currentCameraIndex === -1 && videoTrack._originMediaStreamTrack?.label) {
-                    const trackLabel = videoTrack._originMediaStreamTrack.label;
-                    currentCameraIndex = cameras.findIndex(cam => cam.label === trackLabel);
-                }
-                if (currentCameraIndex === -1) {
-                    currentCameraIndex = cameraFacingMode === "user" ? 1 : 0;
+
+                console.log("STEP 2: Determining current and target cameras");
+
+                // If a specific camera ID was provided, use that camera
+                let targetCamera;
+                if (specificCameraId) {
+                    console.log(`Looking for specific camera with ID: ${specificCameraId.substring(0, 8)}...`);
+                    targetCamera = cameras.find(cam => cam.deviceId === specificCameraId);
+
+                    if (!targetCamera) {
+                        console.error(`Camera with ID ${specificCameraId.substring(0, 8)}... not found`);
+                        toast.dismiss(loadingToast);
+                        toast.error("Selected camera not found. Try again.", {
+                            style: {
+                                background: '#161A1E',
+                                color: '#fff',
+                            }
+                        });
+                        return;
+                    }
+
+                    console.log(`Found specified camera: ${targetCamera.label || 'Unnamed camera'}`);
+                } else {
+                    // No specific camera ID, use the default cycling behavior
+                    // Determine current camera index
+                    let currentCameraIndex = -1;
+
+                    // Try to find current camera in the list by deviceId
+                    if (videoTrack._deviceId) {
+                        currentCameraIndex = cameras.findIndex(cam => cam.deviceId === videoTrack._deviceId);
+                        console.log(`Found current camera at index ${currentCameraIndex} by deviceId`);
+                    }
+
+                    // If we couldn't find by deviceId, try using label
+                    if (currentCameraIndex === -1 && videoTrack._originMediaStreamTrack && videoTrack._originMediaStreamTrack.label) {
+                        const trackLabel = videoTrack._originMediaStreamTrack.label;
+                        currentCameraIndex = cameras.findIndex(cam => cam.label === trackLabel);
+                        console.log(`Found current camera at index ${currentCameraIndex} by label`);
+                    }
+
+                    // Last resort: use facing mode as hint
+                    if (currentCameraIndex === -1) {
+                        console.log(`Could not find current camera by ID or label, using facing mode ${cameraFacingMode} as hint`);
+                        // Determine likely index based on facing mode
+                        if (cameras.length >= 2) {
+                            // In most devices, camera index 0 is back, index 1 is front
+                            currentCameraIndex = cameraFacingMode === "user" ? 1 : 0;
+                        } else {
+                            currentCameraIndex = 0; // Only one camera
+                        }
+                    }
+
+                    // Get the next camera in sequence
+                    const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
+                    console.log(`Switching from camera ${currentCameraIndex} to camera ${nextCameraIndex}`);
+
+                    targetCamera = cameras[nextCameraIndex];
                 }
 
-                // Next camera
-                const nextCameraIndex = (currentCameraIndex + 1) % cameras.length;
-                targetCamera = cameras[nextCameraIndex];
+                console.log(`Target camera: ${targetCamera.label || 'Unnamed camera'} (${targetCamera.deviceId.substring(0, 8)}...)`);
+
+                // Calculate the facing mode based on camera label
+                let calculatedFacingMode;
+                if (targetCamera.label.toLowerCase().includes('back') ||
+                    targetCamera.label.toLowerCase().includes('rear') ||
+                    targetCamera.label.toLowerCase().includes('environment') ||
+                    (targetCamera.label.includes('camera') && targetCamera.label.includes('0'))) {
+                    calculatedFacingMode = "environment";
+                    console.log("Target camera identified as REAR camera based on label:", targetCamera.label);
+                } else if (targetCamera.label.toLowerCase().includes('front') ||
+                    targetCamera.label.toLowerCase().includes('user') ||
+                    targetCamera.label.toLowerCase().includes('selfie') ||
+                    (targetCamera.label.includes('camera') && targetCamera.label.includes('1'))) {
+                    calculatedFacingMode = "user";
+                    console.log("Target camera identified as FRONT camera based on label:", targetCamera.label);
+                } else {
+                    // If we can't determine from label, use index as fallback
+                    // For specific camera selection, default to environment if label doesn't give clues
+                    if (specificCameraId) {
+                        calculatedFacingMode = "environment";
+                        console.log(`Unable to determine camera type from label for specific camera, defaulting to: ${calculatedFacingMode}`);
+                    } else {
+                        const nextCameraIndex = cameras.findIndex(cam => cam.deviceId === targetCamera.deviceId);
+                        calculatedFacingMode = nextCameraIndex === 0 ? "environment" : "user";
+                        console.log(`Unable to determine camera type from label, using index ${nextCameraIndex} to guess: ${calculatedFacingMode}`);
+                    }
+                }
+
+                console.log(`Final calculated facing mode: ${calculatedFacingMode}`);
+
+                console.log("STEP 3: AGGRESSIVE cleanup of all media resources");
+                // CRITICAL: Force release ALL media resources first
+
+                // ADDED: Check and clean up previewMediaStream
+                console.log("3.0: Checking for preview media stream");
+                if (previewMediaStream) {
+                    console.log("Cleaning up preview media stream");
+                    try {
+                        const previewTracks = previewMediaStream.getTracks();
+                        console.log(`Found ${previewTracks.length} preview tracks to stop`);
+                        previewTracks.forEach(track => {
+                            try {
+                                console.log(`Stopping preview track: ${track.kind} (${track.label || 'unnamed'})`);
+                                track.stop();
+                                track.enabled = false;
+                            } catch (err) {
+                                console.warn(`Failed to stop preview track: ${err.message}`);
+                            }
+                        });
+                        setPreviewMediaStream(null);
+                    } catch (err) {
+                        console.warn("Error cleaning up preview stream:", err);
+                    }
+                }
+
+                console.log("3.1: Stopping all active MediaStream tracks from previous camera operations");
+                // Stop all tracks of any previously stored media streams
+                if (window.activeCameraStreams && window.activeCameraStreams.length > 0) {
+                    console.log(`Cleaning up ${window.activeCameraStreams.length} previously stored media streams`);
+                    window.activeCameraStreams.forEach((stream, index) => {
+                        console.log(`Stopping tracks from stored stream #${index}`);
+                        if (stream && stream.getTracks) {
+                            const tracks = stream.getTracks();
+                            console.log(`Found ${tracks.length} tracks to stop`);
+                            tracks.forEach(track => {
+                                try {
+                                    console.log(`Stopping track: ${track.kind} (${track.label || 'unnamed'})`);
+                                    track.stop();
+                                } catch (err) {
+                                    console.warn(`Failed to stop track: ${err.message}`);
+                                }
+                            });
+                        }
+                    });
+                    window.activeCameraStreams = [];
+                }
+
+                // Stop any video currently playing in containers
+                try {
+                    console.log("3.1.5: Cleaning up any video elements in containers");
+                    const desktopContainer = document.getElementById('desktop-video-container');
+                    const mobileContainer = document.getElementById('mobile-video-container');
+
+                    if (desktopContainer) {
+                        console.log("Cleaning desktop video container");
+                        while (desktopContainer.firstChild) {
+                            desktopContainer.removeChild(desktopContainer.firstChild);
+                        }
+                    }
+
+                    if (mobileContainer) {
+                        console.log("Cleaning mobile video container");
+                        while (mobileContainer.firstChild) {
+                            mobileContainer.removeChild(mobileContainer.firstChild);
+                        }
+                    }
+                } catch (containerError) {
+                    console.warn("Error cleaning video containers:", containerError);
+                }
+
+                console.log("3.2: Accessing all media devices to force hardware reset");
+                try {
+                    // This is a trick to fully reset camera hardware on some devices
+                    const resetStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: false });
+                    resetStream.getTracks().forEach(track => track.stop());
+                } catch (e) {
+                    // Ignore errors, this is just an attempt to reset
+                    console.log("Media hardware reset skipped:", e.message);
+                }
+
+                console.log("3.3: Unpublishing and closing Agora video track");
+                // Unpublish and close current Agora video track
+                try {
+                    console.log(`Stopping Agora track: ${videoTrack.getTrackId()}`);
+                    await client.unpublish(videoTrack);
+                    videoTrack.stop();
+                    videoTrack.close();
+                } catch (trackError) {
+                    console.warn("Error during track cleanup:", trackError.message);
+                    // Continue anyway - this is cleanup
+                }
+
+                console.log("STEP 4: Wait for camera resources to be fully released");
+                // CRITICAL: Need to wait long enough for camera to be fully released
+                // Some devices need a longer time
+                const releaseDelay = 5000; // 5 seconds - increased from 3 to allow more time for mobile devices
+                console.log(`Waiting ${releaseDelay}ms for camera resources to be fully released...`);
+                await new Promise(resolve => setTimeout(resolve, releaseDelay));
+
+                console.log(`STEP 5: Attempting to access new camera with ID: ${targetCamera.deviceId.substring(0, 8)}...`);
+
+                // Function to attempt camera access with retries
+                const accessCamera = async (attempts = 3, delay = 1000) => {
+                    const isRearCamera = calculatedFacingMode === "environment";
+                    console.log(`Attempting to access ${isRearCamera ? "REAR" : "FRONT"} camera`);
+
+                    // If we're trying to access the rear camera, try with facingMode first
+                    // This is often more reliable than deviceId on mobile devices
+                    if (isRearCamera) {
+                        console.log("First attempting rear camera with facingMode constraint only");
+                        try {
+                            const facingModeConstraints = {
+                                video: { facingMode: { exact: "environment" } },
+                                audio: false
+                            };
+                            console.log("Using facingMode constraints:", JSON.stringify(facingModeConstraints, null, 2));
+                            return await navigator.mediaDevices.getUserMedia(facingModeConstraints);
+                        } catch (facingModeError) {
+                            console.warn("Rear camera facingMode access failed:", facingModeError.name, facingModeError.message);
+                        }
+                    }
+
+                    // Continue with multiple attempts with different constraint combinations
+                    for (let attempt = 1; attempt <= attempts; attempt++) {
+                        console.log(`Camera access attempt ${attempt}/${attempts}`);
+
+                        try {
+                            // First try with specific constraints for the target camera
+                            // Use both deviceId and facingMode for best chance of success
+                            const constraints = {
+                                video: {
+                                    deviceId: { exact: targetCamera.deviceId }
+                                },
+                                audio: false
+                            };
+
+                            // Only add facingMode if we're trying to get the front camera
+                            // For rear camera, we'll try deviceId only first to avoid conflicts
+                            if (!isRearCamera) {
+                                console.log("Using user facingMode constraint for front camera");
+                                constraints.video.facingMode = { exact: "user" };
+                            } else {
+                                console.log("Using only deviceId constraint for rear camera");
+                            }
+
+                            console.log("Using constraints:", JSON.stringify(constraints, null, 2));
+                            return await navigator.mediaDevices.getUserMedia(constraints);
+                        } catch (exactConstraintError) {
+                            console.warn(`Exact constraints failed:`, exactConstraintError.name, exactConstraintError.message);
+
+                            // If exact constraints fail, try with ideal constraints
+                            try {
+                                console.log("Trying with ideal constraints instead of exact");
+                                const idealConstraints = {
+                                    video: {
+                                        deviceId: { ideal: targetCamera.deviceId },
+                                        width: { ideal: 1280, min: 640 },
+                                        height: { ideal: 720, min: 480 }
+                                    },
+                                    audio: false
+                                };
+
+                                // Add ideal facingMode for better selection
+                                if (isRearCamera) {
+                                    idealConstraints.video.facingMode = { ideal: "environment" };
+                                } else {
+                                    idealConstraints.video.facingMode = { ideal: "user" };
+                                }
+
+                                console.log("Using ideal constraints:", JSON.stringify(idealConstraints, null, 2));
+                                return await navigator.mediaDevices.getUserMedia(idealConstraints);
+                            } catch (idealConstraintError) {
+                                console.warn(`Ideal constraints failed:`, idealConstraintError.name, idealConstraintError.message);
+
+                                // If we're on the final attempt, try just the facingMode as a last resort
+                                if (attempt === attempts) {
+                                    console.log("Final attempt with facingMode-only constraint");
+                                    try {
+                                        // Try using just facingMode which is more reliable on mobile
+                                        const facingModeConstraints = {
+                                            video: {
+                                                facingMode: isRearCamera ? "environment" : "user"
+                                            },
+                                            audio: false
+                                        };
+                                        console.log("Using facingMode-only constraints:", JSON.stringify(facingModeConstraints, null, 2));
+                                        return await navigator.mediaDevices.getUserMedia(facingModeConstraints);
+                                    } catch (facingModeError) {
+                                        console.error("FacingMode approach failed:", facingModeError);
+
+                                        // As a last desperation attempt, try generic video
+                                        console.log("Last resort: trying with generic video constraint");
+                                        try {
+                                            return await navigator.mediaDevices.getUserMedia({
+                                                video: true,
+                                                audio: false
+                                            });
+                                        } catch (lastError) {
+                                            console.error("All camera access attempts failed:", lastError);
+                                            throw lastError;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Wait before next attempt with increasing delay
+                            console.log(`Waiting ${delay}ms before next attempt...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 1.5; // Increase delay for next attempt
+                        }
+                    }
+
+                    // If we get here, all attempts failed
+                    throw new Error("All camera access attempts failed after multiple retries");
+                };
+
+                // Try to access the camera with retries
+                let testStream = null;
+                try {
+                    testStream = await accessCamera();
+                    console.log("Camera access successful!");
+
+                    // Validate that we got the right camera
+                    const videoTrack = testStream.getVideoTracks()[0];
+                    const settings = videoTrack?.getSettings();
+                    console.log("Obtained camera:", {
+                        label: videoTrack?.label || 'unknown',
+                        id: videoTrack?.id.substring(0, 8) || 'unknown',
+                        deviceId: settings?.deviceId?.substring(0, 8) || 'unknown',
+                        facingMode: settings?.facingMode || 'unknown',
+                        width: settings?.width,
+                        height: settings?.height
+                    });
+
+                    // Verify if we got the intended camera type
+                    const expectedFacingMode = calculatedFacingMode;
+                    const actualFacingMode = settings?.facingMode ||
+                        (videoTrack?.label?.toLowerCase().includes('front') ? 'user' :
+                            videoTrack?.label?.toLowerCase().includes('back') ? 'environment' : 'unknown');
+
+                    console.log(`Camera check: Expected ${expectedFacingMode}, got ${actualFacingMode}`);
+
+                    // If we didn't get the expected camera, warn but continue
+                    if (actualFacingMode !== 'unknown' && actualFacingMode !== expectedFacingMode) {
+                        console.warn(`WARNING: Got ${actualFacingMode} camera instead of ${expectedFacingMode}`);
+                        // Update our expectation to match reality
+                        calculatedFacingMode = actualFacingMode;
+                    }
+
+                    // Store stream for cleanup in future switches
+                    if (!window.activeCameraStreams) {
+                        window.activeCameraStreams = [];
+                    }
+                    window.activeCameraStreams.push(testStream);
+                } catch (mediaError) {
+                    console.error("All camera access attempts failed:", mediaError);
+                    toast.dismiss(loadingToast);
+                    toast.error("Failed to access camera. Please try again.", {
+                        style: {
+                            background: '#161A1E',
+                            color: '#fff',
+                        }
+                    });
+                    return;
+                }
+
+                console.log("STEP 6: Creating new video track from accessed camera");
+
+                // Log the tracks we obtained
+                if (testStream) {
+                    const videoTracks = testStream.getVideoTracks();
+                    console.log(`Got ${videoTracks.length} video tracks:`,
+                        videoTracks.map(t => `${t.label || 'unnamed'} (${t.id.substring(0, 8)}...)`));
+
+                    if (videoTracks.length === 0) {
+                        throw new Error("No video tracks in the obtained media stream");
+                    }
+                }
+
+                let newVideoTrack;
+                try {
+                    // Get the video track from the stream
+                    const mediaStreamTrack = testStream.getVideoTracks()[0];
+
+                    // Log camera capabilities to help debug
+                    if (mediaStreamTrack.getSettings) {
+                        const settings = mediaStreamTrack.getSettings();
+                        console.log("Camera settings:", {
+                            deviceId: settings.deviceId?.substring(0, 8),
+                            facingMode: settings.facingMode,
+                            width: settings.width,
+                            height: settings.height
+                        });
+                    }
+
+                    console.log("Creating custom video track from camera stream");
+                    newVideoTrack = AgoraRTC.createCustomVideoTrack({
+                        mediaStreamTrack,
+                        optimizationMode: videoSettings.videoConfig.optimizationMode || 'motion',
+                        facingMode: calculatedFacingMode
+                    });
+
+                    console.log(`New track created with ID: ${newVideoTrack.getTrackId()}`);
+                } catch (trackError) {
+                    console.error("Failed to create custom track:", trackError);
+
+                    // Try fallback approach with direct Agora API
+                    try {
+                        console.log("Trying fallback with createCameraVideoTrack");
+                        newVideoTrack = await AgoraRTC.createCameraVideoTrack({
+                            cameraId: targetCamera.deviceId,
+                            encoderConfig: {
+                                width: videoSettings.videoConfig.width,
+                                height: videoSettings.videoConfig.height,
+                                frameRate: videoSettings.videoConfig.frameRate,
+                                bitrateMin: videoSettings.videoConfig.bitrateMin,
+                                bitrateMax: videoSettings.videoConfig.bitrateMax,
+                                optimizationMode: videoSettings.videoConfig.optimizationMode
+                            },
+                            facingMode: calculatedFacingMode
+                        });
+                        console.log(`Fallback track created with ID: ${newVideoTrack.getTrackId()}`);
+                    } catch (fallbackError) {
+                        console.error("Fallback approach failed:", fallbackError);
+                        toast.dismiss(loadingToast);
+                        toast.error("Failed to create video track", {
+                            style: {
+                                background: '#161A1E',
+                                color: '#fff',
+                            }
+                        });
+                        return;
+                    }
+                }
+
+                console.log("STEP 7: Configuring mirror mode and playing video");
+                // Configure mirror mode based on camera type and settings
+                if (newVideoTrack.setMirror) {
+                    // For front camera (user), use the mirrorMode from settings
+                    // For back camera (environment), always set to false (no mirror)
+                    const shouldMirror = calculatedFacingMode === "user" ? videoSettings.mirrorMode : false;
+                    console.log(`Setting mirror mode: ${shouldMirror} (facingMode: ${calculatedFacingMode}, settings mirror: ${videoSettings.mirrorMode})`);
+                    newVideoTrack.setMirror(shouldMirror);
+                }
+
+                // Update containers with the new track
+                const desktopContainer = document.getElementById('desktop-video-container');
+                const mobileContainer = document.getElementById('mobile-video-container');
+
+                // Play video in containers
+                console.log("Playing video in containers");
+
+                // Wait a moment before playing to avoid race conditions
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Set mirror transform and play in containers
+                if (desktopContainer) {
+                    console.log("Playing in desktop container");
+                    desktopContainer.style.transform = calculatedFacingMode === "user" ? "scaleX(-1)" : "none";
+                    try {
+                        newVideoTrack.play(desktopContainer.id, {
+                            fit: 'cover'
+                        });
+                    } catch (playError) {
+                        console.error("Failed to play in desktop container:", playError);
+                    }
+                }
+
+                if (mobileContainer) {
+                    console.log("Playing in mobile container");
+                    mobileContainer.style.transform = calculatedFacingMode === "user" ? "scaleX(-1)" : "none";
+                    try {
+                        newVideoTrack.play(mobileContainer.id, {
+                            fit: 'cover'
+                        });
+                    } catch (playError) {
+                        console.error("Failed to play in mobile container:", playError);
+                    }
+                }
+
+                console.log("STEP 8: Updating tracks and publishing");
+                // Update local tracks array
+                const updatedTracks = localTracks.map(track =>
+                    track.trackMediaType === 'video' ? newVideoTrack : track
+                );
+                setLocalTracks(updatedTracks);
+
+                // Publish the new track
+                console.log("Publishing new track to Agora channel");
+                await client.publish(newVideoTrack);
+                console.log(`Track published successfully`);
+
+                // Update state and local storage
+                setCameraFacingMode(calculatedFacingMode);
+
+                // Save camera state to localStorage for persistence
+                localStorage.setItem(`camera_facing_mode_${id}`, calculatedFacingMode);
+
+                console.log("STEP 9: Camera switch completed");
+                toast.dismiss(loadingToast);
+                toast.success(`Switched to ${calculatedFacingMode === "user" ? "front" : "back"} camera`, {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+            } catch (error) {
+                console.error("Camera switching failed:", error);
+                toast.dismiss(loadingToast);
+                toast.error("Camera switching failed", {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
             }
-
-            // Calculate facing mode
-            let calculatedFacingMode;
-            if (targetCamera.label.toLowerCase().includes('back') ||
-                targetCamera.label.toLowerCase().includes('rear') ||
-                targetCamera.label.toLowerCase().includes('environment') ||
-                (targetCamera.label.includes('camera') && targetCamera.label.includes('0'))) {
-                calculatedFacingMode = "environment";
-            } else if (targetCamera.label.toLowerCase().includes('front') ||
-                targetCamera.label.toLowerCase().includes('user') ||
-                targetCamera.label.toLowerCase().includes('selfie') ||
-                (targetCamera.label.includes('camera') && targetCamera.label.includes('1'))) {
-                calculatedFacingMode = "user";
-            } else {
-                calculatedFacingMode = specificCameraId ? "environment" :
-                    cameras.findIndex(cam => cam.deviceId === targetCamera.deviceId) === 0 ? "environment" : "user";
-            }
-
-            // Handle resource cleanup and new camera setup
-            // ... Abbreviated for brevity
-
-            // Update state
-            setCameraFacingMode(calculatedFacingMode);
-            localStorage.setItem(`camera_facing_mode_${id}`, calculatedFacingMode);
-
-            toast.dismiss(loadingToast);
-            toast.success(`Switched to ${calculatedFacingMode === "user" ? "front" : "back"} camera`);
-
         } catch (error) {
-            toast.error("Camera switching failed");
+            console.error("Fatal error in camera switching:", error);
+            toast.error("Camera switching failed. Please refresh the app and try again.", {
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
         }
     }, [isStreaming, localTracks, cameraFacingMode, id]);
+    
 
     // Function to end stream - wrapped in useCallback
     const endStream = useCallback(async (button1, button2) => {
@@ -1011,75 +1486,134 @@ const LivestreamStudio = () => {
                 setIsLiveStreamEndingButton2(true);
             }
 
-            // Cleanup preview stream
+            console.log("📤 [STREAM END] Beginning stream shutdown process");
+
+            // 1. Stop and cleanup preview stream with enhanced error handling
             if (previewMediaStream) {
                 try {
+                    console.log("📤 [STREAM END] Cleaning up preview media stream");
                     const tracks = previewMediaStream.getTracks();
+                    console.log(`📤 [STREAM END] Found ${tracks.length} preview tracks to clean up`);
+
                     for (const track of tracks) {
-                        track.enabled = false;
-                        track.stop();
+                        try {
+                            // Get track type and ID for better logging
+                            const trackType = track.kind; // 'audio' or 'video'
+                            const trackId = track.id;
+                            console.log(`📤 [STREAM END] Stopping ${trackType} track ${trackId}`);
+
+                            // Fully disable and stop the track
+                            track.enabled = false;
+                            track.stop();
+
+                            // Additional check to ensure the track is really stopped
+                            if (track.readyState !== 'ended') {
+                                console.warn(`📤 [STREAM END] Track ${trackId} not fully stopped, forcing again`);
+                                track.stop();
+                            }
+                        } catch (trackError) {
+                            console.error("Error cleaning up preview track:", trackError);
+                        }
                     }
+
+                    // Explicitly remove all references to the stream
+                    previewMediaStream.getTracks().forEach(track => track.stop());
                     setPreviewMediaStream(null);
+
+                    // Force a small delay to allow browser to release camera/mic resources
                     await new Promise(resolve => setTimeout(resolve, 300));
+                    console.log("📤 [STREAM END] Preview media stream cleanup completed");
                 } catch (error) {
                     console.error("Error cleaning up preview stream:", error);
                 }
             }
 
-            // Release all media devices
+            // 2. Access navigator.mediaDevices to ensure all user media is stopped
             try {
+                // This is an additional safety measure to release all media devices
+                console.log("📤 [STREAM END] Performing additional media device release");
                 const emptyTracks = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 emptyTracks.getTracks().forEach(track => {
                     track.enabled = false;
                     track.stop();
                 });
-            } catch {
-                // Ignore - just an additional safety measure
+            } catch (mediaError) {
+                console.log("📤 [STREAM END] Additional media release not needed or failed:", mediaError);
             }
 
-            // Clean up Agora tracks
+            // 3. Unpublish and cleanup Agora tracks
             if (localTracks.length > 0) {
                 try {
+                    console.log(`📤 [STREAM END] Cleaning up ${localTracks.length} Agora tracks`);
+                    // First unpublish from Agora client
                     if (client.connectionState === 'CONNECTED') {
                         await client.unpublish(localTracks);
+                        console.log("📤 [STREAM END] Unpublished tracks from Agora");
                     }
 
+                    // Then stop and close each track
                     for (const track of localTracks) {
                         try {
-                            if (track.enabled !== false) {
-                                track.enabled = false;
+                            const trackType = track.trackMediaType; // 'audio' or 'video'
+                            console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
+
+                            // Change order: First disable, then stop and close
+                            try {
+                                // Safely try to disable the track first
+                                if (track.enabled !== false && typeof track.enabled !== 'undefined') {
+                                    track.enabled = false;
+                                }
+                            } catch (enabledError) {
+                                console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
                             }
+
+                            // Then stop the track
                             track.stop();
+
+                            // Finally close the track (this destroys the track)
                             track.close();
+
+                            console.log(`📤 [STREAM END] Successfully cleaned up ${trackType} track`);
                         } catch (trackError) {
                             console.error("Error cleaning up track:", trackError);
                         }
                     }
                     setLocalTracks([]);
+                    console.log("📤 [STREAM END] Agora tracks cleanup completed");
                 } catch (error) {
                     console.error("Error unpublishing tracks:", error);
                 }
             }
 
-            // Leave and clean up Agora client
+            // 4. Leave and cleanup Agora client
             if (client) {
                 try {
+                    console.log("📤 [STREAM END] Cleaning up Agora client");
+                    // Remove all event listeners first
                     client.removeAllListeners();
+
+                    // Then leave the channel if connected
                     if (client.connectionState !== 'DISCONNECTED') {
                         await client.leave();
+                        console.log("📤 [STREAM END] Left Agora channel");
                     }
                 } catch (error) {
                     console.error("Error leaving Agora channel:", error);
                 }
             }
 
-            // Notify backend and reset states
+            // 5. Notify backend about stream end
+            console.log("📤 [STREAM END] Notifying backend about stream end");
             await endLiveStream(_id, liveStreamDetails);
 
-            if (livestreamSocket?.resetBiddingStates) {
+            // Reset all bidding states from the socket context
+            if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
+                console.log("📤 [STREAM END] Resetting all bidding states");
                 livestreamSocket.resetBiddingStates();
 
+                // Emit a host_disconnect event to notify viewers that the host has ended the stream
                 if (livestreamSocket.socket) {
+                    console.log("📤 [STREAM END] Notifying viewers about host disconnect");
                     livestreamSocket.socket.emit('stream_notification', {
                         type: 'host_disconnect',
                         data: {
@@ -1089,25 +1623,35 @@ const LivestreamStudio = () => {
                     });
                 }
 
-                if (livestreamSocket.cleanupListeners) {
+                // Clean up socket listeners to prevent memory leaks
+                if (typeof livestreamSocket.cleanupListeners === 'function') {
+                    console.log("📤 [STREAM END] Cleaning up socket listeners");
                     livestreamSocket.cleanupListeners(_id);
                 }
 
-                if (livestreamSocket.unsubscribeFromStreamNotifications) {
+                // Unsubscribe from stream notifications
+                if (typeof livestreamSocket.unsubscribeFromStreamNotifications === 'function') {
+                    console.log("📤 [STREAM END] Unsubscribing from stream notifications");
                     livestreamSocket.unsubscribeFromStreamNotifications(_id);
                 }
             }
 
+            // 6. Show success message
             toast.success('Livestream ended successfully', {
                 style: { background: '#161A1E', color: '#fff' }
             });
 
+            console.log("📤 [STREAM END] Stream shutdown completed successfully");
+
         } catch (error) {
+            console.error('Error ending stream:', error);
             toast.error('Failed to end stream: ' + error.message, {
                 style: { background: '#161A1E', color: '#fff' }
             });
         } finally {
-            // Reset states
+            // Reset all states and clear storage regardless of success/failure
+            console.log("📤 [STREAM END] Resetting all states and clearing storage");
+
             setIsStreaming(false);
             stopTimer();
             setStreamDuration(0);
@@ -1147,6 +1691,18 @@ const LivestreamStudio = () => {
         navigate,
         endLiveStream
     ]);
+
+    // Add code to load camera state from localStorage in initializeStream
+    useEffect(() => {
+        // Load camera facing mode from localStorage when livestream ID is available
+        if (id) {
+            const savedCameraMode = localStorage.getItem(`camera_facing_mode_${id}`);
+            if (savedCameraMode) {
+                setCameraFacingMode(savedCameraMode);
+                console.log(`Loaded camera facing mode from storage: ${savedCameraMode}`);
+            }
+        }
+    }, [id]);
 
     // Add this new useEffect for connection state monitoring
     useEffect(() => {

@@ -27,6 +27,7 @@ const StreamMobileUi = ({
     const [messages, setMessages] = useState([]);
     const messagesEndRef = useRef(null);
     const chatContainerRef = useRef(null);
+    const inputRef = useRef(null);
     const [autoScroll, setAutoScroll] = useState(true);
     const [hasNewMessages, setHasNewMessages] = useState(false);
     const prevMessagesLengthRef = useRef(0);
@@ -203,6 +204,10 @@ const StreamMobileUi = ({
             // Re-enable auto-scroll when sending a message
             setAutoScroll(true);
             setHasNewMessages(false);
+            // Refocus the input to keep keyboard open
+            if (inputRef.current) {
+                inputRef.current.focus();
+            }
         }
     };
 
@@ -389,14 +394,7 @@ const StreamMobileUi = ({
                                 <div className="flex-1 mx-2 sm:mx-2 min-w-0">
                                     <div
                                         className={`flex items-center bg-black/40 rounded-full overflow-hidden ring-1 ring-white/30`}
-                                        onClick={(e) => {
-                                            // Prevent input losing focus when tapping container
-                                            const inputElement = e.currentTarget.querySelector('input');
-                                            if (inputElement) {
-                                                inputElement.focus();
-                                                e.stopPropagation();
-                                            }
-                                        }}
+                                      
                                     >
                                         <input
                                             type="text"
@@ -405,13 +403,7 @@ const StreamMobileUi = ({
                                             value={commentInput}
                                             onChange={(e) => setCommentInput(e.target.value)}
                                             onKeyPress={handleKeyPress}
-                                            onFocus={() => setIsInputFocused(true)}
-                                            onBlur={(e) => {
-                                                // Only blur if the click was outside the parent container
-                                                if (!e.currentTarget.parentElement.contains(e.relatedTarget)) {
-                                                    setIsInputFocused(false);
-                                                }
-                                            }}
+                                            ref={inputRef}
                                         />
                                         <button
                                             className={`px-2 sm:px-3 text-white/70 ${!commentInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
