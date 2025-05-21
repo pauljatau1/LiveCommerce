@@ -113,7 +113,7 @@ const StreamDesktopUi = ({
                     // Update state
                     setTotalSales(sales);
                     setItemsSold(items);
-                    
+
                     // Update product order counts
                     // Check if there's a new order that wasn't in the previous ordersData
                     if (latestOrderNotification.data.streamOrders.length > ordersData.length) {
@@ -125,10 +125,10 @@ const StreamDesktopUi = ({
 
                         // Only increment counts for new orders
                         newOrders.forEach(order => {
-                            const productId = order.product || 
-                                            (order.orderDetails?.items && 
-                                             order.orderDetails.items[0]?.product);
-                            
+                            const productId = order.product ||
+                                (order.orderDetails?.items &&
+                                    order.orderDetails.items[0]?.product);
+
                             if (productId) {
                                 setProductOrderCounts(prevCounts => ({
                                     ...prevCounts,
@@ -170,6 +170,13 @@ const StreamDesktopUi = ({
 
     return (
         <div className="hidden xl:block">
+            {/* Add StreamQualityIndicator */}
+            {streamQualityInfo && (
+                <StreamQualityIndicator
+                    qualityInfo={streamQualityInfo}
+                    onClose={onHideQualityInfo}
+                />
+            )}
             {/** HEADER */}
             <div className="grid grid-cols-1 md:grid-cols-6 xl:grid-cols-12 items-start xl:items-center gap-4 xl:gap-0">
                 <div className="flex justify-between md:justify-start md:col-span-3 items-center gap-2">
@@ -340,14 +347,6 @@ const StreamDesktopUi = ({
                             }}
                         ></div>
                     </div>
-
-                    {/* Add StreamQualityIndicator */}
-                    {streamQualityInfo && (
-                        <StreamQualityIndicator
-                            qualityInfo={streamQualityInfo}
-                            onClose={onHideQualityInfo}
-                        />
-                    )}
                 </div>
 
                 {/*desktop Right Sidebar - Activities */}
