@@ -87,24 +87,73 @@ exports.register = async (req, res) => {
       // Send verification email with new OTP
       const msg = {
         to: email,
-        from: 'Joseph From Auqli <support@auqli.com>',
+        from: 'Auqli Nigeria <support@auqli.com>',
         subject: 'Verify Your Email - Auqli',
         text: `Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}`,
         html: `
-          <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto;">
-              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-              <h1 style="color: #4CAF50; margin-bottom: 20px;">Email Verification Required</h1>
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${existingSeller.firstName},</p>
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">Welcome to Auqli! To complete your registration, please verify your email using the OTP below:</p>
-              <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-                <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
-              </div>
-              <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this verification, please ignore this email.</p>
-              <hr style="border: 1px solid #333333; margin: 30px 0;">
-              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-            </div>
-          </div>
+          <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto;">
+    <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+    <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli Nigeria — Let’s Get You Selling</h1>
+    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${existingSeller.firstName},</p>
+    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">Welcome to Auqli Nigeria — the future of live selling. Your account is live and you're just a few steps away from listing products and going live with your audience.</p>
+
+    <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+      <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
+    </div>
+    <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this verification, please ignore this email.</p>
+
+    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Start by:</p>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+          <span>Completing your seller profile</span>
+        </div>
+      </li>
+      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+          <span>Uploading your first product</span>
+        </div>
+      </li>
+      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+          <span>Exploring live selling tools</span>
+        </div>
+      </li>
+    </ul>
+
+    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Visit our Help Center at <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or contact <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a>.</p>
+
+    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Join our seller community:</p>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">💬</span>
+          <span>WhatsApp Channel</span>
+        </div>
+      </li>
+      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📢</span>
+          <span>Telegram Group</span>
+        </div>
+      </li>
+      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+        <div style="display: flex; align-items: center;">
+          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📱</span>
+          <span>Instagram | Twitter | Facebook</span>
+        </div>
+      </li>
+    </ul>
+
+    <hr style="border: 1px solid #333333; margin: 30px 0;">
+    <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+  </div>
+</div>
+
         `
       };
 

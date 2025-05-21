@@ -1273,57 +1273,74 @@ exports.verifyBusinessAccount = async (req, res) => {
     await seller.save();
 
     // Send verification emails
-    const personalEmailMsg = {
-      to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: 'Your Auqli Account Has Been Verified! 🎉',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Congratulations ${seller.firstName}!</h2>
-          <p>Your Auqli seller account has been verified successfully. You can now:</p>
-          <ul>
-            <li>List products on the marketplace</li>
-            <li>Access all seller features</li>
-            <li>Process orders and receive payments</li>
-          </ul>
-          <p>Start selling today by logging into your account!</p>
-         
-          <p>If you have any questions, please don't hesitate to contact our support team.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
+const personalEmailMsg = {
+  to: seller.email,
+  from: 'Auqli Nigeria <support@auqli.com>',
+  subject: 'Your Auqli Account Has Been Verified! 🎉',
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hi ${seller.firstName},</h2>
+      <p>Your seller account on Auqli Nigeria has been verified successfully.</p>
+      <p>You can now:</p>
+      <ul>
+        <li>✅ List products on the marketplace</li>
+        <li>✅ Access all seller tools</li>
+        <li>✅ Process orders and receive payments</li>
+        <li>✅ Go live with your audience</li>
+      </ul>
+      <p><a href="#" style="color: #4CAF50; text-decoration: none;">🔓 Login and Start Selling →</a></p>
+      <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+      <p>Join our community and get support anytime:</p>
+      <ul>
+        <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+        <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+        <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+      </ul>
+      <p>Let’s go live.</p>
+      <p>Best regards,<br>The Auqli Team</p>
+    </div>
+  `
+};
 
-    // Send to business email if it exists
-    if (seller.businessEmail) {
-      const businessEmailMsg = {
-        to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
-        subject: 'Business Account Verification Confirmed - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Business Account Verified</h2>
-            <p>Dear ${seller.businessName || seller.firstName},</p>
-            <p>Your business account on Auqli has been verified. Here's what this means for your business:</p>
-            <ul>
-              <li>Full access to seller dashboard</li>
-              <li>Ability to process unlimited orders</li>
-              <li>Access to business analytics</li>
-              <li>Priority customer support</li>
-            </ul>
-            <p>Business Details:</p>
-            <ul>
-              <li>Business Name: ${seller.businessName}</li>
-              <li>Account Type: ${seller.accountType}</li>
-              <li>Verification Status: Verified</li>
-            </ul>
-            <p>You can now start managing your business through our platform.</p>
-            <p>Best regards,<br>Auqli Business Team</p>
-          </div>
-        `
-      };
-      await sgMail.send(businessEmailMsg);
-    }
+// Send to business email if it exists
+if (seller.businessEmail) {
+  const businessEmailMsg = {
+    to: seller.businessEmail,
+    from: 'Auqli Nigeria <support@auqli.com>',
+    subject: 'Business Account Verification Confirmed - Auqli',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Business Account Verified</h2>
+        <p>Dear ${seller.businessName || seller.firstName},</p>
+        <p>Your business account on Auqli has been verified. Here's what this means for your business:</p>
+        <ul>
+          <li>Full access to seller dashboard</li>
+          <li>Ability to process unlimited orders</li>
+          <li>Access to business analytics</li>
+          <li>Priority customer support</li>
+        </ul>
+        <p>Business Details:</p>
+        <ul>
+          <li>Business Name: ${seller.businessName}</li>
+          <li>Account Type: ${seller.accountType}</li>
+          <li>Verification Status: Verified</li>
+        </ul>
+        <p>You can now start managing your business through our platform.</p>
+        <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+        <p>Join our community and get support anytime:</p>
+        <ul>
+          <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+          <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+          <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+        </ul>
+        <p>Let’s go live.</p>
+        <p>Best regards,<br>Auqli Business Team</p>
+      </div>
+    `
+  };
+  await sgMail.send(businessEmailMsg);
+}
+
 
     await sgMail.send(personalEmailMsg);
 
@@ -6440,51 +6457,56 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
     
     
-    // Set up email content
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: 'Complete Your Auqli Seller Onboarding',
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: 'Complete Your Setup on Auqli Nigeria',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #333; text-align: center;">Complete Your Seller Onboarding</h2>
-          
-          <p>Dear ${seller.firstName},</p>
-          
-          <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
-          
-          
-          
+          <h2 style="color: #333; text-align: center;">Complete Your Setup on Auqli Nigeria</h2>
+    
+          <p>Hi ${seller.firstName},</p>
+    
+          <p>Thanks for signing up to Auqli Nigeria, but your seller setup is still incomplete.</p>
+    
+          <p>To start selling, you need to finish:</p>
+    
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-            <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
             <ul style="margin-top: 10px;">
-              <li>List and sell products to customers</li>
-              <li>Access seller analytics and insights</li>
-              <li>Process orders and grow your business</li>
-              <li>Participate in promotions and campaigns</li>
+              <li>✅ Uploading your first product</li>
+              <li>✅ Completing your seller profile</li>
+              <li>✅ Setting up your live stream tools</li>
             </ul>
           </div>
-          
-          <p style="margin-top: 20px;">To complete your onboarding, simply log in to your Auqli seller account and follow the prompts in your dashboard.</p>
-          
+    
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
+            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">🎯 Finish Setup Now →</a>
           </div>
-          
-          <p>If you're experiencing any issues or have questions about the onboarding process, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
-          
+    
+          <p>Need help? Visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or email <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+    
+          <p>Join other sellers building their brands:</p>
+          <ul>
+            <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+            <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+            <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+          </ul>
+    
+          <p>We're excited to see your first livestream.</p>
+    
           <p>Best regards,<br>The Auqli Team</p>
-          
+    
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
             <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             <p>
-              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
               <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
             </p>
           </div>
         </div>
       `
     };
+    
     
     // Send the email
     await sgMail.send(emailMsg);
@@ -6514,7 +6536,10 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
  */
 exports.sendBulkOnboardingReminders = async (req, res) => {
   try {
-   
+    const incompleteSellers = await Seller.find({
+      accountType: { $nin: ['individual', 'business'] },
+      emailVerified: true
+    });
     
     const emailPromises = [];
     const processedSellers = [];
