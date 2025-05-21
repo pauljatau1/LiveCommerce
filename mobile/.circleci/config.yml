@@ -95,9 +95,9 @@ jobs:
       - android_install_with_cache
 
 workflows:
-  build-test-and-approval-deploy:
+  build-test-and-deploy:
     jobs:
-      - build:
+      - build_android:
           name: build_android
 
       - approve-staging-backend-deploy:
