@@ -33,21 +33,6 @@ const IntercomInitializer = () => {
         window.addEventListener('appLoginComplete', validateSession);
         return () => window.removeEventListener('appLoginComplete', validateSession);
     }, [seller, initUser, initVisitor, location.pathname, isDataReady]);
-    
-    // Hide Intercom on specific routes
-    useEffect(() => {
-        const pathsToHideIntercom = [
-            '/dashboard/live-streams',
-            '/dashboard/messages'
-        ];
-        
-        const shouldHide = pathsToHideIntercom.some(path => location.pathname.startsWith(path));
-        if (shouldHide) {
-            window.Intercom && window.Intercom('hide');
-        } else {
-            window.Intercom && window.Intercom('show');
-        }
-    }, [location.pathname]);
 
     return null;
 };

@@ -3,9 +3,7 @@ import { NavLink, useOutletContext } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import ActiveLiveStreamCard from '../../Components/ActiveLiveStreamCard';
-import Header from "../../Components/ui/Header/Header";
 import NotFoundIcon from "../../assets/not-found-icon.png";
-import DraftCoverPhoto from "../../assets/young-woman-organizing-live-shop 1.png";
 import CircularProgress from '@mui/material/CircularProgress';
 
 const ScheduleShows = () => {

@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'sonner';
 import { useSocket } from '../../Contexts/SocketContext';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 
 // Split UI components using React's lazy loading for code splitting
 const PreStreamDesktopUi = lazy(() => import('../../Components/preStreamDesktopUi/preStreamDesktopUi'));
@@ -109,6 +110,10 @@ const LivestreamStudio = () => {
         setNavName,
         setShowBackButton
     } = outletContext;
+
+    // Hide the Intercom launcher for this component
+    // Note: This needs to be called before any other effects
+    useIntercomVisibility(true);
 
     // Extract context values with destructuring - helps prevent unnecessary re-renders
     const {
@@ -381,7 +386,7 @@ const LivestreamStudio = () => {
                                     track.enabled = false;
                                 }
                             } catch (enabledError) {
-                                // Track is already disabled or read-only
+                                console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
                             }
 
                             // Then stop the track
