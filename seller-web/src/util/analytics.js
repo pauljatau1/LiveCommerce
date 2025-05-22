@@ -164,14 +164,14 @@ export const trackEvent = async (eventName, properties = {}) => {
 };
 
 /**
- * Identify a user across all analytics platforms
+ * Identify a user in Mixpanel
  * @param {string} userId - User ID
- * @param {Object} traits - User traits/properties
+ * @param {Object} traits - User traits/properties for Mixpanel
  */
-export const identifyUser = async (userId, traits = {}) => {
+export const identifyUserMixpanel = async (userId, traits = {}) => {
   // Don't proceed with invalid userId
   if (!userId) {
-    console.warn('identifyUser called with invalid userId');
+    console.warn('identifyUserMixpanel called with invalid userId');
     return;
   }
   
@@ -203,9 +203,29 @@ export const identifyUser = async (userId, traits = {}) => {
         }
       } catch (mpError) {
         console.error('Error in Mixpanel identification:', mpError);
-        // Continue with other analytics services
       }
     }
+  } catch (error) {
+    console.error('Error identifying user in Mixpanel:', error);
+    // Fail silently in production
+  }
+};
+
+/**
+ * Identify a user in Customer.io
+ * @param {string} userId - User ID
+ * @param {Object} traits - User traits/properties for Customer.io
+ */
+export const identifyUserCustomerIO = async (userId, traits = {}) => {
+  // Don't proceed with invalid userId
+  if (!userId) {
+    console.warn('identifyUserCustomerIO called with invalid userId');
+    return;
+  }
+  
+  try {
+    // Ensure CustomerIO is initialized
+    await initCustomerIO();
     
     // Customer.io identify (with safeguards)
     if (window.cioanalytics) {
@@ -217,18 +237,8 @@ export const identifyUser = async (userId, traits = {}) => {
         console.error('Error in Customer.io identification:', cioError);
       }
     }
-    
-    // Clarity identify
-    try {
-      await initClarity({
-        id: userId,
-        ...traits
-      });
-    } catch (clarityError) {
-      console.error('Error in Clarity identification:', clarityError);
-    }
   } catch (error) {
-    console.error('Error identifying user:', error);
+    console.error('Error identifying user in Customer.io:', error);
     // Fail silently in production
   }
 };
@@ -333,7 +343,8 @@ export default {
   initClarity,
   initCustomerIO,
   trackEvent,
-  identifyUser,
+  identifyUserMixpanel,
+  identifyUserCustomerIO,
   initAllAnalytics,
   ensureInitialized
 }; 

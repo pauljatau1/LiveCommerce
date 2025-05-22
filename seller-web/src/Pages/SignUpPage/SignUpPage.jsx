@@ -85,6 +85,13 @@ const SignUpPage = () => {
       }
     }
 
+    // Only show the OTP modal if verification is still pending
+    // Don't show the modal if otpStatus is "verified"
+    if (otpStatus === "verified") {
+      setIsModalOpen(false);
+      return;
+    }
+
     // Show the OTP modal if signup was successful and OTP verification is pending
     if (signUpSellerDetails && otpStatus === "pending") {
       setIsModalOpen(true);
@@ -542,7 +549,19 @@ const SignUpPage = () => {
             </h3>
             <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-4 ">Please verify your email address by inputting the OTP we sent to your email.</p>
             {
-              activateOtp ? (
+              otpStatus === "verified" ? (
+                <>
+                  <p className="text-base sm:text-lg font-medium text-green-400 text-center mt-6">
+                    Your email has been verified successfully!
+                  </p>
+                  <button onClick={() => {
+                    setIsModalOpen(false);
+                    navigate('/dashboard/home', { replace: true });
+                  }} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300">
+                    Go to Dashboard
+                  </button>
+                </>
+              ) : activateOtp ? (
                 <>
                   <div className="mb-5">
                     <OtpInput

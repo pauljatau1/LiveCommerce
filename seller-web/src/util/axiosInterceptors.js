@@ -25,12 +25,16 @@ export const setupAxiosInterceptors = (navigate) => {
         const isLoginPage = window.location.pathname.includes('/login') || 
                            window.location.pathname.includes('/signup');
         
+        // Check if this is a direct login access (first visit to login page)
+        const isDirectLoginAccess = sessionStorage.getItem('directLoginAccess') === 'true';
+        
         // Check if the user was previously logged in (token exists)
         const wasLoggedIn = localStorage.getItem('sellerToken') !== null;
         
         // Only handle token issues once to avoid multiple toasts/redirects
         // AND only if we're not already on the login page AND user was logged in
-        if (!localStorage.getItem('tokenErrorHandled') && !isLoginPage && wasLoggedIn) {
+        // AND not a direct login access
+        if (!localStorage.getItem('tokenErrorHandled') && !isLoginPage && wasLoggedIn && !isDirectLoginAccess) {
           localStorage.setItem('tokenErrorHandled', 'true');
           
           // Clean up auth state

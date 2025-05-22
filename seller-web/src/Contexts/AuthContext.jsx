@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { trackEvent, identifyUser } from "../util/analytics";
+import { trackEvent, identifyUserMixpanel, identifyUserCustomerIO } from "../util/analytics";
 import { getClientIP } from '../Utilities/networkUtils';
 import { useIntercomChat } from '../Hooks/useIntercom';
 
@@ -251,18 +251,18 @@ function AuthProvider({ children }) {
                 try {
                     const userData = {
                         "Seller ID": response.data.user._id,
-                        "Seller Email": email,
-                        "Seller Full Name": `${firstName} ${lastName}`,
+                        "$email": email,                           // Use reserved property
+                        "$name": `${firstName} ${lastName}`,       // Use reserved property
                         "Seller Phone Number": phoneNumber,
                         "Seller Store Name": storeName,
-                        "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
+                        "Signup Method": "Email",
                         "Referral Used": response.data.referralUsed ? "Yes" : "No",
                         "Referrer ID": response.data.referrerId || "None",
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     };
                     
-                    await identifyUser(response.data.user._id, userData);
+                    await identifyUserMixpanel(response.data.user._id, userData);
                     await trackEvent("Seller Signed Up", userData);
                     
                     // Track seller account creation with Customer.io
@@ -351,7 +351,15 @@ function AuthProvider({ children }) {
     const checkTokenValidity = async () => {
         try {
             const storedToken = localStorage.getItem('sellerToken');
-            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+            
+            // If there's no token at all, just return false without showing any error
+            if (!storedToken) {
+                console.log('No token found, skipping validation');
+                dispatch({ type: 'CHECK_TOKEN_FAILED' });
+                return false;
+            }
+            
+            const tokenData = JSON.parse(storedToken);
             console.log('tokenData', tokenData)
             const response = await axios.get(`${BASE_URL}/seller/check-token`, {
                 headers: {
@@ -372,8 +380,8 @@ function AuthProvider({ children }) {
         } catch (error) {
             console.log("Token validation error:", error);
             
-            // Handle invalid token response specifically
-            if (error.response?.data?.message === "Invalid token" || error.response?.status === 401) {
+            // Only show the error toast if there was actually a token that failed validation
+            if (localStorage.getItem('sellerToken') && (error.response?.data?.message === "Invalid token" || error.response?.status === 401)) {
                 console.log("Invalid token detected, redirecting to login");
                 
                 // Clean up auth state
@@ -392,7 +400,8 @@ function AuthProvider({ children }) {
                 
                 // Redirect to login
                 navigate('/login', { replace: true });
-            } else {
+            } else if (localStorage.getItem('sellerToken')) {
+                // Only show generic error if there was a token present
                 toast.error("Authentication error", {
                     description: error.response?.data?.message || error.message,
                     style: {
@@ -433,7 +442,7 @@ function AuthProvider({ children }) {
                     if (response.data.user) {
                         // Update the user in localStorage with verified status
                         const userData = response.data.user;
-                        userData.isVerified = true; // Ensure verification status is set
+                        userData.isVerified = true; 
                         userData.emailVerified = true; // Add emailVerified flag
                         localStorage.setItem('seller', JSON.stringify(userData));
                         dispatch({ type: 'STORE_SELLER', payload: userData });
@@ -452,7 +461,18 @@ function AuthProvider({ children }) {
                     // Return success - navigation will be handled by the component
                     return true;
                 } else {
-                    toast.success(response.data.message);
+                    // Even if token wasn't in the response, still consider verification successful
+                    // This handles the case where the backend returns verification success but no token
+                    dispatch({ type: 'VERIFY_OTP_SUCCESS' });
+                    toast.success(response.data.message || 'Email verified successfully');
+                    
+                    // Update email verification status in local storage
+                    const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
+                    if (sellerData) {
+                        sellerData.emailVerified = true;
+                        localStorage.setItem('seller', JSON.stringify(sellerData));
+                    }
+                    
                     return true;
                 }
             }
@@ -585,7 +605,7 @@ function AuthProvider({ children }) {
                         };
                         
                         // Identify user
-                        await identifyUser(response?.data?.user?._id, userTraits);
+                        await identifyUserMixpanel(response?.data?.user?._id, userTraits);
                         
                         // Track login event with device context and IP
                         await trackEvent("Seller Login", {
@@ -756,7 +776,14 @@ function AuthProvider({ children }) {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            
+            // If there's no token or we're on direct login access, return without errors
+            if (!sellerToken || sessionStorage.getItem('directLoginAccess') === 'true') {
+                dispatch({ type: 'SET_LOADING', payload: false });
+                return null;
+            }
+            
+            const tokenData = JSON.parse(sellerToken);
             console.log(tokenData);
             const response = await axios.get(`${BASE_URL}/seller/profile`, {
                 headers: {

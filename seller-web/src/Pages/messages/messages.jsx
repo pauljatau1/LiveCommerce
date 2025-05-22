@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from "@/Components/ui/select";
 import { EmojiPicker } from "@/Components/ui/emoji-picker";
+import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 
 
 // Helper function to format message timestamps
@@ -314,6 +315,10 @@ export default function ChatInterface() {
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
+
+    // Hide the Intercom launcher for this component - high priority
+  // This should run before any other effects
+  useIntercomVisibility(true);
 
   useEffect(() => {
     setHeaderName('Messages')

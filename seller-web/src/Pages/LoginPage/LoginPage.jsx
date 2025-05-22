@@ -41,11 +41,19 @@ const LoginPage = () => {
     // but don't show error messages
     const wasRedirected = document.referrer.includes(window.location.host);
     if (!wasRedirected) {
+      // This is a direct login access, clear tokens and set a flag
       localStorage.removeItem('sellerToken');
       localStorage.removeItem('seller');
+      // Set a session flag to indicate this is a fresh login page access
+      sessionStorage.setItem('directLoginAccess', 'true');
     }
     
     initVisitor();
+    
+    // Cleanup function to remove the flag when component unmounts
+    return () => {
+      sessionStorage.removeItem('directLoginAccess');
+    };
   }, []);
 
 

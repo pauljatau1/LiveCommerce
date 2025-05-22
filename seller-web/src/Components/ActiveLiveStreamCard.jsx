@@ -2,7 +2,8 @@ import { Icon } from "@iconify/react";
 import { NavLink } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import DraftThumbnail from '../assets/young-woman-organizing-live-shop 1.png'
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 const ActiveLiveStreamCard = ({
     streamerName,
@@ -47,6 +48,17 @@ const ActiveLiveStreamCard = ({
             hour12: true
         }).replace(',', ' •').replace(/\s+/g, ' ');
     };
+
+    // Check if the stream is available to enter based on time
+    const isStreamAvailableToEnter = useMemo(() => {
+        const now = new Date();
+        const streamStartTime = new Date(startTime);
+        const thirtyMinutesBeforeStart = new Date(streamStartTime);
+        thirtyMinutesBeforeStart.setMinutes(streamStartTime.getMinutes() - 30);
+
+        // Stream is available to enter if current time is within 30 minutes before start time or after start time
+        return now >= thirtyMinutesBeforeStart;
+    }, [startTime]);
 
     const displayLiveStatusCard = () => {
         if (isLiveStatus === 'scheduled') {
@@ -108,7 +120,7 @@ const ActiveLiveStreamCard = ({
             <div className="mt-4 flex items-center justify-center aspect-[3/4] w-full">
                 {blip ? (
                     <div className="relative w-[200px] h-[264px] rounded-md overflow-hidden bg-black group">
-                        <video 
+                        <video
                             ref={videoRef}
                             src={blip.url}
                             className="w-full h-full object-cover"
@@ -116,45 +128,45 @@ const ActiveLiveStreamCard = ({
                             onEnded={handleVideoEnded}
                         />
                         {!isPlaying && (
-                            <div 
+                            <div
                                 className="absolute inset-0 flex items-center justify-center cursor-pointer"
                                 onClick={handleVideoPlayPause}
                             >
                                 <div className="bg-black/40 w-full h-full absolute" />
                                 <div className="relative z-10 bg-white/20 backdrop-blur-sm rounded-full p-3 transform transition-transform hover:scale-110">
-                                    <Icon 
-                                        icon="ph:play-fill" 
-                                        className="w-8 h-8 text-white" 
+                                    <Icon
+                                        icon="ph:play-fill"
+                                        className="w-8 h-8 text-white"
                                     />
                                 </div>
                             </div>
                         )}
                         {isPlaying && (
-                            <div 
+                            <div
                                 className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
                                 onClick={handleVideoPlayPause}
                             >
                                 <div className="bg-black/30 w-full h-full absolute" />
                                 <div className="relative z-10 bg-white/20 backdrop-blur-sm rounded-full p-3 transform transition-transform hover:scale-110">
-                                    <Icon 
-                                        icon="ph:pause-fill" 
-                                        className="w-8 h-8 text-white" 
+                                    <Icon
+                                        icon="ph:pause-fill"
+                                        className="w-8 h-8 text-white"
                                     />
                                 </div>
                             </div>
                         )}
                     </div>
                 ) : thumbnailImage ? (
-                    <img 
-                        src={thumbnailImage.url} 
-                        alt="thumbnail" 
-                        className="w-[200px] h-[264px] rounded-md object-cover" 
+                    <img
+                        src={thumbnailImage.url}
+                        alt="thumbnail"
+                        className="w-[200px] h-[264px] rounded-md object-cover"
                     />
                 ) : (
-                    <img 
-                        src={DraftThumbnail} 
-                        alt="thumbnail" 
-                        className="w-[200px] h-[264px] rounded-md object-cover" 
+                    <img
+                        src={DraftThumbnail}
+                        alt="thumbnail"
+                        className="w-[200px] h-[264px] rounded-md object-cover"
                     />
                 )}
             </div>
@@ -179,11 +191,34 @@ const ActiveLiveStreamCard = ({
                 {formatDateTime(startTime)}
             </p>
             <p className="text-[#425466] capitalize font-inter text-xs mt-2">lagos, Nigeria</p>
-            <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
-                <button disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled'} className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    Enter Studio
-                </button>
-            </NavLink>
+            {
+                isStreamAvailableToEnter ? (
+                    <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
+                        <button
+                            disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
+                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            Enter Studio
+                        </button>
+                    </NavLink>
+                ) : (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
+                                <button
+                                    disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
+                                    className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    Enter Studio
+                                </button>
+                            </NavLink>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                            <p>Enter studio 30 minutes before the start time</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )
+            }
         </div>
     );
 };

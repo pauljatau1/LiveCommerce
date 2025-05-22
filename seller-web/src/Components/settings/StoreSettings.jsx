@@ -867,14 +867,35 @@ export default function StoreSettings() {
 
               <div className="space-y-2">
                 <Label htmlFor="description">Store Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Tell customers about your store..."
-                  rows={4}
-                />
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Tell customers about your store..."
+                    maxLength={250}
+                    rows={4}
+                  />
+                  <div className="absolute bottom-3 right-3">
+                    <div className={`text-xs px-2 py-1 rounded-full ${
+                      formData.description.length < 10
+                        ? 'bg-red-100 text-red-600'
+                        : formData.description.length >= 250
+                          ? 'bg-yellow-100 text-yellow-600'
+                          : 'bg-green-100 text-green-600'
+                    }`}>
+                      {formData.description.length} / 250 characters {formData.description.length >= 250 && '(max reached)'}
+                    </div>
+                  </div>
+                  {formData.description.length >= 240 && formData.description.length < 250 && (
+                    <div className="absolute bottom-10 right-3">
+                      <div className="text-xs px-2 py-1 rounded-md bg-yellow-50 text-yellow-700 border border-yellow-200">
+                        Approaching character limit
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1026,7 +1047,7 @@ export default function StoreSettings() {
                   </div>
                   
                   {/* Update Cash on Delivery to use Select */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label>Cash on Delivery</Label>
                     <Select
                       value={formData.storePolicy.allowsCod ? "true" : "false"}
@@ -1040,7 +1061,7 @@ export default function StoreSettings() {
                         <SelectItem value="false">No</SelectItem> 
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                   {/* Add Store Pickup Option */}
                   <div className="space-y-2">

@@ -1,4 +1,4 @@
-# React + Vite Project
+# React + Vite Project 
 
 A modern React project bootstrapped with Vite for optimal development experience and build performance.
 
@@ -26,7 +26,7 @@ Before you begin, ensure you have the following installed:
 ### Development Dependencies
 - @vitejs/plugin-react - Official React plugin for Vite using Babel
 - @vitejs/plugin-react-swc - Alternative React plugin using SWC (faster compilation)
-- ESLint and related plugins (if configured)
+- ESLint and related plugins (if configured) 
 
 ## Installation
 

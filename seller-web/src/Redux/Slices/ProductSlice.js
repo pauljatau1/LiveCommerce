@@ -238,6 +238,34 @@ export const fetchBlipComments = createAsyncThunk(
     }
 );
 
+export const addReplyToBlipComment = createAsyncThunk(
+    'product/addReplyToBlipComment',
+    async ({ productId, blipId, commentId, comment }) => {
+        try {
+            const storedToken = localStorage.getItem('sellerToken');
+            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+
+            const response = await axios.post(
+                `${BASE_URL}/products/${productId}/blips/${blipId}/comments/${commentId}/replies`,
+                { comment },
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            if (response.status === 201) {
+                return response.data;
+            }
+        } catch (error) {
+            console.error('Error adding reply:', error);
+            throw error;
+        }
+    }
+);
+
 const productSlice = createSlice({
     name: "product",
     initialState,
@@ -543,6 +571,51 @@ const productSlice = createSlice({
             state.error = action.error.message;
             toast.error('Failed to fetch blip comments', {
                 description: "Please try again",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(addReplyToBlipComment.pending, (state) => {
+            // Optionally add a loading state for replies
+        })
+        .addCase(addReplyToBlipComment.fulfilled, (state, action) => {
+            // Find the comment and add the new reply
+            const { reply } = action.payload;
+            const commentId = action.meta.arg.commentId;
+            
+            // Find the comment in the current comments array
+            const commentIndex = state.blipComments.findIndex(comment => comment._id === commentId);
+            
+            if (commentIndex !== -1) {
+                // Initialize replies array if it doesn't exist
+                if (!state.blipComments[commentIndex].replies) {
+                    state.blipComments[commentIndex].replies = [];
+                }
+                
+                // Add the new reply to the comment
+                state.blipComments[commentIndex].replies.push(reply);
+                
+                // Update reply count if it exists
+                if (state.blipComments[commentIndex].repliesCount !== undefined) {
+                    state.blipComments[commentIndex].repliesCount += 1;
+                } else {
+                    state.blipComments[commentIndex].repliesCount = 1;
+                }
+            }
+            
+            toast.success('Reply added successfully', {
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(addReplyToBlipComment.rejected, (state, action) => {
+            state.error = action.error.message;
+            toast.error('Failed to add reply', {
+                description: action.error.message || "Please try again",
                 style: {
                     background: '#17171B',
                     color: '#fff',
