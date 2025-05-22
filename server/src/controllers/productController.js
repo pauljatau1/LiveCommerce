@@ -4205,25 +4205,15 @@ exports.addReplyToBlipComment = async (req, res) => {
     }
     
     // Extract user information from the request
-    // The structure might vary based on your auth middleware
     const userId = req.user._id || req.user.id;
     
-    // Determine user type - this depends on your authentication system
-    // You might need to adjust this based on how your auth middleware works
-    let userType;
-    if (req.user.role) {
-      userType = req.user.role === 'seller' ? 'Seller' : 'Buyer';
-    } else if (req.userType) {
-      userType = req.userType;
-    } else {
-      // Try to determine from the user object structure
-      userType = req.user.storeName ? 'Seller' : 'Buyer';
-    }
+    // Get user type from role field
+    const userType = req.user.role === 'Seller' ? 'Seller' : 'Buyer';
     
-    console.log('User info:', { userId, userType });
+    console.log('User info:', { userId, userType, role: req.user.role });
 
-    if (!userId || !userType) {
-      console.log('Could not determine user ID or type');
+    if (!userId) {
+      console.log('Could not determine user ID');
       return res.status(400).json({ message: 'User information is missing' });
     }
 
@@ -4236,6 +4226,11 @@ exports.addReplyToBlipComment = async (req, res) => {
       console.log('Product not found:', productId);
       return res.status(404).json({ message: 'Product not found' });
     }
+
+    // if (userType === 'Seller' && product.seller.toString() !== userId.toString()) {
+    //   console.log('Unauthorized: Seller does not own this product');
+    //   return res.status(403).json({ message: 'As a seller, you can only reply to comments on your own products' });
+    // }
 
     const blip = product.blips.id(blipId);
     if (!blip) {
@@ -4257,7 +4252,7 @@ exports.addReplyToBlipComment = async (req, res) => {
     // Get user details to include in response
     const UserModel = mongoose.model(userType);
     const userDetails = await UserModel.findById(userId)
-      .select('firstName lastName profileImage storeName');
+      .select(userType === 'Seller' ? 'storeName storeAvatar' : 'firstName lastName profileImage');
 
     console.log('Found user details:', userDetails);
 
@@ -4288,12 +4283,43 @@ exports.addReplyToBlipComment = async (req, res) => {
       _id: blipComment.replies[blipComment.replies.length - 1]._id, // Get the generated ID
       user: {
         _id: userDetails._id,
-        firstName: userDetails.firstName,
-        lastName: userDetails.lastName,
-        profileImage: userDetails.profileImage,
-        ...(userType === 'Seller' && { storeName: userDetails.storeName })
+        name: userType === 'Seller' ? userDetails.storeName : `${userDetails.firstName} ${userDetails.lastName}`,
+        avatar: userType === 'Seller' ? userDetails.storeAvatar?.url : userDetails.profileImage?.url
       }
     };
+
+    // Create notification for the comment owner if replier is not the comment owner
+    try {
+      if (blipComment.buyer.toString() !== userId.toString()) {
+        const notificationController = require('./notificationController');
+        const notificationType = userType === 'Seller' ? 'seller_reply_to_comment' : 'buyer_reply_to_comment';
+        
+        // Get replier name
+        const replierName = userType === 'Seller' 
+          ? userDetails.storeName 
+          : `${userDetails.firstName} ${userDetails.lastName}`;
+        
+        // Create notification for comment owner
+        await notificationController.createNotification(
+          blipComment.buyer,
+          notificationType,
+          {
+            productId: product._id,
+            productName: product.name,
+            blipId: blipId,
+            commentId: commentId,
+            replierId: userId,
+            replierName: replierName,
+            reply: comment.length > 50 ? `${comment.substring(0, 47)}...` : comment
+          }
+        );
+        
+        console.log('Comment owner notification created for reply');
+      }
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Continue execution even if notification fails
+    }
 
     return res.status(201).json({
       message: 'Reply added successfully',
@@ -4896,7 +4922,11 @@ exports.getBlipCommentReplies = async (req, res) => {
             console.error(`DEBUG: Error fetching seller for reply:`, err);
             return {
               _id: reply._id,
-              user: { _id: null, name: 'Unknown Store', avatar: null },
+                              user: { 
+                  _id: null, 
+                  name: 'Unknown Store',
+                  avatar: null
+                },
               userType: reply.userType,
               comment: reply.comment,
               createdAt: reply.createdAt,

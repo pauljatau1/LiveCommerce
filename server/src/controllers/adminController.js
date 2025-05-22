@@ -83,9 +83,10 @@ exports.register = async (req, res) => {
     // Check if the email is in the allowed list (this is also validated in the model)
     const ALLOWED_EMAILS = [
       'bolu@auqli.com',
-      'admin@auqli.com',
+      'support@auqli.com',
       'joseph@auqli.com', 
-      'paul@auqli.com'
+      'paul@auqli.com',
+      'matt@auqli.com'
     ];
     
     if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
@@ -1272,57 +1273,74 @@ exports.verifyBusinessAccount = async (req, res) => {
     await seller.save();
 
     // Send verification emails
-    const personalEmailMsg = {
-      to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: 'Your Auqli Account Has Been Verified! 🎉',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Congratulations ${seller.firstName}!</h2>
-          <p>Your Auqli seller account has been verified successfully. You can now:</p>
-          <ul>
-            <li>List products on the marketplace</li>
-            <li>Access all seller features</li>
-            <li>Process orders and receive payments</li>
-          </ul>
-          <p>Start selling today by logging into your account!</p>
-         
-          <p>If you have any questions, please don't hesitate to contact our support team.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
+const personalEmailMsg = {
+  to: seller.email,
+  from: 'Auqli Nigeria <support@auqli.com>',
+  subject: 'Your Auqli Account Has Been Verified! 🎉',
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hi ${seller.firstName},</h2>
+      <p>Your seller account on Auqli Nigeria has been verified successfully.</p>
+      <p>You can now:</p>
+      <ul>
+        <li>✅ List products on the marketplace</li>
+        <li>✅ Access all seller tools</li>
+        <li>✅ Process orders and receive payments</li>
+        <li>✅ Go live with your audience</li>
+      </ul>
+      <p><a href="#" style="color: #4CAF50; text-decoration: none;">🔓 Login and Start Selling →</a></p>
+      <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+      <p>Join our community and get support anytime:</p>
+      <ul>
+        <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+        <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+        <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+      </ul>
+      <p>Let’s go live.</p>
+      <p>Best regards,<br>The Auqli Team</p>
+    </div>
+  `
+};
 
-    // Send to business email if it exists
-    if (seller.businessEmail) {
-      const businessEmailMsg = {
-        to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
-        subject: 'Business Account Verification Confirmed - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Business Account Verified</h2>
-            <p>Dear ${seller.businessName || seller.firstName},</p>
-            <p>Your business account on Auqli has been verified. Here's what this means for your business:</p>
-            <ul>
-              <li>Full access to seller dashboard</li>
-              <li>Ability to process unlimited orders</li>
-              <li>Access to business analytics</li>
-              <li>Priority customer support</li>
-            </ul>
-            <p>Business Details:</p>
-            <ul>
-              <li>Business Name: ${seller.businessName}</li>
-              <li>Account Type: ${seller.accountType}</li>
-              <li>Verification Status: Verified</li>
-            </ul>
-            <p>You can now start managing your business through our platform.</p>
-            <p>Best regards,<br>Auqli Business Team</p>
-          </div>
-        `
-      };
-      await sgMail.send(businessEmailMsg);
-    }
+// Send to business email if it exists
+if (seller.businessEmail) {
+  const businessEmailMsg = {
+    to: seller.businessEmail,
+    from: 'Auqli Nigeria <support@auqli.com>',
+    subject: 'Business Account Verification Confirmed - Auqli',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Business Account Verified</h2>
+        <p>Dear ${seller.businessName || seller.firstName},</p>
+        <p>Your business account on Auqli has been verified. Here's what this means for your business:</p>
+        <ul>
+          <li>Full access to seller dashboard</li>
+          <li>Ability to process unlimited orders</li>
+          <li>Access to business analytics</li>
+          <li>Priority customer support</li>
+        </ul>
+        <p>Business Details:</p>
+        <ul>
+          <li>Business Name: ${seller.businessName}</li>
+          <li>Account Type: ${seller.accountType}</li>
+          <li>Verification Status: Verified</li>
+        </ul>
+        <p>You can now start managing your business through our platform.</p>
+        <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+        <p>Join our community and get support anytime:</p>
+        <ul>
+          <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+          <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+          <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+        </ul>
+        <p>Let’s go live.</p>
+        <p>Best regards,<br>Auqli Business Team</p>
+      </div>
+    `
+  };
+  await sgMail.send(businessEmailMsg);
+}
+
 
     await sgMail.send(personalEmailMsg);
 
@@ -6439,51 +6457,56 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
     
     
-    // Set up email content
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: 'Complete Your Auqli Seller Onboarding',
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: 'Complete Your Setup on Auqli Nigeria',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #333; text-align: center;">Complete Your Seller Onboarding</h2>
-          
-          <p>Dear ${seller.firstName},</p>
-          
-          <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
-          
-          
-          
+          <h2 style="color: #333; text-align: center;">Complete Your Setup on Auqli Nigeria</h2>
+    
+          <p>Hi ${seller.firstName},</p>
+    
+          <p>Thanks for signing up to Auqli Nigeria, but your seller setup is still incomplete.</p>
+    
+          <p>To start selling, you need to finish:</p>
+    
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-            <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
             <ul style="margin-top: 10px;">
-              <li>List and sell products to customers</li>
-              <li>Access seller analytics and insights</li>
-              <li>Process orders and grow your business</li>
-              <li>Participate in promotions and campaigns</li>
+              <li>✅ Uploading your first product</li>
+              <li>✅ Completing your seller profile</li>
+              <li>✅ Setting up your live stream tools</li>
             </ul>
           </div>
-          
-          <p style="margin-top: 20px;">To complete your onboarding, simply log in to your Auqli seller account and follow the prompts in your dashboard.</p>
-          
+    
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
+            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">🎯 Finish Setup Now →</a>
           </div>
-          
-          <p>If you're experiencing any issues or have questions about the onboarding process, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
-          
+    
+          <p>Need help? Visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or email <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+    
+          <p>Join other sellers building their brands:</p>
+          <ul>
+            <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
+            <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
+            <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
+          </ul>
+    
+          <p>We're excited to see your first livestream.</p>
+    
           <p>Best regards,<br>The Auqli Team</p>
-          
+    
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
             <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             <p>
-              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
               <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
             </p>
           </div>
         </div>
       `
     };
+    
     
     // Send the email
     await sgMail.send(emailMsg);
@@ -6513,7 +6536,10 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
  */
 exports.sendBulkOnboardingReminders = async (req, res) => {
   try {
-   
+    const incompleteSellers = await Seller.find({
+      accountType: { $nin: ['individual', 'business'] },
+      emailVerified: true
+    });
     
     const emailPromises = [];
     const processedSellers = [];
@@ -6872,7 +6898,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     // Get all buyers with expo push tokens
     const buyers = await Buyer.find(
       { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
-      'expoPushToken'
+      'expoPushToken email'
     );
     
     if (!buyers || buyers.length === 0) {
@@ -6884,6 +6910,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     
     // Create messages array
     const messages = [];
+    const buyersByToken = {};
     
     // Add message for each buyer with a valid token
     for (const buyer of buyers) {
@@ -6891,7 +6918,12 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
       
       // Check if the push token is valid
       if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
-        console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token`);
+        console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token for buyer ${buyer._id}`);
+        // Update buyer record to clear invalid token
+        await Buyer.updateOne(
+          { _id: buyer._id },
+          { $unset: { expoPushToken: "" } }
+        );
         continue;
       }
       
@@ -6901,8 +6933,18 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         sound: 'default',
         title: title,
         body: body,
-        data: { ...data, type: 'platform_notification' }
+        data: { ...data, type: 'platform_notification' },
+        priority: 'high',
+        channelId: 'default',
       });
+      
+      // Store buyer info for error tracking
+      buyersByToken[buyer.expoPushToken] = buyer;
+    }
+    
+    if (messages.length === 0) {
+      console.log('No valid push tokens found after validation');
+      return;
     }
     
     // Chunk the messages array to follow Expo's guidelines
@@ -6910,26 +6952,96 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
     
     // Send each chunk
     const tickets = [];
+    let successCount = 0;
+    let errorCount = 0;
+    
     for (const chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
-        console.log('Push notification chunk sent:', ticketChunk);
+        console.log(`Push notification chunk sent: ${ticketChunk.length} messages`);
       } catch (error) {
         console.error('Error sending push notification chunk:', error);
+        errorCount += chunk.length;
       }
     }
     
-    // Process tickets (For debugging/handling errors)
+    // Process tickets and handle failed tokens
+    const receiptIds = [];
+    const tokensToRemove = [];
+    
     tickets.forEach((ticket, index) => {
-      if (ticket.status === 'error') {
-        console.error(`Push notification to ${messages[index]?.to} failed:`, ticket.message);
+      const targetToken = messages[index]?.to;
+      const buyer = buyersByToken[targetToken];
+      
+      if (ticket.status === 'ok') {
+        successCount++;
+        if (ticket.id) {
+          receiptIds.push(ticket.id);
+        }
+      } else if (ticket.status === 'error') {
+        errorCount++;
+        console.error(`Push notification to ${targetToken} failed:`, ticket.message);
+        
+        // Check for specific error types that indicate we should remove the token
+        if (
+          ticket.details?.error === 'DeviceNotRegistered' ||
+          ticket.details?.error === 'InvalidCredentials' ||
+          ticket.details?.error === 'MessageTooBig' ||
+          ticket.details?.error === 'MessageRateExceeded'
+        ) {
+          console.log(`Removing invalid token for buyer ${buyer?._id || 'unknown'}`);
+          if (buyer && buyer._id) {
+            tokensToRemove.push(buyer._id);
+          }
+        }
       }
     });
     
-    return tickets;
+    // Remove invalid tokens in bulk
+    if (tokensToRemove.length > 0) {
+      try {
+        const result = await Buyer.updateMany(
+          { _id: { $in: tokensToRemove } },
+          { $unset: { expoPushToken: "" } }
+        );
+        console.log(`Removed ${result.modifiedCount} invalid tokens from database`);
+      } catch (error) {
+        console.error('Error removing invalid tokens:', error);
+      }
+    }
+    
+    // Optionally check for receipts (can be used to confirm delivery)
+    // This helps with debugging delivery issues
+    if (receiptIds.length > 0 && process.env.CHECK_NOTIFICATION_RECEIPTS === 'true') {
+      try {
+        setTimeout(async () => {
+          const receiptChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+          for (const chunk of receiptChunks) {
+            const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+            console.log('Notification delivery receipts:', receipts);
+          }
+        }, 5000); // Check after 5 seconds
+      } catch (error) {
+        console.error('Error checking notification receipts:', error);
+      }
+    }
+    
+    console.log(`Push notification summary: ${successCount} sent successfully, ${errorCount} failed`);
+    
+    return {
+      success: true,
+      totalBuyers: buyers.length,
+      validTokens: messages.length,
+      successCount,
+      errorCount
+    };
   } catch (error) {
     console.error('Error in sendPushNotificationsToAllBuyers:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -6959,7 +7071,7 @@ exports.createPlatformNotification = async (req, res) => {
 
     // Send push notifications to all buyers if the notification is active
     if (platformNotification.isActive) {
-      await sendPushNotificationsToAllBuyers(
+      const notificationResult = await sendPushNotificationsToAllBuyers(
         platformNotification.title,
         platformNotification.content,
         {
@@ -6967,6 +7079,8 @@ exports.createPlatformNotification = async (req, res) => {
           type: platformNotification.type
         }
       );
+      
+      console.log('Push notification result:', notificationResult);
     }
 
     res.status(201).json({
@@ -7093,7 +7207,7 @@ exports.updatePlatformNotification = async (req, res) => {
     
     // If notification was inactive and is now being activated, send push notification
     if (wasInactive && willBeActive) {
-      await sendPushNotificationsToAllBuyers(
+      const notificationResult = await sendPushNotificationsToAllBuyers(
         notification.title,
         notification.content,
         {
@@ -7101,6 +7215,8 @@ exports.updatePlatformNotification = async (req, res) => {
           type: notification.type
         }
       );
+      
+      console.log('Push notification result:', notificationResult);
     }
     
     res.json({
@@ -7140,6 +7256,471 @@ exports.deletePlatformNotification = async (req, res) => {
       success: false,
       message: 'Failed to delete platform notification',
       error: error.message
+    });
+  }
+};
+
+// ... existing code ...
+
+// Function to send wallet transaction notification email to buyer
+async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newBalance) {
+  try {
+    // Ensure SendGrid API key is set
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    const formattedAmount = amount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedBalance = newBalance.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+    
+    const formattedDate = new Date().toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const isCredit = type === 'credit';
+    
+    const emailMsg = {
+      to: buyer.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: isCredit ? 'Funds Added to Your Wallet - Auqli' : 'Funds Deducted from Your Wallet - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+          </div>
+          
+          <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+            <h2 style="color: #333; margin-bottom: 20px; text-align: center;">${isCredit ? 'Wallet Credit Notice' : 'Wallet Deduction Notice'}</h2>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              ${isCredit 
+                ? `Your wallet has been credited with ${formattedAmount}.` 
+                : `${formattedAmount} has been deducted from your wallet.`}
+            </p>
+            
+            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+              <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Transaction Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #777; width: 40%;">Amount:</td>
+                  <td style="padding: 8px 0; color: ${isCredit ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+                    ${isCredit ? '+' : '-'}${formattedAmount}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Reason:</td>
+                  <td style="padding: 8px 0; color: #333;">${reason || (isCredit ? 'Administrative credit' : 'Administrative deduction')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Date & Time:</td>
+                  <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Status:</td>
+                  <td style="padding: 8px 0; color: #333;">
+                    <span style="color: #4CAF50; font-weight: bold;">Completed</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #777;">Current Balance:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedBalance}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
+              ${isCredit 
+                ? 'You can now use this balance to make purchases on Auqli.' 
+                : 'If you have any questions regarding this transaction, please contact our support team.'}
+            </p>
+          </div>
+          
+          <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+            <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p>
+              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(emailMsg);
+    console.log(`Wallet ${type} email sent to buyer: ${buyer.email}`);
+    return true;
+  } catch (error) {
+    console.error(`Error sending wallet ${type} email to buyer:`, error);
+    return false;
+  }
+}
+
+// Deduct from buyer wallet
+exports.deductFromBuyerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { buyerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
+      });
+    }
+    
+    const buyer = await Buyer.findById(buyerId).session(session);
+    
+    if (!buyer) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Buyer not found' 
+      });
+    }
+    
+    // Check if buyer has sufficient balance
+    if (!buyer.wallet || buyer.wallet.balance < amount) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Insufficient wallet balance',
+        currentBalance: buyer.wallet ? buyer.wallet.balance : 0
+      });
+    }
+    
+    // Create transaction record in buyer's wallet
+    const transaction = {
+      type: 'debit',
+      amount: amount,
+      paymentReference: `ADMIN-DEDUCT-${Date.now()}`,
+      description: reason || 'Administrative deduction',
+      status: 'completed',
+      createdAt: new Date()
+    };
+    
+    // Update buyer's wallet balance
+    const previousBalance = buyer.wallet.balance;
+    buyer.wallet.balance -= amount;
+    buyer.wallet.transactions.push(transaction);
+    await buyer.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendBuyerWalletTransactionEmail(buyer, amount, 'debit', reason, buyer.wallet.balance);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Amount deducted from buyer wallet successfully',
+      transaction: transaction,
+      previousBalance,
+      newBalance: buyer.wallet.balance
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error deducting from buyer wallet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deduct from buyer wallet',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Add to buyer wallet
+exports.addToBuyerWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { buyerId } = req.params;
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid amount. Please provide a positive number.' 
+      });
+    }
+    
+    const buyer = await Buyer.findById(buyerId).session(session);
+    
+    if (!buyer) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Buyer not found' 
+      });
+    }
+    
+    // Ensure the wallet object exists
+    if (!buyer.wallet) {
+      buyer.wallet = {
+        balance: 0,
+        onHoldAmount: 0,
+        currency: 'NGN',
+        transactions: [],
+        onHoldItems: []
+      };
+    }
+    
+    // Create transaction record
+    const transaction = {
+      type: 'credit',
+      amount: amount,
+      paymentReference: `ADMIN-CREDIT-${Date.now()}`,
+      description: reason || 'Administrative credit',
+      status: 'completed',
+      createdAt: new Date()
+    };
+    
+    // Update buyer's wallet balance
+    const previousBalance = buyer.wallet.balance;
+    buyer.wallet.balance += amount;
+    buyer.wallet.transactions.push(transaction);
+    await buyer.save({ session });
+    
+    await session.commitTransaction();
+    
+    // Send email notification
+    await sendBuyerWalletTransactionEmail(buyer, amount, 'credit', reason, buyer.wallet.balance);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Amount added to buyer wallet successfully',
+      transaction: transaction,
+      previousBalance,
+      newBalance: buyer.wallet.balance
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error adding to buyer wallet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add to buyer wallet',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+
+/**
+ * Get all product blips across the platform
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getAllProductBlips = async (req, res) => {
+  try {
+    // Parse pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    // Parse filters
+    const sellerId = req.query.sellerId;
+    const category = req.query.category;
+    const sortBy = req.query.sortBy || 'createdAt'; // Default sort by creation date
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1; // Default sort descending
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
+    const minLikes = parseInt(req.query.minLikes) || 0;
+    const minViews = parseInt(req.query.minViews) || 0;
+    const minComments = parseInt(req.query.minComments) || 0;
+    
+    // Build match criteria
+    const matchCriteria = {
+      blips: { $exists: true, $ne: [] }
+    };
+    
+    if (sellerId) {
+      matchCriteria.seller = new mongoose.Types.ObjectId(sellerId);
+    }
+    
+    if (category) {
+      matchCriteria.category = category;
+    }
+    
+    // Aggregation pipeline
+    const pipeline = [
+      // Match products that have blips
+      { $match: matchCriteria },
+      
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      
+      // Add date filtering if provided
+      ...(startDate || endDate ? [{
+        $match: {
+          'blips.createdAt': {
+            ...(startDate && { $gte: startDate }),
+            ...(endDate && { $lte: endDate })
+          }
+        }
+      }] : []),
+      
+      // Filter by engagement metrics if provided
+      {
+        $match: {
+          $and: [
+            { 'blips.likesCount': { $gte: minLikes } },
+            { 'blips.viewCount': { $gte: minViews } },
+            { 'blips.commentsCount': { $gte: minComments } }
+          ]
+        }
+      },
+      
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      
+      // Project needed fields
+      {
+        $project: {
+          _id: 0,
+          productId: '$_id',
+          blipId: '$blips._id',
+          blipUrl: '$blips.url',
+          thumbnail: {
+            $ifNull: [
+              '$blips.thumbnail',
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ]
+          },
+          contentType: '$blips.contentType',
+          productName: '$name',
+          productDescription: { $substr: ['$description', 0, 100] }, // Truncated description
+          price: '$price',
+          category: '$category',
+          subCategory: '$subCategory',
+          createdAt: '$blips.createdAt',
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            email: '$sellerInfo.email',
+            phoneNumber: '$sellerInfo.phoneNumber',
+            isVerified: '$sellerInfo.isVerified'
+          },
+          engagement: {
+            likesCount: { $ifNull: ['$blips.likesCount', 0] },
+            commentsCount: { $ifNull: ['$blips.commentsCount', 0] },
+            viewCount: { $ifNull: ['$blips.viewCount', 0] }
+          },
+          status: '$status'
+        }
+      },
+      
+      // Sort by the requested field
+      { $sort: { [sortBy === 'engagement' ? 'engagement.viewCount' : sortBy]: sortOrder } },
+      
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ];
+    
+    // Execute the aggregation
+    const blips = await Product.aggregate(pipeline);
+    
+    // Get total count for pagination
+    const totalBlipsCount = await Product.aggregate([
+      { $match: matchCriteria },
+      { $unwind: '$blips' },
+      ...(startDate || endDate ? [{
+        $match: {
+          'blips.createdAt': {
+            ...(startDate && { $gte: startDate }),
+            ...(endDate && { $lte: endDate })
+          }
+        }
+      }] : []),
+      {
+        $match: {
+          $and: [
+            { 'blips.likesCount': { $gte: minLikes } },
+            { 'blips.viewCount': { $gte: minViews } },
+            { 'blips.commentsCount': { $gte: minComments } }
+          ]
+        }
+      },
+      { $count: 'total' }
+    ]);
+    
+    const totalBlips = totalBlipsCount.length > 0 ? totalBlipsCount[0].total : 0;
+    
+    // Calculate engagement statistics
+    const stats = {
+      totalBlips,
+      totalViews: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalViews: { $sum: '$blips.viewCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalViews : 0),
+      
+      totalLikes: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalLikes: { $sum: '$blips.likesCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalLikes : 0),
+      
+      totalComments: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalComments: { $sum: '$blips.commentsCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalComments : 0),
+      
+      averageViews: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, avgViews: { $avg: '$blips.viewCount' } } }
+      ]).then(result => result.length > 0 ? Math.round(result[0].avgViews) : 0)
+    };
+    
+    res.status(200).json({
+      success: true,
+      blips,
+      stats,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalBlips / limit),
+        totalBlips,
+        blipsPerPage: limit
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching product blips:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to retrieve product blips', 
+      error: error.message 
     });
   }
 };

@@ -2402,6 +2402,7 @@ router.post('/:id/blips/:blipId/view',
  * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies:
  *   post:
  *     summary: Add a reply to a blip comment
+ *     description: Allows both buyers and sellers to reply to comments on product blips. Sellers can only reply to comments on their own products.
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -2443,6 +2444,8 @@ router.post('/:id/blips/:blipId/view',
  *         description: Bad request
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Sellers can only reply to comments on their own products
  *       404:
  *         description: Product, blip, or comment not found
  *       500:

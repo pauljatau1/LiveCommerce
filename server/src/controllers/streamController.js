@@ -341,27 +341,47 @@ exports.startStream = async (req, res) => {
       );
 
       // Send push notifications to all followers
-      {/*if (seller.followers && seller.followers.length > 0) {
-        const notifications = await Promise.all(
-          seller.followers.map(async (follower) => {
-            const userToken = await getToken(follower.buyerId);
-            if (userToken) {
-              return {
-                to: userToken.token,
-                title: `${seller.storeName} Started a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}`,
-                body: `${seller.storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}. Join now!`
-              };
-            }
-            return null;
-          })
-        );
-
-        // Filter out null values and send notifications
-        const validNotifications = notifications.filter(notification => notification !== null);
-        if (validNotifications.length > 0) {
-          await expo.sendPushNotificationsAsync(validNotifications);
+      if (seller.followers && seller.followers.length > 0) {
+        // Track which followers have been notified about this stream
+        // to prevent duplicate notifications
+        const followerNotifications = [];
+        
+        // Keep track of followers who have already been notified via subscription
+        const alreadyNotifiedBuyerIds = stream.subscribers ? 
+          stream.subscribers
+            .filter(sub => sub.notified)
+            .map(sub => sub.buyer.toString()) : 
+          [];
+        
+        for (const follower of seller.followers) {
+          // Skip if this follower has already been notified as a subscriber
+          if (alreadyNotifiedBuyerIds.includes(follower.buyerId.toString())) {
+            continue;
+          }
+          
+          // Get the user's push token
+          const userToken = await getToken(follower.buyerId);
+          if (userToken) {
+            followerNotifications.push({
+              to: userToken.token,
+              title: `${seller.storeName} Started a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}`,
+              body: `${seller.storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}. Join now!`,
+              data: {
+                streamId: stream._id.toString(),
+                streamType: stream.type,
+                sellerId: seller._id.toString(),
+                action: 'open_stream'
+              }
+            });
+          }
         }
-      }*/}
+        
+        // Send notifications to followers
+        if (followerNotifications.length > 0) {
+          await expo.sendPushNotificationsAsync(followerNotifications);
+          console.log(`Sent push notifications to ${followerNotifications.length} followers`);
+        }
+      }
 
       // After updating the stream to 'live' status
       // Add this code to notify subscribers
@@ -1510,6 +1530,11 @@ exports.getStreamsByStatus = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1564,6 +1589,11 @@ exports.getSellerStreamsByStatus = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1661,6 +1691,11 @@ exports.getPopularStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1731,6 +1766,11 @@ exports.getSpotlightStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1802,6 +1842,11 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -1856,6 +1901,11 @@ exports.getStreamsByCategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -2969,6 +3019,11 @@ exports.searchStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended', 'expired'].includes(status)) {
       searchQuery.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        searchQuery.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
@@ -3667,6 +3722,11 @@ exports.getStreamsByCategoryAndSubcategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
+      
+      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+      if (status === 'scheduled') {
+        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+      }
     }
 
     if (type && ['auction', 'open_show'].includes(type)) {
