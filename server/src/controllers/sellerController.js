@@ -198,7 +198,7 @@ exports.register = async (req, res) => {
       subject: 'Welcome to Auqli!',
       text: `Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}`,
       html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
             <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli!</h1>

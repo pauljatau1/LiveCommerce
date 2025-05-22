@@ -79,6 +79,10 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isStale: {
+    type: Boolean,
+    default: false
+  },
   buyer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Buyer',

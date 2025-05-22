@@ -1468,11 +1468,11 @@ agenda.define('bid_timer', async (job) => {
   }
 });
 
-// Define job to delete unpaid orders after 30 minutes
-agenda.define('delete_unpaid_orders', async (job) => {
+// Define job to mark unpaid orders as stale after 30 minutes (renamed from delete_unpaid_orders)
+agenda.define('mark_unpaid_orders_stale', async (job) => {
   try {
     const { orderId } = job.attrs.data;
-    console.log(`Checking if order ${orderId} should be deleted due to unpaid status`);
+    console.log(`Checking if order ${orderId} should be marked as stale due to unpaid status`);
     
     const Order = mongoose.model('Order');
     
@@ -1482,13 +1482,13 @@ agenda.define('delete_unpaid_orders', async (job) => {
       .populate('seller', 'email firstName lastName businessName');
     
     if (!order) {
-      console.log(`Order ${orderId} not found, may have been already deleted`);
+      console.log(`Order ${orderId} not found, may have been already processed`);
       return;
     }
     
     // Check if order is still unpaid and was created with Paystack
     if (!order.paid && order.paymentInfo.method === 'paystack') {
-      console.log(`Deleting unpaid Paystack order ${order.order_id} after 30 minutes`);
+      console.log(`Marking unpaid Paystack order ${order.order_id} as stale after 30 minutes`);
       
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {
@@ -1519,26 +1519,7 @@ agenda.define('delete_unpaid_orders', async (job) => {
           
           const authToken = await getFezAuthToken();
           
-          // Cancel Fez shipment
-          // const FEZ_API_URL = process.env.FEZ_API_URL;
-          // const cancelResponse = await axios.post(
-          //   `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
-          //   {},
-          //   {
-          //     headers: {
-          //       'Authorization': `Bearer ${authToken}`,
-          //       'secret-key': process.env.FEZ_SECRET_KEY,
-          //       'Content-Type': 'application/json'
-          //     }
-          //   }
-          // );
-          
-          // console.log(`Fez shipment cancellation response for order ${order.order_id}:`, {
-          //   status: cancelResponse.status,
-          //   data: cancelResponse.data
-          // });
-          
-          // Also delete the order from Fez
+          // Delete the order from Fez
           const deleteResponse = await axios.delete(
             `${process.env.FEZ_API_URL}/order`,
             {
@@ -1573,11 +1554,11 @@ agenda.define('delete_unpaid_orders', async (job) => {
             },
             fezError
           })
-          // Continue with order deletion even if Fez operations fail
+          // Continue with order stale update even if Fez operations fail
         }
       }
       
-      // Send notification emails to buyer and seller before deleting the order
+      // Send notification emails to buyer and seller before marking the order as stale
       try {
         const sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -1591,12 +1572,12 @@ agenda.define('delete_unpaid_orders', async (job) => {
         const buyerEmail = {
           to: order.buyer.email,
           from: 'Auqli Orders <support@auqli.com>',
-          subject: 'Order deleted - Payment Not Completed - Auqli',
+          subject: 'Order marked as stale - Payment Not Completed - Auqli',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Order deleted</h2>
+              <h2>Order marked as stale</h2>
               <p>Dear ${order.buyer.firstName},</p>
-              <p>Your order #${order.order_id} has been deleted because the payment was not completed within the required time frame.</p>
+              <p>Your order #${order.order_id} has been marked as stale because the payment was not completed within the required time frame.</p>
               
               <p><strong>Order Details:</strong></p>
               <ul>
@@ -1617,12 +1598,12 @@ agenda.define('delete_unpaid_orders', async (job) => {
         const sellerEmail = {
           to: order.seller.email,
           from: 'Auqli Orders <support@auqli.com>',
-          subject: 'Order deleted - Payment Not Completed - Auqli',
+          subject: 'Order marked as stale - Payment Not Completed - Auqli',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Order deleted</h2>
+              <h2>Order marked as stale</h2>
               <p>Dear ${order.seller.firstName},</p>
-              <p>Order #${order.order_id} has been deleted because the buyer did not complete the payment within the required time frame.</p>
+              <p>Order #${order.order_id} has been marked as stale because the buyer did not complete the payment within the required time frame.</p>
               
               <p><strong>Order Details:</strong></p>
               <ul>
@@ -1645,21 +1626,27 @@ agenda.define('delete_unpaid_orders', async (job) => {
           sgMail.send(sellerEmail)
         ]);
         
-        console.log(`Sent cancellation notification emails for unpaid order ${order.order_id}`);
+        console.log(`Sent stale notification emails for unpaid order ${order.order_id}`);
       } catch (emailError) {
-        console.error(`Error sending cancellation emails for order ${order.order_id}:`, emailError);
-        // Continue with order deletion even if email sending fails
+        console.error(`Error sending stale notification emails for order ${order.order_id}:`, emailError);
+        // Continue with marking order as stale even if email sending fails
       }
       
-      // Delete the order
-      await Order.findByIdAndDelete(order._id);
-      console.log(`Successfully deleted unpaid Paystack order ${order.order_id}`);
+      // Update the order to mark it as stale instead of deleting it
+      await Order.findByIdAndUpdate(order._id, { isStale: true });
+      console.log(`Successfully marked unpaid Paystack order ${order.order_id} as stale`);
     } else {
-      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not deleting`);
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not marking as stale`);
     }
   } catch (error) {
-    console.error('Error in delete_unpaid_orders job:', error);
+    console.error('Error in mark_unpaid_orders_stale job:', error);
   }
+});
+
+// For backward compatibility, keep the old job name but forward to the new one
+agenda.define('delete_unpaid_orders', async (job) => {
+  console.log('Forwarding delete_unpaid_orders job to mark_unpaid_orders_stale');
+  await agenda.now('mark_unpaid_orders_stale', job.attrs.data);
 });
 
 // Define job to delete expired streams after 1 hour
@@ -1944,17 +1931,19 @@ agenda.define('credit_welcome_bonus', async (job) => {
             <div style="padding: 25px; text-align: center;">
               <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
             </div>
-            
+    
             <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
               <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Welcome Bonus Credited! 🎉</h1>
-              
-              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Thanks for verifying your email, ${buyer.firstName}! We've added a welcome bonus to your wallet.</p>
-              
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Hi ${buyer.firstName},</p>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Welcome to Auqli Nigeria — where real sellers meet real shoppers, in real-time. Thanks for verifying your email! We've added a welcome bonus to your wallet.</p>
+    
               <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
                 <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Welcome Bonus</h3>
                 <p style="font-size: 32px; font-weight: bold; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${formattedAmount}</p>
               </div>
-              
+    
               <div style="background-color: #1a1a1a; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
                 <table style="width: 100%; border-collapse: collapse;">
                   <tr>
@@ -1971,14 +1960,44 @@ agenda.define('credit_welcome_bonus', async (job) => {
                   </tr>
                 </table>
               </div>
-              
+    
               <p style="font-size: 16px; color: #bbb; text-align: center;">You can use this amount to shop on Auqli right away!</p>
-              
+    
               <div style="text-align: center; margin-top: 30px;">
                 <a href="https://app.auqli.live/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
               </div>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You’ve just joined a whole new way to shop online — one where you don’t have to guess what you’re buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
+    
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What Makes Auqli Different?</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Live Product Demos: See items in real-time — not just photos. From fashion to food, beauty to gadgets, you get the full picture before you buy.</span>
+                  </div>
+                </li>
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Ask Questions Instantly: Wondering about fit, color, or function? Ask live. Sellers answer you directly while streaming.</span>
+                  </div>
+                </li>
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Instant Checkout: Found what you love during a livestream? Add to cart and check out without leaving the stream.</span>
+                  </div>
+                </li>
+                <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Nigerian Sellers, Real Products: We work with local sellers who understand your style, your pace, your needs — and deliver directly to you.</span>
+                  </div>
+                </li>
+              </ul>
             </div>
-            
+    
             <div style="text-align: center; padding: 0 30px 30px 30px;">
               <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
               <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
@@ -1988,6 +2007,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
         </div>
       `
     };
+    
     
     try {
       await sgMail.send(msg);

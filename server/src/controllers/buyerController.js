@@ -134,89 +134,61 @@ exports.register = async (req, res) => {
     const msg = {
       to: email,
       from: 'Auqli Nigeria <support@auqli.com>',
-      subject: 'Welcome to Auqli Nigeria — Let’s Get You Shopping',
+      subject: 'Your Email Verification Code',
       html: `
-       <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: 'Arial', sans-serif; line-height: 1.6;">
-  <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
-    <div style="padding: 25px; text-align: center;">
-      <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
-    </div>
-
-    <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-      <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Welcome to Auqli, ${firstName}!</h1>
-      <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We're thrilled to have you join our community of buyers and sellers. Your account has been created, but we need to verify your email to get you started.</p>
-
-      <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
-        <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Verification Code</h3>
-        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${otp}</p>
-        <p style="font-size: 14px; color: #bbbbbb;">Enter this code in the app to verify your email</p>
-      </div>
-
-      <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You’ve just joined a whole new way to shop online — one where you don’t have to guess what you’re buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
-
-      <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What Makes Auqli Different?</h3>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-          <div style="display: flex; align-items: center;">
-            <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-            <span>Live Product Demos: See items in real-time — not just photos. From fashion to food, beauty to gadgets, you get the full picture before you buy.</span>
-          </div>
-        </li>
-        <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-          <div style="display: flex; align-items: center;">
-            <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-            <span>Ask Questions Instantly: Wondering about fit, color, or function? Ask live. Sellers answer you directly while streaming.</span>
-          </div>
-        </li>
-        <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-          <div style="display: flex; align-items: center;">
-            <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-            <span>Instant Checkout: Found what you love during a livestream? Add to cart and check out without leaving the stream.</span>
-          </div>
-        </li>
-        <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-          <div style="display: flex; align-items: center;">
-            <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-            <span>Nigerian Sellers, Real Products: We work with local sellers who understand your style, your pace, your needs — and deliver directly to you.</span>
-          </div>
-        </li>
-      </ul>
-
-      <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
-        <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What's Next?</h3>
-        <ul style="list-style: none; padding: 0; margin: 0;">
-          <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-            <div style="display: flex; align-items: center;">
-              <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-              <span>Verify your email using the code above</span>
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
             </div>
-          </li>
-          <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-            <div style="display: flex; align-items: center;">
-              <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-              <span>Complete your profile to personalize your experience</span>
+    
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Verify Your Email Address</h1>
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Thank you for signing up with Auqli Nigeria. To start shopping, please verify your email address using the code below.</p>
+    
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Verification Code</h3>
+                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${otp}</p>
+                <p style="font-size: 14px; color: #bbbbbb;">Enter this code in the app to verify your email</p>
+              </div>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">If you did not request this code, please ignore this email or contact our support team.</p>
+    
+              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What's Next?</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Verify your email using the code above</span>
+                    </div>
+                  </li>
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Complete your profile to personalize your experience</span>
+                    </div>
+                  </li>
+                  <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Start exploring unique products from our sellers</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
             </div>
-          </li>
-          <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-            <div style="display: flex; align-items: center;">
-              <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-              <span>Start exploring unique products from our sellers</span>
+    
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <div style="text-align: center; padding: 0 30px 30px 30px;">
-      <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
-      <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
-      <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-    </div>
-  </div>
-</div>
-
+          </div>
+        </div>
       `
     };
+    
 
     try {
       await sgMail.send(msg);
@@ -553,8 +525,6 @@ exports.uploadProfileImage = async (req, res) => {
 };
 
 
-
-
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -682,7 +652,10 @@ exports.getOrders = async (req, res) => {
 
   try {
     // Build the base query
-    const query = { buyer: req.user.id };
+    const query = { 
+      buyer: req.user.id,
+      isStale: { $ne: true } // Exclude stale orders
+    };
 
     // Add tracking status filter if provided
     if (trackingStatus) {

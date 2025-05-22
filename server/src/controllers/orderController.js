@@ -736,10 +736,10 @@ exports.createOrder = async (req, res) => {
         }
       }
       
-      // Schedule job to delete order if still unpaid after 30 minutes (for Paystack orders only)
+      // Schedule job to mark order as stale if still unpaid after 30 minutes (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
-        agenda.schedule('in 30 minutes', 'delete_unpaid_orders', { orderId: order._id });
-        console.log(`Scheduled automatic deletion for unpaid Paystack order ${order.order_id} in 30 minutes`);
+        agenda.schedule('in 30 minutes', 'mark_unpaid_orders_stale', { orderId: order._id });
+        console.log(`Scheduled automatic stale marking for unpaid Paystack order ${order.order_id} in 30 minutes`);
       }
       
       // Add buyer to seller's customers list if not already a customer
@@ -1227,7 +1227,10 @@ exports.getOrdersForBuyer = async (req, res) => {
 
   try {
     // Build the base query
-    const query = { buyer: buyerId };
+    const query = { 
+      buyer: buyerId,
+      isStale: { $ne: true } // Exclude stale orders
+    };
 
     // Add tracking status filter if provided
     if (trackingStatus) {
@@ -1360,7 +1363,10 @@ exports.getOrdersForSeller = async (req, res) => {
     } = req.query;
 
     // Build query
-    const query = { seller: sellerId };
+    const query = { 
+      seller: sellerId,
+      isStale: { $ne: true } // Exclude stale orders
+    };
 
     // Add filters if provided
     if (status) {
