@@ -26,7 +26,10 @@ import {
   RotateCcw,
   Truck,
   TruckIcon,
-  Bell
+  Bell,
+  MessageSquare,
+  BoltIcon,
+  Zap
 } from 'lucide-react';
 
 // Interface for simplified seller data
@@ -55,12 +58,12 @@ interface BankRequestStats {
 const mainLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Package, label: 'Products', path: '/dashboard/products' },
+  { icon: Zap, label: 'Blips', path: '/dashboard/blips' },
   { icon: Folder, label: 'Categories', path: '/dashboard/categories' },
   { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
   { icon: Bell, label: 'Buyer Notif.', path: '/dashboard/buyer-notifications' },
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
-  { icon: TruckIcon, label: 'Fez Orders', path: '/dashboard/orders', description: 'Manage Fez delivery orders' },
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: RotateCcw, label: 'Refund Req', path: '/dashboard/refund-requests', showPendingCount: true },
   { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },
@@ -74,10 +77,7 @@ const mainLinks = [
   { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests', showPendingCount: true },
 ];
 
-const bottomLinks = [
-  { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
-  { icon: LogOut, label: 'Logout', path: '/logout' },
-];
+
 
 function Sidebar() {
   const location = useLocation();
@@ -215,7 +215,7 @@ function Sidebar() {
             );
           })}
         </nav>
-        <nav className="p-4 space-y-2">
+        {/* <nav className="p-4 space-y-2">
           {bottomLinks.map((link) => {
             const Icon = link.icon;
             return (
@@ -236,7 +236,7 @@ function Sidebar() {
               </Link>
             );
           })}
-        </nav>
+        </nav> */}
       </aside>
     </>
   );

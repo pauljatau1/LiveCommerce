@@ -52,6 +52,13 @@ interface Buyer {
     uploadedAt?: string;
   };
   isIdentityVerified: boolean;
+  isNewBuyer?: boolean;
+  wallet?: {
+    balance: number;
+    currency: string;
+  };
+  preferredCurrency?: string;
+  authProvider?: string;
 }
 
 interface PaginatedResponse {
@@ -418,8 +425,10 @@ function Buyers() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[250px]">Buyer</TableHead>
+                <TableHead>Contact Info</TableHead>
                 <TableHead>Identity Status</TableHead>
-                <TableHead>Email Verified</TableHead>
+                <TableHead>Verification</TableHead>
+                <TableHead>Wallet</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Join Date</TableHead>
                 <TableHead>Actions</TableHead>
@@ -434,7 +443,7 @@ function Buyers() {
                         {buyer.firstName} {buyer.lastName}
                       </div>
                       <div className="text-sm text-muted-foreground truncate">
-                        {buyer.email}
+                        @{buyer.username}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <code className="text-xs text-muted-foreground truncate">
@@ -448,6 +457,26 @@ function Buyers() {
                         >
                           <Copy className="h-3 w-3" />
                         </Button>
+                      </div>
+                      {buyer.isNewBuyer && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs mt-1 inline-block">
+                          New
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="text-sm">
+                        {buyer.email}
+                      </div>
+                      <div className="text-sm">
+                        {buyer.phoneNumber}
+                      </div>
+                      <div className="text-sm">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-800">
+                          {buyer.country}
+                        </span>
                       </div>
                     </div>
                   </TableCell>
@@ -476,13 +505,40 @@ function Buyers() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      buyer.emailVerified 
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {buyer.emailVerified ? 'Verified' : 'Unverified'}
-                    </span>
+                    <div className="space-y-2">
+                      <div>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          buyer.emailVerified 
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          Email: {buyer.emailVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                      </div>
+                      {/* <div>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          buyer.phoneVerified 
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          Phone: {buyer.phoneVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                      </div> */}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {buyer.wallet ? (
+                        <>
+                          <div className="font-medium">
+                            {buyer.wallet.balance.toLocaleString()} {buyer.wallet.currency || buyer.preferredCurrency}
+                          </div>
+                         
+                        </>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No wallet data</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -509,22 +565,6 @@ function Buyers() {
                         <Eye className="h-4 w-4 mr-1" />
                         Details
                       </Button>
-                      
-                      
-                      
-                      {/* <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(buyer)}
-                        disabled={deletingId === buyer._id}
-                      >
-                        {deletingId === buyer._id ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                        ) : (
-                          <Trash2 className="h-4 w-4 mr-1" />
-                        )}
-                        Delete
-                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>
