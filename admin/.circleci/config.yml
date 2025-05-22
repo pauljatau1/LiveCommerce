@@ -151,12 +151,20 @@ workflows:
           type: approval
           requires:
             - build
+          filters:
+            branches:
+              ignore:
+                - main
 
       - build-and-push-backend-image-staging:
           requires:
           - approve-build-backend-image-staging
           context:
             - foundations_auqli_staging
+          filters:
+            branches:
+              ignore:
+                - main
 
       - approve-staging-backend-deploy:
           type: approval
@@ -164,9 +172,17 @@ workflows:
             - build-and-push-backend-image-staging
           context:
             - foundations_auqli_staging
+          filters:
+            branches:
+              ignore:
+                - main
 
       - aws-ecs/deploy-service-update:
           name: deploy-to-staging-backend
+          filters:
+            branches:
+              ignore:
+                - main
           context:
             - foundations_auqli_staging
           requires:
@@ -183,12 +199,20 @@ workflows:
           type: approval
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - main
 
       - build-and-push-backend-image-production:
           requires:
           - approve-build-backend-image-production
           context:
             - foundations_auqli_production
+          filters:
+            branches:
+              only:
+                - main
 
       - approve-production-backend-deploy:
           type: approval
@@ -196,9 +220,17 @@ workflows:
             - build-and-push-backend-image-production
           context:
             - foundations_auqli_production
+          filters:
+            branches:
+              only:
+                - main
 
       - aws-ecs/deploy-service-update:
           name: deploy-to-production-backend
+          filters:
+            branches:
+              only:
+                - main
           context:
             - foundations_auqli_production
           requires:

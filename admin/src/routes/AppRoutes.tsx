@@ -13,6 +13,7 @@ import Buyers from '@/pages/buyers';
 import BuyerDetail from '@/pages/buyerDetail';
 import Orders from '@/pages/orders';
 import Products from '@/pages/products';
+import Blips from '@/pages/blips';
 import Streams from '@/pages/streams';
 import Withdrawals from '@/pages/withdrawals';
 import Announcements from '@/pages/announcements';
@@ -26,6 +27,7 @@ import Payments from '@/pages/payments';
 import RefundRequests from '@/pages/refund-requests';
 import ReturnRequests from '@/pages/ReturnRequests';
 import PickupRequests from '@/pages/pickupRequests';
+import BuyerNotifications from '@/pages/buyerNotifications';
 import { useAuth } from '@/context/authContext';
 
 // Logout component that will clear localStorage and redirect to login
@@ -64,6 +66,7 @@ function App() {
             <Route path="/dashboard/buyer-detail/:id" element={<BuyerDetail />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/products" element={<Products />} />
+            <Route path="/dashboard/blips" element={<Blips />} />
             <Route path="/dashboard/streams" element={<Streams />} />
             <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
             <Route path="/dashboard/announcements" element={<Announcements />} />
@@ -77,6 +80,7 @@ function App() {
             <Route path="/dashboard/refund-requests" element={<RefundRequests />} />
             <Route path="/dashboard/return-requests" element={<ReturnRequests />} />
             <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
+            <Route path="/dashboard/buyer-notifications" element={<BuyerNotifications />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

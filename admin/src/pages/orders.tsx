@@ -55,26 +55,76 @@ interface Order {
   buyer: {
     firstName: string
     lastName: string
+    email?: string
+    phoneNumber?: string
+  }
+  buyerDetails?: {
+    profileImage?: {
+      url: string
+      _id: string
+    }[]
+    username?: string
+  }
+  seller?: {
+    _id: string
+    firstName: string
+    lastName: string
+    email: string
+    storeName: string
   }
   items: {
     product: {
       name: string
+      images?: { url: string, _id: string }[]
     }
     quantity: number
     price: number
+    status?: string
   }[]
   totalAmount: number
   shipping: {
-    method: string
-    tracking: {
+    method?: string
+    tracking?: {
       status: string
+      number?: string
+      carrier?: string
+      history?: {
+        status: string
+        timestamp: string
+        description?: string
+      }[]
     }
+    carrier?: {
+      name: string
+      reference: string
+    }
+    fee?: {
+      amount: number
+      currency: string
+    }
+    shipment_id?: string
+    fez_order_number?: string
   }
-  createdAt: string
   paymentInfo: {
     status: string
+    method?: string
+    paidAt?: string
+    isCashOnDelivery?: boolean
   }
+  orderStatus?: {
+    hasReturn: boolean
+    hasDispute: boolean
+    hasRefund: boolean
+  }
+  refundRequest?: {
+    requested: boolean
+    status: string
+  }
+  createdAt: string
   isOpen: boolean
+  isStorePickup?: boolean
+  isStale?: boolean
+  paid?: boolean
 }
 
 interface OrdersResponse {
@@ -408,6 +458,10 @@ function Orders() {
               <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Seller</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead>Shipping</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead className="hidden md:table-cell">Date</TableHead>
@@ -417,7 +471,7 @@ function Orders() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">Loading...</TableCell>
+                  <TableCell colSpan={10} className="text-center">Loading...</TableCell>
                 </TableRow>
               ) : ordersData?.orders && ordersData.orders.length > 0 ? (
                 ordersData.orders.map((order) => (
@@ -425,18 +479,98 @@ function Orders() {
                     <TableCell className="font-medium">{order.order_id}</TableCell>
                     <TableCell>
                       {order.buyer ? `${order.buyer.firstName || ''} ${order.buyer.lastName || ''}` : 'Unknown Buyer'}
+                      {order.buyer?.phoneNumber && (
+                        <div className="text-xs text-muted-foreground mt-1">{order.buyer.phoneNumber}</div>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
-                        ${order.isOpen 
-                          ? "bg-green-100 text-green-700" 
-                          : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        <div className={`h-1.5 w-1.5 rounded-full
-                          ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} 
-                        />
-                        {order.isOpen ? "Open" : "Closed"}
+                      {order.seller?.storeName || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {order.items.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium">{order.items[0].product.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Qty: {order.items[0].quantity}
+                            {order.items.length > 1 ? ` (+${order.items.length - 1} more)` : ''}
+                          </span>
+                        </div>
+                      ) : 'No items'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <Badge variant={order.paymentInfo.status === 'paid' ? 'default' : 'secondary'} className="mb-1">
+                          {order.paymentInfo.status}
+                        </Badge>
+                        {order.paymentInfo.method && (
+                          <span className="text-xs text-muted-foreground capitalize">{order.paymentInfo.method}</span>
+                        )}
+                        {order.paymentInfo.isCashOnDelivery && (
+                          <span className="text-xs text-yellow-500">COD</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {order.isStorePickup ? (
+                        <Badge variant="outline">Store Pickup</Badge>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">
+                            {order.shipping.carrier?.name || order.shipping.method || 'Standard'}
+                          </span>
+                          {order.shipping.tracking && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Badge 
+                                variant={
+                                  order.shipping.tracking.status === 'delivered' ? 'default' :
+                                  order.shipping.tracking.status === 'cancelled' ? 'destructive' :
+                                  'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {order.shipping.tracking.status}
+                              </Badge>
+                            </div>
+                          )}
+                          {order.shipping.tracking?.number && (
+                            <span className="text-xs text-muted-foreground mt-1">
+                              #{order.shipping.tracking.number}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                      <div className="inline-flex items-center gap-2">
+  {order.isStale ? (
+    <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200">
+      Stale
+    </Badge>
+  ) : (
+    <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
+      ${order.isOpen ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+      <div className={`h-1.5 w-1.5 rounded-full
+        ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} />
+      {order.isOpen ? "Open" : "Closed"}
+    </div>
+  )}
+</div>
+
+                        
+                        {order.orderStatus && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {order.orderStatus.hasReturn && (
+                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-200">Return</Badge>
+                            )}
+                            {order.orderStatus.hasDispute && (
+                              <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-200">Dispute</Badge>
+                            )}
+                            {order.orderStatus.hasRefund && (
+                              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-200">Refund</Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>₦{(order.totalAmount || 0).toLocaleString()}</TableCell>
@@ -456,7 +590,7 @@ function Orders() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">No orders found</TableCell>
+                  <TableCell colSpan={10} className="text-center">No orders found</TableCell>
                 </TableRow>
               )}
             </TableBody>

@@ -152,6 +152,7 @@ interface Seller {
 
 function Sellers() {
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [allSellers, setAllSellers] = useState<Seller[]>([]); // Store all sellers for client-side filtering
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -196,6 +197,16 @@ function Sellers() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   
+  // New state for aggregate statistics
+  const [stats, setStats] = useState({
+    totalBusinessAccounts: 0,
+    totalIndividualAccounts: 0,
+    totalVerifiedSellers: 0,
+    totalProducts: 0,
+    totalFeaturedSellers: 0,
+    totalIncompleteSellers: 0
+  });
+  
   // Temporary search value for the input
   const [searchInput, setSearchInput] = useState("");
 
@@ -232,6 +243,97 @@ function Sellers() {
     fetchSellers();
   }, [page, limit, filters]);
 
+  // Fetch aggregate statistics
+  useEffect(() => {
+    fetchAggregateStats();
+  }, []);
+
+  // New effect to handle client-side filtering when tab changes
+  useEffect(() => {
+    if (allSellers.length > 0) {
+      if (selectedTab === "all") {
+        setSellers(allSellers);
+      } else {
+        const filteredSellers = allSellers.filter((seller: Seller) => 
+          seller.accountType?.toLowerCase() === selectedTab
+        );
+        setSellers(filteredSellers);
+      }
+    }
+  }, [selectedTab, allSellers]);
+
+  const fetchAggregateStats = async () => {
+    try {
+      // First, try to get complete statistics if the endpoint exists
+      try {
+        const response = await api.get('/api/admin/sellers/statistics');
+        
+        if (response.data.success) {
+          setStats({
+            totalBusinessAccounts: response.data.totalBusinessAccounts || 0,
+            totalIndividualAccounts: response.data.totalIndividualAccounts || 0,
+            totalVerifiedSellers: response.data.totalVerifiedSellers || 0,
+            totalProducts: response.data.totalProducts || 0,
+            totalFeaturedSellers: response.data.totalFeaturedSellers || 0,
+            totalIncompleteSellers: response.data.totalIncompleteSellers || 0
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("Statistics endpoint not available, falling back to calculating from full data");
+      }
+      
+      // If the statistics endpoint doesn't exist, get all sellers (without pagination)
+      // to calculate the statistics on the client
+      const response = await api.get('/api/admin/sellers?limit=1000');
+      
+      if (response.data.success) {
+        const allSellersData = response.data.sellers;
+        
+        // Calculate the statistics from the full data
+        const businessAccounts = allSellersData.filter((s: Seller) => s.accountType === "business").length;
+        const individualAccounts = allSellersData.filter((s: Seller) => s.accountType === "individual").length;
+        const verifiedSellers = allSellersData.filter((s: Seller) => s.isVerified).length;
+        const totalProducts = allSellersData.reduce((sum: number, seller: Seller) => sum + (seller.productCount || 0), 0);
+        const featuredSellers = allSellersData.filter((s: Seller) => s.isFeatured).length;
+        const incompleteSellers = allSellersData.filter((s: Seller) => {
+          return !s.isProfileComplete || 
+                 !s.verificationDocuments?.documents?.length || 
+                 !s.accountType || 
+                 s.accountType === "N/A";
+        }).length;
+        
+        setStats({
+          totalBusinessAccounts: businessAccounts,
+          totalIndividualAccounts: individualAccounts,
+          totalVerifiedSellers: verifiedSellers,
+          totalProducts: totalProducts,
+          totalFeaturedSellers: featuredSellers,
+          totalIncompleteSellers: incompleteSellers
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching aggregate statistics:", err);
+      // Fall back to showing stats only for the current page
+      updateStatsFromCurrentData();
+    }
+  };
+
+  // Helper function to update stats from current page data when API fails
+  const updateStatsFromCurrentData = () => {
+    // If we at least have the current page data, calculate from that
+    if (sellers.length > 0) {
+      setStats({
+        totalBusinessAccounts: sellers.filter(s => s.accountType === "business").length,
+        totalIndividualAccounts: sellers.filter(s => s.accountType === "individual").length,
+        totalVerifiedSellers: sellers.filter(s => s.isVerified).length,
+        totalProducts: sellers.reduce((sum, seller) => sum + (seller.productCount || 0), 0),
+        totalFeaturedSellers: sellers.filter(s => s.isFeatured).length,
+        totalIncompleteSellers: sellers.filter(seller => hasIncompleteOnboarding(seller)).length
+      });
+    }
+  };
+
   const fetchSellers = async () => {
     try {
       setLoading(true);
@@ -264,21 +366,43 @@ function Sellers() {
       }
       params.append('sortBy', sortByValue);
       
-      // Filter by account type if needed (this is for the tabs)
-      if (selectedTab !== "all") {
-        params.append('accountType', selectedTab);
-      }
+      // No longer filtering by account type in the API call
+      // Let's do it client-side instead
       
       const response = await api.get(`/api/admin/sellers?${params.toString()}`);
       
       if (response.data.success) {
-        setSellers(response.data.sellers);
+        const fetchedSellers = response.data.sellers;
+        setAllSellers(fetchedSellers);
+        
+        // Apply client-side filtering based on selected tab
+        if (selectedTab === "all") {
+          setSellers(fetchedSellers);
+        } else {
+          const filteredSellers = fetchedSellers.filter((seller: Seller) => 
+            seller.accountType?.toLowerCase() === selectedTab
+          );
+          setSellers(filteredSellers);
+        }
+        
         setPagination({
           currentPage: response.data.currentPage,
           totalPages: response.data.totalPages,
           totalSellers: response.data.totalSellers,
           sellersPerPage: response.data.sellersPerPage
         });
+        
+        // Update aggregate stats if available in response
+        if (response.data.stats) {
+          setStats({
+            totalBusinessAccounts: response.data.stats.totalBusinessAccounts || 0,
+            totalIndividualAccounts: response.data.stats.totalIndividualAccounts || 0,
+            totalVerifiedSellers: response.data.stats.totalVerifiedSellers || 0,
+            totalProducts: response.data.stats.totalProducts || 0,
+            totalFeaturedSellers: response.data.stats.totalFeaturedSellers || 0,
+            totalIncompleteSellers: response.data.stats.totalIncompleteSellers || 0
+          });
+        }
       } else {
         throw new Error(response.data.message || "Failed to fetch sellers");
       }
@@ -937,29 +1061,42 @@ function Sellers() {
           </Badge>
           <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <Building className="h-3 w-3 mr-1" />
-            Business: {sellers.filter(s => s.accountType === "business").length}
+            Business: {stats.totalBusinessAccounts}
           </Badge>
           <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <User className="h-3 w-3 mr-1" />
-            Individual: {sellers.filter(s => s.accountType === "individual").length}
+            Individual: {stats.totalIndividualAccounts}
           </Badge>
           <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Verified: {sellers.filter(s => s.isVerified).length}
+            Verified: {stats.totalVerifiedSellers}
           </Badge>
           <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <Package className="h-3 w-3 mr-1" />
-            Products: {sellers.reduce((sum, seller) => sum + (seller.productCount || 0), 0)}
+            Products: {stats.totalProducts}
           </Badge>
           <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <Star className="h-3 w-3 mr-1 fill-current" />
-            Featured: {sellers.filter(s => s.isFeatured).length}
+            Featured: {stats.totalFeaturedSellers}
           </Badge>
-          <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
+          {/* <Badge variant="outline" className="px-2 sm:px-3 py-1 text-xs">
             <AlertCircle className="h-3 w-3 mr-1" />
-            Incomplete: {sellers.filter(seller => hasIncompleteOnboarding(seller)).length}
-          </Badge>
+            Incomplete: {stats.totalIncompleteSellers}
+          </Badge> */}
            <div className="flex justify-end gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+        <Button
+          variant="outline"
+          onClick={handleSendBulkOnboardingReminders}
+          disabled={sendingBulkReminders}
+          className="flex text-white bg-gray-600 items-center gap-2 text-xs sm:text-sm w-full sm:w-auto mr-2"
+        >
+          {sendingBulkReminders ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Mail className="h-4 w-4" />
+          )}
+          Send Bulk Reminders
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" disabled={exporting !== null} className="flex text-white bg-gray-600 items-center gap-2 text-xs sm:text-sm w-full sm:w-auto">
@@ -1058,7 +1195,7 @@ function Sellers() {
               <option value="false">Active</option>
             </select>
           </div>
-          <div>
+          {/* <div>
             <label className="text-xs text-muted-foreground mb-1 block">Products</label>
             <select 
               className="w-full h-9 rounded-md bg-zinc-800 border border-zinc-700 px-3 text-sm text-white"
@@ -1069,7 +1206,7 @@ function Sellers() {
               <option value="true">Has Products</option>
               <option value="false">No Products</option>
             </select>
-          </div>
+          </div> */}
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Sort By</label>
             <select 
@@ -1081,16 +1218,16 @@ function Sellers() {
               <option value="oldest">Oldest First</option>
               <option value="name_asc">Name (A-Z)</option>
               <option value="name_desc">Name (Z-A)</option>
-              <option value="store_name">Store Name</option>
-              <option value="most_visited">Most Visited</option>
-              <option value="most_followers">Most Followers</option>
-              <option value="most_products">Most Products</option>
+              
             </select>
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setSelectedTab(value as any)}>
+      <Tabs defaultValue="all" className="w-full" onValueChange={(value) => {
+        setSelectedTab(value as "all" | "business" | "individual");
+        setPage(1); // Reset to first page when changing tabs
+      }}>
         <TabsList className="mb-4 w-full justify-start overflow-x-auto">
           <TabsTrigger value="all">All Sellers</TabsTrigger>
           <TabsTrigger value="business">Business Accounts</TabsTrigger>
@@ -1200,7 +1337,24 @@ function Sellers() {
                 
                 {/* Verification */}
                 <div className="flex justify-between items-center">
-                  {verificationButtons(seller)}
+                  <div className="flex items-center">
+                    {verificationButtons(seller)}
+                    <Badge 
+                      variant="outline" 
+                      className={
+                        seller.isDisabled 
+                          ? "bg-red-500/10 text-red-400 ml-2" 
+                          : "bg-green-500/10 text-green-400 ml-2"
+                      }
+                    >
+                      {seller.isDisabled ? (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      ) : (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      )}
+                      {seller.isDisabled ? "Disabled" : "Active"}
+                    </Badge>
+                  </div>
                   
                   <div className="flex items-center gap-1">
                     <Button
@@ -1210,7 +1364,7 @@ function Sellers() {
                       asChild
                     >
                       <Link to={`/dashboard/seller/${seller._id}`}>
-                        View Details
+                        <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
                     
@@ -1285,6 +1439,7 @@ function Sellers() {
                   <TableHead className="min-w-[90px]">Account</TableHead>
                   <TableHead className="min-w-[70px]">Products</TableHead>
                   <TableHead className="min-w-[100px]">Engagement</TableHead>
+                  <TableHead className="min-w-[80px]">Status</TableHead>
                   <TableHead className="min-w-[140px]">Verification</TableHead>
                   <TableHead className="w-[50px]">Featured</TableHead>
                   <TableHead className="min-w-[100px]">Actions</TableHead>
@@ -1326,7 +1481,7 @@ function Sellers() {
                     <TableCell>
                       {seller.storeName ? (
                         <div>
-                          <div className="font-medium truncate text-xs sm:text-sm">{seller.storeName}</div>
+                          <div className="font-medium truncate text-xs sm:text-sm">{seller.storeName?.slice(0, 10)}{seller.storeName?.length > 10 ? '...' : ''}</div>
                          
                           {seller.sellerAddress && (
                             <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-1">
@@ -1377,6 +1532,23 @@ function Sellers() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          seller.isDisabled 
+                            ? "bg-red-500/10 text-red-400" 
+                            : "bg-green-500/10 text-green-400"
+                        }
+                      >
+                        {seller.isDisabled ? (
+                          <XCircle className="h-3 w-3 mr-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                        )}
+                        {seller.isDisabled ? "Disabled" : "Active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       {verificationButtons(seller)}
                     </TableCell>
                     <TableCell>
@@ -1403,7 +1575,7 @@ function Sellers() {
                           asChild
                         >
                           <Link to={`/dashboard/seller/${seller._id}`}>
-                            <span className="hidden sm:inline-block mr-1">View</span> Details
+                            <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
                         

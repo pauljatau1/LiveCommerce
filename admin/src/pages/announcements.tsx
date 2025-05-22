@@ -153,7 +153,7 @@ function Announcements() {
             {announcements.map((announcement) => (
               <TableRow key={announcement._id} className="border-zinc-800">
                 <TableCell className="font-medium text-white">{announcement.title}</TableCell>
-                <TableCell className="text-muted-foreground">{announcement.description}</TableCell>
+                <TableCell className="text-muted-foreground">{announcement.description.slice(0, 50)}...</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(announcement.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
