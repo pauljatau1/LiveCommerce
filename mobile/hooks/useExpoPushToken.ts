@@ -126,8 +126,17 @@ export const usePushNotifications = (): PushNotificationState => {
               model: notificationData.senderModel,
             },
           });
-        } else if (notificationData?.type?.includes("order")) {
+        } else if (notificationData?.orderId) {
           router.push(`/orders/${notificationData?.orderId}`);
+        } else if (notificationData?.streamId && notificationData?.streamType) {
+          router.push({
+            pathname: `/livestream/feed`,
+            params: {
+              id: notificationData?.streamId,
+
+              type: notificationData.streamType,
+            },
+          });
         } else {
           router.push("/(root)/(tabs)/home/home");
         }

@@ -241,7 +241,7 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           {seller?.storeInfo?.aboutStore && (
-            <Text style={styles.bio} numberOfLines={4}>
+            <Text style={styles.bio} numberOfLines={6}>
               {seller?.storeInfo?.aboutStore}
             </Text>
           )}
@@ -518,8 +518,11 @@ const SellerProfile = () => {
 
   useEffect(() => {
     getSellerProfile();
-    handleGetConversations();
   }, [sellerId]);
+
+  useEffect(() => {
+    if (isFocused) handleGetConversations();
+  }, [isFocused]);
 
   const storeName = useMemo(() => {
     return (

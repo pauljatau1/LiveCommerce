@@ -80,10 +80,16 @@ const Reply = memo(({ item }: { item: any }) => {
         )}
       </View>
       <View className=" w-[100%] shrink">
-        <Text className="text-[#ccc] mb-[4px] py-[0px] font-LexendDeca">
-          {item?.user?.name ||
-            item?.user?.firstName + " " + item?.user?.lastName}
-        </Text>
+        <View className="flex-row items-center gap-[6px]">
+          <Text className="text-[#ccc] mb-[4px] py-[0px] font-LexendDeca">
+            {item?.user?.name ||
+              item?.user?.firstName + " " + item?.user?.lastName}
+          </Text>
+          <Text className="text-[#16783A] mb-[4px] py-[0px] font-LexendDeca text-[12px]">
+            {item?.userType == "Seller" && "From Seller"}
+          </Text>
+        </View>
+
         <Text className="text-white leading-20 font-[400] mb-[8px] font-LexendDecaMedium">
           {item?.comment}
         </Text>

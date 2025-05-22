@@ -2,7 +2,7 @@
   "expo": {
     "name": "auqli",
     "slug": "auqli-app",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "orientation": "portrait",
     "icon": "./assets/images/appstore.png",
     "scheme": "myapp",
@@ -78,8 +78,8 @@
       "expo-dev-client",
       "@react-native-google-signin/google-signin",
       "expo-tracking-transparency",
-
-      "expo-video"
+      "expo-video",
+      "./plugins/withWindowSoftInputMode"
     ],
     "experiments": {
       "typedRoutes": true

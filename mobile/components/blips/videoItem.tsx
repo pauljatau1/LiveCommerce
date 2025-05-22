@@ -234,14 +234,14 @@ const VideoItem = ({
     }
   };
 
-  const handleCantComment = () => {
+  const handleCantComment = useCallback(() => {
     setShowComments(false);
     setShowAuthSheet(true);
-  };
+  }, []);
 
-  const handleIncreaseCommentCount = () => {
+  const handleIncreaseCommentCount = useCallback(() => {
     setComments(comments + 1);
-  };
+  }, []);
 
   const closeCommentsSheet = useCallback(() => {
     setShowComments(false);

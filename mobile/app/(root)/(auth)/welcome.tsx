@@ -8,8 +8,12 @@ import {
   Dimensions,
   Pressable,
   StyleSheet,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import Swiper from "react-native-swiper";
 import { icons, onboarding } from "@/constants";
 import CustomButton from "@/components/global/button/CustomButton";
@@ -19,6 +23,7 @@ import { AntDesign } from "@expo/vector-icons";
 const { width, height } = Dimensions.get("window");
 
 const Home = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const swiperRef = useRef<Swiper>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -59,8 +64,12 @@ const Home = () => {
           onPress={() => router.replace("../../(root)/(tabs)/home")}
           style={{
             alignItems: "flex-end",
-            padding: 20,
+            // padding: 20,
             opacity: isLastSlide ? 0 : 1, // Hide the button on the last slide
+            position: "absolute",
+            top: insets.top + 20,
+            right: 20,
+            zIndex: 100,
           }}
           disabled={isLastSlide} // Disable the button on the last slide to prevent interaction
         >
@@ -122,7 +131,7 @@ const Home = () => {
                   height: "100%", // Adjust based on screen height
                   width: "100%", // Adjust based on screen width
                   //   borderRadius: 10,
-                  opacity: 0.5,
+                  opacity: 1,
                 }}
                 resizeMode="cover"
               />
@@ -134,11 +143,11 @@ const Home = () => {
           className="items-center"
           style={{
             position: "absolute",
-            bottom: 20,
+            bottom: 0,
             alignSelf: "center",
           }}
         >
-          <View style={{ marginTop: 20, width: "100%", alignItems: "center" }}>
+          {/* <View style={{ marginTop: 20, width: "100%", alignItems: "center" }}>
             <Text
               style={{
                 color: "#fff",
@@ -150,8 +159,8 @@ const Home = () => {
             >
               {onboarding[activeIndex].title}
             </Text>
-          </View>
-          <Text
+          </View> */}
+          {/* <Text
             style={{
               fontSize: 14,
               fontFamily: "LexendDeca",
@@ -163,9 +172,9 @@ const Home = () => {
             }}
           >
             {onboarding[activeIndex].description}
-          </Text>
+          </Text> */}
 
-          <View
+          {/* <View
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -174,7 +183,7 @@ const Home = () => {
             }}
           >
             {onboarding?.map((_, index) => renderDots(index))}
-          </View>
+          </View> */}
 
           {!isLastSlide ? (
             <Pressable

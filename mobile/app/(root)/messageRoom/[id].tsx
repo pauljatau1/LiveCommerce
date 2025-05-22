@@ -585,7 +585,10 @@ const MessageRoom = () => {
       console.log("message recieved");
 
       const messageData = newMessage.message || newMessage;
-      if (messageData.conversation === conversationId) {
+      if (
+        messageData.conversation === conversationId ||
+        messageData?.sender?.id == id
+      ) {
         setMessages((prev) => [...prev, messageData]);
         handleReadMessages();
         scrollToBottom();
@@ -909,6 +912,7 @@ const MessageRoom = () => {
                   value={newMessage}
                   multiline
                   onChangeText={(text) => setNewMessage(text)}
+                  autoFocus={true}
                   onFocus={() => {
                     setShowOrderDetails(false);
                     // setShowOptions(false);
