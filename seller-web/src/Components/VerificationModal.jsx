@@ -596,6 +596,7 @@ const VerificationModal = ({ isOpen, onClose }) => {
       // Require store name and store bio text and profile image
       return formData.storeName && 
              formData.storeBio.length >= 10 && 
+             formData.storeBio.length <= 250 && 
              formData.storeProfileImage;
     }
     
@@ -1354,17 +1355,27 @@ const VerificationModal = ({ isOpen, onClose }) => {
                 value={formData.storeBio}
                 onChange={handleInputChange}
                 placeholder="Describe your store and products..."
+                maxLength={250}
                 className="min-h-[180px] w-full rounded-lg border border-gray-300 dark:border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 p-4"
               />
               <div className="absolute bottom-3 right-3">
                 <div className={`text-xs px-2 py-1 rounded-full ${
-                  formData.storeBio.length < 10 
-                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' 
-                    : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                  formData.storeBio.length < 10
+                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                    : formData.storeBio.length >= 250
+                      ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400'
+                      : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                 }`}>
-                  {formData.storeBio.length} / 10 min characters
+                  {formData.storeBio.length} / 250 characters {formData.storeBio.length >= 250 && '(max reached)'}
                 </div>
               </div>
+              {formData.storeBio.length >= 240 && formData.storeBio.length < 250 && (
+                <div className="absolute bottom-10 right-3">
+                  <div className="text-xs px-2 py-1 rounded-md bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800">
+                    Approaching character limit
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
