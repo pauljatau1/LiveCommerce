@@ -1540,15 +1540,25 @@ agenda.define('delete_unpaid_orders', async (job) => {
           
           // Also delete the order from Fez
           const deleteResponse = await axios.delete(
-            `${FEZ_API_URL}/order/${order.shipping.fez_order_number}`,
+            `${process.env.FEZ_API_URL}/order`,
             {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'secret-key': process.env.FEZ_SECRET_KEY,
                 'Content-Type': 'application/json'
+              },
+              data: {
+                orderNo: order.shipping.fez_order_number
               }
             }
           );
+
+          console.log('Fez request cancel shipment',{
+            url:`${process.env.FEZ_API_URL}/order`,
+            payload:{
+              orderNo: order.shipping.fez_order_number
+            }
+          })
           
           console.log(`Fez shipment deletion response for order ${order.order_id}:`, {
             status: deleteResponse.status,
@@ -1556,6 +1566,13 @@ agenda.define('delete_unpaid_orders', async (job) => {
           });
         } catch (fezError) {
           console.error(`Error with Fez operations for order ${order.order_id}:`, fezError.message);
+          console.log('Fez request cancel shipment error',{
+            url:`${process.env.FEZ_API_URL}/order`,
+            payload:{
+              orderNo: order.shipping.fez_order_number
+            },
+            fezError
+          })
           // Continue with order deletion even if Fez operations fail
         }
       }
