@@ -18,8 +18,11 @@ export const validateToken = async (token, navigate) => {
   // Check if we're on login or signup pages - skip validation there
   const isAuthPage = window.location.pathname.includes('/login') || 
                     window.location.pathname.includes('/signup');
-  if (isAuthPage) {
-    return true; // Skip validation on auth pages
+  // Check if this is a direct login access (first visit to login page)
+  const isDirectLoginAccess = sessionStorage.getItem('directLoginAccess') === 'true';
+  
+  if (isAuthPage || isDirectLoginAccess) {
+    return true; // Skip validation on auth pages or direct login access
   }
   
   // Use a timeout to prevent hanging validation requests
@@ -107,6 +110,8 @@ export const handleApiError = (error, navigate) => {
   // Check if we're on login or signup pages - handle differently there
   const isAuthPage = window.location.pathname.includes('/login') || 
                     window.location.pathname.includes('/signup');
+  // Check if this is a direct login access (first visit to login page)
+  const isDirectLoginAccess = sessionStorage.getItem('directLoginAccess') === 'true';
   
   // Handle cancelled requests separately - don't treat as errors
   if (axios.isCancel(error)) {
@@ -130,8 +135,9 @@ export const handleApiError = (error, navigate) => {
     return true;
   }
   
-  // Invalid token or unauthorized - only handle if not on auth pages
-  if ((error.response?.data?.message === "Invalid token" || error.response?.status === 401) && !isAuthPage) {
+  // Invalid token or unauthorized - only handle if not on auth pages and not direct login
+  if ((error.response?.data?.message === "Invalid token" || error.response?.status === 401) && 
+      !isAuthPage && !isDirectLoginAccess) {
     console.log("Invalid token detected in API call, redirecting to login");
     
     // Clean up localStorage
@@ -155,8 +161,8 @@ export const handleApiError = (error, navigate) => {
     return true;
   }
   
-  // Only show toast for response errors with messages (skip on auth pages)
-  if (error.response?.data?.message && !isAuthPage) {
+  // Only show toast for response errors with messages (skip on auth pages or direct login)
+  if (error.response?.data?.message && !isAuthPage && !isDirectLoginAccess) {
     toast.error("Error", {
       description: error.response.data.message,
       style: {
