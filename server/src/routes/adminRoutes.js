@@ -1657,6 +1657,175 @@ router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminC
 
 /**
  * @swagger
+ * /api/admin/product-blips:
+ *   get:
+ *     summary: Get all product blips across the platform
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of blips per page
+ *       - in: query
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         description: Filter blips by seller ID
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter blips by product category
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, engagement]
+ *           default: createdAt
+ *         description: Field to sort results by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order (ascending or descending)
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter blips created on or after this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter blips created on or before this date
+ *       - in: query
+ *         name: minLikes
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Minimum number of likes
+ *       - in: query
+ *         name: minViews
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Minimum number of views
+ *       - in: query
+ *         name: minComments
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Minimum number of comments
+ *     responses:
+ *       200:
+ *         description: List of product blips with pagination and statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       productId:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       productDescription:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       category:
+ *                         type: string
+ *                       subCategory:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           isVerified:
+ *                             type: boolean
+ *                       engagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: integer
+ *                           commentsCount:
+ *                             type: integer
+ *                           viewCount:
+ *                             type: integer
+ *                       status:
+ *                         type: string
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalBlips:
+ *                       type: integer
+ *                     totalViews:
+ *                       type: integer
+ *                     totalLikes:
+ *                       type: integer
+ *                     totalComments:
+ *                       type: integer
+ *                     averageViews:
+ *                       type: integer
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalBlips:
+ *                       type: integer
+ *                     blipsPerPage:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ */
+router.get('/product-blips', authMiddleware.verifyToken, authMiddleware.isAdmin, adminController.getAllProductBlips);
+
+/**
+ * @swagger
  * /api/admin/bank-requests:
  *   get:
  *     summary: Get all bank change requests

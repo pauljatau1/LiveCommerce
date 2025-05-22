@@ -7524,4 +7524,203 @@ exports.addToBuyerWallet = async (req, res) => {
   }
 };
 
-// ... existing code ...
+
+/**
+ * Get all product blips across the platform
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getAllProductBlips = async (req, res) => {
+  try {
+    // Parse pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    // Parse filters
+    const sellerId = req.query.sellerId;
+    const category = req.query.category;
+    const sortBy = req.query.sortBy || 'createdAt'; // Default sort by creation date
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1; // Default sort descending
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
+    const minLikes = parseInt(req.query.minLikes) || 0;
+    const minViews = parseInt(req.query.minViews) || 0;
+    const minComments = parseInt(req.query.minComments) || 0;
+    
+    // Build match criteria
+    const matchCriteria = {
+      blips: { $exists: true, $ne: [] }
+    };
+    
+    if (sellerId) {
+      matchCriteria.seller = new mongoose.Types.ObjectId(sellerId);
+    }
+    
+    if (category) {
+      matchCriteria.category = category;
+    }
+    
+    // Aggregation pipeline
+    const pipeline = [
+      // Match products that have blips
+      { $match: matchCriteria },
+      
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      
+      // Add date filtering if provided
+      ...(startDate || endDate ? [{
+        $match: {
+          'blips.createdAt': {
+            ...(startDate && { $gte: startDate }),
+            ...(endDate && { $lte: endDate })
+          }
+        }
+      }] : []),
+      
+      // Filter by engagement metrics if provided
+      {
+        $match: {
+          $and: [
+            { 'blips.likesCount': { $gte: minLikes } },
+            { 'blips.viewCount': { $gte: minViews } },
+            { 'blips.commentsCount': { $gte: minComments } }
+          ]
+        }
+      },
+      
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      
+      // Project needed fields
+      {
+        $project: {
+          _id: 0,
+          productId: '$_id',
+          blipId: '$blips._id',
+          blipUrl: '$blips.url',
+          thumbnail: {
+            $ifNull: [
+              '$blips.thumbnail',
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ]
+          },
+          contentType: '$blips.contentType',
+          productName: '$name',
+          productDescription: { $substr: ['$description', 0, 100] }, // Truncated description
+          price: '$price',
+          category: '$category',
+          subCategory: '$subCategory',
+          createdAt: '$blips.createdAt',
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            email: '$sellerInfo.email',
+            phoneNumber: '$sellerInfo.phoneNumber',
+            isVerified: '$sellerInfo.isVerified'
+          },
+          engagement: {
+            likesCount: { $ifNull: ['$blips.likesCount', 0] },
+            commentsCount: { $ifNull: ['$blips.commentsCount', 0] },
+            viewCount: { $ifNull: ['$blips.viewCount', 0] }
+          },
+          status: '$status'
+        }
+      },
+      
+      // Sort by the requested field
+      { $sort: { [sortBy === 'engagement' ? 'engagement.viewCount' : sortBy]: sortOrder } },
+      
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ];
+    
+    // Execute the aggregation
+    const blips = await Product.aggregate(pipeline);
+    
+    // Get total count for pagination
+    const totalBlipsCount = await Product.aggregate([
+      { $match: matchCriteria },
+      { $unwind: '$blips' },
+      ...(startDate || endDate ? [{
+        $match: {
+          'blips.createdAt': {
+            ...(startDate && { $gte: startDate }),
+            ...(endDate && { $lte: endDate })
+          }
+        }
+      }] : []),
+      {
+        $match: {
+          $and: [
+            { 'blips.likesCount': { $gte: minLikes } },
+            { 'blips.viewCount': { $gte: minViews } },
+            { 'blips.commentsCount': { $gte: minComments } }
+          ]
+        }
+      },
+      { $count: 'total' }
+    ]);
+    
+    const totalBlips = totalBlipsCount.length > 0 ? totalBlipsCount[0].total : 0;
+    
+    // Calculate engagement statistics
+    const stats = {
+      totalBlips,
+      totalViews: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalViews: { $sum: '$blips.viewCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalViews : 0),
+      
+      totalLikes: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalLikes: { $sum: '$blips.likesCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalLikes : 0),
+      
+      totalComments: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, totalComments: { $sum: '$blips.commentsCount' } } }
+      ]).then(result => result.length > 0 ? result[0].totalComments : 0),
+      
+      averageViews: await Product.aggregate([
+        { $match: matchCriteria },
+        { $unwind: '$blips' },
+        { $group: { _id: null, avgViews: { $avg: '$blips.viewCount' } } }
+      ]).then(result => result.length > 0 ? Math.round(result[0].avgViews) : 0)
+    };
+    
+    res.status(200).json({
+      success: true,
+      blips,
+      stats,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalBlips / limit),
+        totalBlips,
+        blipsPerPage: limit
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching product blips:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to retrieve product blips', 
+      error: error.message 
+    });
+  }
+};
