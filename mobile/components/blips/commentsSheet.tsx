@@ -17,6 +17,8 @@ import moment from "moment";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import LottieView from "lottie-react-native";
 import { AntDesign } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CommentsSheet = ({
   handleIncreaseCommentCount,
@@ -182,6 +184,24 @@ const CommentsSheet = ({
         },
       };
       const response = await axios(config);
+
+      if (response.status == 201) {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          const user = JSON.parse(userData || '{}');
+          trackEvent("blip_commented", {
+            blipId: id,
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error("Error tracking blip commented:", error);
+        }
+      }
       // setComments(response.data.comments);
       // setPage(1);
       setLoading(false);

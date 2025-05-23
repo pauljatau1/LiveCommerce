@@ -25,6 +25,7 @@ import { useDispatch } from "react-redux";
 import { signIn } from "@/store/features/auth/authSlice";
 import { Skeleton } from "@rneui/themed";
 import { AntDesign } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/analytics";
 
 type FormData = {
   selectedCategories: {
@@ -117,6 +118,26 @@ const Categories = () => {
 
       if (registerPayload) dispatch(signIn(JSON.parse(registerPayload!)));
 
+      // Track event for buyer profile completed
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
+        trackEvent('buyer_profile_completed', {
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          userType: "buyer",
+          phoneNumber: user?.phoneNumber,
+          country: user?.country,
+          selectedCategories: selectedCategories.map((category) => category.name),
+          timestamp: new Date().toISOString()
+        });
+      } catch (trackError) {
+        console.log("Customer.io profile completion tracking error:", trackError);
+        // Allow profile completion flow to continue even if tracking fails
+      }
       router.replace("/(root)/(tabs)/home");
       toast.success(result.message);
     } catch (error: any) {

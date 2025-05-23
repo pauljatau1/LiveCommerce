@@ -22,6 +22,7 @@ import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/mixpanel";
 
 const mockDeliveryOtions = [
   {
@@ -75,6 +76,7 @@ const CheckoutNow = ({
   closeSheet,
   channel = "marketplace",
   streamId,
+  blipId,
 }: Props) => {
   const {
     data: product,
@@ -116,7 +118,7 @@ const CheckoutNow = ({
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -180,9 +182,9 @@ const CheckoutNow = ({
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                  .replaceAll("-", "")
-                  ?.replace("+234", "")
-                  ?.replace("0", "")
+                .replaceAll("-", "")
+                ?.replace("+234", "")
+                ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -374,6 +376,27 @@ const CheckoutNow = ({
       const response = await axios(config);
       if (response.status == 201) {
         setOrderId(response.data.orders[0]?.orderId);
+        if (blipId) {
+          try {
+            const userData = await AsyncStorage.getItem('user');
+            const user = JSON.parse(userData || '{}');
+            trackEvent("blip_product_purchased", {
+              productId: product._id,
+              productName: product?.name,
+              productPrice: `₦${product?.price?.toLocaleString()}`,
+              productImage: product?.images[0]?.url,
+              blipId: blipId,
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              timestamp: new Date().toISOString(),
+            });
+          } catch (error) {
+            console.error("Error tracking blip product purchased:", error);
+          }
+        }
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
@@ -617,10 +640,10 @@ const CheckoutNow = ({
               >
                 {index == 1
                   ? "₦" +
-                    walletBalance?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                  walletBalance?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
                   : item.description}
               </Text>
             </View>
@@ -856,10 +879,10 @@ const CheckoutNow = ({
                       <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                         {deliveryFee
                           ? "₦" +
-                            deliveryFee?.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
+                          deliveryFee?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
                           : "-"}
                       </Text>
                     )}
@@ -873,15 +896,15 @@ const CheckoutNow = ({
                     ) : (
                       <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                         {(deliveryFee && productTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                          (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                           ? "₦" +
-                            (deliveryFee + productTotal)?.toLocaleString(
-                              undefined,
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              },
-                            )
+                          (deliveryFee + productTotal)?.toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )
                           : "-"}
                       </Text>
                     )}
@@ -898,14 +921,14 @@ const CheckoutNow = ({
                     <Text className="text-white text-[16px] font-LexendDecaMedium">
                       Pay (
                       {(deliveryFee && productTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                         ? "₦" +
-                          (deliveryFee + productTotal)?.toLocaleString(
+                        (deliveryFee + productTotal)?.toLocaleString(
                             undefined,
                             {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            },
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
                           )
                         : "-"}
                       )

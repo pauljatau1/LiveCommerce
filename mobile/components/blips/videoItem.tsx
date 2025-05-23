@@ -65,6 +65,8 @@ import { GlassImage } from "@/app/(root)/livestream/components";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent, useEventListener } from "expo";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
@@ -159,6 +161,21 @@ const VideoItem = ({
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
           // shared with activity type of result.activityType
+          try {
+            const userData = await AsyncStorage.getItem('user');
+            const user = JSON.parse(userData || '{}');
+            trackEvent("blip_shared", {
+              blipId: id,
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              timestamp: new Date().toISOString(),
+            });
+          } catch (error) {
+            console.error("Error sharing blip:", error);
+          }
         } else {
           // shared
         }
@@ -194,9 +211,39 @@ const VideoItem = ({
     if (liked) {
       setLiked(false);
       setLikes(likes - 1);
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        trackEvent("blip_unliked", {
+          blipId: id,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error liking blip:", error);
+      }
     } else {
       setLiked(true);
       setLikes(likes + 1);
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        trackEvent("blip_liked", {
+          blipId: id,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error liking blip:", error);
+      }
     }
     try {
       const config = {
@@ -210,6 +257,7 @@ const VideoItem = ({
         data: null,
       };
       const response = await axios(config);
+
     } catch (e: any) {
       console.log("error liking blip ", e.response.data);
     }
@@ -367,6 +415,25 @@ const VideoItem = ({
     }
   };
 
+  const handleBlipProductClickTrack = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const user = JSON.parse(userData || '{}');
+      trackEvent("blip_product_clicked", {
+        blipId: id,
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error tracking blip product clicked:", error);
+    }
+  };
+
+
   useEffect(() => {
     if (offlineAuctionData) {
       const timer = setInterval(
@@ -377,6 +444,29 @@ const VideoItem = ({
       return () => clearInterval(timer);
     }
   }, []);
+
+  useEffect(() => {
+    const trackBlipViewed = async () => {
+      if (isVisible) {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          const user = JSON.parse(userData || '{}');
+          trackEvent("blip_viewed", {
+            blipId: id,
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+          });
+        } catch (error) {
+          console.error("Error tracking blip viewed:", error);
+        }
+      }
+    }
+
+    trackBlipViewed();
+  }, [isVisible]);
 
   return (
     <TouchableWithoutFeedback
@@ -679,7 +769,10 @@ const VideoItem = ({
                   // backgroundColor: "rgba(255,255,255,0.6)",
                 }
               }
-              onPress={() => setShowProduct(true)}
+              onPress={() => {
+                setShowProduct(true);
+                handleBlipProductClickTrack();
+              }}
             >
               <View className="flex-row items-center gap-[12px]">
                 <GlassImage
@@ -856,6 +949,7 @@ const VideoItem = ({
             closeSheet={handleCloseCheckout}
             sellerId={seller._id}
             channel="blips"
+            blipId={id}
           />
         </BottomSheet>
 

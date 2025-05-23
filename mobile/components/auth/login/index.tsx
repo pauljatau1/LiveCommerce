@@ -32,6 +32,9 @@ import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import LoadingModal from "@/components/global/loading-modal";
+//import { trackEvent } from "@/utils/customerio";
+import { identifyUser, trackEvent } from "@/utils/analytics";
+//import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import {
 //   GoogleSignin,
@@ -93,6 +96,42 @@ const Login = () => {
       dispatch(signIn(result));
       setPassword(password);
       setUserEmail(email);
+      
+      // Track login event with Customer.io and Mixpanel via analytics.ts
+      try {
+        if (result) {
+          // Identify the user directly
+          identifyUser(result?.user?._id, {
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+          });
+          
+          trackEvent('buyer_login', {
+            userId: result?.user?._id,
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            shippingAddress: result?.user?.shippingAddresses[0],
+            country: result?.user?.country,
+            emailVerified: result?.user?.emailVerified,
+            walletBalance: `₦${result?.user?.wallet?.balance?.toLocaleString()}`,
+            onHoldAmount: `₦${result?.user?.wallet?.onHoldAmount?.toLocaleString()}`,
+            onHoldItems: result?.user?.wallet?.onHoldAmount ? result?.user?.wallet?.onHoldItems[0] : "none",
+            userType: "buyer",
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (trackError) {
+        console.log("Analytics tracking error:", trackError);
+        // Allow login flow to continue even if tracking fails
+      }
+      
       if (result?.user?.selectedCategories?.length! > 0) {
         router.replace("/(root)/(tabs)/home/home");
       } else router.replace("/(root)/(categories)/category");

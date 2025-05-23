@@ -26,6 +26,7 @@ export interface User {
   shippingAddresses: any[];
   username: string;
   wishlist: any[];
+  wallet: Wallet;
 }
 
 export interface LoginRequest {

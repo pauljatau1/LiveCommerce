@@ -2,6 +2,7 @@ import { getToken } from "@/store/features/auth/utils";
 import { useToast } from '@/contexts/ToastContext';
 import { createContext, useContext, useReducer } from "react";
 import { useRouter } from "expo-router";
+import { trackEvent } from "@/utils/analytics";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -83,6 +84,30 @@ export const LivestreamProvider = ({ children }) => {
       if (response.status === 200) {
         dispatch({ type: "SET_ACTIVE_STREAM_DETAILS", payload: response.data });
         console.log("joined stream", response.data);
+        // Track event for buyer joining stream
+        try {
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
+          
+          trackEvent('buyer_joined_stream', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            sellerId: response.data.stream.seller._id,
+            sellerName: response.data.stream.seller.storeName,
+            streamId: response.data.stream._id,
+            streamTitle: response.data.stream.title,
+            streamDescription: response.data.stream.description,
+            streamStartTime: response.data.stream.startTime,
+            streamCategory: response.data.stream.category,
+            streamSubCategory: response.data.stream.subCategory,
+            timestamp: new Date().toISOString()
+          });
+        } catch (trackError) {
+          console.log("Customer.io stream join tracking error:", trackError);
+        }
         return response.data;
       }
     } catch (error) {

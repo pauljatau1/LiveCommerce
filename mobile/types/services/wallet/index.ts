@@ -12,6 +12,8 @@ export type Wallet = {
   currency: currencySymbol;
   nubanProvider: string;
   createdAt: string;
+  onHoldAmount: number | null;
+  onHoldItems: any[];
 };
 
 export type GetWalletResponse = {

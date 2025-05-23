@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl } from "react-native";
+import { View, Text, RefreshControl, Platform } from "react-native";
 import React from "react";
 import PopularCard from "./popular-card";
 import SpotLight from "./spot-light";
@@ -12,6 +12,8 @@ import SuggestedBlips from "./suggested-blips";
 import ForYou from "./for-you";
 import { ScrollView } from "react-native-virtualized-view";
 import UpComing from "./upcoming-shows";
+import { trackScreen } from "@/utils/customerio";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AuqliLive = () => {
   const [refreshing, setRefreshing] = React.useState(false);
@@ -21,6 +23,28 @@ const AuqliLive = () => {
     const refreshTimeout = setTimeout(() => setRefreshing(false), 1000);
     return () => clearTimeout(refreshTimeout);
   };
+
+  useEffect(() => {
+    const triggerAppLaunchAnalytics = async () => {
+      const userData = await AsyncStorage.getItem("user");
+      const user = JSON.parse(userData || "{}");
+
+      // Track initial app launch screen view
+      trackScreen("app_opened", {
+        screenName: "home",
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        country: user?.country,
+        phoneNumber: user?.phoneNumber,
+        osType: Platform.OS,
+        timestamp: new Date().toISOString(),
+      });
+    };
+    triggerAppLaunchAnalytics();
+  }, []);
 
   return (
     <ScrollView

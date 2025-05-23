@@ -25,6 +25,7 @@ import { RootState } from "@/store";
 import { ActivityIndicator } from "react-native-paper";
 import { ScrollView } from "react-native-virtualized-view";
 import { AntDesign } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/analytics";
 
 const Search = () => {
   const token = useSelector((state: RootState) => state.authState.token);
@@ -36,6 +37,7 @@ const Search = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [sellers, setSellers] = useState<any[]>([]);
   const [keyboardFocused, setKeyboardFocused] = useState<boolean>(false);
+  
 
   const fetchSellers = async () => {
     if (!searchQuery) {
@@ -77,6 +79,21 @@ const Search = () => {
         pathname: `../../(root)/catalog/${searchQuery}`,
         params: { searchTab },
       });
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || '{}');
+        trackEvent("search_product", {
+          searchQuery,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.log(error);
+      }
       return;
     }
     return Keyboard.dismiss();

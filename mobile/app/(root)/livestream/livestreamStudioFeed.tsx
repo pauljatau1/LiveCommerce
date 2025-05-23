@@ -64,6 +64,8 @@ import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import { LinearGradient } from "expo-linear-gradient";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height } = Dimensions.get("window");
 
@@ -111,6 +113,7 @@ const LivestreamStudioFeed = ({
     name: "Store Name",
     username: "@username",
     avatar: require("@/assets/icons/animoji.png"),
+    sellerId: "",
   });
   const [viewerCount, setViewerCount] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -335,6 +338,7 @@ const LivestreamStudioFeed = ({
             avatar: sellerData.storeAvatar?.url
               ? { uri: sellerData.storeAvatar.url }
               : require("@/assets/icons/animoji.png"),
+            sellerId: sellerData._id,
           };
 
           console.log("Setting store info to:", newStoreInfo);
@@ -856,7 +860,8 @@ const LivestreamStudioFeed = ({
     // Set the selected product and show preview
     setSelectedProduct(product);
     setShowProductPreview(true);
-    console.log("Preview product:", product.name);
+    handleProductCardClick(product);
+    console.log("Preview product:", product);
   };
 
   // Render a comment or event item to match the reference image
@@ -1365,6 +1370,32 @@ const LivestreamStudioFeed = ({
       animationFrameRef.current = null;
     });
   }, [debouncedSocketEmit]);
+
+  // track event for product card click
+  const handleProductCardClick = useCallback(async (product: any) => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const user = JSON.parse(userData || '{}');
+      trackEvent('liveshow_product_card_clicked', {
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        productId: product?.productId,
+        productName: product?.name,
+        productPrice: `₦${product?.price?.toLocaleString()}`,
+        productCategory: product?.category,
+        productSubCategory: product?.subCategory,
+        productStock: product?.stock,
+        productStatus: product?.status,
+        productSellerId: sellerId,
+        productSellerName: storeInfo?.name,
+      });
+    } catch (error) {
+      console.error("Error tracking product card click:", error);
+    }
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

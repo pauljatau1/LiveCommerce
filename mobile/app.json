@@ -47,11 +47,17 @@
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "googleServicesFile": "./google-services.json",
-      "permissions": ["INTERNET", "RECORD_AUDIO"]
+      "permissions": [
+        "INTERNET",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -80,6 +86,23 @@
       "expo-tracking-transparency",
       "expo-video",
       "./plugins/withWindowSoftInputMode"
+      [
+        "customerio-expo-plugin",
+        {
+          "android": {
+            "googleServicesFile": "./google-services.json"
+          },
+          "ios": {
+            "pushNotification": {
+              "useRichPush": true,
+              "env": {
+                "cdpApiKey": "dc26bc9d13796901d562",
+                "region": "us"
+              }
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
