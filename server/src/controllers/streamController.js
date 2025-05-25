@@ -1303,8 +1303,7 @@ exports.createOpenLiveShow = async (req, res) => {
       tags,
       scheduledStartTime,
       video,
-      coverImage,
-      products
+      coverImage
     } = req.body;
 
     // Validate required fields
@@ -1331,58 +1330,6 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // No need to parse tags as they should now be arrays directly
     const parsedTags = tags || [];
-
-    // Parse products array
-    const productsList = products || [];
-    if (!Array.isArray(productsList)) {
-      return res.status(400).json({
-        message: 'Invalid products format. Expected array'
-      });
-    }
-
-    // Check if number of products exceeds maximum allowed (10)
-    if (productsList.length > 10) {
-      return res.status(400).json({
-        message: 'Maximum of 10 products allowed for an open live show'
-      });
-    }
-
-    // Fetch complete product details from the database for each product
-    const productsWithFullDetails = await Promise.all(
-      productsList.map(async (p) => {
-        // Get the productId from the frontend data
-        const productId = p.product?.productId;
-
-        if (!productId) {
-          return p; // If no productId, return as is
-        }
-
-        // Fetch complete product details from database
-        const completeProduct = await Product.findById(productId).select(
-          '_id name description category images price sku stock variants'
-        );
-
-        if (!completeProduct) {
-          return p; // If product not found, return as is
-        }
-
-        // Return the product with complete details from database
-        return {
-          ...p,
-          product: {
-            productId: completeProduct._id,
-            name: completeProduct.name,
-            category: completeProduct.category,
-            images: completeProduct.images,
-            sku: completeProduct.sku,
-            quantity: completeProduct.stock || 0,
-            price: completeProduct.price,
-            description: completeProduct.description,
-            variants: completeProduct.variants
-          }
-        };
-      })
-    );
 
     // Upload cover image to AWS S3
     let imageData = {};
