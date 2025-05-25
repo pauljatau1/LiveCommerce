@@ -1,21 +1,24 @@
-/*(import { useEffect, useState } from 'react';
-import * as Clarity from '@microsoft/react-native-clarity';
-import { LogLevel } from '@microsoft/react-native-clarity';
-import { useNavigation } from '@react-navigation/native';
+import { useEffect, useState } from "react";
+import * as Clarity from "@microsoft/react-native-clarity";
+import { LogLevel } from "@microsoft/react-native-clarity";
+import { useNavigation } from "@react-navigation/native";
 
 // Get the project ID from environment variables
-const CLARITY_PROJECT_ID = process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID || '';
+const CLARITY_PROJECT_ID = process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID || "";
 
 // Add debug function
 const debugClaritySetup = () => {
   if (__DEV__) {
-    console.log('=====================================');
-    console.log('CLARITY SETUP DEBUGGING');
-    console.log('Project ID:', CLARITY_PROJECT_ID || 'NOT FOUND');
-    console.log('Project ID length:', CLARITY_PROJECT_ID?.length || 0);
-    console.log('Is Empty:', !CLARITY_PROJECT_ID || CLARITY_PROJECT_ID.trim() === '');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('=====================================');
+    console.log("=====================================");
+    console.log("CLARITY SETUP DEBUGGING");
+    console.log("Project ID:", CLARITY_PROJECT_ID || "NOT FOUND");
+    console.log("Project ID length:", CLARITY_PROJECT_ID?.length || 0);
+    console.log(
+      "Is Empty:",
+      !CLARITY_PROJECT_ID || CLARITY_PROJECT_ID.trim() === "",
+    );
+    console.log("Environment:", process.env.NODE_ENV);
+    console.log("=====================================");
   }
 };
 
@@ -40,57 +43,60 @@ export function useClarity() {
   useEffect(() => {
     const initializeClarity = async () => {
       try {
-        if (!CLARITY_PROJECT_ID || CLARITY_PROJECT_ID.trim() === '') {
-          console.error('Clarity project ID is empty or invalid');
+        if (!CLARITY_PROJECT_ID || CLARITY_PROJECT_ID.trim() === "") {
+          console.error("Clarity project ID is empty or invalid");
           return;
         }
-        
+
         // Log for debugging
         if (__DEV__) {
-          console.log('Initializing Clarity with project ID:', CLARITY_PROJECT_ID);
+          console.log(
+            "Initializing Clarity with project ID:",
+            CLARITY_PROJECT_ID,
+          );
         }
-        
+
         // Standard initialization
         Clarity.initialize(CLARITY_PROJECT_ID, {
-          logLevel: __DEV__ ? Clarity.LogLevel.Verbose : Clarity.LogLevel.Error
+          logLevel: __DEV__ ? Clarity.LogLevel.Verbose : Clarity.LogLevel.Error,
         });
 
         // Set callback for when session starts
         Clarity.setOnSessionStartedCallback((sessionId) => {
-          console.log('Clarity session started:', sessionId);
+          console.log("Clarity session started:", sessionId);
           // Fix type issue by using the correct type
           setCurrentSessionId(sessionId as string);
-          
+
           // Force an event immediately after session starts to confirm data is flowing
           setTimeout(() => {
             try {
-              Clarity.sendCustomEvent('SessionStartConfirmation');
-              console.log('Session start confirmation event sent');
-              
+              Clarity.sendCustomEvent("SessionStartConfirmation");
+              console.log("Session start confirmation event sent");
+
               // Set essential session metadata
-              Clarity.setCustomTag('sessionStart', new Date().toISOString());
-              Clarity.setCustomTag('devicePlatform', 'React Native Mobile');
-              Clarity.setCustomTag('isDebug', __DEV__ ? 'true' : 'false');
-              
+              Clarity.setCustomTag("sessionStart", new Date().toISOString());
+              Clarity.setCustomTag("devicePlatform", "React Native Mobile");
+              Clarity.setCustomTag("isDebug", __DEV__ ? "true" : "false");
+
               // Try to manually trigger uploads in development
               if (__DEV__) {
                 // Send multiple events to increase chances of upload
                 for (let i = 0; i < 3; i++) {
                   setTimeout(() => {
-                    Clarity.sendCustomEvent('SessionConfirmation_' + i);
+                    Clarity.sendCustomEvent("SessionConfirmation_" + i);
                   }, i * 1000);
                 }
-                console.log('Multiple confirmation events scheduled');
+                console.log("Multiple confirmation events scheduled");
               }
             } catch (e) {
-              console.error('Error sending confirmation event:', e);
+              console.error("Error sending confirmation event:", e);
             }
           }, 2000);
         });
 
         setIsInitialized(true);
       } catch (error) {
-        console.error('Failed to initialize Clarity:', error);
+        console.error("Failed to initialize Clarity:", error);
       }
     };
 
@@ -104,10 +110,10 @@ export function useClarity() {
   // Utility functions to expose
   const sendCustomEvent = (eventName: string, data?: Record<string, any>) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. Event not sent:', eventName);
+      console.warn("Clarity not initialized yet. Event not sent:", eventName);
       return;
     }
-    
+
     // Fix by only passing a single argument if no data is provided
     if (data) {
       const eventData = JSON.stringify(data);
@@ -119,28 +125,34 @@ export function useClarity() {
 
   const setScreenName = (screenName: string) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. Screen name not set:', screenName);
+      console.warn(
+        "Clarity not initialized yet. Screen name not set:",
+        screenName,
+      );
       return;
     }
-    
+
     Clarity.setCurrentScreenName(screenName);
   };
 
   const setCustomTag = (key: string, value: string) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. Custom tag not set:', key);
+      console.warn("Clarity not initialized yet. Custom tag not set:", key);
       return;
     }
-    
+
     Clarity.setCustomTag(key, value);
   };
 
   const setCustomUserId = (userId: string) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. Custom user ID not set:', userId);
+      console.warn(
+        "Clarity not initialized yet. Custom user ID not set:",
+        userId,
+      );
       return;
     }
-    
+
     Clarity.setCustomUserId(userId);
     setIsUserIdentified(true);
   };
@@ -152,20 +164,20 @@ export function useClarity() {
     }
 
     // Use a custom event to attempt to trigger an upload
-    sendCustomEvent('NetworkStatusCheck', { 
+    sendCustomEvent("NetworkStatusCheck", {
       timestamp: new Date().toISOString(),
       isOnline: true,
-      check: 'manual'
+      check: "manual",
     });
 
     // Additional debugging info
     if (__DEV__) {
-      console.log('Clarity network check triggered');
+      console.log("Clarity network check triggered");
       // Check if session is active
       if (currentSessionId) {
-        console.log('Clarity active session:', currentSessionId);
+        console.log("Clarity active session:", currentSessionId);
       } else {
-        console.warn('No active Clarity session detected');
+        console.warn("No active Clarity session detected");
       }
     }
   };
@@ -176,7 +188,7 @@ export function useClarity() {
       const interval = setInterval(() => {
         checkClarityNetworkStatus();
       }, 30000); // Check every 30 seconds in dev mode
-      
+
       return () => clearInterval(interval);
     }
   }, [isInitialized]);
@@ -184,7 +196,7 @@ export function useClarity() {
   // New method to identify a user with all their attributes
   const identifyUser = (userAttributes: UserAttributes) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. User not identified.');
+      console.warn("Clarity not initialized yet. User not identified.");
       return;
     }
 
@@ -196,44 +208,52 @@ export function useClarity() {
 
       // Set each attribute as a custom tag with proper prefixing to ensure visibility
       if (userAttributes.username) {
-        setCustomTag('user_username', userAttributes.username);
+        setCustomTag("user_username", userAttributes.username);
       }
-      
+
       if (userAttributes.firstName) {
-        setCustomTag('user_firstName', userAttributes.firstName);
+        setCustomTag("user_firstName", userAttributes.firstName);
       }
-      
+
       if (userAttributes.lastName) {
-        setCustomTag('user_lastName', userAttributes.lastName);
+        setCustomTag("user_lastName", userAttributes.lastName);
       }
-      
+
       if (userAttributes.email) {
-        setCustomTag('user_email', userAttributes.email);
+        setCustomTag("user_email", userAttributes.email);
       }
 
       // Add a consolidated user info tag to make it easier to see in the Clarity dashboard
-      const userInfoTag = `${userAttributes.firstName || ''} ${userAttributes.lastName || ''} (${userAttributes.email || ''})`.trim();
+      const userInfoTag =
+        `${userAttributes.firstName || ""} ${userAttributes.lastName || ""} (${userAttributes.email || ""})`.trim();
       if (userInfoTag) {
-        setCustomTag('user_info', userInfoTag);
+        setCustomTag("user_info", userInfoTag);
       }
 
       // Set any additional custom attributes with user_ prefix
       Object.entries(userAttributes).forEach(([key, value]) => {
-        if (!['userId', 'username', 'firstName', 'lastName', 'email'].includes(key) && value) {
+        if (
+          !["userId", "username", "firstName", "lastName", "email"].includes(
+            key,
+          ) &&
+          value
+        ) {
           setCustomTag(`user_${key}`, String(value));
         }
       });
 
-      sendCustomEvent('UserIdentified', { 
+      sendCustomEvent("UserIdentified", {
         identified: true,
-        username: userAttributes.username
+        username: userAttributes.username,
       });
-      
+
       setIsUserIdentified(true);
-      console.log('User identified in Clarity with full attributes:', userAttributes);
-      
+      console.log(
+        "User identified in Clarity with full attributes:",
+        userAttributes,
+      );
     } catch (error) {
-      console.error('Failed to identify user in Clarity:', error);
+      console.error("Failed to identify user in Clarity:", error);
     }
   };
 
@@ -247,14 +267,14 @@ export function useClarity() {
       // Attempt to reset the user ID - but Clarity doesn't have a clear method
       // Best practice is to start a new session
       Clarity.startNewSession((newSessionId) => {
-        console.log('Clarity session reset after logout:', newSessionId);
+        console.log("Clarity session reset after logout:", newSessionId);
         setCurrentSessionId(newSessionId as string);
       });
-      
+
       setIsUserIdentified(false);
-      sendCustomEvent('UserLoggedOut');
+      sendCustomEvent("UserLoggedOut");
     } catch (error) {
-      console.error('Failed to clear user identity in Clarity:', error);
+      console.error("Failed to clear user identity in Clarity:", error);
     }
   };
 
@@ -283,7 +303,7 @@ export function useClarity() {
     timestamp?: string;
   }) => {
     if (!isInitialized) {
-      console.warn('Clarity not initialized yet. Session info not added.');
+      console.warn("Clarity not initialized yet. Session info not added.");
       return;
     }
 
@@ -298,14 +318,17 @@ export function useClarity() {
       // Create a timestamp if not provided
       if (!sessionInfo.timestamp) {
         const now = new Date();
-        setCustomTag('session_timestamp', now.toISOString());
+        setCustomTag("session_timestamp", now.toISOString());
       }
 
       // Send an event for this session info addition
-      sendCustomEvent('SessionInfoCaptured', sessionInfo);
-      console.log('Session info added to Clarity for customer support', sessionInfo);
+      sendCustomEvent("SessionInfoCaptured", sessionInfo);
+      console.log(
+        "Session info added to Clarity for customer support",
+        sessionInfo,
+      );
     } catch (error) {
-      console.error('Failed to add session info to Clarity:', error);
+      console.error("Failed to add session info to Clarity:", error);
     }
   };
 
@@ -326,4 +349,4 @@ export function useClarity() {
   };
 }
 
-export default useClarity; */
+export default useClarity;

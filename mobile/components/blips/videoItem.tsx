@@ -526,12 +526,12 @@ const VideoItem = ({
           contentFit="cover"
         />
         <View
-          className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"
+          className="px-[10px] py-[16px] gap-[30px] flex-row items-center justify-between"
           style={{
             marginTop: statusBarHeight,
           }}
         >
-          <View className="flex-row items-center gap-[8px] ">
+          <View className="flex-row items-center gap-[8px] shrink">
             {singularBlip ? (
               <Pressable
                 // onPress={() => router.replace("/blips")}
@@ -582,10 +582,11 @@ const VideoItem = ({
               />
             </Pressable>
 
-            <View className="space-between mr-2">
+            <View className="space-between mr-2 shrink">
               <Text
-                className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
+                className="text-[#fff] text-[14px] font-LexendDecaSemiBold shrink"
                 style={styles.text}
+                numberOfLines={1}
               >
                 {seller.storeName || seller?.firstName + " " + seller?.lastName}
               </Text>

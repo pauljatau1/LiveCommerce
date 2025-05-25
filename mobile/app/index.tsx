@@ -8,8 +8,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { initializeCustomerIO } from "@/utils/customerio";
 import { initializeMixpanel } from "@/utils/mixpanel";
 import { trackScreen } from "@/utils/analytics";
-import analytics from '@react-native-firebase/analytics';
-import { safeInitializeFacebook } from '@/utils/facebook';
+import analytics from "@react-native-firebase/analytics";
+import { useClarity } from "@/hooks/useClarity";
+import { getUserAttributesForClarity } from "@/utils/clarityUtils";
+// import { safeInitializeFacebook } from '@/utils/facebook';
 
 // SplashScreen.preventAutoHideAsync();
 
@@ -19,14 +21,15 @@ import { safeInitializeFacebook } from '@/utils/facebook';
 const isPreviewBuild = () => {
   // Check for preview/staging environment indicators
   return (
-    process.env.APP_VARIANT === 'preview' ||
-    process.env.EAS_BUILD_PROFILE === 'preview' ||
-    process.env.EXPO_PUBLIC_IS_PREVIEW === 'true'
+    process.env.APP_VARIANT === "preview" ||
+    process.env.EAS_BUILD_PROFILE === "preview" ||
+    process.env.EXPO_PUBLIC_IS_PREVIEW === "true"
   );
 };
 
 const Home = () => {
   const { expoPushToken } = usePushNotifications();
+  const clarity = useClarity();
   // useInitializeAuthState();
   console.log("expoPushToken", expoPushToken);
 
@@ -34,17 +37,33 @@ const Home = () => {
     // Initialize analytics tools
     initializeCustomerIO();
     initializeMixpanel(false); // Initialize Mixpanel with automatic tracking disabled
-    analytics().logEvent('app_opened', {
-      purpose: 'User opened the app',
+    analytics().logEvent("app_opened", {
+      purpose: "User opened the app",
     });
-    
+
+    // Initialize user tracking for Clarity
+    const initializeClarityUser = async () => {
+      try {
+        const userAttributes = await getUserAttributesForClarity();
+        if (userAttributes) {
+          clarity.identifyUser(userAttributes);
+        }
+      } catch (error) {
+        console.error("Error initializing Clarity user tracking:", error);
+      }
+    };
+
+    initializeClarityUser();
+
     // For preview builds - use forceSafeMode: true to completely avoid Facebook SDK
     // For production builds - SDK will be initialized normally
-    {/*safeInitializeFacebook({
+    {
+      /*safeInitializeFacebook({
       appName: 'Auqli',
       autoLogAppEvents: true,
       forceSafeMode: isPreviewBuild(),
-    });*/}
+    });*/
+    }
 
     async function getToken() {
       const isFirstTime = await AsyncStorage.getItem("isFirstTime");
