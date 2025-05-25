@@ -289,6 +289,14 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
+    
+    // Check if the stream has already ended
+    if (stream.status === 'ended') {
+      return res.status(400).json({ 
+        message: 'This stream has already ended',
+        error: 'Cannot restart an ended stream'
+      });
+    }
 
     // Get seller with store name and followers
     const seller = await Seller.findById(req.user.id).select('agoraUid storeName followers');

@@ -202,6 +202,14 @@ function initializeSocket(server) {
       userId: socket.user.id,
       userRole: socket.user.role
     });
+    
+    // If this is a seller, cancel any pending stream end jobs
+    if (socket.user.role === 'Seller') {
+      const canceledCount = await cancelPendingStreamEndJobs(socket.user.id);
+      if (canceledCount > 0) {
+        console.log(`[SOCKET] Seller ${socket.user.id} reconnected - canceled ${canceledCount} pending stream end jobs`);
+      }
+    }
 
     // Add user to active users
     activeUsers.set(socket.user.id, {
@@ -793,8 +801,6 @@ function initializeSocket(server) {
       }
     });
 
-
-
     // Request auction timer update
     socket.on('request_auction_timer', async (productId) => {
       try {
@@ -917,6 +923,11 @@ function initializeSocket(server) {
         userId: socket.user?.id,
         reason: socket.disconnectReason
       });
+      
+      // If this is a seller, schedule timeouts for any active streams
+      if (socket.user && socket.user.role === 'Seller') {
+        await scheduleStreamEndTimeout(socket.user.id);
+      }
 
       // Remove user from active users
       activeUsers.delete(socket.user.id);
@@ -1912,8 +1923,110 @@ function getIO() {
   return ioInstance;
 }
 
+// Function to handle stream timeout for a disconnected seller
+async function scheduleStreamEndTimeout(sellerId) {
+  try {
+    // Find all active streams for this seller
+    const Stream = require('../models/Stream');
+    const activeStreams = await Stream.find({
+      seller: sellerId,
+      status: 'live'
+    });
+    
+    if (!activeStreams || activeStreams.length === 0) {
+      return false;
+    }
+    
+    console.log(`[SOCKET] Seller ${sellerId} disconnected with ${activeStreams.length} active stream(s)`);
+    
+    // Get the agenda instance
+    const { agenda } = require('../config/agenda');
+    
+    // Schedule a job to end each active stream after 1 minute
+    for (const stream of activeStreams) {
+      // Check if there's already a pending job for this stream
+      const existingJobs = await agenda.jobs({
+        name: 'stream_auto_end',
+        'data.streamId': stream._id.toString(),
+        nextRunAt: { $ne: null }
+      });
+      
+      // Skip if there's already a job scheduled for this stream
+      if (existingJobs && existingJobs.length > 0) {
+        console.log(`[SOCKET] Stream timeout job already exists for streamId: ${stream._id}, skipping`);
+        continue;
+      }
+      
+      // Create a unique job ID for this stream timeout
+      const jobId = `stream_end_${stream._id}_${Date.now()}`;
+      
+      // Schedule the job to run one minute from now
+      await agenda.schedule('in 1 minute', 'stream_auto_end', {
+        streamId: stream._id.toString(),
+        sellerId: sellerId,
+        jobId,
+        reason: 'Seller disconnected'
+      });
+      
+      console.log(`[SOCKET] Scheduled stream timeout job ${jobId} for streamId: ${stream._id} (Seller disconnected)`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[SOCKET] Error scheduling stream timeout:', error);
+    return false;
+  }
+}
+
+// Function to cancel pending stream end jobs for a seller
+async function cancelPendingStreamEndJobs(sellerId) {
+  try {
+    // Find all active streams for this seller
+    const Stream = require('../models/Stream');
+    const activeStreams = await Stream.find({
+      seller: sellerId,
+      status: 'live'
+    });
+    
+    if (!activeStreams || activeStreams.length === 0) {
+      return 0;
+    }
+    
+    // Get the agenda instance
+    const { agenda } = require('../config/agenda');
+    
+    let canceledCount = 0;
+    
+    // Cancel jobs for each active stream
+    for (const stream of activeStreams) {
+      const jobs = await agenda.jobs({
+        name: 'stream_auto_end',
+        'data.streamId': stream._id.toString()
+      });
+      
+      if (jobs && jobs.length > 0) {
+        for (const job of jobs) {
+          await job.remove();
+          canceledCount++;
+          console.log(`[SOCKET] Cancelled stream timeout job for streamId: ${stream._id} (Seller reconnected)`);
+        }
+      }
+    }
+    
+    if (canceledCount > 0) {
+      console.log(`[SOCKET] Cancelled ${canceledCount} pending stream end jobs for seller ${sellerId}`);
+    }
+    
+    return canceledCount;
+  } catch (error) {
+    console.error('[SOCKET] Error cancelling pending stream end jobs:', error);
+    return 0;
+  }
+}
+
 // Export both functions
 module.exports = {
   initializeSocket,
-  getIO
+  getIO,
+  getActiveUsers: () => activeUsers
 }; 
