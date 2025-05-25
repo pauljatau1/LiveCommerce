@@ -101,8 +101,6 @@ const SubmitLiveShow = () => {
     const [shouldStartImmediately, setShouldStartImmediately] = useState(false);
     const [livestreamData, setLivestreamData] = useState(null);
 
-
-
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Submit Live Show');
@@ -121,9 +119,6 @@ const SubmitLiveShow = () => {
         }
     }, [message]);
 
-    // Get the selected products from the livestream context
-    const selectedProducts = livestream?.selectedProducts || [];
-
     const handleSchedulingLiveShow = async () => {
         const streamData = {
             title: livestream.title,
@@ -135,24 +130,14 @@ const SubmitLiveShow = () => {
             category: livestream.category,
             subCategory: livestream.subCategory,
             tags: livestream.tags.map(tag => tag.label),
-            products: selectedProducts.map(product => ({
-                product: {
-                    productId: product.productId,
-                    name: product.name,
-                    category: product.category,
-                    images: product.images,
-                    sku: product.sku,
-                    quantity: product.quantity,
-                }
-            })),
             video: livestream.video,
             scheduledStartTime: livestream.scheduledStartTime || new Date().toISOString(),
         }
 
-        console.log('Live show submitted data:', streamData);
+        console.log(streamData);
 
         try {
-            if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0 && selectedProducts.length > 0) {
+            if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0) {
                 const response = await scheduleLiveShow(streamData);
                 if (response) {
                     setLivestreamData(response)
@@ -287,18 +272,20 @@ const SubmitLiveShow = () => {
                         </div>
 
                         {/* Products Selection Card */}
-                        <div className="flex-1 xl:flex-none lg:w-[354px] bg-white rounded-xl shadow-sm border overflow-y-auto border-gray-200 h-auto">
-                            <h1 className="text-lg font-semibold text-[#16192C] font-inter pl-8 pt-6 xl:pt-10">Products in show</h1>
-                            <div className="flex flex-col gap-3 mt-3">
-                                {selectedProducts.length > 0 ? (
-                                    selectedProducts.map(product => (
-                                        <LiveShowProductsCard key={product.productId} product={product} />
-                                    ))
-                                ) : (
-                                    <div className="px-8 py-4 text-center">
-                                        <p className="text-sm text-gray-500">No products selected for this show.</p>
+                        <div className="flex-1 xl:flex-none lg:w-[500px] bg-white rounded-xl shadow-sm border border-gray-200 h-auto">
+                            <div className="h-full p-6 flex flex-col items-start lg:items-center justify-center">
+                                <div className="w-full flex flex-col items-start justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <h2 className="text-lg font-semibold text-gray-900">Products Selection</h2>
+                                        <p className="text-sm text-gray-500">
+                                            All products in your store are automatically selected for open live shows.
+                                            To remove a product, you can deactivate the product from the product listings.
+                                        </p>
                                     </div>
-                                )}
+                                    <button className="px-4 py-2 text-sm font-medium text-green-600 bg-white border border-green-600 rounded-lg hover:bg-green-50">
+                                        Got it
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -313,7 +300,7 @@ const SubmitLiveShow = () => {
                         </NavLink>
                         <button
                             onClick={handleSchedulingLiveShow}
-                            disabled={isLoading || selectedProducts.length === 0}
+                            disabled={isLoading}
                             className="px-6 w-[200px] whitespace-nowrap py-2.5 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50"
                         >
                             {isLoading ? <CircularProgress size={20} color="#fff" /> : shouldStartImmediately ? 'Start Now' : 'Schedule Live Show'}
