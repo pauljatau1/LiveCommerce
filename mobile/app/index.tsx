@@ -11,7 +11,7 @@ import { trackScreen } from "@/utils/analytics";
 import analytics from "@react-native-firebase/analytics";
 import { useClarity } from "@/hooks/useClarity";
 import { getUserAttributesForClarity } from "@/utils/clarityUtils";
-// import { safeInitializeFacebook } from '@/utils/facebook';
+import { safeInitializeFacebook } from "@/utils/facebook";
 
 // SplashScreen.preventAutoHideAsync();
 
@@ -57,13 +57,11 @@ const Home = () => {
 
     // For preview builds - use forceSafeMode: true to completely avoid Facebook SDK
     // For production builds - SDK will be initialized normally
-    {
-      /*safeInitializeFacebook({
-      appName: 'Auqli',
+    safeInitializeFacebook({
+      appName: "Auqli",
       autoLogAppEvents: true,
       forceSafeMode: isPreviewBuild(),
-    });*/
-    }
+    });
 
     async function getToken() {
       const isFirstTime = await AsyncStorage.getItem("isFirstTime");

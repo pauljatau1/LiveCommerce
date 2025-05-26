@@ -912,7 +912,7 @@ const MessageRoom = () => {
                   value={newMessage}
                   multiline
                   onChangeText={(text) => setNewMessage(text)}
-                  autoFocus={true}
+                  // autoFocus={true}
                   onFocus={() => {
                     setShowOrderDetails(false);
                     // setShowOptions(false);

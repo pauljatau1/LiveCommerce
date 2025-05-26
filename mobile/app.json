@@ -47,17 +47,11 @@
               "pathPrefix": "/"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "INTERNET",
-        "RECORD_AUDIO"
-      ]
+      "permissions": ["INTERNET", "RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
