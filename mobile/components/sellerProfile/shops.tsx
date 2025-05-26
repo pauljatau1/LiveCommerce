@@ -17,6 +17,7 @@ import BottomSheet from "../global/bottom-sheet";
 import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import ShopCard from "./shopItem";
 import FilterSheet from "../catalog/filterSheet";
+import { debounce } from "lodash";
 
 const Shops = ({ sellerId, headerHeight, index }: any) => {
   const [page, setPage] = useState<number>(1);
@@ -26,7 +27,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
       page: page,
       visibility: "visible",
       status: "active",
-      limit: 30,
+      limit: 10,
     });
   const [filter, setFilter] = useState<string>("None");
   const [products, setProducts] = useState<any[]>([]);
@@ -98,7 +99,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
     );
   }, []);
 
-  const fetchMoreProducts = () => {
+  const fetchMoreProducts = debounce(() => {
     if (isFetching || hasReachedEnd) {
       return;
     }
@@ -110,7 +111,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
       });
       setPage((prevPage) => prevPage + 1);
     }
-  };
+  }, 400);
 
   useEffect(() => {
     if (data) {

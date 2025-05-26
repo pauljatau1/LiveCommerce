@@ -65,6 +65,8 @@ import { GlassImage } from "@/app/(root)/livestream/components";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent, useEventListener } from "expo";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
@@ -117,11 +119,14 @@ const VideoItem = ({
   const [liveAuctionData, setLiveAuctionData] = useState<any>();
   const [bidTime, setBidTime] = useState<any>();
 
-  const player = useVideoPlayer(videoUrl, (player) => {
-    player.loop = true;
-    player.play();
-    // player.replay();
-  });
+  const player = useVideoPlayer(
+    { uri: videoUrl, useCaching: true },
+    (player) => {
+      player.loop = true;
+      player.play();
+      // player.replay();
+    },
+  );
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -156,6 +161,21 @@ const VideoItem = ({
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
           // shared with activity type of result.activityType
+          try {
+            const userData = await AsyncStorage.getItem('user');
+            const user = JSON.parse(userData || '{}');
+            trackEvent("blip_shared", {
+              blipId: id,
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              timestamp: new Date().toISOString(),
+            });
+          } catch (error) {
+            console.error("Error sharing blip:", error);
+          }
         } else {
           // shared
         }
@@ -191,9 +211,39 @@ const VideoItem = ({
     if (liked) {
       setLiked(false);
       setLikes(likes - 1);
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        trackEvent("blip_unliked", {
+          blipId: id,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error liking blip:", error);
+      }
     } else {
       setLiked(true);
       setLikes(likes + 1);
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        trackEvent("blip_liked", {
+          blipId: id,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error liking blip:", error);
+      }
     }
     try {
       const config = {
@@ -207,6 +257,7 @@ const VideoItem = ({
         data: null,
       };
       const response = await axios(config);
+
     } catch (e: any) {
       console.log("error liking blip ", e.response.data);
     }
@@ -231,14 +282,14 @@ const VideoItem = ({
     }
   };
 
-  const handleCantComment = () => {
+  const handleCantComment = useCallback(() => {
     setShowComments(false);
     setShowAuthSheet(true);
-  };
+  }, []);
 
-  const handleIncreaseCommentCount = () => {
+  const handleIncreaseCommentCount = useCallback(() => {
     setComments(comments + 1);
-  };
+  }, []);
 
   const closeCommentsSheet = useCallback(() => {
     setShowComments(false);
@@ -364,6 +415,25 @@ const VideoItem = ({
     }
   };
 
+  const handleBlipProductClickTrack = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const user = JSON.parse(userData || '{}');
+      trackEvent("blip_product_clicked", {
+        blipId: id,
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error tracking blip product clicked:", error);
+    }
+  };
+
+
   useEffect(() => {
     if (offlineAuctionData) {
       const timer = setInterval(
@@ -374,6 +444,29 @@ const VideoItem = ({
       return () => clearInterval(timer);
     }
   }, []);
+
+  useEffect(() => {
+    const trackBlipViewed = async () => {
+      if (isVisible) {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          const user = JSON.parse(userData || '{}');
+          trackEvent("blip_viewed", {
+            blipId: id,
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+          });
+        } catch (error) {
+          console.error("Error tracking blip viewed:", error);
+        }
+      }
+    }
+
+    trackBlipViewed();
+  }, [isVisible]);
 
   return (
     <TouchableWithoutFeedback
@@ -433,12 +526,12 @@ const VideoItem = ({
           contentFit="cover"
         />
         <View
-          className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"
+          className="px-[10px] py-[16px] gap-[30px] flex-row items-center justify-between"
           style={{
             marginTop: statusBarHeight,
           }}
         >
-          <View className="flex-row items-center gap-[8px] ">
+          <View className="flex-row items-center gap-[8px] shrink">
             {singularBlip ? (
               <Pressable
                 // onPress={() => router.replace("/blips")}
@@ -489,10 +582,11 @@ const VideoItem = ({
               />
             </Pressable>
 
-            <View className="space-between mr-2">
+            <View className="space-between mr-2 shrink">
               <Text
-                className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
+                className="text-[#fff] text-[14px] font-LexendDecaSemiBold shrink"
                 style={styles.text}
+                numberOfLines={1}
               >
                 {seller.storeName || seller?.firstName + " " + seller?.lastName}
               </Text>
@@ -676,7 +770,10 @@ const VideoItem = ({
                   // backgroundColor: "rgba(255,255,255,0.6)",
                 }
               }
-              onPress={() => setShowProduct(true)}
+              onPress={() => {
+                setShowProduct(true);
+                handleBlipProductClickTrack();
+              }}
             >
               <View className="flex-row items-center gap-[12px]">
                 <GlassImage
@@ -702,7 +799,7 @@ const VideoItem = ({
                 />
                 <View className="shrink justify-between gap-[4px]">
                   <Text
-                    className="text-[12px] text-[#f2f2f2] font-LexendDecaSemiBold shrink"
+                    className="text-[12px] text-[#f2f2f2] max-w-[200px] font-LexendDecaSemiBold shrink"
                     numberOfLines={1}
                     style={styles.text}
                   >
@@ -823,6 +920,9 @@ const VideoItem = ({
           enableDynamicSizing={false}
           onRequestClose={() => setShowComments(false)}
           keyboardBehavior="extend"
+          handleIndicatorStyle={{
+            backgroundColor: "white",
+          }}
         >
           <CommentsSheet
             handleIncreaseCommentCount={handleIncreaseCommentCount}
@@ -850,6 +950,7 @@ const VideoItem = ({
             closeSheet={handleCloseCheckout}
             sellerId={seller._id}
             channel="blips"
+            blipId={id}
           />
         </BottomSheet>
 
@@ -881,6 +982,9 @@ const VideoItem = ({
           onRequestClose={() => setShowShop(false)}
           keyboardBehavior={"interactive"}
           enableDynamicSizing={false}
+          handleIndicatorStyle={{
+            backgroundColor: "white",
+          }}
         >
           <BlipsShop id={seller._id} closeSheet={() => setShowShop(false)} />
         </BottomSheet>

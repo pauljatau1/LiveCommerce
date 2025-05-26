@@ -9,7 +9,7 @@ const NotificationSheet = ({ data }: any) => {
       </Text>
 
       <Text className="text-[#8F9099] text-[14px] font-LexendDeca text-center leading-[20px]">
-        {data?.message || data?.description}
+        {data?.message || data?.content}
       </Text>
     </View>
   );

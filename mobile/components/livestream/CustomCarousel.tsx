@@ -7,6 +7,8 @@ import {
   ViewStyle,
   StyleProp,
   Text,
+  ViewabilityConfig,
+  ViewabilityConfigCallbackPair,
 } from 'react-native';
 import useCustomCarousel from '@/hooks/useCustomCarousel';
 
@@ -30,6 +32,8 @@ interface CustomCarouselProps<T> {
   style?: StyleProp<ViewStyle>;
   showPagination?: boolean;
   debug?: boolean; // New prop to enable/disable debug info display
+  viewabilityConfig?: ViewabilityConfig;
+  onViewableItemsChanged?: (info: { viewableItems: any[]; changed: any[] }) => void;
 }
 
 function CustomCarousel<T>({
@@ -45,6 +49,8 @@ function CustomCarousel<T>({
   style,
   showPagination = true,
   debug = false,
+  viewabilityConfig = { itemVisiblePercentThreshold: 80 },
+  onViewableItemsChanged,
 }: CustomCarouselProps<T>) {
   // Track renders for debugging
   const renderCount = useRef(0);
@@ -70,6 +76,29 @@ function CustomCarousel<T>({
     scrollAnimationDuration,
     itemWidth: width,
   });
+  
+  // Create a stable reference to the onViewableItemsChanged callback
+  const onViewableItemsChangedRef = useRef(
+    onViewableItemsChanged
+      ? onViewableItemsChanged
+      : ({ viewableItems }: { viewableItems: any[] }) => {
+          if (viewableItems && viewableItems.length > 0) {
+            const newIndex = viewableItems[0].index;
+            logEvent("ViewableItemsChanged", { newIndex, previousIndex: activeIndex });
+            if (onSnapToItem && typeof newIndex === 'number') {
+              onSnapToItem(newIndex);
+            }
+          }
+        }
+  );
+
+  // Create a stable reference to the viewability configuration
+  const viewabilityConfigRef = useRef(viewabilityConfig);
+  
+  // Create a stable reference to the viewability callback pairs
+  const viewabilityConfigCallbackPairs = useRef([
+    { viewabilityConfig: viewabilityConfigRef.current, onViewableItemsChanged: onViewableItemsChangedRef.current }
+  ]);
 
   // Log component lifecycle events
   useEffect(() => {
@@ -204,6 +233,7 @@ function CustomCarousel<T>({
         }}
         disableIntervalMomentum={true}
         disableScrollViewPanResponder={false}
+        viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
       />
       
       {PaginationDots}

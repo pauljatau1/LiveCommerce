@@ -15,6 +15,7 @@ import { ScrollView } from "react-native-gesture-handler";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
+  pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, Image } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
 import CustomButton from "../global/button/CustomButton";
@@ -14,7 +14,7 @@ import AuthSheet from "../auth/authSheet";
 import AddedToCart from "../product/productAddedToCart";
 import CartSheet from "../product/productCartSheet";
 import { formatNumber } from "@/helpers/helpers";
-import { Image } from "expo-image";
+// import { Image } from "expo-image";
 
 const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -84,7 +84,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%]"
+      className=" bg-black rounded-lg  w-[100%] overflow-hidden"
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
@@ -97,7 +97,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                 }
               : images.diamondsImage
           }
-          contentFit="cover"
+          resizeMode="cover"
           // className="w-[100%] h-[157px]"
           style={{
             width: "100%",
@@ -106,95 +106,101 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
         />
       )}
       {/* Product Details */}
-      <View className="gap-[2px]">
-        <Text
-          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-        {moreDetails?.discount?.isActive ? (
-          <View className="flex-row items-center gap-[4px] flex-wrap">
-            <Text className="text-white text-[12px] font-LexendDecaMedium">
-              ₦
-              {moreDetails?.discount?.isActive
-                ? moreDetails?.discount?.discountedPrice?.toLocaleString()
-                : price?.toLocaleString()}
-            </Text>
-            <Text className="text-[#16783A] text-[8px] font-LexendDecaMedium line-through">
-              ₦{moreDetails?.discount?.isActive && price.toLocaleString()}
-            </Text>
-            {/* <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
+      <View
+        style={{
+          paddingHorizontal: 8,
+          paddingBottom: 8,
+        }}
+      >
+        <View className="gap-[2px]">
+          <Text
+            className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 mb-[4px]"
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          {moreDetails?.discount?.isActive ? (
+            <View className="flex-row items-center gap-[4px] flex-wrap">
+              <Text className="text-white text-[12px] font-LexendDecaMedium">
+                ₦
+                {moreDetails?.discount?.isActive
+                  ? moreDetails?.discount?.discountedPrice?.toLocaleString()
+                  : price?.toLocaleString()}
+              </Text>
+              <Text className="text-[#16783A] text-[8px] font-LexendDecaMedium line-through">
+                ₦{moreDetails?.discount?.isActive && price.toLocaleString()}
+              </Text>
+              {/* <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
               {moreDetails?.discount?.value?.toFixed(0)}
               {moreDetails?.discount?.type == "percentage" && "%"} off
             </Text> */}
-          </View>
-        ) : (
-          <Text className="text-white font-LexendDecaBold  text-[12px]">
-            ₦{price?.toLocaleString()}
-          </Text>
-        )}
-        <Text className="text-[#027CEC] text-[8px] pb-[4px] font-LexendDecaSemiBold">
-          #{category}
-        </Text>
-      </View>
-      {/* Seller Information */}
-      <View className=" flex-row  justify-between items-center shrink gap-[4px]">
-        <View className="flex-row gap-x-2  items-center shrink">
-          <Image
-            source={
-              moreDetails?.seller?.storeAvatar?.url
-                ? { uri: moreDetails?.seller?.storeAvatar?.url }
-                : require("../../assets/icons/user-image-empty.png")
-            }
-            contentFit="contain"
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 20,
-            }}
-          />
-          <View className="shrink">
-            <Text
-              className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold"
-              numberOfLines={1}
-            >
-              {sellerName || moreDetails?.seller?.businessName}
+            </View>
+          ) : (
+            <Text className="text-white font-LexendDecaBold  text-[12px]">
+              ₦{price?.toLocaleString()}
             </Text>
-            <View className="flex-row items-center gap-[4px]">
-              {moreDetails?.seller?.isVerified && (
-                <View
-                  style={{
-                    paddingHorizontal: 6,
-                    paddingVertical: 1,
-                    borderRadius: 1.5,
-                    backgroundColor: "#A0EEBD",
-                  }}
-                >
-                  <Text
-                    className="font-LexendDecaMedium text-[4px] "
+          )}
+          <Text className="text-[#027CEC] text-[8px] pb-[4px] font-LexendDecaSemiBold">
+            #{category}
+          </Text>
+        </View>
+        {/* Seller Information */}
+        <View className=" flex-row  justify-between items-center shrink gap-[4px]">
+          <View className="flex-row gap-x-2  items-center shrink">
+            <Image
+              source={
+                moreDetails?.seller?.storeAvatar?.url
+                  ? { uri: moreDetails?.seller?.storeAvatar?.url }
+                  : require("../../assets/icons/user-image-empty.png")
+              }
+              resizeMode="contain"
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 20,
+              }}
+            />
+            <View className="shrink">
+              <Text
+                className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold"
+                numberOfLines={1}
+              >
+                {sellerName || moreDetails?.seller?.businessName}
+              </Text>
+              <View className="flex-row items-center gap-[4px]">
+                {moreDetails?.seller?.isVerified && (
+                  <View
                     style={{
-                      fontSize: 5,
+                      paddingHorizontal: 6,
+                      paddingVertical: 1,
+                      borderRadius: 1.5,
+                      backgroundColor: "#A0EEBD",
                     }}
                   >
-                    Verified
-                  </Text>
-                </View>
-              )}
-              {moreDetails?.seller?.stats?.averageRating > 0 && (
-                <View className="flex-row items-center">
-                  {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
+                    <Text
+                      className="font-LexendDecaMedium text-[4px] "
+                      style={{
+                        fontSize: 5,
+                      }}
+                    >
+                      Verified
+                    </Text>
+                  </View>
+                )}
+                {moreDetails?.seller?.stats?.averageRating > 0 && (
+                  <View className="flex-row items-center">
+                    {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
                       Rating:{"  "}
                     </Text> */}
-                  <Image source={icons.starIcon} />
-                  <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
-                    {moreDetails?.seller?.stats?.averageRating?.toFixed(1)}
-                  </Text>
-                </View>
-              )}
-            </View>
+                    <Image source={icons.starIcon} />
+                    <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
+                      {moreDetails?.seller?.stats?.averageRating?.toFixed(1)}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
-            {/* <View className="flex-row items-center gap-x-1"> 
+              {/* <View className="flex-row items-center gap-x-1"> 
                   <View className="flex-row items-center gap-x-2">
                     <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
                       Top seller
@@ -207,75 +213,76 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                     </Text>
                   </View>
                 </View> */}
-          </View>
-        </View>
-        <Text
-          className="font-LexendDecaMedium"
-          style={{
-            fontSize: 8,
-            color: "#E8C300",
-          }}
-        >
-          {formatNumber(moreDetails?.stock)}pcs
-        </Text>
-      </View>
-
-      <View className="mt-[4px]">
-        {moreDetails?.reviewCount > 0 ||
-        moreDetails?.stats?.totalReviews > 0 ? (
-          <View className="flex-row items-center gap-[6px]">
-            <View className="flex-row gap-[2px] items-center">
-              {Array(5)
-                .fill(0)
-                .map((_, index) =>
-                  parseInt(
-                    moreDetails?.averageRating ||
-                      moreDetails?.stats?.averageRating,
-                  ) <
-                  index + 1 ? (
-                    <AntDesign
-                      key={index}
-                      name="star"
-                      size={11}
-                      color="#rgba(255, 255, 255, 0.62)"
-                    />
-                  ) : (
-                    <AntDesign
-                      name="star"
-                      size={11}
-                      color="#FFD700"
-                      key={index}
-                    />
-                  ),
-                )}
             </View>
-            <Text className="text-white text-[8.5px] font-LexendDecaMedium font-semibold">
-              {formatNumber(
-                moreDetails?.reviewCount || moreDetails?.stats?.totalReviews,
-              )}
-            </Text>
           </View>
-        ) : (
-          <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            No Reviews
+          <Text
+            className="font-LexendDecaMedium"
+            style={{
+              fontSize: 8,
+              color: "#E8C300",
+            }}
+          >
+            {formatNumber(moreDetails?.stock)}pcs
           </Text>
-        )}
-      </View>
-      {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
+        </View>
+
+        <View className="mt-[4px]">
+          {moreDetails?.reviewCount > 0 ||
+          moreDetails?.stats?.totalReviews > 0 ? (
+            <View className="flex-row items-center gap-[6px]">
+              <View className="flex-row gap-[2px] items-center">
+                {Array(5)
+                  .fill(0)
+                  .map((_, index) =>
+                    parseInt(
+                      moreDetails?.averageRating ||
+                        moreDetails?.stats?.averageRating,
+                    ) <
+                    index + 1 ? (
+                      <AntDesign
+                        key={index}
+                        name="star"
+                        size={11}
+                        color="#rgba(255, 255, 255, 0.62)"
+                      />
+                    ) : (
+                      <AntDesign
+                        name="star"
+                        size={11}
+                        color="#FFD700"
+                        key={index}
+                      />
+                    ),
+                  )}
+              </View>
+              <Text className="text-white text-[8.5px] font-LexendDecaMedium font-semibold">
+                {formatNumber(
+                  moreDetails?.reviewCount || moreDetails?.stats?.totalReviews,
+                )}
+              </Text>
+            </View>
+          ) : (
+            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+              No Reviews
+            </Text>
+          )}
+        </View>
+        {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
       </Text> */}
 
-      <CustomButton
-        textStyle="!text-[8px] !font-semibold  !py-0"
-        title="Add to cart"
-        className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px] self-center"
-        onPress={() => {
-          if (token) {
-            return setShowCartSheet(true);
-          }
-          setShowAuthSheet(true);
-        }}
-      />
+        <CustomButton
+          textStyle="!text-[8px] !font-semibold  !py-0"
+          title="Add to cart"
+          className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px] self-center"
+          onPress={() => {
+            if (token) {
+              return setShowCartSheet(true);
+            }
+            setShowAuthSheet(true);
+          }}
+        />
+      </View>
 
       <BottomSheet
         bgColor="#3A3A3A"

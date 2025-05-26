@@ -18,10 +18,16 @@ import {
   useGlobalSearchParams,
   useLocalSearchParams,
 } from "expo-router";
+import { debounce } from "lodash";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { formatDate, formatMessageDate, timeFromNow } from "@/helpers/helpers";
+import {
+  formatDate,
+  formatMessageDate,
+  processDates,
+  timeFromNow,
+} from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
 import { Image } from "expo-image";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -38,10 +44,17 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import ConnectProductCard from "@/components/connect/product-card";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import Animated, {
+  Easing,
   FadeInDown,
   FadeOutUp,
+  ReduceMotion,
   SlideInDown,
   SlideOutDown,
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import {
   products,
@@ -54,6 +67,9 @@ import ChatSettings from "@/components/messages/optionsSheet";
 import ReportUserSheet from "@/components/connect/reportUserSheet";
 import { toast } from "@/core/toast";
 import CampaignMessageItem from "@/components/messages/campaignMessageItem";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
@@ -75,11 +91,7 @@ const autoOrderMessagesText = {
 const MessageRoom = () => {
   const {
     id,
-    name,
-    avatar,
     conversationId,
-    userId,
-    token,
     model,
     isOnline,
     lastActive,
@@ -87,6 +99,7 @@ const MessageRoom = () => {
     isMuted,
     orderId = "",
   } = useLocalSearchParams();
+  const { user, token } = useSelector((state: RootState) => state.authState);
   // const socket = io(process.env.EXPO_PUBLIC_API_URL, {
   //   transports: ["websocket"],
   //   auth: {
@@ -96,8 +109,13 @@ const MessageRoom = () => {
   const socket = initializeSocket(token);
   socket.connect();
 
+  const insets = useSafeAreaInsets();
+  const [userId, setUserid] = useState(user?._id || "");
+  const [name, setName] = useState<string>("");
+  const [avatar, setAvatar] = useState<string>("");
   const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [pmessages, setpMessages] = useState<any[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [newMessage, setNewMessage] = useState<any>("");
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,6 +142,39 @@ const MessageRoom = () => {
 
   const listRef = useRef<FlatList>(null);
   const isInitialLoad = useRef(true);
+
+  const keyboard = useAnimatedKeyboard();
+
+  const optionsHeight = useSharedValue(0);
+
+  const fakeView = useAnimatedStyle(() => {
+    return {
+      height:
+        Platform.OS == "ios"
+          ? keyboard.height.value - insets.bottom
+          : keyboard.height.value,
+    };
+  }, []);
+
+  const optionsView = useAnimatedStyle(() => {
+    return {
+      height: withTiming(optionsHeight.value, {
+        duration: 150,
+        easing: Easing.inOut(Easing.quad),
+        reduceMotion: ReduceMotion.System,
+      }),
+    };
+  }, []);
+
+  const animateOptions = () => {
+    console.log("transition options view value ", optionsHeight.value);
+
+    if (optionsHeight.value == 0) {
+      optionsHeight.value = optionsHeight.value + 100;
+    } else {
+      optionsHeight.value = optionsHeight.value - 100;
+    }
+  };
 
   const updateMessageSettings = (settings: any) => {
     setIsBlocked(settings.isBlocked);
@@ -198,6 +249,11 @@ const MessageRoom = () => {
           },
         },
       );
+      // const processed = processDates([
+      //   ...response.data?.messages?.slice()?.reverse(),
+      //   ...pmessages,
+      // ]);
+      // setMessages(processed);
       setMessages([
         ...response.data?.messages?.slice()?.reverse(),
         ...messages,
@@ -214,12 +270,34 @@ const MessageRoom = () => {
     }
   };
 
-  const fetchMoreMessages = () => {
-    console.log("fetching more. current page", page + " " + conversationId);
-    if (!hasReachedEnd && !messagesLoading && conversationId) {
-      setPage((prevPage) => prevPage + 1);
+  const getSellerInfo = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/public/sellers/" + id,
+      );
+      const sellerInfo = response.data;
+      setName(
+        sellerInfo?.storeName ||
+          sellerInfo?.personalInfo?.firstName +
+            " " +
+            sellerInfo?.personalInfo?.lastName ||
+          sellerInfo?.businessInfo?.businessName,
+      );
+      setAvatar(sellerInfo?.storePresence?.storeAvatar?.url);
+    } catch (e) {
+      console.log(e);
     }
   };
+
+  const fetchMoreMessages = useCallback(
+    debounce(() => {
+      if (!hasReachedEnd && !messagesLoading && conversationId) {
+        console.log("fetching more. current page", page + " " + conversationId);
+        setPage((prevPage) => prevPage + 1);
+      }
+    }, 400),
+    [hasReachedEnd, messagesLoading, conversationId],
+  );
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -465,6 +543,10 @@ const MessageRoom = () => {
   );
 
   useEffect(() => {
+    getSellerInfo();
+  }, []);
+
+  useEffect(() => {
     getAllMessages();
   }, [page]);
 
@@ -503,7 +585,10 @@ const MessageRoom = () => {
       console.log("message recieved");
 
       const messageData = newMessage.message || newMessage;
-      if (messageData.conversation === conversationId) {
+      if (
+        messageData.conversation === conversationId ||
+        messageData?.sender?.id == id
+      ) {
         setMessages((prev) => [...prev, messageData]);
         handleReadMessages();
         scrollToBottom();
@@ -562,406 +647,402 @@ const MessageRoom = () => {
   };
   return (
     <SafeAreaView className="flex-1 h-full bg-[#121212]">
-      <KeyboardAvoidingView
+      {/* <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
         style={{ flex: 1, backgroundColor: "#121212" }}
-      >
-        <FocusAwareStatusBar
-          barStyle="light-content"
-          backgroundColor="#121212"
-        />
-        <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
-          <View className="flex-row items-center gap-[12px] shrink">
-            <TouchableOpacity className="" onPress={() => router.back()}>
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
-            <View>
-              <Image
-                source={{ uri: avatar }}
-                contentFit="cover"
+      > */}
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
+        <View className="flex-row items-center gap-[12px] shrink">
+          <TouchableOpacity className="" onPress={() => router.back()}>
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+          <View>
+            <Image
+              source={{ uri: avatar }}
+              contentFit="cover"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 40,
+              }}
+            />
+            {isOnline && (
+              <View
+                className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 40,
+                  width: 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: "#16783A",
+                  position: "absolute",
+                  top: 0,
+                  right: -2,
                 }}
-              />
-              {isOnline && (
-                <View
-                  className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: "#16783A",
-                    position: "absolute",
-                    top: 0,
-                    right: -2,
-                  }}
-                ></View>
-              )}
-            </View>
-
-            <View className="gap-[2px] shrink">
-              <Text
-                className="text-[18px] text-[#ccc] font-LexendDecaMedium shrink"
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
-              {isOnline ? (
-                <Text className="text-[10px] text-[#ccc] font-LexendDecaLight">
-                  Online
-                </Text>
-              ) : (
-                <Text className="text-[10px] text-[#ccc] font-LexendDeca opacity-70">
-                  Last Active {timeFromNow(lastActive)} ago
-                </Text>
-              )}
-            </View>
+              ></View>
+            )}
           </View>
-          <View className="flex-row items-center gap-[24px]">
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: "/(root)/sellerProfile",
-                  params: { sellerId: id, sellerAvatar: avatar },
-                })
-              }
+
+          <View className="gap-[2px] shrink">
+            <Text
+              className="text-[18px] text-[#ccc] font-LexendDecaMedium shrink"
+              numberOfLines={1}
             >
-              <Image
-                source={require("../../../assets/icons/store.png")}
-                contentFit="contain"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
-            </Pressable>
-            <Pressable onPress={() => setShowChatSettings(true)}>
-              <Image
-                source={require("../../../assets/icons/dots.png")}
-                contentFit="contain"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
-            </Pressable>
+              {name}
+            </Text>
+            {isOnline ? (
+              <Text className="text-[10px] text-[#ccc] font-LexendDecaLight">
+                Online
+              </Text>
+            ) : (
+              <Text className="text-[10px] text-[#ccc] font-LexendDeca opacity-70">
+                Last Active {timeFromNow(lastActive)} ago
+              </Text>
+            )}
           </View>
         </View>
-        {loading ? (
-          <ActivityIndicator
-            size={"small"}
-            color="#fff"
-            style={{ marginTop: 20 }}
-          />
-        ) : (
-          <View style={styles.container}>
-            <FlatList
-              ref={listRef}
-              data={messages}
-              renderItem={renderMessage}
-              keyExtractor={keyExtractor}
-              onStartReached={fetchMoreMessages}
-              onStartReachedThreshold={0.5}
-              ListHeaderComponent={renderListHeader}
-              maintainVisibleContentPosition={{
-                minIndexForVisible: 0,
-                // autoscrollToTopThreshold: 0,
-              }}
-              contentContainerStyle={[
-                styles.contentContainer,
-                messages.length === 0 && styles.emptyList,
-              ]}
-              // removeClippedSubviews={false}
-              // inverted
-              windowSize={10}
-              maxToRenderPerBatch={10}
-              updateCellsBatchingPeriod={50}
-              // onLayout={() => {
-              //   if (isInitialLoad.current && messages.length > 0) {
-              //     listRef.current?.scrollToEnd({ animated: true });
-              //   }
-              // }}
-              showsVerticalScrollIndicator={false}
-            />
-            {isFirstTimer && (
-              <View
-                style={{
-                  alignItems: "center",
-                  width: "100%",
-                  gap: 20,
-                  position: "absolute",
-                  top: 50,
-                  paddingHorizontal: 85,
-                }}
-              >
-                <Text className="text-[17px] text-[#ccc] font-LexendDeca">
-                  Welcome!
-                </Text>
-                <Text
-                  className="text-[12px] text-[#ccc] font-LexendDeca"
-                  style={{
-                    textAlign: "center",
-                  }}
-                >
-                  Speak freely to {name} about your concerns or inquiries.
-                </Text>
-              </View>
-            )}
-            <View
-              className="gap-[12px] flex-col items-center pb-[12px]"
+        <View className="flex-row items-center gap-[24px]">
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/(root)/sellerProfile",
+                params: { sellerId: id, sellerAvatar: avatar },
+              })
+            }
+          >
+            <Image
+              source={require("../../../assets/icons/store.png")}
+              contentFit="contain"
               style={{
-                alignSelf: "baseline",
+                width: 22,
+                height: 22,
+              }}
+            />
+          </Pressable>
+          <Pressable onPress={() => setShowChatSettings(true)}>
+            <Image
+              source={require("../../../assets/icons/dots.png")}
+              contentFit="contain"
+              style={{
+                width: 22,
+                height: 22,
+              }}
+            />
+          </Pressable>
+        </View>
+      </View>
+      {loading ? (
+        <ActivityIndicator
+          size={"small"}
+          color="#fff"
+          style={{ marginTop: 20 }}
+        />
+      ) : (
+        <View style={styles.container}>
+          <FlatList
+            ref={listRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={keyExtractor}
+            onStartReached={fetchMoreMessages}
+            // onStartReachedThreshold={0.5}
+            ListHeaderComponent={renderListHeader}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              // autoscrollToTopThreshold: 0,
+            }}
+            contentContainerStyle={[
+              styles.contentContainer,
+              messages.length === 0 && styles.emptyList,
+            ]}
+            // removeClippedSubviews={false}
+            // inverted
+            windowSize={10}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            // onLayout={() => {
+            //   if (isInitialLoad.current && messages.length > 0) {
+            //     listRef.current?.scrollToEnd({ animated: true });
+            //   }
+            // }}
+            // style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+          />
+          {isFirstTimer && (
+            <View
+              style={{
+                alignItems: "center",
+                width: "100%",
+                gap: 20,
+                position: "absolute",
+                top: 50,
+                paddingHorizontal: 85,
               }}
             >
-              {orderId && showOrderDetails && (
-                <View
-                  className="p-[24px] bg-[#ffffff] rounded-[16px] flex-row items-center mx-[16px]"
-                  style={{
-                    padding: 24,
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  <View className="p-[16px] bg-[#f2f2f2] rounded-[16px] w-full gap-[12px]">
-                    <View className="flex-row items-center justify-between gap-[4px]">
-                      <Text></Text>
-                      <Text className="text-center text-[#121212] text-[18px] font-LexendDecaBold">
-                        Shared from {name}
-                      </Text>
-                      <Pressable
-                        onPress={() => {
-                          setShowOrderDetails(false);
-                        }}
-                        style={{
-                          backgroundColor: "#EE571C",
-                          borderRadius: 24,
-                          borderWidth: 1,
-                          borderColor: "#EE571C",
-                        }}
-                      >
-                        <AntDesign
-                          name="closecircle"
-                          size={24}
-                          color="#F9C7B3"
-                        />
-                      </Pressable>
-                    </View>
+              <Text className="text-[17px] text-[#ccc] font-LexendDeca">
+                Welcome!
+              </Text>
+              <Text
+                className="text-[12px] text-[#ccc] font-LexendDeca"
+                style={{
+                  textAlign: "center",
+                }}
+              >
+                Speak freely to {name} about your concerns or inquiries.
+              </Text>
+            </View>
+          )}
 
-                    <Image
-                      source={{
-                        uri: orderDetails?.items[0]?.product?.images[0]?.url,
+          <View
+            className=" flex-col items-center"
+            style={{
+              alignSelf: "baseline",
+            }}
+          >
+            {orderId && showOrderDetails && (
+              <View
+                className="p-[24px] bg-[#ffffff] rounded-[16px] flex-row items-center mx-[16px] mb-[12px]"
+                style={{
+                  padding: 24,
+                  backgroundColor: "#fff",
+                }}
+              >
+                <View className="p-[16px] bg-[#f2f2f2] rounded-[16px] w-full gap-[12px]">
+                  <View className="flex-row items-center justify-between gap-[4px]">
+                    <Text></Text>
+                    <Text className="text-center text-[#121212] text-[18px] font-LexendDecaBold">
+                      Shared from {name}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        setShowOrderDetails(false);
                       }}
                       style={{
-                        width: 172,
-                        height: 103,
-                        borderRadius: 14,
-                        alignSelf: "center",
+                        backgroundColor: "#EE571C",
+                        borderRadius: 24,
+                        borderWidth: 1,
+                        borderColor: "#EE571C",
                       }}
-                      contentFit="contain"
-                    />
-
-                    <View style={styles.placedDetailsContainer}>
-                      <Text style={styles.placedName} numberOfLines={2}>
-                        {orderDetails?.items[0]?.product?.name}
-                      </Text>
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.placedPrice}>
-                          N{orderDetails?.order?.totalAmount?.toLocaleString()}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View>
-                      <Text className="font-LexendDeca">
-                        Shipping : N
-                        {orderDetails?.shipping?.fee?.amount.toLocaleString()}
-                      </Text>
-                    </View>
-
-                    <View className="flex-row items-center justify-between gap-[8px]">
-                      {autoOrderMessages?.map((message, index) => {
-                        return (
-                          <Pressable
-                            key={index}
-                            style={
-                              index == autoOrderMessage?.index
-                                ? styles.autoOrderMessage
-                                : styles.autoOrderMessageInactive
-                            }
-                            onPress={() =>
-                              setAutoOrderMessage({
-                                index,
-                                message: autoOrderMessagesText[message](
-                                  name,
-                                  orderDetails?.order?.order_id,
-                                ),
-                              })
-                            }
-                          >
-                            <Text style={styles.autoOrderMessageText}>
-                              {message}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <Pressable
-                      style={styles.sendAutoMsgBtn}
-                      onPress={handleSendAutoMessage}
                     >
-                      <Text className="text-[#fff] font-LexendDecaSemiBold text-[10px]">
-                        Send
-                      </Text>
+                      <AntDesign name="closecircle" size={24} color="#F9C7B3" />
                     </Pressable>
                   </View>
-                </View>
-              )}
-              <View className="flex-row items-center gap-[12px] pt-[12px]  border-t-[0.5px] border-t-[#888787] px-[17px]">
-                <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
-                  <TextInput
-                    placeholder="Type a message..."
-                    // placeholderTextColor={"rgba(204,204,204,0.25)"}
-                    className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
-                    value={newMessage}
-                    multiline
-                    onChangeText={(text) => setNewMessage(text)}
-                    onFocus={() => {
-                      setShowOrderDetails(false);
-                      setShowOptions(false);
+
+                  <Image
+                    source={{
+                      uri: orderDetails?.items[0]?.product?.images[0]?.url,
                     }}
+                    style={{
+                      width: 172,
+                      height: 103,
+                      borderRadius: 14,
+                      alignSelf: "center",
+                    }}
+                    contentFit="contain"
                   />
-                  <Pressable onPress={() => handleSendMessage(newMessage)}>
-                    <MaterialCommunityIcons
-                      name="send-circle"
-                      size={30}
-                      color={newMessage ? "#16783A" : "#2e2e2e"}
-                    />
+
+                  <View style={styles.placedDetailsContainer}>
+                    <Text style={styles.placedName} numberOfLines={2}>
+                      {orderDetails?.items[0]?.product?.name}
+                    </Text>
+                    <View style={styles.priceContainer}>
+                      <Text style={styles.placedPrice}>
+                        N{orderDetails?.order?.totalAmount?.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text className="font-LexendDeca">
+                      Shipping : N
+                      {orderDetails?.shipping?.fee?.amount.toLocaleString()}
+                    </Text>
+                  </View>
+
+                  <View className="flex-row items-center justify-between gap-[8px]">
+                    {autoOrderMessages?.map((message, index) => {
+                      return (
+                        <Pressable
+                          key={index}
+                          style={
+                            index == autoOrderMessage?.index
+                              ? styles.autoOrderMessage
+                              : styles.autoOrderMessageInactive
+                          }
+                          onPress={() =>
+                            setAutoOrderMessage({
+                              index,
+                              message: autoOrderMessagesText[message](
+                                name,
+                                orderDetails?.order?.order_id,
+                              ),
+                            })
+                          }
+                        >
+                          <Text style={styles.autoOrderMessageText}>
+                            {message}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Pressable
+                    style={styles.sendAutoMsgBtn}
+                    onPress={handleSendAutoMessage}
+                  >
+                    <Text className="text-[#fff] font-LexendDecaSemiBold text-[10px]">
+                      Send
+                    </Text>
                   </Pressable>
                 </View>
-                {!newMessage && (
-                  <View className="flex-row items-center gap-[4px]">
-                    <Pressable onPress={() => setShowOptions(!showOptions)}>
-                      {showOptions ? (
-                        <AntDesign
-                          name="closecircle"
-                          size={28}
-                          color="#f2f2f2"
-                        />
-                      ) : (
-                        <AntDesign
-                          name="pluscircle"
-                          size={28}
-                          color="#f2f2f2"
-                        />
-                      )}
-                    </Pressable>
-                  </View>
-                )}
               </View>
-              {showOptions && (
-                <Animated.View
-                  className="flex-row items-center justify-center gap-[50] flex-wrap self-center"
-                  entering={SlideInDown}
-                  exiting={SlideOutDown}
-                >
-                  <TouchableOpacity
-                    className="flex-col items-center gap-[5px]"
-                    onPress={() => pickImage()}
-                  >
-                    <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
-                      <AntDesign name="picture" size={15} color="#94A3B1" />
-                    </View>
-                    <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
-                      Media
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    className="flex-col items-center gap-[5px]"
+            )}
+            <View className="flex-row items-center gap-[12px] pt-[12px]  border-t-[0.5px] border-t-[#888787] px-[17px]">
+              <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
+                <TextInput
+                  placeholder="Type a message..."
+                  // placeholderTextColor={"rgba(204,204,204,0.25)"}
+                  className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
+                  value={newMessage}
+                  multiline
+                  onChangeText={(text) => setNewMessage(text)}
+                  // autoFocus={true}
+                  onFocus={() => {
+                    setShowOrderDetails(false);
+                    // setShowOptions(false);
+                    // animateOptions();
+                  }}
+                />
+                <Pressable onPress={() => handleSendMessage(newMessage)}>
+                  <MaterialCommunityIcons
+                    name="send-circle"
+                    size={30}
+                    color={newMessage ? "#16783A" : "#2e2e2e"}
+                  />
+                </Pressable>
+              </View>
+              {!newMessage && (
+                <View className="flex-row items-center gap-[4px]">
+                  <Pressable
                     onPress={() => {
-                      Keyboard.dismiss();
-                      setShowProducts(true);
+                      animateOptions();
+                      setShowOptions(!showOptions);
                     }}
                   >
-                    <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
-                      <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
-                    </View>
-                    <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
-                      Product
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* <LoadingModal isVisible={isLoading} /> */}
-                </Animated.View>
+                    {showOptions ? (
+                      <AntDesign name="closecircle" size={28} color="#f2f2f2" />
+                    ) : (
+                      <AntDesign name="pluscircle" size={28} color="#f2f2f2" />
+                    )}
+                  </Pressable>
+                </View>
               )}
             </View>
+            {true && (
+              <Animated.View
+                className="flex-row items-center justify-center gap-[50] flex-wrap self-center overflow-hidden mt-[12px]"
+                // entering={SlideInDown}
+                // exiting={SlideOutDown}
+                style={optionsView}
+              >
+                <TouchableOpacity
+                  className="flex-col items-center gap-[5px]"
+                  onPress={() => pickImage()}
+                >
+                  <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+                    <AntDesign name="picture" size={15} color="#94A3B1" />
+                  </View>
+                  <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+                    Media
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-col items-center gap-[5px]"
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowProducts(true);
+                  }}
+                >
+                  <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+                    <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
+                  </View>
+                  <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+                    Product
+                  </Text>
+                </TouchableOpacity>
+
+                {/* <LoadingModal isVisible={isLoading} /> */}
+              </Animated.View>
+            )}
           </View>
-        )}
+          <Animated.View style={fakeView}></Animated.View>
+        </View>
+      )}
 
-        <BottomSheet
-          bgColor="#121212"
-          childrenStyle="!px-[11px]"
-          showCloseIcon={false}
-          title=""
-          show={showProducts}
-          titleColor="!text-white"
-          snapPoints={["80%"]}
-          enableDynamicSizing={false}
-          onRequestClose={() => setShowProducts(false)}
-          keyboardBehavior="interactive"
-        >
-          <ProductsSheet
-            handleSubmitSelectedProducts={handleSubmitSelectedProducts}
-            id={id}
-          />
-        </BottomSheet>
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showProducts}
+        titleColor="!text-white"
+        snapPoints={["80%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowProducts(false)}
+        keyboardBehavior="interactive"
+      >
+        <ProductsSheet
+          handleSubmitSelectedProducts={handleSubmitSelectedProducts}
+          id={id}
+        />
+      </BottomSheet>
 
-        <BottomSheet
-          bgColor="#3A3A3A"
-          childrenStyle="!px-[0px]"
-          showCloseIcon={false}
-          show={showChatSetting}
-          enableDynamicSizing={false}
-          snapPoints={["60%"]}
-          onRequestClose={() => setShowChatSettings(false)}
-          keyboardBehavior="interactive"
-        >
-          <ChatSettings
-            handleShowReportUser={() => handleShowReportUser()}
-            closeSheet={() => setShowChatSettings(false)}
-            sellerId={id}
-            sellerName={name}
-            isBlocked={isUserBlocked}
-            isMuted={muteNotifications}
-            conversationId={conversationId}
-            updateMessageSettings={updateMessageSettings}
-          />
-        </BottomSheet>
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        show={showChatSetting}
+        enableDynamicSizing={false}
+        snapPoints={["60%"]}
+        onRequestClose={() => setShowChatSettings(false)}
+        keyboardBehavior="interactive"
+      >
+        <ChatSettings
+          handleShowReportUser={() => handleShowReportUser()}
+          closeSheet={() => setShowChatSettings(false)}
+          sellerId={id}
+          sellerName={name}
+          isBlocked={isUserBlocked}
+          isMuted={muteNotifications}
+          conversationId={conversationId}
+          updateMessageSettings={updateMessageSettings}
+        />
+      </BottomSheet>
 
-        <BottomSheet
-          bgColor="#3A3A3A"
-          childrenStyle="!px-[0px]"
-          showCloseIcon={false}
-          title=""
-          show={showReportUser}
-          titleColor="!text-white"
-          onRequestClose={() => setShowReportUser(false)}
-          keyboardBehavior={"interactive"}
-        >
-          <ReportUserSheet
-            userId={id?.toString()}
-            userType={"Seller"}
-            closeSheet={() => setShowReportUser(false)}
-          />
-        </BottomSheet>
-      </KeyboardAvoidingView>
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        title=""
+        show={showReportUser}
+        titleColor="!text-white"
+        onRequestClose={() => setShowReportUser(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <ReportUserSheet
+          userId={id?.toString()}
+          userType={"Seller"}
+          closeSheet={() => setShowReportUser(false)}
+        />
+      </BottomSheet>
+      {/* </KeyboardAvoidingView> */}
     </SafeAreaView>
   );
 };
@@ -1334,8 +1415,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingVertical: 10,
-    // flexGrow: 1,
+    flexGrow: 1,
     justifyContent: "flex-end",
+    // backgroundColor: "red",
   },
   messageContainer: {
     maxWidth: "80%",

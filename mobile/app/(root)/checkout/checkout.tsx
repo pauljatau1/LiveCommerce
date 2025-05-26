@@ -32,6 +32,7 @@ import OrderPopup from "@/components/global/orders/order-popup";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,7 +50,8 @@ const mockDeliveryOtions = [
   },
   {
     name: "Store Pickup",
-    description: "Go to the sellers store and pickup your order",
+    description:
+      "Go to the seller's store and pick up your order, Present your order ID. You can also chat seller to arrange pick ups",
     icon: <MaterialIcons name="storefront" size={24} color="white" />,
   },
 ];
@@ -65,11 +67,11 @@ const paymentOptions = [
     name: "Auqli Wallet",
     description: "",
   },
-  {
-    icon: require("../../../assets/icons/cod.png"),
-    name: "Cash on Delivery",
-    description: "Pay with cash on Delivery",
-  },
+  // {
+  //   icon: require("../../../assets/icons/cod.png"),
+  //   name: "Cash on Delivery",
+  //   description: "Pay with cash on Delivery",
+  // },
 ];
 
 const Checkout = () => {
@@ -101,12 +103,20 @@ const Checkout = () => {
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
   const [paystackKey, setPaystackKey] = useState<any>();
 
+  const eligibleForPickup = useMemo(() => {
+    return !cart?.some(
+      (ct: any) =>
+        ct?.seller?.offersStorePickup == false ||
+        ct?.seller?.shippingInfo?.offersStorePickup == false,
+    );
+  }, [cart]);
+
   const getPaystackKey = useCallback(async () => {
     const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -139,9 +149,9 @@ const Checkout = () => {
       recipientPhone:
         user.phoneNumber.replaceAll("-", "")?.length > 14
           ? user.phoneNumber
-              .replaceAll("-", "")
-              ?.replace("+234", "")
-              ?.replace("0", "")
+            .replaceAll("-", "")
+            ?.replace("+234", "")
+            ?.replace("0", "")
           : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
@@ -203,9 +213,9 @@ const Checkout = () => {
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                  .replaceAll("-", "")
-                  ?.replace("+234", "")
-                  ?.replace("0", "")
+                .replaceAll("-", "")
+                ?.replace("+234", "")
+                ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -476,6 +486,51 @@ const Checkout = () => {
       };
 
       const response = await axios(config);
+      const cart = await AsyncStorage.getItem("cart");
+      const cartData = JSON.parse(cart || '{}');
+
+      if (response.status == 201) {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          const user = JSON.parse(userData || '{}');
+          if (user) {
+            console.log("order created", response.data);
+            console.log("cart data", cartData);
+            trackEvent('order_created', {
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              orderId: response.data.orders.map((order: any) => order.orderId),
+              sellerId: response.data.orders[0]?.seller,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              orderCount: response.data?.totals?.orderCount,
+              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              products: cartData?.map((item: any) => {
+                return {
+                  name: item.name,
+                  price: `₦${item.price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  productId: item._id,
+                }
+              }),
+              timestamp: new Date().toISOString(),
+            })
+          }
+        } catch (trackError) {
+          console.log("error tracking order created", trackError);
+        }
+      }
 
       if (selectedPayment == 0) {
         setOrderId(response.data.orders[0]?.orderId);
@@ -486,7 +541,38 @@ const Checkout = () => {
         setTimeout(() => setIsSuccessVisible(true), 500);
       }
 
-      const cart = await AsyncStorage.getItem("cart");
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        if (user) {
+          trackEvent('payment_initiated', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            cartItems: cartData?.length,
+            products: cartData?.map((item: any) => {
+              return {
+                name: item.name,
+                price: `₦${item.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                productId: item._id,
+              }
+            }),
+            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+            paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+            timestamp: new Date().toISOString(),
+          })
+        }
+      } catch (trackError) {
+        console.log("error tracking payment initiated", trackError);
+      }
 
       if (cart) {
         const newCart = JSON.parse(cart!)?.filter(
@@ -525,6 +611,46 @@ const Checkout = () => {
   useEffect(() => {
     handleCalculateTotal();
   }, [uniqueSellers, cart]);
+
+  useEffect(() => {
+    const trackCheckout = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        if (user) {
+          const cart = await AsyncStorage.getItem("cart");
+          const cartData = JSON.parse(cart || '{}');
+          trackEvent('checkout_started', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            cartItems: cart?.length,
+            products: cartData?.map((item: any) => {
+              return {
+                name: item.name,
+                price: `₦${item.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                productId: item._id,
+              }
+            }),
+            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      } catch (trackError) {
+        console.log("error tracking checkout started", trackError);
+      }
+    }
+
+    trackCheckout();
+  }, [])
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -575,10 +701,10 @@ const Checkout = () => {
               >
                 {index == 1
                   ? "₦" +
-                    walletBalance?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                  walletBalance?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
                   : item.description}
               </Text>
             </View>
@@ -617,7 +743,41 @@ const Checkout = () => {
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
             className="absolute left-[18px]"
-            onPress={() => router.back()}
+            onPress={async () => {
+              try {
+                const userData = await AsyncStorage.getItem("user");
+                const user = JSON.parse(userData || '{}');
+                const cart = await AsyncStorage.getItem("cart");
+                const cartData = JSON.parse(cart || '{}');
+
+                trackEvent("checkout_abandoned", {
+                  userId: user?._id,
+                  email: user?.email,
+                  firstName: user?.firstName,
+                  lastName: user?.lastName,
+                  username: user?.username,
+                  cartItems: cart?.length,
+                  products: cartData?.map((item: any) => {
+                    return {
+                      name: item.name,
+                      price: `₦${item.price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`,
+                      productId: item._id,
+                    }
+                  }),
+                  totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  timestamp: new Date().toISOString(),
+                });
+              } catch (error) {
+                console.log(error);
+              }
+              router.back()
+            }}
           >
             <Entypo
               name="chevron-left"
@@ -697,8 +857,8 @@ const Checkout = () => {
 
               {cart?.length > 0
                 ? cart.map((cartItem, index) => (
-                    <CartItem cartItem={cartItem} key={index} />
-                  ))
+                  <CartItem cartItem={cartItem} key={index} />
+                ))
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
@@ -719,52 +879,58 @@ const Checkout = () => {
                   Delivery Options
                 </Text>
                 {mockDeliveryOtions?.map((item: any, index: number) => (
-                  <Pressable
-                    className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                    style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                    key={index}
-                    onPress={() => setSelectedDeliveryOpt(index)}
-                  >
-                    <View className="flex-row gap-[16px] shrink items-center">
-                      {/* <Image
-                        source={require("../../../assets/icons/delivery-icon.png")}
-                        resizeMode="contain"
-                        style={{ width: 23, height: 23, marginTop: 4 }}
-                      /> */}
-                      {item?.icon}
-                      <View className="gap-[4px] shrink">
-                        <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                          {item.name}
-                        </Text>
-                        <View className="gap-[2px]">
-                          <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                            {item?.description}
-                          </Text>
-                          {/* <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
-                          Your order will be processed and shipped with care,
-                          ensuring delivery within the estimated timeframe.
-                          Enjoy a smooth and hassle-free shopping experience!
-                        </Text> */}
-                        </View>
-                      </View>
-                    </View>
-                    <View
-                      className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                  <View key={index}>
+                    <Pressable
+                      className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
                       style={{
-                        borderColor:
-                          selectedDeliveryOpt == index ? "#16783A" : "#f2f2f2",
-                        borderWidth: 2,
+                        backgroundColor: "rgba(41, 41, 41, 0.81)",
+                        opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
+                      }}
+                      onPress={() => {
+                        if (!eligibleForPickup && index == 1) {
+                          return;
+                        }
+                        setSelectedDeliveryOpt(index);
                       }}
                     >
+                      <View className="flex-row gap-[16px] shrink items-center">
+                        {item?.icon}
+                        <View className="gap-[4px] shrink">
+                          <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                            {item.name}
+                          </Text>
+                          <View className="gap-[2px]">
+                            <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                              {item?.description}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
                       <View
-                        className="w-[12px] h-[12px] rounded-[12px]"
+                        className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
                         style={{
-                          backgroundColor:
-                            selectedDeliveryOpt == index ? "#16783A" : "",
+                          borderColor:
+                            selectedDeliveryOpt == index
+                              ? "#16783A"
+                              : "#f2f2f2",
+                          borderWidth: 2,
                         }}
-                      ></View>
-                    </View>
-                  </Pressable>
+                      >
+                        <View
+                          className="w-[12px] h-[12px] rounded-[12px]"
+                          style={{
+                            backgroundColor:
+                              selectedDeliveryOpt == index ? "#16783A" : "",
+                          }}
+                        ></View>
+                      </View>
+                    </Pressable>
+                    {!eligibleForPickup && index == 1 && (
+                      <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
+                        * One or more items are not eligible for store pickup
+                      </Text>
+                    )}
+                  </View>
                 ))}
               </View>
 
@@ -826,10 +992,10 @@ const Checkout = () => {
                     <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                       {deliveryFee
                         ? "₦" +
-                          deliveryFee?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                         : "-"}
                     </Text>
                   )}
@@ -843,12 +1009,12 @@ const Checkout = () => {
                   ) : (
                     <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                       {(deliveryFee && cartTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                         ? "₦" +
-                          (deliveryFee + cartTotal)?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                        (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                         : "-"}
                     </Text>
                   )}
@@ -862,12 +1028,12 @@ const Checkout = () => {
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
                   {(deliveryFee && cartTotal) ||
-                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                     ? "₦" +
-                      (deliveryFee + cartTotal)?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
+                    (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                     : "-"}
                   )
                 </Text>
@@ -973,7 +1139,7 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
           <View>
             <Image
               source={{ uri: cartItem?.images[0].url }}
-              resizeMode="contain"
+              resizeMode="cover"
               className="w-[115px] h-[136px]"
             />
           </View>
@@ -999,6 +1165,12 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {cartItem._id}
             </Text>
+            {(cartItem?.seller?.offersStorePickup ||
+              cartItem?.seller?.shippingInfo?.offersStorePickup) && (
+              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                Store Pickup Available
+              </Text>
+            )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{

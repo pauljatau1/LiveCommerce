@@ -24,9 +24,11 @@ import * as Clipboard from "expo-clipboard";
 import CancelledOrders from "@/components/orders/cancelledOrders";
 import ReturnedOrders from "@/components/orders/ReturnedOrders";
 import { MaterialCommunityIcons, SimpleLineIcons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
+  pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
@@ -46,9 +48,11 @@ const statusIcons = {
 const { width, height } = Dimensions.get("window");
 
 const SingleOrder = () => {
+  const isFocused = useIsFocused();
   const { id, token: userToken, conversationId } = useGlobalSearchParams();
   const [order, setOrder] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [conversations, setConversations] = useState<any[]>([]);
 
   const copyTrackingNumber = () => {
     Clipboard.setStringAsync(order?.shipping?.tracking.number);
@@ -74,6 +78,29 @@ const SingleOrder = () => {
       setLoading(false);
     }
   };
+
+  const handleGetConversations = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setConversations(response.data.conversations);
+    } catch (e) {
+      console.log("unable to get conversations in product details page", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isFocused) {
+      handleGetConversations();
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     handleGetOrder();
@@ -137,6 +164,7 @@ const SingleOrder = () => {
               )}
               {[
                 "pending",
+                "pending_pickup",
                 "picked_up",
                 "dispatched",
                 "in_transit",
@@ -296,7 +324,7 @@ const SingleOrder = () => {
                         style={{ width: "100%" }}
                         onPress={() =>
                           router.push({
-                            pathname: `../../(root)/messageRoom/${order.seller}`,
+                            pathname: `../../(root)/messageRoom/${order.seller?._id}`,
                             params: {
                               name:
                                 order.items[0].product?.seller?.storeName ||
@@ -307,7 +335,12 @@ const SingleOrder = () => {
                               avatar:
                                 order.items[0].product?.seller?.storeAvatar
                                   ?.url,
-                              conversationId,
+                              conversationId:
+                                conversations?.find(
+                                  (convo: any) =>
+                                    convo.participant.id ==
+                                    order.items[0].product?.seller?._id,
+                                )?._id || "",
                               userId: order?.buyer?._id || order?.buyer,
                               token: userToken,
                               model: "Seller",

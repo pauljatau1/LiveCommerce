@@ -1,15 +1,27 @@
+import useInitializeAuthState from "@/hooks/useInitializeAuthState";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack } from "expo-router";
 import { TouchableOpacity, View, Text } from "react-native";
 
 const Layout = () => {
+  useInitializeAuthState();
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(categories)" options={{ headerShown: false }} />
+
       <Stack.Screen
+        name="s/[id]"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        getId={({ params }) => Math.random().toString(36).substring(7)}
         name="product/[id]"
         options={{
           headerTitle: "",
@@ -128,6 +140,18 @@ const Layout = () => {
           // presentation: "fullScreenModal",
           animation: "fade",
           animationDuration: 300,
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="(modals)/popup"
+        options={{
+          presentation: "transparentModal",
+          animation: "slide_from_bottom",
+          animationDuration: 150,
           headerTitle: "",
           headerShadowVisible: false,
           headerShown: false,

@@ -57,6 +57,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { trackEvent } from "@/utils/analytics";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -209,9 +210,9 @@ const ProductDescription = () => {
       setIsMoreProductsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          "api/products/seller/" +
-          sellerId +
-          "?page=1&limit=10",
+        "api/products/seller/" +
+        sellerId +
+        "?page=1&limit=10",
       );
       setMoreProductsData(
         response.data.products.filter((item: any) => item._id !== id),
@@ -228,7 +229,7 @@ const ProductDescription = () => {
       setSimilarProductsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/products/all/?category=${productDetails.category}&limit=10`,
+        `api/products/all/?category=${productDetails.category}&limit=10`,
       );
       setSimilarProductsData(
         response.data.data.products.filter((item: any) => item._id !== id),
@@ -246,7 +247,7 @@ const ProductDescription = () => {
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${id}/reviews?page=1&limit=5`,
+        `api/products/${id}/reviews?page=1&limit=5`,
       );
 
       if (response.status == 200) {
@@ -300,8 +301,8 @@ const ProductDescription = () => {
     return (
       sellerInfo?.storeName ||
       sellerInfo?.personalInfo?.firstName +
-        " " +
-        sellerInfo?.personalInfo?.lastName ||
+      " " +
+      sellerInfo?.personalInfo?.lastName ||
       sellerInfo?.businessInfo?.businessName
     );
   }, [sellerInfo]);
@@ -397,7 +398,7 @@ const ProductDescription = () => {
   }, [isFocused]);
 
   useEffect(() => {
-    scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
+    // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
 
     if (productDetails?.seller?._id) {
       getSellerInfo(productDetails.seller._id);
@@ -421,6 +422,38 @@ const ProductDescription = () => {
       setShowRules(shippingFee);
     }
   }, [shippingFee, productDetails?.status]);
+
+  useEffect(() => {
+    const trackProductView = async () => {
+      try {
+        //console.log("product details", productDetails);
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
+        if (user && productDetails) {
+          trackEvent('product_viewed', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            productId: productDetails?._id,
+            productName: productDetails?.name,
+            productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+            productCategory: productDetails?.category,
+            productSubCategory: productDetails?.subCategory,
+            productStock: productDetails?.stock,
+            productStatus: productDetails?.status,
+            productSellerId: sellerInfo?._id,
+            productSellerName: sellerInfo?.storeName,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } catch (trackError) {
+        console.log("Customer.io product view tracking error:", trackError);
+      }
+    }
+    trackProductView();
+  }, [productDetails]);
 
   //auction functions
 
@@ -696,38 +729,38 @@ const ProductDescription = () => {
                       <View className="flex flex-row items-center gap-[8px] mb-[10px]">
                         {auctionData?.currentHighestBid?.buyer?.profileImage
                           ?.url && (
-                          <Image
-                            source={{
-                              uri: auctionData?.currentHighestBid?.buyer
-                                ?.profileImage?.url,
-                            }}
-                            style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 15,
-                            }}
-                          />
-                        )}
+                            <Image
+                              source={{
+                                uri: auctionData?.currentHighestBid?.buyer
+                                  ?.profileImage?.url,
+                              }}
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 15,
+                              }}
+                            />
+                          )}
 
                         {auctionData?.status == "ended" ||
-                        auctionData?.auctionStatus == "ended" ? (
+                          auctionData?.auctionStatus == "ended" ? (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.winner?.buyer?.firstName
                               ? auctionData?.winner?.buyer?.firstName +
-                                " " +
-                                auctionData?.winner?.buyer?.lastName +
-                                " won!"
+                              " " +
+                              auctionData?.winner?.buyer?.lastName +
+                              " won!"
                               : "Auction has ended"}
                           </Text>
                         ) : (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.currentHighestBid?.buyer?.firstName
                               ? auctionData?.currentHighestBid?.buyer
-                                  ?.firstName +
-                                " " +
-                                auctionData?.currentHighestBid?.buyer
-                                  ?.lastName +
-                                " is winning!"
+                                ?.firstName +
+                              " " +
+                              auctionData?.currentHighestBid?.buyer
+                                ?.lastName +
+                              " is winning!"
                               : "no current winner"}
                           </Text>
                         )}
@@ -759,7 +792,7 @@ const ProductDescription = () => {
                             ₦
                             {productDetails?.discount?.isActive
                               ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                                0
+                              0
                               : productDetails?.price?.toLocaleString()}
                           </Text>
                           {productDetails?.discount?.isActive && (
@@ -850,7 +883,7 @@ const ProductDescription = () => {
                   </View>
 
                   {isReviewDropDownShow &&
-                  productDetails?.stats?.reviewCount > 0 ? (
+                    productDetails?.stats?.reviewCount > 0 ? (
                     <View
                       className=""
                       style={{
@@ -1146,8 +1179,8 @@ const ProductDescription = () => {
                                   name:
                                     sellerInfo?.storeName ||
                                     sellerInfo?.personalInfo.firstName +
-                                      " " +
-                                      sellerInfo?.personalInfo.lastName ||
+                                    " " +
+                                    sellerInfo?.personalInfo.lastName ||
                                     "Default",
                                   avatar:
                                     sellerInfo?.storePresence?.storeAvatar?.url,
@@ -1266,7 +1299,7 @@ const ProductDescription = () => {
                         renderContent(moreProductsData)
                       )}
                       {!isMoreProductsLoading &&
-                      moreProductsData?.length < 1 ? (
+                        moreProductsData?.length < 1 ? (
                         <View
                           style={{
                             marginVertical: 40,
@@ -1304,7 +1337,7 @@ const ProductDescription = () => {
                       )}
 
                       {!similarProductsLoading &&
-                      similarProductsData?.length < 1 ? (
+                        similarProductsData?.length < 1 ? (
                         <View
                           style={{
                             marginVertical: 40,
@@ -1362,8 +1395,8 @@ const ProductDescription = () => {
               }}
             >
               {auctionData?.winner?.buyer?.firstName ||
-              auctionData?.status == "ended" ||
-              auctionData?.auctionStatus == "ended" ? (
+                auctionData?.status == "ended" ||
+                auctionData?.auctionStatus == "ended" ? (
                 <Text className="text-[10px] text-white font-LexendDecaSemiBold">
                   Auction is Over!
                 </Text>

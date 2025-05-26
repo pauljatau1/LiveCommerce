@@ -2,7 +2,7 @@
   "expo": {
     "name": "auqli",
     "slug": "auqli-app",
-    "version": "1.1.3",
+    "version": "1.1.6",
     "orientation": "portrait",
     "icon": "./assets/images/appstore.png",
     "scheme": "myapp",
@@ -25,9 +25,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "associatedDomains": ["applinks:app.auqli.live"],
-      "usesIcloudStorage": false,
-      "bitcode": false
+      "associatedDomains": ["applinks:app.auqli.live"]
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
@@ -80,10 +78,23 @@
       "expo-dev-client",
       "@react-native-google-signin/google-signin",
       "expo-tracking-transparency",
+      "expo-video",
+      "./plugins/withWindowSoftInputMode",
       [
-        "expo-video",
+        "customerio-expo-plugin",
         {
-          "cachingEnabled": true
+          "android": {
+            "googleServicesFile": "./google-services.json"
+          },
+          "ios": {
+            "pushNotification": {
+              "useRichPush": true,
+              "env": {
+                "cdpApiKey": "dc26bc9d13796901d562",
+                "region": "us"
+              }
+            }
+          }
         }
       ]
     ],

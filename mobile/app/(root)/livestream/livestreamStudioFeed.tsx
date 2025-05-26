@@ -64,6 +64,9 @@ import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import { LinearGradient } from "expo-linear-gradient";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import StreamEndedAlert from './components/StreamEndedAlert';
 
 const { height } = Dimensions.get("window");
 
@@ -90,6 +93,7 @@ const LivestreamStudioFeed = ({
     followSellerThroughStream,
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
+    isStreamEnded
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -107,10 +111,16 @@ const LivestreamStudioFeed = ({
   const [comment, setComment] = useState("");
   const [streamProducts, setStreamProducts] = useState<StreamProduct[]>([]);
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
-  const [storeInfo, setStoreInfo] = useState({
+  const [storeInfo, setStoreInfo] = useState<{
+    name: string;
+    username: string;
+    avatar: any;
+    sellerId: string;
+  }>({
     name: "Store Name",
     username: "@username",
     avatar: require("@/assets/icons/animoji.png"),
+    sellerId: "",
   });
   const [viewerCount, setViewerCount] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -126,13 +136,13 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-        | "comment"
-        | "join"
-        | "purchase"
-        | "hostLeft"
-        | "hostRejoin"
-        | "leave"
-        | "liveshow_order";
+      | "comment"
+      | "join"
+      | "purchase"
+      | "hostLeft"
+      | "hostRejoin"
+      | "leave"
+      | "liveshow_order";
       user: string;
       avatar?: any;
       content: string;
@@ -225,7 +235,7 @@ const LivestreamStudioFeed = ({
         // Since we only run the effect when isVisible is true,
         // this cleanup will only run when we're either unmounting
         // or isVisible is changing to false, both cases where we want to leave
-        handleLeaveStream(true);
+        handleAutoLeaveStream();
       };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
@@ -284,6 +294,7 @@ const LivestreamStudioFeed = ({
   const setupLivestream = async () => {
     if (!id) return;
     try {
+      console.log("Setting up livestream with ID:", id, "Current isStreamEnded state:", isStreamEnded);
       setStatus("Joining stream...");
 
       // Join the stream using the stream ID from route parameters
@@ -329,12 +340,12 @@ const LivestreamStudioFeed = ({
           console.log("Using seller data from stream.seller:", sellerData);
 
           const newStoreInfo = {
-            name:
-              sellerData.storeName || sellerData.businessName || "Store Name",
+            name: sellerData.storeName || sellerData.businessName || "seller",
             username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
             avatar: sellerData.storeAvatar?.url
               ? { uri: sellerData.storeAvatar.url }
               : require("@/assets/icons/animoji.png"),
+            sellerId: sellerData._id || "",
           };
 
           console.log("Setting store info to:", newStoreInfo);
@@ -367,6 +378,7 @@ const LivestreamStudioFeed = ({
             avatar: sellerData.storeAvatar?.url
               ? { uri: sellerData.storeAvatar.url }
               : require("@/assets/icons/animoji.png"),
+            sellerId: sellerData._id || "",
           };
 
           console.log("Setting store info to:", newStoreInfo);
@@ -482,8 +494,9 @@ const LivestreamStudioFeed = ({
       if (userToken) {
         initializeSocket(userToken, handleStreamNotification, id as string);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error setting up livestream:", error);
+
       setStatus("Error: " + (error as Error).message);
     }
   };
@@ -531,9 +544,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] &&
+                    notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -856,7 +869,8 @@ const LivestreamStudioFeed = ({
     // Set the selected product and show preview
     setSelectedProduct(product);
     setShowProductPreview(true);
-    console.log("Preview product:", product.name);
+    handleProductCardClick(product);
+    console.log("Preview product:", product);
   };
 
   // Render a comment or event item to match the reference image
@@ -1138,12 +1152,11 @@ const LivestreamStudioFeed = ({
   };
 
   // Update handleLeaveStream function to actually leave the stream
-  const handleLeaveStream = async (backButton: boolean) => {
+  const handleLeaveStream = async (leaveButton: boolean) => {
     if (!id) return;
 
     try {
       setIsLeavingStream(true);
-      console.log("User requested to leave the stream");
 
       // First tell the WebView to leave the Agora channel
       if (webViewRef.current) {
@@ -1159,26 +1172,72 @@ const LivestreamStudioFeed = ({
 
       // Call the leaveStream API endpoint
       const result = await leaveStream(id as string);
-      console.log("Leave stream result:", result);
 
       // Disconnect the socket
       disconnectSocket();
 
       // Navigate back to previous screen
-      if (!backButton) {
-        shared ? router.push("/(root)/(tabs)/home/home") : router.back();
+      if (leaveButton) {
+        router.push("/(root)/(tabs)/home/home")
       }
     } catch (error) {
       console.error("Error leaving stream:", error);
-      disconnectSocket();
-      router.back();
       // Show error message to user if needed
+      disconnectSocket();
+      if (leaveButton) {
+        router.push("/(root)/(tabs)/home/home")
+      }
     } finally {
       disconnectSocket();
       setIsLeavingStream(false);
       setShowMenuPopover(false);
     }
   };
+
+  // Optimize with useCallback
+  const handleAutoLeaveStream = useCallback(
+    async () => {
+      if (!id) return;
+
+      try {
+        setIsLeavingStream(true);
+
+        // First tell the WebView to leave the Agora channel
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+        if (window.leaveChannel) {
+          window.leaveChannel();
+          true;
+        }
+      `);
+          // Give a small delay to allow the WebView to process the leave command
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+
+        // Call the leaveStream API endpoint
+        const result = await leaveStream(id as string);
+
+        // Disconnect the socket
+        disconnectSocket();
+    
+      } catch (error) {
+        console.error("Error leaving stream:", error);
+        // Show error message to user if needed
+        disconnectSocket();
+      } finally {
+        disconnectSocket();
+        setIsLeavingStream(false);
+        setShowMenuPopover(false);
+      }
+    },
+    [
+      id,
+      webViewRef,
+      leaveStream,
+      setIsLeavingStream,
+      setShowMenuPopover,
+    ],
+  );
 
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
@@ -1366,6 +1425,32 @@ const LivestreamStudioFeed = ({
     });
   }, [debouncedSocketEmit]);
 
+  // track event for product card click
+  const handleProductCardClick = useCallback(async (product: any) => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const user = JSON.parse(userData || '{}');
+      trackEvent('liveshow_product_card_clicked', {
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        productId: product?.productId,
+        productName: product?.name,
+        productPrice: `₦${product?.price?.toLocaleString()}`,
+        productCategory: product?.category,
+        productSubCategory: product?.subCategory,
+        productStock: product?.stock,
+        productStatus: product?.status,
+        productSellerId: sellerId,
+        productSellerName: storeInfo?.name,
+      });
+    } catch (error) {
+      console.error("Error tracking product card click:", error);
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1386,7 +1471,7 @@ const LivestreamStudioFeed = ({
   return (
     <GestureHandlerRootView style={{ height }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <View style={{ height: height }}>
+      <View style={{ height }}>
         <View className="h-full bg-black">
           {/* Agora Video Container */}
           <View className="absolute w-full h-full">
@@ -1409,14 +1494,14 @@ const LivestreamStudioFeed = ({
                   mediaPlaybackRequiresUserAction={false}
                   originWhitelist={["*"]}
                 />
-                
+
                 {/* Gradient Overlay for better contrast */}
                 <LinearGradient
                   colors={[
-                    'rgba(0,0,0,0.1)',     // Slight darkening at top
-                    'rgba(0,0,0,0.45)',     // Medium darkening in middle
-                    'rgba(0,0,0,0.65)',    // Darker toward bottom
-                    'rgba(0,0,0,1)',    // Darkest at bottom
+                    "rgba(0,0,0,0.1)", // Slight darkening at top
+                    "rgba(0,0,0,0.45)", // Medium darkening in middle
+                    "rgba(0,0,0,0.65)", // Darker toward bottom
+                    "rgba(0,0,0,1)", // Darkest at bottom
                   ]}
                   locations={[0, 0.5, 0.85, 1]}
                   style={styles.gradientOverlay}
@@ -1427,8 +1512,8 @@ const LivestreamStudioFeed = ({
                 {(isLoading ||
                   showNoHostAlert2 ||
                   (!isVideoPlaying && isHostPresent)) && (
-                  <SkeletonLoader type="loading" />
-                )}
+                    <SkeletonLoader type="loading" />
+                  )}
 
                 {/* No Host Alert */}
                 {showNoHostAlert &&
@@ -1458,8 +1543,8 @@ const LivestreamStudioFeed = ({
                           <TouchableOpacity
                             style={styles.leaveButton}
                             onPress={() => {
-                              const backButton = false;
-                              handleLeaveStream(backButton);
+                              const leaveButton = true;
+                              handleLeaveStream(leaveButton);
                             }}
                           >
                             <Text style={styles.leaveButtonText}>Leave</Text>
@@ -1477,7 +1562,14 @@ const LivestreamStudioFeed = ({
                   )}
               </>
             ) : (
-              <SkeletonLoader type="loading" />
+              isStreamEnded ? (
+                <StreamEndedAlert
+                  onLeave={handleLeaveStream}
+                  isLeavingStream={isLeavingStream}
+                />
+              ) : (
+                <SkeletonLoader type="loading" />
+              )
             )}
           </View>
 
@@ -1511,10 +1603,10 @@ const LivestreamStudioFeed = ({
                         showActivityIndicator={false}
                       />
                       <View>
-                        <Text className="text-white font-LexendDecaMedium text-base">
+                        <Text numberOfLines={1} className="text-white max-w-[100px] font-LexendDecaMedium text-base">
                           {storeInfo.name}
                         </Text>
-                        <Text className="text-gray-300 text-xs">
+                        <Text numberOfLines={1} className="text-gray-300 max-w-[100px] text-xs">
                           {storeInfo.username}
                         </Text>
                       </View>
@@ -1624,8 +1716,8 @@ const LivestreamStudioFeed = ({
                         <TouchableOpacity
                           onPress={() => {
                             if (!isLeavingStream) {
-                              const backButton = false;
-                              handleLeaveStream(backButton);
+                              const leaveButton = true;
+                              handleLeaveStream(leaveButton);
                             }
                           }}
                           disabled={isLeavingStream}
@@ -1667,9 +1759,16 @@ const LivestreamStudioFeed = ({
               color="#16783A"
             />
 
-            <View style={{ height: keyboardVisibleRef.current ? "67%" : height - 25, justifyContent: "flex-end" }}>
+            <View
+              style={{
+                height: keyboardVisibleRef.current
+                  ? height - keyboardHeightRef?.current + 15
+                  : height - (Platform.OS === "ios" ? insets.top + 25 : 25),
+                justifyContent: "flex-end",
+              }}
+            >
               {/* Main Content Area */}
-              
+
               <View
                 style={[
                   styles.mainContentArea,
@@ -1853,6 +1952,18 @@ const LivestreamStudioFeed = ({
                         scrollAnimationDuration={500}
                         showPagination={false}
                         onSnapToItem={(index) => setCurrentProductIndex(index)}
+                        viewabilityConfig={{
+                          itemVisiblePercentThreshold: 80,
+                          minimumViewTime: 200,
+                        }}
+                        onViewableItemsChanged={({ viewableItems }: { viewableItems: Array<{ index: number, item: any, isViewable: boolean, key: string }> }) => {
+                          if (viewableItems && viewableItems.length > 0) {
+                            const newIndex = viewableItems[0].index;
+                            if (typeof newIndex === 'number') {
+                              setCurrentProductIndex(newIndex);
+                            }
+                          }
+                        }}
                         renderItem={({ item, index }) => (
                           <LiveShowProductCard
                             item={item}
@@ -1950,7 +2061,7 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-        //enableContentPanningGesture={true}
+      //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -1990,14 +2101,14 @@ const LivestreamStudioFeed = ({
         showCloseIcon={false}
         title=""
         show={showShop}
-        snapPoints={["70%"]}
+        snapPoints={["100%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowShop(false)}
         keyboardBehavior="interactive"
       >
         <ShopBottomSheet
           sellerId={sellerId}
-          streamProducts={streamProducts}
+          streamId={id}
           closeSheet={() => setShowShop(false)}
         />
       </BottomSheet>
@@ -2014,9 +2125,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   gradientOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     zIndex: 5,
   },
   fullScreen2: {
@@ -2047,7 +2158,7 @@ const styles = StyleSheet.create({
   bottomArea: {
     position: "relative",
     paddingBottom: Platform.OS === "ios" ? 20 : 10,
-    zIndex: 15
+    zIndex: 15,
   },
   bottomProductCardContainer: {
     position: "relative",
@@ -2359,68 +2470,57 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   noHostAlertContainer: {
+    backgroundColor: "#111111",
+    borderRadius: 12,
+    padding: 20,
     width: "80%",
-    backgroundColor: "#1E1E1E",
-    borderRadius: 16,
-    padding: 24,
+    maxWidth: 300,
     alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 20,
   },
   noHostIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "#FF5555",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#333333",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
   },
   noHostTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 12,
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
   },
   noHostMessage: {
-    fontSize: 16,
     color: "#CCCCCC",
-    marginBottom: 24,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
+    marginBottom: 20,
   },
   buttonContainer: {
     flexDirection: "row",
-    width: "100%",
     justifyContent: "space-between",
-    gap: 10,
+    width: "100%",
   },
   waitButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "#333333",
+    borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 30,
+    paddingHorizontal: 20,
+    marginRight: 10,
     flex: 1,
     alignItems: "center",
   },
   waitButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "bold",
   },
   leaveButton: {
-    backgroundColor: "#16783A",
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 30,
+    paddingHorizontal: 20,
     flex: 1,
     alignItems: "center",
     flexDirection: "row",
@@ -2428,7 +2528,6 @@ const styles = StyleSheet.create({
   },
   leaveButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "bold",
   },
   liveshowOrderCommentItem: {

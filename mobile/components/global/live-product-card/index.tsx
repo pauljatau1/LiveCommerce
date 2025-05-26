@@ -88,7 +88,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
                 </Text>
               </View>
             ) : (
-              <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
+              <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 py-1 rounded-md">
                 {item?.status !== "live" ? (
                   <Text className="text-white text-[10px] font-LexendDeca">
                     {item?.status}

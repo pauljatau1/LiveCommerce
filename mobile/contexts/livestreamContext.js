@@ -2,6 +2,7 @@ import { getToken } from "@/store/features/auth/utils";
 import { useToast } from '@/contexts/ToastContext';
 import { createContext, useContext, useReducer } from "react";
 import { useRouter } from "expo-router";
+import { trackEvent } from "@/utils/analytics";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -16,6 +17,7 @@ export const LivestreamProvider = ({ children }) => {
     isLoading: false,
     activeStreamDetails: null,
     isDataReady: false,
+    isStreamEnded: false,
   };
 
   const [state, dispatch] = useReducer((state, action) => {
@@ -26,6 +28,12 @@ export const LivestreamProvider = ({ children }) => {
         return { ...state, isLoading: action.payload };
       case "SET_ACTIVE_STREAM_DETAILS":
         return { ...state, activeStreamDetails: action.payload };
+      case "SET_STREAM_ENDED":
+        return { ...state, isStreamEnded: action.payload };
+      case "SET_IS_DATA_READY":
+        return { ...state, isDataReady: action.payload };
+      case "RESET_STREAM_ENDED":
+        return { ...state, isStreamEnded: false };
       default:
         return state;
     }
@@ -54,6 +62,9 @@ export const LivestreamProvider = ({ children }) => {
   const joinStream = async (streamId) => {
     try {
       dispatch({ type: "SET_IS_LOADING", payload: true });
+      // Reset the stream ended state when joining a new stream
+      dispatch({ type: "SET_STREAM_ENDED", payload: false });
+      
       const token = await AsyncStorage.getItem("token");
       const userToken = JSON.parse(token);
 
@@ -83,12 +94,51 @@ export const LivestreamProvider = ({ children }) => {
       if (response.status === 200) {
         dispatch({ type: "SET_ACTIVE_STREAM_DETAILS", payload: response.data });
         console.log("joined stream", response.data);
+        // Track event for buyer joining stream
+        try {
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
+          
+          trackEvent('buyer_joined_stream', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            sellerId: response.data.stream.seller._id,
+            sellerName: response.data.stream.seller.storeName,
+            streamId: response.data.stream._id,
+            streamTitle: response.data.stream.title,
+            streamDescription: response.data.stream.description,
+            streamStartTime: response.data.stream.startTime,
+            streamCategory: response.data.stream.category,
+            streamSubCategory: response.data.stream.subCategory,
+            timestamp: new Date().toISOString()
+          });
+        } catch (trackError) {
+          console.log("Customer.io stream join tracking error:", trackError);
+        }
         return response.data;
       }
     } catch (error) {
       console.error("Error joining stream:", error);
+      
+      // Check if the error is a 404 error (stream ended)
+      if (
+        error?.response?.status === 404 || 
+        (error?.response?.data?.message && (
+          error.response.data.message.includes("Active stream not found") ||
+          error.response.data.message.includes("not found") ||
+          error.response.data.message.includes("ended") ||
+          error.response.data.message.includes("no longer available")
+        ))
+      ) {
+        console.log("Stream ended or not found, setting stream ended state");
+        dispatch({ type: "SET_STREAM_ENDED", payload: true });
+      }
+      
       throw new Error(
-        error?.response?.data?.message || "Failed to join stream",
+        error?.response?.data?.message || "Failed to join stream"
       );
     } finally {
       dispatch({ type: "SET_IS_LOADING", payload: false });
@@ -288,6 +338,7 @@ export const LivestreamProvider = ({ children }) => {
         checkIfSellerIsFollowedFromSellerProfile,
         fetchStreamOrders,
         dispatch,
+        isStreamEnded: state.isStreamEnded,
       }}
     >
       {children}

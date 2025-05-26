@@ -20,9 +20,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 
 const Home = () => {
-  const tabBarHeight = useBottomTabBarHeight();
-  const segments = useSegments();
-  const layout = useWindowDimensions();
+  // const tabBarHeight = useBottomTabBarHeight();
+  // const segments = useSegments();
+  // const layout = useWindowDimensions();
 
   const [index, setIndex] = useState(0);
 
@@ -35,7 +35,7 @@ const Home = () => {
   ]);
   const tags = ["Auqli Live", "Live Auctions", "Featured", "Upcoming"];
 
-  const renderContent = () => {
+  const renderContent = useCallback(() => {
     switch (selected) {
       case "Auqli Live":
         return <AuqliLive />;
@@ -50,54 +50,54 @@ const Home = () => {
       default:
         return <Text className="text-white">No Content Available</Text>;
     }
-  };
+  }, [selected]);
 
-  const renderScene = ({ route }: { route: any }) => {
-    switch (route.key) {
-      case "Auqli Live":
-        return (
-          <TabWrapper>
-            <AuqliLive />
-          </TabWrapper>
-        );
-      case "For You":
-        return (
-          <TabWrapper>
-            <ForYou />
-          </TabWrapper>
-        );
-      case "Auctions":
-        return (
-          <TabWrapper>
-            <Auctions />
-          </TabWrapper>
-        );
-      case "Featured":
-        return (
-          <TabWrapper>
-            <Featured />
-          </TabWrapper>
-        );
-      case "Coming":
-        return (
-          <TabWrapper>
-            <Coming />
-          </TabWrapper>
-        );
-      default:
-        return (
-          <TabWrapper>
-            <Coming />
-          </TabWrapper>
-        );
-    }
-  };
+  // const renderScene = ({ route }: { route: any }) => {
+  //   switch (route.key) {
+  //     case "Auqli Live":
+  //       return (
+  //         <TabWrapper>
+  //           <AuqliLive />
+  //         </TabWrapper>
+  //       );
+  //     case "For You":
+  //       return (
+  //         <TabWrapper>
+  //           <ForYou />
+  //         </TabWrapper>
+  //       );
+  //     case "Auctions":
+  //       return (
+  //         <TabWrapper>
+  //           <Auctions />
+  //         </TabWrapper>
+  //       );
+  //     case "Featured":
+  //       return (
+  //         <TabWrapper>
+  //           <Featured />
+  //         </TabWrapper>
+  //       );
+  //     case "Coming":
+  //       return (
+  //         <TabWrapper>
+  //           <Coming />
+  //         </TabWrapper>
+  //       );
+  //     default:
+  //       return (
+  //         <TabWrapper>
+  //           <Coming />
+  //         </TabWrapper>
+  //       );
+  //   }
+  // };
 
-  useEffect(() => {
-    if (segments[3] === "home") {
-      return setSelected("Auqli Live");
-    }
-  }, [segments]);
+  // useEffect(() => {
+  //   if (segments[3] === "home") {
+  //     return setSelected("Auqli Live");
+  //   }
+  // }, [segments]);
 
   return (
     <View className="pt-[30px] flex-1">
@@ -173,4 +173,4 @@ const TabWrapper = ({ children }: { children: any }) => {
   );
 };
 
-export default Home;
+export default React.memo(Home);

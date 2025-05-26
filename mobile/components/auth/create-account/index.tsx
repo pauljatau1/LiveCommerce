@@ -29,6 +29,8 @@ import { useDispatch } from "react-redux";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoadingModal from "@/components/global/loading-modal";
+import { identifyUser, trackEvent } from "@/utils/analytics";
+import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 
 const service = [
   {
@@ -107,6 +109,45 @@ const CreateAccount = () => {
     try {
       const result = await signUp(details).unwrap();
       await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+
+      try {
+        if (result) {
+             // Identify the user directly after signup
+             identifyUser(result?.user?._id, {
+              email: email,
+              firstName: result?.user?.firstName,
+              lastName: result?.user?.lastName,
+            });
+            
+            // Track event for buyer signup
+            trackEvent('buyer_account_created', {
+              userId: result?.user?._id,
+              email: email,
+              firstName: result?.user?.firstName,
+              lastName: result?.user?.lastName,
+              username: result?.user?.username,
+              phoneNumber: result?.user?.phoneNumber,
+              userType: "buyer",
+              osType: Platform.OS,
+              timestamp: new Date().toISOString()
+            });
+
+            trackMixpanelEvent('signup_method', {
+              signup_method: email ? "email" : "not email",
+              userId: result?.user?._id,
+              email: email,
+              firstName: result?.user?.firstName,
+              lastName: result?.user?.lastName,
+              username: result?.user?.username,
+              phoneNumber: result?.user?.phoneNumber,
+              userType: "buyer",
+              osType: Platform.OS,
+              timestamp: new Date().toISOString()
+            });
+        }
+      } catch (trackError) {
+        console.log("Customer.io signup tracking error:", trackError);
+      }
 
       toast.success("Successfully created");
       router.push({

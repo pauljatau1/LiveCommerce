@@ -58,7 +58,7 @@ const Notifications = () => {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
           (tab?.toLowerCase() == "from auqli"
-            ? "api/public/announcements"
+            ? `api/public/platform-notifications?page=${page}&limit=10`
             : `api/notifications/buyer?page=${page}&limit=10&filter=${tab?.toLowerCase()}`),
         {
           headers: {
@@ -66,14 +66,34 @@ const Notifications = () => {
           },
         },
       );
-      const notifications = response.data.notifications || response.data;
 
-      if (
-        response.data.currentPage === response.data.totalPages ||
-        response.data.totalPages < 1
-      ) {
-        setHasReachedEnd(true);
+      var notifications = [] as any[];
+
+      if (tab?.toLowerCase() == "from auqli") {
+        notifications = response.data.data?.notifications;
+
+        console.log("platform notifications  ", notifications);
+
+        if (
+          response.data.data.currentPage === response.data.data.totalPages ||
+          response.data.data.totalPages < 1
+        ) {
+          setHasReachedEnd(true);
+        }
+      } else {
+        notifications =
+          response.data.notifications ||
+          response.data ||
+          response.data.data?.notifications;
+
+        if (
+          response.data.currentPage === response.data.totalPages ||
+          response.data.totalPages < 1
+        ) {
+          setHasReachedEnd(true);
+        }
       }
+
       if (page == 1) {
         setFilteredData(notifications);
         handleMarkAllRead();
@@ -136,7 +156,7 @@ const Notifications = () => {
           <View style={styles.notiImage}>
             {item.type === "order_placed" ? (
               <Feather name="box" size={24} color="#fff" />
-            ) : item?.description ? (
+            ) : item?.content ? (
               <Image
                 source={require("../../../assets/icons/auqli-logo.png")}
                 contentFit="contain"
@@ -156,7 +176,7 @@ const Notifications = () => {
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionText} numberOfLines={2}>
-                {item?.message || item?.description}
+                {item?.message || item?.content}
               </Text>
               <Text style={styles.date}>
                 {formatMessageDate(item?.createdAt)}

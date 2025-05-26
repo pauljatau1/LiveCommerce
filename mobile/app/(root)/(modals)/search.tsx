@@ -24,17 +24,20 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { ActivityIndicator } from "react-native-paper";
 import { ScrollView } from "react-native-virtualized-view";
+import { AntDesign } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/analytics";
 
 const Search = () => {
   const token = useSelector((state: RootState) => state.authState.token);
   const searchRef = useRef<TextInput>(null);
   const isFocused = useIsFocused();
-  const { searchTab } = useLocalSearchParams();
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const { searchTab, prevQuery } = useLocalSearchParams();
+  const [searchQuery, setSearchQuery] = useState<string>(prevQuery?.toString());
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sellers, setSellers] = useState<any[]>([]);
   const [keyboardFocused, setKeyboardFocused] = useState<boolean>(false);
+  
 
   const fetchSellers = async () => {
     if (!searchQuery) {
@@ -76,6 +79,21 @@ const Search = () => {
         pathname: `../../(root)/catalog/${searchQuery}`,
         params: { searchTab },
       });
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || '{}');
+        trackEvent("search_product", {
+          searchQuery,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.log(error);
+      }
       return;
     }
     return Keyboard.dismiss();
@@ -122,9 +140,9 @@ const Search = () => {
           <Image
             source={{ uri: item?.storeAvatar }}
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 15,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
               backgroundColor: "#cccccc",
             }}
             resizeMode="cover"
@@ -138,11 +156,6 @@ const Search = () => {
             </Text>
           </View>
         </View>
-        <MaterialCommunityIcons
-          name="arrow-top-left"
-          size={16}
-          color="#16783A"
-        />
       </TouchableOpacity>
     );
   }, []);
@@ -151,7 +164,7 @@ const Search = () => {
     return (
       <>
         <View className="mt-[20px] w-full flex-row items-center justify-between">
-          <Text className="text-[15px] text-[#ccc] font-LexendDeca">
+          <Text className="text-[15px] text-[#f2f2f2] font-LexendDeca">
             Recent Searches
           </Text>
           {searchHistory.length > 0 && (
@@ -175,14 +188,28 @@ const Search = () => {
                 })
               }
             >
-              <Text className="text-[14px] text-[#ccc] font-LexendDecaLight">
-                {term}
-              </Text>
-              <MaterialCommunityIcons
-                name="arrow-top-left"
-                size={16}
-                color="#16783A"
-              />
+              <View className="flex-row items-center gap-[4px]">
+                <EvilIcons
+                  name="search"
+                  size={20}
+                  color="#ccc"
+                  className={Platform.OS === "android" ? "mt-[-2px]" : ""}
+                />
+                <Text className="text-[14px] text-[#f2f2f2] font-LexendDecaLight">
+                  {term}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setSearchQuery(term)}
+                className="p-[4px]"
+              >
+                <MaterialCommunityIcons
+                  name="arrow-top-left"
+                  size={16}
+                  color="#16783A"
+                />
+              </Pressable>
             </Pressable>
           ))}
         </View>
@@ -217,7 +244,7 @@ const Search = () => {
               ref={searchRef}
               placeholder="Search"
               placeholderTextColor={"#888787"}
-              className="text-[#c6c6c6] text-[14px] font-LexendDecaLight w-[100%]"
+              className="text-[#c6c6c6] text-[14px] font-LexendDeca w-[100%] shrink"
               autoFocus
               returnKeyType="search"
               value={searchQuery}
@@ -228,7 +255,13 @@ const Search = () => {
                 padding: 0,
               }}
             />
+            {searchQuery?.length > 0 && (
+              <Pressable onPress={() => setSearchQuery("")}>
+                <AntDesign name="closecircle" size={18} color="#fff" />
+              </Pressable>
+            )}
           </View>
+
           <Pressable
             onPress={() => {
               router.back();

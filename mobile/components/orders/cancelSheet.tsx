@@ -4,6 +4,8 @@ import { AntDesign } from "@expo/vector-icons";
 import axios from "axios";
 import { router } from "expo-router";
 import { ActivityIndicator } from "react-native-paper";
+import { trackEvent } from "@/utils/analytics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Props {
   orderItem: any;
@@ -47,6 +49,38 @@ const CancelSheet = ({
           },
         },
       );
+
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const user = JSON.parse(userData || '{}');
+        if (user?._id) {
+          trackEvent('order_cancelled', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            orderId: orderItem._id,
+            orderStatus: orderItem?.status,
+            moreDetails: orderItem?.items?.map((item: any) => {
+              return {
+                productId: item.product?._id,
+                productName: item.product?.name,
+                productPrice: `₦${item.product?.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                productImage: item.product?.images?.[0]?.url,
+                sellerId: item.seller._id,
+              };
+            }),
+            cancellationReason: selectedReasons.map((reason) => cancellationReasons[reason]).join(", "),
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } catch (trackError) {
+        console.log("error tracking order cancelled", trackError);
+      }
       closeSheet();
       router.push({
         pathname: `../../../(root)/orders/${orderItem._id}`,

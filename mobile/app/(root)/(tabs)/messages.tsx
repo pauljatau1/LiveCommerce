@@ -4,8 +4,9 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  RefreshControl,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getToken, getUser, setUser } from "@/store/features/auth/utils";
@@ -22,6 +23,7 @@ import { useIsFocused } from "@react-navigation/native";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import MessageListSkeleton from "@/components/skeleton/messageListSkeleton";
+import LottieView from "lottie-react-native";
 
 const Message = () => {
   const isFocused = useIsFocused();
@@ -32,6 +34,10 @@ const Message = () => {
   const [filter, setFilter] = useState<string>("all");
   const [token, setToken] = useState<string>("");
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const getUserInfo = async () => {
     try {
@@ -42,29 +48,58 @@ const Message = () => {
     }
   };
 
-  const handleGetConversations = async () => {
+  const handleGetConversations = useCallback(async () => {
+    if (isFetching || hasReachedEnd) {
+      return;
+    }
+
+    if (page == 1) {
+      // setLoading(true);
+    } else {
+      setIsFetching(true);
+    }
     try {
       const token = await getToken();
       if (!token) {
         setShowAuthSheet(true);
       }
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/conversations?page=${page}&limit=20`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setConversations(response.data.conversations);
-      sortUnreadMessages(response.data.conversations);
+
+      if (page == 1) {
+        setConversations(response.data.conversations);
+        sortUnreadMessages(response.data.conversations);
+      } else {
+        setConversations((prevData) => {
+          return [...prevData, ...response.data.conversations];
+        });
+      }
+
+      if (!response.data?.pagination?.hasMore) {
+        setHasReachedEnd(true);
+      }
       setToken(token);
     } catch (e) {
       console.log("unable to get conversations ", e);
     } finally {
       setLoading(false);
+      setIsFetching(false);
+      setRefreshing(false);
     }
-  };
+  }, [page]);
+
+  const fetchMoreConversations = useCallback(() => {
+    if (!isFetching && !hasReachedEnd) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  }, [hasReachedEnd, isFetching]);
 
   const sortUnreadMessages = (conversations: any) => {
     const unread = conversations.filter((convo: any) => convo.unreadCount > 0);
@@ -120,7 +155,10 @@ const Message = () => {
             <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
               {item.participant.name}
             </Text>
-            <Text className="text-[13px] text-[#ccc] font-LexendDecaLight shrink">
+            <Text
+              className="text-[13px] text-[#ccc] font-LexendDecaLight shrink"
+              numberOfLines={1}
+            >
               {item.lastMessage.messageType == "text"
                 ? item.lastMessage.content?.length > 40
                   ? item.lastMessage.content.slice(0, 40) + "..."
@@ -151,16 +189,62 @@ const Message = () => {
     );
   };
 
+  const refreshMessages = () => {
+    setRefreshing(true);
+    if (page == 1) {
+      return handleGetConversations();
+    }
+    setPage(1);
+    setHasReachedEnd(false);
+  };
+
   useEffect(() => {
-    if (isFocused) handleGetConversations();
+    if (isFocused) {
+      if (page == 1) {
+        setHasReachedEnd(false);
+        handleGetConversations();
+      } else {
+        setPage(1);
+        setHasReachedEnd(false);
+      }
+    }
   }, [isFocused]);
 
   useEffect(() => {
     getUserInfo();
-    handleGetConversations();
   }, []);
+
+  useEffect(() => {
+    handleGetConversations();
+  }, [page]);
+
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
   return (
-    <SafeAreaView className="h-full flex-1 bg-[#121212]">
+    <SafeAreaView className="h-full flex-1 bg-[#121212]" edges={["top"]}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <View className="flex-row items-center gap-[12px] px-[16px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
         <View>
@@ -239,12 +323,16 @@ const Message = () => {
               </Text>
             </TouchableOpacity>
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <FlatList
               data={filter == "all" ? conversations : unreadConvos}
               renderItem={({ item }) => renderConversations(item)}
               keyExtractor={(item) => item._id}
               showsVerticalScrollIndicator={false}
+              onEndReached={fetchMoreConversations}
+              ListFooterComponent={renderListFooter}
+              refreshing={refreshing}
+              onRefresh={refreshMessages}
             />
           </View>
         </View>

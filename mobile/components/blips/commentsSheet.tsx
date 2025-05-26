@@ -1,4 +1,12 @@
-import { View, Text, FlatList, TextInput, BackHandler } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  BackHandler,
+  Pressable,
+  Platform,
+} from "react-native";
 import React, { useCallback, useEffect, useRef, useState, memo } from "react";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { formatNumber } from "@/helpers/helpers";
@@ -8,6 +16,9 @@ import axios from "axios";
 import moment from "moment";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import LottieView from "lottie-react-native";
+import { AntDesign } from "@expo/vector-icons";
+import { trackEvent } from "@/utils/mixpanel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CommentsSheet = ({
   handleIncreaseCommentCount,
@@ -31,8 +42,11 @@ const CommentsSheet = ({
   const [replyPlaceholder, setReplyPlaceholder] = useState<string>("");
   const [replyId, setReplyId] = useState<string>("");
   const [newReply, setNewReply] = useState<any>();
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
 
   const commentInputRef = useRef<TextInput | any>(null);
+  const commentsListRef = useRef<FlatList | any>(null);
 
   const handleRequestReply = useCallback((id: string, placeholder: string) => {
     setReplyId(id);
@@ -65,28 +79,52 @@ const CommentsSheet = ({
   );
 
   const handleGetComments = async () => {
+    console.log("fetching comments", {
+      page,
+    });
+
+    if (isFetching || hasReachedEnd) return;
+
+    if (page == 1) {
+      setLoading(true);
+    } else {
+      setIsFetching(true);
+    }
     const token = await getToken();
     try {
       const config = {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${product.id}/blips/${id}/comments?page=${page}&limit=20`,
+          `api/products/${product.id}/blips/${id}/comments?page=${page}&limit=10`,
         headers: {
           Authorization: `Bearer ${token}`,
         },
         data: null,
       };
       const response = await axios(config);
-      setComments(
-        response.data.comments?.filter((cm: any) => cm?.buyer?.firstName),
-      );
+      setComments([
+        ...comments,
+        ...response.data.comments?.filter((cm: any) => cm?.buyer?.firstName),
+      ]);
       setPage(page + 1);
+      if (!response.data?.pagination?.hasMore) {
+        setHasReachedEnd(true);
+      }
       setLoading(false);
     } catch (e: any) {
       console.log("error retrieving comment ", e.response.data);
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
     }
   };
+
+  // const fetchMoreComments = async() => {
+  //   if (isFetching || hasReachedEnd) return;
+
+  //   return
+  // }
 
   const handleCreateComment = async () => {
     const token = await getToken();
@@ -121,8 +159,17 @@ const CommentsSheet = ({
         setNewReply({ ...constructReply, id: replyId + "-reply" });
         return await handleReplyComment(replyId, comment);
       }
-      setComments([...comments, constructComment]);
+      if (hasReachedEnd) {
+        setComments([constructComment, ...comments]);
+      } else {
+        setComments([
+          constructComment,
+          ...comments.slice(0, comments?.length - 1),
+        ]);
+      }
+
       setComment("");
+      commentsListRef?.current?.scrollToOffset({ offset: 0, animated: false });
       handleIncreaseCommentCount();
       const config = {
         method: "POST",
@@ -137,8 +184,26 @@ const CommentsSheet = ({
         },
       };
       const response = await axios(config);
+
+      if (response.status == 201) {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          const user = JSON.parse(userData || '{}');
+          trackEvent("blip_commented", {
+            blipId: id,
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error("Error tracking blip commented:", error);
+        }
+      }
       // setComments(response.data.comments);
-      setPage(1);
+      // setPage(1);
       setLoading(false);
     } catch (e: any) {
       console.log("error creating comment ", e.response.data);
@@ -192,23 +257,39 @@ const CommentsSheet = ({
           }}
         />
       ) : (
-        <View className="h-full pb-[50px] ">
-          <Text className="text-white text-center mb-[30px] font-LexendDecaMedium">
-            {formatNumber(commentCount) || "No"}{" "}
-            {commentCount > 1 || commentCount == 0 ? "comments" : "comment"}
-          </Text>
+        <View className="h-full pb-[50px] w-full">
+          <View className="mb-[30px] flex-row items-center justify-center">
+            <Text className="text-white text-center  font-LexendDecaMedium self-center">
+              {formatNumber(commentCount) || "No"}{" "}
+              {commentCount > 1 || commentCount == 0 ? "comments" : "comment"}
+            </Text>
+            <Pressable
+              onPress={closeCommentsSheet}
+              className="flex-end self-end absolute right-[0px]"
+            >
+              <AntDesign name="close" size={20} color="white" />
+            </Pressable>
+          </View>
+
           <FlatList
-            data={comments.slice().reverse()}
+            ref={commentsListRef}
+            data={comments}
             renderItem={renderComments}
             keyExtractor={(item, index) => item._id || index.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               gap: 0,
             }}
+            onEndReached={handleGetComments}
           />
         </View>
       )}
-      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 self-center ">
+      <View
+        className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 self-center "
+        style={{
+          bottom: Platform.OS == "ios" ? -12 : 8,
+        }}
+      >
         <BottomSheetTextInput
           ref={commentInputRef}
           placeholder={

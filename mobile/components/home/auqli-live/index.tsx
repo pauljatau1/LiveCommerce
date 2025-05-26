@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl } from "react-native";
+import { View, Text, RefreshControl, Platform } from "react-native";
 import React from "react";
 import PopularCard from "./popular-card";
 import SpotLight from "./spot-light";
@@ -12,13 +12,10 @@ import SuggestedBlips from "./suggested-blips";
 import ForYou from "./for-you";
 import { ScrollView } from "react-native-virtualized-view";
 import UpComing from "./upcoming-shows";
+import { trackScreen } from "@/utils/customerio";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AuqliLive = () => {
-  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
-    useLivestream();
-  const [filteredActiveLivestream, setFilteredActiveLivestream] = useState([]);
-  // const [liveStreamLoading, setLiveStreamLoading] = useState<boolean>(true);
-
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = () => {
     setRefreshing(true);
@@ -28,13 +25,25 @@ const AuqliLive = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetchAllActiveLiveStreams();
-      setFilteredActiveLivestream(response);
-      // setLiveStreamLoading(false);
-    };
+    const triggerAppLaunchAnalytics = async () => {
+      const userData = await AsyncStorage.getItem("user");
+      const user = JSON.parse(userData || "{}");
 
-    fetchData();
+      // Track initial app launch screen view
+      trackScreen("app_opened", {
+        screenName: "home",
+        userId: user?._id,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        username: user?.username,
+        country: user?.country,
+        phoneNumber: user?.phoneNumber,
+        osType: Platform.OS,
+        timestamp: new Date().toISOString(),
+      });
+    };
+    triggerAppLaunchAnalytics();
   }, []);
 
   return (
