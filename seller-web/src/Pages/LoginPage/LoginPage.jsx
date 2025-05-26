@@ -249,133 +249,145 @@ const LoginPage = () => {
       {
         forgotPassword && (
           <Modal onClick={() => setForgotPassword(false)}>
-            <h2 className="text-base sm:text-2xl mb-[15.61px] font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">Forgot Password</h2>
-            <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center">Please input an email address where we can send follow-up instructions for a new password.</p>
-            <div className="flex flex-col items-center justify-center gap-4 w-full sm:gap-[26.69px] mt-6 sm:mt-[39.42px]">
-              {
-                isForgotPasswordRequestSuccessful ? (
-                  <>
-                    {
-                      !isOtpEntered && (
-                        <OtpInput
-                          value={otp}
-                          onChange={setOtp}
-                          numInputs={4}
-                          shouldAutoFocus={true}
-                          renderInput={(props, index) => (
-                            <Tooltip key={index}>
-                              <TooltipTrigger asChild>
-                                <input
-                                  {...props}
-                                  className='w-12 h-12 lg:w-20 lg:h-20 rounded-md bg-transparent border-2 border-[#0BB248] text-center text-xl lg:text-3xl text-[#FFFFFF] focus:outline-none'
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                                <p>Verification code</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-
-                          containerStyle={{
-                            display: 'flex',
-                            marginTop: '48px',
-                            gap: '27px',
-                          }}
-                          skipDefaultStyles={true}
-                        />
-                      )
-                    }
-                    {
-                      isOtpEntered && (
-                        <>
-                          <div className="bg-white w-full flex items-center gap-3 sm:gap-[19.65px] p-4 sm:p-5 rounded-full border-4 border-transparent focus-within:border-4 focus-within:border-[#BBC8D4] transition-all duration-300">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <input
-                                  type="text"
-                                  value={newPassword}
-                                  onChange={(e) => setNewPassword(e.target.value)}
-                                  placeholder="New Password"
-                                  className="bg-white focus:outline-none w-full h-full text-black text-sm sm:text-base [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:shadow-[0_0_0_30px_white_inset]"
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                                <p>Minimum 8 characters</p>
-                              </TooltipContent>
-                            </Tooltip>
+            <div className="bg-white p-8 rounded-xl w-full max-w-[500px]">
+              <h2 className="text-base sm:text-2xl mb-4 font-semibold text-[#425466] leading-normal sm:leading-[21.86px] text-center">Forgot Password</h2>
+              <p className="text-sm sm:text-base font-light leading-normal sm:leading-[21.86px] text-[#425466] text-center mb-8">Please input an email address where we can send follow-up instructions for a new password.</p>
+              <div className="flex flex-col items-center justify-center gap-4 w-full sm:gap-[26.69px]">
+                {
+                  isForgotPasswordRequestSuccessful ? (
+                    <>
+                      {
+                        !isOtpEntered && (
+                          <div className="w-full">
+                            <p className="text-sm text-[#425466] mb-4 text-center">Enter the verification code sent to your email</p>
+                            <OtpInput
+                              value={otp}
+                              onChange={setOtp}
+                              numInputs={4}
+                              shouldAutoFocus={true}
+                              renderInput={(props, index) => (
+                                <Tooltip key={index}>
+                                  <TooltipTrigger asChild>
+                                    <input
+                                      {...props}
+                                      className='w-12 h-12 lg:w-16 lg:h-16 rounded-md bg-[#EDF2F7] border-2 border-[#0BB248] text-center text-xl lg:text-2xl text-[#425466] focus:outline-none focus:ring-2 focus:ring-[#0BB248]'
+                                    />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                    <p>Verification code</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              containerStyle={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                gap: '16px',
+                                marginTop: '16px',
+                              }}
+                              skipDefaultStyles={true}
+                            />
                           </div>
-                          <div className="bg-white w-full flex items-center gap-3 sm:gap-[19.65px] p-4 sm:p-5 rounded-full border-4 border-transparent focus-within:border-4 focus-within:border-[#BBC8D4] transition-all duration-300">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <input
-                                  type="text"
-                                  value={confirmPassword}
-                                  onChange={(e) => setConfirmPassword(e.target.value)}
-                                  placeholder="Confirm Password"
-                                  className="bg-white focus:outline-none w-full h-full text-black text-sm sm:text-base [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:shadow-[0_0_0_30px_white_inset]"
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                                <p>Must match new password</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </>
-                      )
-                    }
-                  </>
-                ) : (
-                  <div className="bg-white w-full flex items-center gap-3 sm:gap-[19.65px] p-4 sm:p-5 rounded-full border-4 border-transparent focus-within:border-4 focus-within:border-[#BBC8D4] transition-all duration-300">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <input
-                          type="text"
-                          value={resetEmail}
-                          onChange={(e) => setResetEmail(e.target.value)}
-                          placeholder="Email"
-                          className="bg-white focus:outline-none w-full h-full text-black text-sm sm:text-base [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:shadow-[0_0_0_30px_white_inset]"
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                        <p>Registered email address</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                )
-              }
-              {
-                isForgotPasswordRequestSuccessful ? (
-                  <>
-                    {
-                      !isOtpEntered && (
-                        <button onClick={handleOtpSubmit} className="px-5 mt-5 lg:px-10 py-4 sm:py-[22px] bg-transparent border-2 border-[#0BB248] text-[#FFFFFF] text-base sm:text-lg font-medium leading-normal sm:leading-[41.86px] rounded-lg w-full hover:bg-[#FFFFFF] hover:text-[#141B34] transition-all duration-300">
-                          {
-                            isLoading ? <CircularProgress color='white' size={20} /> : "Next"
-                          }
-                        </button>
-                      )
-                    }
-                    {
-                      isOtpEntered && (
-                        <button onClick={handleNewPasswordSubmit} className="px-5 mt-5 lg:px-10 py-4 sm:py-[22px] bg-transparent border-2 border-[#0BB248] text-[#FFFFFF] text-base sm:text-lg font-medium leading-normal sm:leading-[41.86px] rounded-lg w-full hover:bg-[#FFFFFF] hover:text-[#141B34] transition-all duration-300">
-                          {
-                            isLoading ? <CircularProgress color='white' size={20} /> : "Submit"
-                          }
-                        </button>
-                      )
-                    }
-                  </>
-                ) : (
-                  <button onClick={handleResetPasswordSubmit} className="px-5 mt-5 lg:px-10 py-4 sm:py-[22px] bg-transparent border-2 border-[#0BB248] text-[#FFFFFF] text-base sm:text-lg font-medium leading-normal sm:leading-[41.86px] rounded-lg w-full hover:bg-[#FFFFFF] hover:text-[#141B34] transition-all duration-300">
-                    {
-                      isLoading ? <CircularProgress color='white' size={20} /> : "Send Request"
-                    }
-                  </button>
-                )
-              }
-              <button onClick={handleCancel} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border-[1.4px] border-[#0BB248] rounded-lg w-full py-4 sm:py-[22px] flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">cancel</button>
+                        )
+                      }
+                      {
+                        isOtpEntered && (
+                          <>
+                            <div className="w-full">
+                              <label className="text-sm text-[#425466] mb-2 block">New Password</label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Enter new password"
+                                    className="w-full h-12 rounded-md bg-[#EDF2F7] p-4 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                  <p>Minimum 8 characters</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <div className="w-full">
+                              <label className="text-sm text-[#425466] mb-2 block">Confirm Password</label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Confirm new password"
+                                    className="w-full h-12 rounded-md bg-[#EDF2F7] p-4 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                  <p>Must match new password</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </>
+                        )
+                      }
+                    </>
+                  ) : (
+                    <div className="w-full">
+                      <label className="text-sm text-[#425466] mb-2 block">Email Address</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <input
+                            type="email"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            className="w-full h-12 rounded-md bg-[#EDF2F7] p-4 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                          <p>Registered email address</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )
+                }
+                {
+                  isForgotPasswordRequestSuccessful ? (
+                    <>
+                      {
+                        !isOtpEntered && (
+                          <button onClick={handleOtpSubmit} className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mt-4">
+                            {
+                              isLoading ? <CircularProgress color='white' size={20} /> : "Verify Code"
+                            }
+                          </button>
+                        )
+                      }
+                      {
+                        isOtpEntered && (
+                          <button onClick={handleNewPasswordSubmit} className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mt-4">
+                            {
+                              isLoading ? <CircularProgress color='white' size={20} /> : "Reset Password"
+                            }
+                          </button>
+                        )
+                      }
+                    </>
+                  ) : (
+                    <button onClick={handleResetPasswordSubmit} className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mt-4">
+                      {
+                        isLoading ? <CircularProgress color='white' size={20} /> : "Send Reset Link"
+                      }
+                    </button>
+                  )
+                }
+                <button 
+                  onClick={handleCancel} 
+                  className="w-full border border-[#0BB248] text-[#0BB248] font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-[#EDF2F7] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-
           </Modal>
         )
       }
