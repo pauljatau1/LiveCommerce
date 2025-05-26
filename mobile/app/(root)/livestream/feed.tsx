@@ -6,8 +6,10 @@ import {
   Image,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
+  RefreshControl,
 } from "react-native";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -16,12 +18,16 @@ import LivestreamStudioFeed from "@/app/(root)/livestream/livestreamStudioFeed";
 import LiveAuctionStudioFeed from "@/app/(root)/livestream/liveAuctionStudioFeed";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import LottieView from "lottie-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getToken } from "@/store/features/auth/utils";
 
 const { height } = Dimensions.get("window");
 
 const LivestreamFeed = () => {
   const { id, type, itmSource } = useLocalSearchParams();
   const token = useSelector((state: RootState) => state.authState.token);
+  const insets = useSafeAreaInsets();
+  const statusBarHeight = insets.top;
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingNext, setLoadingNext] = useState<boolean>(false);
   const [lives, setLives] = useState<any[]>([{ _id: id, type }]);
@@ -29,14 +35,34 @@ const LivestreamFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const flatlistRef = useRef<FlatList>(null);
-  const scrollBeginOffset = useRef(0);
-  const isScrolling = useRef(false);
-  const scrollThreshold = height * 0.3; // Threshold for deciding if scroll should snap to next or back
 
-  // const fetchCurrentLive = async() => {
-
-  // }
+  const refreshLives = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/${id}/related?status=live&page=1&limit=5`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      const newStreams = response.data.streams;
+      
+      if (newStreams.length > 0) {
+        setLives([{ _id: id, type }, ...newStreams]);
+        setPage(2);
+      }
+    } catch (error) {
+      console.error("Error refreshing livestreams:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [id, type]);
 
   const fetchNextLives = async () => {
     if (hasReachedEnd || fetching) {
@@ -44,6 +70,7 @@ const LivestreamFeed = () => {
     }
     setFetching(true);
     try {
+      const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
           `api/streams/${id}/related?status=live&page=${page}&limit=5`,
@@ -54,10 +81,6 @@ const LivestreamFeed = () => {
         },
       );
       const newStreams = response.data.streams;
-      console.log(
-        "gotten related new style",
-        newStreams?.map((st: any) => st._id),
-      );
 
       if (newStreams.length > 0) {
         setLives((prevLives) => {
@@ -74,66 +97,9 @@ const LivestreamFeed = () => {
     }
   };
 
-  const handleScrollBegin = (
-    event: NativeSyntheticEvent<NativeScrollEvent>,
-  ) => {
-    // Save the starting position of the scroll
-    scrollBeginOffset.current = event.nativeEvent.contentOffset.y;
-    isScrolling.current = true;
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // More aggressive tracking during scroll
-    if (isScrolling.current) {
-      const currentOffset = event.nativeEvent.contentOffset.y;
-      const scrollDistance = Math.abs(
-        currentOffset - scrollBeginOffset.current,
-      );
-
-      // If we've scrolled a significant distance but less than the threshold,
-      // prepare for a possible aggressive snap back
-      if (scrollDistance > 20 && scrollDistance < scrollThreshold) {
-        // We'll let the onMomentumScrollEnd handle the actual snap
-      }
-    }
-  };
-
-  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!isScrolling.current) return;
-
-    isScrolling.current = false;
-    const endOffset = event.nativeEvent.contentOffset.y;
-    const scrollDistance = Math.abs(endOffset - scrollBeginOffset.current);
-
-    // If scroll didn't move far enough, force snap back to original position
-    if (scrollDistance < scrollThreshold) {
-      // Force snap back to the original position
-      flatlistRef.current?.scrollToOffset({
-        offset: currentIndex * height,
-        animated: true,
-      });
-    } else {
-      // Determine if we should move to next or previous
-      const direction = endOffset > scrollBeginOffset.current ? 1 : -1;
-      const targetIndex = currentIndex + direction;
-
-      // Ensure index is within bounds
-      if (targetIndex >= 0 && targetIndex < lives.length) {
-        flatlistRef.current?.scrollToIndex({
-          index: targetIndex,
-          animated: true,
-          viewPosition: 0,
-        });
-        setCurrentIndex(targetIndex);
-      } else {
-        // Snap back if out of bounds
-        flatlistRef.current?.scrollToOffset({
-          offset: currentIndex * height,
-          animated: true,
-        });
-      }
-    }
-  };
+  useEffect(() => {
+    fetchNextLives();
+  }, []);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: any }) => {
@@ -153,7 +119,7 @@ const LivestreamFeed = () => {
         return (
           <LivestreamStudioFeed
             id={item._id}
-            isVisible={index == currentIndex}
+            isVisible={index === currentIndex}
             shared={itmSource?.toString() == "share"}
           />
         );
@@ -161,13 +127,38 @@ const LivestreamFeed = () => {
       return (
         <LiveAuctionStudioFeed
           id={item._id}
-          isVisible={index == currentIndex}
+          isVisible={index === currentIndex}
           shared={itmSource?.toString() == "share"}
         />
       );
     },
-    [currentIndex],
+    [currentIndex, itmSource],
   );
+
+  const renderFooter = useCallback(() => {
+    if (refreshing && Platform.OS == "ios") {
+      return (
+        <View
+          className="justify-between items-center"
+          style={{
+            marginTop: statusBarHeight,
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 40,
+              height: 40,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [refreshing, statusBarHeight]);
 
   return (
     <>
@@ -205,18 +196,10 @@ const LivestreamFeed = () => {
             }
             pagingEnabled
             onEndReached={fetchNextLives}
-            onEndReachedThreshold={0.2}
-            onScroll={handleScroll}
-            onScrollBeginDrag={handleScrollBegin}
-            onMomentumScrollEnd={handleScrollEnd}
-            scrollEventThrottle={16}
-            decelerationRate="fast"
-            snapToInterval={height}
-            snapToAlignment="center"
-            initialNumToRender={1}
-            maxToRenderPerBatch={1}
-            nestedScrollEnabled={true}
-            keyboardShouldPersistTaps="handled"
+            onEndReachedThreshold={1}
+            initialNumToRender={5}
+            maxToRenderPerBatch={3}
+            windowSize={5}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
@@ -225,7 +208,17 @@ const LivestreamFeed = () => {
               index,
             })}
             showsVerticalScrollIndicator={false}
-            removeClippedSubviews={true}
+            refreshing={refreshing}
+   
+            progressViewOffset={Platform.OS == "ios" ? 120 : 0}
+            ListHeaderComponent={renderFooter}
+            removeClippedSubviews={false}
+            updateCellsBatchingPeriod={50}
+            decelerationRate="fast"
+            snapToInterval={height}
+            snapToAlignment="center"
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
           />
         )}
       </View>

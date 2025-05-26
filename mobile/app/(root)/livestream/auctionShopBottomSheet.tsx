@@ -552,7 +552,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
         onClear={handleClearSearch}
       />
 
-      <View style={styles.tabContainer}>
+      {/*<View style={styles.tabContainer}>
         <TabButton 
           title="Auctions" 
           isActive={activeTab === 'Auctions'} 
@@ -563,7 +563,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
           isActive={activeTab === 'Categories'} 
           onPress={() => handleTabChange('Categories')} 
         />
-      </View>
+      </View>*/}
 
       <View style={styles.tabContent}>
         {activeTab === 'Auctions' && (

@@ -90,6 +90,7 @@ import GlassImage from "./components/GlassImage";
 // Import the AuctionSkeletonLoader component
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
+import StreamEndedAlert from './components/StreamEndedAlert';
 
 // Extract dimensions outside component to avoid recreation on each render
 const { width, height } = Dimensions.get("window");
@@ -310,6 +311,7 @@ const LiveAuctionStudio = memo(
       followSellerThroughStream,
       unfollowSellerThroughStream,
       checkIfSellerIsFollowedFromSellerProfile,
+      isStreamEnded
     } = useLivestream() as LivestreamContextType;
 
     // Initialize all state
@@ -328,6 +330,9 @@ const LiveAuctionStudio = memo(
     const [isFollowingLoading2, setIsFollowingLoading2] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [sellerId, setSellerId] = useState<string>("");
+
+    // Add state for stream ended alert
+    // const [showStreamEndedAlert, setShowStreamEndedAlert] = useState(false);
 
     // UI interaction states
     const [likes, setLikes] = useState(23500);
@@ -438,6 +443,7 @@ const LiveAuctionStudio = memo(
     // Constants
     const TAP_THRESHOLD = 150;
 
+
     // Memoize the shared link URL
     const shareLinkUrl = useMemo(
       () =>
@@ -472,7 +478,7 @@ const LiveAuctionStudio = memo(
           // Since we only run the effect when isVisible is true,
           // this cleanup will only run when we're either unmounting
           // or isVisible is changing to false, both cases where we want to leave
-          handleLeaveStream(true);
+          handleAutoLeaveStream();
         };
       }
       // No cleanup needed if isVisible is false, as we didn't setup anything
@@ -655,9 +661,9 @@ const LiveAuctionStudio = memo(
                         viewer._id &&
                         viewer._id.toString() === buyerId.toString()) ||
                       viewer.firstName ===
-                        notification?.data?.buyerName?.split(" ")[0] ||
+                      notification?.data?.buyerName?.split(" ")[0] ||
                       viewer.lastName ===
-                        notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                   );
 
                 console.log(
@@ -1469,7 +1475,7 @@ const LiveAuctionStudio = memo(
 
     // Optimize with useCallback
     const handleLeaveStream = useCallback(
-      async (backButton: boolean) => {
+      async (leaveButton: boolean = false) => {
         if (!id) return;
 
         try {
@@ -1494,14 +1500,16 @@ const LiveAuctionStudio = memo(
           disconnectSocket();
 
           // Navigate back to previous screen
-          if (!backButton) {
-            shared ? router.push("/(root)/(tabs)/home/home") : router.back();
+          if (leaveButton) {
+            router.push("/(root)/(tabs)/home/home")
           }
         } catch (error) {
           console.error("Error leaving stream:", error);
           // Show error message to user if needed
           disconnectSocket();
-          router.back();
+          if (leaveButton) {
+            router.push("/(root)/(tabs)/home/home")
+          }
         } finally {
           disconnectSocket();
           setIsLeavingStream(false);
@@ -1514,6 +1522,51 @@ const LiveAuctionStudio = memo(
         leaveStream,
         router,
         shared,
+        setIsLeavingStream,
+        setShowMenuPopover,
+      ],
+    );
+    
+    // Optimize with useCallback
+    const handleAutoLeaveStream = useCallback(
+      async () => {
+        if (!id) return;
+
+        try {
+          setIsLeavingStream(true);
+
+          // First tell the WebView to leave the Agora channel
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`
+          if (window.leaveChannel) {
+            window.leaveChannel();
+            true;
+          }
+        `);
+            // Give a small delay to allow the WebView to process the leave command
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+
+          // Call the leaveStream API endpoint
+          const result = await leaveStream(id as string);
+
+          // Disconnect the socket
+          disconnectSocket();
+      
+        } catch (error) {
+          console.error("Error leaving stream:", error);
+          // Show error message to user if needed
+          disconnectSocket();
+        } finally {
+          disconnectSocket();
+          setIsLeavingStream(false);
+          setShowMenuPopover(false);
+        }
+      },
+      [
+        id,
+        webViewRef,
+        leaveStream,
         setIsLeavingStream,
         setShowMenuPopover,
       ],
@@ -1975,8 +2028,9 @@ const LiveAuctionStudio = memo(
             handleAuctionOrderCreated,
           );
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error setting up livestream:", error);
+
         setStatus("Error: " + (error as Error).message);
       }
     }, [
@@ -2040,8 +2094,8 @@ const LiveAuctionStudio = memo(
                   {(isLoading ||
                     showNoHostAlert2 ||
                     (!isVideoPlaying && isHostPresent)) && (
-                    <SkeletonLoader type="loading" />
-                  )}
+                      <SkeletonLoader type="loading" />
+                    )}
 
                   {/* No Host Alert */}
                   {showNoHostAlert &&
@@ -2073,8 +2127,8 @@ const LiveAuctionStudio = memo(
                             <TouchableOpacity
                               style={styles.leaveButton}
                               onPress={() => {
-                                const backButton = false;
-                                handleLeaveStream(backButton);
+                                const leaveButton = true;
+                                handleLeaveStream(leaveButton);
                               }}
                             >
                               <Text style={styles.leaveButtonText}>Leave</Text>
@@ -2092,7 +2146,14 @@ const LiveAuctionStudio = memo(
                     )}
                 </>
               ) : (
-                <SkeletonLoader type="loading" />
+                isStreamEnded ? (
+                  <StreamEndedAlert
+                    onLeave={handleLeaveStream}
+                    isLeavingStream={isLeavingStream}
+                  />
+                ) : (
+                  <SkeletonLoader type="loading" />
+                )
               )}
             </View>
 
@@ -2128,10 +2189,10 @@ const LiveAuctionStudio = memo(
                           showActivityIndicator={false}
                         />
                         <View>
-                          <Text className="text-white font-LexendDecaMedium text-base">
+                          <Text numberOfLines={1} className="text-white max-w-[100px] font-LexendDecaMedium text-base">
                             {storeInfo.name}
                           </Text>
-                          <Text className="text-gray-300 text-xs">
+                          <Text numberOfLines={1} className="text-gray-300 max-w-[100px] text-xs">
                             {storeInfo.username}
                           </Text>
                         </View>
@@ -2242,8 +2303,8 @@ const LiveAuctionStudio = memo(
                           <TouchableOpacity
                             onPress={() => {
                               if (!isLeavingStream) {
-                                const backButton = false;
-                                handleLeaveStream(backButton);
+                                const leaveButton = true;
+                                handleLeaveStream(leaveButton);
                               }
                             }}
                             disabled={isLeavingStream}

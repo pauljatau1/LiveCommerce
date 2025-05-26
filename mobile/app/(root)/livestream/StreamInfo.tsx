@@ -253,8 +253,8 @@ const StreamInfoComponent = ({
             />
           </View>
           <View style={styles.storeInfo}>
-            <Text style={styles.storeName}>{storeInfo.name}</Text>
-            <Text style={styles.username}>{storeInfo.username}</Text>
+            <Text style={styles.storeName} numberOfLines={1} className="max-w-[200px]">{storeInfo.name}</Text>
+            <Text style={styles.username} numberOfLines={1} className="max-w-[200px]">{storeInfo.username}</Text>
             <View style={styles.followerCount}>
               <MaterialIcons name="people" size={16} color={COLORS.textTertiary} />
               <Text style={styles.followerText}>

@@ -85,7 +85,7 @@
       "@react-native-google-signin/google-signin",
       "expo-tracking-transparency",
       "expo-video",
-      "./plugins/withWindowSoftInputMode"
+      "./plugins/withWindowSoftInputMode",
       [
         "customerio-expo-plugin",
         {

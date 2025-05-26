@@ -30,8 +30,8 @@ export const LiveShowProductCard = memo(function LiveShowProductCard({
     
     // Memoize the image source to prevent object recreation on every render
     const imageSource = useMemo(() => ({ 
-        uri: product.images?.[0]?.url 
-    }), [product.images]);
+        uri: product?.images?.[0]?.url 
+    }), [product?.images]);
     
     // Memoize the formatted price to prevent recalculation on every render
     const formattedPrice = useMemo(() => {

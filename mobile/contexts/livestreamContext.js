@@ -17,6 +17,7 @@ export const LivestreamProvider = ({ children }) => {
     isLoading: false,
     activeStreamDetails: null,
     isDataReady: false,
+    isStreamEnded: false,
   };
 
   const [state, dispatch] = useReducer((state, action) => {
@@ -27,6 +28,12 @@ export const LivestreamProvider = ({ children }) => {
         return { ...state, isLoading: action.payload };
       case "SET_ACTIVE_STREAM_DETAILS":
         return { ...state, activeStreamDetails: action.payload };
+      case "SET_STREAM_ENDED":
+        return { ...state, isStreamEnded: action.payload };
+      case "SET_IS_DATA_READY":
+        return { ...state, isDataReady: action.payload };
+      case "RESET_STREAM_ENDED":
+        return { ...state, isStreamEnded: false };
       default:
         return state;
     }
@@ -55,6 +62,9 @@ export const LivestreamProvider = ({ children }) => {
   const joinStream = async (streamId) => {
     try {
       dispatch({ type: "SET_IS_LOADING", payload: true });
+      // Reset the stream ended state when joining a new stream
+      dispatch({ type: "SET_STREAM_ENDED", payload: false });
+      
       const token = await AsyncStorage.getItem("token");
       const userToken = JSON.parse(token);
 
@@ -112,8 +122,23 @@ export const LivestreamProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Error joining stream:", error);
+      
+      // Check if the error is a 404 error (stream ended)
+      if (
+        error?.response?.status === 404 || 
+        (error?.response?.data?.message && (
+          error.response.data.message.includes("Active stream not found") ||
+          error.response.data.message.includes("not found") ||
+          error.response.data.message.includes("ended") ||
+          error.response.data.message.includes("no longer available")
+        ))
+      ) {
+        console.log("Stream ended or not found, setting stream ended state");
+        dispatch({ type: "SET_STREAM_ENDED", payload: true });
+      }
+      
       throw new Error(
-        error?.response?.data?.message || "Failed to join stream",
+        error?.response?.data?.message || "Failed to join stream"
       );
     } finally {
       dispatch({ type: "SET_IS_LOADING", payload: false });
@@ -313,6 +338,7 @@ export const LivestreamProvider = ({ children }) => {
         checkIfSellerIsFollowedFromSellerProfile,
         fetchStreamOrders,
         dispatch,
+        isStreamEnded: state.isStreamEnded,
       }}
     >
       {children}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image, Dimensions, Pressable, RefreshControl, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image, Dimensions, Pressable, RefreshControl, TextInput, InteractionManager } from 'react-native';
 import { AntDesign, Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,7 +51,8 @@ interface AuctionProduct {
 
 // Types for the live stream products (Buy Now)
 interface StreamProduct {
-  product: {
+  _id: string;
+  productDetails: {
     productId: string;
     name: string;
     quantity: number;
@@ -69,17 +70,28 @@ interface StreamProduct {
         url: string;
       };
     };
-    id?: string;
   };
-  currentBid?: number;
-  bidStatus?: string;
-  orderCreated?: boolean;
-  _id: string;
+  bidInfo?: {
+    minBid: number;
+    maxBid: number;
+    currentBid: number;
+    currentBidder: string;
+    bidStatus: string;
+  };
+  winner?: {
+    buyer: string;
+    bidAmount: number;
+    winningTime: string;
+  } | null;
+  orderInfo?: {
+    orderCreated: boolean;
+    orderId: string | null;
+  };
 }
 
 interface ShopBottomSheetProps {
   sellerId: string;
-  streamProducts: StreamProduct[];
+  streamId: string;
   closeSheet: () => void;
 }
 
@@ -142,13 +154,27 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
   closeSheet: () => void, 
   router: any,
   formatPrice: (price: number) => string 
-}) => (
+}) => {
+  // Pre-calculate derived values outside of render
+  const hasActiveBids = item.auction.bids && item.auction.bids.length > 0;
+  const isAuctionEnded = item.auction.status === 'ended';
+  const currentPrice = item.auction.currentHighestBid?.amount || item.auction.minBid;
+  const hasDiscount = item.auction.maxBid > 0 && item.auction.maxBid > item.auction.minBid;
+  const discountPercentage = hasDiscount 
+    ? Math.round(((item.auction.maxBid - item.auction.minBid) / item.auction.maxBid) * 100)
+    : 0;
+  const isEndingSoon = item.auction.daysLeft <= 0;
+  
+  // Handle navigation with useCallback to avoid recreations
+  const handlePress = useCallback(() => {
+    router.push(`/product/${item._id}`);
+    closeSheet();
+  }, [item._id, router, closeSheet]);
+  
+  return (
     <TouchableOpacity 
       style={styles.card}
-      onPress={() => {
-        router.push(`/product/${item._id}`);
-        closeSheet();
-      }}
+      onPress={handlePress}
       activeOpacity={0.8}
     >
       <View style={styles.cardRow}>
@@ -158,13 +184,13 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
             style={styles.cardImage}
             resizeMode="cover"
           />
-          {item.auction.bids && item.auction.bids.length > 0 && (
+          {hasActiveBids && (
             <View style={styles.bidBadge}>
               <MaterialCommunityIcons name="gavel" size={13} color="white" />
               <Text style={styles.bidBadgeText}>{item.auction.bids.length}</Text>
             </View>
           )}
-          {item.auction.status === 'ended' && (
+          {isAuctionEnded && (
             <LinearGradient
               colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']}
               style={styles.cardOverlay}
@@ -179,11 +205,11 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
             <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
             
             <View style={styles.priceContainer}>
-              <Text style={styles.priceText}>{formatPrice(item.auction.currentHighestBid?.amount || item.auction.minBid)}</Text>
-              {item.auction.maxBid > 0 && item.auction.maxBid > item.auction.minBid && (
+              <Text style={styles.priceText}>{formatPrice(currentPrice)}</Text>
+              {hasDiscount && (
                 <View style={styles.discount}>
                   <Text style={styles.discountText}>
-                    {Math.round(((item.auction.maxBid - item.auction.minBid) / item.auction.maxBid) * 100)}% off
+                    {discountPercentage}% off
                   </Text>
                 </View>
               )}
@@ -192,7 +218,7 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
           
           <View style={styles.cardFooter}>
             <View style={styles.metaInfo}>
-              {item.auction.daysLeft > 0 ? (
+              {!isEndingSoon ? (
                 <View style={styles.statusBadge}>
                   <Ionicons name="time-outline" size={12} color="#16783A" />
                   <Text style={styles.statusText}>{item.auction.daysLeft}d left</Text>
@@ -207,10 +233,7 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
             
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => {
-                router.push(`/product/${item._id}`);
-                closeSheet();
-              }}
+              onPress={handlePress}
             >
               <Text style={styles.actionButtonText}>Bid Now</Text>
             </TouchableOpacity>
@@ -249,7 +272,8 @@ const AuctionCard = memo(({ item, closeSheet, router, formatPrice }: {
         )}
       </View>
     </TouchableOpacity>
-));
+  );
+});
 
 const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: { 
   item: StreamProduct, 
@@ -257,29 +281,43 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
   router: any,
   formatPrice: (price: number) => string 
 }) => {
-  // Get simplified description without HTML markup
+  // Pre-calculate derived values outside of render
+  const isOutOfStock = item.productDetails.quantity <= 0;
+  const isLowStock = !isOutOfStock && item.productDetails.quantity <= 3;
+  const hasDiscount = item.productDetails.discountedPrice && 
+                     item.productDetails.discountedPrice > item.productDetails.price;
+  const discountPercentage = hasDiscount
+    ? Math.round(((item.productDetails.discountedPrice! - item.productDetails.price) / 
+                 item.productDetails.discountedPrice!) * 100)
+    : 0;
+    
+  // Get simplified description without HTML markup - memoized
   const simplifiedDescription = useMemo(() => 
-    extractPlainText(item.product.description),
-    [item.product.description]
+    extractPlainText(item.productDetails.description),
+    [item.productDetails.description]
   );
+  
+  // Handle navigation with useCallback to avoid recreations
+  const handlePress = useCallback(() => {
+    router.push(`/product/${item.productDetails.productId}`);
+    closeSheet();
+  }, [item.productDetails.productId, router, closeSheet]);
 
   return (
     <TouchableOpacity 
       style={styles.card}
-      onPress={() => {
-        router.push(`/product/${item.product.productId}`);
-        closeSheet();
-      }}
+      onPress={handlePress}
       activeOpacity={0.8}
+      disabled={isOutOfStock}
     >
       <View style={styles.cardRow}>
         <View style={styles.cardLeft}>
           <Image 
-            source={{ uri: item.product.images[0]?.url }} 
+            source={{ uri: item.productDetails.images[0]?.url }} 
             style={styles.cardImage}
             resizeMode="cover"
           />
-          {item.product.quantity <= 0 && (
+          {isOutOfStock && (
             <LinearGradient
               colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']}
               style={styles.cardOverlay}
@@ -291,14 +329,14 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
         
         <View style={styles.cardContent}>
           <View>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.product.name}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>{item.productDetails.name}</Text>
             
             <View style={styles.priceContainer}>
-              <Text style={styles.priceText}>{formatPrice(item.product.price)}</Text>
-              {item.product.discountedPrice && item.product.discountedPrice > item.product.price && (
+              <Text style={styles.priceText}>{formatPrice(item.productDetails.price)}</Text>
+              {hasDiscount && (
                 <View style={styles.discount}>
                   <Text style={styles.discountText}>
-                    {Math.round(((item.product.discountedPrice - item.product.price) / item.product.discountedPrice) * 100)}% off
+                    {discountPercentage}% off
                   </Text>
                 </View>
               )}
@@ -307,15 +345,15 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
           
           <View style={styles.cardFooter}>
             <View style={styles.metaInfo}>
-              {item.product.quantity <= 0 ? (
+              {isOutOfStock ? (
                 <View style={[styles.statusBadge, styles.soldOutBadge]}>
                   <Ionicons name="alert-circle-outline" size={12} color="#F44336" />
                   <Text style={[styles.statusText, styles.soldOutText]}>Sold out</Text>
                 </View>
-              ) : item.product.quantity <= 3 ? (
+              ) : isLowStock ? (
                 <View style={[styles.statusBadge, styles.lowStockBadge]}>
                   <Ionicons name="alert-circle-outline" size={12} color="#FF9800" />
-                  <Text style={[styles.statusText, styles.lowStockText]}>Only {item.product.quantity} left</Text>
+                  <Text style={[styles.statusText, styles.lowStockText]}>Only {item.productDetails.quantity} left</Text>
                 </View>
               ) : (
                 <View style={styles.statusBadge}>
@@ -326,12 +364,9 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
             </View>
             
             <TouchableOpacity 
-              style={[styles.actionButton, item.product.quantity <= 0 ? styles.disabledButton : {}]}
-              onPress={() => {
-                router.push(`/product/${item.product.productId}`);
-                closeSheet();
-              }}
-              disabled={item.product.quantity <= 0}
+              style={[styles.actionButton, isOutOfStock ? styles.disabledButton : {}]}
+              onPress={handlePress}
+              disabled={isOutOfStock}
             >
               <Text style={styles.actionButtonText}>Buy Now</Text>
             </TouchableOpacity>
@@ -358,15 +393,15 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
             <Text style={styles.productDetailLabel}>Stock</Text>
             <Text style={[
               styles.productDetailValue, 
-              item.product.quantity <= 0 ? styles.soldOutText : 
-              item.product.quantity <= 3 ? styles.lowStockText : 
+              isOutOfStock ? styles.soldOutText : 
+              isLowStock ? styles.lowStockText : 
               styles.inStockText
             ]}>
-              {item.product.quantity <= 0 ? 'Out of stock' : `${item.product.quantity.toLocaleString()} available`}
+              {isOutOfStock ? 'Out of stock' : `${item.productDetails.quantity.toLocaleString()} available`}
             </Text>
           </View>
           
-          {item.orderCreated && (
+          {item.orderInfo?.orderCreated && (
             <View style={styles.orderCreatedBadge}>
               <MaterialIcons name="local-shipping" size={12} color="#16783A" />
               <Text style={styles.orderCreatedText}>Order placed</Text>
@@ -374,10 +409,12 @@ const BuyNowCard = memo(({ item, closeSheet, router, formatPrice }: {
           )}
         </View>
         
-        {item.product.seller && (
+        {item.productDetails.seller && (
           <View style={styles.sellerInfo}>
             <MaterialIcons name="store" size={14} color="#888" />
-            <Text style={styles.sellerName}>{item.product.seller.storeName || item.product.seller.businessName}</Text>
+            <Text style={styles.sellerName}>
+              {item.productDetails.seller.storeName || item.productDetails.seller.businessName}
+            </Text>
           </View>
         )}
       </View>
@@ -416,51 +453,55 @@ const CategoriesEmptyState = memo(() => (
     </View>
 ));
 
-// Memoized skeleton loaders
-const AuctionSkeleton = memo(({ item }: { item: number }) => (
+// Memoized skeleton loaders with optimized performance
+const AuctionSkeleton = memo(({ item }: { item: number }) => {
+  // Only use pulse animation for visible items (first few)
+  const isPriority = item < 3;
+  
+  return (
     <View style={styles.card}>
       <View style={styles.cardRow}>
         <View style={styles.cardLeft}>
           <Animatable.View 
-            animation="pulse" 
+            animation={isPriority ? "pulse" : undefined}
             easing="ease-in-out" 
-            iterationCount="infinite" 
-          duration={1500}
+            iterationCount={isPriority ? "infinite" : undefined}
+            duration={2000}
             style={[styles.cardImage, styles.skeletonBox]} 
           />
         </View>
         <View style={styles.cardContent}>
           <View>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '80%', height: 18, borderRadius: 4 }]} 
             />
             <View style={{ height: 8 }} />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '50%', height: 16, borderRadius: 4 }]} 
             />
           </View>
           
           <View style={styles.cardFooter}>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '40%', height: 16, borderRadius: 8 }]} 
             />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: 70, height: 32, borderRadius: 8 }]} 
             />
           </View>
@@ -472,103 +513,108 @@ const AuctionSkeleton = memo(({ item }: { item: number }) => (
         <View style={styles.auctionDetailRow}>
           <View style={styles.auctionDetailItem}>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
             />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
             />
           </View>
           
           <View style={styles.auctionDetailItem}>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
             />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
             />
           </View>
           
           <View style={styles.auctionDetailItem}>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '70%', height: 12, borderRadius: 4, marginBottom: 4 }]} 
             />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '50%', height: 14, borderRadius: 4 }]} 
             />
           </View>
         </View>
       </View>
     </View>
-));
+  );
+});
 
-const BuyNowSkeleton = memo(({ item }: { item: number }) => (
+const BuyNowSkeleton = memo(({ item }: { item: number }) => {
+  // Only use pulse animation for visible items (first few)
+  const isPriority = item < 3;
+  
+  return (
     <View style={styles.card}>
       <View style={styles.cardRow}>
         <View style={styles.cardLeft}>
           <Animatable.View 
-            animation="pulse" 
+            animation={isPriority ? "pulse" : undefined}
             easing="ease-in-out" 
-            iterationCount="infinite" 
-          duration={1500}
+            iterationCount={isPriority ? "infinite" : undefined}
+            duration={2000}
             style={[styles.cardImage, styles.skeletonBox]} 
           />
         </View>
         <View style={styles.cardContent}>
           <View>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '80%', height: 18, borderRadius: 4 }]} 
             />
             <View style={{ height: 8 }} />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '50%', height: 16, borderRadius: 4 }]} 
             />
           </View>
           
           <View style={styles.cardFooter}>
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: '40%', height: 16, borderRadius: 8 }]} 
             />
             <Animatable.View 
-              animation="pulse" 
+              animation={isPriority ? "pulse" : undefined}
               easing="ease-in-out" 
-              iterationCount="infinite" 
-            duration={1500}
+              iterationCount={isPriority ? "infinite" : undefined}
+              duration={1500}
               style={[styles.skeletonBox, { width: 70, height: 32, borderRadius: 8 }]} 
             />
           </View>
@@ -578,36 +624,107 @@ const BuyNowSkeleton = memo(({ item }: { item: number }) => (
       {/* Skeleton for additional product details */}
       <View style={styles.productDetails}>
         <Animatable.View 
-          animation="pulse" 
+          animation={isPriority ? "pulse" : undefined}
           easing="ease-in-out" 
-          iterationCount="infinite" 
-        duration={1500}
+          iterationCount={isPriority ? "infinite" : undefined}
+          duration={1500}
           style={[styles.skeletonBox, { width: '100%', height: 32, borderRadius: 4, marginBottom: 8 }]} 
-            />
-          </View>
-        </View>
-));
+        />
+      </View>
+    </View>
+  );
+});
 
-const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBottomSheetProps) => {
+const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomSheetProps) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Auction');
   const [auctionProducts, setAuctionProducts] = useState<AuctionProduct[]>([]);
+  const [streamProducts, setStreamProducts] = useState<StreamProduct[]>([]);
+  const [streamProductsPage, setStreamProductsPage] = useState(1);
+  const [streamProductsLoading, setStreamProductsLoading] = useState(true);
+  const [noMoreStreamProducts, setNoMoreStreamProducts] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
+  const [auctionProductsPage, setAuctionProductsPage] = useState(1);
+  const [auctionProductsLoading, setAuctionProductsLoading] = useState(true);
+  const [noMoreAuctionProducts, setNoMoreAuctionProducts] = useState(false);
+  
+  // Add refs for FlatLists to enable scrollToOffset and other imperative methods
+  const auctionListRef = useRef<FlatList<AuctionProduct>>(null);
+  const buyNowListRef = useRef<FlatList<StreamProduct>>(null);
+  
+  // Track if component is mounted to avoid state updates after unmount
+  const isMounted = useRef(true);
+  
+  // Optimize the skeleton loaders rendering - MOVED INSIDE COMPONENT
+  const renderAuctionLoading = useCallback(() => {
+    const skeletonData = [1, 2, 3, 4, 5];
+    
+    return (
+      <FlatList
+        data={skeletonData}
+        renderItem={({ item, index }) => <AuctionSkeleton item={index} />}
+        keyExtractor={(item) => `auction-skeleton-${item}`}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16 }}
+        removeClippedSubviews={true}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        getItemLayout={(data, index) => ({
+          length: 232,
+          offset: 232 * index,
+          index,
+        })}
+      />
+    );
+  }, []);
+  
+  const renderBuyNowLoading = useCallback(() => {
+    const skeletonData = [1, 2, 3, 4, 5];
+    
+    return (
+      <FlatList
+        data={skeletonData}
+        renderItem={({ item, index }) => <BuyNowSkeleton item={index} />}
+        keyExtractor={(item) => `buynow-skeleton-${item}`}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16 }}
+        removeClippedSubviews={true}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        getItemLayout={(data, index) => ({
+          length: 232,
+          offset: 232 * index,
+          index,
+        })}
+      />
+    );
+  }, []);
+  
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  
   // Memoize format price function to avoid recreating it on every render
   const formatPrice = useCallback((price: number) => {
     return `₦${price.toLocaleString()}`;
   }, []);
 
-
-  // Optimized fetch function with useCallback
-  const fetchOfflineAuctions = useCallback(async () => {
+  // Fetch stream products with pagination - OPTIMIZED
+  const fetchStreamProducts = useCallback(async (page = 1, refresh = false) => {
+    if (!streamId || !isMounted.current) return;
+    
     try {
-      setIsLoading(true);
-      setError(null);
+      setStreamProductsLoading(true);
+      if (refresh) {
+        setError(null);
+      }
       
       const token = await AsyncStorage.getItem('token');
       const userToken = JSON.parse(token || '""');
@@ -617,26 +734,147 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
       }
 
       const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}api/products/seller/${sellerId}/auctions?status=ongoing&sort=startDate&page=1&limit=10`
+        `${process.env.EXPO_PUBLIC_API_URL}api/streams/${streamId}/products?page=${page}&limit=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`
+          }
+        }
       );
 
-      if (response.status === 200) {
-        setAuctionProducts(response.data.products || []);
+      // Use InteractionManager to ensure UI thread is not blocked
+      InteractionManager.runAfterInteractions(() => {
+        if (!isMounted.current) return;
+        
+        if (response.status === 200) {
+          const newProducts = response.data.products || [];
+          
+          if (newProducts.length === 0) {
+            setNoMoreStreamProducts(true);
+          } else {
+            if (refresh || page === 1) {
+              setStreamProducts(newProducts);
+            } else {
+              setStreamProducts(prev => [...prev, ...newProducts]);
+            }
+            setStreamProductsPage(page + 1);
+          }
+        }
+        
+        setStreamProductsLoading(false);
+        if (refresh) {
+          setIsLoading(false);
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching stream products:', error);
+      if (isMounted.current) {
+        setError(error.message || 'Failed to load products');
+        setStreamProductsLoading(false);
+        if (refresh) {
+          setIsLoading(false);
+        }
       }
+    }
+  }, [streamId]);
+
+  // Function to load more stream products - OPTIMIZED
+  const fetchMoreStreamProducts = useCallback(() => {
+    if (!streamProductsLoading && !noMoreStreamProducts && activeTab === 'Buy Now') {
+      // Use requestAnimationFrame to ensure UI updates before network request
+      requestAnimationFrame(() => {
+        fetchStreamProducts(streamProductsPage);
+      });
+    }
+  }, [streamProductsLoading, noMoreStreamProducts, activeTab, streamProductsPage, fetchStreamProducts]);
+
+  // Optimized fetch function for auctions - OPTIMIZED
+  const fetchOfflineAuctions = useCallback(async (page = 1, refresh = false) => {
+    if (!isMounted.current) return;
+    
+    try {
+      if (refresh) {
+        setIsLoading(true);
+        setError(null);
+        setAuctionProductsPage(1);
+        setNoMoreAuctionProducts(false);
+      } else {
+        setAuctionProductsLoading(true);
+      }
+      
+      const token = await AsyncStorage.getItem('token');
+      const userToken = JSON.parse(token || '""');
+      
+      if (!userToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}api/products/seller/${sellerId}/auctions?status=ongoing&sort=startDate&page=${page}&limit=10`
+      );
+
+      // Use InteractionManager to ensure UI thread is not blocked
+      InteractionManager.runAfterInteractions(() => {
+        if (!isMounted.current) return;
+        
+        if (response.status === 200) {
+          const newProducts = response.data.products || [];
+          if (newProducts.length === 0) {
+            setNoMoreAuctionProducts(true);
+          } else {
+            if (refresh || page === 1) {
+              setAuctionProducts(newProducts);
+            } else {
+              setAuctionProducts(prev => [...prev, ...newProducts]);
+            }
+            setAuctionProductsPage(page + 1);
+          }
+        }
+        
+        setAuctionProductsLoading(false);
+        if (refresh) {
+          setIsLoading(false);
+        }
+      });
     } catch (error: any) {
       console.error('Error fetching offline auctions:', error);
-      setError(error.message || 'Failed to load auctions');
-    } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setError(error.message || 'Failed to load auctions');
+        setAuctionProductsLoading(false);
+        if (refresh) {
+          setIsLoading(false);
+        }
+      }
     }
   }, [sellerId]);
 
-  // Only fetch when activeTab changes to 'Auction' or sellerId changes
+  // Function to load more auction products - OPTIMIZED
+  const fetchMoreAuctionProducts = useCallback(() => {
+    if (!auctionProductsLoading && !noMoreAuctionProducts && activeTab === 'Auction') {
+      // Use requestAnimationFrame to ensure UI updates before network request
+      requestAnimationFrame(() => {
+        fetchOfflineAuctions(auctionProductsPage, false);
+      });
+    }
+  }, [auctionProductsLoading, noMoreAuctionProducts, activeTab, auctionProductsPage, fetchOfflineAuctions]);
+
+  // Fetch data based on active tab
   useEffect(() => {
     if (activeTab === 'Auction') {
-      fetchOfflineAuctions();
+      fetchOfflineAuctions(1, true);
+    } else if (activeTab === 'Buy Now') {
+      fetchStreamProducts(1, true);
     }
-  }, [activeTab, sellerId, fetchOfflineAuctions]);
+  }, [activeTab, sellerId, streamId, fetchOfflineAuctions, fetchStreamProducts]);
+
+  // Reset pagination and refetch when streamId changes
+  useEffect(() => {
+    if (streamId && activeTab === 'Buy Now') {
+      setStreamProductsPage(1);
+      setNoMoreStreamProducts(false);
+      fetchStreamProducts(1, true);
+    }
+  }, [streamId, fetchStreamProducts]);
 
   // Memoize tab change handler
   const handleTabChange = useCallback((tab: string) => {
@@ -647,10 +885,14 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (activeTab === 'Auction') {
-      await fetchOfflineAuctions();
+      await fetchOfflineAuctions(1, true);
+    } else if (activeTab === 'Buy Now') {
+      setStreamProductsPage(1);
+      setNoMoreStreamProducts(false);
+      await fetchStreamProducts(1, true);
     }
     setRefreshing(false);
-  }, [activeTab, fetchOfflineAuctions]);
+  }, [activeTab, fetchOfflineAuctions, fetchStreamProducts]);
 
   // Memoize search handler
   const handleSearchChange = useCallback((text: string) => {
@@ -673,24 +915,45 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
   , [auctionProducts, searchQuery]);
 
   const filteredBuyNowProducts = useMemo(() => 
-    searchQuery && streamProducts
+    searchQuery 
     ? streamProducts.filter(item => 
-        item.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.product.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        item.productDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.productDetails.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
       : streamProducts
   , [streamProducts, searchQuery]);
 
-  // Memoize the error view
-  const ErrorView = useMemo(() => (
+  // Memoize the error view for auction products
+  const AuctionErrorView = useMemo(() => (
     <View style={styles.emptyState}>
       <MaterialIcons name="error-outline" size={48} color="#888" />
       <Text style={styles.emptyStateText}>Failed to load auctions</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={fetchOfflineAuctions}>
+      <TouchableOpacity 
+        style={styles.retryButton} 
+        onPress={() => {
+          fetchOfflineAuctions(1, true);
+        }}
+      >
         <Text style={styles.retryButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   ), [fetchOfflineAuctions]);
+
+  // Memoize the error view for stream products
+  const StreamProductsErrorView = useMemo(() => (
+    <View style={styles.emptyState}>
+      <MaterialIcons name="error-outline" size={48} color="#888" />
+      <Text style={styles.emptyStateText}>Failed to load products</Text>
+      <TouchableOpacity 
+        style={styles.retryButton} 
+        onPress={() => {
+          fetchStreamProducts(1, true);
+        }}
+      >
+        <Text style={styles.retryButtonText}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  ), [fetchStreamProducts]);
 
   // Memoize the empty search view
   const EmptySearchView = useMemo(() => (
@@ -708,71 +971,106 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
     </View>
   ), []);
 
-  // Memoize render functions for FlatList
-  const renderAuctionLoading = useCallback(() => (
-    <FlatList
-      data={[1, 2, 3, 4, 5]}
-      renderItem={({ item }) => <AuctionSkeleton item={item} />}
-      keyExtractor={(item) => `auction-skeleton-${item}`}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ padding: 16 }}
-      removeClippedSubviews={true}
-      initialNumToRender={2}
-      maxToRenderPerBatch={2}
-      windowSize={5}
-    />
-  ), []);
-
-  const renderBuyNowLoading = useCallback(() => (
-    <FlatList
-      data={[1, 2, 3, 4, 5]}
-      renderItem={({ item }) => <BuyNowSkeleton item={item} />}
-      keyExtractor={(item) => `buynow-skeleton-${item}`}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ padding: 16 }}
-      removeClippedSubviews={true}
-      initialNumToRender={2}
-      maxToRenderPerBatch={2}
-      windowSize={5}
-    />
-  ), []);
-
   // Optimized renderItem functions for FlatList
-  const renderAuctionItem = useCallback(({ item, index }: { item: AuctionProduct, index: number }) => (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', delay: Math.min(index, 5) * 50, duration: 300 }}
-      key={item._id}
-    >
+  const renderAuctionItem = useCallback(({ item, index }: { item: AuctionProduct, index: number }) => {
+    // Only animate the first 5 items to reduce animation overhead
+    const shouldAnimate = index < 5;
+    
+    if (shouldAnimate) {
+      return (
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', delay: index * 50, duration: 300 }}
+          key={item._id}
+        >
+          <AuctionCard 
+            item={item}
+            closeSheet={closeSheet}
+            router={router}
+            formatPrice={formatPrice}
+          />
+        </MotiView>
+      );
+    }
+    
+    // Don't animate items outside the initial viewport for better performance
+    return (
       <AuctionCard 
         item={item}
         closeSheet={closeSheet}
         router={router}
         formatPrice={formatPrice}
       />
-    </MotiView>
-  ), [closeSheet, router, formatPrice]);
+    );
+  }, [closeSheet, router, formatPrice]);
 
-  const renderBuyNowItem = useCallback(({ item, index }: { item: StreamProduct, index: number }) => (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', delay: Math.min(index, 5) * 50, duration: 300 }}
-      key={item.product.productId}
-    >
+  const renderBuyNowItem = useCallback(({ item, index }: { item: StreamProduct, index: number }) => {
+    // Only animate the first 5 items to reduce animation overhead
+    const shouldAnimate = index < 5;
+    
+    if (shouldAnimate) {
+      return (
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', delay: index * 50, duration: 300 }}
+          key={item.productDetails.productId}
+        >
+          <BuyNowCard 
+            item={item}
+            closeSheet={closeSheet}
+            router={router}
+            formatPrice={formatPrice}
+          />
+        </MotiView>
+      );
+    }
+    
+    // Don't animate items outside the initial viewport for better performance
+    return (
       <BuyNowCard 
         item={item}
         closeSheet={closeSheet}
         router={router}
         formatPrice={formatPrice}
       />
-    </MotiView>
-  ), [closeSheet, router, formatPrice]);
+    );
+  }, [closeSheet, router, formatPrice]);
 
-  // Memoize keyExtractor functions
-  const auctionKeyExtractor = useCallback((item: AuctionProduct) => item._id, []);
-  const buyNowKeyExtractor = useCallback((item: StreamProduct) => item.product.productId, []);
+  // Create stable memoized getItemLayout functions with proper types
+  const getAuctionItemLayout = useCallback((data: ArrayLike<any> | null | undefined, index: number) => ({
+    length: 232, // Fixed height for auction items
+    offset: 232 * index,
+    index,
+  }), []);
+  
+  const getBuyNowItemLayout = useCallback((data: ArrayLike<any> | null | undefined, index: number) => ({
+    length: 232, // Fixed height for buy now items
+    offset: 232 * index,
+    index,
+  }), []);
+
+  // Optimized FlatList props for better performance
+  const optimizedFlatListProps = useMemo(() => ({
+    removeClippedSubviews: true,
+    initialNumToRender: 3, // Reduce initial render batch 
+    maxToRenderPerBatch: 3, // Render smaller batches
+    windowSize: 7, // Smaller window size to improve memory usage
+    updateCellsBatchingPeriod: 50, // More frequent updates
+    showsVerticalScrollIndicator: false,
+    maintainVisibleContentPosition: { minIndexForVisible: 0 }, // Keep track of visible items
+    onEndReachedThreshold: 0.5, // Load more data earlier
+  }), []);
+
+  // More efficient keyExtractor functions to prevent unnecessary re-renders
+  const auctionKeyExtractor = useCallback((item: AuctionProduct) => 
+    `auction-${item._id}-${item.auction.status}-${item.auction.currentHighestBid?.amount || 0}`,
+  []);
+  
+  const buyNowKeyExtractor = useCallback((item: StreamProduct, index: number) => 
+    item.productDetails.productId + index.toString(),
+  []);
 
   const commonRefreshControl = (
     <RefreshControl
@@ -784,25 +1082,10 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
     />
   );
 
-  // FlatList optimization props
-  const flatListOptimizationProps = {
-    removeClippedSubviews: true,
-    initialNumToRender: 4,
-    maxToRenderPerBatch: 3,
-    windowSize: 6,
-    showsVerticalScrollIndicator: false,
-    getItemLayout: useCallback((data: Array<any>, index: number) => ({
-      length: 232, // approximate height of card
-      offset: 232 * index,
-      index,
-    }), []),
-    contentContainerStyle: { padding: 16 }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Shop</Text>
+        <Text style={styles.title}>Live Shop</Text>
       </View>
 
       {/* Search Bar */}
@@ -836,12 +1119,12 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
         >
           <Text style={[styles.tabText, activeTab === 'Buy Now' && styles.activeTabText]}>Buy Now</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={[styles.tab, activeTab === 'Categories' && styles.activeTab]}
           onPress={() => handleTabChange('Categories')}
         >
           <Text style={[styles.tabText, activeTab === 'Categories' && styles.activeTabText]}>Categories</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       <View style={styles.tabContent}>
@@ -850,16 +1133,35 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
             {isLoading ? (
               renderAuctionLoading()
             ) : error ? (
-              ErrorView
+              AuctionErrorView
             ) : filteredAuctionProducts.length === 0 ? (
               searchQuery ? EmptySearchView : EmptyAuctionsView
             ) : (
-              <FlatList
+              <FlatList<AuctionProduct>
+                ref={auctionListRef}
                 data={filteredAuctionProducts}
                 renderItem={renderAuctionItem}
                 keyExtractor={auctionKeyExtractor}
                 refreshControl={commonRefreshControl}
-                {...flatListOptimizationProps}
+                onEndReached={fetchMoreAuctionProducts}
+                getItemLayout={getAuctionItemLayout}
+                // Use optimized loading indicator to reduce re-renders
+                ListFooterComponent={
+                  auctionProductsLoading && !refreshing ? (
+                    <View style={styles.loadingIndicator}>
+                      <ActivityIndicator size="small" color="#16783A" />
+                      <Text style={styles.loadingText}>Loading more auctions...</Text>
+                    </View>
+                  ) : null
+                }
+                {...optimizedFlatListProps}
+                contentContainerStyle={{ padding: 16 }}
+                // Add performance improvements for large lists
+                disableVirtualization={false}
+                legacyImplementation={false}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={16}
+                directionalLockEnabled={true}
               />
             )}
           </>
@@ -870,10 +1172,7 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
             {isLoading ? (
               renderBuyNowLoading()
             ) : error ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="error-outline" size={48} color="#888" />
-                <Text style={styles.emptyStateText}>Failed to load products</Text>
-              </View>
+              StreamProductsErrorView
             ) : (filteredBuyNowProducts?.length === 0 || !filteredBuyNowProducts) ? (
               <View style={styles.emptyState}>
                 {searchQuery ? (
@@ -889,18 +1188,37 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
                 )}
               </View>
             ) : (
-              <FlatList
+              <FlatList<StreamProduct>
+                ref={buyNowListRef}
                 data={filteredBuyNowProducts}
                 renderItem={renderBuyNowItem}
                 keyExtractor={buyNowKeyExtractor}
                 refreshControl={commonRefreshControl}
-                {...flatListOptimizationProps}
+                onEndReached={fetchMoreStreamProducts}
+                getItemLayout={getBuyNowItemLayout}
+                // Use optimized loading indicator to reduce re-renders
+                ListFooterComponent={
+                  streamProductsLoading && !refreshing ? (
+                    <View style={styles.loadingIndicator}>
+                      <ActivityIndicator size="small" color="#16783A" />
+                      <Text style={styles.loadingText}>Loading more products...</Text>
+                    </View>
+                  ) : null
+                }
+                {...optimizedFlatListProps}
+                contentContainerStyle={{ padding: 16 }}
+                // Add performance improvements for large lists
+                disableVirtualization={false}
+                legacyImplementation={false}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={16}
+                directionalLockEnabled={true}
               />
             )}
           </>
         )}
 
-        {activeTab === 'Categories' && <CategoriesEmptyState />}
+        {/* {activeTab === 'Categories' && <CategoriesEmptyState />} */}
       </View>
     </View>
   );
@@ -909,7 +1227,7 @@ const ShopBottomSheet = memo(({ sellerId, streamProducts, closeSheet }: ShopBott
 // Define styles outside the component to avoid recreation on each render
 const styles = StyleSheet.create({
   container: {
-    height: 600,
+    height: "100%",
     backgroundColor: '#121212',
   },
   header: {
@@ -1297,6 +1615,22 @@ const styles = StyleSheet.create({
   },
   inStockText: {
     color: '#16783A',
+  },
+  loadingIndicator: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    marginBottom: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+  },
+  loadingText: {
+    color: '#16783A',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 8,
+    fontFamily: 'LexendDecaMedium',
   },
 });
 
