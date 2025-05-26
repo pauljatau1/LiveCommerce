@@ -2041,4 +2041,94 @@ router.get('/:streamId/renew-token',
   streamController.renewAgoraToken
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/products:
+ *   get:
+ *     summary: Get products from a specific stream with pagination
+ *     description: Returns a paginated list of products associated with a stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the stream
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of products with pagination info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       productDetails:
+ *                         type: object
+ *                       bidInfo:
+ *                         type: object
+ *                         properties:
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           currentBid:
+ *                             type: number
+ *                           bidStatus:
+ *                             type: string
+ *                       winner:
+ *                         type: object
+ *                         nullable: true
+ *                       orderInfo:
+ *                         type: object
+ *                         properties:
+ *                           orderCreated:
+ *                             type: boolean
+ *                           orderId:
+ *                             type: string
+ *                             nullable: true
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     totalProducts:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/products',
+  authMiddleware.verifyToken,
+  streamController.getStreamProducts
+);
+
 module.exports = router; 

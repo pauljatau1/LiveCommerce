@@ -289,6 +289,14 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
+    
+    // Check if the stream has already ended
+    if (stream.status === 'ended') {
+      return res.status(400).json({ 
+        message: 'This stream has already ended',
+        error: 'Cannot restart an ended stream'
+      });
+    }
 
     // Get seller with store name and followers
     const seller = await Seller.findById(req.user.id).select('agoraUid storeName followers');
@@ -1295,8 +1303,7 @@ exports.createOpenLiveShow = async (req, res) => {
       tags,
       scheduledStartTime,
       video,
-      coverImage,
-      products
+      coverImage
     } = req.body;
 
     // Validate required fields
@@ -1323,58 +1330,6 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // No need to parse tags as they should now be arrays directly
     const parsedTags = tags || [];
-
-    // Parse products array
-    const productsList = products || [];
-    if (!Array.isArray(productsList)) {
-      return res.status(400).json({
-        message: 'Invalid products format. Expected array'
-      });
-    }
-
-    // Check if number of products exceeds maximum allowed (10)
-    if (productsList.length > 10) {
-      return res.status(400).json({
-        message: 'Maximum of 10 products allowed for an open live show'
-      });
-    }
-
-    // Fetch complete product details from the database for each product
-    const productsWithFullDetails = await Promise.all(
-      productsList.map(async (p) => {
-        // Get the productId from the frontend data
-        const productId = p.product?.productId;
-
-        if (!productId) {
-          return p; // If no productId, return as is
-        }
-
-        // Fetch complete product details from database
-        const completeProduct = await Product.findById(productId).select(
-          '_id name description category images price sku stock variants'
-        );
-
-        if (!completeProduct) {
-          return p; // If product not found, return as is
-        }
-
-        // Return the product with complete details from database
-        return {
-          ...p,
-          product: {
-            productId: completeProduct._id,
-            name: completeProduct.name,
-            category: completeProduct.category,
-            images: completeProduct.images,
-            sku: completeProduct.sku,
-            quantity: completeProduct.stock || 0,
-            price: completeProduct.price,
-            description: completeProduct.description,
-            variants: completeProduct.variants
-          }
-        };
-      })
-    );
 
     // Upload cover image to AWS S3
     let imageData = {};
@@ -1453,10 +1408,18 @@ exports.createOpenLiveShow = async (req, res) => {
     // Generate Agora token
     const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
-    // Check if we have at least one product
-    if (productsWithFullDetails.length === 0) {
+    // Get all seller's active products with full details (limited to 30, sorted newest first)
+    const sellerProducts = await Product.find({
+      seller: req.user.id,
+      status: 'active',
+      visibility: 'visible'
+    })
+    .sort({ createdAt: -1 }) // Sort by creation date, newest first
+    .select('_id name description category images price sku stock');
+
+    if (sellerProducts.length === 0) {
       return res.status(400).json({
-        message: 'At least one product is required for an open live show'
+        message: 'No active products found for this seller'
       });
     }
 
@@ -1469,8 +1432,16 @@ exports.createOpenLiveShow = async (req, res) => {
       category,
       subCategory,
       tags: parsedTags,
-      products: productsWithFullDetails.map(p => ({
-        product: p.product
+      products: sellerProducts.map(p => ({
+        product: {
+          productId: p._id,
+          name: p.name,
+          category: p.category,
+          images: p.images,
+          sku: p.sku,
+          quantity: p.stock || 0,
+          price: p.price
+        }
         // For open shows, we don't include minBid and maxBid
       })),
       channelName,
@@ -3797,6 +3768,76 @@ exports.getStreamsByCategoryAndSubcategory = async (req, res) => {
     console.error('Get streams by category and subcategory error:', error);
     res.status(500).json({
       message: 'Failed to fetch streams by category and subcategory',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get products of a specific stream with pagination
+ */
+exports.getStreamProducts = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Verify that the stream exists
+    const stream = await Stream.findById(streamId);
+    if (!stream) {
+      return res.status(404).json({
+        status: false,
+        message: 'Stream not found'
+      });
+    }
+
+    // Get total count for pagination
+    const totalProducts = stream.products.length;
+    
+    // Extract the paginated subset of products
+    const paginatedProducts = stream.products.slice(skip, skip + limit);
+
+    // Format the products for response
+    const formattedProducts = paginatedProducts.map(product => {
+      return {
+        _id: product._id,
+        productDetails: product.product,
+        bidInfo: {
+          minBid: product.minBid,
+          maxBid: product.maxBid,
+          currentBid: product.currentBid,
+          currentBidder: product.currentBidder,
+          bidStatus: product.bidStatus
+        },
+        winner: product.bidWinner ? {
+          buyer: product.bidWinner.buyer,
+          bidAmount: product.bidWinner.bidAmount,
+          winningTime: product.bidWinner.winningTime
+        } : null,
+        orderInfo: {
+          orderCreated: product.orderCreated,
+          orderId: product.orderId
+        }
+      };
+    });
+
+    res.json({
+      status: true,
+      products: formattedProducts,
+      pagination: {
+        totalProducts,
+        totalPages: Math.ceil(totalProducts / limit),
+        currentPage: page,
+        limit
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching stream products:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch stream products',
       error: error.message
     });
   }

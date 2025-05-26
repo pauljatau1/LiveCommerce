@@ -1967,7 +1967,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
                 <a href="https://app.auqli.live/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
               </div>
     
-              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You’ve just joined a whole new way to shop online — one where you don’t have to guess what you’re buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You've just joined a whole new way to shop online — one where you don't have to guess what you're buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
     
               <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What Makes Auqli Different?</h3>
               <ul style="list-style: none; padding: 0; margin: 0;">
@@ -2023,31 +2023,126 @@ agenda.define('credit_welcome_bonus', async (job) => {
 
 // Start Agenda
 const startAgenda = async () => {
-  await agenda.start();
-  console.log('Agenda started successfully');
-  
-  // Schedule the pending message notifications job to run every 5 minutes
-  await agenda.every('5 minutes', 'process-pending-message-notifications');
-  // console.log('Scheduled message notification job to run every 5 minutes');
-  
-  // Schedule the delete expired streams job to run every 15 minutes
-  await agenda.every('15 minutes', 'delete_expired_streams');
-  // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
-  
-  // Schedule daily livestream analytics job to run at midnight WAT
-  // Note: WAT is UTC+1, so 11:00 PM UTC
-  await agenda.every('0 23 * * *', 'daily_livestream_analytics');
-  console.log('Scheduled daily livestream analytics job to run at midnight WAT');
-  
-  // Schedule weekly livestream analytics job to run at 1:00 AM WAT on Mondays
-  // Note: WAT is UTC+1, so 0:00 AM UTC on Mondays (day 1)
-  await agenda.every('0 0 * * 1', 'weekly_livestream_analytics');
-  console.log('Scheduled weekly livestream analytics job to run at 1:00 AM WAT on Mondays');
-  
-  // Schedule monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month
-  // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
-  await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
-  console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
+  try {
+    await agenda.start();
+    console.log('Agenda started successfully');
+
+    // Schedule the pending message notifications job to run every 5 minutes
+    await agenda.every('5 minutes', 'process-pending-message-notifications');
+    // console.log('Scheduled message notification job to run every 5 minutes');
+    
+    // Schedule the delete expired streams job to run every 15 minutes
+    await agenda.every('15 minutes', 'delete_expired_streams');
+    // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
+    
+    // Schedule daily livestream analytics job to run at midnight WAT
+    // Note: WAT is UTC+1, so 11:00 PM UTC
+    await agenda.every('0 23 * * *', 'daily_livestream_analytics');
+    console.log('Scheduled daily livestream analytics job to run at midnight WAT');
+    
+    // Schedule weekly livestream analytics job to run at 1:00 AM WAT on Mondays
+    // Note: WAT is UTC+1, so 0:00 AM UTC on Mondays (day 1)
+    await agenda.every('0 0 * * 1', 'weekly_livestream_analytics');
+    console.log('Scheduled weekly livestream analytics job to run at 1:00 AM WAT on Mondays');
+    
+    // Schedule monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month
+    // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
+    await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
+    console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
+
+    // Stream Auto End job
+    agenda.define('stream_auto_end', async (job) => {
+      let streamId;
+      try {
+        const { streamId: jobStreamId, sellerId, jobId, reason } = job.attrs.data;
+        streamId = jobStreamId;
+        
+        console.log(`[AGENDA] Running stream auto-end job ${jobId} for streamId: ${streamId}, reason: ${reason}`);
+        
+        // Get the Stream model to check if the stream is still live
+        const Stream = require('../models/Stream');
+        
+        // Use findOneAndUpdate to get and mark the stream as processing in one atomic operation
+        // This creates a "lock" to prevent other jobs from processing the same stream
+        const stream = await Stream.findOneAndUpdate(
+          { _id: streamId, status: 'live' },
+          { $set: { processingEndJob: true } },
+          { new: false } // Return the document as it was before the update
+        );
+        
+        if (!stream) {
+          console.log(`[AGENDA] Stream ${streamId} not found or not live, cancelling auto-end job`);
+          return;
+        }
+        
+        // If stream was already marked as processing, another job is handling it
+        if (stream.processingEndJob) {
+          console.log(`[AGENDA] Stream ${streamId} is already being processed by another job, skipping`);
+          return;
+        }
+        
+        // Get seller ID from the stream if not provided
+        const streamSellerId = sellerId || stream.seller.toString();
+        
+        // Check if the seller has reconnected and has an active socket connection
+        const socketManager = require('../socket/socketManager');
+        const activeUsers = socketManager.getActiveUsers();
+        
+        if (activeUsers && activeUsers.has(streamSellerId)) {
+          console.log(`[AGENDA] Seller ${streamSellerId} has reconnected, cancelling auto-end job`);
+          // Remove the processing flag since we're not ending the stream
+          await Stream.updateOne(
+            { _id: streamId },
+            { $unset: { processingEndJob: 1 } }
+          );
+          return;
+        }
+        
+        // Create a streamController instance to directly call the endStream method
+        const streamController = require('../controllers/streamController');
+        
+        // Create mock request and response objects
+        const mockReq = {
+          params: { streamId },
+          user: { id: streamSellerId },
+          io: socketManager.getIO()
+        };
+        
+        const mockRes = {
+          status: function(code) {
+            this.statusCode = code;
+            return this;
+          },
+          json: function(data) {
+            console.log(`[AGENDA] Stream auto-end response: ${JSON.stringify(data)}`);
+            return this;
+          }
+        };
+        
+        // Call the endStream controller method directly
+        await streamController.endStream(mockReq, mockRes);
+        
+        console.log(`[AGENDA] Successfully ended stream ${streamId} due to timeout after seller ${streamSellerId} disconnected`);
+      } catch (error) {
+        console.error('[AGENDA] Error in stream_auto_end job:', error);
+      } finally {
+        // Make sure we clear the processing flag if something went wrong
+        if (streamId) {
+          try {
+            const Stream = require('../models/Stream');
+            await Stream.updateOne(
+              { _id: streamId, processingEndJob: true },
+              { $unset: { processingEndJob: 1 } }
+            );
+          } catch (cleanupError) {
+            console.error('[AGENDA] Error cleaning up processing flag:', cleanupError);
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to start Agenda:', error);
+  }
 };
 
 // Export agenda instance and startAgenda function

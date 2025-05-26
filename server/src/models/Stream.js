@@ -189,6 +189,10 @@ const streamSchema = new mongoose.Schema({
   }],
   streamLink:{
     type:String
+  },
+  processingEndJob: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
