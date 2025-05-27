@@ -6,7 +6,10 @@ const ALLOWED_ADMIN_EMAILS = [
   'bolu@auqli.com',
   'support@auqli.com',
   'joseph@auqli.com',
-  'paul@auqli.com'
+  'paul@auqli.com',
+  ' melissa@auqli.com',
+  'alex@commercejet.com',
+  'matt@auqli.com',
 ];
 
 const adminSchema = new mongoose.Schema({

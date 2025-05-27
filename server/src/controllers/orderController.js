@@ -4111,14 +4111,14 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
   const msg = {
     to: buyer.email,
     from: {
-      email: 'orders@auqli.com',
-      name: 'Auqli Orders'
+      email: 'support@auqli.com',
+      name: 'Auqli Shipping'
     },
     subject: `Order Confirmation - #${order.order_id}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="max-width: 150px;">
         </div>
         
         <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
