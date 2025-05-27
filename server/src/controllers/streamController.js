@@ -919,7 +919,7 @@ exports.getStreamDetails = async (req, res) => {
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
       .populate('viewers', 'firstName lastName username')
-      .select('seller title description coverImage category tags products status channelName agoraToken scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt');
+      .select('seller title description coverImage category tags products status channelName agoraToken scheduledStartTime actualStartTime endTime streamLink viewers type bids createdAt updatedAt');
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
@@ -1124,6 +1124,7 @@ exports.joinStreamSeller = async (req, res) => {
       .populate('viewers', 'firstName lastName username avatarUrl')
       .populate('bids.buyer', 'firstName lastName username')
       .populate('bids.product', 'name price')
+      .select('streamLink')
       .lean(); // Convert to plain JavaScript object
 
     if (!stream) {
