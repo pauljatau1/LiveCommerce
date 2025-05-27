@@ -192,7 +192,8 @@ function Sellers() {
     category: "",
     sortBy: "newest",
     emailVerified: "",
-    hasProducts: ""
+    hasProducts: "",
+    verificationStatus: "" // Add new filter
   });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -285,7 +286,7 @@ function Sellers() {
       
       // If the statistics endpoint doesn't exist, get all sellers (without pagination)
       // to calculate the statistics on the client
-      const response = await api.get('/api/admin/sellers?limit=1000');
+      const response = await api.get('/api/admin/sellers?limit=100');
       
       if (response.data.success) {
         const allSellersData = response.data.sellers;
@@ -344,7 +345,14 @@ function Sellers() {
       params.append('limit', limit.toString());
       
       if (filters.search) params.append('search', filters.search);
-      if (filters.isVerified) params.append('isVerified', filters.isVerified);
+      if (filters.isVerified) {
+        if (filters.isVerified === 'pending') {
+          // For pending verification, we'll filter client-side
+          params.append('isVerified', 'false');
+        } else {
+          params.append('isVerified', filters.isVerified);
+        }
+      }
       if (filters.isDisabled) params.append('isDisabled', filters.isDisabled);
       if (filters.country) params.append('country', filters.country);
       if (filters.category) params.append('category', filters.category);
@@ -366,13 +374,21 @@ function Sellers() {
       }
       params.append('sortBy', sortByValue);
       
-      // No longer filtering by account type in the API call
-      // Let's do it client-side instead
-      
       const response = await api.get(`/api/admin/sellers?${params.toString()}`);
       
       if (response.data.success) {
-        const fetchedSellers = response.data.sellers;
+        let fetchedSellers = response.data.sellers;
+        
+        // Apply client-side filtering for pending verification
+        if (filters.isVerified === 'pending') {
+          fetchedSellers = fetchedSellers.filter((seller: Seller) => 
+            !seller.isVerified && 
+            (seller.accountType === 'business' || seller.accountType === 'individual') &&
+            seller.verificationDocuments?.documents &&
+            seller.verificationDocuments.documents.length > 0
+          );
+        }
+        
         setAllSellers(fetchedSellers);
         
         // Apply client-side filtering based on selected tab
@@ -1140,7 +1156,8 @@ function Sellers() {
                 category: "",
                 sortBy: "newest",
                 emailVerified: "",
-                hasProducts: ""
+                hasProducts: "",
+                verificationStatus: "" // Reset new filter
               });
               setSearchInput("");
               setPage(1);
@@ -1181,6 +1198,7 @@ function Sellers() {
               <option value="">All</option>
               <option value="true">Verified</option>
               <option value="false">Unverified</option>
+              <option value="pending">Pending Verification</option>
             </select>
           </div>
           <div>

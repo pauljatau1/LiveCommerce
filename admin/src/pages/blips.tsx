@@ -25,7 +25,9 @@ interface Seller {
   firstName: string;
   lastName: string;
   storeName: string;
-  storeAvatar: string;
+  storeAvatar: {
+    url: string;
+  };
   email: string;
   phoneNumber: string;
   isVerified: boolean;
@@ -85,6 +87,7 @@ function ProductBlips() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [currentBlipDetails, setCurrentBlipDetails] = useState<ProductBlip | null>(null)
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({})
+  const [deletingBlip, setDeletingBlip] = useState<string | null>(null)
   
   // Pagination and filtering state
   const [pagination, setPagination] = useState<PaginationData>({
@@ -109,9 +112,9 @@ function ProductBlips() {
     fetchBlips(true)
   }, [])
 
-  const fetchBlips = async (isNewSearch = false) => {
+  const fetchBlips = async (isNewSearch = false, page?: number) => {
     try {
-      const currentPage = isNewSearch ? 1 : pagination.currentPage
+      const currentPage = page || (isNewSearch ? 1 : pagination.currentPage)
       if (isNewSearch) {
         setLoading(true)
       } else {
@@ -133,7 +136,14 @@ function ProductBlips() {
         ...(filters.dateRange.to && { endDate: format(filters.dateRange.to, 'yyyy-MM-dd') })
       }
 
+      console.log('Fetching blips with params:', params)
       const response = await api.get('/api/admin/product-blips', { params })
+      console.log('Received response:', {
+        currentPage: response.data.pagination.currentPage,
+        totalPages: response.data.pagination.totalPages,
+        totalBlips: response.data.pagination.totalBlips,
+        blipsCount: response.data.blips.length
+      })
       
       // Update pagination data and stats
       setPagination({
@@ -165,8 +175,9 @@ function ProductBlips() {
 
   const handleLoadMore = () => {
     if (pagination.currentPage < pagination.totalPages) {
-      setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))
-      fetchBlips(false)
+      const nextPage = pagination.currentPage + 1;
+      setPagination(prev => ({ ...prev, currentPage: nextPage }))
+      fetchBlips(false, nextPage)
     }
   }
 
@@ -260,6 +271,42 @@ function ProductBlips() {
 
   const openBlipDetails = (blip: ProductBlip) => {
     setCurrentBlipDetails(blip)
+  }
+
+  const handleDeleteBlip = async (productId: string, blipId: string) => {
+    try {
+      setDeletingBlip(blipId)
+      await api.delete(`/api/admin/products/${productId}/blips/${blipId}`)
+      
+      // Remove the blip from the state
+      setBlips(prev => prev.filter(b => b.blipId !== blipId))
+      
+      // Update stats
+      if (stats) {
+        setStats({
+          ...stats,
+          totalBlips: stats.totalBlips - 1
+        })
+      }
+      
+      // Update pagination
+      setPagination(prev => ({
+        ...prev,
+        totalBlips: prev.totalBlips - 1
+      }))
+
+      toast.success('Blip deleted successfully')
+      
+      // Close the details dialog if the deleted blip was being viewed
+      if (currentBlipDetails?.blipId === blipId) {
+        setCurrentBlipDetails(null)
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to delete blip"
+      toast.error(errorMessage)
+    } finally {
+      setDeletingBlip(null)
+    }
   }
 
   // Initial loading state
@@ -408,6 +455,19 @@ function ProductBlips() {
                           >
                             <Info className="h-3.5 w-3.5" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full hover:bg-red-900/30"
+                            onClick={() => handleDeleteBlip(blip.productId, blip.blipId)}
+                            disabled={deletingBlip === blip.blipId}
+                          >
+                            {deletingBlip === blip.blipId ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                            )}
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -419,7 +479,7 @@ function ProductBlips() {
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-shrink-0 h-6 w-6 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
                           {blip.seller.storeAvatar ? (
-                            <img src={blip.seller.storeAvatar} alt={blip.seller.storeName} className="h-full w-full object-cover" />
+                            <img src={blip.seller.storeAvatar.url} alt={blip.seller.storeName} className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-xs font-medium">
                               {(blip.seller.storeName || blip.seller.firstName).charAt(0).toUpperCase()}
@@ -484,7 +544,7 @@ function ProductBlips() {
                         <div className="flex items-center space-x-2">
                           <div className="flex-shrink-0 h-8 w-8 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
                             {blip.seller.storeAvatar ? (
-                              <img src={blip.seller.storeAvatar} alt={blip.seller.storeName} className="h-full w-full object-cover" />
+                              <img src={blip.seller.storeAvatar.url} alt={blip.seller.storeName} className="h-full w-full object-cover" />
                             ) : (
                               <span className="text-xs font-medium">
                                 {(blip.seller.storeName || blip.seller.firstName).charAt(0).toUpperCase()}
@@ -567,6 +627,28 @@ function ProductBlips() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleDeleteBlip(blip.productId, blip.blipId)}
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 bg-red-900/30 border-red-800 hover:bg-red-900/50"
+                                  disabled={deletingBlip === blip.blipId}
+                                >
+                                  {deletingBlip === blip.blipId ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Delete blip</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -630,7 +712,7 @@ function ProductBlips() {
                     <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden">
                       {currentBlipDetails.seller.storeAvatar ? (
                         <img
-                          src={currentBlipDetails.seller.storeAvatar}
+                          src={currentBlipDetails.seller.storeAvatar.url}
                           alt={currentBlipDetails.seller.storeName}
                           className="h-full w-full object-cover"
                         />
@@ -694,24 +776,20 @@ function ProductBlips() {
               </div>
             </div>
             
-            {/* <div className="flex justify-end gap-2 mt-4">
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-800">
               <Button
-                variant="outline"
-                onClick={() => {
-                  window.open(`/products/${currentBlipDetails.productId}`, '_blank');
-                }}
+                variant="destructive"
+                className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border-red-800"
+                onClick={() => handleDeleteBlip(currentBlipDetails.productId, currentBlipDetails.blipId)}
+                disabled={deletingBlip === currentBlipDetails.blipId}
               >
-                View Product
+                {deletingBlip === currentBlipDetails.blipId ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Deleting...</>
+                ) : (
+                  <><Trash2 className="h-4 w-4 mr-2" /> Delete Blip</>
+                )}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  window.open(`/sellers/${currentBlipDetails.seller._id}`, '_blank');
-                }}
-              >
-                View Seller
-              </Button>
-            </div> */}
+            </div>
           </DialogContent>
         </Dialog>
       )}
