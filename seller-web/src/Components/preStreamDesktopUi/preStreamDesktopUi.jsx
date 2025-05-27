@@ -65,10 +65,10 @@ const PreStreamDesktopUi = ({
           <div className="space-y-4">
             <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Tools</h2>
             <div className="space-y-2">
-              <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+              {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                 <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
-              </button>
+              </button>}
               {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                 <Icon icon="solar:user-block-linear" className="w-5 h-5" color="#C74E5B" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Block/Kick User</span>
@@ -88,7 +88,7 @@ const PreStreamDesktopUi = ({
 
             <div className="mt-8">
               <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-              <div className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
+              <div className="space-y-4 max-h-[calc(100vh-3 50px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
                 {
                   products?.length > 0 ? (
                     products?.map((item, index) => (

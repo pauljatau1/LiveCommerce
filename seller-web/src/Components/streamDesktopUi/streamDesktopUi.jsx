@@ -244,7 +244,7 @@ const StreamDesktopUi = ({
                     <div className="space-y-4">
                         <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Tools</h2>
                         <div className="space-y-2">
-                            <button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+                            {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                                 <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
                             </button>
@@ -267,7 +267,7 @@ const StreamDesktopUi = ({
 
                         <div className="mt-8">
                             <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-                            <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                            <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item, index) => (
@@ -430,7 +430,7 @@ const StreamDesktopUi = ({
                             </button>
                         </div>
 
-                        <div className="p-4 md:p-6">
+                        <div className="p-4 md:p-6 ">
                             {/* Key Metrics */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                 <div className="bg-[#161A1E] p-4 rounded-lg">
