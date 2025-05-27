@@ -2,6 +2,7 @@ import { Icon } from '@iconify/react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
@@ -45,6 +46,7 @@ const AuctionStreamDesktopUi = ({
     const [salesModalOpen, setSalesModalOpen] = useState(false);
     const [itemsModalOpen, setItemsModalOpen] = useState(false);
     const [ordersData, setOrdersData] = useState(orders || []);
+    const [copySuccess, setCopySuccess] = useState(false);
     const { activateProductBidding, isActivatingBid } = useLivestreamContext();
     const { productStatuses = {}, socket = null, updateProductStatus, notifications } = useLivestreamSocket();
     // Ref to track which products we've processed to prevent infinite loops
@@ -276,6 +278,19 @@ const AuctionStreamDesktopUi = ({
 
     console.log('Product statuses:', productStatuses, 'Has active bidding:', hasActiveBidding);
 
+    // Function to copy stream link to clipboard
+    const copyToClipboard = async () => {
+        if (liveStreamDetails?.streamLink) {
+            try {
+                await navigator.clipboard.writeText(liveStreamDetails.streamLink);
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+        }
+    };
+
     return (
         <div className="hidden xl:block">
             {/* Add StreamQualityIndicator */}
@@ -292,10 +307,24 @@ const AuctionStreamDesktopUi = ({
                     <h1 className="text-white whitespace-nowrap text-xl md:text-2xl font-lexend font-bold">LIVE STUDIO</h1>
                 </div>
                 <div className="hidden xl:flex md:col-span-6 items-center justify-center gap-4 xl:gap-8">
-                    <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 bg-[#EDF2F7] rounded-md gap-2 hover:bg-[#D6E0F0] transition-all duration-300">
-                        <p className="text-sm font-inter font-medium text-[#7A828A]">https://streamlink.com</p>
-                        <Icon icon="solar:copy-linear" className="w-5 h-5" color='#16783A' />
-                    </div>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div
+                                onClick={copyToClipboard}
+                                className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 bg-[#EDF2F7] rounded-md gap-2 hover:bg-[#D6E0F0] transition-all duration-300"
+                            >
+                                <p className="text-sm font-inter font-medium text-[#7A828A] truncate max-w-[200px]">{liveStreamDetails?.streamLink}</p>
+                                <Icon
+                                    icon={copySuccess ? "mdi:check" : "solar:copy-linear"}
+                                    className="w-5 h-5"
+                                    color={copySuccess ? '#14AE5C' : '#16783A'}
+                                />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                            <p>{copySuccess ? "Copied!" : "Copy stream link"}</p>
+                        </TooltipContent>
+                    </Tooltip>
                     <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
                         <Icon icon="octicon:people-24" className="w-5 h-5" color='#EFF0FA' />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">{viewerCount}</p>
@@ -551,7 +580,7 @@ const AuctionStreamDesktopUi = ({
 
             {/* Bid Confirmation Modal */}
             {showBidModal && (
-                <BidConfirmationModal   
+                <BidConfirmationModal
                     product={selectedProduct}
                     onClose={() => setShowBidModal(false)}
                     onConfirm={handleConfirmBid}

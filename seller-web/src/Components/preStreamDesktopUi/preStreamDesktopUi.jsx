@@ -1,14 +1,16 @@
 import { Icon } from '@iconify/react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import ChatEmpty from '../../assets/Chat Empty.png';
 import PropTypes from 'prop-types';
+import { useState } from 'react';
 
-const PreStreamDesktopUi = ({ 
-  viewers = [], 
-  totalShares = 0, 
-  handleStartStream, 
-  liveStreamDetails, 
-  deviceError, 
+const PreStreamDesktopUi = ({
+  viewers = [],
+  totalShares = 0,
+  handleStartStream,
+  liveStreamDetails,
+  deviceError,
   existingLivestream,
   getInitials,
   firstName,
@@ -19,6 +21,20 @@ const PreStreamDesktopUi = ({
   isReconnecting,
   onOpenVideoSettings
 }) => {
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Function to copy stream link to clipboard
+  const copyToClipboard = async () => {
+    if (liveStreamDetails?.streamLink) {
+      try {
+        await navigator.clipboard.writeText(liveStreamDetails.streamLink);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
+    }
+  };
   return (
     <div className="hidden xl:block">
       {/** HEADER */}
@@ -28,10 +44,24 @@ const PreStreamDesktopUi = ({
           <h1 className="text-white whitespace-nowrap text-xl md:text-2xl font-lexend font-bold">LIVE STUDIO</h1>
         </div>
         <div className="hidden xl:flex md:col-span-6 items-center justify-center gap-4 xl:gap-8">
-          <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 bg-[#EDF2F7] rounded-md gap-2 hover:bg-[#D6E0F0] transition-all duration-300">
-            <p className="text-sm font-inter font-medium text-[#7A828A]">https://streamlink.com</p>
-            <Icon icon="solar:copy-linear" className="w-5 h-5" color='#16783A' />
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div 
+                onClick={copyToClipboard}
+                className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 bg-[#EDF2F7] rounded-md gap-2 hover:bg-[#D6E0F0] transition-all duration-300"
+              >
+                <p className="text-sm font-inter font-medium text-[#7A828A] truncate max-w-[200px]">{liveStreamDetails?.streamLink}</p>
+                <Icon 
+                  icon={copySuccess ? "mdi:check" : "solar:copy-linear"} 
+                  className="w-5 h-5" 
+                  color={copySuccess ? '#14AE5C' : '#16783A'} 
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+              <p>{copySuccess ? "Copied!" : "Copy stream link"}</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
             <Icon icon="octicon:people-24" className="w-5 h-5" color='#EFF0FA' />
             <p className="text-sm font-inter font-medium text-[#EFF0FA]">{viewers.length}</p>
@@ -77,7 +107,7 @@ const PreStreamDesktopUi = ({
                 <Icon icon="solar:user-plus-linear" className="w-5 h-5" color="#14AE5C" />
                 <span className="text-[#EFF0FA] font-inter text-sm">Add Moderator</span>
               </button>*/}
-              <button 
+              <button
                 onClick={onOpenVideoSettings}
                 className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
               >
@@ -142,7 +172,7 @@ const PreStreamDesktopUi = ({
                 existingLivestream ? (
                   <button
                     disabled={isReconnecting}
-                    onClick={() => {handleStartStream()}}
+                    onClick={() => { handleStartStream() }}
                     className={`bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300 ${isReconnecting ? 'bg-gray-600' : ''}`}
                   >
                     {isReconnecting ? 'Reconnecting...' : 'Reconnect Stream'}
@@ -197,7 +227,7 @@ const PreStreamDesktopUi = ({
           </div>
         </div>
       </div>
-      
+
       {/* Bottom Stats */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 z-10">
         <div className="bg-[#0D0F12] rounded-xl p-4 flex items-center justify-center">
