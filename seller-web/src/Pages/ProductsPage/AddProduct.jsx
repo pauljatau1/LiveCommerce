@@ -936,6 +936,7 @@ const AddProduct = () => {
                             categorySearchQuery={categorySearchQuery}
                             setCategorySearchQuery={setCategorySearchQuery}
                             getSubCategories={getSubCategories}
+                            loading={loading}
                         />
                         
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">

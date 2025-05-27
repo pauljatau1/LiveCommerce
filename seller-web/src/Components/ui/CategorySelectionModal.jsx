@@ -6,6 +6,20 @@ import { Badge } from "./badge";
 import { ScrollArea } from "./scroll-area";
 import PropTypes from 'prop-types';
 
+// Add Skeleton component
+const Skeleton = ({ className, ...props }) => {
+  return (
+    <div
+      className={`animate-pulse bg-gray-200 rounded-lg ${className}`}
+      {...props}
+    />
+  );
+};
+
+Skeleton.propTypes = {
+  className: PropTypes.string
+};
+
 const CategorySelectionModal = ({
   isOpen,
   onClose,
@@ -17,7 +31,8 @@ const CategorySelectionModal = ({
   searchResults,
   categorySearchQuery,
   setCategorySearchQuery,
-  getSubCategories
+  getSubCategories,
+  loading
 }) => {
   const [tempSelectedCategory, setTempSelectedCategory] = useState(selectedCategory);
   const [tempSelectedSubCategory, setTempSelectedSubCategory] = useState(selectedSubCategory);
@@ -220,7 +235,25 @@ const CategorySelectionModal = ({
 
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-[50vh]">
-            {activeTab === 'categories' && categorySearchQuery ? (
+            {loading ? (
+              // Skeleton loading state
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="flex items-center border border-gray-200 rounded-lg p-3 animate-pulse">
+                      <div className="flex items-center space-x-3 flex-1">
+                        <Skeleton className="w-10 h-10 rounded" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/4" />
+                        </div>
+                      </div>
+                      <Skeleton className="w-20 h-4" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : activeTab === 'categories' && categorySearchQuery ? (
               // Category search results
               <div className="p-4">
                 {isSearching ? (
@@ -390,7 +423,8 @@ CategorySelectionModal.propTypes = {
   searchResults: PropTypes.array.isRequired,
   categorySearchQuery: PropTypes.string.isRequired,
   setCategorySearchQuery: PropTypes.func.isRequired,
-  getSubCategories: PropTypes.func.isRequired
+  getSubCategories: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired
 };
 
 export default CategorySelectionModal; 
