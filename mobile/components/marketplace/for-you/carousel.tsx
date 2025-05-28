@@ -45,7 +45,7 @@ const Carousel = ({ banners }: any) => {
           <Text className="font-LexendDecaExtraBold text-[#ccc] uppercase text-[15px]">
             {item.title}
           </Text>
-          <Text className="font-LexendDecaExtraBold text-[#16783A] uppercase text-[15px] text-center bg-[#121212] p-2 rounded-[2px]">
+          <Text className="font-LexendDecaExtraBold text-[#16783A] uppercase text-[15px] text-center  p-2 rounded-[2px]">
             {item.description}
           </Text>
           {/* <View className="flex items-center justify-center w-[120px]">

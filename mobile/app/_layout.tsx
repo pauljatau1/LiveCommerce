@@ -42,6 +42,28 @@ function RootLayoutNav() {
     "LexendDeca-SemiBold": require("../assets/fonts/LexendDeca-SemiBold.ttf"),
     "LexendDeca-Thin": require("../assets/fonts/LexendDeca-Thin.ttf"),
   });
+  // const [loaded] = useFonts({
+  //   LexendDeca: require("../assets/fonts/Inter_18pt-Regular.ttf"),
+  //   "LexendDeca-Black": require("../assets/fonts/Inter_18pt-Black.ttf"),
+  //   "LexendDeca-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
+  //   "LexendDeca-ExtraBold": require("../assets/fonts/Inter_18pt-ExtraBold.ttf"),
+  //   "LexendDeca-ExtraLight": require("../assets/fonts/Inter_18pt-ExtraLight.ttf"),
+  //   "LexendDeca-Light": require("../assets/fonts/Inter_18pt-Light.ttf"),
+  //   "LexendDeca-Medium": require("../assets/fonts/Inter_18pt-Medium.ttf"),
+  //   "LexendDeca-SemiBold": require("../assets/fonts/Inter_18pt-SemiBold.ttf"),
+  //   "LexendDeca-Thin": require("../assets/fonts/Inter_18pt-Thin.ttf"),
+  // });
+  // const [loaded] = useFonts({
+  //   LexendDeca: require("../assets/fonts/Roboto-Regular.ttf"),
+  //   "LexendDeca-Black": require("../assets/fonts/Roboto-Black.ttf"),
+  //   "LexendDeca-Bold": require("../assets/fonts/Roboto-Bold.ttf"),
+  //   "LexendDeca-ExtraBold": require("../assets/fonts/Roboto-ExtraBold.ttf"),
+  //   "LexendDeca-ExtraLight": require("../assets/fonts/Roboto-ExtraLight.ttf"),
+  //   "LexendDeca-Light": require("../assets/fonts/Roboto-Light.ttf"),
+  //   "LexendDeca-Medium": require("../assets/fonts/Roboto-Medium.ttf"),
+  //   "LexendDeca-SemiBold": require("../assets/fonts/Roboto-SemiBold.ttf"),
+  //   "LexendDeca-Thin": require("../assets/fonts/Roboto-Thin.ttf"),
+  // });
 
   const handleDeepLink = async () => {
     const url = await Linking.getInitialURL();

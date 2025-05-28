@@ -327,8 +327,10 @@ const SellerCard = memo(({ item }: any) => {
         })
       }
     >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View className="bg-white rounded-full">
+      <View
+        style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}
+      >
+        <View className="bg-[#2e2e2e] rounded-full">
           <Image
             source={{ uri: item?.storeAvatar }}
             style={styles.followingImage}
@@ -336,7 +338,7 @@ const SellerCard = memo(({ item }: any) => {
           />
         </View>
 
-        <Text style={styles.followingText}>
+        <Text style={styles.followingText} numberOfLines={1}>
           {item?.storeName || item?.businessName || "Filler Store"}
         </Text>
       </View>
@@ -370,12 +372,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 24,
+    gap: 24,
   },
   followingText: {
     color: "#ccc",
     fontSize: 14,
     marginLeft: 8,
     fontFamily: "LexendDeca",
+    flexShrink: 1,
   },
   followingImage: {
     width: 45,

@@ -105,6 +105,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
           style={{
             width: "100%",
             height: 157,
+            backgroundColor: "#2e2e2e",
           }}
         />
       )}
