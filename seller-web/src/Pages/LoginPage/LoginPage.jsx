@@ -93,7 +93,7 @@ const LoginPage = () => {
   const handleLogin = async (event) => {
     event.preventDefault();
     if (email !== "" && password !== "") {
-      await login(email, password);
+      await login(email.toLowerCase(), password);
     } else {
       toast.error("Please fill in all fields");
     }

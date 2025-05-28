@@ -343,11 +343,11 @@ const productSlice = createSlice({
         state.isLoading = false;
         console.log('products fetched successfully', action.payload);
         state.message = 'Products fetched successfully';
-        state.products = action.payload.products;
+        state.products = action.payload?.products || [];
         state.pagination = {
-            currentPage: action.payload.currentPage,
-            totalPages: action.payload.totalPages,
-            totalProducts: action.payload.totalProducts
+            currentPage: action.payload?.currentPage || 1,
+            totalPages: action.payload?.totalPages || 1,
+            totalProducts: action.payload?.totalProducts || 0
         };
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
@@ -454,11 +454,11 @@ const productSlice = createSlice({
         state.isLoadingAuctions = true;
     }).addCase(fetchSellerAuctionProducts.fulfilled, (state, action) => {
         state.isLoadingAuctions = false;
-        state.auctionProducts = action.payload.products;
+        state.auctionProducts = action.payload?.products || [];
         state.auctionPagination = {
-            currentPage: action.payload.currentPage,
-            totalPages: action.payload.totalPages,
-            totalProducts: action.payload.totalProducts
+            currentPage: action.payload?.currentPage || 1,
+            totalPages: action.payload?.totalPages || 1,
+            totalProducts: action.payload?.totalProducts || 0
         };
     }).addCase(fetchSellerAuctionProducts.rejected, (state, action) => {
         state.isLoadingAuctions = false;
@@ -478,11 +478,11 @@ const productSlice = createSlice({
         .addCase(searchSellerProducts.fulfilled, (state, action) => {
             state.isLoading = false;
             state.message = 'Products search completed successfully';
-            state.products = action.payload.data;
+            state.products = action.payload?.data || [];
             state.pagination = {
-                currentPage: action.payload.pagination.currentPage,
-                totalPages: action.payload.pagination.totalPages,
-                totalProducts: action.payload.pagination.totalProducts
+                currentPage: action.payload?.pagination?.currentPage || 1,
+                totalPages: action.payload?.pagination?.totalPages || 1,
+                totalProducts: action.payload?.pagination?.totalProducts || 0
             };
         })
         .addCase(searchSellerProducts.rejected, (state, action) => {
