@@ -1209,7 +1209,7 @@ router.get('/meta-product-feed', async (req, res) => {
       availability: product.stock > 0 ? 'in stock' : 'out of stock',
       condition: product.condition || 'new',
       price: `${product.price} NGN`,
-      link: `https://app.auqli.live/s/${product._id}/A`,
+      link: `https://app.auqli.live/s/${product._id}A`,
       image_link: product.images[0]?.url || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
       brand: product.brand || product.seller.storeName || 'Auqli'
     }));
