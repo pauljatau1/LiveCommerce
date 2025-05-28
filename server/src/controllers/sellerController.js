@@ -1337,8 +1337,8 @@ exports.getStatistics = async (req, res) => {
 
     // Calculate percentage changes
     const calculatePositiveChange = (current, previous) => {
-      if (!previous || previous === 0) return {'value': current, 'type': 'number'};
-      if (!current || current === 0) return {'value': current, 'type': 'number'};
+      if (!previous || previous === 0) return {'value': current.toFixed(2), 'type': 'number'};
+      if (!current || current === 0) return {'value': current.toFixed(2), 'type': 'number'};
       const change = ((current - previous) / previous) * 100;
       return {'value': change.toFixed(2), 'type': 'percentage'};
     };
@@ -1367,7 +1367,7 @@ exports.getStatistics = async (req, res) => {
         change: ordersChange
       },
       conversionRate: {
-        percentage: parseFloat(currentConversionRate.toFixed(2)),
+        percentage: currentConversionRate.toFixed(2),
         change: conversionChange
       },
       newCustomers: {
