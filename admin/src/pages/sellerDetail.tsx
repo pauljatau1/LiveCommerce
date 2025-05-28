@@ -1008,8 +1008,8 @@ function SellerDetail() {
                 <div className="flex flex-col">
                   <span className="text-sm text-zinc-400">Total Revenue</span>
                   <div className="mt-2 flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-emerald-400" />
-                    <span className="text-2xl font-semibold text-white">${metrics.totalRevenue?.toLocaleString(undefined, {
+                   NGN
+                    <span className="text-2xl font-semibold text-white">{metrics.totalRevenue?.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     }) || 0}</span>
@@ -1317,7 +1317,7 @@ function SellerDetail() {
                           <td className="py-3 text-sm text-zinc-400">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </td>
-                          <td className="py-3 text-sm">${order.totalAmount?.toLocaleString()}</td>
+                          <td className="py-3 text-sm">₦{order.totalAmount?.toLocaleString()}</td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
                               ${order.items[0]?.status === 'completed' ? 'bg-green-500/10 text-green-400' : 
@@ -1365,7 +1365,7 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">{month.count}</td>
                           <td className="py-3 text-sm text-green-400">
-                            ${month.totalSales.toLocaleString(undefined, {
+                          ₦{month.totalSales.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
                             })}

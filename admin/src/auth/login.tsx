@@ -20,7 +20,9 @@ import {
   User, 
   AlertCircle,
   Loader2,
-  Info
+  Info,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Link } from 'react-router-dom';
 
@@ -33,6 +35,7 @@ function Login() {
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
   const [lockoutTime, setLockoutTime] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,13 +159,24 @@ function Login() {
                 <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </div>
 
