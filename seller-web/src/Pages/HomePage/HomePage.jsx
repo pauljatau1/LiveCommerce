@@ -348,6 +348,16 @@ const HomePage = () => {
     return Math.min(Math.max(rate, 0), 100).toFixed(1);
   };
 
+  const formatChangeFromLastWeek = (value, type) => {
+    if (type == 'number') {
+      return `+${value}`;
+    } else if (type == 'percentage') {
+      return `${value}%`;
+    } else {
+      return "";
+    }
+  };
+
   // Prepares data for analytics dashboard cards
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
   const prepareAnalyticsData = (orders, analytics, seller) => {
@@ -359,8 +369,8 @@ const HomePage = () => {
         title: 'Payable Balance',
         icon: BiWallet,
         current: `₦${formatMetricValue(analytics.walletBalance.amount)}`,
-        percentage: `${analytics.walletBalance.changePercentage}%`,
-        trend: analytics.walletBalance.changePercentage >= 0 ? 'up' : 'down',
+        percentage: formatChangeFromLastWeek(analytics.walletBalance.change.value, analytics.walletBalance.change.type),
+        trend: analytics.walletBalance.change.value >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
         iconBackground: 'bg-green-50',
         link: '/dashboard/earnings-payouts'
@@ -370,8 +380,8 @@ const HomePage = () => {
         title: 'Store Visits',
         icon: FaStoreAlt,
         current: formatMetricValue(analytics.storeVisits.count),
-        percentage: `${analytics.storeVisits.changePercentage}%`,
-        trend: analytics.storeVisits.changePercentage >= 0 ? 'up' : 'down',
+        percentage: formatChangeFromLastWeek(analytics.storeVisits.change.value, analytics.storeVisits.change.type),
+        trend: analytics.storeVisits.change.value >= 0 ? 'up' : 'down',
         iconColor: 'text-blue-600',
         iconBackground: 'bg-blue-50',
         link: '/dashboard/analytics-insights'
@@ -381,8 +391,8 @@ const HomePage = () => {
         title: 'Total Orders',
         icon: FiShoppingBag,
         current: formatMetricValue(analytics.totalOrders.count),
-        percentage: `${analytics.totalOrders.changePercentage}%`,
-        trend: analytics.totalOrders.changePercentage >= 0 ? 'up' : 'down',
+        percentage: formatChangeFromLastWeek(analytics.totalOrders.change.value, analytics.totalOrders.change.type),
+        trend: analytics.totalOrders.change.value >= 0 ? 'up' : 'down',
         iconColor: 'text-purple-600',
         iconBackground: 'bg-purple-50',
         link: '/dashboard/orders'
@@ -392,8 +402,8 @@ const HomePage = () => {
         title: 'Conversion Rate',
         icon: FiBarChart2,
         current: `${analytics.conversionRate.percentage}%`,
-        percentage: `${analytics.conversionRate.changePercentage}%`,
-        trend: analytics.conversionRate.changePercentage >= 0 ? 'up' : 'down',
+        percentage: formatChangeFromLastWeek(analytics.conversionRate.change.value, analytics.conversionRate.change.type),
+        trend: analytics.conversionRate.change.value >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
         iconBackground: 'bg-green-50',
         link: '/dashboard/analytics-insights'
@@ -403,8 +413,8 @@ const HomePage = () => {
         title: 'Customers',
         icon: FiUserPlus,
         current: formatMetricValue(analytics.newCustomers.count),
-        percentage: `${analytics.newCustomers.changePercentage}%`,
-        trend: analytics.newCustomers.changePercentage >= 0 ? 'up' : 'down',
+        percentage: formatChangeFromLastWeek(analytics.newCustomers.change.value, analytics.newCustomers.change.type),
+        trend: analytics.newCustomers.change.value >= 0 ? 'up' : 'down',
         iconColor: 'text-orange-600',
         iconBackground: 'bg-orange-50',
         link: '/dashboard/customers'

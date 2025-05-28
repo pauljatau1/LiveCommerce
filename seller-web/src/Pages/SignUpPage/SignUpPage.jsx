@@ -542,7 +542,7 @@ const SignUpPage = () => {
 
       {
         isModalOpen && (
-          <Modal>
+          <Modal variant="otp">
             <img src={MailIcon} alt="Mail Icon" className="w-[83.5px] h-[83.5px] lg:w-[127px] lg:h-[127px] mb-10" />
             <h3 className="text-base sm:text-2xl font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">
               {`We've sent a code to ${signUpSellerDetails?.email}`}

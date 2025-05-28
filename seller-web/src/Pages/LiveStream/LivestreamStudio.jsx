@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useSocket } from '../../Contexts/SocketContext';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { Icon } from '@iconify/react';
 
 // Split UI components using React's lazy loading for code splitting
 const PreStreamDesktopUi = lazy(() => import('../../Components/preStreamDesktopUi/preStreamDesktopUi'));
@@ -161,6 +162,7 @@ const LivestreamStudio = () => {
 
     // Refs
     const reconnectionInProgress = useRef(false);
+    const isInitializingStream = useRef(false);
 
     // Memoized data extraction
     const existingLivestream = useMemo(() => {
@@ -170,6 +172,13 @@ const LivestreamStudio = () => {
             return null;
         }
     }, [id]);
+
+    // Add state variable with the other state declarations (around line 139)
+    const [showStreamEndedModal, setShowStreamEndedModal] = useState(false);
+    const [streamEndModalType, setStreamEndModalType] = useState(''); // 'reconnect' or 'initialize'
+
+    // First add new state for the custom close warning modal near other modal states
+    const [showCloseWarningModal, setShowCloseWarningModal] = useState(false);
 
     useEffect(() => {
         setHideSidebar(true);
@@ -226,6 +235,14 @@ const LivestreamStudio = () => {
                 if (!response && isMounted) {
                     throw new Error('Failed to fetch livestream details');
                 }
+                
+                // Check for ended status as soon as we get initial data
+                if (isMounted && response && response.status === "ended") {
+                    console.log('Initial data indicates stream has ended');
+                    setStreamEndModalType('initialize');
+                    setShowStreamEndedModal(true);
+                }
+                
                 if (isMounted) setIsInitialDataLoaded(true);
             } catch (error) {
                 console.error('Error fetching initial livestream data:', error);
@@ -260,7 +277,8 @@ const LivestreamStudio = () => {
             viewers: liveStreamDetails.viewers || [],
             orders: liveStreamDetails.orders || [],
             _id: liveStreamDetails._id,
-            type: liveStreamDetails.type
+            type: liveStreamDetails.type,
+            status: liveStreamDetails.status
         };
     }, [liveStreamDetails]);
 
@@ -272,6 +290,7 @@ const LivestreamStudio = () => {
         viewers,
         orders,
         _id,
+        status
         // streamType included for potential future use
     } = livestreamDetailsData;
 
@@ -443,9 +462,23 @@ const LivestreamStudio = () => {
 
     const initializeStream = async (freshStreamData) => {
         try {
+            // Set initialization lock to prevent concurrent cleanup
+            isInitializingStream.current = true;
             setIsLiveStreamStarting(true);
             console.log('freshStreamData', freshStreamData)
             const details = await getLiveStreamFullDetails(id);
+
+            // Check if the stream has ended
+            if (freshStreamData && freshStreamData.status === "ended") {
+                console.log('📷 [STREAM INIT] Stream has ended, showing modal');
+                setIsLiveStreamStarting(false);
+                isInitializingStream.current = false;
+                
+                // Show the ended stream modal
+                setStreamEndModalType('initialize');
+                setShowStreamEndedModal(true);
+                return;
+            }
 
             // 1. Check permissions and keep preview stream alive - this may take time for user input
             console.log('📷 [STREAM INIT] Waiting for device permissions and initialization...');
@@ -809,8 +842,13 @@ const LivestreamStudio = () => {
             await cleanupAgoraResources();
             setIsStreaming(false);
             localStorage.removeItem(`stream_connected_${id}`); // Clean up if initialization fails
+            isInitializingStream.current = false; // Make sure to reset the lock
         } finally {
             setIsLiveStreamStarting(false);
+            // Only reset the lock if we haven't shown the modal
+            if (!showStreamEndedModal) {
+                isInitializingStream.current = false;
+            }
         }
     };
 
@@ -1935,6 +1973,22 @@ const LivestreamStudio = () => {
                 reconnectionInProgress.current = false;
                 return;
             }
+
+            // Check if the stream has ended
+            if (freshData.status === "ended") {
+                console.log('🔄 [RECONNECT] Stream has ended, showing modal');
+                // Clean up old stream data
+                localStorage.removeItem(`stream_connected_${streamId}`);
+                globalReconnectionInProgress = false;
+                reconnectionInProgress.current = false;
+                setIsReconnecting(false);
+                
+                // Show the ended stream modal
+                setStreamEndModalType('reconnect');
+                setShowStreamEndedModal(true);
+                return;
+            }
+            
             console.log('🔄 [RECONNECT 10/18] Successfully fetched fresh stream data');
 
             // Check permissions with improved waiting
@@ -2690,11 +2744,214 @@ const LivestreamStudio = () => {
         </Suspense>
     ), [isVideoSettingsModalOpen, videoSettings, handleApplyVideoSettings, isStreaming]);
 
+    // Replace the current beforeunload handler with an improved version
+    useEffect(() => {
+        // Store a flag in sessionStorage to help differentiate between reload and close
+        const setCloseAttemptFlag = () => {
+            sessionStorage.setItem('closeAttempt', Date.now().toString());
+        };
+        
+        // Clear the flag when the page loads/reloads
+        const clearCloseAttemptFlag = () => {
+            sessionStorage.removeItem('closeAttempt');
+        };
+        
+        // On mount, clear the flag (this means the page was loaded/reloaded)
+        clearCloseAttemptFlag();
+        
+        // Special key combination listener to simulate browser close for testing
+        const handleKeyDown = (e) => {
+            // Alt+W simulates browser close behavior (for testing)
+            if (e.altKey && e.key === 'w' && isStreaming) {
+                console.log('🔄 [TEST] Alt+W pressed - simulating browser close');
+                setShowCloseWarningModal(true);
+            }
+        };
+        
+        // Handle beforeunload - this is fired when user attempts to close tab/window
+        const handleBeforeUnload = (event) => {
+            if (!isStreaming || window.confirmCloseInProgress) return;
+            
+            console.log('🔄 [BROWSER CLOSE] beforeunload event triggered while streaming');
+            setCloseAttemptFlag();
+            
+            // Set a flag so our modal can show instead
+            window.isClosingTab = true;
+            
+            // Show our custom modal
+            setShowCloseWarningModal(true);
+            
+            // This trick sometimes helps prevent the browser dialog in some browsers
+            // Make the page "dirty" so browsers think there are unsaved changes
+            window._preventUnloadDialog = document.createElement('input');
+            document.body.appendChild(window._preventUnloadDialog);
+            window._preventUnloadDialog.focus();
+            
+            // Some browsers (Firefox) need a slight delay to properly show our custom modal
+            setTimeout(() => {
+                if (window._preventUnloadDialog) {
+                    document.body.removeChild(window._preventUnloadDialog);
+                    delete window._preventUnloadDialog;
+                }
+            }, 100);
+            
+            // Modern browsers require returnValue to be set
+            // Note: This will still show the browser's native dialog as fallback
+            const message = "You are about to leave your livestream! If you leave, your stream will end in one minute and all viewers will be disconnected.";
+            event.returnValue = message;
+            return message;
+        };
+        
+        // Monitor navigation attempts
+        const blockBackNavigation = () => {
+            // Push the current state with a custom flag
+            window.history.pushState({ noBackButton: true }, '');
+        };
+        
+        // Handle popstate (back/forward buttons)
+        const handlePopState = (event) => {
+            // If we detect back navigation, push state again to prevent it
+            if (isStreaming && event?.state?.noBackButton !== true) {
+                blockBackNavigation();
+            }
+        };
+        
+        // Add unload cleanup function outside the return statement
+        const unloadCleanup = () => {
+            if (window._preventUnloadDialog) {
+                try {
+                    document.body.removeChild(window._preventUnloadDialog);
+                    delete window._preventUnloadDialog;
+                } catch (e) {
+                    console.error('Error cleaning up unload prevention:', e);
+                }
+            }
+        };
+        
+        if (isStreaming) {
+            // Set up all event listeners
+            window.addEventListener('beforeunload', handleBeforeUnload);
+            window.addEventListener('keydown', handleKeyDown);
+            
+            // Block back navigation when streaming
+            blockBackNavigation();
+            window.addEventListener('popstate', handlePopState);
+            
+            console.log('🔄 [EVENT] Tab close detection and back navigation blocking enabled');
+        }
+        
+        return () => {
+            // Remove all event listeners on cleanup
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('popstate', handlePopState);
+            
+            // Clear the closing flag
+            window.isClosingTab = false;
+            
+            // Run unload cleanup
+            unloadCleanup();
+            
+            console.log('🔄 [EVENT] Tab close detection and back navigation blocking disabled');
+        };
+    }, [isStreaming]);
+
+
+    const handleCancelClose = () => {
+        console.log('🔄 [BROWSER CLOSE] User canceled tab close');
+        setShowCloseWarningModal(false);
+    };
+
+    // Add the custom close warning modal component definition before the return statement (near other modals)
+    const closeWarningModal = useMemo(() => (
+        showCloseWarningModal && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm">
+                <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-md overflow-hidden animate-slideUp">
+                    <div className="p-4 md:p-6 flex flex-col items-center justify-center text-center">
+                        <div className="bg-red-600/10 p-4 rounded-full mb-4">
+                            <Icon icon="heroicons:exclamation-triangle" className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h2 className="text-[#EFF0FA] font-lexend font-bold text-lg 2xl:text-xl mb-2">Leaving Your Stream?</h2>
+                        <p className="text-[#7A828A] text-sm 2xl:text-base mb-6">
+                            If you leave now, your stream will end in one minute and all viewers will be disconnected. 
+                            Are you sure you want to leave?
+                        </p>
+                        
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => {
+                                    window.close();
+                                }}
+                                className="flex-1 bg-red-600 text-sm text-white flex-nowrap py-3 rounded-lg hover:bg-red-700"
+                            >
+                                Close Tab
+                            </button>
+                            <button
+                                onClick={handleCancelClose}
+                                className="flex-1 bg-[#272A31] text-sm text-[#EFF0FA] flex-nowrap py-3 rounded-lg hover:bg-[#3A3E47]"
+                            >
+                                Stay Here
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    ), [showCloseWarningModal]);
+
+
+
+    // Re-add the streamEndedModal component that was accidentally removed
+    // Add the modal component definition before the return statement (after closeWarningModal)
+    const streamEndedModal = useMemo(() => (
+        showStreamEndedModal && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                <div className="bg-[#0D0F12] border border-[#272A31] rounded-xl w-full max-w-md overflow-hidden">
+                    <div className="p-4 md:p-6 flex flex-col items-center justify-center text-center">
+                        <div className="bg-red-600/10 p-4 rounded-full mb-4">
+                            <Icon icon="heroicons:x-mark" className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h2 className="text-[#EFF0FA] font-lexend font-bold text-lg 2xl:text-xl mb-2">Stream Ended</h2>
+                        <p className="text-[#7A828A] text-sm 2xl:text-base mb-6">
+                            This stream has already ended and is no longer available. 
+                            {streamEndModalType === 'reconnect' 
+                                ? ' You were reconnecting to a stream that is no longer active.'
+                                : ' You cannot start this stream again.'}
+                        </p>
+                        
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => {
+                                    setShowStreamEndedModal(false);
+                                    navigate('/dashboard/live-streams/live-stream', { replace: true });
+                                }}
+                                className="flex-1 bg-[#14AE5C] text-sm text-white flex-nowrap py-3 rounded-lg hover:bg-[#14AE5C]/90"
+                            >
+                                Create New Stream
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowStreamEndedModal(false);
+                                    navigate('/dashboard/live-streams/past-shows', { replace: true });
+                                }}
+                                className="flex-1 bg-[#272A31] text-sm text-[#EFF0FA] flex-nowrap py-3 rounded-lg hover:bg-[#3A3E47]"
+                            >
+                                Exit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    ), [showStreamEndedModal, streamEndModalType, navigate]);
+
     // Main render - simplified with memoized content
     return (
         <div className="min-h-screen xl:p-6 bg-[#000000] text-white">
             {renderContent}
             {videoSettingsModal}
+            {showStreamEndedModal && streamEndedModal}
+            {closeWarningModal}
         </div>
     );
 };

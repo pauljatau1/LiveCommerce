@@ -17,7 +17,6 @@ import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 import dayjs from 'dayjs';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
-import ProductLimitModal from '../../Components/ProductLimitModal';
 import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 
@@ -30,7 +29,6 @@ const CreateLiveAuction = () => {
   const [dragActive, setDragActive] = useState(false);
   const [categories, setCategories] = useState([]);
   const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
-  const [showProductLimitModal, setShowProductLimitModal] = useState(false);
   const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -515,12 +513,6 @@ const CreateLiveAuction = () => {
         }
       });
     } else {
-      // If not selected and we're at the limit, show warning
-      if (livestream.selectedProducts.length >= 10) {
-        setShowProductLimitModal(true);
-        return;
-      }
-
       // Add to selected products
       livestreamDispatch({
         type: 'SET_LIVESTREAM_DATA',
@@ -1435,14 +1427,6 @@ const CreateLiveAuction = () => {
         <ZeroQuantityProductsModal
           products={zeroQuantityProducts}
           onClose={() => setShowZeroQuantityModal(false)}
-        />
-      )}
-
-      {/* Modal for product limit */}
-      {showProductLimitModal && (
-        <ProductLimitModal
-          isOpen={showProductLimitModal}
-          onClose={() => setShowProductLimitModal(false)}
         />
       )}
     </div>

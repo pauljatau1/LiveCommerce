@@ -38,8 +38,12 @@ export function SocketProvider({ children }) {
       socketInstance.on('connect', () => {
         console.log('Socket connected -----');
         // Join personal room using seller ID
-        const sellerId = JSON.parse(localStorage.getItem('seller'))._id;
-        socketInstance.emit('join', sellerId);
+        const seller = JSON.parse(localStorage.getItem('seller'));
+        if (seller) {
+          const sellerId = seller._id;
+          console.log('socket sellerId', sellerId);
+          socketInstance.emit('join', sellerId);
+        }
       });
 
       socketInstance.on('connect_error', (error) => {

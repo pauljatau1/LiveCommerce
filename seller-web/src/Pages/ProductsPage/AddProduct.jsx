@@ -97,6 +97,7 @@ const AddProduct = () => {
     });
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSubCategory, setSelectedSubCategory] = useState('');
+    const [platformFee, setPlatformFee] = useState(0);
     const [skuNumber, setSkuNumber] = useState('');
     const [upcNumber, setUpcNumber] = useState('');
     const [brand, setBrand] = useState('');
@@ -905,8 +906,10 @@ const AddProduct = () => {
 
     // Add handler for category selection from modal
     const handleCategorySelection = (category, subCategory) => {
+        const selectedCategoryObj = categories.find(cat => cat.name === category);
         setSelectedCategory(category);
-        setSelectedSubCategory(subCategory);
+        setSelectedSubCategory(subCategory || '');
+        setPlatformFee(selectedCategoryObj?.platformFee || 0);
     };
 
     return (
@@ -933,6 +936,7 @@ const AddProduct = () => {
                             categorySearchQuery={categorySearchQuery}
                             setCategorySearchQuery={setCategorySearchQuery}
                             getSubCategories={getSubCategories}
+                            loading={loading}
                         />
                         
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
@@ -1351,15 +1355,27 @@ const AddProduct = () => {
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div className="space-y-2">
                                                         <RequiredLabel>Pricing</RequiredLabel>
-                                                        <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                            <Input
-                                                                type="number"
-                                                                className="pl-8"
-                                                                placeholder="0.00"
-                                                                value={shippingDetails.pricing}
-                                                                onChange={(e) => handleShippingChange('pricing', e.target.value)}
-                                                            />
+                                                        <div className="space-y-2">
+                                                            <div className="relative">
+                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                                <Input
+                                                                    type="number"
+                                                                    className="pl-8"
+                                                                    placeholder="0.00"
+                                                                    value={shippingDetails.pricing}
+                                                                    onChange={(e) => handleShippingChange('pricing', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            {selectedCategory && (
+                                                                <div className="space-y-1">
+                                                                    <div className="text-sm text-gray-600">
+                                                                        Platform Fee: {platformFee}% ({shippingDetails.pricing ? `₦${(shippingDetails.pricing * platformFee / 100).toFixed(2)}` : '₦0.00'})
+                                                                    </div>
+                                                                    <div className="text-sm font-medium text-green-600">
+                                                                        You Receive: {shippingDetails.pricing ? `₦${(shippingDetails.pricing * (100 - platformFee) / 100).toFixed(2)}` : '₦0.00'} ({100 - platformFee}% of sale)
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="space-y-2">

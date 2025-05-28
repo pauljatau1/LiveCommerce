@@ -6,6 +6,20 @@ import { Badge } from "./badge";
 import { ScrollArea } from "./scroll-area";
 import PropTypes from 'prop-types';
 
+// Add Skeleton component
+const Skeleton = ({ className, ...props }) => {
+  return (
+    <div
+      className={`animate-pulse bg-gray-200 rounded-lg ${className}`}
+      {...props}
+    />
+  );
+};
+
+Skeleton.propTypes = {
+  className: PropTypes.string
+};
+
 const CategorySelectionModal = ({
   isOpen,
   onClose,
@@ -17,7 +31,8 @@ const CategorySelectionModal = ({
   searchResults,
   categorySearchQuery,
   setCategorySearchQuery,
-  getSubCategories
+  getSubCategories,
+  loading
 }) => {
   const [tempSelectedCategory, setTempSelectedCategory] = useState(selectedCategory);
   const [tempSelectedSubCategory, setTempSelectedSubCategory] = useState(selectedSubCategory);
@@ -115,7 +130,7 @@ const CategorySelectionModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] p-0 max-h-[85vh] flex flex-col bg-[#FAFAFA]">
+      <DialogContent className="max-w-[800px] w-[90vw] p-0 max-h-[85vh] flex flex-col bg-[#FAFAFA]">
         <DialogHeader className="px-6 pt-6 pb-2 border-b bg-white">
           <DialogTitle className="text-xl font-semibold text-[#17171B]">
             {activeTab === 'categories' ? 'Select Category' : 
@@ -220,7 +235,25 @@ const CategorySelectionModal = ({
 
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-[50vh]">
-            {activeTab === 'categories' && categorySearchQuery ? (
+            {loading ? (
+              // Skeleton loading state
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="flex items-center border border-gray-200 rounded-lg p-3 animate-pulse">
+                      <div className="flex items-center space-x-3 flex-1">
+                        <Skeleton className="w-10 h-10 rounded" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/4" />
+                        </div>
+                      </div>
+                      <Skeleton className="w-20 h-4" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : activeTab === 'categories' && categorySearchQuery ? (
               // Category search results
               <div className="p-4">
                 {isSearching ? (
@@ -278,29 +311,20 @@ const CategorySelectionModal = ({
               // Categories view
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {categories.map((category) => (
-                  <div 
-                    key={category._id} 
-                    onClick={() => handleCategorySelect(category.name)}
-                    className={`flex items-start p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow ${
-                      tempSelectedCategory === category.name 
-                        ? 'border-[#0BB248] bg-[#0BB248]/5 shadow'
-                        : 'border-[#E5E7EB] bg-white hover:border-[#0BB248]/50'
+                  <div
+                    key={category._id}
+                    className={`flex items-center border border-[#E5E7EB] rounded-lg justify-between p-3 cursor-pointer hover:bg-gray-100 ${
+                      selectedCategory === category.name ? 'bg-gray-100' : ''
                     }`}
+                    onClick={() => handleCategorySelect(category.name)}
                   >
-                    <div className="flex-1">
-                      <h3 className={`font-medium ${tempSelectedCategory === category.name ? 'text-[#0BB248]' : 'text-[#111827]'}`}>
-                        {category.name}
-                      </h3>
-                      {category.subCategories?.length > 0 && (
-                        <span className="text-xs text-[#6B7280] mt-1 block">
-                          {category.subCategories.length} subcategories
-                        </span>
-                      )}
+                    <div className="flex items-center space-x-3">
+                      <img src={category.image?.url} alt={category.name} className="w-10 h-10 object-cover rounded" />
+                      <span>{category.name}</span>
                     </div>
-                    <Icon 
-                      icon="heroicons:chevron-right" 
-                      className={`ml-auto w-5 h-5 ${tempSelectedCategory === category.name ? 'text-[#0BB248]' : 'text-[#9CA3AF]'}`}
-                    />
+                    <div className="text-sm text-gray-600">
+                      commission: {category.platformFee}%
+                    </div>
                   </div>
                 ))}
               </div>
@@ -399,7 +423,8 @@ CategorySelectionModal.propTypes = {
   searchResults: PropTypes.array.isRequired,
   categorySearchQuery: PropTypes.string.isRequired,
   setCategorySearchQuery: PropTypes.func.isRequired,
-  getSubCategories: PropTypes.func.isRequired
+  getSubCategories: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired
 };
 
 export default CategorySelectionModal; 
