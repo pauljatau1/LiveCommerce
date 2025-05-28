@@ -118,7 +118,7 @@ const PreStreamDesktopUi = ({
 
             <div className="mt-8">
               <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-              <div className="space-y-4 max-h-[calc(100vh-3 50px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
+              <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ">
                 {
                   products?.length > 0 ? (
                     products?.map((item, index) => (
