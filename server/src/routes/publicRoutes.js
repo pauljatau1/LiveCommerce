@@ -10,6 +10,7 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const { Parser } = require('json2csv');
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
@@ -1186,6 +1187,65 @@ router.get('/buyers/:id', async (req, res) => {
  *         description: Internal server error
  */
 router.get('/platform-notifications', publicController.getActivePlatformNotifications);
+
+// Helper function to strip HTML tags
+const stripHtmlTags = (str) => {
+  if (!str) return '';
+  return str.replace(/<[^>]*>/g, '').trim();
+};
+
+// Generate Meta product feed CSV
+router.get('/meta-product-feed', async (req, res) => {
+  try {
+    // Get all active products
+    const products = await Product.find({ status: 'active' })
+      .populate('seller', 'storeName');
+
+    // Transform products into Meta format
+    const metaProducts = products.map(product => ({
+      id: product._id.toString(),
+      title: product.name,
+      description: stripHtmlTags(product.description),
+      availability: product.stock > 0 ? 'in stock' : 'out of stock',
+      condition: product.condition || 'new',
+      price: `${product.price} NGN`,
+      link: `https://app.auqli.live/s/${product._id}/A`,
+      image_link: product.images[0]?.url || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
+      brand: product.brand || product.seller.storeName || 'Auqli'
+    }));
+
+    // Define fields for CSV
+    const fields = [
+      'id',
+      'title',
+      'description',
+      'availability',
+      'condition',
+      'price',
+      'link',
+      'image_link',
+      'brand'
+    ];
+
+    // Create CSV parser
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(metaProducts);
+
+    // Set headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=meta-product-feed.csv');
+
+    // Send CSV
+    res.send(csv);
+
+  } catch (error) {
+    console.error('Error generating Meta product feed:', error);
+    res.status(500).json({
+      message: 'Failed to generate Meta product feed',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;
 
