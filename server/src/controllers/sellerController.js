@@ -1278,8 +1278,8 @@ exports.getStatistics = async (req, res) => {
     lastWeekStart.setDate(currentWeekStart.getDate() - 7); // Start of last week
 
     // Get current week statistics
-    const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
     const lastWeekVisits = seller.lastWeekStats?.storeVisits || 0;
+    const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
 
     // Get total orders from Order model
     const totalOrders = await Order.countDocuments({ 'items.seller': seller._id });
@@ -1336,10 +1336,11 @@ exports.getStatistics = async (req, res) => {
       (lastWeekOrders / lastWeekVisits) * 100 : 0;
 
     // Calculate percentage changes
-    const calculatePositiveChange = (current, last) => {
-      if (!last || last === 0) return 0;
-      const change = ((current - last) / last) * 100;
-      return Math.max(0, change);
+    const calculatePositiveChange = (current, previous) => {
+      if (!previous || previous === 0) return {'value': current.toFixed(2), 'type': 'number'};
+      if (!current || current === 0) return {'value': current.toFixed(2), 'type': 'number'};
+      const change = ((current - previous) / previous) * 100;
+      return {'value': change.toFixed(2), 'type': 'percentage'};
     };
 
     const visitsChange = calculatePositiveChange(currentWeekVisits, lastWeekVisits);
@@ -1355,23 +1356,23 @@ exports.getStatistics = async (req, res) => {
       walletBalance: {
         amount: seller.walletBalance,
         currency: "NGN",
-        changePercentage: parseFloat(walletChange.toFixed(2))
+        change: walletChange
       },
       storeVisits: {
         count: storeVisits,
-        changePercentage: parseFloat(visitsChange.toFixed(2))
+        change: visitsChange
       },
       totalOrders: {
         count: totalOrders,
-        changePercentage: parseFloat(ordersChange.toFixed(2))
+        change: ordersChange
       },
       conversionRate: {
-        percentage: parseFloat(currentConversionRate.toFixed(2)),
-        changePercentage: parseFloat(conversionChange.toFixed(2))
+        percentage: currentConversionRate.toFixed(2),
+        change: conversionChange
       },
       newCustomers: {
         count: totalCustomers,
-        changePercentage: parseFloat(customersChange.toFixed(2))
+        change: customersChange
       }
     };
 

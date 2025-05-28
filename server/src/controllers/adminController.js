@@ -86,7 +86,10 @@ exports.register = async (req, res) => {
       'support@auqli.com',
       'joseph@auqli.com', 
       'paul@auqli.com',
-      'matt@auqli.com'
+      'matt@auqli.com',
+     'melissa@auqli.com',
+     'alex@commercejet.com',
+     'matt@auqli.com'
     ];
     
     if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
@@ -6459,40 +6462,47 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Nigeria <support@auqli.com>',
-      subject: 'Complete Your Setup on Auqli Nigeria',
+      from: 'Joseph From Auqli <support@auqli.com>',
+      subject: 'Your Shop Is Almost Ready! Finish Setting Up on Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #333; text-align: center;">Complete Your Setup on Auqli Nigeria</h2>
+          <h2 style="color: #333; text-align: center;">Your Shop Is Almost Ready! Finish Setting Up on Auqli</h2>
     
           <p>Hi ${seller.firstName},</p>
     
-          <p>Thanks for signing up to Auqli Nigeria, but your seller setup is still incomplete.</p>
+          <p>We noticed you haven’t yet completed your Auqli seller setup — and we don’t want you to miss out!</p>
     
-          <p>To start selling, you need to finish:</p>
-    
+          <p>With your Auqli account, you can:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
             <ul style="margin-top: 10px;">
-              <li>✅ Uploading your first product</li>
-              <li>✅ Completing your seller profile</li>
-              <li>✅ Setting up your live stream tools</li>
+              <li>✅ Run real-time livestream sales and connect with live buyers</li>
+              <li>✅ Upload Blips (shoppable short videos) to drive impulse purchases</li>
+              <li>✅ Manage products, track orders, and get paid — all in one place</li>
             </ul>
           </div>
     
+          <p>Your shop is almost ready — all you need to do is log in, finish the setup, and start selling.</p>
+    
+          <p>Here’s how to finish:</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+            <ol style="margin-top: 10px;">
+              <li>Log in to the Auqli Seller Center</li>
+              <li>Upload your first products</li>
+              <li>Schedule your first livestream or post your first Blip</li>
+              <li>Get discovered by buyers on the Auqli app</li>
+            </ol>
+          </div>
+    
+          <p>If you need help, our team is here for you!</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">🎯 Finish Setup Now →</a>
           </div>
     
-          <p>Need help? Visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or email <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+          <p>Chat with us in the Seller Center or email us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
     
-          <p>Join other sellers building their brands:</p>
-          <ul>
-            <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
-            <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
-            <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
-          </ul>
+          <p>Let’s get your shop live and thriving. 🚀</p>
     
-          <p>We're excited to see your first livestream.</p>
+          <p>We’re excited to have you on board.</p>
     
           <p>Best regards,<br>The Auqli Team</p>
     
@@ -7530,6 +7540,70 @@ exports.addToBuyerWallet = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
+/**
+ * Delete a blip from a product (Admin)
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.deleteProductBlip = async (req, res) => {
+  try {
+    const { productId, blipId } = req.params;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product or blip ID format' 
+      });
+    }
+
+    // Find product
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    // Find the blip in the product
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Blip not found in the product' 
+      });
+    }
+
+    // Get the blip URL and thumbnail to return in response
+    const blipUrl = blip.url;
+    const thumbnailUrl = blip.thumbnail;
+
+    // Remove the blip from the product
+    product.blips.pull(blipId);
+    await product.save();
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Blip deleted successfully',
+      deletedBlip: {
+        _id: blipId,
+        url: blipUrl,
+        thumbnail: thumbnailUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error in deleteProductBlip:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete blip',
+      error: error.message
+    });
+  }
+};
+
 exports.getAllProductBlips = async (req, res) => {
   try {
     // Parse pagination parameters

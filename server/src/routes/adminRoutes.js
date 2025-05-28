@@ -3629,4 +3629,64 @@ router.delete('/platform-notifications/:id',
   adminController.deletePlatformNotification
 );
 
+/**
+ * @swagger
+ * /api/admin/products/{productId}/blips/{blipId}:
+ *   delete:
+ *     summary: Delete a blip from a product (Admin)
+ *     description: Allows an admin to delete a blip from any product
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip to delete
+ *     responses:
+ *       200:
+ *         description: Blip deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Blip deleted successfully
+ *                 deletedBlip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                     thumbnail:
+ *                       type: string
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not an admin
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/products/:productId/blips/:blipId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deleteProductBlip
+);
+
 module.exports = router;
