@@ -315,6 +315,12 @@ const EditProduct = () => {
         }
     };
 
+        // Show success message for valid files
+        if (validFiles.length > 0) {
+            toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
+        }
+    };
+
     // Simulate upload progress (remove this when implementing actual upload)
     const simulateUpload = (file, onProgress) => {
         return new Promise((resolve) => {
