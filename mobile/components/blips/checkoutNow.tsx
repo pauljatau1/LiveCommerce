@@ -22,7 +22,7 @@ import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { trackEvent } from "@/utils/mixpanel";
+import { trackEvent } from "@/utils/analytics";
 
 const mockDeliveryOtions = [
   {

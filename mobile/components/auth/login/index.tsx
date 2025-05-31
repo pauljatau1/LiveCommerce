@@ -36,6 +36,8 @@ import LoadingModal from "@/components/global/loading-modal";
 import { identifyUser, trackEvent } from "@/utils/analytics";
 //import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// For development debugging
+import { debugAnalytics } from "@/utils/analytics";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -97,7 +99,7 @@ const Login = () => {
       setPassword(password);
       setUserEmail(email);
       
-      // Track login event with Customer.io and Mixpanel via analytics.ts
+      // Track login event with Customer.io, Mixpanel, and Facebook via analytics.ts
       try {
         if (result) {
           // Identify the user directly
@@ -291,29 +293,19 @@ const Login = () => {
                       Log in
                     </CustomButton>
 
-                    {/* <View className="flex-row items-center">
-                      <View className="h-px flex-1 bg-primary-100" />
-                      <View>
-                        <Text className="w-[50px] text-center text-sm text-white">
-                          {" "}
-                          Or{" "}
-                        </Text>
-                      </View>
-                      <View className="h-px flex-1 bg-primary-100" />
-                    </View> */}
-                    {/* <CustomButton
-                      textVariant="success"
-                      title="Continue with Google"
-                      className=" mt-[18px] !rounded border border-primary items-center justify-center !bg-white !text-black-100"
-                      // onPress={GoogleSignIn}
-                      IconLeft={() => (
-                        <Image
-                          source={icons.google}
-                          resizeMode="contain"
-                          className="w-5 h-5 mr-2"
-                        />
-                      )}
-                    /> */}
+                    {/* Debug button for Facebook analytics testing - Development only */}
+                    {__DEV__ && (
+                      <CustomButton
+                        title="🔍 Debug Facebook Analytics"
+                        onPress={async () => {
+                          console.log("🧪 Starting Facebook Analytics Debug...");
+                          await debugAnalytics();
+                        }}
+                        className="mb-4 !rounded border border-yellow-500 !bg-yellow-600 !text-white text-xs font-LexendDecaMedium"
+                      >
+                        🔍 Debug Facebook Analytics
+                      </CustomButton>
+                    )}
                   </FormProvider>
                 </View>
               </View>
