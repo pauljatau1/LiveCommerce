@@ -161,6 +161,14 @@ const streamSchema = new mongoose.Schema({
     }
   }],
   chatInteractions: [chatInteractionSchema],
+  liveAnnouncements: [{
+    id: { type: String, required: true },
+    content: { type: String, required: true },
+    current: { type: Boolean, default: false },
+    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', required: true },
+    sellerName: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now }
+  }],
   orders: [{
     orderId: {
       type: String,
