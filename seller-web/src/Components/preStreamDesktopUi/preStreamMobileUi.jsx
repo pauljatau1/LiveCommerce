@@ -18,7 +18,8 @@ const PreStreamMobileUi = ({
     viewers = [],
     liveStreamDetails,
     isReconnecting,
-    onOpenVideoSettings
+    onOpenVideoSettings,
+    checkForExistingStream
 }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -194,7 +195,7 @@ const PreStreamMobileUi = ({
                         <div className="relative">
                             <button
                                 disabled={isReconnecting}
-                                onClick={existingLivestream ? () => handleStartStream() : handleStartStream}
+                                onClick={existingLivestream ? () => checkForExistingStream() : handleStartStream}
                                 className={`w-full ${isReconnecting ? 'bg-gray-600' : 'bg-white'} text-black font-medium py-3 rounded-lg`}
                             >
                                 {existingLivestream ? isReconnecting ? 'Reconnecting...' : 'Reconnect Stream' : 'Go Live'}

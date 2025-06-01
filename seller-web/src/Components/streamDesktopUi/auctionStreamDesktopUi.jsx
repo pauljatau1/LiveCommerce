@@ -12,6 +12,7 @@ import ActiveBidProductCard from '../ActiveBidProductCard';
 import OngoingBidProductCard from '../OngoingBidProductCard';
 import EndedBidProductCard from '../EndedBidProductCard';
 import StreamQualityIndicator from '../ui/StreamQualityIndicator';
+import AnnouncementModal from './AnnouncementModal';
 
 const AuctionStreamDesktopUi = ({
     viewers = [],
@@ -47,6 +48,7 @@ const AuctionStreamDesktopUi = ({
     const [itemsModalOpen, setItemsModalOpen] = useState(false);
     const [ordersData, setOrdersData] = useState(orders || []);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
     const { activateProductBidding, isActivatingBid } = useLivestreamContext();
     const { productStatuses = {}, socket = null, updateProductStatus, notifications } = useLivestreamSocket();
     // Ref to track which products we've processed to prevent infinite loops
@@ -381,10 +383,13 @@ const AuctionStreamDesktopUi = ({
                     <div className="space-y-4">
                         <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Tools</h2>
                         <div className="space-y-2">
-                            {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+                           <button 
+                                onClick={() => setAnnouncementModalOpen(true)}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+                           >
                                 <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
-                            </button>}
+                            </button>
                             {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
                                 <Icon icon="solar:user-block-linear" className="w-5 h-5" color="#C74E5B" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Block/Kick User</span>
@@ -404,7 +409,7 @@ const AuctionStreamDesktopUi = ({
 
                         <div className="mt-8">
                             <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-                            <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                            <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item) => {
@@ -886,6 +891,17 @@ const AuctionStreamDesktopUi = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Announcement Modal */}
+            {announcementModalOpen && (
+                <AnnouncementModal
+                    isOpen={announcementModalOpen}
+                    onClose={() => setAnnouncementModalOpen(false)}
+                    streamId={liveStreamDetails?._id}
+                    seller={seller}
+                    liveStreamDetails={liveStreamDetails}
+                />
             )}
         </div>
     );
