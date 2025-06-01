@@ -71,7 +71,7 @@ const Home = () => {
       trackScreen("App Start", { isFirstTime: !!isFirstTime });
 
       if (isFirstTime) {
-        router.replace("../(root)/(tabs)/home");
+        router.replace("../(root)/(tabs)/blips");
       } else {
         router.replace("../(root)/(auth)/welcome");
       }
