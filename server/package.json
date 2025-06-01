@@ -6,7 +6,10 @@
     "scripts": {
         "start": "node server.js",
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "nodemon server.js"
+        "dev": "nodemon server.js",
+        "migrate:up": "migrate-mongo up",
+        "migrate:down": "migrate-mongo down",
+        "migrate:create": "migrate-mongo create"
     },
     "keywords": [],
     "author": "",
@@ -40,6 +43,7 @@
         "jsonwebtoken": "^9.0.2",
         "jwt-decode": "^4.0.0",
         "memory-cache": "^0.2.0",
+        "migrate-mongo": "^12.1.3",
         "mixpanel": "^0.18.1",
         "mongoose": "^8.8.0",
         "mongoose-autopopulate": "^1.1.0",
