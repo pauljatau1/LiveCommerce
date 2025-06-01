@@ -1132,6 +1132,117 @@ function initializeSocket(server) {
       }
     });
 
+    // Handler for live announcements (Host only)
+    socket.on('stream_announcement', async (data) => {
+      try {
+        console.log(`Received announcement from ${socket.user.id} for stream ${data.streamId}`);
+
+        // Ensure streamId is provided
+        if (!data.streamId) {
+          console.error('Missing streamId in stream_announcement event');
+          return;
+        }
+
+        // Ensure content is provided
+        if (!data.content || data.content.trim() === '') {
+          console.error('Missing or empty content in stream_announcement event');
+          socket.emit('announcement_error', { message: 'Announcement content is required' });
+          return;
+        }
+
+        // Find the stream
+        const stream = await Stream.findById(data.streamId);
+        if (!stream) {
+          console.error(`Stream not found: ${data.streamId}`);
+          socket.emit('announcement_error', { message: 'Stream not found' });
+          return;
+        }
+
+        // Validate user is a seller and owns this stream
+        if (socket.user.role !== 'Seller') {
+          console.error(`Only sellers can make announcements: ${socket.user.id}`);
+          socket.emit('announcement_error', { message: 'Only stream hosts can make announcements' });
+          return;
+        }
+
+        // Check if the seller owns this stream
+        if (stream.seller.toString() !== socket.user.id) {
+          console.error(`Seller ${socket.user.id} does not own stream ${data.streamId}`);
+          socket.emit('announcement_error', { message: 'You can only make announcements on your own streams' });
+          return;
+        }
+
+        // Get seller details
+        const userDetails = await Seller.findById(socket.user.id).select('storeName storeAvatar');
+
+        if (!userDetails) {
+          console.error(`Seller not found: ${socket.user.id}`);
+          socket.emit('announcement_error', { message: 'Seller not found' });
+          return;
+        }
+
+        // First, set all existing announcements to current: false
+        await Stream.findByIdAndUpdate(
+          data.streamId,
+          { $set: { 'liveAnnouncements.$[].current': false } }
+        );
+
+        // Create new announcement object
+        const announcementObj = {
+          id: Date.now().toString(),
+          content: data.content.trim(),
+          current: true,
+          sellerId: socket.user.id,
+          sellerName: userDetails.storeName || 'Host',
+          timestamp: new Date()
+        };
+
+        // Add the new announcement to the stream
+        await Stream.findByIdAndUpdate(
+          data.streamId,
+          { $push: { liveAnnouncements: announcementObj } }
+        );
+
+        console.log(`Announcement created for stream ${data.streamId}: ${data.content}`);
+
+        // Create notification object for socket broadcast
+        const notificationObj = {
+          id: announcementObj.id,
+          type: 'announcement',
+          user: userDetails.storeName || 'Host',
+          avatar: userDetails.storeAvatar?.url || '',
+          content: data.content.trim(),
+          data: {
+            message: data.content.trim(),
+            sellerId: socket.user.id,
+            sellerName: userDetails.storeName || 'Host',
+            streamId: data.streamId,
+            isHost: true,
+            announcementId: announcementObj.id,
+            current: true
+          },
+          timestamp: new Date()
+        };
+
+        // Broadcast to stream-specific room
+        const streamRoom = `stream_notifications_${data.streamId}`;
+        io.to(streamRoom).emit('stream_notification', notificationObj);
+
+        // Send confirmation to the sender
+        socket.emit('announcement_sent', {
+          success: true,
+          message: 'Announcement sent successfully',
+          announcement: announcementObj
+        });
+
+        console.log(`Announcement broadcasted to room: ${streamRoom}`);
+
+      } catch (error) {
+        console.error('Error handling stream announcement:', error);
+        socket.emit('announcement_error', { message: 'Failed to send announcement' });
+      }
+    });
+
     // Handler for product bidding actions in stream
     socket.on('product_bidding_update', async (data) => {
       try {
