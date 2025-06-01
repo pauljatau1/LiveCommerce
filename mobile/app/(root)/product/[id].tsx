@@ -210,9 +210,9 @@ const ProductDescription = () => {
       setIsMoreProductsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        "api/products/seller/" +
-        sellerId +
-        "?page=1&limit=10",
+          "api/products/seller/" +
+          sellerId +
+          "?page=1&limit=10",
       );
       setMoreProductsData(
         response.data.products.filter((item: any) => item._id !== id),
@@ -229,7 +229,7 @@ const ProductDescription = () => {
       setSimilarProductsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        `api/products/all/?category=${productDetails.category}&limit=10`,
+          `api/products/all/?category=${productDetails.category}&limit=10`,
       );
       setSimilarProductsData(
         response.data.data.products.filter((item: any) => item._id !== id),
@@ -247,7 +247,7 @@ const ProductDescription = () => {
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        `api/products/${id}/reviews?page=1&limit=5`,
+          `api/products/${id}/reviews?page=1&limit=5`,
       );
 
       if (response.status == 200) {
@@ -301,8 +301,8 @@ const ProductDescription = () => {
     return (
       sellerInfo?.storeName ||
       sellerInfo?.personalInfo?.firstName +
-      " " +
-      sellerInfo?.personalInfo?.lastName ||
+        " " +
+        sellerInfo?.personalInfo?.lastName ||
       sellerInfo?.businessInfo?.businessName
     );
   }, [sellerInfo]);
@@ -430,7 +430,7 @@ const ProductDescription = () => {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || "{}");
         if (user && productDetails) {
-          trackEvent('product_viewed', {
+          trackEvent("product_viewed", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -451,7 +451,7 @@ const ProductDescription = () => {
       } catch (trackError) {
         console.log("Customer.io product view tracking error:", trackError);
       }
-    }
+    };
     trackProductView();
   }, [productDetails]);
 
@@ -572,7 +572,13 @@ const ProductDescription = () => {
           className={`pt-[30px] pb-[12px] px-[12px] flex flex-row justify-between items-center gap-[12px]`}
         >
           <View className="flex flex-row items-center gap-[10px] shrink">
-            <TouchableOpacity onPress={() => router.back()}>
+            <TouchableOpacity
+              onPress={() => {
+                router?.canGoBack()
+                  ? router.back()
+                  : router.push("/(root)/(tabs)/home/home");
+              }}
+            >
               <Entypo name="chevron-left" size={24} color="#fff" />
             </TouchableOpacity>
             <Pressable
@@ -698,8 +704,8 @@ const ProductDescription = () => {
                               style={{
                                 width: "100%",
                                 height: 400,
-                                contentFit: "contain",
                               }}
+                              contentFit="contain"
                             />
                             <View
                               style={{
@@ -729,38 +735,38 @@ const ProductDescription = () => {
                       <View className="flex flex-row items-center gap-[8px] mb-[10px]">
                         {auctionData?.currentHighestBid?.buyer?.profileImage
                           ?.url && (
-                            <Image
-                              source={{
-                                uri: auctionData?.currentHighestBid?.buyer
-                                  ?.profileImage?.url,
-                              }}
-                              style={{
-                                width: 30,
-                                height: 30,
-                                borderRadius: 15,
-                              }}
-                            />
-                          )}
+                          <Image
+                            source={{
+                              uri: auctionData?.currentHighestBid?.buyer
+                                ?.profileImage?.url,
+                            }}
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 15,
+                            }}
+                          />
+                        )}
 
                         {auctionData?.status == "ended" ||
-                          auctionData?.auctionStatus == "ended" ? (
+                        auctionData?.auctionStatus == "ended" ? (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.winner?.buyer?.firstName
                               ? auctionData?.winner?.buyer?.firstName +
-                              " " +
-                              auctionData?.winner?.buyer?.lastName +
-                              " won!"
+                                " " +
+                                auctionData?.winner?.buyer?.lastName +
+                                " won!"
                               : "Auction has ended"}
                           </Text>
                         ) : (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.currentHighestBid?.buyer?.firstName
                               ? auctionData?.currentHighestBid?.buyer
-                                ?.firstName +
-                              " " +
-                              auctionData?.currentHighestBid?.buyer
-                                ?.lastName +
-                              " is winning!"
+                                  ?.firstName +
+                                " " +
+                                auctionData?.currentHighestBid?.buyer
+                                  ?.lastName +
+                                " is winning!"
                               : "no current winner"}
                           </Text>
                         )}
@@ -768,10 +774,10 @@ const ProductDescription = () => {
                         <Image
                           source={require("../../../assets/icons/verified.png")}
                           style={{
-                            contentFit: "contain",
                             width: 20,
                             height: 20,
                           }}
+                          contentFit="contain"
                         />
                       </View>
                     )}
@@ -792,7 +798,7 @@ const ProductDescription = () => {
                             ₦
                             {productDetails?.discount?.isActive
                               ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                              0
+                                0
                               : productDetails?.price?.toLocaleString()}
                           </Text>
                           {productDetails?.discount?.isActive && (
@@ -883,7 +889,7 @@ const ProductDescription = () => {
                   </View>
 
                   {isReviewDropDownShow &&
-                    productDetails?.stats?.reviewCount > 0 ? (
+                  productDetails?.stats?.reviewCount > 0 ? (
                     <View
                       className=""
                       style={{
@@ -969,8 +975,8 @@ const ProductDescription = () => {
                           style={{
                             width: 23,
                             height: 23,
-                            contentFit: "contain",
                           }}
+                          contentFit="contain"
                         />
                       </View>
                       <Text className="text-[14px] text-white font-LexendDecaMedium">
@@ -1033,8 +1039,8 @@ const ProductDescription = () => {
                           style={{
                             width: 23,
                             height: 23,
-                            contentFit: "contain",
                           }}
+                          contentFit="contain"
                         />
                       </View>
                       <Text className="text-[14px] text-white font-LexendDecaMedium">
@@ -1139,9 +1145,10 @@ const ProductDescription = () => {
                             style={{
                               width: 32,
                               height: 32,
-                              contentFit: "contain",
+
                               borderRadius: 32,
                             }}
+                            contentFit="contain"
                           />
                           <View className="shrink">
                             <View className="flex-row items-center gap-[8px] shrink">
@@ -1154,10 +1161,10 @@ const ProductDescription = () => {
                               <Image
                                 source={require("../../../assets/icons/verified.png")}
                                 style={{
-                                  contentFit: "contain",
                                   width: 16,
                                   height: 16,
                                 }}
+                                contentFit="contain"
                               />
                             </View>
 
@@ -1179,8 +1186,8 @@ const ProductDescription = () => {
                                   name:
                                     sellerInfo?.storeName ||
                                     sellerInfo?.personalInfo.firstName +
-                                    " " +
-                                    sellerInfo?.personalInfo.lastName ||
+                                      " " +
+                                      sellerInfo?.personalInfo.lastName ||
                                     "Default",
                                   avatar:
                                     sellerInfo?.storePresence?.storeAvatar?.url,
@@ -1299,7 +1306,7 @@ const ProductDescription = () => {
                         renderContent(moreProductsData)
                       )}
                       {!isMoreProductsLoading &&
-                        moreProductsData?.length < 1 ? (
+                      moreProductsData?.length < 1 ? (
                         <View
                           style={{
                             marginVertical: 40,
@@ -1337,7 +1344,7 @@ const ProductDescription = () => {
                       )}
 
                       {!similarProductsLoading &&
-                        similarProductsData?.length < 1 ? (
+                      similarProductsData?.length < 1 ? (
                         <View
                           style={{
                             marginVertical: 40,
@@ -1395,8 +1402,8 @@ const ProductDescription = () => {
               }}
             >
               {auctionData?.winner?.buyer?.firstName ||
-                auctionData?.status == "ended" ||
-                auctionData?.auctionStatus == "ended" ? (
+              auctionData?.status == "ended" ||
+              auctionData?.auctionStatus == "ended" ? (
                 <Text className="text-[10px] text-white font-LexendDecaSemiBold">
                   Auction is Over!
                 </Text>

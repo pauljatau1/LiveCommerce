@@ -115,7 +115,11 @@ const SingleOrder = () => {
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
           <TouchableOpacity
             className="absolute left-[12px]"
-            onPress={() => router.back()}
+            onPress={() => {
+              router?.canGoBack()
+                ? router.back()
+                : router.push("/(root)/(tabs)/profile");
+            }}
           >
             <Entypo
               name="chevron-left"
