@@ -5758,6 +5758,7 @@ exports.getBlipDetails = async (req, res) => {
           _id: '$_id', // This is the product ID
           blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
+          processed: '$blips.processed',
           thumbnail: { 
             $ifNull: [
               '$blips.thumbnail', 
