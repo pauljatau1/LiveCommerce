@@ -4,9 +4,6 @@ const config = {
   mongodb: {
     url: process.env.MONGODB_URI,
 
-    // TODO - check if we need to set the database name here
-    // databaseName: "api",
-
     options: {
       useNewUrlParser: true, // removes a deprecation warning when connecting
       useUnifiedTopology: true, // removes a deprecating warning when connecting
