@@ -10,17 +10,10 @@ const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
 const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
 const agenda = require('../config/agenda').agenda;
-const fs = require('fs').promises;
 const path = require('path');
-const os = require('os');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-ffmpeg.setFfmpegPath(ffmpegPath);
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
 
-// Initialize FFmpeg
-// const ffmpeg = createFFmpeg({ log: true });
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -93,92 +86,6 @@ exports.createProduct = async (req, res) => {
         };
         const data = await s3.upload(params).promise();
         imagesLinks.push({ url: 'https://' + process.env.CDN_URL + `/${data.Key}` });
-      }
-    }
-
-    // Handle blips/videos
-    let blipsLinks = [];
-    if (req.body.blips && Array.isArray(req.body.blips)) {
-      for (let blip of req.body.blips) {
-        const buffer = Buffer.from(blip.data, 'base64');
-        const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
-        const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
-        
-        // First upload the video
-        const videoParams = {
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: videoKey,
-          Body: buffer,
-          ContentType: blip.contentType,
-        };
-        const videoData = await s3.upload(videoParams).promise();
-        
-        // Create temporary files for ffmpeg
-        const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
-        const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
-        
-        try {
-          // Write video buffer to temp file
-          await fs.writeFile(tempVideoPath, buffer);
-          
-          // Extract thumbnail using ffmpeg
-          await new Promise((resolve, reject) => {
-            ffmpeg(tempVideoPath)
-              .screenshots({
-                timestamps: ['00:00:01.000'],
-                filename: path.basename(thumbnailKey),
-                folder: path.dirname(tempThumbnailPath),
-              })
-              .on('end', resolve)
-              .on('error', reject);
-          });
-          
-          // Read the generated thumbnail
-          const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
-          
-          // Upload the thumbnail
-          const thumbnailParams = {
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: thumbnailKey,
-            Body: thumbnailBuffer,
-            ContentType: 'image/jpeg',
-          };
-          const thumbnailData = await s3.upload(thumbnailParams).promise();
-          
-          // Clean up temp files
-          await fs.unlink(tempVideoPath).catch(() => {});
-          await fs.unlink(tempThumbnailPath).catch(() => {});
-          
-          blipsLinks.push({ 
-            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
-            contentType: blip.contentType,
-            thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`
-          });
-        } catch (err) {
-          console.error('Error generating thumbnail:', err);
-          
-          // Fallback to placeholder if ffmpeg fails
-          const fallbackThumbnailParams = {
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: thumbnailKey,
-            Body: Buffer.from(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
-              '<rect width="180" height="320" fill="#3498db"/>' +
-              '<polygon points="65,160 115,160 90,200" fill="rgba(255,255,255,0.8)"/>' +
-              '<text x="45" y="280" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
-              '</svg>'
-            ),
-            ContentType: 'image/svg+xml',
-          };
-          
-          const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
-          
-          blipsLinks.push({ 
-            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
-            contentType: blip.contentType,
-            thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`
-          });
-        }
       }
     }
 
@@ -310,10 +217,59 @@ exports.createProduct = async (req, res) => {
       ...parsedBody,
       seller: sellerId,
       images: imagesLinks,
-      blips: blipsLinks,
     });
 
     await newProduct.save();
+
+    // Handle blips/videos
+    let updates = {
+      blips: []
+    };
+    if (req.body.blips && Array.isArray(req.body.blips)) {
+      for (let blip of req.body.blips) {
+        // Process new base64 video
+        const buffer = Buffer.from(blip.data, 'base64');
+        const fileName = uuidv4();
+        const folderPath = `sellers/${sellerId}/products/${newProduct._id}/blips/`;
+        const videoKey = folderPath + `${fileName}.mp4`;
+        
+        // First upload the video
+        const videoParams = {
+          Bucket: process.env.RAW_BLIPS_S3_BUCKET,
+          Key: videoKey,
+          Body: buffer,
+          ContentType: blip.contentType,
+        };
+        const videoData = await s3.upload(videoParams).promise();
+    
+        try {
+          updates.blips.push({ 
+            url: '',
+            contentType: blip.contentType,
+            key: fileName,
+            thumbnail: '',
+            processed: false
+          });
+        } catch (err) {
+          console.error('Error processing blip:', err);
+          return res.status(500).json({
+            message: 'Failed to process blip',
+            error: err.message
+          });
+        }
+      }
+    }
+    
+    if (updates.blips.length > 0) {
+      newProduct.blips = updates.blips;
+      // Update blips for newly created product
+      Object.assign(newProduct, {
+        ...updates,
+        updatedAt: Date.now()
+      });
+
+      await newProduct.save();
+    }
 
     // Populate seller details
     const populatedProduct = await Product.findById(newProduct._id)
@@ -948,145 +904,6 @@ exports.updateProduct = async (req, res) => {
         }
       }
       updates.images = imagesLinks;
-    }
-
-    // Handle blips/videos with preservation of metadata
-    if (updates.blips && Array.isArray(updates.blips)) {
-      // Create a map of existing blips by URL for quick lookup
-      const existingBlipsMap = {};
-      if (product.blips && Array.isArray(product.blips)) {
-        product.blips.forEach(blip => {
-          if (blip.url) {
-            existingBlipsMap[blip.url] = blip;
-          }
-        });
-      }
-
-      const blipsLinks = [];
-      for (let blip of updates.blips) {
-        if (blip.data.startsWith('https://')) {
-          // This is an existing blip - preserve its metadata
-          const existingBlip = existingBlipsMap[blip.data];
-          if (existingBlip) {
-            // Preserve existing metadata
-            blipsLinks.push({
-              url: blip.data,
-              contentType: blip.contentType || existingBlip.contentType,
-              thumbnail: blip.thumbnail || existingBlip.thumbnail,
-              likes: existingBlip.likes || [],
-              likesCount: existingBlip.likesCount || 0,
-              viewCount: existingBlip.viewCount || 0,
-              viewedBy: existingBlip.viewedBy || [],
-              comments: existingBlip.comments || [],
-              commentsCount: existingBlip.commentsCount || 0,
-              createdAt: existingBlip.createdAt
-            });
-          } else {
-            // It's a URL but not in our existing blips
-            blipsLinks.push({ 
-              url: blip.data,
-              contentType: blip.contentType,
-              thumbnail: blip.thumbnail || null
-            });
-          }
-        } else {
-          // Process new base64 video
-          const buffer = Buffer.from(blip.data, 'base64');
-          const videoKey = `${uuidv4()}.mp4`;
-          const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
-          
-          // First upload the video
-          const videoParams = {
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: videoKey,
-            Body: buffer,
-            ContentType: blip.contentType,
-          };
-          const videoData = await s3.upload(videoParams).promise();
-          
-          // Create temporary files for ffmpeg
-          const tempVideoPath = path.join(os.tmpdir(), videoKey);
-          const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
-          
-          try {
-            // Write video buffer to temp file
-            await fs.writeFile(tempVideoPath, buffer);
-            
-            // Extract thumbnail using ffmpeg
-            await new Promise((resolve, reject) => {
-              ffmpeg(tempVideoPath)
-                .screenshots({
-                  timestamps: ['00:00:01.000'],
-                  filename: thumbnailKey,
-                  folder: os.tmpdir(),
-                })
-                .on('end', resolve)
-                .on('error', reject);
-            });
-            
-            // Read the generated thumbnail
-            const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
-            
-            // Upload the thumbnail
-            const thumbnailParams = {
-              Bucket: process.env.CDN_S3_BUCKET,
-              Key: thumbnailKey,
-              Body: thumbnailBuffer,
-              ContentType: 'image/jpeg',
-            };
-            const thumbnailData = await s3.upload(thumbnailParams).promise();
-            
-            // Clean up temp files
-            await fs.unlink(tempVideoPath).catch(() => {});
-            await fs.unlink(tempThumbnailPath).catch(() => {});
-            
-            blipsLinks.push({ 
-              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
-              contentType: blip.contentType,
-              thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
-              likes: [],
-              likesCount: 0,
-              viewCount: 0,
-              viewedBy: [],
-              comments: [],
-              commentsCount: 0,
-              createdAt: new Date()
-            });
-          } catch (err) {
-            console.error('Error generating thumbnail:', err);
-            
-            // Fallback to placeholder if ffmpeg fails
-            const fallbackThumbnailParams = {
-              Bucket: process.env.CDN_S3_BUCKET,
-              Key: thumbnailKey,
-              Body: Buffer.from(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
-                '<rect width="180" height="320" fill="#3498db"/>' +
-                '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
-                '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
-                '</svg>'
-              ),
-              ContentType: 'image/svg+xml',
-            };
-            
-            const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
-            
-            blipsLinks.push({ 
-              url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
-              contentType: blip.contentType,
-              thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`,
-              likes: [],
-              likesCount: 0,
-              viewCount: 0,
-              viewedBy: [],
-              comments: [],
-              commentsCount: 0,
-              createdAt: new Date()
-            });
-          }
-        }
-      }
-      updates.blips = blipsLinks;
     }
 
     // Process variant images if they exist
@@ -7164,59 +6981,27 @@ exports.addBlipToProduct = async (req, res) => {
     
     for (const file of req.files) {
       // Generate unique file names
-      const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
-      const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
+      const fileName = uuidv4();
+      const folderPath = `sellers/${sellerId}/products/${product._id}/blips/`;
+      const videoKey = folderPath + `${fileName}.mp4`;
       
       // Upload the video to S3
-      const videoParams = {
-        Bucket: process.env.CDN_S3_BUCKET,
+      const uploadParameters = {
+        Bucket: process.env.RAW_BLIPS_S3_BUCKET,
         Key: videoKey,
         Body: file.buffer,
         ContentType: file.mimetype,
       };
-      const videoData = await s3.upload(videoParams).promise();
-      
-      // Create temporary files for ffmpeg
-      const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
-      const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
+      await s3.upload(uploadParameters).promise();
       
       try {
-        // Write video buffer to temp file
-        await fs.writeFile(tempVideoPath, file.buffer);
-        
-        // Extract thumbnail using ffmpeg
-        await new Promise((resolve, reject) => {
-          ffmpeg(tempVideoPath)
-            .screenshots({
-              timestamps: ['00:00:01.000'],
-              filename: path.basename(thumbnailKey),
-              folder: path.dirname(tempThumbnailPath),
-            })
-            .on('end', resolve)
-            .on('error', reject);
-        });
-        
-        // Read the generated thumbnail
-        const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
-        
-        // Upload the thumbnail
-        const thumbnailParams = {
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: thumbnailKey,
-          Body: thumbnailBuffer,
-          ContentType: 'image/jpeg',
-        };
-        const thumbnailData = await s3.upload(thumbnailParams).promise();
-        
-        // Clean up temp files
-        await fs.unlink(tempVideoPath).catch(() => {});
-        await fs.unlink(tempThumbnailPath).catch(() => {});
-        
         // Create the new blip object
         const newBlip = {
-          url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
+          url: '', // set this to empty string for now because model doesn't allow null values
           contentType: file.mimetype,
-          thumbnail: `https://` + process.env.CDN_URL + `/${thumbnailData.Key}`,
+          thumbnail: '', // set this to empty string for now because model doesn't allow null values
+          key: fileName,
+          processed: false, // initially set to false beecause processing will be done later by Lambda and Amazon MediaConvert
           createdAt: new Date()
         };
         
@@ -7225,41 +7010,7 @@ exports.addBlipToProduct = async (req, res) => {
         newBlips.push(newBlip);
         
       } catch (err) {
-        console.error('Error generating thumbnail:', err);
-        
-        // Fallback to placeholder if ffmpeg fails
-        const fallbackThumbnailParams = {
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: thumbnailKey,
-          Body: Buffer.from(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
-            '<rect width="180" height="320" fill="#3498db"/>' +
-            '<polygon points="65,160 115,160 90,200" fill="rgba(255,255,255,0.8)"/>' +
-            '<text x="45" y="280" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
-            '</svg>'
-          ),
-          ContentType: 'image/svg+xml',
-        };
-        
-        try {
-          const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
-          
-          // Create blip with fallback thumbnail
-          const newBlip = {
-            url: `https://` + process.env.CDN_URL + `/${videoData.Key}`,
-            contentType: file.mimetype,
-            thumbnail: `https://` + process.env.CDN_URL + `/${fallbackData.Key}`,
-            createdAt: new Date()
-          };
-          
-          product.blips.push(newBlip);
-          newBlips.push(newBlip);
-          
-        } catch (fallbackError) {
-          console.error('Fallback thumbnail creation failed:', fallbackError);
-          // Continue processing other files even if one fails
-          console.error('Skipping blip due to fallback error');
-        }
+        console.error('Error creating new blip object:', err);
       }
     }
     
