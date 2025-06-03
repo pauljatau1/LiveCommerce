@@ -104,6 +104,7 @@ const blipSchema = new mongoose.Schema({
   url: { type: String },
   contentType: { type: String },
   thumbnail: { type: String },
+  key: { type: String, required: true },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' }],
   likesCount: { type: Number, default: 0 },
   viewCount: { type: Number, default: 0 },
@@ -136,6 +137,7 @@ const blipSchema = new mongoose.Schema({
     }]
   }],
   commentsCount: { type: Number, default: 0 },
+  processed: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 
