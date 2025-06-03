@@ -78,7 +78,6 @@ const EditProduct = () => {
     });
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [videos, setVideos] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [productStatus, setProductStatus] = useState('active');
@@ -281,80 +280,6 @@ const EditProduct = () => {
         }
     };
 
-    const handleVideoUpload = async (e) => {
-        const file = e.target.files[0];
-
-        if (!file) return;
-
-        if (!file.type.startsWith('video/')) {
-            toast.error('Please upload a video file', {
-                description: "upload a video file",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
-            return;
-        }
-
-        const maxSize = 60 * 1024 * 1024; // 60MB
-        if (file.size > maxSize) {
-            toast.error('Video must be less than 60MB', {
-                description: "upload a video less than 60MB",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
-            return;
-        }
-
-        // Add duration check
-        try {
-            const video = document.createElement('video');
-            video.preload = 'metadata';
-
-            const duration = await new Promise((resolve, reject) => {
-                video.onloadedmetadata = () => {
-                    window.URL.revokeObjectURL(video.src);
-                    resolve(video.duration);
-                };
-                video.onerror = () => reject("Invalid video file");
-                video.src = URL.createObjectURL(file);
-            });
-
-            if (duration > 30) {
-                toast.error('Video must be less than 30 seconds', {
-                    description: "Please upload a shorter video",
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
-                return;
-            }
-
-            setIsUploading(true);
-            setUploadProgress(0);
-
-            // Simulate upload progress
-            await simulateUpload(
-                file,
-                (progress) => setUploadProgress(progress)
-            );
-
-            const videoUrl = URL.createObjectURL(file);
-            setVideos([{ url: videoUrl }]);
-
-        } catch (error) {
-            console.error('Upload failed:', error);
-            toast.error('Failed to upload video');
-        } finally {
-            setIsUploading(false);
-            setUploadProgress(0);
-        }
-    };
-
     // Simulate upload progress (remove this when implementing actual upload)
     const simulateUpload = (file, onProgress) => {
         return new Promise((resolve) => {
@@ -512,23 +437,6 @@ const EditProduct = () => {
                 };
             }));
 
-            // Process video if exists
-            const processedBlips = [];
-            if (videos.length > 0) {
-                if (videos[0]?.url.startsWith('https://')) {
-                    processedBlips.push({
-                        data: videos[0]?.url,
-                    });
-                } else {
-                    const base64Response = await fetch(videos[0]?.url);
-                    const blob = await base64Response.blob();
-                    const base64 = await convertBlobToBase64(blob);
-                    processedBlips.push({
-                        data: base64,
-                    });
-                }
-            }
-
             // When creating productData, ensure weight is in kg
             let weightInKg = Number(shippingDetails.weight) || 10;
             if (shippingDetails.weightUnit === 'g') {
@@ -554,7 +462,7 @@ const EditProduct = () => {
                 brand: brand, // Still include brand even if optional
                 variants: processedVariants,
                 images: processedImages,
-                blips: processedBlips,
+                blips: [],
                 shippingInfo: {
                     weight: {
                         value: weightInKg, // Weight in kg
@@ -649,7 +557,6 @@ const EditProduct = () => {
         setSkuNumber('');
         setUpcNumber('');
         setBrand('');
-        setVideos([]);
         setProductStatus('active');
         // Reset specifications
         // setProductSpecs({});
@@ -862,11 +769,6 @@ const EditProduct = () => {
                     formattedImages[0].isDefault = true;
                 }
                 setImages(formattedImages);
-            }
-
-            // Product video
-            if (product.blips && product.blips.length > 0) {
-                setVideos([{ url: product.blips[0].url }]);
             }
 
             // Comment out Product specifications based on category and subcategory
@@ -1285,81 +1187,6 @@ const EditProduct = () => {
                                             <VariantsProvider>
                                                 <VariantSection />
                                             </VariantsProvider>
-
-                                            {/* Blips Section */}
-                                            <Card>
-                                                <CardHeader className="flex justify-between items-center">
-                                                    <CardTitle>Blips (Recommended)</CardTitle>
-                                                    <Button variant="link">What are blips?</Button>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {videos.length > 0 ? (
-                                                        <div className="space-y-4">
-                                                            {videos.map((video, index) => (
-                                                                <div key={index} className="relative border rounded-lg overflow-hidden aspect-[9/16] max-w-[240px] mx-auto">
-                                                                    <video
-                                                                        src={video.url}
-                                                                        className="w-full h-full object-cover"
-                                                                        controls
-                                                                    />
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                                                                        onClick={() => {
-                                                                            setVideos(prev => prev.filter((_, i) => i !== index));
-                                                                            setSelectedFile(null);
-                                                                        }}
-                                                                    >
-                                                                        <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5 text-red-500" />
-                                                                    </Button>
-                                                                </div>
-                                                            ))}
-                                                            <p className="text-sm text-gray-500 text-center">
-                                                                {selectedFile?.name}
-                                                            </p>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors relative"
-                                                            onClick={() => !isUploading && document.getElementById('blip-upload').click()}
-                                                        >
-                                                            {isUploading ? (
-                                                                <div className="space-y-4">
-                                                                    <Icon icon="solar:loading-bold" className="w-12 h-12 text-gray-400 mx-auto animate-spin" />
-                                                                    <div className="max-w-xs mx-auto space-y-2">
-                                                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                                            <div
-                                                                                className="h-full bg-[#05031F] transition-all duration-300 ease-out"
-                                                                                style={{ width: `${uploadProgress}%` }}
-                                                                            />
-                                                                        </div>
-                                                                        <p className="text-sm text-gray-500">
-                                                                            Uploading... {uploadProgress}%
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <Icon icon="solar:video-add-bold" className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                                                                    <p className="font-medium mb-1">Click To Upload</p>
-                                                                    <p className="text-sm text-gray-500">
-                                                                        Upload A Vertical Video Max 60 Seconds, To Improve Visibility Of Your Products
-                                                                    </p>
-                                                                </>
-                                                            )}
-                                                            <input
-                                                                type="file"
-                                                                id="blip-upload"
-                                                                className="hidden"
-                                                                accept="video/*"
-                                                                onChange={handleVideoUpload}
-                                                                disabled={isUploading}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
                                         </>
                                     ) : (
                                         <div className="h-[500px] xl:h-1/2 flex flex-col justify-center items-center gap-2 xl:gap-4 ">
