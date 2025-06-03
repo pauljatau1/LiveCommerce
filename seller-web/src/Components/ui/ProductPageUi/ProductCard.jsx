@@ -35,6 +35,7 @@ import {
 import { Calendar } from "../calendar";
 import { Input } from "../input";
 import { Progress } from "../progress";
+import VideoPlayer from "@shared/VideoPlayer";  
 
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
@@ -1340,16 +1341,45 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 {existingBlips.map((blip) => (
                                     <div key={blip._id} className="border rounded-lg p-3 relative">
                                         <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                            <video 
+                                            <VideoPlayer 
                                                 src={blip.url} 
-                                                poster={blip.thumbnail} 
-                                                className="w-full h-full object-contain" 
-                                                controls
+                                                poster={blip.thumbnail}  
+                                                style={{ borderRadius: 0, maxHeight: 360 }}
+                                                className="w-full h-full object-contain"
                                             />
                                         </div>
                                         <div className="flex justify-between items-center mt-2">
                                             <span className="text-xs text-gray-500">
-                                                Added: {new Date(blip.createdAt).toLocaleDateString()}
+                                                <div className="flex items-center">
+                                                {/* Added date */}
+                                                <span>
+                                                    Added:&nbsp;{new Date(blip.createdAt).toLocaleDateString()}
+                                                </span>
+
+                                                {/* show only while NOT processed */}
+                                                {!blip.processed && (
+                                                    <span className="flex items-center gap-2 text-red-500 ml-5">
+                                                    {/* loader */}
+                                                    <svg
+                                                        className="h-4 w-4 animate-spin"
+                                                        viewBox="0 0 24 24"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <circle
+                                                        className="opacity-25"
+                                                        cx="12" cy="12" r="10"
+                                                        stroke="currentColor" strokeWidth="4" fill="none"
+                                                        />
+                                                        <path
+                                                        className="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                                                        />
+                                                    </svg>
+                                                    <span>Processing…</span>
+                                                    </span>
+                                                )}
+                                                </div>
                                             </span>
                                             <button 
                                                 onClick={() => handleDeleteBlip(blip._id)}
