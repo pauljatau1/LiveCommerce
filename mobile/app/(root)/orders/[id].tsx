@@ -530,6 +530,14 @@ const StorePickupDetails = ({ details }: any) => {
         </View>
         <View className="flex-row items-center justify-between gap-[8px]">
           <Text className="text-white font-LexendDecaLight text-[12px]">
+            Seller State:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px] shrink">
+            {details?.product?.seller?.warehouseDetails?.address?.state}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-between gap-[8px]">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
             Seller Address:
           </Text>
           <Text className="text-white font-LexendDecaMedium text-[12px] shrink">

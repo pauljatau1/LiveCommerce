@@ -11,7 +11,13 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -102,6 +108,11 @@ const Checkout = () => {
   const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
   const [paystackKey, setPaystackKey] = useState<any>();
+  const [couponCode, setCouponCode] = useState<string>("");
+  const [couponMessage, setCouponMessage] = useState<string>("");
+  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [couponLoading, setCouponLoading] = useState<boolean>(false);
+  const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return !cart?.some(
@@ -116,7 +127,7 @@ const Checkout = () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -142,6 +153,59 @@ const Checkout = () => {
     [isSuccessVisible],
   );
 
+  const handleApplyCoupon = async () => {
+    if (cart?.length > 1) {
+      return setCouponMessage(
+        `⚠️ ${"Coupons can only be applied to a single product"}`,
+      );
+    }
+    if (couponApplied) {
+      setCouponApplied(null);
+      setCouponCode("");
+      setCouponMessage("");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + `api/coupons/apply`,
+        {
+          code: couponCode,
+          productId: cart[0]?._id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setCouponApplied({
+        discount: response.data.product?.discountPercentage,
+        discountedPrice: response.data.product?.discountedPrice,
+        amountSaved: response.data.product?.savings * cart[0]?.quantity,
+        couponSubTotal:
+          response.data.product?.discountedPrice * cart[0]?.quantity,
+        message: `🎉 Code applied! You saved ₦${response.data.product?.savings}`,
+      });
+      setCouponMessage(
+        `🎉 Code applied! You saved ₦${response.data.product?.savings?.toLocaleString()}`,
+      );
+    } catch (e: any) {
+      console.log("error applying coupon ", e);
+      setCouponMessage(
+        `⚠️ ${e?.response?.data?.message ? e?.response?.data?.message : "Error Appling Coupon"}`,
+      );
+      toast.error(
+        e?.response?.data?.message
+          ? e?.response?.data?.message
+          : "Error Appling Coupon",
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
       recipientName: user.firstName + " " + user.lastName,
@@ -149,9 +213,9 @@ const Checkout = () => {
       recipientPhone:
         user.phoneNumber.replaceAll("-", "")?.length > 14
           ? user.phoneNumber
-            .replaceAll("-", "")
-            ?.replace("+234", "")
-            ?.replace("0", "")
+              .replaceAll("-", "")
+              ?.replace("+234", "")
+              ?.replace("0", "")
           : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
@@ -213,9 +277,9 @@ const Checkout = () => {
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                .replaceAll("-", "")
-                ?.replace("+234", "")
-                ?.replace("0", "")
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -333,6 +397,17 @@ const Checkout = () => {
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
+      // setDeliveryFeeObject([
+      //   {
+      //     sellerId: "682efb3e101c5c0990f06844",
+      //     pickUpState: "Lagos",
+      //     weight: 1,
+      //     cost: 3225,
+      //     status: "Success",
+      //     error: null,
+      //   },
+      // ]);
+      // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
     }
@@ -433,7 +508,9 @@ const Checkout = () => {
           quantity: item.quantity,
           price: item?.discount?.isActive
             ? item?.discount?.discountedPrice
-            : item.price,
+            : couponApplied
+              ? couponApplied?.discountedPrice
+              : item.price,
           weight: item.weight?.toFixed(0) * item.quantity,
           seller: {
             sellerId: item.seller._id,
@@ -487,16 +564,16 @@ const Checkout = () => {
 
       const response = await axios(config);
       const cart = await AsyncStorage.getItem("cart");
-      const cartData = JSON.parse(cart || '{}');
+      const cartData = JSON.parse(cart || "{}");
 
       if (response.status == 201) {
         try {
-          const userData = await AsyncStorage.getItem('user');
-          const user = JSON.parse(userData || '{}');
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
           if (user) {
-            console.log("order created", response.data);
+            console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
-            trackEvent('order_created', {
+            trackEvent("order_created", {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -504,16 +581,24 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal?.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
               orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              deliveryOrderNo: response.data?.orders.map(
+                (order: any) => order.fezOrderNo || "N/A",
+              ),
               products: cartData?.map((item: any) => {
                 return {
                   name: item.name,
@@ -522,10 +607,10 @@ const Checkout = () => {
                     maximumFractionDigits: 2,
                   })}`,
                   productId: item._id,
-                }
+                };
               }),
               timestamp: new Date().toISOString(),
-            })
+            });
           }
         } catch (trackError) {
           console.log("error tracking order created", trackError);
@@ -542,10 +627,10 @@ const Checkout = () => {
       }
 
       try {
-        const userData = await AsyncStorage.getItem('user');
-        const user = JSON.parse(userData || '{}');
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
         if (user) {
-          trackEvent('payment_initiated', {
+          trackEvent("payment_initiated", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -560,7 +645,7 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -568,7 +653,7 @@ const Checkout = () => {
             })}`,
             paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
             timestamp: new Date().toISOString(),
-          })
+          });
         }
       } catch (trackError) {
         console.log("error tracking payment initiated", trackError);
@@ -591,7 +676,14 @@ const Checkout = () => {
     } finally {
       setOrderloading(false);
     }
-  }, [selectedAddress, deliveryFee, selectedPayment, cartTotal, cart]);
+  }, [
+    selectedAddress,
+    deliveryFee,
+    selectedPayment,
+    cartTotal,
+    cart,
+    couponApplied,
+  ]);
 
   useEffect(() => {
     async function getUserInfo() {
@@ -615,12 +707,12 @@ const Checkout = () => {
   useEffect(() => {
     const trackCheckout = async () => {
       try {
-        const userData = await AsyncStorage.getItem('user');
-        const user = JSON.parse(userData || '{}');
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
         if (user) {
           const cart = await AsyncStorage.getItem("cart");
-          const cartData = JSON.parse(cart || '{}');
-          trackEvent('checkout_started', {
+          const cartData = JSON.parse(cart || "{}");
+          trackEvent("checkout_started", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -635,22 +727,22 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}`,
             timestamp: new Date().toISOString(),
-          })
+          });
         }
       } catch (trackError) {
         console.log("error tracking checkout started", trackError);
       }
-    }
+    };
 
     trackCheckout();
-  }, [])
+  }, []);
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -701,10 +793,10 @@ const Checkout = () => {
               >
                 {index == 1
                   ? "₦" +
-                  walletBalance?.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                   : item.description}
               </Text>
             </View>
@@ -731,14 +823,14 @@ const Checkout = () => {
   );
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "padding"}
-      keyboardVerticalOffset={Platform.select({ ios: 0, android: 40 })}
-      style={{ backgroundColor: "#121212" }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      // keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
+      style={{ flex: 1, backgroundColor: "#121212" }}
     >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView
-        className="h-full flex-1 bg-[#121212] "
-        style={{ minHeight: height }}
+        className="flex-1 bg-[#121212] "
+        // style={{ minHeight: height }}
       >
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
@@ -746,9 +838,9 @@ const Checkout = () => {
             onPress={async () => {
               try {
                 const userData = await AsyncStorage.getItem("user");
-                const user = JSON.parse(userData || '{}');
+                const user = JSON.parse(userData || "{}");
                 const cart = await AsyncStorage.getItem("cart");
-                const cartData = JSON.parse(cart || '{}');
+                const cartData = JSON.parse(cart || "{}");
 
                 trackEvent("checkout_abandoned", {
                   userId: user?._id,
@@ -765,7 +857,7 @@ const Checkout = () => {
                         maximumFractionDigits: 2,
                       })}`,
                       productId: item._id,
-                    }
+                    };
                   }),
                   totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -776,7 +868,7 @@ const Checkout = () => {
               } catch (error) {
                 console.log(error);
               }
-              router.back()
+              router.back();
             }}
           >
             <Entypo
@@ -857,8 +949,8 @@ const Checkout = () => {
 
               {cart?.length > 0
                 ? cart.map((cartItem, index) => (
-                  <CartItem cartItem={cartItem} key={index} />
-                ))
+                    <CartItem cartItem={cartItem} key={index} />
+                  ))
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
@@ -953,28 +1045,52 @@ const Checkout = () => {
                 </View>
               </View>
 
-              {/* <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
-                <TextInput
-                  placeholder="Enter Promo Code"
-                  placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
-                  className="text-white p-[12px] text-[12px] font-LexendDecaLight"
-                />
-                <Pressable>
-                  <Text className="text-[#ccc] text-[12px] font-LexendDecaLight">
-                    Apply
+              <View className="mb-[10px]">
+                <View
+                  className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
+                >
+                  <TextInput
+                    placeholder="Enter Promo Code"
+                    placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+                    className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
+                    onChangeText={(text) => setCouponCode(text)}
+                    value={couponCode}
+                    onFocus={() => setCouponInputFocused(true)}
+                    onBlur={() => setCouponInputFocused(false)}
+                    readOnly={couponApplied !== null}
+                  />
+                  {couponLoading ? (
+                    <ActivityIndicator size={16} color="#fff" />
+                  ) : (
+                    <Pressable onPress={handleApplyCoupon}>
+                      {couponApplied ? (
+                        <AntDesign name="closecircle" size={18} color="#fff" />
+                      ) : (
+                        <Text
+                          className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
+                        >
+                          APPLY
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+                {couponMessage && (
+                  <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
+                    {couponMessage}
                   </Text>
-                </Pressable>
-              </View> */}
+                )}
+              </View>
 
               <View
-                className="p-[20px] rounded-[5px] gap-[10px]"
+                className="p-[20px] rounded-[10px] gap-[10px]"
                 style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
               >
                 <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                     Merchandise Subtotal
                   </Text>
-                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                  <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                     ₦
                     {cartTotal?.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
@@ -982,39 +1098,58 @@ const Checkout = () => {
                     })}
                   </Text>
                 </View>
+                {couponApplied && (
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Coupon Code Applied
+                    </Text>
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                      - ₦
+                      {couponApplied?.amountSaved?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                )}
                 <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                     Shipping Fee
                   </Text>
                   {shippingFeeLoading ? (
                     <ActivityIndicator size={10} color="white" />
                   ) : (
-                    <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {deliveryFee
                         ? "₦" +
-                        deliveryFee?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
+                          deliveryFee?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
                         : "-"}
                     </Text>
                   )}
                 </View>
                 <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                     Net Total
                   </Text>
                   {shippingFeeLoading ? (
                     <ActivityIndicator size={10} color="white" />
                   ) : (
-                    <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {(deliveryFee && cartTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                         ? "₦" +
-                        (deliveryFee + cartTotal)?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
+                          (
+                            deliveryFee +
+                            (couponApplied
+                              ? couponApplied?.couponSubTotal
+                              : cartTotal)
+                          )?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
                         : "-"}
                     </Text>
                   )}
@@ -1022,18 +1157,23 @@ const Checkout = () => {
               </View>
 
               <TouchableOpacity
-                className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A]"
+                className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
                 onPress={handleCompleteOrder}
               >
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
                   {(deliveryFee && cartTotal) ||
-                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                     ? "₦" +
-                    (deliveryFee + cartTotal)?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                      (
+                        deliveryFee +
+                        (couponApplied
+                          ? couponApplied?.couponSubTotal
+                          : cartTotal)
+                      )?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
                     : "-"}
                   )
                 </Text>
@@ -1047,7 +1187,12 @@ const Checkout = () => {
             refNumber={generateReference()}
             paystackKey={paystackKey?.publicKey}
             amount={
-              selectedDeliveryOpt == 0 ? deliveryFee! + cartTotal : cartTotal
+              selectedDeliveryOpt == 0
+                ? deliveryFee! +
+                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+                : couponApplied
+                  ? couponApplied?.couponSubTotal
+                  : cartTotal
             }
             channels={[
               "card",
