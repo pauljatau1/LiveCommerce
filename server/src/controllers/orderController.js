@@ -1365,7 +1365,7 @@ exports.getOrdersForSeller = async (req, res) => {
     // Build query
     const query = { 
       seller: sellerId,
-      isStale: { $ne: true } // Exclude stale orders
+      
     };
 
     // Add filters if provided
@@ -2074,6 +2074,7 @@ exports.getOrderDetails = async (req, res) => {
            createdAt: order.createdAt,
            totalAmount: order.totalAmount,
            paid: order.paid,
+           isStale: order.isStale,
            isStorePickup: order.isStorePickup,
            paymentInfo: {
              method: order.paymentInfo.method,
