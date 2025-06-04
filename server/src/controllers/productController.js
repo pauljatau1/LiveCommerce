@@ -219,57 +219,7 @@ exports.createProduct = async (req, res) => {
       images: imagesLinks,
     });
 
-    await newProduct.save();
-
-    // Handle blips/videos
-    let updates = {
-      blips: []
-    };
-    if (req.body.blips && Array.isArray(req.body.blips)) {
-      for (let blip of req.body.blips) {
-        // Process new base64 video
-        const buffer = Buffer.from(blip.data, 'base64');
-        const fileName = uuidv4();
-        const folderPath = `sellers/${sellerId}/products/${newProduct._id}/blips/`;
-        const videoKey = folderPath + `${fileName}.mp4`;
-        
-        // First upload the video
-        const videoParams = {
-          Bucket: process.env.RAW_BLIPS_S3_BUCKET,
-          Key: videoKey,
-          Body: buffer,
-          ContentType: blip.contentType,
-        };
-        const videoData = await s3.upload(videoParams).promise();
-    
-        try {
-          updates.blips.push({ 
-            url: '',
-            contentType: blip.contentType,
-            key: fileName,
-            thumbnail: '',
-            processed: false
-          });
-        } catch (err) {
-          console.error('Error processing blip:', err);
-          return res.status(500).json({
-            message: 'Failed to process blip',
-            error: err.message
-          });
-        }
-      }
-    }
-    
-    if (updates.blips.length > 0) {
-      newProduct.blips = updates.blips;
-      // Update blips for newly created product
-      Object.assign(newProduct, {
-        ...updates,
-        updatedAt: Date.now()
-      });
-
-      await newProduct.save();
-    }
+    await newProduct.save();    
 
     // Populate seller details
     const populatedProduct = await Product.findById(newProduct._id)
