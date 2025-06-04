@@ -188,7 +188,7 @@ export const LivestreamProvider = ({ children }) => {
             toast.error('Error scheduling livestream', {
                 description: error.response?.data?.message || 'Failed to schedule livestream',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -238,7 +238,7 @@ export const LivestreamProvider = ({ children }) => {
             toast.error('Error scheduling livestream', {
                 description: error.response.data.message,
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });

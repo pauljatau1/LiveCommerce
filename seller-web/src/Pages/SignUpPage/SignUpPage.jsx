@@ -95,9 +95,7 @@ const SignUpPage = () => {
     // Show the OTP modal if signup was successful and OTP verification is pending
     if (signUpSellerDetails && otpStatus === "pending") {
       setIsModalOpen(true);
-    } else if (otpStatus === "pending" && unverifiedUser) {
-      setIsModalOpen(true);
-    } else if (unverifiedUser) {
+    } else if (signUpSellerDetails && unverifiedUser) {
       // Also show modal if user was redirected back to signup because they're unverified
       setIsModalOpen(true);
     }
@@ -164,9 +162,7 @@ const SignUpPage = () => {
         formData.storeName
       );
 
-      if (result !== false) {
-        // Show OTP modal immediately after successful registration
-        setIsModalOpen(true);
+      if (result) {
 
         //reset the form data
         setFormData({

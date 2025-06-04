@@ -223,8 +223,8 @@ function AuthProvider({ children }) {
                 storeName
             });
 
-            if (response.status === 201) {
-                console.log(response);
+            if (response.status === 201 || response.status === 200) {
+                console.log( "create seller response", response);
                 // Store token but explicitly set isVerified to false
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
@@ -393,7 +393,7 @@ function AuthProvider({ children }) {
                 toast.error("Session expired", {
                     description: "Please log in again",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -405,7 +405,7 @@ function AuthProvider({ children }) {
                 toast.error("Authentication error", {
                     description: error.response?.data?.message || error.message,
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -548,7 +548,7 @@ function AuthProvider({ children }) {
                         description: 'Your account has been disabled. Please contact support.',
                         style: {
                             background: '#fff',
-                            color: '#05031F',
+                            color: '#17171B',
                         }
                     });
                     
@@ -634,7 +634,7 @@ function AuthProvider({ children }) {
 
                     toast.success('Login successful', {
                         style: {
-                            border: '1px solid #05031F',
+                            border: '1px solid #17171B',
                         }
                     });
 
@@ -700,7 +700,7 @@ function AuthProvider({ children }) {
                 description: error.response?.data?.message || error.message,
                 style: {
                     background: '#fff',
-                    color: '#05031F',
+                    color: '#17171B',
                 }
             });
         } finally {
@@ -856,7 +856,7 @@ function AuthProvider({ children }) {
                 toast.error("Session expired", {
                     description: "Please log in again",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });

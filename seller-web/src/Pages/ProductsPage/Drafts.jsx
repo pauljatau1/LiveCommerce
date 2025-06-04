@@ -170,7 +170,7 @@ const Drafts = () => {
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
                 />
                 <div>
-                  <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{productToDelete?.name}</h3>
+                  <h3 className="font-medium text-[#17171B] text-sm sm:text-base line-clamp-2">{productToDelete?.name}</h3>
                   <p className="text-xs sm:text-sm text-gray-500">SKU: {productToDelete?.sku || 'N/A'}</p>
                 </div>
               </div>

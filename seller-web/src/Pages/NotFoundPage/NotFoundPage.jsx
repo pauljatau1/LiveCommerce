@@ -93,7 +93,7 @@ const NotFoundPage = () => {
                                 rotate: -360,
                                 transition: { duration: 25, repeat: Infinity, ease: "linear" }
                             }}
-                            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#05031F]/20 rounded-full blur-3xl"
+                            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#17171B]/20 rounded-full blur-3xl"
                         />
                     </div>
                 </motion.div>

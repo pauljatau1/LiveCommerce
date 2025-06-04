@@ -16,7 +16,7 @@ const Loader = ({color = '#0BB248'}) => {
     'account-approval'
   ].some(route => pathname.includes(route));
 
-  const loaderColor = isOnboardingRoute ? '#05031F' : color;
+  const loaderColor = isOnboardingRoute ? '#17171B' : color;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-200/5 backdrop-blur-xl">

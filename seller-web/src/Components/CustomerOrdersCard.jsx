@@ -6,18 +6,18 @@ const CustomerOrdersCard = ({ item }) => {
             <img src={item?.image} alt={item?.name} className="h-12 w-12 xl:h-20 xl:w-20 object-cover" />
             <div className="flex items-center flex-wrap w-full gap-4 justify-between">
                 <div className="flex flex-col gap-2">
-                    <p className="text-sm xl:text-base font-lexend font-normal text-[#05031F]">{item?.name}</p>
+                    <p className="text-sm xl:text-base font-lexend font-normal text-[#17171B]">{item?.name}</p>
                     <div className="flex items-center flex-wrap gap-2">
-                        <p className="text-sm  font-lexend font-normal text-[#05031F]">Color: {item?.color} </p>
-                        <p className="text-sm font-bold text-[#05031F]">{item?.price.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })} * {item?.quantity} </p>
+                        <p className="text-sm  font-lexend font-normal text-[#17171B]">Color: {item?.color} </p>
+                        <p className="text-sm font-bold text-[#17171B]">{item?.price.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })} * {item?.quantity} </p>
                     </div>
                     <div className="flex flex-col xl:flex-row xl:gap-2">
-                        <p className="text-sm font-lexend font-normal text-[#05031F] max-w-[100px] truncate">{item?.id}</p>
-                        <p className="text-sm font-lexend font-normal text-[#05031F]">{item?.isPaid ? 'Paid' : 'Pending'}</p>
-                        <p className="text-sm font-lexend font-normal text-[#05031F]">{item?.isDelivered ? 'Delivered' : 'Pending'}</p>
+                        <p className="text-sm font-lexend font-normal text-[#17171B] max-w-[100px] truncate">{item?.id}</p>
+                        <p className="text-sm font-lexend font-normal text-[#17171B]">{item?.isPaid ? 'Paid' : 'Pending'}</p>
+                        <p className="text-sm font-lexend font-normal text-[#17171B]">{item?.isDelivered ? 'Delivered' : 'Pending'}</p>
                     </div>
                 </div>
-                <p className="text-sm xl:text-base font-lexend font-normal text-[#05031F]">Total: {item?.total.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}</p>
+                <p className="text-sm xl:text-base font-lexend font-normal text-[#17171B]">Total: {item?.total.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}</p>
             </div>
         </div>
     )

@@ -107,7 +107,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                     </button>
                     <div className="flex flex-col gap-6 pt-4">
                         <div className="text-center">
-                            <h1 className="text-xl xl:text-2xl font-bold text-[#05031F]">Update Stock</h1>
+                            <h1 className="text-xl xl:text-2xl font-bold text-[#17171B]">Update Stock</h1>
                             <p className="text-sm text-gray-500 mt-2">Update stock quantity for {item?.name}</p>
                         </div>
 
@@ -119,7 +119,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     className="w-16 h-16 rounded-lg object-contain bg-white"
                                 />
                                 <div>
-                                    <h3 className="font-medium text-[#05031F]">{item?.name}</h3>
+                                    <h3 className="font-medium text-[#17171B]">{item?.name}</h3>
                                     <p className="text-sm text-gray-500">Current Stock: {item?.stock}</p>
                                 </div>
                             </div>
@@ -207,7 +207,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
 
                         <div className="flex gap-3 mt-4">
                             <button
-                                className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 rounded-md"
+                                className="border border-[#17171B] flex-1 text-[#17171B] px-2 py-1 h-14 rounded-md"
                                 onClick={onClose}
                             >
                                 Cancel

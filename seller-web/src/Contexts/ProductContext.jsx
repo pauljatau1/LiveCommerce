@@ -44,7 +44,7 @@ export const ProductProvider = ({ children }) => {
                 toast.success('Product created successfully', {
                     description: "Product has been created successfully",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -54,7 +54,7 @@ export const ProductProvider = ({ children }) => {
             toast.error('Failed to create product', {
                 description: "Please try again",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });

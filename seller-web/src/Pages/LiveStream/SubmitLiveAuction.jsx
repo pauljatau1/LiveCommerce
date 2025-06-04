@@ -158,7 +158,7 @@ const SubmitLiveAuction = () => {
             } else {
                 toast.error('Please fill in all fields', {
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });

@@ -85,7 +85,7 @@ const BusinessCategoryOnboarding = () => {
       toast.error('Please select at least one category', {
         description: 'You must select at least one category to continue',
         style: {
-          background: '#05031F',
+          background: '#17171B',
           color: '#fff',
         }
       });
@@ -148,7 +148,7 @@ const BusinessCategoryOnboarding = () => {
       toast.error('Please upload a profile image', {
         description: 'You must upload a profile image to continue',
         style: {
-          background: '#05031F',
+          background: '#17171B',
           color: '#fff',
         }
       });

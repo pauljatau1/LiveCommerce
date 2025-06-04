@@ -40,11 +40,11 @@ const OnBoardingPage = () => {
           </div>
           <div className="mt-[38.22px] md:mt-[55.2px]">
             <label onClick={() => setAccountType('business')} className={`flex items-center justify-between py-[18px] px-[17.5px] md:py-[31px] md:px-[35px] border-[0.65px] rounded-lg cursor-pointer mb-[17.61px] lg:mb-[28.22px] border-[#0BB248] ${accountType === 'business' ? 'bg-[#FFFFFF]' : 'bg-transparent'}`}>
-              <p className={`text-xl xl:text-2xl font-medium ${accountType === 'business' ? 'text-[#05031F]' : 'text-[#FFFFFF]'}`} >Business</p>
+              <p className={`text-xl xl:text-2xl font-medium ${accountType === 'business' ? 'text-[#17171B]' : 'text-[#FFFFFF]'}`} >Business</p>
               <input type="radio" defaultChecked={accountType === 'business'} className={`appearance-none w-[25px] h-[25px] border-4 border-[#0BB248] rounded-full ${accountType === 'business' ? 'bg-[#FFFFFF] border-4 ring-2 ring-[#0BB248]' : 'bg-transparent'}`} />
             </label>
             <label onClick={() => setAccountType('individual')} className={`flex items-center justify-between py-[18px] px-[17.5px] md:py-[31px] md:px-[35px] border-[0.65px] rounded-lg cursor-pointer border-[#0BB248] ${accountType === 'individual' ? 'bg-[#FFFFFF]' : 'bg-transparent'}`}>
-              <p className={`text-xl xl:text-2xl font-medium ${accountType === 'individual' ? 'text-[#05031F]' : 'text-[#FFFFFF]'}`}>Individual</p>
+              <p className={`text-xl xl:text-2xl font-medium ${accountType === 'individual' ? 'text-[#17171B]' : 'text-[#FFFFFF]'}`}>Individual</p>
               <input type="radio" defaultChecked={accountType === 'individual'} className={`appearance-none w-[25px] h-[25px] border-4 border-[#0BB248] rounded-full ${accountType === 'individual' ? 'bg-[#FFFFFF] border-4 ring-2 ring-[#0BB248]' : 'bg-transparent'}`} />
             </label>
           </div>

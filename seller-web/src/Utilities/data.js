@@ -234,7 +234,7 @@ export const homeAnalyticsCardData = [
         previous: '18K visits',
         percentage: '+27.6%',
         color: '#0BB248',
-        backgroundColor: '#05031F'
+        backgroundColor: '#17171B'
     },
     {
         id: ObjectID().toHexString(),
@@ -244,7 +244,7 @@ export const homeAnalyticsCardData = [
         previous: '₦2.5m',
         percentage: '+40%',
         color: '#0BB248',
-        backgroundColor: '#05031F'
+        backgroundColor: '#17171B'
     },
     {
         id: ObjectID().toHexString(),
@@ -254,7 +254,7 @@ export const homeAnalyticsCardData = [
         previous: '10K',
         percentage: '+20%',
         color: '#0BB248',
-        backgroundColor: '#05031F'
+        backgroundColor: '#17171B'
     },
     {
         id: ObjectID().toHexString(),
@@ -264,7 +264,7 @@ export const homeAnalyticsCardData = [
         previous: '8%',
         percentage: '+25%',
         color: '#0BB248',
-        backgroundColor: '#05031F'
+        backgroundColor: '#17171B'
     },
     {
         id: ObjectID().toHexString(),
@@ -274,7 +274,7 @@ export const homeAnalyticsCardData = [
         previous: 333,
         percentage: '+33.3%',
         color: '#0BB248',
-        backgroundColor: '#05031F'
+        backgroundColor: '#17171B'
     }
 ];
 

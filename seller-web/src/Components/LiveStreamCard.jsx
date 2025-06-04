@@ -19,7 +19,7 @@ const LiveStreamCard = ({ item, isVerified = true, onUnverifiedAction }) => {
                     <div className="w-12 h-12 flex items-center justify-center rounded-lg">
                         <img src={item?.icon} alt={item?.title} className=" w-[104px] " />
                     </div>
-                    <h2 className="text-lg font-inter font-semibold border-b border-gray-200 py-4 text-[#05031F]">{item?.title}</h2>
+                    <h2 className="text-lg font-inter font-semibold border-b border-gray-200 py-4 text-[#17171B]">{item?.title}</h2>
                 </div>
 
                 <div>
