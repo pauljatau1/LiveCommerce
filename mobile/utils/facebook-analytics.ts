@@ -108,7 +108,7 @@ export const trackFacebookSearch = (
   if (contentType) params.fb_content_type = contentType;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_search', undefined, params);
+  trackFacebookEvent('fb_mobile_search', params);
 };
 
 /**
@@ -129,7 +129,7 @@ export const trackFacebookViewContent = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_content_view', value, params);
+  trackFacebookEvent('fb_mobile_content_view', params);
 };
 
 /**
@@ -150,7 +150,7 @@ export const trackFacebookAddToWishlist = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_add_to_wishlist', value, params);
+  trackFacebookEvent('fb_mobile_add_to_wishlist', params);
 };
 
 /**
@@ -171,7 +171,7 @@ export const trackFacebookAddToCart = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_add_to_cart', value, params);
+  trackFacebookEvent('fb_mobile_add_to_cart', params);
 };
 
 /**
@@ -181,7 +181,7 @@ export const trackFacebookAddPaymentInfo = (success?: boolean) => {
   const params: Record<string, any> = {};
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_add_payment_info', undefined, params);
+  trackFacebookEvent('fb_mobile_add_payment_info', params);
 };
 
 /**
@@ -203,7 +203,7 @@ export const trackFacebookInitiateCheckout = (
   if (paymentInfoAvailable !== undefined) params.fb_payment_info_available = paymentInfoAvailable ? 1 : 0;
   if (currency) params.fb_currency = currency;
 
-  trackFacebookEvent('fb_mobile_initiated_checkout', totalPrice, params);
+  trackFacebookEvent('fb_mobile_initiated_checkout', params);
 };
 
 /**
@@ -218,7 +218,7 @@ export const trackFacebookCompleteRegistration = (
   if (registrationMethod) params.fb_registration_method = registrationMethod;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_complete_registration', undefined, params);
+  trackFacebookEvent('fb_mobile_complete_registration', params);
 };
 
 /**
@@ -230,7 +230,7 @@ export const trackFacebookLogin = (loginMethod?: string, success?: boolean) => {
   if (loginMethod) params.fb_login_method = loginMethod;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_login', undefined, params);
+  trackFacebookEvent('fb_mobile_login', params);
 };
 
 /**
@@ -247,7 +247,7 @@ export const trackFacebookShare = (
   if (contentId) params.fb_content_id = contentId;
   if (method) params.fb_method = method;
 
-  trackFacebookEvent('fb_mobile_share', undefined, params);
+  trackFacebookEvent('fb_mobile_share', params);
 };
 
 /**

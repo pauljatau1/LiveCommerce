@@ -39,6 +39,9 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
+import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
+import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
+import { trackFacebookPurchase, trackFacebookEvent } from "@/utils/facebook-analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -573,7 +576,7 @@ const Checkout = () => {
           if (user) {
             console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
-            trackEvent("order_created", {
+            trackEventMixpanel('order_created', {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -608,6 +611,68 @@ const Checkout = () => {
                   })}`,
                   productId: item._id,
                 };
+              }),
+              timestamp: new Date().toISOString(),
+            });
+
+            trackEventCustomerio('order_created', {
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              orderId: response.data.orders.map((order: any) => order.orderId),
+              sellerId: response.data.orders[0]?.seller,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              orderCount: response.data?.totals?.orderCount,
+              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              products: cartData?.map((item: any) => {
+                return {
+                  name: item.name,
+                  price: `₦${item.price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  productId: item._id,
+                }
+              }),
+              timestamp: new Date().toISOString(),
+            });
+
+            trackFacebookPurchase(cartTotal, "NGN", {
+              userId: user?._id,
+              email: user?.email,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+              username: user?.username,
+              orderId: response.data.orders.map((order: any) => order.orderId),
+              sellerId: response.data.orders[0]?.seller,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              orderCount: response.data?.totals?.orderCount,
+              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              products: cartData?.map((item: any) => {
+                return {
+                  name: item.name,
+                  price: `₦${item.price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  productId: item._id,
+                }
               }),
               timestamp: new Date().toISOString(),
             });
@@ -711,8 +776,8 @@ const Checkout = () => {
         const user = JSON.parse(userData || "{}");
         if (user) {
           const cart = await AsyncStorage.getItem("cart");
-          const cartData = JSON.parse(cart || "{}");
-          trackEvent("checkout_started", {
+          const cartData = JSON.parse(cart || '{}');
+          trackEventMixpanel('checkout_started', {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -728,6 +793,54 @@ const Checkout = () => {
                 })}`,
                 productId: item._id,
               };
+            }),
+            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          trackEventCustomerio('checkout_started', {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            cartItems: cart?.length,
+            products: cartData?.map((item: any) => {
+              return {
+                name: item.name,
+                price: `₦${item.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                productId: item._id,
+              }
+            }),
+            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          trackFacebookEvent("InitiateCheckout", {
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            cartItems: cart?.length,
+            products: cartData?.map((item: any) => {
+              return {
+                name: item.name,
+                price: `₦${item.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                productId: item._id,
+              }
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -1312,10 +1425,10 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             </Text>
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                Store Pickup Available
-              </Text>
-            )}
+                <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                  Store Pickup Available
+                </Text>
+              )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{

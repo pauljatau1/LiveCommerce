@@ -58,6 +58,9 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { trackEvent } from "@/utils/analytics";
+import { trackFacebookEvent } from "@/utils/facebook-analytics";
+import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
+import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -430,7 +433,7 @@ const ProductDescription = () => {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || "{}");
         if (user && productDetails) {
-          trackEvent("product_viewed", {
+          trackEventMixpanel("product_viewed", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -447,6 +450,45 @@ const ProductDescription = () => {
             productSellerName: sellerInfo?.storeName,
             timestamp: new Date().toISOString(),
           });
+
+          trackEventCustomerio("product_viewed", {
+            uuserId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            productId: productDetails?._id,
+            productName: productDetails?.name,
+            productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+            productCategory: productDetails?.category,
+            productSubCategory: productDetails?.subCategory,
+            productStock: productDetails?.stock,
+            productStatus: productDetails?.status,
+            productSellerId: sellerInfo?._id,
+            productSellerName: sellerInfo?.storeName,
+            timestamp: new Date().toISOString(),
+          });
+
+          trackFacebookEvent("ViewContent", {
+            content_id: productDetails?._id,
+            content_name: productDetails?.name,
+            content_type: "product",
+            currency: "NGN",
+            value: `₦${productDetails?.price?.toLocaleString()}`,
+            description: productDetails?.description,
+            userId: user?._id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            username: user?.username,
+            productCategory: productDetails?.category,
+            productSubCategory: productDetails?.subCategory,
+            productStock: productDetails?.stock,
+            productStatus: productDetails?.status,
+            productSellerId: sellerInfo?._id,
+            productSellerName: sellerInfo?.storeName,
+            timestamp: new Date().toISOString(),
+          })
         }
       } catch (trackError) {
         console.log("Customer.io product view tracking error:", trackError);

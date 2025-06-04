@@ -4,6 +4,9 @@ import { AntDesign } from "@expo/vector-icons";
 import { toast } from "@/core/toast";
 import { Image } from "expo-image";
 import { trackEvent } from "@/utils/analytics";
+import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
+import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
+import { trackFacebookEvent } from "@/utils/facebook-analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CartSheet = ({
@@ -37,7 +40,7 @@ const CartSheet = ({
     });
   };
 
-  const handleCreateCartItem = async() => {
+  const handleCreateCartItem = async () => {
     if (productDetails?.stock < 1) {
       return;
     }
@@ -64,24 +67,63 @@ const CartSheet = ({
       const userData = await AsyncStorage.getItem('user');
       const user = JSON.parse(userData || '{}');
       if (user?._id) {
-      trackEvent('add_to_cart', {
-        userId: user?._id,
-        email: user?.email,
-        firstName: user?.firstName,
-        lastName: user?.lastName,
-        username: user?.username,
-        productId: productDetails?._id,
-        productName: productDetails?.name,
-        productPrice: `₦${productDetails?.price?.toLocaleString()}`,
-        productCartQuantity: quantity,
-        productImage: productDetails?.images?.[0]?.url,
-        productCategory: productDetails?.category,
-        productSubCategory: productDetails?.subCategory,
-        productStock: productDetails?.stock,
-        productStatus: productDetails?.status,
-        productSellerId: productDetails?.seller?._id,
-        sellerName: productDetails?.seller?.name,
-        timestamp: new Date().toISOString(),
+        trackEventMixpanel('add_to_cart', {
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          productId: productDetails?._id,
+          productName: productDetails?.name,
+          productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+          productCartQuantity: quantity,
+          productImage: productDetails?.images?.[0]?.url,
+          productCategory: productDetails?.category,
+          productSubCategory: productDetails?.subCategory,
+          productStock: productDetails?.stock,
+          productStatus: productDetails?.status,
+          productSellerId: productDetails?.seller?._id,
+          sellerName: productDetails?.seller?.name,
+          timestamp: new Date().toISOString(),
+        });
+        trackEventCustomerio('add_to_cart', {
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          productId: productDetails?._id,
+          productName: productDetails?.name,
+          productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+          productCartQuantity: quantity,
+          productImage: productDetails?.images?.[0]?.url,
+          productCategory: productDetails?.category,
+          productSubCategory: productDetails?.subCategory,
+          productStock: productDetails?.stock,
+          productStatus: productDetails?.status,
+          productSellerId: productDetails?.seller?._id,
+          sellerName: productDetails?.seller?.name,
+          timestamp: new Date().toISOString(),
+        });
+
+        trackFacebookEvent('AddToCart', {
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+          productId: productDetails?._id,
+          productName: productDetails?.name,
+          productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+          productCartQuantity: quantity,
+          productImage: productDetails?.images?.[0]?.url,
+          productCategory: productDetails?.category,
+          productSubCategory: productDetails?.subCategory,
+          productStock: productDetails?.stock,
+          productStatus: productDetails?.status,
+          productSellerId: productDetails?.seller?._id,
+          sellerName: productDetails?.seller?.name,
+          timestamp: new Date().toISOString(),
         });
       }
     } catch (trackError) {
@@ -139,9 +181,9 @@ const CartSheet = ({
               {selectedVariant?.discount?.isActive
                 ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
                 : selectedVariant?.price?.toLocaleString() ||
-                  (productDetails?.discount?.isActive
-                    ? productDetails?.discount?.discountedPrice?.toLocaleString()
-                    : productDetails?.price?.toLocaleString())}
+                (productDetails?.discount?.isActive
+                  ? productDetails?.discount?.discountedPrice?.toLocaleString()
+                  : productDetails?.price?.toLocaleString())}
             </Text>
             {productDetails?.discount?.isActive && (
               <View className="flex-row items-center gap-[8px]">
