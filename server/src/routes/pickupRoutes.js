@@ -8,13 +8,20 @@ const {
   createPickupRequest,
   getAllPickupRequests,
   processPickupRequest,
-  getSellerPickupRequests
+  getSellerPickupRequests,
+  getPickupStatus
 } = require('../controllers/pickupController');
 const { v4: uuidv4 } = require('uuid');
 const Order = require('../models/Order');
 
 // Protect all routes after this middleware
 router.use(authMiddleware.verifyToken);
+
+// Route to get pickup status for an order
+router.get(
+  '/:orderId/status',
+  getPickupStatus
+);
 
 // Route for sellers to create pickup request
 router.post(
@@ -96,6 +103,12 @@ router.post('/:orderId/confirm',
           note: note || 'Pickup confirmed by seller'
         }
       });
+
+      // Update store pickup status
+      order.storePickupStatus = {
+        state: 'confirmed_by_seller',
+        confirmedAt: new Date()
+      };
 
       await order.save();
 

@@ -79,6 +79,19 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  storePickupStatus: {
+    state: {
+      type: String,
+      enum: ['pending', 'confirmed_by_seller', 'approved'],
+      default: 'pending'
+    },
+    confirmedAt: Date,
+    approvedAt: Date,
+    pickupRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PickupRequest'
+    }
+  },
   isStale: {
     type: Boolean,
     default: false

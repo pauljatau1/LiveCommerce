@@ -2076,6 +2076,11 @@ exports.getOrderDetails = async (req, res) => {
            paid: order.paid,
            isStale: order.isStale,
            isStorePickup: order.isStorePickup,
+           storePickupStatus: order.isStorePickup ? {
+             state: order.storePickupStatus?.state || 'pending',
+             confirmedAt: order.storePickupStatus?.confirmedAt,
+             approvedAt: order.storePickupStatus?.approvedAt
+           } : null,
            paymentInfo: {
              method: order.paymentInfo.method,
              status: order.paymentInfo.status,

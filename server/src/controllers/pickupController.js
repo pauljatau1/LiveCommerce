@@ -81,6 +81,13 @@ exports.createPickupRequest = async (req, res) => {
       status: 'pending',
     });
 
+    // Update order store pickup status
+    await Order.findByIdAndUpdate(orderId, {
+      'storePickupStatus.state': 'confirmed_by_seller',
+      'storePickupStatus.confirmedAt': new Date(),
+      'storePickupStatus.pickupRequestId': pickupRequest._id
+    });
+
     // Send email to admin about new pickup request
     const adminEmail = {
       to: 'admin@auqli.com',
@@ -203,6 +210,10 @@ exports.processPickupRequest = async (req, res) => {
       order.closedAt = new Date();
       order.closedBy = 'admin';
       order.closedReason = 'Pickup request approved';
+      
+      // Update store pickup status
+      order.storePickupStatus.state = 'approved';
+      order.storePickupStatus.approvedAt = new Date();
 
       // Let the order pre-save middleware handle transaction creation
       await order.save({ session });
@@ -377,6 +388,79 @@ exports.getSellerPickupRequests = async (req, res) => {
     return res.status(500).json({
       status: 'error',
       message: 'Error fetching pickup requests',
+      error: error.message
+    });
+  }
+};
+
+// Get pickup status for an order
+exports.getPickupStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Fetch the order
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Order not found'
+      });
+    }
+    
+    if (!order.isStorePickup) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'This is not a store pickup order'
+      });
+    }
+    
+    // Find any pickup requests for this order
+    const pickupRequest = await PickupRequest.findOne({ order: orderId })
+      .sort({ createdAt: -1 });
+    
+    let status = {
+      state: 'pending',
+      confirmedAt: null,
+      approvedAt: null,
+      pickupRequestId: null
+    };
+    
+    if (pickupRequest) {
+      if (pickupRequest.status === 'approved') {
+        status.state = 'approved';
+        status.approvedAt = pickupRequest.processedAt;
+      } else if (pickupRequest.status === 'pending') {
+        status.state = 'confirmed_by_seller';
+        status.confirmedAt = pickupRequest.createdAt;
+      }
+      status.pickupRequestId = pickupRequest._id;
+    }
+    
+    // Update the order with the status if it's not already set
+    if (!order.storePickupStatus || order.storePickupStatus.state !== status.state) {
+      await Order.findByIdAndUpdate(orderId, { storePickupStatus: status });
+    }
+    
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        storePickupStatus: status,
+        pickupRequest: pickupRequest ? {
+          _id: pickupRequest._id,
+          status: pickupRequest.status,
+          createdAt: pickupRequest.createdAt,
+          processedAt: pickupRequest.processedAt,
+          proofOfDelivery: pickupRequest.proofOfDelivery
+        } : null
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error getting pickup status:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error getting pickup status',
       error: error.message
     });
   }
