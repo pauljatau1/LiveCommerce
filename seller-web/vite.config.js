@@ -7,6 +7,9 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 // Define __dirname equivalent for ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Check app environment
+const APP_STATE = process.env.VITE_APP_STATE || 'development';
+
 // https://vite.dev/config/
 export default defineConfig({
   server: {
@@ -79,6 +82,6 @@ export default defineConfig({
     sourcemap: true,
   },
   esbuild: {
-    drop: ['console', 'debugger'], // Remove console and debugger statements in production
+    drop: APP_STATE === 'production' ? ['console', 'debugger'] : [],
   }
 })
