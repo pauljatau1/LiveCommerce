@@ -1,4 +1,3 @@
-// HlsVideo.jsx
 import { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 
@@ -18,9 +17,6 @@ export default function VideoPlayer({
 
     const isHls = /\.m3u8($|\?)/i.test(src);
 
-    /* ────────────────
-       Progressive file
-       ──────────────── */
     if (!isHls) {
       // mp4 / webm / ogg … rely on native playback
       video.src = src;
@@ -29,9 +25,6 @@ export default function VideoPlayer({
       return; // ✅ done
     }
 
-    /* ────────────────
-       HLS handling
-       ──────────────── */
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS (Safari / iOS)
       video.src = src;
@@ -42,7 +35,7 @@ export default function VideoPlayer({
 
     if (Hls.isSupported()) {
       // MSE + hls.js fallback
-      const hls = new Hls({ enableWorker: true });
+      const hls = new Hls({ enableWorker: true, maxBufferLength: 3 });
       hls.loadSource(src);
       hls.attachMedia(video);
 
