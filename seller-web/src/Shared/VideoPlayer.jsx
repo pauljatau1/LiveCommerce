@@ -26,7 +26,7 @@ export default function VideoPlayer({
     }
 
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS (Safari / iOS)
+      // Native HLS (Safari / iOS).
       video.src = src;
       video.load();
       if (autoPlay) video.play().catch(() => {});
