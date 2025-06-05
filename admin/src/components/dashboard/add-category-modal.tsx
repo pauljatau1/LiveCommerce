@@ -27,7 +27,10 @@ import { api } from "@/api/axios"
 
 const formSchema = z.object({
   name: z.string().min(1, "Category name is required"),
-  image: z.instanceof(File).optional().or(z.string()),
+  image: z.instanceof(File)
+    .refine(file => !file || file.size <= 3 * 1024 * 1024, "Image size must be less than 3MB")
+    .optional()
+    .or(z.string()),
   subCategories: z.array(z.object({ 
     name: z.string(),
     subSubCategories: z.array(z.object({ name: z.string() })).default([])
@@ -233,12 +236,19 @@ export default function AddCategoryModal({
                         onChange={(e) => {
                           const file = e.target.files?.[0]
                           if (file) {
+                            // Check if file size exceeds 3MB (3 * 1024 * 1024 bytes)
+                            if (file.size > 3 * 1024 * 1024) {
+                              toast.error("Image size must be less than 3MB")
+                              e.target.value = ''
+                              return
+                            }
                             onChange(file)
                           }
                         }}
                         {...field}
                         className="bg-gray-800 text-white border-gray-700"
                       />
+                      <p className="text-xs text-gray-400 mt-1">Maximum image size: 3MB</p>
                     </div>
                   </FormControl>
                   <FormMessage />

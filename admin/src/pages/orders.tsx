@@ -537,6 +537,11 @@ function Orders() {
                               #{order.shipping.tracking.number}
                             </span>
                           )}
+                          {order.shipping?.fee && order.shipping.fee.amount > 0 && (
+                            <span className="text-xs text-muted-foreground mt-1">
+                              Fee: ₦{order.shipping.fee.amount.toLocaleString()}
+                            </span>
+                          )}
                         </div>
                       )}
                     </TableCell>
@@ -556,7 +561,6 @@ function Orders() {
     </div>
   )}
 </div>
-
                         
                         {order.orderStatus && (
                           <div className="flex flex-wrap gap-1 mt-1">
@@ -573,9 +577,28 @@ function Orders() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>₦{(order.totalAmount || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">
+                          ₦{(
+                            (order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)) + 
+                            (order.shipping?.fee?.amount || 0)
+                          ).toLocaleString()}
+                        </span>
+                        {order.items.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            Items: ₦{order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}
+                          </span>
+                        )}
+                        {order.shipping?.fee && order.shipping.fee.amount > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            + Shipping: ₦{order.shipping.fee.amount.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} {new Date(order.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">

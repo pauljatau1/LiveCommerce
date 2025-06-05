@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Copy, Download, Trash2, Eye, Search, Filter } from "lucide-react";
+import { Loader2, Copy, Download, Trash2, Eye, Search, Filter, FileDown } from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -59,6 +59,16 @@ interface Buyer {
   };
   preferredCurrency?: string;
   authProvider?: string;
+  shippingAddresses?: Array<{
+    addressType?: string;
+    country?: string;
+    state?: string;
+    city?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    zipCode?: string;
+    _id?: string;
+  }>;
 }
 
 interface PaginatedResponse {
@@ -97,6 +107,9 @@ function Buyers() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [buyerToDelete, setBuyerToDelete] = useState<Buyer | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Add new state for export functionality
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchBuyers();
@@ -303,6 +316,141 @@ function Buyers() {
     fetchBuyers();
   };
 
+  // Add CSV export functionality
+  const fetchAllBuyers = async (): Promise<Buyer[]> => {
+    try {
+      // Fetch all buyers without pagination
+      const params = new URLSearchParams();
+      params.append("limit", "10000"); // Large number to get all buyers
+      
+      if (search) params.append("search", search);
+      
+      if (verificationFilter && verificationFilter !== "all") {
+        params.append("isVerified", verificationFilter === "verified" ? "true" : "false");
+      }
+      
+      if (statusFilter && statusFilter !== "all") {
+        params.append("isDisabled", statusFilter === "disabled" ? "true" : "false");
+      }
+      
+      if (countryFilter && countryFilter !== "all") {
+        params.append("country", countryFilter);
+      }
+      
+      if (sortBy) {
+        let sortParam;
+        switch (sortBy) {
+          case "name_asc":
+            sortParam = "name_asc";
+            break;
+          case "name_desc":
+            sortParam = "name_desc";
+            break;
+          case "oldest":
+            sortParam = "oldest";
+            break;
+          case "email":
+            sortParam = "email";
+            break;
+          default:
+            sortParam = "newest";
+        }
+        params.append("sortBy", sortParam);
+      }
+      
+      const response = await api.get<PaginatedResponse>(`/api/admin/users?${params.toString()}`);
+      return response.data.users;
+    } catch (err) {
+      console.error("Error fetching all buyers:", err);
+      throw err;
+    }
+  };
+
+  const convertToCSV = (buyers: Buyer[]): string => {
+    // Define CSV headers
+    const headers = [
+      "Name",
+      "Email",
+      "Phone Number",
+      "Country",
+      "State",
+      "Wallet Balance",
+      "Wallet Currency",
+      "Join Date"
+    ];
+
+    // Convert buyers data to CSV rows
+    const rows = buyers.map(buyer => {
+      // Extract state from shipping addresses if available
+      const primaryAddress = buyer.shippingAddresses?.[0];
+      const state = primaryAddress?.state || "";
+      
+      return [
+        `${buyer.firstName || ""} ${buyer.lastName || ""}`.trim(),
+        buyer.email || "",
+        buyer.phoneNumber || "",
+        buyer.country || "",
+        state,
+        buyer.wallet?.balance?.toString() || "0",
+        buyer.wallet?.currency || "",
+        formatDate(buyer.createdAt)
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => {
+        // Escape fields that contain commas, quotes, or newlines
+        const stringField = String(field);
+        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+          return `"${stringField.replace(/"/g, '""')}"`;
+        }
+        return stringField;
+      }).join(','))
+      .join('\n');
+
+    return csvContent;
+  };
+
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const allBuyers = await fetchAllBuyers();
+      const csvContent = convertToCSV(allBuyers);
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `buyers_export_${timestamp}.csv`;
+      
+      downloadCSV(csvContent, filename);
+      
+      toast({
+        description: `Successfully exported ${allBuyers.length} buyers to CSV`,
+      });
+    } catch (err) {
+      console.error("Error exporting buyers:", err);
+      toast({
+        variant: "destructive",
+        description: "Failed to export buyers. Please try again.",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading && buyers.length === 0) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -331,13 +479,28 @@ function Buyers() {
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-medium">Filters</h3>
-            <Button 
-              variant="ghost" 
-              onClick={resetFilters}
-              className="text-xs h-8"
-            >
-              Reset All
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleExportCSV}
+                disabled={exporting}
+                className="text-xs h-8"
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <FileDown className="h-4 w-4 mr-2" />
+                )}
+                Export CSV
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={resetFilters}
+                className="text-xs h-8"
+              >
+                Reset All
+              </Button>
+            </div>
           </div>
           
           <div className="flex gap-2 flex-1 min-w-[200px]">
