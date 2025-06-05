@@ -1762,7 +1762,16 @@ exports.getSellerBlips = async (req, res) => {
   const { sellerId } = req.params;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
-  
+  // Optional processed filter
+  // accepted values: "true", "false" (any other value: ignore the filter)
+  let processedFilter = {};
+  if (typeof req.query.processed === 'string') {
+    const flag = req.query.processed.toLowerCase();
+    if (flag === 'true' || flag === 'false') {
+      processedFilter = { 'blips.processed': flag === 'true' };
+    }
+  }
+
   // Check if user is authenticated
   const buyerId = req.user?.id;
   const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
@@ -1805,6 +1814,7 @@ exports.getSellerBlips = async (req, res) => {
     const hasBlips = await Product.exists({
       seller: new mongoose.Types.ObjectId(sellerId),
       blips: { $exists: true, $ne: [] },
+      ...processedFilter,
       $nor: [
         {
           status: 'offline_auction', 
@@ -1850,11 +1860,13 @@ exports.getSellerBlips = async (req, res) => {
               status: 'offline_auction', 
               'auction.status': 'ended'
             }
-          ]
+          ],
+          ...processedFilter
         } 
       },
       // Unwind the blips array
       { $unwind: '$blips' },
+      { $match: processedFilter }, // no-op if processedFilter is {}
       // Lookup auction bidder information
       {
         $lookup: {
@@ -2024,7 +2036,8 @@ exports.getSellerBlips = async (req, res) => {
           status: 'offline_auction', 
           'auction.status': 'ended'
         }
-      ]
+      ],
+      ...processedFilter
     });
 
     console.log(`Total blips count for seller: ${total}`);
@@ -2044,6 +2057,7 @@ exports.getSellerBlips = async (req, res) => {
 
     res.json({
       seller: sellerResponse,
+      processedFilterApplied: Object.keys(processedFilter).length > 0,
       blips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
