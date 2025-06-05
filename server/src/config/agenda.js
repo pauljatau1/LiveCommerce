@@ -2021,6 +2021,62 @@ agenda.define('credit_welcome_bonus', async (job) => {
   }
 });
 
+// Define job to send a warning notification before unpaid orders are marked as stale
+agenda.define('send_unpaid_order_warning', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Sending warning notification for unpaid order ${orderId} before it's marked as stale`);
+    
+    const Order = mongoose.model('Order');
+    const { getToken } = require('../../Firebase');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    
+    // Find the order with populated buyer
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+    
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+    
+    // Check if order is still unpaid and was created with Paystack
+    if (!order.paid && order.paymentInfo.method === 'paystack') {
+      console.log(`Sending warning notification for unpaid Paystack order ${order.order_id}`);
+      
+      try {
+        // Get the buyer's Expo push token
+        const userToken = await getToken(order.buyer._id);
+        
+        if (userToken && userToken.token) {
+          // Send push notification to buyer
+          await expo.sendPushNotificationsAsync([{
+            to: userToken.token,
+            title: `Your Order Will Expire Soon`,
+            body: `Your order #${order.order_id} will be marked as stale in 10 minutes if payment is not completed.`,
+            data: {
+              orderId: order.order_id,
+              type: 'order_expiring_soon'
+            }
+          }]);
+          
+          console.log(`Successfully sent warning notification for unpaid order ${order.order_id}`);
+        } else {
+          console.log(`No push token found for buyer of order ${order.order_id}`);
+        }
+      } catch (notificationError) {
+        console.error(`Error sending warning notification for order ${order.order_id}:`, notificationError);
+      }
+    } else {
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not sending warning`);
+    }
+  } catch (error) {
+    console.error('Error in send_unpaid_order_warning job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   try {

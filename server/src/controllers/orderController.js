@@ -738,6 +738,11 @@ exports.createOrder = async (req, res) => {
       
       // Schedule job to mark order as stale if still unpaid after 30 minutes (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
+        // Schedule warning notification 20 minutes after order creation (10 minutes before being marked stale)
+        agenda.schedule('in 20 minutes', 'send_unpaid_order_warning', { orderId: order._id });
+        console.log(`Scheduled warning notification for unpaid Paystack order ${order.order_id} in 20 minutes`);
+        
+        // Schedule job to mark as stale after 30 minutes
         agenda.schedule('in 30 minutes', 'mark_unpaid_orders_stale', { orderId: order._id });
         console.log(`Scheduled automatic stale marking for unpaid Paystack order ${order.order_id} in 30 minutes`);
       }
@@ -1986,7 +1991,7 @@ exports.getOrderDetails = async (req, res) => {
     
     const order = await Order.findById(req.params.orderId)
       .populate('buyer', 'firstName lastName email phoneNumber')
-      .populate('seller', 'firstName lastName email phoneNumber businessName')
+      .populate('seller', 'firstName lastName email phoneNumber businessName businessAddress sellerAddress storeName')
       .populate({
         path: 'items.product',
         select: `
@@ -2002,7 +2007,57 @@ exports.getOrderDetails = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-
+    
+    // If pickup_address is null, populate it with seller's address
+    if (!order.pickup_address || Object.keys(order.pickup_address).every(key => 
+      key === '_id' || !order.pickup_address[key])) {
+      
+      // Get the seller's details
+      const seller = order.seller;
+      
+      // Check if we have business address or personal address to use
+      if (seller) {
+        // Create a new pickup address using seller data
+        let pickupAddress = {};
+        
+        if (seller.businessAddress && seller.accountType === 'business' && 
+            seller.businessAddress.addressLine1) {
+          // Use business address for business accounts
+          pickupAddress = {
+            first_name: seller.firstName,
+            last_name: seller.lastName,
+            email: seller.businessEmail || seller.email,
+            phone: seller.businessNumber || seller.phoneNumber,
+            line1: seller.businessAddress.addressLine1,
+            line2: seller.businessAddress.addressLine2 || '',
+            city: seller.businessAddress.city,
+            state: seller.businessAddress.state,
+            country: seller.businessAddress.country,
+            zip: seller.businessAddress.zipCode
+          };
+        } else if (seller.sellerAddress && seller.sellerAddress.addressLine1) {
+          // Use seller's personal address
+          pickupAddress = {
+            first_name: seller.firstName,
+            last_name: seller.lastName,
+            email: seller.email,
+            phone: seller.phoneNumber,
+            line1: seller.sellerAddress.addressLine1,
+            line2: seller.sellerAddress.addressLine2 || '',
+            city: seller.sellerAddress.city,
+            state: seller.sellerAddress.state,
+            country: seller.sellerAddress.country,
+            zip: seller.sellerAddress.zipCode
+          };
+        }
+        
+        // Only update if we have a valid address to use
+        if (pickupAddress.line1) {
+          order.pickup_address = pickupAddress;
+        }
+      }
+    }
+    
     // Calculate payment breakdown
     let paymentBreakdown = null;
     if (order.paid || !order.isOpen || order.paymentInfo.status === 'awaiting_cod') {  // Calculate if paid or closed
