@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { useDispatch, useSelector } from 'react-redux';
-import { deleteProduct } from '../../../Redux/Slices/ProductSlice';
+import { deleteProduct, fetchSellerProducts } from '../../../Redux/Slices/ProductSlice';
 import PropTypes from 'prop-types';
 import CircularProgress from '@mui/material/CircularProgress';
 import {
@@ -1551,6 +1551,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const [showRerunDialog, setShowRerunDialog] = useState(false);
     // Add the missing state declaration for delete confirmation dialog
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const pagination = useSelector((state) => state.product.pagination);
 
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
@@ -1603,8 +1604,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const status = isAuction ? getAuctionStatus(item.auction) : getStockStatus(item?.stock);
     const uploadStatus = getUploadStatus(item.status);
 
-    const handleProductDelete = useCallback((productId) => {
-        dispatch(deleteProduct(productId));
+    const handleProductDelete = useCallback(async (productId) => {
+        await dispatch(deleteProduct(productId)).unwrap();
+        const params = {
+            page: 1,
+            limit: 10
+        }; 
+        dispatch(fetchSellerProducts(params)); 
     }, [dispatch]);
 
     console.log(item)
