@@ -2069,6 +2069,7 @@ exports.getSuggestedBlips = async (req, res) => {
     
     let matchStage = { 
       blips: { $exists: true, $ne: [] },
+      blips: { $elemMatch: { processed: true } },  // at least one processed blip
       $nor: [
         {
           status: 'offline_auction', 
@@ -2106,6 +2107,8 @@ exports.getSuggestedBlips = async (req, res) => {
       { $match: matchStage },
       // Unwind the blips array
       { $unwind: '$blips' },
+      // keep only the processed ones
+      { $match: { 'blips.processed': true } },
       // Lookup seller information
       {
         $lookup: {
@@ -2131,6 +2134,7 @@ exports.getSuggestedBlips = async (req, res) => {
           _id: '$_id', // This is the product ID
           blipId: '$blips._id',
           blipUrl: '$blips.url',
+          processed: '$blips.processed',
           thumbnail: { 
             $ifNull: [
               '$blips.thumbnail', 
@@ -6177,6 +6181,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     
     // Add blips existence condition
     query['blips.0'] = { $exists: true }; // Only products with blips
+    query.blips = { $elemMatch: { processed: true } }; // At least one processed blip
 
     // Filter out offline auctions that have ended
     const now = new Date();
@@ -6254,6 +6259,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     const products = await Product.aggregate([
       { $match: query },
       { $unwind: "$blips" },
+      { $match: { "blips.processed": true } },
       {
         $addFields: {
           // Increase the weight of randomness to ensure more shuffling on each fetch
@@ -6314,6 +6320,7 @@ exports.getPersonalizedBlips = async (req, res) => {
         blipId: product.blip._id,
         blipUrl: product.blip.url,
         thumbnail: product.blip.thumbnail,
+        processed: product.blip.processed,
         productId: product._id,
         productName: product.name,
         price: product.price,
@@ -7109,6 +7116,7 @@ exports.getRelatedBlips = async (req, res) => {
     // Find the product that contains the reference blip
     const product = await Product.findOne({ 
       'blips._id': blipId,
+      blips: { $elemMatch: { _id: blipId, processed: true } },
       status: 'active'
     })
     .populate({
@@ -7132,7 +7140,8 @@ exports.getRelatedBlips = async (req, res) => {
     const relatedProducts = await Product.find({
       _id: { $ne: product._id },
       category: product.category,
-      status: 'active'
+      status: 'active',
+      'blips.processed': true 
     })
     .populate({
       path: 'seller',
@@ -7178,6 +7187,7 @@ exports.getRelatedBlips = async (req, res) => {
             _id: prod._id,
             blipId: blip._id,
             blipUrl: blip.url,
+            processed: blip.processed,
             thumbnail: blip.thumbnail || null,
             productId: prod._id,
             productName: prod.name,
@@ -7217,6 +7227,7 @@ exports.getRelatedBlips = async (req, res) => {
       const randomProducts = await Product.find({
         _id: { $ne: product._id },
         'blips.0': { $exists: true }, // ensure the product has at least one blip
+        'blips.processed': true, // ensure blips are processed
         status: 'active'
       })
       .populate({
@@ -7265,6 +7276,7 @@ exports.getRelatedBlips = async (req, res) => {
                 _id: prod._id,
                 blipId: blip._id,
                 blipUrl: blip.url,
+                processed: blip.processed,
                 thumbnail: blip.thumbnail || null,
                 productId: prod._id,
                 productName: prod.name,
