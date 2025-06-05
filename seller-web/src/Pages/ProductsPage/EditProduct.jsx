@@ -842,7 +842,7 @@ const EditProduct = () => {
     }, [product]);
 
     useEffect(() => {
-        if (product?.variants) {
+        if (product?.variants && product.variants.length > 0) {
             // Transform backend variants to match variantStructure format
             const transformedVariants = product.variants.map(variant => ({
                 id: variant._id,
@@ -882,23 +882,34 @@ const EditProduct = () => {
             }));
 
             // Extract unique options for variant cards
-            const options = [
-                {
+            const options = [];
+            
+            // Add option-1 if main variant name exists
+            if (product?.variants[0]?.name) {
+                options.push({
                     id: 'option-1',
                     name: product?.variants[0]?.name,
                     values: product?.variants?.map(v => v.value)
-                },
-                {
+                });
+            }
+            
+            // Add option-2 if subvariant name exists
+            if (product?.variants[0]?.subVariants[0]?.name) {
+                options.push({
                     id: 'option-2',
                     name: product?.variants[0]?.subVariants[0]?.name,
                     values: [...new Set(product?.variants[0]?.subVariants?.map(sv => sv.value))]
-                },
-                {
+                });
+            }
+            
+            // Add option-3 if sub-subvariant name exists
+            if (product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name) {
+                options.push({
                     id: 'option-3',
                     name: product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name,
                     values: [...new Set(product?.variants[0]?.subVariants[0]?.subSubVariants?.map(ssv => ssv.value))]
-                }
-            ];
+                });
+            }
 
             // Update variant context
             if (variantContextRef.current) {

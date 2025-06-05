@@ -2,6 +2,7 @@ import React, { memo, useState, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
 import { Button } from '../button';
+import PropTypes from 'prop-types';
 
 const VariantOptions = memo(({ onDone, editingVariant }) => {
     const { addOption, updateOption } = useVariants();
@@ -143,5 +144,9 @@ const VariantOptions = memo(({ onDone, editingVariant }) => {
 });
 
 VariantOptions.displayName = 'VariantOptions';
+VariantOptions.propTypes = {
+    onDone: PropTypes.func.isRequired,
+    editingVariant: PropTypes.object
+};
 
 export default VariantOptions; 
