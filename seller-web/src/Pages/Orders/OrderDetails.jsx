@@ -203,16 +203,31 @@ export default function OrderDetails() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to confirm delivery');
+        throw new Error(data.message || 'Failed to confirm pickup');
       }
   
-      toast.success('Delivery confirmed successfully');
-      // Close the dialog and reload the page
+      toast.success('Pickup confirmed successfully');
+      
+      // Close the dialog
       setProofUploadDialogOpen(false);
-      window.location.reload();
+      
+      // Fetch updated order details to refresh the status
+      const updatedOrderResponse = await fetch(`${BASE_URL}/order/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      
+      if (updatedOrderResponse.ok) {
+        const updatedOrder = await updatedOrderResponse.json();
+        setOrderData(updatedOrder);
+      } else {
+        // If we can't fetch the updated order, just reload the page
+        window.location.reload();
+      }
     } catch (error) {
-      console.error('Error confirming delivery:', error);
-      toast.error(error.message || 'Failed to confirm delivery');
+      console.error('Error confirming pickup:', error);
+      toast.error(error.message || 'Failed to confirm pickup');
     } finally {
       setIsConfirming(false);
       setConfirmDeliveryLoading(false);
@@ -481,27 +496,29 @@ export default function OrderDetails() {
                     variant="outline"
                     className="w-full sm:w-auto bg-purple-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-purple-700"
                     onClick={() => setProofUploadDialogOpen(true)}
-                    disabled={confirmDeliveryLoading || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+                    disabled={confirmDeliveryLoading || 
+                             order?.storePickupStatus?.state === 'approved' || 
+                             order?.storePickupStatus?.state === 'confirmed_by_seller'}
                   >
                     {confirmDeliveryLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Confirming...
                       </>
-                    ) : shipping?.tracking?.status === 'delivered' ? (
+                    ) : order?.storePickupStatus?.state === 'approved' ? (
                       <>
                         <Check className="w-4 h-4" />
-                        Delivery Confirmed
+                        Pickup Approved
                       </>
-                    ) : shipping?.tracking?.status === 'pending_confirmation' ? (
+                    ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
                       <>
                         <Clock className="w-4 h-4" />
-                        Confirmation Pending
+                        Awaiting Approval
                       </>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        Confirm Delivery
+                        Confirm Pickup
                       </>
                     )}
                   </Button>
@@ -540,6 +557,20 @@ export default function OrderDetails() {
                 <Truck className="h-3 w-3 mr-1" />
                 Shipping: {shipping?.tracking?.status?.replace(/_/g, ' ')}
               </Badge>
+              {order?.isStorePickup && (
+                <Badge className={`${
+                  order?.storePickupStatus?.state === 'approved' 
+                    ? 'bg-green-100 text-green-700' 
+                    : order?.storePickupStatus?.state === 'confirmed_by_seller'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                } px-3 py-1.5 rounded-md text-xs`}>
+                  <MapPin className="h-3 w-3 mr-1" />
+                  Pickup Status: {order?.storePickupStatus?.state === 'confirmed_by_seller' 
+                    ? 'Waiting Approval' 
+                    : order?.storePickupStatus?.state?.replace(/_/g, ' ')}
+                </Badge>
+              )}
               {order?.dispute?.status !== 'none' && (
                 <Badge variant="destructive" className="text-xs px-3 py-1.5 rounded-md capitalize transition-all duration-300">
                   <AlertCircle className="h-3 w-3 mr-1" />
@@ -736,6 +767,50 @@ export default function OrderDetails() {
                   </div>
                 )}
 
+                {/* Show store pickup confirmation if applicable */}
+                {order?.isStorePickup && order?.storePickupStatus?.state === 'confirmed_by_seller' && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center -sm">
+                        <Package className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Pickup Confirmed by Seller</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {order?.storePickupStatus?.confirmedAt ? new Date(order.storePickupStatus.confirmedAt).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Seller has confirmed the pickup and is awaiting admin approval.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show store pickup approval if applicable */}
+                {order?.isStorePickup && order?.storePickupStatus?.state === 'approved' && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center -sm">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Pickup Approved</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {order?.storePickupStatus?.approvedAt ? new Date(order.storePickupStatus.approvedAt).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Admin has approved the pickup confirmation. Order is complete.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Show shipping tracking history if available */}
                 {shipping?.tracking?.history?.length > 0 ? (
                   shipping?.tracking?.history?.map((event, index) => (
@@ -771,28 +846,30 @@ export default function OrderDetails() {
                     </div>
                   ))
                 ) : (
-                  <div className="flex gap-3">
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center -sm">
-                        <Package className="w-4 h-4 text-white" />
+                  !order?.isStorePickup && (
+                    <div className="flex gap-3">
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center -sm">
+                          <Package className="w-4 h-4 text-white" />
+                        </div>
+                        {shipping?.estimatedDeliveryDate && (
+                          <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                        )}
                       </div>
-                      {shipping?.estimatedDeliveryDate && (
-                        <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
-                      )}
+                      <div className="flex-1 text-sm pb-6">
+                        <p className="font-medium text-gray-800">Awaiting Shipment</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {shipping?.tracking?.status === 'pending' 
+                            ? 'Order is awaiting pickup arrangement.' 
+                            : 'Order is being prepared for shipment.'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 text-sm pb-6">
-                      <p className="font-medium text-gray-800">Awaiting Shipment</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {shipping?.tracking?.status === 'pending' 
-                          ? 'Order is awaiting pickup arrangement.' 
-                          : 'Order is being prepared for shipment.'}
-                      </p>
-                    </div>
-                  </div>
+                  )
                 )}
 
                 {/* Expected Delivery if available */}
-                {shipping?.estimatedDeliveryDate && (
+                {shipping?.estimatedDeliveryDate && !order?.isStorePickup && (
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center -sm">
                       <Calendar className="w-4 h-4 text-white" />
@@ -1212,11 +1289,12 @@ export default function OrderDetails() {
                         strokeLinejoin="round"
                         className="text-blue-500"
                       >
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
+                        <path
+                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       Shipping Documents
                     </h4>
@@ -1262,11 +1340,12 @@ export default function OrderDetails() {
                             strokeLinejoin="round"
                             className="text-gray-600"
                           >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
+                            <path
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
                           </svg>
                           Print Shipping Label
                         </Button>
@@ -1378,15 +1457,19 @@ export default function OrderDetails() {
       <Dialog open={proofUploadDialogOpen} onOpenChange={setProofUploadDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Upload Delivery Proof</DialogTitle>
+            <DialogTitle>Upload Pickup Proof</DialogTitle>
             <DialogDescription>
-              {shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation' ? (
+              {order?.storePickupStatus?.state === 'approved' ? (
+                <div className="text-green-600 mt-2">
+                  The pickup for this order has already been approved. No further action is needed.
+                </div>
+              ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
                 <div className="text-amber-600 mt-2">
-                  A pickup confirmation for this order is already {shipping?.tracking?.status === 'delivered' ? 'confirmed' : 'pending'}. 
+                  A pickup confirmation for this order is already submitted and waiting for approval.
                   You cannot submit another confirmation.
                 </div>
               ) : (
-                "Please upload a photo as proof of delivery. This could be a signed receipt or the delivered items with the customer."
+                "Please upload a photo as proof of pickup. This could be a signed receipt or the customer with the items."
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1424,6 +1507,7 @@ export default function OrderDetails() {
                         accept="image/*"
                         className="sr-only"
                         onChange={handleProofUpload}
+                        disabled={order?.storePickupStatus?.state === 'approved' || order?.storePickupStatus?.state === 'confirmed_by_seller'}
                       />
                     </label>
                     <p className="pl-1">or drag and drop</p>
@@ -1444,9 +1528,10 @@ export default function OrderDetails() {
               <textarea
                 id="note"
                 className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Add any additional notes about the delivery..."
+                placeholder="Add any additional notes about the pickup..."
                 value={proofNote}
                 onChange={(e) => setProofNote(e.target.value)}
+                disabled={order?.storePickupStatus?.state === 'approved' || order?.storePickupStatus?.state === 'confirmed_by_seller'}
               />
             </div>
           </div>
@@ -1465,7 +1550,9 @@ export default function OrderDetails() {
             </Button>
             <Button
               type="button"
-              disabled={confirmDeliveryLoading || !proofImage || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+              disabled={confirmDeliveryLoading || !proofImage || 
+                      order?.storePickupStatus?.state === 'approved' || 
+                      order?.storePickupStatus?.state === 'confirmed_by_seller'}
               onClick={() => confirmDelivery(id, proofImage, proofNote)}
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
@@ -1474,8 +1561,12 @@ export default function OrderDetails() {
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Confirming...
                 </>
+              ) : order?.storePickupStatus?.state === 'approved' ? (
+                'Already Approved'
+              ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
+                'Awaiting Approval'
               ) : (
-                'Confirm Delivery'
+                'Confirm Pickup'
               )}
             </Button>
           </div>

@@ -70,6 +70,9 @@ export default function CouponsList() {
         })
       ])
 
+      console.log("Regular coupons:", regularResponse.data.coupons);
+      console.log("Special coupons:", specialResponse.data.coupons);
+
       setCoupons(regularResponse.data.coupons)
       setSpecialCoupons(specialResponse.data.coupons)
     } catch (error) {
@@ -81,13 +84,45 @@ export default function CouponsList() {
 
   // Get filtered coupons based on active tab
   const getFilteredCoupons = () => {
+    // Helper function to generate a consistent unique key for any coupon object
+    const getCouponKey = (coupon) => {
+      // If the coupon has an ID (either _id or id), use that as primary identifier
+      if (coupon._id) return `id-${coupon._id}`;
+      if (coupon.id) return `id-${coupon.id}`;
+      
+      // Fall back to name+code combination
+      const codeStr = coupon.code || "noCode";
+      return `name-code-${coupon.name}-${codeStr}`;
+    };
+    
     switch (activeTab) {
       case 'product':
-        return coupons
+        return coupons;
       case 'special':
-        return specialCoupons
+        return specialCoupons;
       default:
-        return [...coupons, ...specialCoupons]
+        // Use Map to enforce uniqueness based on our key generation function
+        const uniqueCouponsMap = new Map();
+        
+        // Process regular coupons first
+        coupons.forEach(coupon => {
+          const key = getCouponKey(coupon);
+          uniqueCouponsMap.set(key, coupon);
+        });
+        
+        // Process special coupons, only adding if they don't conflict with regular coupons
+        specialCoupons.forEach(coupon => {
+          const key = getCouponKey(coupon);
+          // Only add if not already in the map
+          if (!uniqueCouponsMap.has(key)) {
+            uniqueCouponsMap.set(key, coupon);
+          }
+        });
+        
+        // Convert map values back to array
+        const combinedCoupons = Array.from(uniqueCouponsMap.values());
+        console.log("Combined coupons after Map deduplication:", combinedCoupons);
+        return combinedCoupons;
     }
   }
 
@@ -179,38 +214,7 @@ export default function CouponsList() {
       </div>
 
       {/* Add tab navigation */}
-      <div className="flex space-x-2 mb-6">
-        <Button
-          variant={activeTab === 'all' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('all')}
-          className="relative"
-        >
-          All Coupons
-          <Badge className="ml-2 bg-gray-100 text-gray-600">
-            {coupons.length + specialCoupons.length}
-          </Badge>
-        </Button>
-        <Button
-          variant={activeTab === 'product' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('product')}
-          className="relative"
-        >
-          Product Discounts
-          <Badge className="ml-2 bg-gray-100 text-gray-600">
-            {coupons.length}
-          </Badge>
-        </Button>
-        <Button
-          variant={activeTab === 'special' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('special')}
-          className="relative"
-        >
-          Special Coupons
-          <Badge className="ml-2 bg-gray-100 text-gray-600">
-            {specialCoupons.length}
-          </Badge>
-        </Button>
-      </div>
+      
 
       {loading ? (
         <div className="flex items-center justify-center h-64">

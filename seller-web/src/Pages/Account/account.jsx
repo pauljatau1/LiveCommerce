@@ -315,7 +315,7 @@ export default function AccountPage() {
 
   const handleCopyProfileLink = () => {
     if (profile?._id) {
-      const profileUrl = `https://app.auqli.live/sellerProfile?sellerId=${profile._id}&itmSource=share`;
+      const profileUrl = `https://app.auqli.live/s/${profile._id}B`;
       navigator.clipboard.writeText(profileUrl)
         .then(() => {
           toast.success("Profile link copied to clipboard");
