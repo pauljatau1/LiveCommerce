@@ -63,112 +63,19 @@ exports.register = async (req, res) => {
     // Basic input validation
     if (!firstName || !lastName || !email || !password || !phoneNumber || !storeName) {
       return res.status(400).json({ 
+        success: false,
         message: 'First name, last name, email, password, phone number, and store name are required.' 
       });
     }
 
-    // First check if email exists and its verification status
+    // First check if email exists
     const existingSeller = await Seller.findOne({ email });
 
     if (existingSeller) {
-      // If email exists and is verified, return error
-      if (existingSeller.emailVerified) {
-        return res.status(409).json({ 
-          message: 'Email is already in use.',
-        });
-      }
-
-      // If email exists but not verified, generate new OTP and update
-      const otp = generateOTP();
-      existingSeller.otp = otp;
-      await existingSeller.save();
-
-      console.log('existing email', email)
-
-      // Send verification email with new OTP
-      const msg = {
-        to: email,
-        from: 'Auqli Nigeria <support@auqli.com>',
-        subject: 'Verify Your Email - Auqli',
-        text: `Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}`,
-        html: `
-          <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto;">
-    <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-    <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli Nigeria — Let’s Get You Selling</h1>
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${existingSeller.firstName},</p>
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">Welcome to Auqli Nigeria — the future of live selling. Your account is live and you're just a few steps away from listing products and going live with your audience.</p>
-
-    <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-      <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
-    </div>
-    <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this verification, please ignore this email.</p>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Start by:</p>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Completing your seller profile</span>
-        </div>
-      </li>
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Uploading your first product</span>
-        </div>
-      </li>
-      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Exploring live selling tools</span>
-        </div>
-      </li>
-    </ul>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Visit our Help Center at <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or contact <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a>.</p>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Join our seller community:</p>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">💬</span>
-          <span>WhatsApp Channel</span>
-        </div>
-      </li>
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📢</span>
-          <span>Telegram Group</span>
-        </div>
-      </li>
-      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📱</span>
-          <span>Instagram | Twitter | Facebook</span>
-        </div>
-      </li>
-    </ul>
-
-    <hr style="border: 1px solid #333333; margin: 30px 0;">
-    <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-  </div>
-</div>
-
-        `
-      };
-
-      try {
-        await sgMail.send(msg);
-        return res.status(200).json({
-          message: 'Please verify your email with the OTP sent to your email address',
-          email: existingSeller.email,
-          user: existingSeller
-        });
-      } catch (error) {
-        console.error('Error sending email:', error);
-        return res.status(500).json({ message: 'Failed to send verification email', error: error.message });
-      }
+      return res.status(409).json({ 
+        success: false,
+        message: 'Email is already in use.',
+      });
     }
 
     // Generate unique Agora UID before creating new seller
@@ -192,42 +99,47 @@ exports.register = async (req, res) => {
     // Generate JWT token for new seller
     const token = generateToken(newSeller._id);
 
-    // Send welcome email with OTP
+    // Send welcome email
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Welcome to Auqli!',
-      text: `Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}`,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: "Welcome to Auqli — Let's Get You Selling",
+      text: `Hi ${firstName}, welcome to Auqli Nigeria! Your account is live and you're all set to start selling.`,
       html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli!</h1>
+        <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli Nigeria!</h1>
             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${firstName},</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Thank you for joining Auqli! We're excited to have you on board. To get started, please verify your email using the OTP below:</p>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
-            </div>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">Next Steps:</h3>
-              <ul style="color: #ffffff; margin-bottom: 0;">
-                <li style="margin-bottom: 10px;">Verify your email using the OTP above</li>
-                <li style="margin-bottom: 10px;">Complete your seller profile</li>
-                <li style="margin-bottom: 10px;">Set up your store</li>
-                <li>Start selling your products</li>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Welcome to Auqli Nigeria — the future of live selling. Your account is live and you're just a few steps away from listing products and going live with your audience.</p>
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Start by:</h3>
+              <ul style="color: #333333; margin-bottom: 0;">
+                <li style="margin-bottom: 10px;">✅ Completing your seller profile</li>
+                <li style="margin-bottom: 10px;">✅ Uploading your first product</li>
+                <li style="margin-bottom: 10px;">✅ Exploring live selling tools</li>
               </ul>
+              
             </div>
-            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't create an account with Auqli, please ignore this email.</p>
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Visit our <a href="https://help.auqli.live">Help Center</a> or contact <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Join our seller community:</p>
+            <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+              <a href="https://chat.whatsapp.com/B706oQeKNST1177sKGMQTy" style="color: #4CAF50; text-decoration: none;">💬 WhatsApp Channel</a>
+              <a href="https://t.me/auqlivendors" style="color: #4CAF50; text-decoration: none;">📢 Telegram Group</a>
+              <a href="https://www.instagram.com/auqliapp" style="color: #4CAF50; text-decoration: none;">📱 Instagram</a>
+              <a href="https://x.com/auqliapp" style="color: #4CAF50; text-decoration: none;">Twitter</a>
+              <a href="https://www.facebook.com/auqliapp/" style="color: #4CAF50; text-decoration: none;">Facebook</a>
+            </div>
+            <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            <p style="font-size: 14px; color: #666666; text-align: center;">Let's make selling social.</p>
+            <p style="font-size: 14px; color: #666666; text-align: center;">Team Auqli Nigeria</p>
           </div>
         </div>
       `
     };
 
-    await sgMail.send(msg);
-
-    // After successful seller creation and welcome email
+    // Send admin notification
     const adminMsg = {
       to: ['admin@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
@@ -256,9 +168,13 @@ exports.register = async (req, res) => {
     await Promise.all([
       sgMail.send(msg),
       sgMail.send(adminMsg)
-    ]);
+    ]).catch(error => {
+      console.error('Email sending error:', error);
+      // Continue execution even if email fails
+    });
 
     res.status(201).json({ 
+      success: true,
       message: 'Registration successful. Please verify your email.',
       user: newSeller, 
       token 
@@ -266,6 +182,7 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Registration failed', 
       error: error.message 
     });
@@ -323,22 +240,32 @@ exports.resendOTP = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Your Auqli OTP',
-      text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: "Here's Your Auqli OTP",
+      text: `Hi ${seller.firstName},\n\nYour one-time password (OTP) is: ${otp}\n\nPlease enter this code in the app to complete your sign-up. This code will expire in 10 minutes.\n\nIf you didn't request this, just ignore this message.\n\nNeed help? Contact our team anytime at support@auqli.com.`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Your New OTP</h1>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi there,</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">You requested a new OTP. Please use the code below to verify your email:</p>
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Here's Your Auqli OTP</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your one-time password (OTP) is:</p>
             <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
               <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
             </div>
-            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this OTP, please ignore this email.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Please enter this code in the app to complete your sign-up. This code will expire in 10 minutes.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">If you didn't request this, just ignore this message.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Contact our team anytime at <a href="mailto:support@auqli.com" style="color: #4CAF50;">support@auqli.com</a>.</p>
+            
+            <div style="margin: 30px 0;">
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">Stay connected with Auqli Nigeria:</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">📢 Join our Telegram Group</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">💬 WhatsApp Channel</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">📱 Instagram | Twitter | Facebook</p>
+            </div>
+            
             <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p style="font-size: 14px; color: #999999; text-align: center;">Team Auqli Nigeria</p>
           </div>
         </div>
       `
@@ -867,7 +794,10 @@ exports.addBusinessInformation = async (req, res) => {
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
     }
 
     seller.businessEmail = businessEmail;
@@ -880,11 +810,13 @@ exports.addBusinessInformation = async (req, res) => {
     const updatedSeller = await seller.save();
 
     res.json({ 
+      success: true,
       message: 'Business information added successfully', 
       seller: updatedSeller 
     });
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Failed to add business information', 
       error: error.message 
     });
@@ -1165,12 +1097,28 @@ exports.verifyOTP = async (req, res) => {
       seller.emailVerified = true;
       seller.otp = undefined; // Clear the OTP after verification
       await seller.save();
-      return res.json({ message: 'Email verified successfully.' });
+      
+      // Generate token for convenience
+      const token = generateToken(seller._id);
+      
+      return res.json({
+        success: true, 
+        message: 'Email verified successfully.',
+        user: seller,
+        token
+      });
     } else {
-      return res.status(400).json({ message: 'Invalid OTP.' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid OTP.' 
+      });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to verify OTP', 
+      error: error.message 
+    });
   }
 };
 
@@ -1489,13 +1437,17 @@ exports.updateIndividualInformation = async (req, res) => {
     // Validate required fields
     if (!firstName || !lastName || !sellerAddress) {
       return res.status(400).json({ 
+        success: false,
         message: 'First name, last name, and address are required' 
       });
     }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
     }
 
     seller.firstName = firstName;
@@ -1508,11 +1460,13 @@ exports.updateIndividualInformation = async (req, res) => {
     const updatedSeller = await seller.save();
 
     res.json({ 
+      success: true,
       message: 'Individual information updated successfully', 
       seller: updatedSeller 
     });
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Failed to update individual information', 
       error: error.message 
     });
@@ -4159,6 +4113,131 @@ exports.toggleAccountPending = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update account pending status',
+      error: error.message
+    });
+  }
+};
+
+// Mark seller as verified
+exports.markVerified = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+    
+    // Check if already verified
+    if (seller.isVerified) {
+      return res.status(200).json({
+        success: true,
+        message: 'Your store is already verified',
+        seller: seller
+      });
+    }
+    
+    // Update verification status
+    seller.isVerified = true;
+    const updatedSeller = await seller.save();
+    
+    // Track seller verification in mixpanel
+    try {
+      mixpanel.track('seller_self_verification', {
+        distinct_id: seller._id.toString(),
+        sellerId: seller._id.toString(),
+        sellerName: seller.firstName + " " + seller.lastName,
+        storeName: seller.storeName,
+        email: seller.email,
+        accountType: seller.accountType
+      });
+    } catch (trackingError) {
+      console.error('Failed to track verification event:', trackingError);
+    }
+    
+    // Send verification confirmation email
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Your Auqli Store is Now Verified',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Your Store is Now Verified!</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Congratulations ${seller.firstName}!</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your store "${seller.storeName}" is now verified on Auqli. This means your products can appear in featured listings and you'll have access to all seller features.</p>
+              <div style="background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next:</h3>
+                <ul style="color: #333333; margin-bottom: 0;">
+                  <li style="margin-bottom: 10px;">✅ Add more products to your store</li>
+                  <li style="margin-bottom: 10px;">✅ Schedule your first live stream</li>
+                  <li style="margin-bottom: 10px;">✅ Promote your store on social media</li>
+                </ul>
+              </div>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+      
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue execution even if email sending fails
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Your store has been successfully verified',
+      seller: updatedSeller
+    });
+  } catch (error) {
+    console.error('Error in markVerified:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify store',
+      error: error.message
+    });
+  }
+};
+
+// Check seller verification status
+exports.checkVerificationStatus = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      verification: {
+        isVerified: seller.isVerified,
+        emailVerified: seller.emailVerified,
+        accountPending: seller.accountPending,
+        storeName: seller.storeName
+      },
+      seller: seller
+    });
+  } catch (error) {
+    console.error('Error checking verification status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check verification status',
       error: error.message
     });
   }

@@ -992,6 +992,48 @@ exports.createOrder = async (req, res) => {
       console.log('No orders to send notifications for');
     }
 
+    // Send a notification email to Slack
+    try {
+      // Get seller names for each order
+      const orderSellerInfo = await Promise.all(
+        orders.map(async (order) => {
+          const seller = await Seller.findById(order.seller);
+          return {
+            orderId: order.order_id,
+            sellerName: seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller'
+          };
+        })
+      );
+      
+      // Send a simple notification to Slack email
+      const slackEmailMsg = {
+        to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
+        from: {
+          email: 'support@auqli.com',
+          name: 'Auqli Orders'
+        },
+        subject: 'New Order on Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2>New Order on Auqli</h2>
+            <p>A new order has been created on Auqli.</p>
+            <p>Order count: ${orders.length}</p>
+            <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
+            ${orderSellerInfo.map(info => 
+              `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
+            ).join('')}
+            <p>Time: ${new Date().toISOString()}</p>
+          </div>
+        `
+      };
+
+      await sgMail.send(slackEmailMsg);
+      console.log('Slack notification email sent for new order');
+    } catch (slackEmailError) {
+      console.error('Error sending Slack notification email:', slackEmailError);
+      // Continue processing even if email fails
+    }
+
     console.log('Order creation completed');
     
     // Prepare response with detailed order information

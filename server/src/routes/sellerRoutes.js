@@ -3413,4 +3413,86 @@ router.put('/account-pending', authMiddleware.verifyToken, authMiddleware.isSell
  */
 router.put('/store-pickup', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.toggleStorePickup);
 
+/**
+ * @swagger
+ * /api/seller/mark-verified:
+ *   post:
+ *     summary: Mark seller's store as verified
+ *     description: Allows a seller to mark their own store as verified, updating their verification status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Store successfully verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Your store has been successfully verified
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     storeName:
+ *                       type: string
+ *                     isVerified:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/mark-verified', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.markVerified);
+
+/**
+ * @swagger
+ * /api/seller/verification-status:
+ *   get:
+ *     summary: Check seller verification status
+ *     description: Get the current verification status of the seller's account
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 verification:
+ *                   type: object
+ *                   properties:
+ *                     isVerified:
+ *                       type: boolean
+ *                     emailVerified:
+ *                       type: boolean
+ *                     accountPending:
+ *                       type: boolean
+ *                     storeName:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/verification-status', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.checkVerificationStatus);
+
 module.exports = router;
