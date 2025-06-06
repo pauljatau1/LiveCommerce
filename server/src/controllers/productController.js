@@ -13,6 +13,9 @@ const agenda = require('../config/agenda').agenda;
 const path = require('path');
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
+const { ProductDeleteS3ObjectsByUrls } = require('../services/products/images');
+const { ExtractAllImageUrlsFromVariants } = require('../services/products/variants/utils');
+const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 
 
 // Create a new product
@@ -834,11 +837,24 @@ exports.updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
+    const cdnPrefix = 'https://' + process.env.CDN_URL;
+    // this array will contain product images to be deleted
+    let deletedProductImageUrls = [];
     // Handle main product images
     if (updates.images && Array.isArray(updates.images)) {
+      // Get existing image URLs
+      const existingProductImageUrls = (product.images || []).map(img => img.url);
+      // Extract new image URLs
+      const newProductImageUrls = (updates.images || []).map(img => img.data);
+
+      // Find images that were removed
+      deletedProductImageUrls = existingProductImageUrls
+        .filter(url => url.startsWith(cdnPrefix)) // only keep images from your CDN
+        .filter(url => !newProductImageUrls.includes(url)); // then check which are not in the new list
+
       const imagesLinks = [];
       for (let image of updates.images) {
-        if (image.data.startsWith('https://'+ process.env.CDN_URL)) {
+        if (image.data.startsWith(cdnPrefix)) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
           // Process new base64 image
@@ -850,14 +866,164 @@ exports.updateProduct = async (req, res) => {
             ContentType: image.contentType,
           };
           const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: `https://` + process.env.CDN_URL + `/${data.Key}`});
+          imagesLinks.push({ url: cdnPrefix + `/${data.Key}`});
         }
       }
       updates.images = imagesLinks;
     }
 
+    // Handle blips/videos with preservation of metadata
+    if (updates.blips && Array.isArray(updates.blips)) {
+      // Create a map of existing blips by URL for quick lookup
+      const existingBlipsMap = {};
+      if (product.blips && Array.isArray(product.blips)) {
+        product.blips.forEach(blip => {
+          if (blip.url) {
+            existingBlipsMap[blip.url] = blip;
+          }
+        });
+      }
+
+      const blipsLinks = [];
+      for (let blip of updates.blips) {
+        if (blip.data.startsWith('https://')) {
+          // This is an existing blip - preserve its metadata
+          const existingBlip = existingBlipsMap[blip.data];
+          if (existingBlip) {
+            // Preserve existing metadata
+            blipsLinks.push({
+              url: blip.data,
+              contentType: blip.contentType || existingBlip.contentType,
+              thumbnail: blip.thumbnail || existingBlip.thumbnail,
+              likes: existingBlip.likes || [],
+              likesCount: existingBlip.likesCount || 0,
+              viewCount: existingBlip.viewCount || 0,
+              viewedBy: existingBlip.viewedBy || [],
+              comments: existingBlip.comments || [],
+              commentsCount: existingBlip.commentsCount || 0,
+              createdAt: existingBlip.createdAt
+            });
+          } else {
+            // It's a URL but not in our existing blips
+            blipsLinks.push({ 
+              url: blip.data,
+              contentType: blip.contentType,
+              thumbnail: blip.thumbnail || null
+            });
+          }
+        } else {
+          // Process new base64 video
+          const buffer = Buffer.from(blip.data, 'base64');
+          const videoKey = `${uuidv4()}.mp4`;
+          const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
+          
+          // First upload the video
+          const videoParams = {
+            Bucket: process.env.CDN_S3_BUCKET,
+            Key: videoKey,
+            Body: buffer,
+            ContentType: blip.contentType,
+          };
+          const videoData = await s3.upload(videoParams).promise();
+          
+          // Create temporary files for ffmpeg
+          const tempVideoPath = path.join(os.tmpdir(), videoKey);
+          const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
+          
+          try {
+            // Write video buffer to temp file
+            await fs.writeFile(tempVideoPath, buffer);
+            
+            // Extract thumbnail using ffmpeg
+            await new Promise((resolve, reject) => {
+              ffmpeg(tempVideoPath)
+                .screenshots({
+                  timestamps: ['00:00:01.000'],
+                  filename: thumbnailKey,
+                  folder: os.tmpdir(),
+                })
+                .on('end', resolve)
+                .on('error', reject);
+            });
+            
+            // Read the generated thumbnail
+            const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
+            
+            // Upload the thumbnail
+            const thumbnailParams = {
+              Bucket: process.env.CDN_S3_BUCKET,
+              Key: thumbnailKey,
+              Body: thumbnailBuffer,
+              ContentType: 'image/jpeg',
+            };
+            const thumbnailData = await s3.upload(thumbnailParams).promise();
+            
+            // Clean up temp files
+            await fs.unlink(tempVideoPath).catch(() => {});
+            await fs.unlink(tempThumbnailPath).catch(() => {});
+            
+            blipsLinks.push({ 
+              url: cdnPrefix + `/${videoData.Key}`,
+              contentType: blip.contentType,
+              thumbnail: cdnPrefix + `/${thumbnailData.Key}`,
+              likes: [],
+              likesCount: 0,
+              viewCount: 0,
+              viewedBy: [],
+              comments: [],
+              commentsCount: 0,
+              createdAt: new Date()
+            });
+          } catch (err) {
+            console.error('Error generating thumbnail:', err);
+            
+            // Fallback to placeholder if ffmpeg fails
+            const fallbackThumbnailParams = {
+              Bucket: process.env.CDN_S3_BUCKET,
+              Key: thumbnailKey,
+              Body: Buffer.from(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
+                '<rect width="180" height="320" fill="#3498db"/>' +
+                '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
+                '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
+                '</svg>'
+              ),
+              ContentType: 'image/svg+xml',
+            };
+            
+            const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
+            
+            blipsLinks.push({ 
+              url: cdnPrefix + `/${videoData.Key}`,
+              contentType: blip.contentType,
+              thumbnail: cdnPrefix + `/${fallbackData.Key}`,
+              likes: [],
+              likesCount: 0,
+              viewCount: 0,
+              viewedBy: [],
+              comments: [],
+              commentsCount: 0,
+              createdAt: new Date()
+            });
+          }
+        }
+      }
+      updates.blips = blipsLinks;
+    }
+
+    // this array will contain product images to be deleted
+    let deletedProductVariantImageUrls = [];
+
     // Process variant images if they exist
     if (updates.variants && Array.isArray(updates.variants)) {
+      const existingImageUrls = ExtractAllImageUrlsFromVariants(product.variants || []);
+      const updatedImageUrls = ExtractAllImageUrlsFromVariants(updates.variants || []);
+
+      // Images that are in DB but not in the update request
+      deletedProductVariantImageUrls = existingImageUrls
+        .filter(url => url.startsWith(cdnPrefix)) // only keep images from your CDN
+        .filter(url => !updatedImageUrls.includes(url));
+
       updates.variants = await Promise.all(updates.variants.map(async (variant) => {
         // Process main variant images
         let variantImages = [];
@@ -888,7 +1054,7 @@ exports.updateProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               variantImages.push({
-                data: 'https://' + process.env.CDN_URL + `/${data.Key}`,
+                data: cdnPrefix + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -925,7 +1091,7 @@ exports.updateProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
-                  data:`https://` + process.env.CDN_URL + `/${data.Key}`,
+                  data: cdnPrefix + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -962,7 +1128,7 @@ exports.updateProduct = async (req, res) => {
                   
                   const data = await s3.upload(params).promise();
                   subSubVariantImages.push({
-                    data: `https://` + process.env.CDN_URL + `/${data.Key}`,
+                    data: cdnPrefix + `/${data.Key}`,
                     contentType: image.contentType,
                     isDefault: image.isDefault || false
                   });
@@ -1010,7 +1176,22 @@ exports.updateProduct = async (req, res) => {
       updatedAt: Date.now()
     });
 
+    // save product
     await product.save();
+    // delete product images if any
+    if (deletedProductImageUrls.length > 0) {
+      const s3Response = await ProductDeleteS3ObjectsByUrls(deletedProductImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
+      }
+    }
+    // delete produc variant images if any
+    if (deletedProductVariantImageUrls.length > 0) {
+      const s3Response = await ProductVariantDeleteS3ObjectsByUrls(deletedProductVariantImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
+      }
+    }
 
     // Populate seller information before sending response
     const updatedProduct = await Product.findById(id)
@@ -1050,14 +1231,21 @@ exports.deleteProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
-    // Delete product images from storage
-    if (product.images && product.images.length > 0) {
-      for (const image of product.images) {
-        const key = image.url.split('/').pop();
-        await s3.deleteObject({
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: key
-        }).promise();
+    // Get existing product image URLs
+    const existingProductImageUrls = (product.images || []).map(img => img.url);
+    // Get existing product variatn image URLs
+    const existingProductVariantImageUrls = ExtractAllImageUrlsFromVariants(product.variants || []);
+    
+    const allExistingImageUrls = [
+      ...existingProductImageUrls,
+      ...existingProductVariantImageUrls
+    ];
+
+    // delete product images and product variant images if any
+    if (allExistingImageUrls.length > 0) {
+      const s3Response = await ProductDeleteS3ObjectsByUrls(allExistingImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
       }
     }
 

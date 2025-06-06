@@ -24,6 +24,7 @@ const Return = require('../models/Return');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const Admin = require('../models/Admin');
 const mixpanel = require('../config/mixpanel');
+const { DeleteS3Objects } = require('../utils/s3');
 
 
 // Add this helper function at the top of the file
@@ -713,6 +714,9 @@ exports.uploadStoreAvatar = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Get existing product image URLs
+    const existingAvatar = seller.storeAvatar.url || "";
+
     const params = {
       Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${avatarFile.originalname}`,
@@ -726,8 +730,15 @@ exports.uploadStoreAvatar = async (req, res) => {
       url: `https://` + process.env.CDN_URL + `/${data.Key}`,
       public_id: data.Key,
     };
-
+    
     const updatedSeller = await seller.save();
+
+    // deleted the previous avatar from s3
+    const objects = [{Key: existingAvatar.replace(`https://${process.env.CDN_URL}/`, '')}];
+    const s3Response = await DeleteS3Objects(objects, process.env.CDN_S3_BUCKET);
+    if (s3Response.Errors.length > 0) {
+      console.error('Failed to delete previous avatar: ', s3Response.Errors);
+    }
 
     res.json({ message: 'Store avatar uploaded successfully', seller: updatedSeller });
   } catch (error) {
@@ -749,6 +760,9 @@ exports.uploadStoreBanner = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Get existing product image URLs
+    const existingBanner = seller.storeBanner.url || "";
+
     const params = {
       Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${bannerFile.originalname}`,
@@ -764,6 +778,13 @@ exports.uploadStoreBanner = async (req, res) => {
     };
 
     const updatedSeller = await seller.save();
+    
+    // deleted the previous banner from s3
+    const objects = [{Key: existingBanner.replace(`https://${process.env.CDN_URL}/`, '')}];
+    const s3Response = await DeleteS3Objects(objects, process.env.CDN_S3_BUCKET);
+    if (s3Response.Errors.length > 0) {
+      console.error('Failed to delete previous baner: ', s3Response.Errors);
+    }
 
     res.json({ message: 'Store banner uploaded successfully', seller: updatedSeller });
   } catch (error) {
