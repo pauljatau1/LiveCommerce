@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { FlatList, View, Text, Dimensions, Image } from "react-native";
 import useCarousel from "@/hooks/useCarousel";
 import CustomButton from "@/components/global/button/CustomButton";
@@ -106,4 +106,4 @@ const Carousel = ({ banners }: any) => {
   );
 };
 
-export default Carousel;
+export default memo(Carousel);

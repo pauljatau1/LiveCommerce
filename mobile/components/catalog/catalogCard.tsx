@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, Pressable, Image } from "react-native";
+import React, { useEffect, useState, memo, useCallback } from "react";
+import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
 import CustomButton from "../global/button/CustomButton";
@@ -14,7 +14,7 @@ import AuthSheet from "../auth/authSheet";
 import AddedToCart from "../product/productAddedToCart";
 import CartSheet from "../product/productCartSheet";
 import { formatNumber } from "@/helpers/helpers";
-// import { Image } from "expo-image";
+import { Image } from "expo-image";
 
 const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -56,7 +56,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
     getAuthUser();
   }, []);
 
-  const handleAddToCart = async (cartItem: any) => {
+  const handleAddToCart = useCallback(async (cartItem: any) => {
     try {
       const cartItems = await AsyncStorage.getItem("cart");
 
@@ -79,7 +79,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       console.log(e);
       toast.error("error adding item to cart");
     }
-  };
+  }, []);
 
   return (
     <TouchableOpacity
@@ -90,20 +90,17 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {firstImage && (
         <Image
-          source={
-            firstImage.url
-              ? {
-                  uri: firstImage.url,
-                }
-              : images.diamondsImage
-          }
-          resizeMode="cover"
+          source={imageUrl[0]?.url}
+          contentFit="cover"
+          recyclingKey={`image-${imageUrl[0]?.url}`}
           // className="w-[100%] h-[157px]"
           style={{
             width: "100%",
             height: 157,
             backgroundColor: "#2e2e2e",
           }}
+          enableLiveTextInteraction={false}
+          // cachePolicy="none"
         />
       )}
       {/* Product Details */}
@@ -194,7 +191,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                       Rating:{"  "}
                     </Text> */}
                     <Image source={icons.starIcon} />
-                    <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
+                    <Text className="text-white flex justify-center items-center px-[2.329px] text-[6px] font-LexendDecaMedium">
                       {moreDetails?.seller?.stats?.averageRating?.toFixed(1)}
                     </Text>
                   </View>
@@ -586,4 +583,4 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
 //   );
 // };
 
-export default CatalogCard;
+export default memo(CatalogCard);

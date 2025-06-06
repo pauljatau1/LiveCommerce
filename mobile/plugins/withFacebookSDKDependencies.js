@@ -13,9 +13,10 @@ module.exports = function withFacebookSDKDependencies(config) {
         config.modResults.contents = config.modResults.contents.replace(
           /dependencies\s*{/,
           `dependencies {
-    implementation 'com.facebook.android:facebook-android-sdk:[4,5)'
-    implementation 'com.facebook.android:facebook-core:[4,5)'
-    implementation 'com.facebook.android:facebook-marketing:[4,5)'`,
+    implementation 'com.facebook.android:facebook-android-sdk:16.2.0'
+    implementation 'com.facebook.android:facebook-core:16.2.0'
+    implementation 'com.facebook.android:audience-network-sdk:6.16.0'
+    `,
         );
       }
     } else {

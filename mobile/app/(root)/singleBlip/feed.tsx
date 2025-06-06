@@ -96,7 +96,7 @@ const BlipsFeed = () => {
     }
   };
 
-  const fetchMoreVideos = async () => {
+  const fetchMoreVideos = useCallback(async () => {
     try {
       const token = await getToken();
 
@@ -120,38 +120,41 @@ const BlipsFeed = () => {
     } catch (error) {
       console.error("Error fetching more blips:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     getBlip();
     fetchMoreVideos();
   }, [id, productId]);
 
-  const renderVideo = ({ item, index }: { item: any; index: number }) => {
-    return (
-      <VideoItem
-        id={item?.blipId}
-        item={item}
-        videoUrl={item?.blipUrl}
-        isVisible={index === currentIndex}
-        seller={item?.seller}
-        engagement={{
-          likes: item?.blipEngagement?.likesCount,
-          comments: item?.blipEngagement?.commentsCount,
-          views: item?.blipEngagement?.viewCount,
-          isLiked: item?.blipEngagement?.isLiked,
-        }}
-        product={{
-          id: item?._id,
-          name: item?.productName,
-          price: item?.price,
-          image: item?.images,
-        }}
-        singularBlip={true}
-        shared={itmSource?.toString() == "share"}
-      />
-    );
-  };
+  const renderVideo = useCallback(
+    ({ item, index }: { item: any; index: number }) => {
+      return (
+        <VideoItem
+          id={item?.blipId}
+          item={item}
+          videoUrl={item?.blipUrl}
+          isVisible={index === currentIndex}
+          seller={item?.seller}
+          engagement={{
+            likes: item?.blipEngagement?.likesCount,
+            comments: item?.blipEngagement?.commentsCount,
+            views: item?.blipEngagement?.viewCount,
+            isLiked: item?.blipEngagement?.isLiked,
+          }}
+          product={{
+            id: item?._id,
+            name: item?.productName,
+            price: item?.price,
+            image: item?.images,
+          }}
+          singularBlip={true}
+          shared={itmSource?.toString() == "share"}
+        />
+      );
+    },
+    [currentIndex],
+  );
 
   const renderFooter = useCallback(() => {
     if (refreshing && Platform.OS == "ios") {
@@ -215,9 +218,9 @@ const BlipsFeed = () => {
             pagingEnabled
             onEndReached={fetchMoreVideos}
             onEndReachedThreshold={1}
-            initialNumToRender={5}
-            maxToRenderPerBatch={3}
-            windowSize={5}
+            initialNumToRender={1}
+            maxToRenderPerBatch={1}
+            windowSize={3}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
@@ -230,8 +233,7 @@ const BlipsFeed = () => {
             onRefresh={refreshBlips}
             progressViewOffset={Platform.OS == "ios" ? 120 : 0}
             ListHeaderComponent={renderFooter}
-            removeClippedSubviews={false}
-            updateCellsBatchingPeriod={50}
+            updateCellsBatchingPeriod={100}
           />
         )}
       </View>

@@ -81,8 +81,12 @@ const ProfileStats = () => {
   const filterFollowing = () => {
     const filteredFollowing = following.filter(
       (item) =>
-        item?.name?.includes(searchTerm.current) ||
-        item?.storeName?.includes(searchTerm.current),
+        item?.name
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()) ||
+        item?.storeName
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()),
     );
     console.log(filteredFollowing);
 
@@ -92,8 +96,12 @@ const ProfileStats = () => {
   const filterFollowers = () => {
     const filteredFollowers = followers.filter(
       (item) =>
-        item?.name?.includes(searchTerm.current.toLowerCase()) ||
-        item?.storeName?.includes(searchTerm.current),
+        item?.name
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()) ||
+        item?.storeName
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()),
     );
     setfilteredfollowers(filteredFollowers);
   };

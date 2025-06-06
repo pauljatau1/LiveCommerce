@@ -218,6 +218,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
             contentContainerStyle={{
               paddingTop: headerHeight + 12,
             }}
+            scrollEnabled={false}
             ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyPlaceholder}
             showsVerticalScrollIndicator={false}

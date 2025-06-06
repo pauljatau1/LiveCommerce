@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   Pressable,
 } from "react-native";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, memo } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import ProductCard from "@/components/global/product-card";
@@ -114,4 +114,4 @@ const ForYouSection = () => {
   );
 };
 
-export default ForYouSection;
+export default memo(ForYouSection);

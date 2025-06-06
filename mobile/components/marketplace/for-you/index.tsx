@@ -36,8 +36,8 @@ const ForYou = () => {
     handleGetBanners();
   }, []);
   return (
-    <View className="w-full">
-      <View>
+    <View className="w-full flex-1">
+      {/* <View>
         <Carousel banners={banners} />
         <View
           style={{
@@ -56,8 +56,8 @@ const ForYou = () => {
         <ForYouNewAuqliSection />
         <ForYouFeaturedShopsSection />
         <ForYouAuctionSection />
-        <KeepShowingSection />
-      </View>
+      </View> */}
+      <KeepShowingSection />
     </View>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { View, Text, Image, TouchableOpacity, Pressable } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
@@ -154,4 +154,4 @@ const ShopCard: React.FC<ProductCardProps> = ({
   );
 };
 
-export default ShopCard;
+export default memo(ShopCard);

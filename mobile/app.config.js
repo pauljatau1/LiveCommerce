@@ -9,6 +9,7 @@ module.exports = ({ config }) => {
     expo: {
       name: "auqli",
       slug: "auqli-app",
+      // slug: "auqli-mobile",
       version: "1.1.7",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
