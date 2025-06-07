@@ -16,5 +16,6 @@ ENV PORT=5173
 
 # Expose the port
 EXPOSE 5173
+EXPOSE 3000
 
 CMD [ "npm", "run", "dev" ]
