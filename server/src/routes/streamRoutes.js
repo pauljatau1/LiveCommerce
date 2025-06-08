@@ -2131,4 +2131,59 @@ router.get('/:streamId/products',
   streamController.getStreamProducts
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/current-announcement:
+ *   get:
+ *     summary: Get the current live announcement for a stream
+ *     description: Returns the current active announcement for viewers joining the stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the stream
+ *     responses:
+ *       200:
+ *         description: Current announcement retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 hasAnnouncement:
+ *                   type: boolean
+ *                 announcement:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     content:
+ *                       type: string
+ *                     current:
+ *                       type: boolean
+ *                     sellerId:
+ *                       type: string
+ *                     sellerName:
+ *                       type: string
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/current-announcement',
+  authMiddleware.verifyToken,
+  streamController.getCurrentAnnouncement
+);
+
 module.exports = router; 

@@ -1124,7 +1124,6 @@ exports.joinStreamSeller = async (req, res) => {
       .populate('viewers', 'firstName lastName username avatarUrl')
       .populate('bids.buyer', 'firstName lastName username')
       .populate('bids.product', 'name price')
-      .select('streamLink')
       .lean(); // Convert to plain JavaScript object
 
     if (!stream) {
@@ -1136,6 +1135,8 @@ exports.joinStreamSeller = async (req, res) => {
     if (!seller || !seller.agoraUid) {
       return res.status(400).json({ message: 'Seller Agora UID not found' });
     }
+
+    console.log('token generation requirements', stream.channelName, seller.agoraUid, RtcRole.PUBLISHER)
 
     const token = agoraService.generateToken(
       stream.channelName,
@@ -3844,6 +3845,54 @@ exports.getStreamProducts = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to fetch stream products',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get current live announcement for a stream
+ * @route GET /api/streams/:streamId/current-announcement
+ * @access Private
+ */
+exports.getCurrentAnnouncement = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+
+    if (!streamId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Stream ID is required'
+      });
+    }
+
+    // Find the stream and get its live announcements
+    const stream = await Stream.findById(streamId)
+      .select('liveAnnouncements')
+      .lean();
+
+    if (!stream) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stream not found'
+      });
+    }
+
+    // Find the current announcement (the one with current: true)
+    const currentAnnouncement = stream.liveAnnouncements?.find(announcement => announcement.current === true);
+
+    // Return response
+    res.status(200).json({
+      success: true,
+      hasAnnouncement: !!currentAnnouncement,
+      announcement: currentAnnouncement || null
+    });
+
+  } catch (error) {
+    console.error('Get current announcement error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get current announcement',
       error: error.message
     });
   }
