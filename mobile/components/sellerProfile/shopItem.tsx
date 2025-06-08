@@ -84,6 +84,8 @@ const ShopCard: React.FC<ProductCardProps> = ({
               : images.diamondsImage
           }
           resizeMode="cover"
+          resizeMethod="resize"
+          progressiveRenderingEnabled={true}
           className="w-[100%] h-[157px] rounded-[6px]"
           style={{ marginBottom: 4 }}
         />

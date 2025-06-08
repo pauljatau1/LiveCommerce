@@ -44,7 +44,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   const renderSubCategory = useCallback((subCat: string) => {
     return (
       <TouchableOpacity
-        className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
+        className="bg-[#2e2e2e] rounded-[10px] items-center justify-center p-[8px] px-[10px]"
         style={{
           marginRight: 10,
         }}
@@ -62,31 +62,28 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     );
   }, []);
 
-  const renderCategoryData = useCallback(
-    ({ item }: any) => {
-      return (
-        <View
-          className="w-[100%]"
-          style={{
-            flexShrink: 1,
-            margin: 4,
-          }}
-        >
-          <CatalogCard
-            id={item._id}
-            title={item.name}
-            price={item.price}
-            category={item.category}
-            sellerName={item.seller?.storeName}
-            imageUrl={item.images}
-            sellerRating={item.stats?.averageRating}
-            moreDetails={item}
-          />
-        </View>
-      );
-    },
-    [products],
-  );
+  const renderCategoryData = ({ item }: any) => {
+    return (
+      <View
+        className="w-[100%]"
+        style={{
+          flexShrink: 1,
+          margin: 4,
+        }}
+      >
+        <CatalogCard
+          id={item._id}
+          title={item.name}
+          price={item.price}
+          category={item.category}
+          sellerName={item.seller?.storeName}
+          imageUrl={item.images}
+          sellerRating={item.stats?.averageRating}
+          moreDetails={item}
+        />
+      </View>
+    );
+  };
 
   const renderEmptyPlaceholder = useCallback(() => {
     return <ProductEmptyState />;

@@ -488,7 +488,7 @@ const ProductDescription = () => {
             productSellerId: sellerInfo?._id,
             productSellerName: sellerInfo?.storeName,
             timestamp: new Date().toISOString(),
-          })
+          });
         }
       } catch (trackError) {
         console.log("Customer.io product view tracking error:", trackError);
@@ -537,7 +537,7 @@ const ProductDescription = () => {
     console.log("placedBid ", amount);
   };
 
-  const renderContent = (row: any[]) => {
+  const renderContent = useCallback((row: any[]) => {
     return (
       <ScrollView
         horizontal={true}
@@ -561,7 +561,42 @@ const ProductDescription = () => {
         ))}
       </ScrollView>
     );
-  };
+  }, []);
+
+  const renderImages = useCallback(
+    ({ item, index }: any) => {
+      return (
+        <View>
+          <Image
+            source={{ uri: item.url, width: 400, height: 400 }}
+            style={{
+              width: "100%",
+              height: 400,
+            }}
+            contentFit="contain"
+          />
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.73)",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 5,
+              width: 47,
+              borderRadius: 20,
+              position: "absolute",
+              bottom: 14,
+              left: 32,
+            }}
+          >
+            <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium">
+              {index + 1}/{productDetails.images.length}
+            </Text>
+          </View>
+        </View>
+      );
+    },
+    [productDetails],
+  );
 
   const formatDate = (date: string) => {
     let rawDate = moment(date);
@@ -733,41 +768,7 @@ const ProductDescription = () => {
                         // autoPlay={true}
                         data={productDetails.images}
                         scrollAnimationDuration={200}
-                        renderItem={({
-                          item,
-                          index,
-                        }: {
-                          item: any;
-                          index: number;
-                        }) => (
-                          <View>
-                            <Image
-                              source={{ uri: item.url || "" }}
-                              style={{
-                                width: "100%",
-                                height: 400,
-                              }}
-                              contentFit="contain"
-                            />
-                            <View
-                              style={{
-                                backgroundColor: "rgba(255, 255, 255, 0.73)",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                padding: 5,
-                                width: 47,
-                                borderRadius: 20,
-                                position: "absolute",
-                                bottom: 14,
-                                left: 32,
-                              }}
-                            >
-                              <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium">
-                                {index + 1}/{productDetails.images.length}
-                              </Text>
-                            </View>
-                          </View>
-                        )}
+                        renderItem={renderImages}
                       />
                     )}
                   </View>

@@ -90,7 +90,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {firstImage && (
         <Image
-          source={imageUrl[0]?.url}
+          source={{ uri: imageUrl[0]?.url, width: 300, height: 300 }}
           contentFit="cover"
           recyclingKey={`image-${imageUrl[0]?.url}`}
           // className="w-[100%] h-[157px]"

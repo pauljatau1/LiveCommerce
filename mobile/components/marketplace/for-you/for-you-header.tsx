@@ -59,4 +59,4 @@ const ForYouHeader = () => {
   );
 };
 
-export default ForYouHeader;
+export default memo(ForYouHeader);

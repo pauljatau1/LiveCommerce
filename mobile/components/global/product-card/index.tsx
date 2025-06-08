@@ -93,8 +93,10 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {
         <Image
-          source={{ uri: imageUrl[0]?.url }}
+          source={{ uri: imageUrl[0]?.url, width: 200, height: 200 }}
           resizeMode="cover"
+          resizeMethod="resize"
+          progressiveRenderingEnabled={true}
           // recyclingKey={`image-${imageUrl[0]?.url}`}
           // className="w-[100%] h-[157px]"
           style={{
@@ -152,10 +154,16 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
             <Image
               source={
                 moreDetails?.seller?.storeAvatar?.url
-                  ? { uri: moreDetails?.seller?.storeAvatar?.url }
+                  ? {
+                      uri: moreDetails?.seller?.storeAvatar?.url,
+                      width: 20,
+                      height: 20,
+                    }
                   : require("../../../assets/icons/user-image-empty.png")
               }
               resizeMode="contain"
+              resizeMethod="resize"
+              progressiveRenderingEnabled={true}
               style={{
                 width: 20,
                 height: 20,

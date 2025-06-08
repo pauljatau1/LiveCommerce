@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useCallback } from "react";
 import { FlatList, View, Text, Dimensions, Image } from "react-native";
 import useCarousel from "@/hooks/useCarousel";
 import CustomButton from "@/components/global/button/CustomButton";
@@ -13,7 +13,7 @@ const Carousel = ({ banners }: any) => {
     // autoScrollInterval: 2000,
   });
 
-  const renderItem = ({ item }: any) => {
+  const renderItem = useCallback(({ item }: any) => {
     const margin = 16;
     return (
       <View
@@ -57,9 +57,9 @@ const Carousel = ({ banners }: any) => {
         </View>
       </View>
     );
-  };
+  }, []);
 
-  const renderDotIndicators = () => {
+  const renderDotIndicators = useCallback(() => {
     return banners?.map((_: any, index: number) => (
       <View
         key={index}
@@ -72,7 +72,7 @@ const Carousel = ({ banners }: any) => {
         }}
       />
     ));
-  };
+  }, [banners, activeIndex]);
 
   return (
     <View>

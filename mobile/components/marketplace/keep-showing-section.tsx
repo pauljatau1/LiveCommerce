@@ -159,11 +159,11 @@ const KeepShowingSection = () => {
 
   return (
     <View className=" w-[100%] pb-[10px] flex-1">
-      {/* <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center justify-between">
         <SectionHeader title="Keep shopping" />
-      </View> */}
+      </View>
       <View style={{ flex: 1 }}>
-        <FlashList
+        <FlatList
           data={products}
           renderItem={renderContent}
           keyExtractor={(item, index) => item?._id || `group-${index}`}
@@ -178,18 +178,18 @@ const KeepShowingSection = () => {
           contentContainerStyle={{
             paddingBottom: 60,
           }}
-          estimatedItemSize={300}
+          // estimatedItemSize={300}
           // scrollEnabled={false}
           showsVerticalScrollIndicator={false}
           className="pt-[14px]"
           ListEmptyComponent={renderEmptyPlaceholder}
           ListFooterComponent={renderListFooter}
-          // maxToRenderPerBatch={5}
-          // updateCellsBatchingPeriod={50}
-          // windowSize={5}
-          // initialNumToRender={4}
-          // removeClippedSubviews={false}
-          ListHeaderComponent={renderListHeader}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={100}
+          windowSize={6}
+          initialNumToRender={6}
+          removeClippedSubviews={true}
+          // ListHeaderComponent={renderListHeader}
         />
       </View>
     </View>

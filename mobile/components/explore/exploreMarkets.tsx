@@ -208,7 +208,7 @@ const ExploreMarket = ({ name, switchMode }: any) => {
           <FlatList
             data={filteredProducts}
             renderItem={({ item, index }) => renderProducts(item)}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item, index) => item?._id || index.toString()}
             numColumns={2}
             columnWrapperStyle={{
               justifyContent: "space-between",

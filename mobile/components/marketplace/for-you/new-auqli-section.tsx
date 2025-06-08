@@ -4,7 +4,7 @@ import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import { useGetNewAuqliQuery } from "@/services/products";
 import { MaterialIcons } from "@expo/vector-icons";
-import React, { useCallback } from "react";
+import React, { useCallback, memo } from "react";
 import { FlatList, View, Text } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
@@ -14,6 +14,24 @@ const ForYouNewAuqliSection = () => {
     error,
     isLoading,
   } = useGetNewAuqliQuery({ limit: 10 });
+
+  const renderContent = useCallback(({ item: row, index }: any) => {
+    return (
+      <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
+        <ProductCard
+          price={row?.price}
+          id={row?._id}
+          imageUrl={row?.images}
+          sellerName={row?.seller?.storeName}
+          category={row?.category}
+          // showNike={false}
+          title={row?.name}
+          sellerRating={row?.stats?.averageRating}
+          moreDetails={row}
+        />
+      </View>
+    );
+  }, []);
 
   const renderEmptyPlaceholder = useCallback(() => {
     return (
@@ -53,22 +71,8 @@ const ForYouNewAuqliSection = () => {
         ) : (
           <FlatList
             data={products?.data}
-            renderItem={({ item: row }) => (
-              <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-                <ProductCard
-                  price={row?.price}
-                  id={row?._id}
-                  imageUrl={row?.images}
-                  sellerName={row?.seller?.storeName}
-                  category={row?.category}
-                  // showNike={false}
-                  title={row?.name}
-                  sellerRating={row?.stats?.averageRating}
-                  moreDetails={row}
-                />
-              </View>
-            )}
-            keyExtractor={(item, index) => `group-${index}`}
+            renderItem={renderContent}
+            keyExtractor={(item, index) => item?._id || `group-${index}`}
             horizontal={products?.data?.length > 0}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
@@ -83,4 +87,4 @@ const ForYouNewAuqliSection = () => {
   );
 };
 
-export default ForYouNewAuqliSection;
+export default memo(ForYouNewAuqliSection);
