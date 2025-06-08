@@ -126,7 +126,7 @@ const LiveStream = () => {
             {/* Scheduled Shows Section */}
             <div className="bg-[#FFFFFF] border border-gray-200 rounded-xl p-8 space-y-10">
                 <div className="space-y-2">
-                    <h2 className="text-xl font-bold text-[#05031F]">
+                    <h2 className="text-xl font-bold text-[#17171B]">
                         Your Scheduled Shows
                     </h2>
                     <p className="text-gray-600">
@@ -203,7 +203,7 @@ const LiveStream = () => {
                                         {/* Content Section */}
                                         <div className="p-4 flex flex-col gap-3 flex-grow">
                                             {/* Stream Title */}
-                                            <h2 className="text-base font-inter font-semibold text-[#05031F] line-clamp-1">{stream.title}</h2>
+                                            <h2 className="text-base font-inter font-semibold text-[#17171B] line-clamp-1">{stream.title}</h2>
                                             
                                             {/* Seller Info */}
                                             <div className="flex items-center gap-2">

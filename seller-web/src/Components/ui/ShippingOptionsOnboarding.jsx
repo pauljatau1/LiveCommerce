@@ -63,19 +63,19 @@ const ShippingOptionsOnboarding = () => {
             <h2 className="text-center text-lg lg:text-xl mb-8">Shipping Methods</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-[600px] md:max-w-full mx-auto">
               <div
-                className={`border rounded-lg p-4 cursor-pointer hover:border-[#05031F] transition-all duration-300 ${selectedShipping === 'seller' ? 'border-[#05031F]' : 'border-gray-300'}`}
+                className={`border rounded-lg p-4 cursor-pointer hover:border-[#17171B] transition-all duration-300 ${selectedShipping === 'seller' ? 'border-[#17171B]' : 'border-gray-300'}`}
                 onClick={() => setSelectedShipping('seller')}
               >
                 <p className="text-center">Shipped by Seller</p>
               </div>
               <div
-                className={`border rounded-lg p-4 cursor-pointer hover:border-[#05031F] transition-all duration-300 ${selectedShipping === 'pickup' ? 'border-[#05031F]' : 'border-gray-300'}`}
+                className={`border rounded-lg p-4 cursor-pointer hover:border-[#17171B] transition-all duration-300 ${selectedShipping === 'pickup' ? 'border-[#17171B]' : 'border-gray-300'}`}
                 onClick={() => setSelectedShipping('pickup')}
               >
                 <p className="text-center">Store Pickup</p>
               </div>
               <div
-                className={`border rounded-lg p-4 cursor-pointer transition-all duration-300 ${selectedShipping === 'auqli' ? 'border-[#05031F]' : 'border-gray-300'} md:col-span-1 col-span-2 w-1/2 md:w-full mx-auto md:mx-0`}
+                className={`border rounded-lg p-4 cursor-pointer transition-all duration-300 ${selectedShipping === 'auqli' ? 'border-[#17171B]' : 'border-gray-300'} md:col-span-1 col-span-2 w-1/2 md:w-full mx-auto md:mx-0`}
               >
                 <p className="text-center">Shipped by Auqli</p>
                 <span className="text-xs text-red-500">Coming Soon</span>
@@ -88,14 +88,14 @@ const ShippingOptionsOnboarding = () => {
             <h2 className="text-center text-lg lg:text-xl mb-8">Returns & Exchanges</h2>
             <div className="grid grid-cols-2 gap-4">
               <div
-                className={`border rounded-lg p-6 cursor-pointer hover:border-[#05031F] transition-all duration-300 ${selectedReturn === 'auqli' ? 'border-[#05031F]' : 'border-gray-300'}`}
+                className={`border rounded-lg p-6 cursor-pointer hover:border-[#17171B] transition-all duration-300 ${selectedReturn === 'auqli' ? 'border-[#17171B]' : 'border-gray-300'}`}
                 onClick={() => setSelectedReturn('auqli')}
               >
                 <p className="text-center font-medium mb-2">Use Auqli Return Policy</p>
                 <p className="text-center text-sm text-gray-600">Default 7-day window for damaged items or discrepancies</p>
               </div>
               <div
-                className={`border rounded-lg p-6 cursor-pointer hover:border-[#05031F] transition-all duration-300 ${selectedReturn === 'custom' ? 'border-[#05031F]' : 'border-gray-300'}`}
+                className={`border rounded-lg p-6 cursor-pointer hover:border-[#17171B] transition-all duration-300 ${selectedReturn === 'custom' ? 'border-[#17171B]' : 'border-gray-300'}`}
                 onClick={() => setSelectedReturn('custom')}
               >
                 <p className="text-center font-medium mb-2">Custom Return Policy</p>
@@ -130,10 +130,10 @@ const ShippingOptionsOnboarding = () => {
           </div>
           {/* Navigation Buttons */}
           <div className="flex items-center justify-center gap-10 mt-20 lg:mt-40">
-            <button onClick={handleBack} className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
+            <button onClick={handleBack} className="bg-transparent text-[#17171B] border border-[#17171B] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
               Back
             </button>
-            <button onClick={handleNext} className="bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
+            <button onClick={handleNext} className="bg-[#17171B] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
               Next
             </button>
           </div>
@@ -175,13 +175,13 @@ const ShippingOptionsOnboarding = () => {
           <DialogFooter className="flex lg:justify-between gap-4 mt-6">
             <button
               onClick={() => setTermsDialogOpen(false)}
-              className="flex-1 bg-transparent text-[#05031F] border border-[#05031F] rounded-md py-3 hover:bg-gray-100 transition-all duration-300"
+              className="flex-1 bg-transparent text-[#17171B] border border-[#17171B] rounded-md py-3 hover:bg-gray-100 transition-all duration-300"
             >
               Decline
             </button>
             <button
               onClick={handleAcceptTerms}
-              className="flex-1 bg-[#05031F] text-white rounded-md py-3 hover:bg-opacity-90 transition-all duration-300"
+              className="flex-1 bg-[#17171B] text-white rounded-md py-3 hover:bg-opacity-90 transition-all duration-300"
             >
               Accept
             </button>

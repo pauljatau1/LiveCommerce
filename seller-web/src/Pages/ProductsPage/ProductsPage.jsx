@@ -800,21 +800,21 @@ const ProductsPage = () => {
                                 <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden min-w-[768px]">
                                     {/* Table Headers */}
                                     <div className={`grid ${activeTab === 'auctions' ? 'grid-cols-[80px_1fr_1fr_1fr_100px_100px]' : 'grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px]'} gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white`}>
-                                        <div className="text-sm font-medium text-[#05031F]">Image</div>
-                                        <div className="text-sm font-medium text-[#05031F]">Product Name</div>
+                                        <div className="text-sm font-medium text-[#17171B]">Image</div>
+                                        <div className="text-sm font-medium text-[#17171B]">Product Name</div>
                                         {activeTab !== 'auctions' && (
-                                            <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
+                                            <div className="text-sm font-medium text-[#17171B]">Upload Status</div>
                                         )}
-                                        <div className="text-sm font-medium text-[#05031F]">
+                                        <div className="text-sm font-medium text-[#17171B]">
                                             {activeTab === 'auctions' ? 'Auction Status' : 'Sold Count'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#05031F]">
+                                        <div className="text-sm font-medium text-[#17171B]">
                                             {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#05031F] text-center">
+                                        <div className="text-sm font-medium text-[#17171B] text-center">
                                             {activeTab === 'auctions' ? 'Time Left' : 'Stock Count'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
+                                        <div className="text-sm font-medium text-[#17171B] text-center">Actions</div>
                                     </div>
 
                                     {/* Products List for Desktop/Tablet */}
@@ -824,7 +824,7 @@ const ProductsPage = () => {
                                         ) : (
                                             <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
                                                 <img src={NotFound} alt="not-found" className="w-[120px] sm:w-[180px] md:w-[220px] h-[120px] sm:h-[180px] md:h-[220px]" />
-                                                <p className="text-sm sm:text-base font-cabin font-normal text-[#05031F] text-center px-4">
+                                                <p className="text-sm sm:text-base font-cabin font-normal text-[#17171B] text-center px-4">
                                                     {searchQuery ? `No results found for "${searchQuery}"` : 
                                                     sortType.includes('active') ? 'No active products found' : 
                                                     sortType.includes('draft') ? 'No draft products found' : 
@@ -872,8 +872,8 @@ const ProductsPage = () => {
                                                             className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                                                         />
                                                         <div className="min-w-0 flex-1">
-                                                            <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
-                                                                <h3 className="font-medium text-[#05031F] text-sm line-clamp-2">{item?.name}</h3>
+                                                            <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#17171B]/70 transition-all duration-200">
+                                                                <h3 className="font-medium text-[#17171B] text-sm line-clamp-2">{item?.name}</h3>
                                                             </Link>
                                                             <p className="text-xs text-gray-500 truncate">{item?.category}</p>
                                                             
@@ -1008,7 +1008,7 @@ const ProductsPage = () => {
                                                                                 event.initEvent('click', true, true);
                                                                                 document.getElementById(`rerun-auction-${item._id}`)?.dispatchEvent(event);
                                                                             }}
-                                                                            className="inline-flex items-center gap-1 text-xs bg-[#05031F] text-white px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
+                                                                            className="inline-flex items-center gap-1 text-xs bg-[#17171B] text-white px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                         >
                                                                             <Icon icon={restartBoldIcon} className="w-3.5 h-3.5" />
                                                                             <span>Rerun</span>
@@ -1056,7 +1056,7 @@ const ProductsPage = () => {
                                                         <div className="flex flex-col gap-2">
                                                             <Link 
                                                                 to={`/dashboard/edit-product/${item._id}`}
-                                                                className="inline-flex items-center gap-1 text-xs bg-[#05031F]/10 text-[#05031F] px-2 py-1.5 rounded-md"
+                                                                className="inline-flex items-center gap-1 text-xs bg-[#17171B]/10 text-[#17171B] px-2 py-1.5 rounded-md"
                                                             >
                                                                 <Icon icon={penBoldIcon} className="w-3.5 h-3.5" />
                                                                 <span>Edit</span>
@@ -1091,7 +1091,7 @@ const ProductsPage = () => {
                                 ) : (
                                     <div className="flex flex-col h-[50dvh] items-center justify-center gap-4 bg-white rounded-xl border border-[#E5E7EB] p-4">
                                         <img src={NotFound} alt="not-found" className="w-[120px]" />
-                                        <p className="text-sm font-cabin font-normal text-[#05031F] text-center px-4">
+                                        <p className="text-sm font-cabin font-normal text-[#17171B] text-center px-4">
                                             {searchQuery ? `No results found for "${searchQuery}"` : 
                                             sortType.includes('active') ? 'No active products found' : 
                                             sortType.includes('draft') ? 'No draft products found' : 
@@ -1138,7 +1138,7 @@ const ProductsPage = () => {
                                             className={`flex-1 ${
                                                 currentPage <= 1 
                                                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                             } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
                                             <Icon icon={arrowLongLeftIcon} width="14" height="14" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
@@ -1155,7 +1155,7 @@ const ProductsPage = () => {
                                             className={`flex-1 ${
                                                 currentPage >= paginationData.totalPages 
                                                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                             } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
                                             <span className="text-xs">Next</span>
@@ -1171,7 +1171,7 @@ const ProductsPage = () => {
                                             className={`text-xs sm:text-sm font-cabin font-normal ${
                                                 currentPage <= 1 
                                                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                             } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
                                             <Icon icon={arrowLongLeftIcon} width="16" height="16" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
@@ -1194,7 +1194,7 @@ const ProductsPage = () => {
                                             className={`text-xs sm:text-sm font-cabin font-normal ${
                                                 currentPage >= paginationData.totalPages 
                                                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                             } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
                                             <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
@@ -1204,7 +1204,7 @@ const ProductsPage = () => {
                                         
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                            <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#17171B] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out">
                                                 <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
                                                 <Icon icon={arrowDownIcon} width="8" height="8" color="#FFFFFF" />
                                             </button>
@@ -1451,7 +1451,7 @@ const ProductsPage = () => {
                                     <div className="flex justify-end gap-3 pt-4">
                                         <Link
                                             to={`/dashboard/edit-product/${selectedProduct._id}`}
-                                            className="px-4 py-2 bg-[#05031F] text-white rounded-md hover:bg-[#05031F]/90 transition-all duration-200 flex items-center gap-2"
+                                            className="px-4 py-2 bg-[#17171B] text-white rounded-md hover:bg-[#17171B]/90 transition-all duration-200 flex items-center gap-2"
                                         >
                                             <Icon icon={penBoldIcon} className="w-4 h-4" />
                                             Edit Product
@@ -1489,7 +1489,7 @@ const ProductsPage = () => {
                 <Dialog open={openAuctionModal} onOpenChange={setOpenAuctionModal}>
                     <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                         <DialogHeader className="space-y-3">
-                            <DialogTitle className="text-xl sm:text-2xl font-bold text-[#05031F]">Auction Performance</DialogTitle>
+                            <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
                             <DialogDescription className="text-sm sm:text-base">
                                 Detailed information about this auction's performance
                             </DialogDescription>
@@ -1511,7 +1511,7 @@ const ProductsPage = () => {
                 <Dialog open={showRerunDialog} onOpenChange={setShowRerunDialog}>
                     <DialogContent className="sm:max-w-[500px] max-w-[90vw] mx-auto p-6">
                         <DialogHeader className="space-y-3">
-                            <DialogTitle className="text-xl sm:text-2xl font-bold text-[#05031F]">Rerun Auction</DialogTitle>
+                            <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Rerun Auction</DialogTitle>
                             <DialogDescription className="text-sm sm:text-base">
                                 Configure the new auction parameters. End date is required, other fields are optional.
                             </DialogDescription>
@@ -1533,7 +1533,7 @@ const ProductsPage = () => {
                                 </button>
                                 <button
                                     onClick={() => setShowRerunDialog(false)}
-                                    className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 font-medium transition-all flex items-center gap-2"
+                                    className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 font-medium transition-all flex items-center gap-2"
                                 >
                                     <Icon icon={restartBoldIcon} className="w-5 h-5" />
                                     <span>Rerun Auction</span>
@@ -1573,7 +1573,7 @@ const ProductsPage = () => {
                                     className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
                                 />
                                 <div>
-                                    <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{productToDelete?.name}</h3>
+                                    <h3 className="font-medium text-[#17171B] text-sm sm:text-base line-clamp-2">{productToDelete?.name}</h3>
                                     <p className="text-xs sm:text-sm text-gray-500">SKU: {productToDelete?.sku || 'N/A'}</p>
                                 </div>
                             </div>

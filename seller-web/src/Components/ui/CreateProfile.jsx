@@ -52,7 +52,7 @@ const CreateProfile = () => {
             toast.error('Missing Images', {
                 description: 'Please upload both profile and banner images',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });

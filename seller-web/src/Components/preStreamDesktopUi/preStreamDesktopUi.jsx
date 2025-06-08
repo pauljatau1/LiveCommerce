@@ -19,7 +19,8 @@ const PreStreamDesktopUi = ({
   formatCurrency,
   seller,
   isReconnecting,
-  onOpenVideoSettings
+  onOpenVideoSettings,
+  checkForExistingStream
 }) => {
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -172,7 +173,7 @@ const PreStreamDesktopUi = ({
                 existingLivestream ? (
                   <button
                     disabled={isReconnecting}
-                    onClick={() => { handleStartStream() }}
+                    onClick={() => { checkForExistingStream()}}
                     className={`bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300 ${isReconnecting ? 'bg-gray-600' : ''}`}
                   >
                     {isReconnecting ? 'Reconnecting...' : 'Reconnect Stream'}

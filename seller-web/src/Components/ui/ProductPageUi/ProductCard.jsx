@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { useDispatch, useSelector } from 'react-redux';
-import { deleteProduct } from '../../../Redux/Slices/ProductSlice';
+import { deleteProduct, fetchSellerProducts } from '../../../Redux/Slices/ProductSlice';
 import PropTypes from 'prop-types';
 import CircularProgress from '@mui/material/CircularProgress';
 import {
@@ -35,6 +35,7 @@ import {
 import { Calendar } from "../calendar";
 import { Input } from "../input";
 import { Progress } from "../progress";
+import VideoPlayer from "@shared/VideoPlayer"; 
 
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
@@ -87,7 +88,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                 toast.success("Auction rerun successfully", {
                     description: "Your auction has been rescheduled with previous settings",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -98,7 +99,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
             toast.error("Failed to rerun auction", {
                 description: err.response?.data?.message || "Please try again later",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -154,7 +155,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader className="space-y-3">
-                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#05031F]">Auction Performance</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
                     <DialogDescription className="text-sm sm:text-base">
                         Detailed information about this auction's performance
                     </DialogDescription>
@@ -288,7 +289,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                         onClose();
                                         setShowRerunDialog(true);
                                     }}
-                                    className="bg-[#05031F] text-white px-6 py-3 rounded-md hover:bg-[#05031F]/90 transition-all duration-200 flex items-center gap-2"
+                                    className="bg-[#17171B] text-white px-6 py-3 rounded-md hover:bg-[#17171B]/90 transition-all duration-200 flex items-center gap-2"
                                 >
                                     <Icon icon="solar:restart-bold" className="w-5 h-5" />
                                     <span>Rerun Auction</span>
@@ -454,7 +455,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                     </button>
                     <div className="flex flex-col gap-6 pt-4">
                         <div className="text-center">
-                            <h1 className="text-xl xl:text-2xl font-bold text-[#05031F]">Update Stock</h1>
+                            <h1 className="text-xl xl:text-2xl font-bold text-[#17171B]">Update Stock</h1>
                             <p className="text-sm text-gray-500 mt-2">Update stock quantity for {item?.name}</p>
                         </div>
 
@@ -466,7 +467,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     className="w-16 h-16 rounded-lg object-contain bg-white"
                                 />
                                 <div>
-                                    <h3 className="font-medium text-[#05031F]">{item?.name}</h3>
+                                    <h3 className="font-medium text-[#17171B]">{item?.name}</h3>
                                     <p className="text-sm text-gray-500">Current Stock: {item?.stock}</p>
                                 </div>
                             </div>
@@ -554,7 +555,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
 
                         <div className="flex gap-3 mt-4">
                             <button
-                                className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 rounded-md"
+                                className="border border-[#17171B] flex-1 text-[#17171B] px-2 py-1 h-14 rounded-md"
                                 onClick={onClose}
                             >
                                 Cancel
@@ -784,7 +785,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                         <div className="flex justify-end gap-3 pt-4">
                             <Link
                                 to={`/dashboard/edit-product/${productData._id}`}
-                                className="px-4 py-2 bg-[#05031F] text-white rounded-md hover:bg-[#05031F]/90 transition-all duration-200 flex items-center gap-2"
+                                className="px-4 py-2 bg-[#17171B] text-white rounded-md hover:bg-[#17171B]/90 transition-all duration-200 flex items-center gap-2"
                             >
                                 <Icon icon="solar:pen-bold" className="w-4 h-4" />
                                 Edit Product
@@ -901,7 +902,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px] p-6">
                 <DialogHeader className="space-y-3">
-                    <DialogTitle className="text-2xl font-bold text-[#05031F]">Rerun Auction</DialogTitle>
+                    <DialogTitle className="text-2xl font-bold text-[#17171B]">Rerun Auction</DialogTitle>
                     <DialogDescription className="text-base">
                         Configure the new auction parameters. End date is required, other fields are optional.
                     </DialogDescription>
@@ -914,7 +915,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 <button
                                     type="button"
                                     onClick={handleStartNow}
-                                    className="text-sm text-[#05031F] hover:text-[#05031F]/80 font-medium flex items-center gap-1"
+                                    className="text-sm text-[#17171B] hover:text-[#17171B]/80 font-medium flex items-center gap-1"
                                 >
                                     <Icon icon="solar:play-bold" className="w-4 h-4" />
                                     Start Now
@@ -925,7 +926,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 name="startDate"
                                 value={formData.startDate}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
                                     formErrors.startDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                 }`}
                                 min={new Date().toISOString().slice(0, 16)}
@@ -946,7 +947,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 value={formData.endDate}
                                 onChange={handleChange}
                                 required
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
                                     formErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                 }`}
                                 min={new Date().toISOString().slice(0, 16)}
@@ -968,7 +969,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                     value={formData.minBid}
                                     onChange={handleChange}
                                     placeholder={`Previous: ₦${defaultValues?.minBid || 0}`}
-                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
                                         formErrors.minBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                     }`}
                                     min="0"
@@ -989,7 +990,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                     value={formData.maxBid}
                                     onChange={handleChange}
                                     placeholder={`Previous: ₦${defaultValues?.maxBid || 0}`}
-                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
                                         formErrors.maxBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                     }`}
                                     min="0"
@@ -1010,7 +1011,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 id="endOnMaxBid"
                                 checked={formData.endOnMaxBid}
                                 onChange={handleChange}
-                                className="rounded border-gray-300 text-[#05031F] focus:ring-[#05031F]"
+                                className="rounded border-gray-300 text-[#17171B] focus:ring-[#17171B]"
                             />
                             <label htmlFor="endOnMaxBid" className="text-sm font-medium text-gray-700">
                                 End auction when max bid is reached
@@ -1029,7 +1030,7 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                         <button
                             type="submit"
                             disabled={isLoading || !formData.endDate}
-                            className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                            className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
                         >
                             {isLoading ? (
                                 <>
@@ -1096,7 +1097,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             toast.error('Failed to load product blips', {
                 description: error.response?.data?.message || 'Please try again',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -1202,7 +1203,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             if (response.status === 201) {
                 toast.success(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`, {
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -1221,7 +1222,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             toast.error('Failed to upload blip videos', {
                 description: error.response?.data?.message || 'Please try again',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -1252,7 +1253,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             if (response.status === 200) {
                 toast.success('Blip video deleted successfully', {
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -1265,7 +1266,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             toast.error('Failed to delete blip video', {
                 description: error.response?.data?.message || 'Please try again',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -1292,7 +1293,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-[700px] p-6 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="space-y-3">
-                    <DialogTitle className="text-2xl font-bold text-[#05031F]">Manage Product Blips</DialogTitle>
+                    <DialogTitle className="text-2xl font-bold text-[#17171B]">Manage Product Blips</DialogTitle>
                     <DialogDescription className="text-base">
                         Add up to 5 short video blips to showcase your product
                     </DialogDescription>
@@ -1306,7 +1307,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div>
-                        <h3 className="font-medium text-[#05031F]">{product?.name}</h3>
+                        <h3 className="font-medium text-[#17171B]">{product?.name}</h3>
                         <p className="text-sm text-gray-500">
                             {product?.category} • {product?.subCategory}
                         </p>
@@ -1324,7 +1325,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                             <button 
                                 onClick={fetchProductWithBlips}
                                 disabled={isLoadingProduct}
-                                className="text-xs flex items-center gap-1 text-[#05031F] hover:text-[#05031F]/80"
+                                className="text-xs flex items-center gap-1 text-[#17171B] hover:text-[#17171B]/80"
                             >
                                 <Icon icon={isLoadingProduct ? "mdi:loading" : "solar:refresh-bold"} className={`w-4 h-4 ${isLoadingProduct ? "animate-spin" : ""}`} />
                                 <span>Refresh</span>
@@ -1340,16 +1341,45 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 {existingBlips.map((blip) => (
                                     <div key={blip._id} className="border rounded-lg p-3 relative">
                                         <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                            <video 
+                                            <VideoPlayer 
                                                 src={blip.url} 
-                                                poster={blip.thumbnail} 
-                                                className="w-full h-full object-contain" 
-                                                controls
+                                                poster={blip.thumbnail}  
+                                                style={{ borderRadius: 0, maxHeight: 360 }}
+                                                className="w-full h-full object-contain"
                                             />
                                         </div>
                                         <div className="flex justify-between items-center mt-2">
                                             <span className="text-xs text-gray-500">
-                                                Added: {new Date(blip.createdAt).toLocaleDateString()}
+                                                <div className="flex items-center">
+                                                {/* Added date */}
+                                                <span>
+                                                    Added:&nbsp;{new Date(blip.createdAt).toLocaleDateString()}
+                                                </span>
+
+                                                {/* show only while NOT processed */}
+                                                {!blip.processed && (
+                                                    <span className="flex items-center gap-2 text-red-500 ml-5">
+                                                    {/* loader */}
+                                                    <svg
+                                                        className="h-4 w-4 animate-spin"
+                                                        viewBox="0 0 24 24"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <circle
+                                                        className="opacity-25"
+                                                        cx="12" cy="12" r="10"
+                                                        stroke="currentColor" strokeWidth="4" fill="none"
+                                                        />
+                                                        <path
+                                                        className="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                                                        />
+                                                    </svg>
+                                                    <span>Processing…</span>
+                                                    </span>
+                                                )}
+                                                </div>
                                             </span>
                                             <button 
                                                 onClick={() => handleDeleteBlip(blip._id)}
@@ -1394,7 +1424,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                     {existingBlips.length < 5 ? (
                         <div 
                             className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all
-                                ${blipVideos.length > 0 ? 'border-[#05031F]' : 'border-gray-300'}`}
+                                ${blipVideos.length > 0 ? 'border-[#17171B]' : 'border-gray-300'}`}
                             onClick={handleTriggerFileInput}
                         >
                             <input 
@@ -1477,7 +1507,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 type="button"
                                 onClick={handleUpload}
                                 disabled={blipVideos.length === 0 || isUploading || isDeleting}
-                                className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                                className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
                             >
                                 {isUploading ? (
                                     <>
@@ -1521,6 +1551,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const [showRerunDialog, setShowRerunDialog] = useState(false);
     // Add the missing state declaration for delete confirmation dialog
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const pagination = useSelector((state) => state.product.pagination);
 
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
@@ -1573,8 +1604,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const status = isAuction ? getAuctionStatus(item.auction) : getStockStatus(item?.stock);
     const uploadStatus = getUploadStatus(item.status);
 
-    const handleProductDelete = useCallback((productId) => {
-        dispatch(deleteProduct(productId));
+    const handleProductDelete = useCallback(async (productId) => {
+        await dispatch(deleteProduct(productId)).unwrap();
+        const params = {
+            page: 1,
+            limit: 10
+        }; 
+        dispatch(fetchSellerProducts(params)); 
     }, [dispatch]);
 
     console.log(item)
@@ -1635,7 +1671,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 toast.success("Auction rerun successfully", {
                     description: "Your auction has been rescheduled with the new settings",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -1646,7 +1682,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             toast.error("Failed to rerun auction", {
                 description: error.response?.data?.message || "Please try again later",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -1675,8 +1711,8 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 className="w-16 h-16 rounded-lg object-cover"
             />
             <div>
-                <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
-                    <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#17171B]/70 transition-all duration-200">
+                    <h3 className="font-medium text-[#17171B] line-clamp-2">{item?.name}</h3>
                 </Link>
                 <p className="text-sm text-gray-500">{item?.category}</p>
             </div>
@@ -1696,7 +1732,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 {canRerunAuction && (
                     <button
                         onClick={handleRerunClick}
-                        className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
+                        className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-[#17171B] hover:bg-[#17171B]/90 text-white rounded-md text-xs transition-all duration-200"
                         title="Schedule a new auction with this product"
                     >
                         <Icon icon="solar:restart-bold" className="w-3 h-3" />
@@ -1704,7 +1740,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     </button>
                 )}
             </div>
-            <div className="text-sm font-medium text-[#05031F]">
+            <div className="text-sm font-medium text-[#17171B]">
                 {isAuction ? (
                     formatCurrency(item.auction?.currentHighestBid?.amount || 0)
                 ) : (
@@ -1749,17 +1785,17 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
                     <PopoverTrigger asChild>
                         <button 
-                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200"
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#17171B]/5 transition-all duration-200"
                             title="More actions"
                         >
-                            <Icon icon="solar:menu-dots-bold" width="18" height="18" color="#05031F" />
+                            <Icon icon="solar:menu-dots-bold" width="18" height="18" color="#17171B" />
                         </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-48" align="end">
                         <div className="flex flex-col">
                             <Link
                                 to={`/dashboard/edit-product/${item._id}`}
-                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200"
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200"
                             >
                                 <Icon icon="solar:pen-bold" width="14" height="14" />
                                 <span className="text-sm">Edit Product</span>
@@ -1767,7 +1803,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                             {!isAuction && (
                                 <button
                                     onClick={() => setOpenStockModal(true)}
-                                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                 >
                                     <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
                                     <span className="text-sm">Update Stock</span>
@@ -1804,13 +1840,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
                 />
                 <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                    <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
-                        <h3 className="font-medium text-[#05031F] line-clamp-2 text-sm sm:text-base">{item?.name}</h3>
+                    <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#17171B]/70 transition-all duration-200">
+                        <h3 className="font-medium text-[#17171B] line-clamp-2 text-sm sm:text-base">{item?.name}</h3>
                     </Link>
                     <p className="text-xs sm:text-sm text-gray-500 truncate">{item?.category}</p>
                     {isAuction ? (
                         <>
-                            <p className="text-xs sm:text-sm font-medium text-[#05031F]">
+                            <p className="text-xs sm:text-sm font-medium text-[#17171B]">
                                 Current Bid: {formatCurrency(item.auction?.currentHighestBid?.amount || 0)}
                             </p>
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -1820,7 +1856,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 {canRerunAuction && (
                                     <button
                                         onClick={handleRerunClick}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#17171B] hover:bg-[#17171B]/90 text-white rounded-md text-xs transition-all duration-200"
                                         title="Schedule a new auction with this product"
                                     >
                                         <Icon icon="solar:restart-bold" className="w-3 h-3" />
@@ -1832,7 +1868,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     ) : (
                         <>
                             <div className="flex items-center gap-3">
-                                <p className="text-xs sm:text-sm font-medium text-[#05031F]">{formatCurrency(item?.price)}</p>
+                                <p className="text-xs sm:text-sm font-medium text-[#17171B]">{formatCurrency(item?.price)}</p>
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${uploadStatus?.class}`}>
                                     {uploadStatus?.text}
                                 </span>
@@ -1848,15 +1884,15 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             <div className="absolute right-4 top-4">
                 <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
                     <PopoverTrigger asChild>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
-                            <Icon icon="solar:menu-dots-bold" width="16" height="16" color="#05031F" />
+                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#17171B]/5 transition-all duration-200">
+                            <Icon icon="solar:menu-dots-bold" width="16" height="16" color="#17171B" />
                         </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-48" align="end">
                         <div className="flex flex-col">
                             <Link
                                 to={`/dashboard/edit-product/${item._id}`}
-                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200"
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200"
                             >
                                 <Icon icon="solar:pen-bold" width="14" height="14" />
                                 <span className="text-sm">Edit Product</span>
@@ -1866,14 +1902,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                     <button
                                         id={`product-details-${item._id}`}
                                         onClick={() => setOpenProductDetails(true)}
-                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                     >
                                         <Icon icon="solar:eye-bold" width="14" height="14" />
                                         <span className="text-sm">View Details</span>
                                     </button>
                                     <button
                                         onClick={() => setOpenStockModal(true)}
-                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                     >
                                         <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
                                         <span className="text-sm">Update Stock</span>
@@ -1881,7 +1917,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                     <button
                                         id={`upload-blip-${item._id}`}
                                         onClick={() => setOpenBlipUploadModal(true)}
-                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                     >
                                         <Icon icon="solar:video-frame-bold" width="14" height="14" />
                                         <span className="text-sm">Upload Blip</span>
@@ -1892,7 +1928,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                     <button
                                         id={`auction-performance-${item._id}`}
                                         onClick={() => setOpenAuctionModal(true)}
-                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                     >
                                         <Icon icon="solar:graph-bold" width="14" height="14" />
                                         <span className="text-sm">Auction Performance</span>
@@ -1901,7 +1937,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                         <button
                                             id={`rerun-auction-${item._id}`}
                                             onClick={() => setShowRerunDialog(true)}
-                                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#05031F]/5 rounded-md transition-all duration-200 text-left"
+                                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                         >
                                             <Icon icon="solar:restart-bold" width="14" height="14" />
                                             <span className="text-sm">Rerun Auction</span>
@@ -2002,7 +2038,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
                             />
                             <div>
-                                <h3 className="font-medium text-[#05031F] text-sm sm:text-base line-clamp-2">{item?.name}</h3>
+                                <h3 className="font-medium text-[#17171B] text-sm sm:text-base line-clamp-2">{item?.name}</h3>
                                 <p className="text-xs sm:text-sm text-gray-500">SKU: {item?.sku || 'N/A'}</p>
                             </div>
                         </div>
@@ -2048,6 +2084,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             </Dialog>
         </>
     )
+}
+
+ProductCard.propTypes = {
+    item: PropTypes.object.isRequired,
+    isAuction: PropTypes.bool,
+    canRerunAuction: PropTypes.bool,
+    handleRerunClick: PropTypes.func,
+    handleStockUpdate: PropTypes.func,
 }
 
 export default ProductCard;

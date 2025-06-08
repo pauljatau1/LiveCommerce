@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../Componen
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../Components/ui/pagination';
 import Loader from '../../Components/Loader';
 import { formatDistanceToNow } from 'date-fns';
+import VideoPlayer from '@/Shared/VideoPlayer';
 
 const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
   const dispatch = useDispatch();
@@ -244,20 +245,12 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
             {/* Blip Video and Details */}
             <div className="space-y-4">
               <div className="aspect-[9/16] w-full max-w-[300px] mx-auto rounded-md overflow-hidden bg-gray-100">
-                {safeGet(blipDetails, 'blipUrl') ? (
-                  <video 
-                    src={blipDetails.blipUrl} 
-                    className="w-full h-full object-contain"
-                    controls
-                    playsInline
-                    controlsList="nodownload"
-                    poster={safeGet(blipDetails, 'thumbnail')}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                    Video not available
-                  </div>
-                )}
+                <VideoPlayer 
+                  src={blipDetails.blipUrl} 
+                  poster={blipDetails.thumbnail} 
+                  autoPlay={false}
+                  className="w-full h-full object-contain"
+                />
               </div>
               
               <div className="space-y-2">
@@ -266,6 +259,28 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
                 </h3>
                 <p className="text-sm text-gray-600">
                   <span className="font-medium">Created:</span> {formatDate(safeGet(blipDetails, 'createdAt'))}
+                  {!blipDetails.processed && (
+                      <span className="flex items-center gap-2 text-red-500 my-3">
+                      {/* loader */}
+                      <svg
+                          className="h-4 w-4 animate-spin"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                      >
+                          <circle
+                          className="opacity-25"
+                          cx="12" cy="12" r="10"
+                          stroke="currentColor" strokeWidth="4" fill="none"
+                          />
+                          <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                          />
+                      </svg>
+                      <span>Blip is being processed...</span>
+                      </span>
+                  )}
                 </p>
                 <div className="flex flex-wrap gap-2 sm:gap-4 text-sm">
                   <span>❤️ {safeGet(blipDetails, 'blipEngagement.likesCount', 0)} likes</span>

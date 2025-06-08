@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
 import ChatSection from './ChatSection';
 import StreamQualityIndicator from '../ui/StreamQualityIndicator';
+import AnnouncementModal from './AnnouncementModal';
 
 const StreamDesktopUi = ({
     viewers = [],
@@ -31,30 +32,22 @@ const StreamDesktopUi = ({
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [isVideoReady, setIsVideoReady] = useState(false);
     const [productOrderCounts, setProductOrderCounts] = useState({});
+    const [salesModalOpen, setSalesModalOpen] = useState(false);
+    const [itemsModalOpen, setItemsModalOpen] = useState(false);
+    const [ordersData, setOrdersData] = useState(orders || []);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [totalSales, setTotalSales] = useState(0);
+    const [itemsSold, setItemsSold] = useState(0);
+    const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
 
     // Calculate initial sales from orders prop
     const initialSales = orders?.reduce((total, order) => total + (order.amount || 0), 0);
 
     // Set initial states for analytics
-    const [totalSales, setTotalSales] = useState(initialSales || 0);
-    const [itemsSold, setItemsSold] = useState(orders?.length || 0);
-    const [salesModalOpen, setSalesModalOpen] = useState(false);
-    const [itemsModalOpen, setItemsModalOpen] = useState(false);
-    const [ordersData, setOrdersData] = useState(orders || []);
-
-    // Function to copy stream link to clipboard
-    const copyToClipboard = async () => {
-        if (liveStreamDetails?.streamLink) {
-            try {
-                await navigator.clipboard.writeText(liveStreamDetails.streamLink);
-                setCopySuccess(true);
-                setTimeout(() => setCopySuccess(false), 2000);
-            } catch (err) {
-                console.error('Failed to copy: ', err);
-            }
-        }
-    };
+    useEffect(() => {
+        setTotalSales(initialSales || 0);
+        setItemsSold(orders?.length || 0);
+    }, [initialSales, orders]);
 
     // Initialize product order counts from the initial orders data
     useEffect(() => {
@@ -183,6 +176,19 @@ const StreamDesktopUi = ({
         return productOrderCounts[productId] || 0;
     };
 
+    // Function to copy stream link to clipboard
+    const copyToClipboard = async () => {
+        if (liveStreamDetails?.streamLink) {
+            try {
+                await navigator.clipboard.writeText(liveStreamDetails.streamLink);
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+        }
+    };
+
     return (
         <div className="hidden xl:block">
             {/* Add StreamQualityIndicator */}
@@ -273,7 +279,10 @@ const StreamDesktopUi = ({
                     <div className="space-y-4">
                         <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Tools</h2>
                         <div className="space-y-2">
-                            {/*<button className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300">
+                           <button 
+                                onClick={() => setAnnouncementModalOpen(true)}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-transparent hover:bg-gray-200/5 rounded-lg transition-all duration-300"
+                           >
                                 <Icon icon="ic:outline-announcement" className="w-5 h-5" color="#14AE5C" />
                                 <span className="text-[#EFF0FA] font-inter text-sm">Announcement</span>
                             </button>
@@ -296,7 +305,7 @@ const StreamDesktopUi = ({
 
                         <div className="mt-8">
                             <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-                            <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                            <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item, index) => (
@@ -719,6 +728,17 @@ const StreamDesktopUi = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Announcement Modal */}
+            {announcementModalOpen && (
+                <AnnouncementModal
+                    isOpen={announcementModalOpen}
+                    onClose={() => setAnnouncementModalOpen(false)}
+                    streamId={liveStreamDetails?._id}
+                    seller={seller}
+                    liveStreamDetails={liveStreamDetails}
+                />
             )}
         </div>
     );

@@ -67,7 +67,7 @@ export const validateToken = async (token, navigate) => {
           toast.error("Session expired", {
             description: "Please log in again",
             style: {
-              background: '#05031F',
+              background: '#17171B',
               color: '#fff',
             }
           });
@@ -127,7 +127,7 @@ export const handleApiError = (error, navigate) => {
       toast.error("Network Error", {
         description: "Could not connect to server. Please check your connection.",
         style: {
-          background: '#05031F',
+          background: '#17171B',
           color: '#fff',
         }
       });
@@ -148,7 +148,7 @@ export const handleApiError = (error, navigate) => {
     toast.error("Session expired", {
       description: "Please log in again",
       style: {
-        background: '#05031F',
+        background: '#17171B',
         color: '#fff',
       }
     });
@@ -166,7 +166,7 @@ export const handleApiError = (error, navigate) => {
     toast.error("Error", {
       description: error.response.data.message,
       style: {
-        background: '#05031F',
+        background: '#17171B',
         color: '#fff',
       }
     });

@@ -722,7 +722,7 @@ const HomePage = () => {
             <AuqliUniversity />
           </div>
           <div className="mt-5">
-            <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Platform Announcements</h1>
+            <h1 className="text-lg font-lexend font-bold text-[#17171B] mb-2">Platform Announcements</h1>
             <div className="flex flex-col bg-white mt-4 rounded-md border border-gray-200 " >
               {
                 platformAnnouncement.length > 0 ? (

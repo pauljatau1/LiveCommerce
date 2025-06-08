@@ -1968,7 +1968,6 @@ const LivestreamStudio = () => {
             if (!freshData) {
                 console.error('❌ [RECONNECT] Failed to get fresh stream data from server');
                 // Clean up old stream data as it might be invalid
-                localStorage.removeItem(`stream_connected_${streamId}`);
                 globalReconnectionInProgress = false;
                 reconnectionInProgress.current = false;
                 return;
@@ -2569,6 +2568,7 @@ const LivestreamStudio = () => {
                             seller={seller}
                             isReconnecting={isReconnecting}
                             onOpenVideoSettings={handleOpenVideoSettings}
+                            checkForExistingStream={checkForExistingStream}
                         />
                     </Suspense>
                     <Suspense fallback={suspenseFallback}>
@@ -2589,6 +2589,7 @@ const LivestreamStudio = () => {
                             totalShares={totalShares}
                             isReconnecting={isReconnecting}
                             onOpenVideoSettings={handleOpenVideoSettings}
+                            checkForExistingStream={checkForExistingStream}
                         />
                     </Suspense>
                 </div>
@@ -2743,118 +2744,6 @@ const LivestreamStudio = () => {
             />
         </Suspense>
     ), [isVideoSettingsModalOpen, videoSettings, handleApplyVideoSettings, isStreaming]);
-
-    // Replace the current beforeunload handler with an improved version
-    useEffect(() => {
-        // Store a flag in sessionStorage to help differentiate between reload and close
-        const setCloseAttemptFlag = () => {
-            sessionStorage.setItem('closeAttempt', Date.now().toString());
-        };
-        
-        // Clear the flag when the page loads/reloads
-        const clearCloseAttemptFlag = () => {
-            sessionStorage.removeItem('closeAttempt');
-        };
-        
-        // On mount, clear the flag (this means the page was loaded/reloaded)
-        clearCloseAttemptFlag();
-        
-        // Special key combination listener to simulate browser close for testing
-        const handleKeyDown = (e) => {
-            // Alt+W simulates browser close behavior (for testing)
-            if (e.altKey && e.key === 'w' && isStreaming) {
-                console.log('🔄 [TEST] Alt+W pressed - simulating browser close');
-                setShowCloseWarningModal(true);
-            }
-        };
-        
-        // Handle beforeunload - this is fired when user attempts to close tab/window
-        const handleBeforeUnload = (event) => {
-            if (!isStreaming || window.confirmCloseInProgress) return;
-            
-            console.log('🔄 [BROWSER CLOSE] beforeunload event triggered while streaming');
-            setCloseAttemptFlag();
-            
-            // Set a flag so our modal can show instead
-            window.isClosingTab = true;
-            
-            // Show our custom modal
-            setShowCloseWarningModal(true);
-            
-            // This trick sometimes helps prevent the browser dialog in some browsers
-            // Make the page "dirty" so browsers think there are unsaved changes
-            window._preventUnloadDialog = document.createElement('input');
-            document.body.appendChild(window._preventUnloadDialog);
-            window._preventUnloadDialog.focus();
-            
-            // Some browsers (Firefox) need a slight delay to properly show our custom modal
-            setTimeout(() => {
-                if (window._preventUnloadDialog) {
-                    document.body.removeChild(window._preventUnloadDialog);
-                    delete window._preventUnloadDialog;
-                }
-            }, 100);
-            
-            // Modern browsers require returnValue to be set
-            // Note: This will still show the browser's native dialog as fallback
-            const message = "You are about to leave your livestream! If you leave, your stream will end in one minute and all viewers will be disconnected.";
-            event.returnValue = message;
-            return message;
-        };
-        
-        // Monitor navigation attempts
-        const blockBackNavigation = () => {
-            // Push the current state with a custom flag
-            window.history.pushState({ noBackButton: true }, '');
-        };
-        
-        // Handle popstate (back/forward buttons)
-        const handlePopState = (event) => {
-            // If we detect back navigation, push state again to prevent it
-            if (isStreaming && event?.state?.noBackButton !== true) {
-                blockBackNavigation();
-            }
-        };
-        
-        // Add unload cleanup function outside the return statement
-        const unloadCleanup = () => {
-            if (window._preventUnloadDialog) {
-                try {
-                    document.body.removeChild(window._preventUnloadDialog);
-                    delete window._preventUnloadDialog;
-                } catch (e) {
-                    console.error('Error cleaning up unload prevention:', e);
-                }
-            }
-        };
-        
-        if (isStreaming) {
-            // Set up all event listeners
-            window.addEventListener('beforeunload', handleBeforeUnload);
-            window.addEventListener('keydown', handleKeyDown);
-            
-            // Block back navigation when streaming
-            blockBackNavigation();
-            window.addEventListener('popstate', handlePopState);
-            
-            console.log('🔄 [EVENT] Tab close detection and back navigation blocking enabled');
-        }
-        
-        return () => {
-            // Remove all event listeners on cleanup
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('popstate', handlePopState);
-            
-            // Clear the closing flag
-            window.isClosingTab = false;
-            
-            // Run unload cleanup
-            unloadCleanup();
-            
-            console.log('🔄 [EVENT] Tab close detection and back navigation blocking disabled');
-        };
-    }, [isStreaming]);
 
 
     const handleCancelClose = () => {

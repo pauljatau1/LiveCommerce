@@ -257,6 +257,25 @@ export function LivestreamSocketProvider({ children }) {
       return false;
     }
   };
+
+  // Function to send an announcement to the stream
+  const sendStreamAnnouncement = (streamId, content) => {
+    if (!socket || !streamId || !content.trim()) {
+      console.error('Cannot send announcement: socket not connected or invalid data');
+      return false;
+    }
+
+    try {
+      socket.emit('stream_announcement', {
+        streamId,
+        content: content.trim()
+      });
+      return true;
+    } catch (error) {
+      console.error('Error sending stream announcement:', error);
+      return false;
+    }
+  };
   
   // Function to manually update a product status
   const updateProductStatus = (productId, status) => {
@@ -391,6 +410,7 @@ export function LivestreamSocketProvider({ children }) {
       bidTimers,
       productStatuses,
       sendStreamComment,
+      sendStreamAnnouncement,
       updateProductStatus,
       resetBiddingStates,
       cleanupListeners,
@@ -420,6 +440,10 @@ export const useLivestreamSocket = () => {
       productStatuses: {},
       sendStreamComment: () => {
         console.warn('Cannot send comment: socket not available');
+        return false;
+      },
+      sendStreamAnnouncement: () => {
+        console.warn('Cannot send announcement: socket not available');
         return false;
       },
       updateProductStatus: () => {

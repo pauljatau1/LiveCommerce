@@ -65,8 +65,8 @@ const AuqliUniversity = ({ className }) => {
 
   return (
     <div className={`border border-gray-200 rounded-[10px] px-4 py-3 lg:px-8 lg:py-7 ${className}`}>
-      <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Auqli Seller University</h1>
-      <p className="text-sm lg:text-base font-cabin font-normal text-[#05031F]">
+      <h1 className="text-lg font-lexend font-bold text-[#17171B] mb-2">Auqli Seller University</h1>
+      <p className="text-sm lg:text-base font-cabin font-normal text-[#17171B]">
         Get tips and best practices to grow your business on Auqli using Auqli marketing tools
       </p>
       

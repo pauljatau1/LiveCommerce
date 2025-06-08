@@ -273,7 +273,7 @@ const CreateLiveShow = () => {
             toast.error('Invalid file type', {
                 description: 'Please upload only image files (JPEG, PNG, GIF)',
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -310,7 +310,7 @@ const CreateLiveShow = () => {
             toast.error('Failed to process image', {
                 description: "There was an error processing your image",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -426,7 +426,7 @@ const CreateLiveShow = () => {
             toast.error('Failed to upload video', {
                 description: "There was an error processing your video",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });

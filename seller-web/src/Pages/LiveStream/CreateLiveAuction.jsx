@@ -282,7 +282,7 @@ const CreateLiveAuction = () => {
       toast.error('Invalid file type', {
         description: 'Please upload a valid file type (JPEG, PNG, GIF, MP4)',
         style: {
-          background: '#05031F',
+          background: '#17171B',
           color: '#fff',
         }
       });
@@ -319,7 +319,7 @@ const CreateLiveAuction = () => {
       toast.error('Failed to process image', {
         description: "There was an error processing your image",
         style: {
-          background: '#05031F',
+          background: '#17171B',
           color: '#fff',
         }
       });
