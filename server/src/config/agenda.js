@@ -1591,10 +1591,44 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
             // Log wallet balance before refund
             console.log(`WALLET REFUND - BEFORE: Buyer ${buyer._id} (${buyer.firstName} ${buyer.lastName}) current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
             
+            // Get the wallet amount to refund - use the proportional amount stored in this order
+            const refundAmount = order.paymentInfo.walletAmountUsed;
+            
+            // Check if this order is part of a batch (multiple seller orders from one checkout)
+            const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
+            
+            if (isBatchOrder) {
+              console.log(`Order ${order.order_id} is part of batch ${order.paymentInfo.batchId}`, {
+                batchTotalAmount: order.paymentInfo.batchTotalAmount,
+                batchWalletAmount: order.paymentInfo.batchWalletAmount,
+                thisOrderAmount: order.totalAmount,
+                thisOrderWalletAmount: refundAmount
+              });
+              
+              // Check if other orders in this batch have already been refunded
+              // If we don't do this check, we could end up refunding parts of the wallet amount multiple times
+              const Order = mongoose.model('Order');
+              const otherOrdersInBatch = await Order.find({
+                'paymentInfo.batchId': order.paymentInfo.batchId,
+                _id: { $ne: order._id }, // Exclude current order
+                'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 } // Look for orders with refunds
+              });
+              
+              if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
+                // Some orders in this batch have already been refunded
+                console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded`, {
+                  refundedOrders: otherOrdersInBatch.map(o => ({ 
+                    orderId: o.order_id, 
+                    refundedAmount: o.paymentInfo.refundedWalletAmount 
+                  }))
+                });
+              }
+            }
+            
             // Create refund transaction
             const refundTransaction = {
               type: 'credit',
-              amount: order.paymentInfo.walletAmountUsed,
+              amount: refundAmount,
               description: `Refund for unpaid order ${order.order_id} (stale)`,
               status: 'completed',
               createdAt: new Date()
@@ -1612,20 +1646,26 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
             
             // Update buyer's wallet
             const previousBalance = buyer.wallet.balance;
-            buyer.wallet.balance += order.paymentInfo.walletAmountUsed;
+            buyer.wallet.balance += refundAmount;
             buyer.wallet.transactions.push(refundTransaction);
             
             await buyer.save();
             
+            // Mark this order as having refunded its wallet amount to prevent double refunds
+            await Order.findByIdAndUpdate(order._id, {
+              'paymentInfo.refundedWalletAmount': refundAmount,
+              'paymentInfo.walletRefundedAt': new Date()
+            });
+            
             // Log wallet balance after refund with detailed information
             console.log(`WALLET REFUND - AFTER: Buyer ${buyer._id} wallet balance updated:`);
             console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
-            console.log(`  - Refund amount: ₦${order.paymentInfo.walletAmountUsed.toLocaleString()}`);
+            console.log(`  - Refund amount: ₦${refundAmount.toLocaleString()}`);
             console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
             console.log(`  - Transaction ID: ${refundTransaction._id}`);
             console.log(`  - Order ID: ${order.order_id}`);
             
-            console.log(`Successfully refunded ${order.paymentInfo.walletAmountUsed} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
+            console.log(`Successfully refunded ${refundAmount} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
           } else {
             console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
             console.error(`WALLET REFUND FAILED - BUYER NOT FOUND:`, {

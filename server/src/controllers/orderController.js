@@ -757,7 +757,13 @@ exports.createOrder = async (req, res) => {
                  (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
           isCashOnDelivery: isItemCod && !isFullyPaidFromWallet,
           isWalletCredit: isWalletCredit && walletAmountToUse > 0,
-          walletAmountUsed: walletAmountToUse || 0,
+          // Calculate proportional wallet amount for this order based on its total
+          walletAmountUsed: isWalletCredit && walletAmountToUse > 0 ? 
+                            Math.round((sellerTotal / totalAmount) * walletAmountToUse) : 0,
+          // Store the batch total and wallet amount to verify refunds
+          batchTotalAmount: totalAmount,
+          batchWalletAmount: walletAmountToUse,
+          batchId: batchId, // Store the batch ID to identify related orders
           ...(isItemCod && !isFullyPaidFromWallet ? {} : 
              (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
         },
@@ -3635,8 +3641,8 @@ const verifyPaystackTransaction = async (reference) => {
 // Mark order as paid (for Paystack payments)
 exports.markOrderAsPaid = async (req, res) => {
   try {
-  const { id } = req.params;
-    const { transactionId, paymentReference } = req.body;
+    const { id } = req.params;
+    const { transactionId, paymentReference, manualNote } = req.body;
     
     if (!transactionId && !paymentReference) {
       return res.status(400).json({ message: 'Either transactionId or paymentReference is required' });
@@ -3681,15 +3687,28 @@ exports.markOrderAsPaid = async (req, res) => {
         }).populate('seller');
         
         if (otherUnpaidOrders.length > 0) {
+          console.log(`Found ${otherUnpaidOrders.length} other unpaid orders from the same buyer`);
+          
           // Update each order's payment status and save
           const updatePromises = otherUnpaidOrders.map(async (otherOrder) => {
             // Update the payment info
             otherOrder.paid = true;
             otherOrder.paymentInfo.status = 'paid';
-            otherOrder.paymentInfo.transactionId = transactionId;
+            otherOrder.paymentInfo.transactionId = transactionId || verificationResult?.data?.id;
             otherOrder.paymentInfo.paymentReference = paymentReference || null;
             otherOrder.paymentInfo.paidAt = new Date();
             otherOrder.notificationsSent = true;
+            
+            // Check if this is a hybrid payment (wallet + Paystack)
+            const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
+            
+            if (isHybridPayment) {
+              console.log(`Confirming hybrid payment for order ${otherOrder.order_id}`, {
+                totalAmount: otherOrder.totalAmount,
+                walletAmountUsed: otherOrder.paymentInfo.walletAmountUsed,
+                paystackAmount: otherOrder.totalAmount - otherOrder.paymentInfo.walletAmountUsed
+              });
+            }
             
             const updatedOtherOrder = await otherOrder.save();
             
@@ -3704,6 +3723,20 @@ exports.markOrderAsPaid = async (req, res) => {
               console.log(`Cancelled stale marking job for now-paid order ${otherOrder.order_id}`);
             } catch (jobError) {
               console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
+            }
+            
+            // Get the buyer for notifications
+            const Buyer = mongoose.model('Buyer');
+            const buyer = await Buyer.findById(otherOrder.buyer);
+            
+            // Send order confirmation email
+            if (buyer && buyer.email) {
+              try {
+                await sendOrderConfirmationEmail(buyer, otherOrder);
+              } catch (emailError) {
+                console.error(`Error sending order confirmation email for order ${otherOrder.order_id}:`, emailError);
+                // Continue without failing the request
+              }
             }
             
             return updatedOtherOrder;
@@ -3763,7 +3796,10 @@ exports.markOrderAsPaid = async (req, res) => {
     // Cancel the stale job for this order
     try {
       const agenda = require('../config/agenda');
-      await agenda.cancel({ name: 'mark-order-stale', 'data.orderId': order._id.toString() });
+      await agenda.cancel({ 
+        name: 'mark_unpaid_orders_stale',
+        'data.orderId': order._id.toString()
+      });
       console.log(`Cancelled stale job for order ${order.order_id}`);
     } catch (jobErr) {
       console.error('Error cancelling stale job:', jobErr);
@@ -3773,8 +3809,8 @@ exports.markOrderAsPaid = async (req, res) => {
     await order.save();
     
     // Get the buyer for notification
-      const Buyer = mongoose.model('Buyer');
-      const buyer = await Buyer.findById(order.buyer);
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(order.buyer);
     
     // Only schedule notifications if they haven't been sent yet
     if (!notificationsAlreadySent) {
@@ -3797,15 +3833,96 @@ exports.markOrderAsPaid = async (req, res) => {
     if (buyer && buyer.email) {
       try {
         await sendOrderConfirmationEmail(buyer, order);
-    } catch (emailError) {
+      } catch (emailError) {
         console.error('Error sending order confirmation email:', emailError);
         // Continue without failing the request
+      }
+    }
+
+    // Check for other orders from the same buyer in the same time window
+    let otherOrdersUpdated = [];
+    
+    if (buyer) {
+      const createdAt = order.createdAt;
+      const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
+      const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+      
+      // Find other unpaid orders from the same buyer created around the same time
+      const otherOrders = await Order.find({
+        _id: { $ne: order._id }, // Exclude the current order
+        buyer: order.buyer, 
+        paid: false,
+        createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
+      }).populate('seller');
+      
+      if (otherOrders.length > 0) {
+        console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
+        
+        // Update each order's payment status and save
+        const updatePromises = otherOrders.map(async (otherOrder) => {
+          // Update the payment info
+          otherOrder.paid = true;
+          otherOrder.paymentInfo.status = 'paid';
+          otherOrder.paymentInfo.transactionId = transactionId || verificationResult?.data?.id;
+          otherOrder.paymentInfo.paymentReference = paymentReference || null;
+          otherOrder.paymentInfo.paidAt = new Date();
+          otherOrder.notificationsSent = true;
+          
+          // Check if this is a hybrid payment (wallet + Paystack)
+          const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
+          
+          if (isHybridPayment) {
+            console.log(`Confirming hybrid payment for order ${otherOrder.order_id}`, {
+              totalAmount: otherOrder.totalAmount,
+              walletAmountUsed: otherOrder.paymentInfo.walletAmountUsed,
+              paystackAmount: otherOrder.totalAmount - otherOrder.paymentInfo.walletAmountUsed
+            });
+          }
+          
+          const updatedOtherOrder = await otherOrder.save();
+          
+          // Cancel any scheduled job to mark this order as stale
+          try {
+            const agenda = require('../config/agenda');
+            await agenda.cancel({ 
+              name: 'mark_unpaid_orders_stale',
+              'data.orderId': otherOrder._id.toString()
+            });
+            
+            console.log(`Cancelled stale marking job for now-paid order ${otherOrder.order_id}`);
+          } catch (jobError) {
+            console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
+          }
+          
+          // Get the buyer for notifications if needed
+          const otherBuyer = await Buyer.findById(otherOrder.buyer);
+          
+          // Send order confirmation email for this order too
+          if (otherBuyer && otherBuyer.email) {
+            try {
+              await sendOrderConfirmationEmail(otherBuyer, updatedOtherOrder);
+            } catch (emailError) {
+              console.error(`Error sending order confirmation email for order ${otherOrder.order_id}:`, emailError);
+            }
+          }
+          
+          return updatedOtherOrder;
+        });
+        
+        // Wait for all updates to complete
+        otherOrdersUpdated = await Promise.all(updatePromises);
       }
     }
 
     return res.status(200).json({
       message: 'Order marked as paid successfully', 
       order,
+      otherOrdersUpdated: otherOrdersUpdated.length > 0 ? 
+        otherOrdersUpdated.map(o => ({
+          orderId: o._id,
+          order_id: o.order_id,
+          paid: o.paid
+        })) : [],
       verificationDetails: verificationResult?.data
     });
   } catch (error) {
@@ -4782,53 +4899,138 @@ exports.processRefundRequest = async (req, res) => {
           throw new Error(`Buyer not found with ID: ${order.buyer._id}`);
         }
         
-        // Refund the full order amount (do not deduct shipping fee)
-        refundAmount = order.totalAmount;
+        // Check if this is a hybrid payment
+        const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+        
+        // For hybrid payments, only refund the wallet amount that was used
+        // For non-hybrid payments, refund the full order amount
+        if (isHybridPayment) {
+          // Check if this order is part of a batch
+          const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
+          
+          // Check if this order has already had its wallet portion refunded
+          if (order.paymentInfo.refundedWalletAmount && order.paymentInfo.refundedWalletAmount > 0) {
+            console.log(`Order ${order.order_id} has already had its wallet portion refunded (₦${order.paymentInfo.refundedWalletAmount})`);
+            // Set refund amount to 0 since it's already been refunded
+            refundAmount = 0;
+          } else {
+            // Use the proportional wallet amount for this order
+            refundAmount = order.paymentInfo.walletAmountUsed;
+            
+            if (isBatchOrder) {
+              console.log(`Processing refund for batch order ${order.order_id} (batch ${order.paymentInfo.batchId}):`, {
+                batchTotalAmount: order.paymentInfo.batchTotalAmount,
+                batchWalletAmount: order.paymentInfo.batchWalletAmount,
+                thisOrderAmount: order.totalAmount,
+                thisOrderWalletAmount: refundAmount
+              });
+              
+              // Check if other orders in this batch have already been refunded
+              const Order = mongoose.model('Order');
+              const otherOrdersInBatch = await Order.find({
+                'paymentInfo.batchId': order.paymentInfo.batchId,
+                _id: { $ne: order._id }, // Exclude current order
+                'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 }
+              });
+              
+              if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
+                // Some orders in this batch have already been refunded
+                console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded:`, {
+                  refundedOrders: otherOrdersInBatch.map(o => ({ 
+                    orderId: o.order_id, 
+                    refundedAmount: o.paymentInfo.refundedWalletAmount 
+                  }))
+                });
+              }
+            }
+          }
+          
+          console.log(`Processing hybrid payment refund for order ${order.order_id}:`, {
+            totalAmount: order.totalAmount,
+            walletAmountUsed: order.paymentInfo.walletAmountUsed,
+            refundAmount: refundAmount,
+            paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
+          });
+        } else {
+          // Refund the full order amount (do not deduct shipping fee)
+          refundAmount = order.totalAmount;
+        }
         
         refundDetails = {
           originalAmount: order.totalAmount,
-          refundAmount: refundAmount
+          refundAmount: refundAmount,
+          isHybridPayment: isHybridPayment
         };
         
         console.log(`Processing refund for order ${order.order_id}:`, refundDetails);
         
-        // Generate a unique payment reference for the wallet transaction
-        const paymentReference = `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-        
-        // Add the refund amount to buyer's wallet
-        if (!buyer.wallet) {
-          buyer.wallet = {
-            balance: 0,
-            currency: 'NGN',
-            transactions: []
-          };
+        // If refund amount is 0 (already refunded), skip the wallet update
+        if (refundAmount > 0) {
+          // Generate a unique payment reference for the wallet transaction
+          const paymentReference = `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+          
+          // Add the refund amount to buyer's wallet
+          if (!buyer.wallet) {
+            buyer.wallet = {
+              balance: 0,
+              currency: 'NGN',
+              transactions: []
+            };
+          }
+          
+          // Update wallet balance
+          buyer.wallet.balance += refundAmount;
+          
+          // Add transaction record
+          const transactionDescription = isHybridPayment 
+            ? `Refund of wallet portion for cancelled order #${order.order_id} (credit payment)`
+            : `Refund for cancelled order #${order.order_id}`;
+            
+          buyer.wallet.transactions.push({
+            type: 'credit',
+            amount: refundAmount,
+            paymentReference: paymentReference,
+            description: transactionDescription,
+            status: 'completed',
+            createdAt: new Date()
+          });
+          
+          // Save the buyer with updated wallet
+          await buyer.save();
+          
+          console.log(`Refund processed successfully. Buyer wallet updated:`, {
+            buyerId: buyer._id,
+            newBalance: buyer.wallet.balance,
+            refundAmount: refundAmount,
+            isHybridPayment: isHybridPayment
+          });
+          
+          // Also save the refund details in the order for reference
+          order.refundRequest.refundAmount = refundAmount;
+          order.refundRequest.paymentReference = paymentReference;
+          
+          // Mark this order as having had its wallet portion refunded
+          if (isHybridPayment) {
+            order.paymentInfo.refundedWalletAmount = refundAmount;
+            order.paymentInfo.walletRefundedAt = new Date();
+            
+            // For hybrid payments, add a note about refunding only the wallet portion
+            order.notes.push({
+              type: 'admin',
+              content: `Refunded wallet portion (₦${refundAmount}) of credit payment for order #${order.order_id}. Total order amount was ₦${order.totalAmount}.`,
+              createdAt: new Date()
+            });
+          }
+        } else {
+          console.log(`Skipping wallet refund for order ${order.order_id} as it has already been refunded.`);
+          
+          // Add a note about the already refunded wallet portion
+          order.notes.push({
+            type: 'admin',
+            content: `Skipped wallet refund for order #${order.order_id} as the wallet portion was already refunded earlier.`,
+            createdAt: new Date()
+          });
         }
-        
-        // Update wallet balance
-        buyer.wallet.balance += refundAmount;
-        
-        // Add transaction record
-        buyer.wallet.transactions.push({
-          type: 'credit',
-          amount: refundAmount,
-          paymentReference: paymentReference,
-          description: `Refund for cancelled order #${order.order_id}`,
-          status: 'completed',
-          createdAt: new Date()
-        });
-        
-        // Save the buyer with updated wallet
-        await buyer.save();
-        
-        console.log(`Refund processed successfully. Buyer wallet updated:`, {
-          buyerId: buyer._id,
-          newBalance: buyer.wallet.balance,
-          refundAmount: refundAmount
-        });
-        
-        // Also save the refund details in the order for reference
-        order.refundRequest.refundAmount = refundAmount;
-        order.refundRequest.paymentReference = paymentReference;
 
         // Ensure buyerDetails._id is set
         if (!order.buyerDetails || !order.buyerDetails._id) {
@@ -4880,14 +5082,25 @@ exports.processRefundRequest = async (req, res) => {
     `;
     
     if (status === 'approved') {
-      emailHtml += `
-        <p><strong>Refund Details:</strong></p>
-        <ul>
-          <li>Order Amount: ₦${refundDetails.originalAmount?.toLocaleString() || order.totalAmount.toLocaleString()}</li>
-          <li>Refund Amount: ₦${refundAmount.toLocaleString()}</li>
-        </ul>
-        <p>The full order amount has been added to your Auqli wallet balance. You can use this balance for future purchases on our platform.</p>
-      `;
+      if (refundDetails.isHybridPayment) {
+        emailHtml += `
+          <p><strong>Refund Details:</strong></p>
+          <ul>
+            <li>Order Amount: ₦${refundDetails.originalAmount?.toLocaleString() || order.totalAmount.toLocaleString()}</li>
+            <li>Wallet Amount Used: ₦${refundAmount.toLocaleString()}</li>
+          </ul>
+          <p>Since you used a combination of your wallet and Paystack for this order, we have refunded the wallet portion (₦${refundAmount.toLocaleString()}) to your Auqli wallet. You can use this balance for future purchases on our platform.</p>
+        `;
+      } else {
+        emailHtml += `
+          <p><strong>Refund Details:</strong></p>
+          <ul>
+            <li>Order Amount: ₦${refundDetails.originalAmount?.toLocaleString() || order.totalAmount.toLocaleString()}</li>
+            <li>Refund Amount: ₦${refundAmount.toLocaleString()}</li>
+          </ul>
+          <p>The full order amount has been added to your Auqli wallet balance. You can use this balance for future purchases on our platform.</p>
+        `;
+      }
     } else {
       emailHtml += `
         <p><strong>Reason for Rejection:</strong> ${notes || 'No specific reason provided.'}</p>
@@ -4936,7 +5149,9 @@ exports.processRefundRequest = async (req, res) => {
           order.buyer.expoPushToken,
           `Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
           status === 'approved' 
-            ? `Your refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed and added to your wallet.`
+            ? (refundDetails.isHybridPayment
+               ? `Your wallet refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed.`
+               : `Your refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed and added to your wallet.`)
             : `Your refund request for order #${order.order_id} has been rejected. Reason: ${notes || 'No specific reason provided.'}`
         );
       }
