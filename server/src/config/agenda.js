@@ -1490,6 +1490,18 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
     if (!order.paid && order.paymentInfo.method === 'paystack') {
       console.log(`Marking unpaid Paystack order ${order.order_id} as stale after 30 minutes`);
       
+      // Log order payment details for debugging
+      console.log(`STALE ORDER PAYMENT DETAILS:`, {
+        orderId: order.order_id,
+        buyerId: order.buyer._id,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentInfo.method,
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        paystackAmount: order.paymentInfo.amount || order.totalAmount,
+        paymentStatus: order.paid ? 'PAID' : 'UNPAID'
+      });
+      
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {
         try {
@@ -1558,6 +1570,88 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         }
       }
       
+      // Check if this was a hybrid payment (wallet + Paystack) and refund wallet amount if needed
+      const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+      
+      console.log(`HYBRID PAYMENT CHECK for order ${order.order_id}:`, {
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        isHybridPayment: isHybridPayment,
+        willAttemptRefund: isHybridPayment ? 'YES' : 'NO'
+      });
+      
+      if (isHybridPayment) {
+        try {
+          console.log(`Order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
+          
+          const Buyer = mongoose.model('Buyer');
+          const buyer = await Buyer.findById(order.buyer);
+          
+          if (buyer) {
+            // Log wallet balance before refund
+            console.log(`WALLET REFUND - BEFORE: Buyer ${buyer._id} (${buyer.firstName} ${buyer.lastName}) current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+            
+            // Create refund transaction
+            const refundTransaction = {
+              type: 'credit',
+              amount: order.paymentInfo.walletAmountUsed,
+              description: `Refund for unpaid order ${order.order_id} (stale)`,
+              status: 'completed',
+              createdAt: new Date()
+            };
+            
+            console.log(`WALLET REFUND - TRANSACTION DETAILS:`, {
+              buyerId: buyer._id,
+              buyerEmail: buyer.email,
+              transactionType: refundTransaction.type,
+              amount: refundTransaction.amount,
+              description: refundTransaction.description,
+              status: refundTransaction.status,
+              createdAt: refundTransaction.createdAt
+            });
+            
+            // Update buyer's wallet
+            const previousBalance = buyer.wallet.balance;
+            buyer.wallet.balance += order.paymentInfo.walletAmountUsed;
+            buyer.wallet.transactions.push(refundTransaction);
+            
+            await buyer.save();
+            
+            // Log wallet balance after refund with detailed information
+            console.log(`WALLET REFUND - AFTER: Buyer ${buyer._id} wallet balance updated:`);
+            console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
+            console.log(`  - Refund amount: ₦${order.paymentInfo.walletAmountUsed.toLocaleString()}`);
+            console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+            console.log(`  - Transaction ID: ${refundTransaction._id}`);
+            console.log(`  - Order ID: ${order.order_id}`);
+            
+            console.log(`Successfully refunded ${order.paymentInfo.walletAmountUsed} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
+          } else {
+            console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
+            console.error(`WALLET REFUND FAILED - BUYER NOT FOUND:`, {
+              orderId: order.order_id,
+              buyerId: order.buyer,
+              walletAmountUsed: order.paymentInfo.walletAmountUsed,
+              buyerDetails: order.buyer ? {
+                _id: order.buyer._id,
+                email: order.buyer.email,
+                name: `${order.buyer.firstName} ${order.buyer.lastName}`
+              } : 'Not available'
+            });
+          }
+        } catch (refundError) {
+          console.error(`Error refunding wallet amount for stale order ${order.order_id}:`, refundError);
+          console.error(`WALLET REFUND FAILED - ERROR:`, {
+            orderId: order.order_id,
+            buyerId: order.buyer ? order.buyer._id : order.buyer,
+            walletAmountUsed: order.paymentInfo.walletAmountUsed,
+            errorMessage: refundError.message,
+            errorStack: refundError.stack
+          });
+          // Continue with order stale update even if refund fails
+        }
+      }
+      
       // Send notification emails to buyer and seller before marking the order as stale
       try {
         const sgMail = require('@sendgrid/mail');
@@ -1567,6 +1661,10 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         const itemsList = order.items.map(item => 
           `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
         ).join('<br>');
+        
+        // Add wallet refund info if applicable
+        const walletRefundInfo = isHybridPayment ? 
+          `<p><strong>Note:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} has been refunded to your wallet.</p>` : '';
         
         // Buyer notification email
         const buyerEmail = {
@@ -1586,6 +1684,8 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
                 <li>Items:<br>${itemsList}</li>
                 <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
               </ul>
+              
+              ${walletRefundInfo}
               
               <p>If you still wish to purchase these items, please place a new order.</p>
               <p>Thank you for your understanding.</p>

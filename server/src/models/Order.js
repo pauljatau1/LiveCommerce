@@ -203,6 +203,14 @@ const orderSchema = new mongoose.Schema({
     isCashOnDelivery: {
       type: Boolean,
       default: false
+    },
+    isWalletCredit: {
+      type: Boolean,
+      default: false
+    },
+    walletAmountUsed: {
+      type: Number,
+      default: 0
     }
   },
   discount: {

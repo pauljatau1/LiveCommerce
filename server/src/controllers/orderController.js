@@ -227,8 +227,9 @@ exports.createOrder = async (req, res) => {
       additionalDetails, 
       pickUpDate,
       senderInfo,
-      paidFromWallet = false, // New parameter for wallet payment
-      isStorePickup = false // New parameter for store pickup
+      paidFromWallet = false, // Parameter for wallet payment - DO NOT MODIFY this parameter directly
+      isWalletCredit = false, // Parameter for hybrid wallet + Paystack payment
+      isStorePickup = false // Parameter for store pickup
     } = req.body;
     
     // Validate store pickup request
@@ -291,6 +292,9 @@ exports.createOrder = async (req, res) => {
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
+
+    // Get buyer's wallet balance
+    const walletBalance = buyer.wallet ? buyer.wallet.balance || 0 : 0;
     
     // Fetch products and calculate total
     const Product = mongoose.model('Product');
@@ -403,6 +407,65 @@ exports.createOrder = async (req, res) => {
       });
     });
     
+    // Calculate how much to charge from wallet vs Paystack
+    let walletAmountToUse = 0;
+    let paystackAmount = 0;
+    let useWalletPayment = false;
+    // Create a mutable variable to track if the order will be fully paid from wallet
+    let isFullyPaidFromWallet = paidFromWallet;
+    
+    // Determine payment method and amounts
+    if (isWalletCredit && walletBalance > 0) {
+      // Use wallet credit (hybrid payment)
+      useWalletPayment = true;
+      
+      if (walletBalance >= totalAmount) {
+        // Wallet covers entire amount
+        walletAmountToUse = totalAmount;
+        paystackAmount = 0;
+        isFullyPaidFromWallet = true; // Set fully paid from wallet
+      } else {
+        // Partial wallet payment
+        walletAmountToUse = walletBalance;
+        paystackAmount = totalAmount - walletBalance;
+      }
+    } else if (paidFromWallet && walletBalance >= totalAmount) {
+      // Full wallet payment (original flow)
+      walletAmountToUse = totalAmount;
+      paystackAmount = 0;
+      useWalletPayment = true;
+    } else {
+      // Full Paystack payment
+      walletAmountToUse = 0;
+      paystackAmount = totalAmount;
+      
+      // If user tried to use wallet but has insufficient funds
+      if ((paidFromWallet || isWalletCredit) && walletBalance < totalAmount) {
+        console.log('DEBUG - Order Creation - Insufficient wallet balance:', {
+          walletBalance,
+          totalAmount,
+          difference: totalAmount - walletBalance
+        });
+        
+        if (paidFromWallet) {
+          return res.status(400).json({ 
+            message: 'Insufficient wallet balance for full payment',
+            walletBalance,
+            totalAmount
+          });
+        }
+      }
+    }
+    
+    console.log('DEBUG - Order Creation - Payment Breakdown:', {
+      totalAmount,
+      walletBalance,
+      walletAmountToUse,
+      paystackAmount,
+      isWalletCredit,
+      paidFromWallet: isFullyPaidFromWallet,
+      useWalletPayment
+    });
     
     // Process each seller to check if buyer is already a follower
     // and add if not
@@ -447,22 +510,21 @@ exports.createOrder = async (req, res) => {
             }
           : null;
         
-        // Add to seller's followers list
+        // Add buyer as follower
         seller.followers.push({
-          buyerId: buyer._id,
+          buyerId: buyerId,
           firstName: buyer.firstName,
           lastName: buyer.lastName,
+          username: buyer.username,
+          profileImage: buyer.profileImage,
           email: buyer.email,
           followDate: new Date(),
-          totalOrders: 1, // Start with 1 since this is their first order
           lastInteraction: new Date(),
-          mainAddress: mainAddress
+          address: mainAddress
         });
         
         // Save the seller with the new follower
-        await seller.save();
-        
-       
+        await seller.save({ session });
         
         // Add to buyer's activity feed if it exists
         if (buyer.activityFeed) {
@@ -475,20 +537,15 @@ exports.createOrder = async (req, res) => {
           });
           
           // Save buyer with updated activity feed
-          await buyer.save();
-          
+          await buyer.save({ session });
         }
       } else {
-        
-        
         // Update the existing follower's information
         const followerIndex = seller.followers.findIndex(
           follower => follower.buyerId && follower.buyerId.toString() === buyerId
         );
         
         if (followerIndex !== -1) {
-         
-          
           // Increment order count and update last interaction
           seller.followers[followerIndex].totalOrders = 
             (seller.followers[followerIndex].totalOrders || 0) + 1;
@@ -496,7 +553,7 @@ exports.createOrder = async (req, res) => {
           
           // Update main address if it has changed
           if (buyer.shippingAddresses && buyer.shippingAddresses.length > 0) {
-            seller.followers[followerIndex].mainAddress = {
+            seller.followers[followerIndex].address = {
               country: buyer.shippingAddresses[0].country,
               city: buyer.shippingAddresses[0].city,
               address1: buyer.shippingAddresses[0].addressLine1,
@@ -506,7 +563,7 @@ exports.createOrder = async (req, res) => {
           }
           
           // Save the seller with updated follower information
-          await seller.save();
+          await seller.save({ session });
           
           console.log(`DEBUG - Order Creation - Updated follower information:`, {
             totalOrders: seller.followers[followerIndex].totalOrders,
@@ -580,11 +637,12 @@ exports.createOrder = async (req, res) => {
 
     //new grandTotal Calculation
     let grandTotal = totalAmount + shippingFee;
-    totalShippingFee = shippingFee
+    // Update totalShippingFee to match the provided shippingFee
+    totalShippingFee = shippingFee;
 
     
     // Check wallet balance if using wallet payment
-    if (paidFromWallet) {
+    if (isFullyPaidFromWallet) {
       if (buyer.wallet.balance < grandTotal) {
         return res.status(400).json({ 
           message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}` 
@@ -692,14 +750,16 @@ exports.createOrder = async (req, res) => {
           },
           shipment_id: uniqueOrderId
         },
-        paid: (paymentMethod !== 'paystack' || isItemCod || paidFromWallet) ? (!isItemCod || paidFromWallet) : false,
+        paid: (paymentMethod !== 'paystack' || isItemCod || isFullyPaidFromWallet) ? (!isItemCod || isFullyPaidFromWallet) : false,
         paymentInfo: {
-          method: paidFromWallet ? 'wallet' : paymentMethod,
-          status: isItemCod && !paidFromWallet ? 'awaiting_cod' : 
-                 (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) ? 'pending' : 'paid',
-          isCashOnDelivery: isItemCod && !paidFromWallet,
-          ...(isItemCod && !paidFromWallet ? {} : 
-             (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) ? {} : { paidAt: new Date() })
+          method: isFullyPaidFromWallet ? 'wallet' : paymentMethod,
+          status: isItemCod && !isFullyPaidFromWallet ? 'awaiting_cod' : 
+                 (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
+          isCashOnDelivery: isItemCod && !isFullyPaidFromWallet,
+          isWalletCredit: isWalletCredit && walletAmountToUse > 0,
+          walletAmountUsed: walletAmountToUse || 0,
+          ...(isItemCod && !isFullyPaidFromWallet ? {} : 
+             (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
         },
         // Initialize notification flag
         // We'll set this to false for all orders and handle notifications in batch
@@ -737,7 +797,7 @@ exports.createOrder = async (req, res) => {
       }
       
       // Schedule job to mark order as stale if still unpaid after 30 minutes (for Paystack orders only)
-      if (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) {
+      if (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) {
         // Schedule warning notification 20 minutes after order creation (10 minutes before being marked stale)
         agenda.schedule('in 20 minutes', 'send_unpaid_order_warning', { orderId: order._id });
         console.log(`Scheduled warning notification for unpaid Paystack order ${order.order_id} in 20 minutes`);
@@ -871,7 +931,7 @@ exports.createOrder = async (req, res) => {
         weight: Math.max(1, Math.round(sellerParcel.weight)),
         itemDescription: sellerParcel.itemDescription,
         additionalDetails: additionalDetails || '',
-        isItemCod: isItemCod && !paidFromWallet,
+        isItemCod: isItemCod && !isFullyPaidFromWallet,
         thirdparty: "true",
         senderName: sellerSenderInfo.senderName || `${seller.firstName} ${seller.lastName}`,
         senderAddress: sellerSenderInfo.senderAddress || seller.address || 'Not provided',
@@ -880,7 +940,7 @@ exports.createOrder = async (req, res) => {
       };
       
       // Add cashOnDeliveryAmount for COD orders
-      if (isItemCod && !paidFromWallet) {
+      if (isItemCod && !isFullyPaidFromWallet) {
         const orderTotal = order.totalAmount + sellerShippingFee;
         fezRequest.cashOnDeliveryAmount = orderTotal.toString();
       }
@@ -968,6 +1028,50 @@ exports.createOrder = async (req, res) => {
       }
     }
     
+    // When creating the Order object, add the wallet payment information
+    // This would be done in the loop where orders are created for each seller
+    
+    // Create the orders
+    const orderSummaries = [];
+    
+    for (const order of orders) {
+      const sellerInfo = sellerItems[order.seller.toString()];
+      orderSummaries.push({
+        orderId: order._id,
+        order_id: order.order_id,
+        seller: order.seller,
+        items: order.items.length,
+        itemsTotal: order.totalAmount, // This is just the items total
+        shippingFee: sellerInfo.shippingFee,
+        orderTotal: order.totalAmount + sellerInfo.shippingFee, // Total including shipping
+        fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
+      });
+    }
+    
+    // Deduct from wallet if needed
+    if (useWalletPayment && walletAmountToUse > 0) {
+      // Create wallet transaction record
+      const walletTransaction = {
+        type: 'debit',
+        amount: walletAmountToUse,
+        description: `Payment for order(s): ${orders.map(o => o.order_id).join(', ')}`,
+        status: 'completed'
+      };
+      
+      // Add transaction to wallet
+      buyer.wallet.balance -= walletAmountToUse;
+      buyer.wallet.transactions.push(walletTransaction);
+      
+      // Save buyer with updated wallet
+      await buyer.save({ session });
+      
+      console.log('DEBUG - Order Creation - Wallet Payment:', {
+        walletAmountUsed: walletAmountToUse,
+        newWalletBalance: buyer.wallet.balance,
+        transactionId: buyer.wallet.transactions[buyer.wallet.transactions.length - 1]._id
+      });
+    }
+    
     // After all orders are processed and Fez API call is complete
     await session.commitTransaction();
     session.endSession();
@@ -1037,19 +1141,7 @@ exports.createOrder = async (req, res) => {
     console.log('Order creation completed');
     
     // Prepare response with detailed order information
-    const orderDetails = orders.map(order => {
-      const sellerInfo = sellerItems[order.seller.toString()];
-      return {
-        orderId: order._id,
-        order_id: order.order_id,
-        seller: order.seller,
-        items: order.items.length,
-        itemsTotal: order.totalAmount, // This is just the items total
-        shippingFee: sellerInfo.shippingFee,
-        orderTotal: order.totalAmount + sellerInfo.shippingFee, // Total including shipping
-        fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
-      };
-    });
+    const orderDetails = orderSummaries;
 
     const liveShowOrders = [];
 
@@ -1190,14 +1282,17 @@ exports.createOrder = async (req, res) => {
       shippingTotal: totalShippingFee,
       grandTotal: grandTotal,
       orderCount: orders.length,
-      sellerEarnings: totalAmount, // Only the items total goes to sellers
-      shippingCost: totalShippingFee // This goes to Fez Delivery
+      sellerEarnings: totalAmount * 0.85, // Simplified calculation
+      shippingCost: totalShippingFee, // This goes to Fez Delivery
+      walletAmountUsed: walletAmountToUse || 0,
+      paystackAmount: paystackAmount || 0,
+      isWalletCredit: isWalletCredit && walletAmountToUse > 0
     };
     
     return res.status(201).json({
       message: 'Orders created successfully',
       orders: orderDetails,
-      liveShowOrders: liveShowOrders,
+      liveShowOrders,
       totals: responseTotals,
       fezResponse: fezResponse.data
     });
@@ -2819,6 +2914,48 @@ exports.cancelShipment = async (req, res) => {
       }
     };
 
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+    
+    // Process wallet refund for hybrid payments if applicable
+    if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
+      try {
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Refund the wallet amount that was used
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+          const walletTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for cancelled order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Add transaction to wallet
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(walletTransaction);
+          
+          // Save buyer with updated wallet
+          await buyer.save();
+          
+          walletRefunded = true;
+          console.log(`Refunded wallet amount for cancelled hybrid payment: ${walletRefundAmount}`, {
+            orderId: order._id,
+            buyer: buyer._id,
+            newWalletBalance: buyer.wallet.balance
+          });
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for order ${order.order_id}:`, refundError);
+        // Continue with order cancellation even if refund fails
+      }
+    }
+
     // Check if the order was paid and create a refund request if necessary
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for paid order:', order.order_id);
@@ -2863,6 +3000,13 @@ exports.cancelShipment = async (req, res) => {
       `;
     }
     
+    // Add wallet refund info if applicable
+    if (walletRefunded) {
+      buyerEmailHtml += `
+        <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
+      `;
+    }
+    
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
       </div>
@@ -2891,6 +3035,7 @@ exports.cancelShipment = async (req, res) => {
             <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
           </ul>
           ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
+          ${walletRefunded ? `<p>The wallet amount used for this order (₦${walletRefundAmount.toLocaleString()}) has been refunded to the buyer's wallet.</p>` : ''}
           <p>If you need to arrange a new shipment, please do so through your seller dashboard.</p>
         </div>
       `
@@ -2921,6 +3066,7 @@ exports.cancelShipment = async (req, res) => {
                   <li>Amount: ${updatedOrder.totalAmount}</li>
                   <li>Payment Method: ${updatedOrder.paymentInfo?.method || 'Unknown'}</li>
                   <li>Reason: Shipment cancellation</li>
+                  ${walletRefunded ? `<li>Note: Wallet payment of ₦${walletRefundAmount.toLocaleString()} was automatically refunded</li>` : ''}
                 </ul>
                 <p>Please process this refund request at your earliest convenience.</p>
               </div>
@@ -2946,12 +3092,15 @@ exports.cancelShipment = async (req, res) => {
       createNotification(order.buyer._id, 'shipment_cancelled', {
         orderId: order._id,
         order_id: order.order_id,
-        sellerName: order.seller.storeName
+        sellerName: order.seller.storeName,
+        walletRefunded: walletRefunded,
+        walletRefundAmount: walletRefundAmount
       }),
       createNotification(order.seller._id, 'shipment_cancelled', {
         orderId: order._id,
         order_id: order.order_id,
-        buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`
+        buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`,
+        walletRefunded: walletRefunded
       })
     ]);
 
@@ -2982,7 +3131,9 @@ exports.cancelShipment = async (req, res) => {
 
     res.json({ 
       message: 'Shipment cancelled successfully',
-      order: updatedOrder
+      order: updatedOrder,
+      walletRefunded: walletRefunded,
+      walletRefundAmount: walletRefundAmount
     });
 
   } catch (error) {
@@ -3483,29 +3634,32 @@ const verifyPaystackTransaction = async (reference) => {
 
 // Mark order as paid (for Paystack payments)
 exports.markOrderAsPaid = async (req, res) => {
-  const { id } = req.params;
-  const { paymentReference, transactionId = uuidv4(), manualNote } = req.body;
-
   try {
-    // Verify Paystack transaction if reference is provided
-    let verificationResult = null;
-    if (paymentReference) {
-      verificationResult = await verifyPaystackTransaction(paymentReference);
-      
-      if (!verificationResult.success) {
-        return res.status(400).json({ 
-          message: 'Payment verification failed', 
-          error: verificationResult.error 
-        });
-      }
+  const { id } = req.params;
+    const { transactionId, paymentReference } = req.body;
+    
+    if (!transactionId && !paymentReference) {
+      return res.status(400).json({ message: 'Either transactionId or paymentReference is required' });
     }
-
-    // Find order and check if it exists
+    
+    const Order = mongoose.model('Order');
     const order = await Order.findById(id)
       .populate('seller', 'email firstName lastName businessName walletBalance');
     
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    
+    // Verify Paystack transaction if reference is provided
+    let verificationResult = null;
+    if (paymentReference) {
+      verificationResult = await verifyPaystackTransaction(paymentReference);
+      if (!verificationResult.success) {
+        return res.status(400).json({ 
+          message: 'Payment verification failed', 
+          details: verificationResult.message 
+        });
+      }
     }
 
     // Check if order is already paid
@@ -3539,19 +3693,17 @@ exports.markOrderAsPaid = async (req, res) => {
             
             const updatedOtherOrder = await otherOrder.save();
             
-            // Cancel any scheduled job to delete this order
+            // Cancel any scheduled job to mark this order as stale
             try {
-              const jobs = await agenda.jobs({
-                name: 'delete_unpaid_orders',
+              const agenda = require('../config/agenda');
+              await agenda.cancel({ 
+                name: 'mark_unpaid_orders_stale',
                 'data.orderId': otherOrder._id.toString()
               });
               
-              if (jobs.length > 0) {
-                console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id}`);
-                await jobs[0].remove();
-              }
+              console.log(`Cancelled stale marking job for now-paid order ${otherOrder.order_id}`);
             } catch (jobError) {
-              console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
+              console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
             }
             
             return updatedOtherOrder;
@@ -3573,93 +3725,57 @@ exports.markOrderAsPaid = async (req, res) => {
       
       return res.status(400).json({ message: 'Order is already marked as paid' });
     }
-
+    
+    // Check if this is a Paystack order
+    if (order.paymentInfo.method !== 'paystack') {
+      return res.status(400).json({ 
+        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
+      });
+    }
+    
     // Add a flag to track if notifications have been sent
     const notificationsAlreadySent = order.notificationsSent || false;
     
     // Mark notifications as sent
     order.notificationsSent = true;
-
-    // Update order payment status
+    
+    // Mark order as paid
     order.paid = true;
     order.paymentInfo.status = 'paid';
-    order.paymentInfo.transactionId = transactionId;
-    order.paymentInfo.paymentReference = paymentReference || null;
+    order.paymentInfo.transactionId = transactionId || verificationResult?.data?.id;
+    order.paymentInfo.paymentReference = paymentReference || order.paymentInfo.paymentReference;
     order.paymentInfo.paidAt = new Date();
 
-    const updatedOrder = await order.save();
-
-    // Check for other orders from the same buyer in the same time window
-    const buyer = order.buyer;
-    const createdAt = order.createdAt;
-    let otherOrdersUpdated = [];
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     
-    if (buyer && createdAt) {
-      const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
-      const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
-      
-      // Find other unpaid orders from the same buyer created around the same time
-      const otherOrders = await Order.find({
-        _id: { $ne: order._id }, // Exclude the current order
-        buyer: buyer, 
-        paid: false,
-        createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
-      }).populate('seller');
-      
-      if (otherOrders.length > 0) {
-        console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
-        
-        // Update each order's payment status and save
-        const updatePromises = otherOrders.map(async (otherOrder) => {
-          // Update the payment info
-          otherOrder.paid = true;
-          otherOrder.paymentInfo.status = 'paid';
-          otherOrder.paymentInfo.transactionId = transactionId;
-          otherOrder.paymentInfo.paymentReference = paymentReference || null;
-          otherOrder.paymentInfo.paidAt = new Date();
-          otherOrder.notificationsSent = true;
-          
-          const updatedOtherOrder = await otherOrder.save();
-          
-          // Cancel any scheduled job to delete this order
-          try {
-            const jobs = await agenda.jobs({
-              name: 'delete_unpaid_orders',
-              'data.orderId': otherOrder._id.toString()
-            });
-            
-            if (jobs.length > 0) {
-              console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id}`);
-              await jobs[0].remove();
-            }
-          } catch (jobError) {
-            console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
-          }
-          
-          return updatedOtherOrder;
-        });
-        
-        // Wait for all updates to complete
-        otherOrdersUpdated = await Promise.all(updatePromises);
-      }
-    }
-
-    // Cancel any scheduled job to delete this order
-    try {
-      const jobs = await agenda.jobs({
-        name: 'delete_unpaid_orders',
-        'data.orderId': order._id.toString()
+    if (isHybridPayment) {
+      console.log(`Confirming hybrid payment for order ${order.order_id}`, {
+        totalAmount: order.totalAmount,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed,
+        paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
       });
       
-      if (jobs.length > 0) {
-        console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id} (manual marking)`);
-        await jobs[0].remove();
-      }
-    } catch (jobError) {
-      console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
+      // The wallet amount should have been deducted during order creation
+      // Just confirming the payment here
+    }
+    
+    // Cancel the stale job for this order
+    try {
+      const agenda = require('../config/agenda');
+      await agenda.cancel({ name: 'mark-order-stale', 'data.orderId': order._id.toString() });
+      console.log(`Cancelled stale job for order ${order.order_id}`);
+    } catch (jobErr) {
+      console.error('Error cancelling stale job:', jobErr);
       // Continue processing even if job cancellation fails
     }
 
+    await order.save();
+    
+    // Get the buyer for notification
+      const Buyer = mongoose.model('Buyer');
+      const buyer = await Buyer.findById(order.buyer);
+    
     // Only schedule notifications if they haven't been sent yet
     if (!notificationsAlreadySent) {
       console.log(`Scheduling order notifications for order ${order.order_id} after manual payment marking`);
@@ -3671,302 +3787,148 @@ exports.markOrderAsPaid = async (req, res) => {
         sellerId: order.seller._id
       };
       
+      const agenda = require('../config/agenda').agenda;
       agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
     } else {
       console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
     }
-
-    // Always send order confirmation email for paid Paystack order, regardless of notification status
-    // This ensures the buyer gets their confirmation email that was skipped at order creation
-    try {
-      const Buyer = mongoose.model('Buyer');
-      const buyer = await Buyer.findById(order.buyer);
-      if (buyer) {
-        console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id}`);
-        await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
-      }
+    
+    // Send order confirmation email
+    if (buyer && buyer.email) {
+      try {
+        await sendOrderConfirmationEmail(buyer, order);
     } catch (emailError) {
-      console.error('Error sending order confirmation email for paid Paystack order:', emailError);
-      // Continue processing even if email fails
+        console.error('Error sending order confirmation email:', emailError);
+        // Continue without failing the request
+      }
     }
 
-    res.status(200).json({ 
+    return res.status(200).json({
       message: 'Order marked as paid successfully', 
-      order: updatedOrder,
-      otherOrdersUpdated: otherOrdersUpdated.length > 0 ? 
-        otherOrdersUpdated.map(o => ({
-          orderId: o._id,
-          order_id: o.order_id,
-          paid: o.paid
-        })) : [],
-      verificationDetails: paymentReference ? verificationResult.data : null
+      order,
+      verificationDetails: verificationResult?.data
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to mark order as paid', error: error.message });
+    console.error('Error marking order as paid:', error);
+    return res.status(500).json({ message: 'Error marking order as paid', error: error.message });
   }
 };
 
 // Verify payment by reference
 exports.verifyPaymentByReference = async (req, res) => {
+  try {
   const { reference, orderId } = req.body;
 
   if (!reference) {
     return res.status(400).json({ message: 'Payment reference is required' });
   }
 
-  try {
     // Verify with Paystack
     const verificationResult = await verifyPaystackTransaction(reference);
     
-    // If verification fails or payment status is not success, handle the failure
     if (!verificationResult.success) {
-      if (orderId) {
-        // If an order ID was provided, check if we need to cancel the order
-        try {
-          const Order = mongoose.model('Order');
-          const order = await Order.findById(orderId);
-          
-          if (order && order.paymentInfo.method === 'paystack' && !order.paid) {
-            console.log(`Payment verification failed for order ${order.order_id}, reference: ${reference}`);
-            console.log(`Failed verification details:`, verificationResult.error);
-            
-            // Simulate a payment data object for failed payment handling
-            const failedPaymentData = {
-              reference,
-              metadata: { orderId },
-              gateway_response: verificationResult.error?.message || 'Payment verification failed'
-            };
-            
-            // Use the existing helper function to handle the failed payment
-            await handleFailedPayment(failedPaymentData, { 
-              status: () => ({ json: () => {} }) // Mock response object
-            });
-            
-            return res.status(400).json({ 
-              message: 'Payment verification failed and order has been cancelled', 
-              error: verificationResult.error
-            });
-          }
-        } catch (orderError) {
-          console.error('Error checking order status during failed verification:', orderError);
-          // Continue to return standard verification failed response
-        }
-      }
-      
       return res.status(400).json({ 
         message: 'Payment verification failed', 
-        error: verificationResult.error 
+        details: verificationResult.message
       });
     }
 
-    // If order ID is provided, mark that specific order as paid
+    // If orderId is provided, mark the order as paid
     if (orderId) {
-      const order = await Order.findById(orderId).populate('seller');
+      const Order = mongoose.model('Order');
+      const order = await Order.findById(orderId)
+        .populate('seller', 'email firstName lastName businessName walletBalance');
       
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
       }
 
-      // Check if this is a Paystack order that's not already paid
-      if (order.paymentInfo.method !== 'paystack' || order.paid) {
-        // If this order is already paid but there are other unpaid orders from the same buyer/purchase,
-        // try to mark those as paid instead
-        if (order.paid) {
-          const buyer = order.buyer;
-          const createdAt = order.createdAt;
-          
-          if (buyer && createdAt) {
-            const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
-            const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
-            
-            // Find other unpaid orders from the same buyer created around the same time
-            const otherUnpaidOrders = await Order.find({
-              _id: { $ne: order._id }, // Exclude the current order
-              buyer: buyer, 
-              paid: false,
-              'paymentInfo.method': 'paystack',
-              createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
-            }).populate('seller');
-            
-            if (otherUnpaidOrders.length > 0) {
-              console.log(`Found ${otherUnpaidOrders.length} other unpaid orders from the same buyer for payment reference: ${reference}`);
-              
-              // Update each order's payment status and save
-              const updatedOrders = [];
-              
-              for (const otherOrder of otherUnpaidOrders) {
-                // Update order payment status
-                otherOrder.paid = true;
-                otherOrder.paymentInfo.status = 'paid';
-                otherOrder.paymentInfo.transactionId = verificationResult.data.id.toString();
-                otherOrder.paymentInfo.paymentReference = reference;
-                otherOrder.paymentInfo.paidAt = new Date();
-                
-                const updatedOtherOrder = await otherOrder.save();
-                updatedOrders.push(updatedOtherOrder);
-                
-                // Cancel any scheduled job to delete this order
-                try {
-                  const jobs = await agenda.jobs({
-                    name: 'delete_unpaid_orders',
-                    'data.orderId': otherOrder._id.toString()
-                  });
-                  
-                  if (jobs.length > 0) {
-                    console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id} (reference verification)`);
-                    await jobs[0].remove();
-                  }
-                } catch (jobError) {
-                  console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
-                }
-              }
-              
-              return res.status(200).json({ 
-                message: `Current order already paid. Marked ${updatedOrders.length} related orders as paid.`,
-                orders: updatedOrders.map(o => ({
-                  orderId: o._id,
-                  order_id: o.order_id,
-                  paid: o.paid
-                })),
-                verificationDetails: verificationResult.data
-              });
-            }
-          }
-          
-          return res.status(400).json({ 
-            message: 'Invalid order status. This order is already paid and no related unpaid orders were found.' 
-          });
-        }
-        
-        return res.status(400).json({ 
-          message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
-        });
-      }
-
-      // Update order payment status
+      if (order && order.paymentInfo.method === 'paystack' && !order.paid) {
+        // Mark order as paid
       order.paid = true;
       order.paymentInfo.status = 'paid';
-      order.paymentInfo.transactionId = verificationResult.data.id.toString();
+        order.paymentInfo.transactionId = verificationResult.data.id;
       order.paymentInfo.paymentReference = reference;
       order.paymentInfo.paidAt = new Date();
 
-      const updatedOrder = await order.save();
-
-      // Now check for other unpaid orders from the same buyer created within 2 minutes
-      const buyer = order.buyer;
-      const createdAt = order.createdAt;
-      let otherOrdersUpdated = [];
-      
-      if (buyer && createdAt) {
-        const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
-        const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
+        // Check if this is a hybrid payment (wallet + Paystack)
+        const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
         
-        // Find other unpaid orders from the same buyer created around the same time
-        const otherOrders = await Order.find({
-          _id: { $ne: order._id }, // Exclude the current order
-          buyer: buyer, 
-          paid: false,
-          'paymentInfo.method': 'paystack',
-          createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
-        }).populate('seller');
-        
-        if (otherOrders.length > 0) {
-          console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
+        if (isHybridPayment) {
+          console.log(`Confirming hybrid payment for order ${order.order_id}`, {
+            totalAmount: order.totalAmount,
+            walletAmountUsed: order.paymentInfo.walletAmountUsed,
+            paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
+          });
           
-          // Update each order's payment status and save
-          for (const otherOrder of otherOrders) {
-            // Update order payment status
-            otherOrder.paid = true;
-            otherOrder.paymentInfo.status = 'paid';
-            otherOrder.paymentInfo.transactionId = verificationResult.data.id.toString();
-            otherOrder.paymentInfo.paymentReference = reference;
-            otherOrder.paymentInfo.paidAt = new Date();
-            
-            const updatedOtherOrder = await otherOrder.save();
-            otherOrdersUpdated.push(updatedOtherOrder);
-            
-            // Cancel any scheduled job to delete this order
-            try {
-              const jobs = await agenda.jobs({
-                name: 'delete_unpaid_orders',
-                'data.orderId': otherOrder._id.toString()
-              });
-              
-              if (jobs.length > 0) {
-                console.log(`Cancelling scheduled deletion job for now-paid order ${otherOrder.order_id} (reference verification)`);
-                await jobs[0].remove();
-              }
-            } catch (jobError) {
-              console.error(`Error cancelling delete job for order ${otherOrder.order_id}:`, jobError);
-            }
-          }
+          // The wallet amount should have been deducted during order creation
+          // Just confirming the payment here
         }
-      }
-
-      // Cancel any scheduled job to delete the main order
-      try {
-        const jobs = await agenda.jobs({
-          name: 'delete_unpaid_orders',
-          'data.orderId': order._id.toString()
-        });
         
-        if (jobs.length > 0) {
-          console.log(`Cancelling scheduled deletion job for now-paid order ${order.order_id} (reference verification)`);
-          await jobs[0].remove();
-        }
-      } catch (jobError) {
-        console.error(`Error cancelling delete job for order ${order.order_id}:`, jobError);
-        // Continue processing even if job cancellation fails
-      }
-
-      // Schedule notification for this order and any other orders that were updated
-      const orderIds = [order._id, ...otherOrdersUpdated.map(o => o._id)];
-      
-      for (const orderId of orderIds) {
-        try {
-          const currentOrder = orderId.equals(order._id) ? order : 
-            otherOrdersUpdated.find(o => o._id.equals(orderId));
-          
-          if (!currentOrder) continue;
+        await order.save();
+        
+        // Get the buyer for notification
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer);
+        
+        // Add a flag to track if notifications have been sent
+        const notificationsAlreadySent = order.notificationsSent || false;
+        
+        // Mark notifications as sent
+        order.notificationsSent = true;
+        await order.save();
+        
+        // Only schedule notifications if they haven't been sent yet
+        if (!notificationsAlreadySent) {
+          console.log(`Scheduling order notifications for order ${order.order_id} after payment verification`);
           
           // Create notifications
           const notificationData = {
-            orderId: currentOrder._id,
-            buyerId: currentOrder.buyer,
-            sellerId: currentOrder.seller._id
+            orderId: order._id,
+            buyerId: order.buyer,
+            sellerId: order.seller._id
           };
           
+          const agenda = require('../config/agenda').agenda;
           agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
-        } catch (notifError) {
-          console.error(`Error scheduling notification for order ${orderId}:`, notifError);
+        } else {
+          console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
+        }
+        
+        // Send order confirmation email
+        if (buyer && buyer.email) {
+          try {
+            await sendOrderConfirmationEmail(buyer, order);
+          } catch (emailError) {
+            console.error('Error sending order confirmation email:', emailError);
+            // Continue without failing the request
         }
       }
 
       return res.status(200).json({
-        message: 'Order(s) marked as paid successfully',
-        orders: [
-          {
-            orderId: updatedOrder._id,
-            order_id: updatedOrder.order_id,
-            paid: updatedOrder.paid
-          },
-          ...otherOrdersUpdated.map(o => ({
-            orderId: o._id,
-            order_id: o.order_id,
-            paid: o.paid
-          }))
-        ],
+          message: 'Payment verified and order marked as paid',
+          order,
+          verificationDetails: verificationResult.data
+        });
+      } else {
+        return res.status(200).json({
+          message: 'Payment verified but order is already paid or not a Paystack order',
         verificationDetails: verificationResult.data
       });
+      }
     }
 
-    // If no order ID is provided, just return verification success
+    // If no orderId or order already paid, just return verification result
     return res.status(200).json({
       message: 'Payment verification successful',
       verificationDetails: verificationResult.data
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify payment', error: error.message });
+    console.error('Error verifying payment by reference:', error);
+    return res.status(500).json({ 
+      message: 'Error verifying payment', 
+      error: error.message 
+    });
   }
 };
 
@@ -3983,50 +3945,103 @@ exports.handlePaystackWebhook = async (req, res) => {
 
   const event = req.body;
 
-  // Handle successful charge event
+  // Check if it's a charge.success event
   if (event.event === 'charge.success') {
-    const { reference, metadata } = event.data;
+    console.log(`Received successful payment event from Paystack:`, {
+      reference: event.data.reference,
+      amount: event.data.amount / 100,
+      status: event.data.status,
+      metadata: event.data.metadata || {}
+    });
     
-    // If there's no metadata, just acknowledge the webhook
-    if (!metadata) {
-      return res.status(200).json({ message: 'Webhook received, but no metadata' });
+    const metadata = event.data.metadata || {};
+    
+    // If there's no metadata or orderId, just acknowledge the webhook
+    if (!metadata || !metadata.orderId) {
+      return res.status(200).json({ message: 'Webhook received, but no order metadata' });
     }
 
     try {
-      // Check if this is a wallet top-up
-      if (metadata.transactionType === 'wallet_topup' && metadata.buyerId) {
-        return await handleWalletTopUp(event.data, res);
+      // Find the order
+      const Order = mongoose.model('Order');
+      const order = await Order.findById(metadata.orderId);
+      
+      if (!order) {
+        console.log(`Order not found for Paystack payment: ${metadata.orderId}`);
+        return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
       }
       
-      // Check if this is an order payment
-      if (metadata.orderId) {
-        const result = await handleOrderPayment(event.data, res);
+      // Check if this is a Paystack order that's not already paid
+      if (order.paymentInfo.method !== 'paystack' || order.paid) {
+        console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
+        return res.status(200).json({ message: 'Order already processed or not Paystack order' });
+      }
+      
+      // Mark the order as paid
+      order.paid = true;
+      order.paymentInfo.status = 'paid';
+      order.paymentInfo.transactionId = event.data.id;
+      order.paymentInfo.paymentReference = event.data.reference;
+      order.paymentInfo.paidAt = new Date();
+      
+      // Cancel the stale job for this order
+      try {
+        const agenda = require('../config/agenda');
+        await agenda.cancel({ name: 'mark-order-stale', 'data.orderId': order._id.toString() });
+        console.log(`Cancelled stale job for order ${order.order_id}`);
+      } catch (jobErr) {
+        console.error('Error cancelling stale job:', jobErr);
+        // Continue processing even if job cancellation fails
+      }
+
+      // Check if this is a hybrid payment (wallet + Paystack)
+      const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+      
+      if (isHybridPayment) {
+        console.log(`Processing hybrid payment for order ${order.order_id}`, {
+          totalAmount: order.totalAmount,
+          walletAmountUsed: order.paymentInfo.walletAmountUsed,
+          paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
+        });
+        
+        // Confirm that the wallet amount was properly deducted
+        // In a more robust implementation, you might want to create a pending wallet transaction
+        // and only confirm it here, but for now we assume it was already deducted during order creation
+      }
+      
+      await order.save();
+      
+      // Get the buyer for email notification
+      const Buyer = mongoose.model('Buyer');
+      const buyer = await Buyer.findById(order.buyer);
+      
+      // Always send order confirmation email for paid Paystack order, regardless of notification status
+      if (buyer && buyer.email) {
+        try {
+          console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id}`);
+          await sendOrderConfirmationEmail(buyer, order);
+        } catch (emailError) {
+          console.error('Error sending order confirmation email for paid Paystack order:', emailError);
+          // Continue processing even if email fails
+        }
+      }
         
         // After order payment is processed, check if there are other recent orders from the same buyer
         // that need notifications, and process them in a batch
         try {
-          const Order = mongoose.model('Order');
-          const order = await Order.findById(metadata.orderId);
+        const agenda = require('../config/agenda');
+        console.log(`Scheduling batch notification processing for buyer: ${order.buyer}`);
           
-          if (order) {
-            // Schedule a batch notification job to check for other recent orders from this buyer
-            const { agenda } = require('../config/agenda');
-            await agenda.schedule('in 3 seconds', 'send-order-notifications', {
+        agenda.now('process-buyer-order-notifications', {
               buyerId: order.buyer.toString(),
+          excludeOrderId: order._id.toString(),
               batchProcess: true
             });
-            console.log('Scheduled batch notification check after payment for buyer:', order.buyer);
-          }
-        } catch (batchError) {
-          console.error('Error scheduling batch notification after payment:', batchError);
-          // Continue with normal response regardless of batch scheduling error
-        }
-        
-        return result;
+      } catch (notifyErr) {
+        console.error('Error scheduling notification processing:', notifyErr);
       }
-
-      // If we can't determine the type, just acknowledge
-      return res.status(200).json({ message: 'Webhook received, but transaction type unknown' });
+      
+      return res.status(200).json({ message: 'Payment processed successfully' });
     } catch (error) {
       console.error('Error processing Paystack webhook:', error);
       // Still return 200 to acknowledge the webhook
@@ -4034,21 +4049,16 @@ exports.handlePaystackWebhook = async (req, res) => {
     }
   }
   
-  // Handle failed charge event
-  if (event.event === 'charge.failed' || 
-      event.event === 'transaction.failed' || 
-      (event.event === 'charge.dispute.create' && event.data?.status === 'failed') ||
-      (event.event === 'charge.dispute.resolve' && event.data?.status === 'declined')) {
-    const { reference, metadata } = event.data;
-    
-    // Log the event details
+  // Handle payment failed event
+  if (event.event === 'charge.failed') {
     console.log(`Received payment failure event from Paystack:`, {
-      event: event.event,
-      reference,
-      failureStatus: event.data?.status,
-      gatewayResponse: event.data?.gateway_response,
-      metadata: JSON.stringify(metadata)
+      reference: event.data.reference,
+      amount: event.data.amount / 100,
+      status: event.data.status,
+      metadata: event.data.metadata || {}
     });
+    
+    const metadata = event.data.metadata || {};
     
     // If there's no metadata or orderId, just acknowledge the webhook
     if (!metadata || !metadata.orderId) {
@@ -4374,6 +4384,51 @@ exports.cancelOrderBySeller = async (req, res) => {
       });
     }
 
+    // Check for hybrid payment (wallet + Paystack) and process refund if needed
+    const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+    
+    if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
+      try {
+        console.log(`Processing wallet refund for hybrid payment in order ${order.order_id}`);
+        
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Refund the wallet amount that was used
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+          const walletTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for cancelled order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Add transaction to wallet
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(walletTransaction);
+          
+          // Save buyer with updated wallet
+          await buyer.save();
+          
+          walletRefunded = true;
+          console.log(`Successfully refunded wallet amount for cancelled hybrid payment: ${walletRefundAmount}`, {
+            orderId: order._id,
+            buyer: buyer._id,
+            newWalletBalance: buyer.wallet.balance
+          });
+        } else {
+          console.error(`Could not find buyer ${order.buyer} to refund wallet amount for cancelled order ${order.order_id}`);
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for order ${order.order_id}:`, refundError);
+        // Continue with order cancellation even if refund fails
+      }
+    }
+
     // Update all items status to cancelled
     order.items.forEach(item => {
       item.status = 'cancelled';
@@ -4420,7 +4475,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     }
 
     // Only attempt to cancel with Fez if order has tracking number
-    if (order.shipping.tracking.number) {
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
       try {
         // Get a fresh authentication token for Fez
         const authToken = await getFezAuthToken();
@@ -4480,6 +4535,13 @@ exports.cancelOrderBySeller = async (req, res) => {
       `;
     }
     
+    // Add wallet refund info if applicable
+    if (walletRefunded) {
+      buyerEmailHtml += `
+        <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
+      `;
+    }
+    
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -4505,6 +4567,7 @@ exports.cancelOrderBySeller = async (req, res) => {
           <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
           <p><strong>Buyer:</strong> ${order.buyer.firstName} ${order.buyer.lastName}</p>
           ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
+          ${walletRefunded ? `<p>The wallet amount used for this order (₦${walletRefundAmount.toLocaleString()}) has been refunded to the buyer's wallet.</p>` : ''}
           <p>The buyer has been notified of this cancellation.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
@@ -4532,6 +4595,7 @@ exports.cancelOrderBySeller = async (req, res) => {
                 <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
                 <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
                 <li>Reason: ${reason || 'Order cancelled by seller'}</li>
+                ${walletRefunded ? `<li>Note: Wallet payment of ₦${walletRefundAmount.toLocaleString()} was automatically refunded</li>` : ''}
               </ul>
               <p>Please process this refund request promptly.</p>
             </div>
@@ -4566,7 +4630,9 @@ exports.cancelOrderBySeller = async (req, res) => {
         closedAt: order.closedAt,
         closedBy: order.closedBy,
         closedReason: order.closedReason
-      }
+      },
+      walletRefunded: walletRefunded,
+      walletRefundAmount: walletRefundAmount
     });
 
   } catch (error) {
@@ -4671,7 +4737,7 @@ exports.processRefundRequest = async (req, res) => {
     // Find the order with all necessary data
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName expoPushToken')
-      .populate('seller', 'email firstName lastName');
+      .populate('seller', 'email firstName lastName businessName walletBalance');
     
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -5076,159 +5142,157 @@ exports.getManifestUrl = async (req, res) => {
 // Helper function to handle failed payments
 async function handleFailedPayment(paymentData, res) {
   const { reference, metadata } = paymentData;
-  const orderId = metadata.orderId;
   
+  if (!metadata || !metadata.orderId) {
+    return res.status(200).json({ message: 'No order metadata found in failed payment' });
+  }
+  
+  try {
   const Order = mongoose.model('Order');
-  const order = await Order.findById(orderId);
+    const order = await Order.findById(metadata.orderId);
   
   if (!order) {
-    console.log(`Order ${orderId} not found for failed Paystack payment`);
-    return res.status(200).json({ message: 'Order not found for failed payment, acknowledging webhook' });
-  }
-  
-  // Check if this is a Paystack order that's not already paid
-  if (order.paymentInfo.method !== 'paystack' || order.paid) {
-    console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
-    return res.status(200).json({ message: 'Order is not eligible for cancellation, acknowledging webhook' });
-  }
-  
-  console.log(`Processing payment failure for order ${order.order_id}, reference: ${reference}`);
-  
-  // Cancel any Fez shipment if it exists
-  if (order.shipping && order.shipping.fez_order_number) {
-    try {
-      console.log(`Attempting to cancel Fez shipment for failed payment order ${order.order_id}`);
-      
-      // Get Fez auth token
-      const getFezAuthToken = async () => {
-        try {
-          const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
-          const authData = {
-            user_id: process.env.FEZ_USER_ID,
-            password: process.env.FEZ_PASSWORD
-          };
-          
-          const response = await axios.post(authUrl, authData);
-          
-          if (response.data && response.data.status === 'Success' && response.data.authDetails) {
-            return response.data.authDetails.authToken;
-          } else {
-            throw new Error('Failed to authenticate with Fez Delivery');
-          }
-        } catch (error) {
-          console.error('Fez authentication error:', error.message);
-          throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
-        }
-      };
-      
-      const authToken = await getFezAuthToken();
-      
-      // Cancel Fez shipment
-      const FEZ_API_URL = process.env.FEZ_API_URL;
-      const cancelResponse = await axios.post(
-        `${FEZ_API_URL}/order/cancel/${order.shipping.fez_order_number}`,
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'secret-key': process.env.FEZ_SECRET_KEY,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log(`Fez shipment cancellation response for failed payment order ${order.order_id}:`, {
-        status: cancelResponse.status,
-        data: cancelResponse.data
-      });
-    } catch (fezError) {
-      console.error(`Error cancelling Fez shipment for failed payment order ${order.order_id}:`, fezError.message);
-      // Continue with order deletion even if Fez cancellation fails
+      return res.status(200).json({ message: 'Order not found for failed payment' });
     }
-  }
-  
-  // Restore product stock for each item in the order
-  try {
-    for (const item of order.items) {
-      const updateResult = await Product.findByIdAndUpdate(
-        item.product,
-        { 
-          $inc: { 
-            'stats.soldCount': -item.quantity,
-            'stock': item.quantity,
-            'inventory.quantity': item.quantity 
-          }
-        }
-      );
-      
-      console.log(`Restored stock for product ${item.productName} in failed payment order:`, {
-        productId: item.product,
-        quantity: item.quantity,
-        updateSuccessful: !!updateResult
-      });
+    
+    // Check if this order has already been processed (paid or cancelled)
+    if (order.paid || !order.isOpen) {
+      return res.status(200).json({ message: 'Order already processed, ignoring failed payment' });
     }
-  } catch (stockError) {
-    console.error(`Error restoring product stock for failed payment order ${order.order_id}:`, stockError);
-    // Continue with order deletion even if stock restoration fails
-  }
-  
-  // Delete the order
-  await Order.findByIdAndDelete(order._id);
-  console.log(`Successfully deleted order ${order.order_id} due to failed Paystack payment`);
-  
-  // Cancel any scheduled deletion jobs for this order
-  try {
-    const jobs = await agenda.jobs({
-      name: 'delete_unpaid_orders',
-      'data.orderId': order._id.toString()
+    
+    console.log(`Processing failed payment for order ${order.order_id}`, {
+      reference,
+      orderStatus: order.paymentInfo.status,
+      isOpen: order.isOpen,
+      paymentMethod: order.paymentInfo.method
     });
     
-    if (jobs.length > 0) {
-      console.log(`Cancelling scheduled deletion job for failed payment order ${order.order_id}`);
-      await jobs[0].remove();
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+    
+    if (isHybridPayment) {
+      console.log(`Failed payment was hybrid for order ${order.order_id}`, {
+        totalAmount: order.totalAmount,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed,
+        paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
+      });
+      
+      // If wallet was already used, we need to refund it
+      if (order.paymentInfo.walletAmountUsed > 0) {
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Refund the wallet amount that was used
+          const walletTransaction = {
+            type: 'credit',
+            amount: order.paymentInfo.walletAmountUsed,
+            description: `Refund for failed order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Add transaction to wallet
+          buyer.wallet.balance += order.paymentInfo.walletAmountUsed;
+          buyer.wallet.transactions.push(walletTransaction);
+          
+          // Save buyer with updated wallet
+          await buyer.save();
+          
+          console.log(`Refunded wallet amount for failed hybrid payment: ${order.paymentInfo.walletAmountUsed}`, {
+            orderId: order._id,
+            buyer: buyer._id,
+            newWalletBalance: buyer.wallet.balance
+          });
+        } else {
+          console.error(`Could not find buyer ${order.buyer} to refund wallet amount for failed order ${order.order_id}`);
+        }
+      }
     }
-  } catch (jobError) {
-    console.error(`Error cancelling delete job for failed payment order ${order.order_id}:`, jobError);
-  }
-  
-  // If the order was for a buyer, send them a notification about the failed payment
-  try {
+    
+    // Mark order as closed with appropriate reason
+    order.isOpen = false;
+    order.closedAt = new Date();
+    order.closedBy = 'auto';
+    order.closedReason = `Payment failed: ${paymentData.gateway_response || 'Unknown payment failure'}`;
+    
+    // Also update items status to cancelled
+    order.items.forEach(item => {
+      item.status = 'cancelled';
+      item.statusHistory.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        note: 'Payment failed'
+      });
+    });
+    
+    await order.save();
+    
+    // Notify the buyer about the failed payment
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(order.buyer);
     
     if (buyer && buyer.email) {
+      try {
       // Send email notification about failed payment
       const sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       
-      await sgMail.send({
-        to: buyer.email,
-        from: 'Auqli Orders <support@auqli.com>',
-        subject: 'Payment Failed - Order Cancelled',
-        html: `
+        // Prepare email content
+        let emailContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Payment Failed</h2>
             <p>Dear ${buyer.firstName},</p>
-            <p>We're sorry to inform you that your payment for order #${order.order_id} has failed.</p>
-            <p>Your order has been automatically cancelled, and you'll need to place a new order if you wish to purchase these items.</p>
-            <p>Reason for failure: ${paymentData.gateway_response || 'Payment processing error'}</p>
-            <p>If you have any questions, please contact our support team.</p>
+            <p>Your payment for order #${order.order_id} was not successful.</p>
+            <p><strong>Reason:</strong> ${paymentData.gateway_response || 'Payment could not be processed'}</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            </ul>
+        `;
+        
+        // Add wallet refund info if applicable
+        if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
+          emailContent += `
+            <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} used for this order has been refunded to your wallet.</p>
+          `;
+        }
+        
+        emailContent += `
+            <p>If you would still like to purchase these items, please place a new order.</p>
+            <p>If you believe this is an error, please contact our support team.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
-        `
-      });
-      
-      console.log(`Sent payment failure notification email to buyer ${buyer.email} for order ${order.order_id}`);
-    }
+        `;
+        
+        // Send the email
+        await sgMail.send({
+          to: buyer.email,
+          from: 'Auqli Payment <support@auqli.com>',
+          subject: 'Payment Failed - Auqli',
+          html: emailContent
+        });
+        
+        console.log(`Sent failed payment email to ${buyer.email} for order ${order.order_id}`);
   } catch (emailError) {
-    console.error(`Error sending payment failure email for order ${order.order_id}:`, emailError);
-    // Continue with response even if email fails
+        console.error('Error sending failed payment email:', emailError);
+      }
   }
   
   return res.status(200).json({ 
-    message: 'Order deleted due to failed payment',
-    orderReference: order.order_id
-  });
+      message: 'Failed payment processed, order cancelled',
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        isOpen: order.isOpen,
+        closedReason: order.closedReason
+      }
+    });
+  } catch (error) {
+    console.error('Error handling failed payment:', error);
+    return res.status(200).json({ message: 'Error handling failed payment, but acknowledging webhook' });
+  }
 }
 
 
