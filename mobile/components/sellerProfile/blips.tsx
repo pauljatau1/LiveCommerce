@@ -72,7 +72,7 @@ const Blips = ({
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/products/seller/${sellerId}/blips?page=${page}&limit=3`,
+          `api/products/seller/${sellerId}/blips?page=${page}&limit=3&processed=true`,
         {
           headers: {
             Authorization: "Bearer " + token,

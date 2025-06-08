@@ -17,15 +17,16 @@ const ForYouCategoryCard = ({ item }: any) => {
         })
       }
     >
-      <View className="w-[178px] relative h-[214.185px] mr-[8.43px] bg-[#2e2e2e] rounded-[6px]">
+      <View className="w-[178px] relative h-[215px] mr-[8px] bg-[#2e2e2e] rounded-[6px]">
         <Image
-          source={{ uri: item?.image?.url }}
+          source={{ uri: item?.image?.url, width: 200, height: 200 }}
           style={{
             width: "100%",
             height: "100%",
             borderRadius: 4.15,
           }}
           contentFit="cover"
+          priority={"low"}
         />
       </View>
       <Text className="text-[12px] font-normal  !text-white font-LexendDecaSemiBold mt-[8.43px]">

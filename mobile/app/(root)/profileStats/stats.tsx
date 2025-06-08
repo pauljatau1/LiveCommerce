@@ -79,8 +79,14 @@ const ProfileStats = () => {
   };
 
   const filterFollowing = () => {
-    const filteredFollowing = following.filter((item) =>
-      item?.name?.includes(searchTerm.current),
+    const filteredFollowing = following.filter(
+      (item) =>
+        item?.name
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()) ||
+        item?.storeName
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()),
     );
     console.log(filteredFollowing);
 
@@ -88,8 +94,14 @@ const ProfileStats = () => {
   };
 
   const filterFollowers = () => {
-    const filteredFollowers = followers.filter((item) =>
-      item?.name?.includes(searchTerm.current.toLowerCase()),
+    const filteredFollowers = followers.filter(
+      (item) =>
+        item?.name
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()) ||
+        item?.storeName
+          ?.toLowerCase()
+          ?.includes(searchTerm.current?.toLowerCase()),
     );
     setfilteredfollowers(filteredFollowers);
   };
@@ -153,7 +165,9 @@ const ProfileStats = () => {
               style={styles.followingImage}
               contentFit="cover"
             />
-            <Text style={styles.followingText}>{item?.name}</Text>
+            <Text style={styles.followingText}>
+              {item?.storeName || item?.name}
+            </Text>
           </View>
           <Pressable
             className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"

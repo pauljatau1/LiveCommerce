@@ -66,7 +66,7 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
                 "https://media.istockphoto.com/id/1315110986/vector/store-editable-stroke-outline-icon-isolated-on-white-background-flat-vector-illustration.jpg?s=612x612&w=0&k=20&c=mCrUUX3bWTZOvKrr3ontPWJKO_9HAOmboDxxd_XeIRI=",
             }}
             resizeMode="cover"
-            className="relative rounded-full w-[60px] h-[60px] "
+            className="relative rounded-full w-[60px] h-[60px] bg-[#2e2e2e]"
           />
           <Text className="text-[#CCCCCCCC] text-[12.28px] text-center font-LexendDecaBold pt-1">
             {data.storeName || data.businessName}

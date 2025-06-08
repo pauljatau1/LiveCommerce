@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   Pressable,
 } from "react-native";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, memo } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import ProductCard from "@/components/global/product-card";
@@ -39,6 +39,7 @@ const ForYouSection = () => {
         style={{
           flexShrink: 1,
         }}
+        key={item?._id}
       >
         <ProductCard
           key={item._id}
@@ -93,9 +94,21 @@ const ForYouSection = () => {
       {isLoading ? (
         <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
       ) : (
-        <View style={{ paddingHorizontal: 16 }}>
-          <FlatList
-            key={2}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            paddingTop: 14,
+            gap: 4,
+          }}
+        >
+          {products?.products?.length > 0 &&
+            products?.products?.map((item: any, index: number) =>
+              renderContent({ item }),
+            )}
+          {/* <FlatList
             data={products?.products}
             renderItem={renderContent}
             keyExtractor={(item, index) => item?._id || `group-${index}`}
@@ -104,14 +117,15 @@ const ForYouSection = () => {
               justifyContent: "space-between",
               marginBottom: 8,
             }}
+            scrollEnabled={false}
             showsVerticalScrollIndicator={false}
             className="pt-[14px]"
             ListEmptyComponent={renderEmptyPlaceholder}
-          />
+          /> */}
         </View>
       )}
     </View>
   );
 };
 
-export default ForYouSection;
+export default memo(ForYouSection);

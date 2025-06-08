@@ -21,8 +21,13 @@ import { Image } from "expo-image";
 import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
-import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { trackEvent } from "@/utils/mixpanel";
+import {
+  AntDesign,
+  MaterialCommunityIcons,
+  MaterialIcons,
+} from "@expo/vector-icons";
+import { trackEvent } from "@/utils/analytics";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 
 const mockDeliveryOtions = [
   {
@@ -68,6 +73,7 @@ interface Props {
   closeSheet: () => void;
   channel: string;
   streamId?: string;
+  blipId: string;
 }
 
 const CheckoutNow = ({
@@ -108,6 +114,11 @@ const CheckoutNow = ({
 
   const [paystackKey, setPaystackKey] = useState<any>();
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
+  const [couponCode, setCouponCode] = useState<string>("");
+  const [couponMessage, setCouponMessage] = useState<string>("");
+  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [couponLoading, setCouponLoading] = useState<boolean>(false);
+  const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return product?.seller?.shippingInfo?.offersStorePickup;
@@ -118,7 +129,7 @@ const CheckoutNow = ({
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -144,6 +155,54 @@ const CheckoutNow = ({
       : product?.price;
     return price;
   }, [product]);
+
+  const handleApplyCoupon = async () => {
+    if (couponApplied) {
+      setCouponApplied(null);
+      setCouponCode("");
+      setCouponMessage("");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + `api/coupons/apply`,
+        {
+          code: couponCode,
+          productId: product?._id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setCouponApplied({
+        discount: response.data.product?.discountPercentage,
+        discountedPrice: response.data.product?.discountedPrice,
+        amountSaved: response.data.product?.savings,
+        couponSubTotal: response.data.product?.discountedPrice,
+        message: `🎉 Code applied! You saved ₦${response.data.product?.savings}`,
+      });
+      setCouponMessage(
+        `🎉 Code applied! You saved ₦${response.data.product?.savings?.toLocaleString()}`,
+      );
+    } catch (e: any) {
+      console.log("error applying coupon ", e);
+      setCouponMessage(
+        `⚠️ ${e?.response?.data?.message ? e?.response?.data?.message : "Error Appling Coupon"}`,
+      );
+      toast.error(
+        e?.response?.data?.message
+          ? e?.response?.data?.message
+          : "Error Appling Coupon",
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
 
   const getWalletBalance = async () => {
     try {
@@ -182,9 +241,9 @@ const CheckoutNow = ({
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                .replaceAll("-", "")
-                ?.replace("+234", "")
-                ?.replace("0", "")
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -276,6 +335,17 @@ const CheckoutNow = ({
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
+      // setDeliveryFeeObject([
+      //   {
+      //     sellerId: "682efb3e101c5c0990f06844",
+      //     pickUpState: "Lagos",
+      //     weight: 1,
+      //     cost: 3225,
+      //     status: "Success",
+      //     error: null,
+      //   },
+      // ]);
+      // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
     }
@@ -331,7 +401,9 @@ const CheckoutNow = ({
           quantity: 1,
           price: product?.discount?.isActive
             ? product?.discount?.discountedPrice
-            : product.price,
+            : couponApplied
+              ? couponApplied?.discountedPrice
+              : product.price,
           weight: product.weight?.toFixed(0) * 1,
           seller: {
             sellerId: product.seller._id,
@@ -378,8 +450,8 @@ const CheckoutNow = ({
         setOrderId(response.data.orders[0]?.orderId);
         if (blipId) {
           try {
-            const userData = await AsyncStorage.getItem('user');
-            const user = JSON.parse(userData || '{}');
+            const userData = await AsyncStorage.getItem("user");
+            const user = JSON.parse(userData || "{}");
             trackEvent("blip_product_purchased", {
               productId: product._id,
               productName: product?.name,
@@ -586,8 +658,6 @@ const CheckoutNow = ({
     }
   }, [products]);
 
-  console.log("rendering");
-
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
       if (selectedDeliveryOpt == 1 && index == 2) return null;
@@ -640,10 +710,10 @@ const CheckoutNow = ({
               >
                 {index == 1
                   ? "₦" +
-                  walletBalance?.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                   : item.description}
               </Text>
             </View>
@@ -840,28 +910,56 @@ const CheckoutNow = ({
                   </View>
                 </View>
 
-                {/* <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
-              <TextInput
-                placeholder="Enter Promo Code"
-                placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
-                className="text-white p-[12px] text-[12px] font-LexendDecaLight"
-              />
-              <Pressable>
-                <Text className="text-[#ccc] text-[12px] font-LexendDecaLight">
-                  Apply
-                </Text>
-              </Pressable>
-            </View> */}
+                <View className="mb-[10px]">
+                  <View
+                    className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
+                  >
+                    <BottomSheetTextInput
+                      placeholder="Enter Promo Code"
+                      placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+                      className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
+                      onChangeText={(text) => setCouponCode(text)}
+                      value={couponCode}
+                      onFocus={() => setCouponInputFocused(true)}
+                      onBlur={() => setCouponInputFocused(false)}
+                      readOnly={couponApplied !== null}
+                    />
+                    {couponLoading ? (
+                      <ActivityIndicator size={16} color="#fff" />
+                    ) : (
+                      <Pressable onPress={handleApplyCoupon}>
+                        {couponApplied ? (
+                          <AntDesign
+                            name="closecircle"
+                            size={18}
+                            color="#fff"
+                          />
+                        ) : (
+                          <Text
+                            className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
+                          >
+                            APPLY
+                          </Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                  {couponMessage && (
+                    <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
+                      {couponMessage}
+                    </Text>
+                  )}
+                </View>
 
                 <View
-                  className="p-[20px] rounded-[5px] gap-[10px]"
+                  className="p-[20px] rounded-[10px] gap-[10px]"
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
                 >
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Merchandise Subtotal
                     </Text>
-                    <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       ₦
                       {productTotal?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -869,42 +967,58 @@ const CheckoutNow = ({
                       })}
                     </Text>
                   </View>
+                  {couponApplied && (
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Coupon Code Applied
+                      </Text>
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        - ₦
+                        {couponApplied?.amountSaved?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Shipping Fee
                     </Text>
                     {shippingFeeLoading ? (
                       <ActivityIndicator size={10} color="white" />
                     ) : (
-                      <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                         {deliveryFee
                           ? "₦" +
-                          deliveryFee?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                            deliveryFee?.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
                           : "-"}
                       </Text>
                     )}
                   </View>
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Total
                     </Text>
                     {shippingFeeLoading ? (
                       <ActivityIndicator size={10} color="white" />
                     ) : (
-                      <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                         {(deliveryFee && productTotal) ||
-                          (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                           ? "₦" +
-                          (deliveryFee + productTotal)?.toLocaleString(
-                            undefined,
-                            {
+                            (
+                              deliveryFee +
+                              (couponApplied
+                                ? couponApplied?.couponSubTotal
+                                : productTotal)
+                            )?.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            },
-                          )
+                            })
                           : "-"}
                       </Text>
                     )}
@@ -912,7 +1026,7 @@ const CheckoutNow = ({
                 </View>
 
                 <TouchableOpacity
-                  className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A]"
+                  className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
                   onPress={() => handleCompleteOrder()}
                 >
                   {orderLoading ? (
@@ -921,15 +1035,17 @@ const CheckoutNow = ({
                     <Text className="text-white text-[16px] font-LexendDecaMedium">
                       Pay (
                       {(deliveryFee && productTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                         ? "₦" +
-                        (deliveryFee + productTotal)?.toLocaleString(
-                            undefined,
-                            {
+                          (
+                            deliveryFee +
+                            (couponApplied
+                              ? couponApplied?.couponSubTotal
+                              : productTotal)
+                          )?.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          },
-                          )
+                          })
                         : "-"}
                       )
                     </Text>
@@ -947,8 +1063,11 @@ const CheckoutNow = ({
           paystackKey={paystackKey?.publicKey}
           amount={
             selectedDeliveryOpt == 0
-              ? deliveryFee! + productTotal
-              : productTotal
+              ? deliveryFee! +
+                (couponApplied ? couponApplied?.couponSubTotal : productTotal)
+              : couponApplied
+                ? couponApplied?.couponSubTotal
+                : productTotal
           }
           channels={[
             "card",

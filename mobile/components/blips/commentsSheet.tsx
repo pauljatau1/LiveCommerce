@@ -17,7 +17,7 @@ import moment from "moment";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import LottieView from "lottie-react-native";
 import { AntDesign } from "@expo/vector-icons";
-import { trackEvent } from "@/utils/mixpanel";
+import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CommentsSheet = ({

@@ -26,6 +26,9 @@ import { ActivityIndicator } from "react-native-paper";
 import { ScrollView } from "react-native-virtualized-view";
 import { AntDesign } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
+import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
+import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
+import { trackFacebookEvent } from "@/utils/facebook-analytics";
 
 const Search = () => {
   const token = useSelector((state: RootState) => state.authState.token);
@@ -82,7 +85,7 @@ const Search = () => {
       try {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || '{}');
-        trackEvent("search_product", {
+        trackEventMixpanel("search_product", {
           searchQuery,
           userId: user?._id,
           email: user?.email,
@@ -90,6 +93,22 @@ const Search = () => {
           lastName: user?.lastName,
           username: user?.username,
           timestamp: new Date().toISOString(),
+        });
+        trackEventCustomerio("search_product", {
+          searchQuery,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+        });
+        trackFacebookEvent("Search", {
+          query: searchQuery,
+          userId: user?._id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
         });
       } catch (error) {
         console.log(error);

@@ -69,7 +69,7 @@ const Blips = () => {
     itemVisiblePercentThreshold: 80,
   };
 
-  const fetchMoreVideos = async () => {
+  const fetchMoreVideos = useCallback(async () => {
     try {
       const token = await getToken();
 
@@ -93,34 +93,37 @@ const Blips = () => {
     } catch (error) {
       console.error("Error fetching more blips:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMoreVideos();
   }, []);
 
-  const renderVideo = ({ item, index }: { item: any; index: number }) => (
-    <VideoItem
-      id={item?.blipId}
-      item={item}
-      videoUrl={item?.blipUrl}
-      isVisible={index === currentIndex}
-      seller={item?.seller}
-      engagement={{
-        likes: item?.blipEngagement?.likesCount,
-        comments: item?.blipEngagement?.commentsCount,
-        views: item?.blipEngagement?.viewCount,
-        isLiked: item?.blipEngagement?.isLiked,
-      }}
-      product={{
-        id: item?._id,
-        name: item?.productName,
-        price: item?.price,
-        image: item?.images,
-      }}
-      singularBlip={false}
-      shared={false}
-    />
+  const renderVideo = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <VideoItem
+        id={item?.blipId}
+        item={item}
+        videoUrl={item?.blipUrl}
+        isVisible={index === currentIndex}
+        seller={item?.seller}
+        engagement={{
+          likes: item?.blipEngagement?.likesCount,
+          comments: item?.blipEngagement?.commentsCount,
+          views: item?.blipEngagement?.viewCount,
+          isLiked: item?.blipEngagement?.isLiked,
+        }}
+        product={{
+          id: item?._id,
+          name: item?.productName,
+          price: item?.price,
+          image: item?.images,
+        }}
+        singularBlip={false}
+        shared={false}
+      />
+    ),
+    [currentIndex],
   );
 
   const renderFooter = useCallback(() => {
@@ -185,9 +188,9 @@ const Blips = () => {
             pagingEnabled
             onEndReached={fetchMoreVideos}
             onEndReachedThreshold={1}
-            initialNumToRender={5}
-            maxToRenderPerBatch={3}
-            windowSize={5}
+            initialNumToRender={1}
+            maxToRenderPerBatch={1}
+            windowSize={3}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
@@ -200,8 +203,8 @@ const Blips = () => {
             onRefresh={refreshBlips}
             progressViewOffset={Platform.OS == "ios" ? 120 : 0}
             ListHeaderComponent={renderFooter}
-            removeClippedSubviews={false}
-            updateCellsBatchingPeriod={50}
+            updateCellsBatchingPeriod={100}
+            removeClippedSubviews={true}
           />
         )}
       </View>

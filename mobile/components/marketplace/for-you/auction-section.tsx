@@ -7,7 +7,7 @@ import useCarousel from "@/hooks/useCarousel";
 import { useGetAllAuctionProductsQuery } from "@/services/products";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, memo } from "react";
 import { FlatList, Text, View } from "react-native";
 
 const ForYouAuctionSection = () => {
@@ -24,10 +24,20 @@ const ForYouAuctionSection = () => {
   });
 
   useEffect(() => {
-    refetch();
+    if (isFocused) {
+      refetch();
+    }
   }, [isFocused]);
 
-  const renderDotIndicators = () => {
+  const renderContent = useCallback(({ item }: any) => {
+    return (
+      <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
+        <AuctionCard item={item} showNike={false} />
+      </View>
+    );
+  }, []);
+
+  const renderDotIndicators = useCallback(() => {
     return [1, 2, 3].map((_, index) => (
       <View
         key={index}
@@ -40,7 +50,7 @@ const ForYouAuctionSection = () => {
         }}
       />
     ));
-  };
+  }, [activeIndex]);
 
   const renderEmptyAuctions = useCallback(() => {
     return (
@@ -81,11 +91,7 @@ const ForYouAuctionSection = () => {
         >
           <FlatList
             data={products?.products}
-            renderItem={({ item }) => (
-              <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-                <AuctionCard item={item} showNike={false} />
-              </View>
-            )}
+            renderItem={renderContent}
             keyExtractor={(item, index) => item?._id || index?.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -102,4 +108,4 @@ const ForYouAuctionSection = () => {
   );
 };
 
-export default ForYouAuctionSection;
+export default memo(ForYouAuctionSection);

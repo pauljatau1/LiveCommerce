@@ -121,10 +121,10 @@ const CheckoutSummary = () => {
 
   const handlePayOrder = async () => {
     if (payLoading) return;
-    if (!(shippingFee && subtotal)) {
+    if (!((shippingFee && subtotal) || order?.isStorePickup)) {
       return toast.error("Cannot complete payment");
     }
-    if (shippingFee && subtotal) {
+    if ((shippingFee || order?.isStorePickup) && subtotal) {
       setPayLoading(true);
       setShowPaystack(true);
     } else {
@@ -460,7 +460,7 @@ const CheckoutSummary = () => {
       </SafeAreaView>
       {loading ? null : (
         <View
-          className={`absolute w-full bottom-[20px] left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
+          className={`absolute w-full bottom-[20px] left-0 p-[16px] bg-[#121212] ${!((shippingFee && subtotal) || order?.isStorePickup) ? "opacity-50" : " "}`}
         >
           <TouchableOpacity
             className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A] "

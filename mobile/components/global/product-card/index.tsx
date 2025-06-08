@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo, useCallback } from "react";
 import { View, Text, TouchableOpacity, Pressable, Image } from "react-native";
 import { icons, images } from "@/constants";
 import { ProductCardProps } from "@/types/types";
@@ -14,7 +14,7 @@ import { getToken } from "@/store/features/auth/utils";
 import AddedToCart from "@/components/product/productAddedToCart";
 import CartSheet from "@/components/product/productCartSheet";
 import { formatDate, formatNumber } from "@/helpers/helpers";
-// import { Image } from "expo-image";
+// import { Image, useImage } from "expo-image";
 
 const ProductCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -35,8 +35,8 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
   width,
   ...props
 }) => {
-  const firstImage =
-    imageUrl && imageUrl.length > 0 ? imageUrl[0] : images.diamondsImage;
+  // const firstImage =
+  //   imageUrl && imageUrl.length > 0 ? imageUrl[0] : images.diamondsImage;
 
   const router = useRouter();
 
@@ -56,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
     getAuthUser();
   }, []);
 
-  const handleAddToCart = async (cartItem: any) => {
+  const handleAddToCart = useCallback(async (cartItem: any) => {
     try {
       const cartItems = await AsyncStorage.getItem("cart");
 
@@ -79,7 +79,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
       console.log(e);
       toast.error("error adding item to cart");
     }
-  };
+  }, []);
 
   return (
     <TouchableOpacity
@@ -91,23 +91,23 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
-      {firstImage && (
+      {
         <Image
-          source={
-            firstImage.url
-              ? {
-                  uri: firstImage.url,
-                }
-              : images.diamondsImage
-          }
+          source={{ uri: imageUrl[0]?.url, width: 200, height: 200 }}
           resizeMode="cover"
+          resizeMethod="resize"
+          progressiveRenderingEnabled={true}
+          // recyclingKey={`image-${imageUrl[0]?.url}`}
           // className="w-[100%] h-[157px]"
           style={{
             width: "100%",
             height: 157,
+            backgroundColor: "#2e2e2e",
           }}
+          // enableLiveTextInteraction={false}
+          // cachePolicy="none"
         />
-      )}
+      }
 
       <View
         style={{
@@ -154,10 +154,16 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
             <Image
               source={
                 moreDetails?.seller?.storeAvatar?.url
-                  ? { uri: moreDetails?.seller?.storeAvatar?.url }
+                  ? {
+                      uri: moreDetails?.seller?.storeAvatar?.url,
+                      width: 20,
+                      height: 20,
+                    }
                   : require("../../../assets/icons/user-image-empty.png")
               }
               resizeMode="contain"
+              resizeMethod="resize"
+              progressiveRenderingEnabled={true}
               style={{
                 width: 20,
                 height: 20,
@@ -340,4 +346,4 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
   );
 };
 
-export default ProductCard;
+export default memo(ProductCard);

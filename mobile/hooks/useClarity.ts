@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import * as Clarity from "@microsoft/react-native-clarity";
 import { LogLevel } from "@microsoft/react-native-clarity";
 import { useNavigation } from "@react-navigation/native";
@@ -27,11 +27,15 @@ debugClaritySetup();
 
 // Define user attributes interface
 export interface UserAttributes {
+  fullName?: string;
   userId?: string;
   username?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
+  accountAge?: string;
+  createdDate?: string;
+  isVerified?: string;
   [key: string]: any; // Allow for additional custom attributes
 }
 
@@ -39,6 +43,10 @@ export function useClarity() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isUserIdentified, setIsUserIdentified] = useState(false);
+  
+  // Use refs to track initialization and pending user data
+  const isReadyRef = useRef(false);
+  const pendingUserDataRef = useRef<UserAttributes | null>(null);
 
   useEffect(() => {
     const initializeClarity = async () => {
@@ -61,11 +69,25 @@ export function useClarity() {
           logLevel: __DEV__ ? Clarity.LogLevel.Verbose : Clarity.LogLevel.Error,
         });
 
-        // Set callback for when session starts
+        // Mark as ready immediately - the SDK can handle calls right after initialize
+        isReadyRef.current = true;
+        setIsInitialized(true);
+        console.log("🎯 Clarity marked as ready immediately after initialize");
+
+        // Set callback for when session starts (for logging and session info)
         Clarity.setOnSessionStartedCallback((sessionId) => {
           console.log("Clarity session started:", sessionId);
-          // Fix type issue by using the correct type
           setCurrentSessionId(sessionId as string);
+
+          // Process any pending user identification
+          if (pendingUserDataRef.current) {
+            console.log("🔄 Processing pending user identification from session callback");
+            const userData = pendingUserDataRef.current;
+            pendingUserDataRef.current = null; // Clear pending data
+            
+            // Call the actual identification logic
+            performUserIdentification(userData);
+          }
 
           // Force an event immediately after session starts to confirm data is flowing
           setTimeout(() => {
@@ -94,7 +116,6 @@ export function useClarity() {
           }, 2000);
         });
 
-        setIsInitialized(true);
       } catch (error) {
         console.error("Failed to initialize Clarity:", error);
       }
@@ -107,59 +128,164 @@ export function useClarity() {
     };
   }, []);
 
+  // Separate function to perform actual user identification
+  const performUserIdentification = (userAttributes: UserAttributes) => {
+    try {
+      console.log("🎯 Performing user identification in Clarity");
+
+      // Set the primary userId using the official method
+      if (userAttributes.userId) {
+        const fullName = `${userAttributes.firstName || ''} ${userAttributes.lastName || ''}`.trim();
+        Clarity.setCustomUserId(fullName);
+        console.log("✅ Custom user ID set:", fullName);
+      }
+
+      // Create a more visible custom session ID with user info
+      const sessionIdentifier = `${userAttributes.firstName || 'User'}_${userAttributes.lastName || 'Unknown'}_${userAttributes.userId?.slice(-8) || 'NoID'}`;
+      try {
+        Clarity.setCustomSessionId(sessionIdentifier);
+        console.log("✅ Custom session ID set for better visibility:", sessionIdentifier);
+      } catch (sessionError) {
+        console.warn("⚠️ Could not set custom session ID:", sessionError);
+      }
+
+      // Set essential user info as prominent session metadata (without user_ prefix for better visibility)
+      const keyUserData = {
+        'userName': `${userAttributes.firstName || ''} ${userAttributes.lastName || ''}`.trim(),
+        'userEmail': userAttributes.email || '',
+        'userHandle': userAttributes.username || '',
+        'accountAge': userAttributes.accountAge || '0',
+        'userType': 'registered_user',
+        'platform': 'mobile_app'
+      };
+
+      // Set key data as session tags (more visible)
+      Object.entries(keyUserData).forEach(([key, value]) => {
+        if (value) {
+          Clarity.setCustomTag(key, String(value));
+          console.log(`✅ Session tag set: ${key} = ${value}`);
+        }
+      });
+
+      // Set each attribute as a custom tag with user_ prefix (for detailed tracking)
+      Object.entries(userAttributes).forEach(([key, value]) => {
+        if (value && key !== 'userId') { // Skip userId as it's already set above
+          Clarity.setCustomTag(`user_${key}`, String(value));
+          console.log(`✅ Detailed tag set: user_${key} = ${value}`);
+        }
+      });
+
+      // Add a consolidated user info tag for easier identification in dashboard
+      const userInfoTag = 
+        `${userAttributes.firstName || ""} ${userAttributes.lastName || ""} (${userAttributes.email || ""})`.trim();
+      if (userInfoTag && userInfoTag !== " ()") {
+        Clarity.setCustomTag("user_display_name", userInfoTag);
+        Clarity.setCustomTag("displayName", userInfoTag); // Also set without prefix for visibility
+        console.log("✅ User display name set:", userInfoTag);
+      }
+
+      // Set additional prominent session metadata
+      Clarity.setCustomTag("sessionType", "authenticated_user");
+      Clarity.setCustomTag("appVersion", "mobile_v3");
+      Clarity.setCustomTag("userStatus", "active");
+      
+      // Add current timestamp for session tracking
+      Clarity.setCustomTag("userIdentifiedAt", new Date().toISOString());
+
+      // Send a custom event to confirm user identification
+      Clarity.sendCustomEvent("UserIdentified");
+
+      // Send a more detailed user identification event
+      try {
+        const userSummary = {
+          name: `${userAttributes.firstName || ''} ${userAttributes.lastName || ''}`.trim(),
+          email: userAttributes.email || '',
+          username: userAttributes.username || '',
+          accountAge: userAttributes.accountAge || '0'
+        };
+        Clarity.sendCustomEvent(`UserProfile: ${JSON.stringify(userSummary)}`);
+        console.log("✅ Detailed user profile event sent");
+      } catch (eventError) {
+        console.warn("⚠️ Could not send detailed user event:", eventError);
+      }
+
+      setIsUserIdentified(true);
+      console.log("🎉 User successfully identified in Clarity with enhanced visibility:", userAttributes);
+
+    } catch (error) {
+      console.error("❌ Failed to identify user in Clarity:", error);
+    }
+  };
+
   // Utility functions to expose
   const sendCustomEvent = (eventName: string, data?: Record<string, any>) => {
-    if (!isInitialized) {
-      console.warn("Clarity not initialized yet. Event not sent:", eventName);
+    if (!isReadyRef.current) {
+      console.warn("Clarity not ready yet. Event not sent:", eventName);
       return;
     }
 
-    // Fix by only passing a single argument if no data is provided
-    if (data) {
-      const eventData = JSON.stringify(data);
-      Clarity.sendCustomEvent(`${eventName}: ${eventData}`);
-    } else {
-      Clarity.sendCustomEvent(eventName);
+    try {
+      // Fix by only passing a single argument if no data is provided
+      if (data) {
+        const eventData = JSON.stringify(data);
+        Clarity.sendCustomEvent(`${eventName}: ${eventData}`);
+      } else {
+        Clarity.sendCustomEvent(eventName);
+      }
+    } catch (error) {
+      console.error("Error sending Clarity event:", error);
     }
   };
 
   const setScreenName = (screenName: string) => {
-    if (!isInitialized) {
+    if (!isReadyRef.current) {
       console.warn(
-        "Clarity not initialized yet. Screen name not set:",
+        "Clarity not ready yet. Screen name not set:",
         screenName,
       );
       return;
     }
 
-    Clarity.setCurrentScreenName(screenName);
+    try {
+      Clarity.setCurrentScreenName(screenName);
+    } catch (error) {
+      console.error("Error setting Clarity screen name:", error);
+    }
   };
 
   const setCustomTag = (key: string, value: string) => {
-    if (!isInitialized) {
-      console.warn("Clarity not initialized yet. Custom tag not set:", key);
+    if (!isReadyRef.current) {
+      console.warn("Clarity not ready yet. Custom tag not set:", key);
       return;
     }
 
-    Clarity.setCustomTag(key, value);
+    try {
+      Clarity.setCustomTag(key, value);
+    } catch (error) {
+      console.error("Error setting Clarity custom tag:", error);
+    }
   };
 
   const setCustomUserId = (userId: string) => {
-    if (!isInitialized) {
+    if (!isReadyRef.current) {
       console.warn(
-        "Clarity not initialized yet. Custom user ID not set:",
+        "Clarity not ready yet. Custom user ID not set:",
         userId,
       );
       return;
     }
 
-    Clarity.setCustomUserId(userId);
-    setIsUserIdentified(true);
+    try {
+      Clarity.setCustomUserId(userId);
+      setIsUserIdentified(true);
+    } catch (error) {
+      console.error("Error setting Clarity user ID:", error);
+    }
   };
 
   // Add a network status monitor and session event
   const checkClarityNetworkStatus = () => {
-    if (!isInitialized) {
+    if (!isReadyRef.current) {
       return;
     }
 
@@ -177,14 +303,14 @@ export function useClarity() {
       if (currentSessionId) {
         console.log("Clarity active session:", currentSessionId);
       } else {
-        console.warn("No active Clarity session detected");
+        console.log("Clarity ready but no session ID yet");
       }
     }
   };
 
   // Schedule periodic checks during development
   useEffect(() => {
-    if (__DEV__ && isInitialized) {
+    if (__DEV__ && isReadyRef.current) {
       const interval = setInterval(() => {
         checkClarityNetworkStatus();
       }, 30000); // Check every 30 seconds in dev mode
@@ -193,100 +319,68 @@ export function useClarity() {
     }
   }, [isInitialized]);
 
-  // New method to identify a user with all their attributes
+  // FIXED: Use ref-based readiness check and queue user data if not ready
   const identifyUser = (userAttributes: UserAttributes) => {
-    if (!isInitialized) {
-      console.warn("Clarity not initialized yet. User not identified.");
+    console.log("🎯 identifyUser called, checking readiness...");
+    
+    if (!isReadyRef.current) {
+      console.log("📝 Clarity not ready yet, queuing user data for later processing");
+      pendingUserDataRef.current = userAttributes;
+      
+      // Also try a delayed retry in case the session callback doesn't work
+      setTimeout(() => {
+        if (pendingUserDataRef.current && isReadyRef.current) {
+          console.log("🔄 Retry: Processing queued user identification");
+          const userData = pendingUserDataRef.current;
+          pendingUserDataRef.current = null;
+          performUserIdentification(userData);
+        }
+      }, 2000);
       return;
     }
 
-    try {
-      // Set the primary userId for Clarity
-      if (userAttributes.userId) {
-        setCustomUserId(userAttributes.userId);
-      }
-
-      // Set each attribute as a custom tag with proper prefixing to ensure visibility
-      if (userAttributes.username) {
-        setCustomTag("user_username", userAttributes.username);
-      }
-
-      if (userAttributes.firstName) {
-        setCustomTag("user_firstName", userAttributes.firstName);
-      }
-
-      if (userAttributes.lastName) {
-        setCustomTag("user_lastName", userAttributes.lastName);
-      }
-
-      if (userAttributes.email) {
-        setCustomTag("user_email", userAttributes.email);
-      }
-
-      // Add a consolidated user info tag to make it easier to see in the Clarity dashboard
-      const userInfoTag =
-        `${userAttributes.firstName || ""} ${userAttributes.lastName || ""} (${userAttributes.email || ""})`.trim();
-      if (userInfoTag) {
-        setCustomTag("user_info", userInfoTag);
-      }
-
-      // Set any additional custom attributes with user_ prefix
-      Object.entries(userAttributes).forEach(([key, value]) => {
-        if (
-          !["userId", "username", "firstName", "lastName", "email"].includes(
-            key,
-          ) &&
-          value
-        ) {
-          setCustomTag(`user_${key}`, String(value));
-        }
-      });
-
-      sendCustomEvent("UserIdentified", {
-        identified: true,
-        username: userAttributes.username,
-      });
-
-      setIsUserIdentified(true);
-      console.log(
-        "User identified in Clarity with full attributes:",
-        userAttributes,
-      );
-    } catch (error) {
-      console.error("Failed to identify user in Clarity:", error);
-    }
+    // If we're ready, process immediately
+    performUserIdentification(userAttributes);
   };
 
   // Clear user identification when user logs out
   const clearUserIdentity = () => {
-    if (!isInitialized) {
+    if (!isReadyRef.current) {
       return;
     }
 
     try {
-      // Attempt to reset the user ID - but Clarity doesn't have a clear method
-      // Best practice is to start a new session
+      // Start a new session to clear the previous user identification
       Clarity.startNewSession((newSessionId) => {
         console.log("Clarity session reset after logout:", newSessionId);
         setCurrentSessionId(newSessionId as string);
+        setIsUserIdentified(false);
+        
+        // Send logout event
+        Clarity.sendCustomEvent("UserLoggedOut");
       });
-
-      setIsUserIdentified(false);
-      sendCustomEvent("UserLoggedOut");
     } catch (error) {
       console.error("Failed to clear user identity in Clarity:", error);
     }
   };
 
   const pauseTracking = () => {
-    if (isInitialized) {
-      Clarity.pause();
+    if (isReadyRef.current) {
+      try {
+        Clarity.pause();
+      } catch (error) {
+        console.error("Error pausing Clarity:", error);
+      }
     }
   };
 
   const resumeTracking = () => {
-    if (isInitialized) {
-      Clarity.resume();
+    if (isReadyRef.current) {
+      try {
+        Clarity.resume();
+      } catch (error) {
+        console.error("Error resuming Clarity:", error);
+      }
     }
   };
 
@@ -302,8 +396,8 @@ export function useClarity() {
     customSessionId?: string;
     timestamp?: string;
   }) => {
-    if (!isInitialized) {
-      console.warn("Clarity not initialized yet. Session info not added.");
+    if (!isReadyRef.current) {
+      console.warn("Clarity not ready yet. Session info not added.");
       return;
     }
 

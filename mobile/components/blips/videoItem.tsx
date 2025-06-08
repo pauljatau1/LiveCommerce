@@ -65,7 +65,7 @@ import { GlassImage } from "@/app/(root)/livestream/components";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent, useEventListener } from "expo";
-import { trackEvent } from "@/utils/mixpanel";
+import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height, width } = Dimensions.get("window");
@@ -162,8 +162,8 @@ const VideoItem = ({
         if (result.activityType) {
           // shared with activity type of result.activityType
           try {
-            const userData = await AsyncStorage.getItem('user');
-            const user = JSON.parse(userData || '{}');
+            const userData = await AsyncStorage.getItem("user");
+            const user = JSON.parse(userData || "{}");
             trackEvent("blip_shared", {
               blipId: id,
               userId: user?._id,
@@ -187,17 +187,17 @@ const VideoItem = ({
     }
   };
 
-  const handlePlaybackStatusUpdate = (status: any) => {
-    if (!status.isLoaded) return;
+  // const handlePlaybackStatusUpdate = (status: any) => {
+  //   if (!status.isLoaded) return;
 
-    setTimeout(
-      () =>
-        setLoading(
-          (!status.isPlaying && status.shouldPlay) || status.isBuffering,
-        ),
-      1000,
-    );
-  };
+  //   setTimeout(
+  //     () =>
+  //       setLoading(
+  //         (!status.isPlaying && status.shouldPlay) || status.isBuffering,
+  //       ),
+  //     1000,
+  //   );
+  // };
 
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
@@ -212,8 +212,8 @@ const VideoItem = ({
       setLiked(false);
       setLikes(likes - 1);
       try {
-        const userData = await AsyncStorage.getItem('user');
-        const user = JSON.parse(userData || '{}');
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
         trackEvent("blip_unliked", {
           blipId: id,
           userId: user?._id,
@@ -230,8 +230,8 @@ const VideoItem = ({
       setLiked(true);
       setLikes(likes + 1);
       try {
-        const userData = await AsyncStorage.getItem('user');
-        const user = JSON.parse(userData || '{}');
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
         trackEvent("blip_liked", {
           blipId: id,
           userId: user?._id,
@@ -257,13 +257,12 @@ const VideoItem = ({
         data: null,
       };
       const response = await axios(config);
-
     } catch (e: any) {
       console.log("error liking blip ", e.response.data);
     }
   };
 
-  const handleView = async () => {
+  const handleView = useCallback(async () => {
     const token = await getToken();
     try {
       const config = {
@@ -280,7 +279,7 @@ const VideoItem = ({
     } catch (e: any) {
       console.log("error viewing blip ", e.response.data);
     }
-  };
+  }, []);
 
   const handleCantComment = useCallback(() => {
     setShowComments(false);
@@ -417,8 +416,8 @@ const VideoItem = ({
 
   const handleBlipProductClickTrack = async () => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      const user = JSON.parse(userData || '{}');
+      const userData = await AsyncStorage.getItem("user");
+      const user = JSON.parse(userData || "{}");
       trackEvent("blip_product_clicked", {
         blipId: id,
         userId: user?._id,
@@ -432,7 +431,6 @@ const VideoItem = ({
       console.error("Error tracking blip product clicked:", error);
     }
   };
-
 
   useEffect(() => {
     if (offlineAuctionData) {
@@ -449,8 +447,8 @@ const VideoItem = ({
     const trackBlipViewed = async () => {
       if (isVisible) {
         try {
-          const userData = await AsyncStorage.getItem('user');
-          const user = JSON.parse(userData || '{}');
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
           trackEvent("blip_viewed", {
             blipId: id,
             userId: user?._id,
@@ -463,7 +461,7 @@ const VideoItem = ({
           console.error("Error tracking blip viewed:", error);
         }
       }
-    }
+    };
 
     trackBlipViewed();
   }, [isVisible]);

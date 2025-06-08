@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, FlatList } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, memo } from "react";
 import { useGetAllProductsQuery } from "@/services/products";
 import { ActivityIndicator } from "react-native-paper";
 import ProductCard from "@/components/global/product-card";
@@ -8,6 +8,8 @@ import ProductSkeleton from "@/components/skeleton/productSkeleton";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
 import { router } from "expo-router";
 import LottieView from "lottie-react-native";
+import { FlashList } from "@shopify/flash-list";
+import { debounce } from "lodash";
 
 interface GeneralCategoryProps {
   name: string;
@@ -32,16 +34,17 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
       console.log("catalog pagination ", {
         isFetching,
         hasReachedEnd,
+        page,
       });
 
       setPage((prev) => prev + 1);
     }
   };
 
-  const renderSubCategory = (subCat: string) => {
+  const renderSubCategory = useCallback((subCat: string) => {
     return (
       <TouchableOpacity
-        className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
+        className="bg-[#2e2e2e] rounded-[10px] items-center justify-center p-[8px] px-[10px]"
         style={{
           marginRight: 10,
         }}
@@ -57,13 +60,18 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
         </Text>
       </TouchableOpacity>
     );
-  };
+  }, []);
 
-  const renderCategoryData = (item: any) => {
+  const renderCategoryData = ({ item }: any) => {
     return (
-      <View className="w-[100%] basis-[49%]">
+      <View
+        className="w-[100%]"
+        style={{
+          flexShrink: 1,
+          margin: 4,
+        }}
+      >
         <CatalogCard
-          key={item.id}
           id={item._id}
           title={item.name}
           price={item.price}
@@ -77,9 +85,9 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     );
   };
 
-  const renderEmptyPlaceholder = () => {
+  const renderEmptyPlaceholder = useCallback(() => {
     return <ProductEmptyState />;
-  };
+  }, [products]);
 
   const renderListFooter = useCallback(() => {
     if (isFetching && !hasReachedEnd) {
@@ -109,7 +117,11 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
 
   useEffect(() => {
     if (data) {
-      setProducts([...products, ...data?.data?.products]);
+      if (page == 1) {
+        setProducts(data?.data?.products);
+      } else {
+        setProducts([...products, ...data?.data?.products]);
+      }
 
       if (!data?.data?.pagination?.hasNextPage) {
         console.log({
@@ -126,8 +138,13 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   }, [page]);
 
   return (
-    <View className="w-full ">
-      <View className="w-full mb-[20px]">
+    <View className="w-full flex-1">
+      <View
+        className="w-full mb-[20px] mt-[20px]"
+        style={{
+          marginTop: 20,
+        }}
+      >
         <FlatList
           data={strippedCategory}
           renderItem={({ item }) => renderSubCategory(item)}
@@ -140,19 +157,23 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
         />
       </View>
 
-      {isLoading ? (
+      {isLoading || (isFetching && page == 1) ? (
         <ProductSkeleton numOfLoaders={4} height={157} padding={16} />
       ) : (
-        <View className="w-full justify-between gap-[8px] px-[16px]">
-          <FlatList
+        <View className="w-full justify-between gap-[8px] px-[16px] flex-1">
+          <FlashList
             data={products}
-            renderItem={({ item, index }) => renderCategoryData(item)}
-            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderCategoryData}
+            keyExtractor={(item, index) => item?._id || index.toString()}
             numColumns={2}
-            columnWrapperStyle={{
-              justifyContent: "space-between", // Add space between columns
-              marginBottom: 8, // Add space between rows
+            // columnWrapperStyle={{
+            //   justifyContent: "space-between",
+            //   marginBottom: 8,
+            // }}
+            contentContainerStyle={{
+              paddingBottom: 60,
             }}
+            estimatedItemSize={300}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
             ListFooterComponent={renderListFooter}
@@ -165,4 +186,4 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   );
 };
 
-export default GeneralCategory;
+export default memo(GeneralCategory);

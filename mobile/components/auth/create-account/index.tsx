@@ -31,6 +31,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoadingModal from "@/components/global/loading-modal";
 import { identifyUser, trackEvent } from "@/utils/analytics";
 import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
+import { trackFacebookEvent } from "@/utils/facebook-analytics";
+import { trackEvent as trackCustomerioEvent } from "@/utils/customerio";
 
 const service = [
   {
@@ -120,7 +122,31 @@ const CreateAccount = () => {
             });
             
             // Track event for buyer signup
-            trackEvent('buyer_account_created', {
+            trackMixpanelEvent('buyer_account_created', {
+              userId: result?.user?._id,
+              email: email,
+              firstName: result?.user?.firstName,
+              lastName: result?.user?.lastName,
+              username: result?.user?.username,
+              phoneNumber: result?.user?.phoneNumber,
+              userType: "buyer",
+              osType: Platform.OS,
+              timestamp: new Date().toISOString()
+            });
+            // Track event for buyer signup
+            trackCustomerioEvent('buyer_account_created', {
+              userId: result?.user?._id,
+              email: email,
+              firstName: result?.user?.firstName,
+              lastName: result?.user?.lastName,
+              username: result?.user?.username,
+              phoneNumber: result?.user?.phoneNumber,
+              userType: "buyer",
+              osType: Platform.OS,
+              timestamp: new Date().toISOString()
+            });
+
+            trackFacebookEvent('CompleteRegistration', {
               userId: result?.user?._id,
               email: email,
               firstName: result?.user?.firstName,

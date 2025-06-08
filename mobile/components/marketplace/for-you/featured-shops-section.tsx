@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, memo } from "react";
 import { FlatList, View, Text } from "react-native";
 import useCarousel from "@/hooks/useCarousel";
 import SectionHeader from "@/components/global/section-header";
@@ -34,25 +34,19 @@ const ForYouFeaturedShopsSection = () => {
       console.log(e);
     }
   };
-  const { activeIndex, flatlistRef, handleScroll } = useCarousel({
-    dataLength: data.productsData.length,
-    autoScroll: false, // Disable auto-scroll here
-  });
 
-  const renderDotIndicators = () => {
-    return [1, 2].map((_, index) => (
+  const renderContent = useCallback(({ item: row }: any) => {
+    return (
       <View
-        key={index}
+        className=" mb-[5.54px] w-[50%] shrink"
         style={{
-          backgroundColor: activeIndex === index ? "#CCCCCC" : "#F2F2F2",
-          height: 6,
-          width: activeIndex === index ? 40 : 6,
-          borderRadius: 3,
-          marginHorizontal: 3,
+          flexShrink: 1,
         }}
-      />
-    ));
-  };
+      >
+        <FollowCard item={row?._id} data={row} />
+      </View>
+    );
+  }, []);
 
   const renderEmptySellers = useCallback(() => {
     return (
@@ -80,9 +74,6 @@ const ForYouFeaturedShopsSection = () => {
     <View className="w-[100%] pb-[9.5px]">
       <View className="flex-row items-center justify-between">
         <SectionHeader title="Featured Shops" />
-        <View style={{ marginRight: 16 }}>
-          <View className="flex-row">{renderDotIndicators()}</View>
-        </View>
       </View>
       <View
         style={{
@@ -93,23 +84,12 @@ const ForYouFeaturedShopsSection = () => {
       >
         <FlatList
           data={shops}
-          renderItem={({ item: row }) => (
-            <View
-              className=" mb-[5.54px] w-[50%] shrink"
-              style={{
-                flexShrink: 1,
-              }}
-            >
-              <FollowCard item={row?._id} data={row} />
-            </View>
-          )}
-          ref={flatlistRef}
-          keyExtractor={(_, index) => `page-${index}`}
+          renderItem={renderContent}
+          keyExtractor={(item, index) => item?._id || `page-${index}`}
           // horizontal
           showsHorizontalScrollIndicator={false}
           className="pt-[10px]"
           // pagingEnabled
-          onScroll={handleScroll}
           ListEmptyComponent={renderEmptySellers}
           numColumns={2}
           contentContainerStyle={{
@@ -121,4 +101,4 @@ const ForYouFeaturedShopsSection = () => {
   );
 };
 
-export default ForYouFeaturedShopsSection;
+export default memo(ForYouFeaturedShopsSection);

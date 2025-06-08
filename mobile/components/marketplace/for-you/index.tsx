@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, RefreshControl } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { memo, useEffect, useState } from "react";
 import Carousel from "./carousel";
@@ -11,6 +11,7 @@ import ForYouAuctionSection from "./auction-section";
 import KeepShowingSection from "../keep-showing-section";
 import axios from "axios";
 import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
+import { ScrollView } from "react-native-virtualized-view";
 
 const ForYou = () => {
   const [banners, setBanners] = useState<any[]>([]);
@@ -36,29 +37,42 @@ const ForYou = () => {
     handleGetBanners();
   }, []);
   return (
-    <View className="w-full">
-      <View>
-        <Carousel banners={banners} />
-        <View
-          style={{
-            borderBottomColor: "rgba(255, 255, 255, 0.38)",
-            borderBottomWidth: 1,
-            marginLeft: 0,
-            marginRight: 0,
-            marginTop: 12,
-            marginBottom: 24,
-          }}
-        />
-        <ForYouSection />
-        <ForYouCatetorySection />
-        <ForYouTrendingSection />
-        <Carousel banners={banners} />
-        <ForYouNewAuqliSection />
-        <ForYouFeaturedShopsSection />
-        <ForYouAuctionSection />
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      // refreshControl={
+      //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      // }
+      // nestedScrollEnabled={true}
+      contentContainerStyle={{
+        paddingTop: 20,
+        paddingBottom: 80,
+        // flex: 1,
+      }}
+    >
+      <View className="w-full flex-1">
+        <View>
+          <Carousel banners={banners} />
+          <View
+            style={{
+              borderBottomColor: "rgba(255, 255, 255, 0.38)",
+              borderBottomWidth: 1,
+              marginLeft: 0,
+              marginRight: 0,
+              marginTop: 12,
+              marginBottom: 24,
+            }}
+          />
+          <ForYouSection />
+          {/* <ForYouCatetorySection /> */}
+          <ForYouTrendingSection />
+          {/* <Carousel banners={banners} /> */}
+          <ForYouNewAuqliSection />
+          <ForYouFeaturedShopsSection />
+          <ForYouAuctionSection />
+        </View>
         <KeepShowingSection />
       </View>
-    </View>
+    </ScrollView>
   );
 };
 

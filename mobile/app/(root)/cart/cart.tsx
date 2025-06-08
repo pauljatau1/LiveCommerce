@@ -23,6 +23,9 @@ import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
 import WishList from "@/components/cart/wishlist";
 import { trackEvent } from "@/utils/analytics";
+import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
+import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
+import { trackFacebookEvent } from "@/utils/facebook-analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -151,7 +154,33 @@ const CartScreen = () => {
             try {
               const userData = await AsyncStorage.getItem("user");
               const user = JSON.parse(userData || '{}');
-              trackEvent("product_added_to_wishlist", {
+              trackEventMixpanel("product_added_to_wishlist", {
+                productId: data._id,
+                productName: data?.name,
+                productPrice: `₦${data?.price?.toLocaleString()}`,
+                productImage: data?.images[0]?.url,
+                userId: user?._id,
+                email: user?.email,
+                firstName: user?.firstName,
+                lastName: user?.lastName,
+                username: user?.username,
+                timestamp: new Date().toISOString(),
+              });
+              
+              trackEventCustomerio("product_added_to_wishlist", {
+                productId: data._id,
+                productName: data?.name,
+                productPrice: `₦${data?.price?.toLocaleString()}`,
+                productImage: data?.images[0]?.url,
+                userId: user?._id,
+                email: user?.email,
+                firstName: user?.firstName,
+                lastName: user?.lastName,
+                username: user?.username,
+                timestamp: new Date().toISOString(),
+              });
+
+              trackFacebookEvent("AddToWishlist", {
                 productId: data._id,
                 productName: data?.name,
                 productPrice: `₦${data?.price?.toLocaleString()}`,

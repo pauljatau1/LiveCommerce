@@ -58,7 +58,7 @@ const Explore = () => {
         >
           <View className="relative items-center rounded-[8px] overflow-hidden pb-[8px] bg-[#2e2e2e] gap-[8px]">
             <GlassImage
-              source={{ uri: category?.image?.url }}
+              source={{ uri: category?.image?.url, width: 200, height: 200 }}
               resizeMode="cover"
               imageStyle={{
                 width: "100%",

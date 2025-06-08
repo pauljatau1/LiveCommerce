@@ -9,7 +9,8 @@ module.exports = ({ config }) => {
     expo: {
       name: "auqli",
       slug: "auqli-app",
-      version: "1.1.6",
+      // slug: "auqli-mobile",
+      version: "1.1.7",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
       scheme: "myapp",
@@ -86,7 +87,6 @@ module.exports = ({ config }) => {
         ],
         "expo-dev-client",
         "@react-native-google-signin/google-signin",
-        "expo-tracking-transparency",
         "expo-video",
         "./plugins/withWindowSoftInputMode",
         [
@@ -97,7 +97,7 @@ module.exports = ({ config }) => {
             },
             ios: {
               pushNotification: {
-                useRichPush: true,
+                useRichPush: false,
                 env: {
                   cdpApiKey: "dc26bc9d13796901d562",
                   region: "us",
@@ -132,7 +132,17 @@ module.exports = ({ config }) => {
             appId: process.env.FACEBOOK_APP_ID,
           },
         ],
-        "./plugins/withFirebaseModularHeaders.js",
+        // "./plugins/withFirebaseModularHeaders",
+        "./plugins/withFacebookSDKDependencies",
+        "@react-native-firebase/app",
+        [
+          "expo-build-properties",
+          {
+            ios: {
+              useFrameworks: "static",
+            },
+          },
+        ],
       ],
       experiments: {
         typedRoutes: true,

@@ -115,7 +115,11 @@ const SingleOrder = () => {
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
           <TouchableOpacity
             className="absolute left-[12px]"
-            onPress={() => router.back()}
+            onPress={() => {
+              router?.canGoBack()
+                ? router.back()
+                : router.push("/(root)/(tabs)/profile");
+            }}
           >
             <Entypo
               name="chevron-left"
@@ -402,7 +406,10 @@ const SingleOrder = () => {
                     </View>
 
                     {order?.order?.isStorePickup && (
-                      <StorePickupDetails details={order.items[0]} />
+                      <StorePickupDetails
+                        details={order.items[0]}
+                        address={order?.seller?.sellerAddress}
+                      />
                     )}
 
                     <View>
@@ -501,7 +508,7 @@ const SingleOrder = () => {
   );
 };
 
-const StorePickupDetails = ({ details }: any) => {
+const StorePickupDetails = ({ details, address }: any) => {
   return (
     <View>
       <Text className="text-[14px] mb-[10px] font-LexendDecaSemiBold text-white">
@@ -526,10 +533,18 @@ const StorePickupDetails = ({ details }: any) => {
         </View>
         <View className="flex-row items-center justify-between gap-[8px]">
           <Text className="text-white font-LexendDecaLight text-[12px]">
+            Seller State:
+          </Text>
+          <Text className="text-white font-LexendDecaMedium text-[12px] shrink">
+            {address?.state}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-between gap-[8px]">
+          <Text className="text-white font-LexendDecaLight text-[12px]">
             Seller Address:
           </Text>
           <Text className="text-white font-LexendDecaMedium text-[12px] shrink">
-            {details?.product?.seller?.warehouseDetails?.address?.addressLine1}
+            {address?.addressLine1}
           </Text>
         </View>
         {/* <View className="flex-row items-center justify-between">

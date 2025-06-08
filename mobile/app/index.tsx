@@ -41,19 +41,43 @@ const Home = () => {
       purpose: "User opened the app",
     });
 
-    // Initialize user tracking for Clarity
+    // FIXED: Initialize user tracking for Clarity with improved timing
     const initializeClarityUser = async () => {
       try {
+        console.log("🎯 Starting Clarity user identification process...");
+        
+        // Get user attributes
         const userAttributes = await getUserAttributesForClarity();
         if (userAttributes) {
+          console.log("🚀 User attributes found, calling clarity.identifyUser:", userAttributes);
           clarity.identifyUser(userAttributes);
+        } else {
+          console.log("⚠️ No user attributes available for Clarity tracking at app start");
+          
+          // Set up a retry mechanism for when user logs in later
+          setTimeout(async () => {
+            try {
+              console.log("🔄 Retrying Clarity user identification...");
+              const retryUserAttributes = await getUserAttributesForClarity();
+              if (retryUserAttributes) {
+                console.log("✅ Retry successful, identifying user:", retryUserAttributes);
+                clarity.identifyUser(retryUserAttributes);
+              } else {
+                console.log("⚠️ Retry failed - still no user attributes");
+              }
+            } catch (error) {
+              console.error("❌ Error in retry Clarity user tracking:", error);
+            }
+          }, 5000); // Retry after 5 seconds
         }
       } catch (error) {
-        console.error("Error initializing Clarity user tracking:", error);
+        console.error("❌ Error initializing Clarity user tracking:", error);
       }
     };
 
-    initializeClarityUser();
+    // Start Clarity user identification with reduced delay since we improved the hook timing
+    console.log("⏰ Scheduling Clarity user identification in 1 second...");
+    setTimeout(initializeClarityUser, 1000); // Reduced from 3000ms to 1000ms
 
     // For preview builds - use forceSafeMode: true to completely avoid Facebook SDK
     // For production builds - SDK will be initialized normally
@@ -71,7 +95,7 @@ const Home = () => {
       trackScreen("App Start", { isFirstTime: !!isFirstTime });
 
       if (isFirstTime) {
-        router.replace("../(root)/(tabs)/home");
+        router.replace("../(root)/(tabs)/blips");
       } else {
         router.replace("../(root)/(auth)/welcome");
       }
@@ -79,6 +103,7 @@ const Home = () => {
     getToken();
     // SplashScreen.hideAsync();
   }, []);
+  
   return <View className="h-full w-full bg-[#121212]" />;
 };
 

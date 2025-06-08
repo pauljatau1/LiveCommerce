@@ -85,18 +85,27 @@ const Marketplace = () => {
   }, [allCategories]);
 
   const renderContent = useCallback(() => {
+    console.log("changing tabs ", {
+      selected,
+    });
+
     // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
     if (selected == "For You") {
       return <ForYou />;
     }
 
+    const currentCategory = allCategories?.find(
+      (cat: any) => cat.name == selected,
+    );
+
     return (
       <GeneralCategory
+        key={`category-${currentCategory?._id || selected}`}
         name={selected}
-        category={allCategories?.find((cat: any) => cat.name == selected)}
+        category={currentCategory}
       />
     );
-  }, [selected]);
+  }, [selected, setSelected]);
 
   return (
     <View className="pt-[30px]" style={{ flex: 1 }}>
@@ -112,24 +121,22 @@ const Marketplace = () => {
           />
         )}
       </View>
-      <ScrollView
-        // ref={scrollViewRef}
-        // onContentSizeChange={() => scrollViewRef.current?.scrollTo({ y: 0 })}
-        // style={{ flex: 1 }}
-        // className="w-full"
+      {/* <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        nestedScrollEnabled={true}
         contentContainerStyle={{
           paddingTop: 20,
           paddingBottom: 80,
           flexGrow: 1,
         }}
-      >
-        {selected && renderContent()}
+      ></ScrollView> */}
 
-        {selected == "For You" ? (
+      {renderContent()}
+
+      {/* {selected == "For You s" ? (
           <View>
             <View className="w-full relative px-[23px] ">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
@@ -155,8 +162,7 @@ const Marketplace = () => {
               </View>
             </View>
           </View>
-        ) : null}
-      </ScrollView>
+        ) : null} */}
 
       <View className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">
         <CustomButton
