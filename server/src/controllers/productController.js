@@ -2541,6 +2541,9 @@ exports.getSellerProducts = async (req, res) => {
       limit = 10, 
       status, 
       visibility,
+      minPrice,
+      maxPrice,
+      condition,
       sortBy = 'newest' 
     } = req.query;
 
@@ -2556,6 +2559,18 @@ exports.getSellerProducts = async (req, res) => {
     }
     if (visibility) {
       query.visibility = visibility;
+    }
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
 
     // Build sort options

@@ -2029,6 +2029,22 @@ router.put('/:id/visibility',
  *           enum: [visible, hidden, featured]
  *         description: Filter by visibility status
  *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
