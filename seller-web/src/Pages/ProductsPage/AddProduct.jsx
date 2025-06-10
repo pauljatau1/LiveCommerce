@@ -268,28 +268,6 @@ const AddProduct = () => {
         }
     };
 
-        // Show success message for valid files
-        if (validFiles.length > 0) {
-            toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
-        }
-    };
-
-    // Simulate upload progress (remove this when implementing actual upload)
-    const simulateUpload = (file, onProgress) => {
-        return new Promise((resolve) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 5;
-                onProgress(progress);
-
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 200);
-        });
-    };
-
     const fetchSeller = localStorage.getItem('seller');
     const sellerDetails = fetchSeller ? JSON.parse(fetchSeller) : null;
 
