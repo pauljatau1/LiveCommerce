@@ -66,7 +66,7 @@ const ProductsPage = () => {
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); 
     const [sortType, setSortType] = useState('newest-to-oldest'); 
-    const { seller, fetchSellerDetails } = useAuthContext();
+    const { fetchSellerDetails } = useAuthContext();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +91,8 @@ const ProductsPage = () => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
+    const seller = JSON.parse(localStorage.getItem('seller'));
+    
     // Email Verification Modal state
     const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
 
@@ -127,6 +128,9 @@ const ProductsPage = () => {
             fetchProducts();
         }
     }, [sortType, activeTab, itemsPerPage, currentPage, isStockUpdated, isSearchMode]);
+
+
+    
 
     const fetchProducts = () => {
         // Skip fetch if we're in search mode - search is handled by the search button
