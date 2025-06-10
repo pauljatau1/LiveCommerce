@@ -26,6 +26,11 @@ const Admin = require('../models/Admin');
 const mixpanel = require('../config/mixpanel');
 const { DeleteS3Objects } = require('../utils/s3');
 
+// SmileID integration
+const SIDCore = require("smile-identity-core");
+const SIDSignature = SIDCore.Signature;
+const SIDWebAPI = SIDCore.WebApi;
+const IDApi = SIDCore.IDApi; // ← Add IDApi import
 
 // Add this helper function at the top of the file
 const generateUniqueAgoraUid = async () => {
@@ -352,6 +357,7 @@ exports.getProfile = async (req, res) => {
         storePolicy: 1,
         accountPending: 1,
         offersStorePickup: 1, // Add this line to include offersStorePickup
+        smileIdVerification: 1,
       })
       .lean();
 
@@ -359,13 +365,23 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Get counts
-    const [orderCount, streamCount, categoriesCount, followingCount] = await Promise.all([
+    // Get counts and product-related data
+    const [orderCount, streamCount, categoriesCount, followingCount, products] = await Promise.all([
       Order.countDocuments({ seller: req.user.id }),
       Stream.countDocuments({ seller: req.user.id }),
       Seller.findById(req.user.id).select('categories').then(s => s.categories.length),
-      Buyer.countDocuments({ 'followers.sellerId': req.user.id })
+      Buyer.countDocuments({ 'followers.sellerId': req.user.id }),
+      Product.find({ seller: req.user.id }).select('blips').lean()
     ]);
+
+    // Check if seller has any products
+    const hasProducts = products.length > 0;
+
+    // Count total blips across all products
+    const totalBlips = products.reduce((total, product) => {
+      return total + (product.blips ? product.blips.length : 0);
+    }, 0);
+    const hasMoreThan10Blips = totalBlips > 10;
 
     // Add the count fields to the response
     const sellerProfile = {
@@ -375,6 +391,8 @@ exports.getProfile = async (req, res) => {
       totalOrders: orderCount,
       streamCount: streamCount,
       categoriesCount: categoriesCount,
+      hasProducts: hasProducts,
+      hasMoreThan10Blips: hasMoreThan10Blips,
       // Add current store status
       storeStatus: {
         isCurrentlyOpen: seller.isCurrentlyOpen?.(),
@@ -621,6 +639,675 @@ exports.uploadIndividualVerification = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to upload verification documents', 
+      error: error.message 
+    });
+  }
+};
+
+// Corrected SmileID Integration Endpoints
+// Key fixes:
+// 1. Use job_type instead of product for token generation
+// 2. Add proper job submission endpoint
+// 3. Fix verification success detection
+// 4. Ensure jobs appear in SmileID dashboard
+
+// Generate SmileID Token for Web Integration
+exports.generateSmileIdToken = async (req, res) => {
+  try {
+    const { accountType, userId, idType } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!accountType || !idType) {
+      return res.status(400).json({ 
+        message: 'Account type and ID type are required' 
+      });
+    }
+
+    // Validate account type
+    if (!['individual', 'business'].includes(accountType)) {
+      return res.status(400).json({ 
+        message: 'Account type must be either "individual" or "business"' 
+      });
+    }
+
+    // Validate ID type based on account type
+    let validIdTypes;
+    if (accountType === 'individual') {
+      validIdTypes = ['NIN_SLIP', 'BVN', 'V_NIN', 'PHONE_NUMBER'];
+    } else {
+      validIdTypes = ['BN', 'CO', 'IT'];
+    }
+
+    if (!validIdTypes.includes(idType)) {
+      return res.status(400).json({ 
+        message: `Invalid ID type for ${accountType} account. Valid types: ${validIdTypes.join(', ')}` 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Initialize SmileID connection
+    const connection = new SIDWebAPI(
+      process.env.SMILEID_PARTNER_ID,
+     `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`,
+      process.env.SMILEID_API_KEY,
+      process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1 // 0 for sandbox, 1 for production
+    );
+
+    // Generate unique IDs for tracking
+    const timestamp = Date.now();
+    const uniqueUserId = userId || `seller-${sellerId}-${timestamp}`;
+    const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+    // CRITICAL FIX: Use 'product' instead of 'job_type' for get_web_token
+    // Valid products: 'authentication', 'basic_kyc', 'smartselfie', 'biometric_kyc', 'enhanced_kyc', 'doc_verification'
+    let product;
+    if (accountType === 'individual') {
+      // For Enhanced KYC with NIN_V2 - use 'enhanced_kyc'
+      product = 'enhanced_kyc';
+    } else {
+      // For Business Verification - use 'doc_verification' 
+      product = 'doc_verification';
+    }
+
+    // Build request parameters correctly for get_web_token
+    const requestParams = {
+      user_id: uniqueUserId,
+      job_id: uniqueJobId,
+      product: product, // CRITICAL: Use 'product' not 'job_type' for get_web_token
+      callback_url: `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`, // Optional callback URL
+      // Add partner parameters for metadata
+      partner_params: {
+        seller_id: sellerId.toString(),
+        account_type: accountType,
+        id_type: idType,
+        verification_timestamp: new Date().toISOString(),
+        seller_email: seller.email,
+        seller_name: `${seller.firstName} ${seller.lastName}`
+      }
+    };
+
+    console.log('SmileID token request params:', JSON.stringify(requestParams, null, 2));
+
+    // Generate the token
+    const result = await connection.get_web_token(requestParams);
+
+    console.log('SmileID token response:', JSON.stringify(result, null, 2));
+
+    // Validate the response
+    if (!result || !result.token) {
+      throw new Error('Invalid token response from SmileID');
+    }
+
+    // Log successful token generation
+    console.log(`SmileID token generated for seller ${sellerId}, product: ${product}, account type: ${accountType}, ID type: ${idType}`);
+
+    res.json({
+      token: result.token,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(), // Token expires in 1 hour
+      userId: uniqueUserId,
+      jobId: uniqueJobId,
+      product: product,
+      accountType: accountType,
+      idType: idType,
+      success: result.success || true
+    });
+
+  } catch (error) {
+    console.error('SmileID token generation error:', error);
+    res.status(500).json({ 
+      message: 'Failed to generate SmileID token', 
+      error: error.message 
+    });
+  }
+};
+
+// Process SmileID Job Submission (Fixed for Enhanced KYC)
+exports.processSmileIdJob = async (req, res) => {
+  try {
+    const { images, partner_params, idInfo } = req.body;
+    const sellerId = req.user.id;
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // For Enhanced KYC (Individual verification with ID number), use IDApi instead of SIDWebAPI
+    if (seller.accountType === 'individual') {
+      
+      // Validate required ID information for Enhanced KYC
+      if (!idInfo || !idInfo.id_number || !idInfo.first_name || !idInfo.last_name) {
+        return res.status(400).json({ 
+          message: 'Required ID information missing for Enhanced KYC. Please provide first_name, last_name, and id_number.' 
+        });
+      }
+
+      // Initialize IDApi for Enhanced KYC
+      const connection = new IDApi(
+        process.env.SMILEID_PARTNER_ID,
+        process.env.SMILEID_API_KEY,
+        process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1
+      );
+
+      // Generate job parameters
+      const timestamp = Date.now();
+      const uniqueUserId = `seller-${sellerId}-${timestamp}`;
+      const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+      const partner_params_data = {
+        job_id: uniqueJobId,
+        user_id: uniqueUserId,
+        job_type: 5, // Enhanced KYC
+        seller_id: sellerId.toString(),
+        account_type: seller.accountType,
+        verification_timestamp: new Date().toISOString(),
+        seller_email: seller.email,
+        seller_name: `${seller.firstName} ${seller.lastName}`,
+        ...partner_params
+      };
+
+      // Prepare id_info according to SmileID Enhanced KYC documentation
+      const id_info = {
+        first_name: idInfo.first_name,
+        last_name: idInfo.last_name,
+        country: idInfo.country || 'NG',
+        id_type: idInfo.id_type || 'NIN_SLIP',
+        id_number: idInfo.id_number,
+        phone_number: idInfo.phone_number,
+        ...(idInfo.dob && { dob: idInfo.dob }) // Optional date of birth
+      };
+
+      // Note: NIN_SLIP does not require Enterprise ID (unlike NIN_V2)
+
+      // Set options for Enhanced KYC
+      const options = {
+        signature: true,
+        return_job_status: true,
+        return_history: true,
+        return_images: true
+      };
+
+      console.log('Submitting Enhanced KYC job to SmileID:');
+      console.log('Partner Params:', JSON.stringify(partner_params_data, null, 2));
+      console.log('ID Info:', JSON.stringify(id_info, null, 2));
+
+      // Submit Enhanced KYC job using IDApi
+      const result = await connection.submit_job(
+        partner_params_data,
+        id_info,
+        options
+      );
+
+      console.log('SmileID Enhanced KYC result:', JSON.stringify(result, null, 2));
+
+      // Save the job result
+      if (result && result.success !== false) {
+        await saveVerificationResult(sellerId, result, seller.accountType);
+      }
+
+      res.json({
+        success: true,
+        jobId: uniqueJobId,
+        result: result
+      });
+
+    } else {
+      // For business verification, keep using SIDWebAPI with images
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ 
+          message: 'Images are required for business verification' 
+        });
+      }
+
+      // Initialize SIDWebAPI for Business Verification
+      const connection = new SIDWebAPI(
+        process.env.SMILEID_PARTNER_ID,
+        process.env.SMILEID_CALLBACK_URL || `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`,
+        process.env.SMILEID_API_KEY,
+        process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1
+      );
+
+      // Generate job parameters for business verification
+      const timestamp = Date.now();
+      const uniqueUserId = `seller-${sellerId}-${timestamp}`;
+      const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+      const jobParams = {
+        user_id: uniqueUserId,
+        job_id: uniqueJobId,
+        job_type: 7, // Business Verification
+        partner_params: {
+          seller_id: sellerId.toString(),
+          account_type: seller.accountType,
+          verification_timestamp: new Date().toISOString(),
+          seller_email: seller.email,
+          seller_name: `${seller.firstName} ${seller.lastName}`,
+          ...partner_params
+        }
+      };
+
+      // Submit business verification job
+      const options = {
+        return_job_status: true,
+        return_history: true,
+        return_images: true
+      };
+
+      console.log('Submitting business verification job to SmileID:');
+      console.log('Job Params:', JSON.stringify(jobParams, null, 2));
+
+      const result = await connection.submit_job(
+        jobParams,
+        images,
+        idInfo || {},
+        options
+      );
+
+      console.log('SmileID business verification result:', JSON.stringify(result, null, 2));
+
+      // Save the job result
+      if (result && result.success !== false) {
+        await saveVerificationResult(sellerId, result, seller.accountType);
+      }
+
+      res.json({
+        success: true,
+        jobId: uniqueJobId,
+        result: result
+      });
+    }
+
+  } catch (error) {
+    console.error('SmileID job processing error:', error);
+    res.status(500).json({ 
+      message: 'Failed to process SmileID job', 
+      error: error.message 
+    });
+  }
+};
+
+// Helper function to save verification result
+const saveVerificationResult = async (sellerId, smileIdResult, accountType) => {
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) return;
+
+    // CRITICAL: Check for actual success based on images and result codes
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: accountType,
+      provider: 'SmileID',
+      result: smileIdResult,
+      verifiedAt: new Date(),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only set verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    console.log(`Verification result saved for seller ${sellerId}, success: ${isActuallySuccessful}`);
+  } catch (error) {
+    console.error('Error saving verification result:', error);
+  }
+};
+
+// Save Individual SmileID Verification Result
+exports.saveIndividualSmileIdVerification = async (req, res) => {
+  try {
+    const { smileIdResult, accountType, verifiedAt, verificationProvider } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!smileIdResult || !accountType || !verifiedAt || !verificationProvider) {
+      return res.status(400).json({ 
+        message: 'SmileID result, account type, verified date, and verification provider are required' 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // CRITICAL: Check if verification was actually successful based on images and result codes
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    console.log(`Individual verification assessment: hasImages=${hasImages}, resultCode=${smileIdResult.ResultCode}, isActuallySuccessful=${isActuallySuccessful}`);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: 'individual',
+      provider: verificationProvider,
+      result: smileIdResult,
+      verifiedAt: new Date(verifiedAt),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only mark as verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    // Track verification completion
+    try {
+      mixpanel.track('seller_individual_smileid_verification', {
+        distinct_id: sellerId,
+        sellerId: sellerId,
+        sellerName: `${seller.firstName} ${seller.lastName}`,
+        email: seller.email,
+        verificationProvider: verificationProvider,
+        verificationStatus: isActuallySuccessful ? 'verified' : 'failed',
+        verifiedAt: verifiedAt
+      });
+    } catch (trackingError) {
+      console.error('Mixpanel tracking error:', trackingError);
+    }
+
+    // Send confirmation email (only if not already sent via webhook)
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Identity Verification Completed',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Identity Verification ${isActuallySuccessful ? 'Successful' : 'Failed'}</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                Your identity verification using SmileID has been ${isActuallySuccessful ? 'completed successfully' : 'unsuccessful'}. 
+                ${isActuallySuccessful ? 'You can now continue with your seller onboarding process.' : 'Please try again or contact support for assistance.'}
+              </p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+    }
+
+    res.json({ 
+      message: 'Individual SmileID verification result saved successfully',
+      verification: seller.smileIdVerification,
+      actuallySuccessful: isActuallySuccessful
+    });
+
+  } catch (error) {
+    console.error('Save individual SmileID verification error:', error);
+    res.status(500).json({ 
+      message: 'Failed to save individual SmileID verification result', 
+      error: error.message 
+    });
+  }
+};
+
+// Save Business SmileID Verification Result
+exports.saveBusinessSmileIdVerification = async (req, res) => {
+  try {
+    const { smileIdResult, accountType, verifiedAt, verificationProvider } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!smileIdResult || !accountType || !verifiedAt || !verificationProvider) {
+      return res.status(400).json({ 
+        message: 'SmileID result, account type, verified date, and verification provider are required' 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if verification was actually successful
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    console.log(`Business verification assessment: hasImages=${hasImages}, resultCode=${smileIdResult.ResultCode}, isActuallySuccessful=${isActuallySuccessful}`);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: 'business',
+      provider: verificationProvider,
+      result: smileIdResult,
+      verifiedAt: new Date(verifiedAt),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only mark as verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    // Track verification completion
+    try {
+      mixpanel.track('seller_business_smileid_verification', {
+        distinct_id: sellerId,
+        sellerId: sellerId,
+        sellerName: `${seller.firstName} ${seller.lastName}`,
+        email: seller.email,
+        storeName: seller.storeName,
+        verificationProvider: verificationProvider,
+        verificationStatus: isActuallySuccessful ? 'verified' : 'failed',
+        verifiedAt: verifiedAt
+      });
+    } catch (trackingError) {
+      console.error('Mixpanel tracking error:', trackingError);
+    }
+
+    // Send confirmation email (only if not already sent via webhook)
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Business Verification Completed',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Business Verification ${isActuallySuccessful ? 'Successful' : 'Failed'}</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                Your business verification for "${seller.storeName || seller.businessName}" using SmileID has been ${isActuallySuccessful ? 'completed successfully' : 'unsuccessful'}. 
+                ${isActuallySuccessful ? 'You can now continue with your seller onboarding process.' : 'Please try again or contact support for assistance.'}
+              </p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+    }
+
+    res.json({ 
+      message: 'Business SmileID verification result saved successfully',
+      verification: seller.smileIdVerification,
+      actuallySuccessful: isActuallySuccessful
+    });
+
+  } catch (error) {
+    console.error('Save business SmileID verification error:', error);
+    res.status(500).json({ 
+      message: 'Failed to save business SmileID verification result', 
+      error: error.message 
+    });
+  }
+};
+
+// Handle SmileID callback for verification results
+exports.smileIdCallback = async (req, res) => {
+  try {
+    const verificationResult = req.body;
+    
+    console.log('SmileID verification callback received:', JSON.stringify(verificationResult, null, 2));
+
+    // Extract key information from the result
+    const {
+      job_id,
+      user_id,
+      partner_params,
+      ResultCode,
+      result_code,
+      ResultText,
+      result_text,
+      job_complete,
+      success,
+      Images,
+      images
+    } = verificationResult;
+
+    // Handle different result code formats
+    const resultCode = ResultCode || result_code;
+    const resultText = ResultText || result_text;
+
+    // CRITICAL: Determine if verification was successful
+    const hasImages = (Images && Images.length > 0) || (images && images.length > 0);
+    const isSuccessfulCode = ['1012', '1020', '1021'].includes(resultCode?.toString());
+    const isSuccessful = hasImages && (isSuccessfulCode || job_complete === true || success === true);
+    
+    console.log(`Callback verification assessment: hasImages=${hasImages}, resultCode=${resultCode}, isSuccessfulCode=${isSuccessfulCode}, isSuccessful=${isSuccessful}`);
+    
+    if (isSuccessful && partner_params?.seller_id) {
+      try {
+        const sellerId = partner_params.seller_id;
+        const accountType = partner_params.account_type;
+        
+        // Update seller verification status
+        const seller = await Seller.findById(sellerId);
+        if (seller) {
+          // Store the full verification result
+          seller.smileIdVerification = {
+            type: accountType,
+            provider: 'SmileID',
+            result: verificationResult,
+            verifiedAt: new Date(),
+            status: 'verified'
+          };
+
+          seller.hasFilledVerificationDocuments = true;
+          seller.isVerified = true;
+          
+          await seller.save();
+          console.log(`Seller ${sellerId} verification status updated successfully via callback`);
+
+          // Track verification completion
+          try {
+            mixpanel.track(`seller_${accountType}_smileid_verification_webhook`, {
+              distinct_id: sellerId,
+              sellerId: sellerId,
+              sellerName: `${seller.firstName} ${seller.lastName}`,
+              email: seller.email,
+              storeName: seller.storeName,
+              verificationProvider: 'SmileID',
+              verificationStatus: 'verified',
+              source: 'webhook',
+              resultCode: resultCode
+            });
+          } catch (trackingError) {
+            console.error('Mixpanel tracking error:', trackingError);
+          }
+
+          // Send confirmation email
+          try {
+            const emailSubject = accountType === 'business' ? 'Business Verification Completed' : 'Identity Verification Completed';
+            const businessText = accountType === 'business' ? 
+              `Your business verification for "${seller.storeName || seller.businessName}" using SmileID has been completed successfully.` :
+              'Your identity verification using SmileID has been completed successfully.';
+
+            const msg = {
+              to: seller.email,
+              from: 'Auqli Nigeria <support@auqli.com>',
+              subject: emailSubject,
+              html: `
+                <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+                  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+                    <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+                    <h1 style="color: #4CAF50; margin-bottom: 20px;">Verification Successful</h1>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                      ${businessText} You can now continue with your seller onboarding process.
+                    </p>
+                    <p style="font-size: 14px; color: #666666; margin-bottom: 20px;">
+                      <strong>Verification Details:</strong><br>
+                      Job ID: ${job_id}<br>
+                      Result Code: ${resultCode}<br>
+                      Completed: ${new Date().toLocaleString()}
+                    </p>
+                    <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+                    <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+                  </div>
+                </div>
+              `
+            };
+
+            await sgMail.send(msg);
+            console.log('Verification confirmation email sent to:', seller.email);
+          } catch (emailError) {
+            console.error('Email sending error:', emailError);
+          }
+        }
+
+      } catch (updateError) {
+        console.error('Error updating seller verification status:', updateError);
+      }
+    } else {
+      console.log(`Verification not successful for job ${job_id}. Result code: ${resultCode}, Has images: ${hasImages}, Job complete: ${job_complete}, Success: ${success}`);
+    }
+
+    // Respond to SmileID
+    res.status(200).json({ 
+      message: 'Callback received successfully',
+      job_id: job_id,
+      processed: true,
+      assessment: {
+        hasImages,
+        resultCode,
+        isSuccessful
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing SmileID callback:', error);
+    res.status(500).json({ 
+      message: 'Error processing callback',
       error: error.message 
     });
   }
