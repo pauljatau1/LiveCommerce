@@ -18,6 +18,7 @@ const ProtectedRoute = ({ children }) => {
   const isLoginRoute = location.pathname.startsWith('/login');
   const isAuthRoute = isSignUpRoute || isLoginRoute;
   const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+  const isDefaultRoute = location.pathname === '/';
   console.log("sellerDetails", sellerDetails);
 
 
@@ -89,12 +90,18 @@ const ProtectedRoute = ({ children }) => {
         }
 
         // For non-auth pages, validate token
-        await axios.get(`${BASE_URL}/seller/check-token`, {
+        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
           headers: {
             Authorization: `Bearer ${tokenData.data}`
           },
           signal
         });
+
+        if (response.status === 200) {
+          if (isDefaultRoute) {
+            navigate('/dashboard/home', { replace: true });
+          }
+        }
 
 
       } catch (error) {

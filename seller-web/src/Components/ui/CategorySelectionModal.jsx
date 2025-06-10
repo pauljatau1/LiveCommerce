@@ -424,7 +424,7 @@ CategorySelectionModal.propTypes = {
   categorySearchQuery: PropTypes.string.isRequired,
   setCategorySearchQuery: PropTypes.func.isRequired,
   getSubCategories: PropTypes.func.isRequired,
-  loading: PropTypes.bool.isRequired
+  loading: PropTypes.bool
 };
 
 export default CategorySelectionModal; 

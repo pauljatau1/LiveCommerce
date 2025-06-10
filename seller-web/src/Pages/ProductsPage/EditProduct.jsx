@@ -29,25 +29,8 @@ import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
 import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
-
-// Define the rich text editor toolbar options
-const quillModules = {
-    toolbar: [
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-        ['bold', 'italic'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        ['clean']
-    ],
-};
-
-const quillFormats = [
-    'header',
-    'bold', 'italic',
-    'list', 'bullet'
-];
+import SimpleEditor from '../../Components/ui/SimpleEditor';
 
 const EditProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -102,8 +85,7 @@ const EditProduct = () => {
         setNavName('Edit Product')
     }, [])
 
-    console.log('productId', id)
-    console.log('fetched product', product)
+
 
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
@@ -980,13 +962,12 @@ const EditProduct = () => {
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
                                     <div className="border border-[#02020238] rounded-2xl overflow-hidden">
-                                        <ReactQuill
-                                            theme="snow"
+                                        {/* Using Tiptap Simple Editor Template */}
+                                        <SimpleEditor
+                                            key={`simple-editor-${product?._id || 'new'}`}
                                             value={description}
                                             onChange={setDescription}
                                             placeholder="Enter product description"
-                                            modules={quillModules}
-                                            formats={quillFormats}
                                             className="min-h-[226px] rounded-2xl bg-white"
                                         />
                                     </div>
