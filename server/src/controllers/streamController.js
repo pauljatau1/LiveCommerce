@@ -1506,12 +1506,26 @@ exports.getStreamsByStatus = async (req, res) => {
     const { status, type, page = 1, limit = 10 } = req.query;
     const query = {};
 
-    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
-      query.status = status;
-      
-      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
-      if (status === 'scheduled') {
-        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+    if (status) {
+      if (['scheduled', 'live', 'ended'].includes(status)) {
+        query.status = status;
+        
+        // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+        if (status === 'scheduled') {
+          query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+        }
+      } else if (status === 'live_upcoming') {
+        // For live_upcoming, get both live streams and scheduled streams with future start time
+        query.status = { $in: ['live', 'scheduled'] };
+        
+        // Add a filter to make sure scheduled streams have a future start time
+        query.$or = [
+          { status: 'live' },
+          { 
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ];
       }
     }
 
@@ -1565,12 +1579,26 @@ exports.getSellerStreamsByStatus = async (req, res) => {
 
     const query = { seller: sellerId };
 
-    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
-      query.status = status;
-      
-      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
-      if (status === 'scheduled') {
-        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+    if (status) {
+      if (['scheduled', 'live', 'ended'].includes(status)) {
+        query.status = status;
+        
+        // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+        if (status === 'scheduled') {
+          query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+        }
+      } else if (status === 'live_upcoming') {
+        // For live_upcoming, get both live streams and scheduled streams with future start time
+        query.status = { $in: ['live', 'scheduled'] };
+        
+        // Add a filter to make sure scheduled streams have a future start time
+        query.$or = [
+          { status: 'live' },
+          { 
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ];
       }
     }
 
@@ -1667,12 +1695,26 @@ exports.getPopularStreams = async (req, res) => {
     const { status, type, page = 1, limit = 10 } = req.query;
     const query = {};
 
-    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
-      query.status = status;
-      
-      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
-      if (status === 'scheduled') {
-        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+    if (status) {
+      if (['scheduled', 'live', 'ended'].includes(status)) {
+        query.status = status;
+        
+        // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+        if (status === 'scheduled') {
+          query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+        }
+      } else if (status === 'live_upcoming') {
+        // For live_upcoming, get both live streams and scheduled streams with future start time
+        query.status = { $in: ['live', 'scheduled'] };
+        
+        // Add a filter to make sure scheduled streams have a future start time
+        query.$or = [
+          { status: 'live' },
+          { 
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ];
       }
     }
 
@@ -1742,12 +1784,26 @@ exports.getSpotlightStreams = async (req, res) => {
       seller: { $in: featuredSellerIds }
     };
 
-    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
-      query.status = status;
-      
-      // Add additional check for scheduled streams to ensure scheduled time hasn't passed
-      if (status === 'scheduled') {
-        query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+    if (status) {
+      if (['scheduled', 'live', 'ended'].includes(status)) {
+        query.status = status;
+        
+        // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+        if (status === 'scheduled') {
+          query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+        }
+      } else if (status === 'live_upcoming') {
+        // For live_upcoming, get both live streams and scheduled streams with future start time
+        query.status = { $in: ['live', 'scheduled'] };
+        
+        // Add a filter to make sure scheduled streams have a future start time
+        query.$or = [
+          { status: 'live' },
+          { 
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ];
       }
     }
 

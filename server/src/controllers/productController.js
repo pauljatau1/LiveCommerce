@@ -1270,7 +1270,7 @@ exports.deleteProduct = async (req, res) => {
 
 // Search products
 exports.searchProducts = async (req, res) => {
-  const { query } = req.query;
+  const { query, minPrice, maxPrice, condition } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -1375,7 +1375,7 @@ exports.updateProductStock = async (req, res) => {
 
 // Deep search products
 exports.deepSearchProducts = async (req, res) => {
-  const { query } = req.query;
+  const { query, minPrice, maxPrice, condition, sortBy = 'newest', order = 'desc' } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -1393,11 +1393,50 @@ exports.deepSearchProducts = async (req, res) => {
       ],
     };
 
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      queryFilter.price = {};
+      if (minPrice) queryFilter.price.$gte = Number(minPrice);
+      if (maxPrice) queryFilter.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      queryFilter.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    }
+
     // Get total count for pagination info
     const totalProducts = await Product.countDocuments(queryFilter);
     
     // Get paginated results
     const products = await Product.find(queryFilter)
+      .sort(sortOptions)
       .populate('seller', 'name avatarUrl about')
       .populate('reviews.buyer', 'firstName lastName')
       .skip(skip)
@@ -1594,17 +1633,32 @@ exports.getTrendingProductsByCategory = async (req, res) => {
 // Get products by main category
 exports.getProductsByCategory = async (req, res) => {
   const { category } = req.params;
-  const { limit = 20, page = 1 } = req.query;
+  const { limit = 20, page = 1, minPrice, maxPrice, condition } = req.query;
 
   try {
-    const products = await Product.find({ category })
+    // Build query object
+    const query = { category };
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+    
+    const products = await Product.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .populate('seller', 'name avatarUrl about offersStorePickup')
       .populate('reviews.buyer', 'firstName lastName');
 
-    const total = await Product.countDocuments({ category });
+    const total = await Product.countDocuments(query);
 
     res.json({
       products,
@@ -6130,7 +6184,7 @@ exports.getBlipDetails = async (req, res) => {
 exports.getProductsByCategoryAndSubcategory = async (req, res) => {
   try {
     const { category, subcategory } = req.params;
-    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc', minPrice, maxPrice, condition } = req.query;
     
     // Build query
     const query = { 
@@ -6140,6 +6194,18 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       visibility: 'visible',
       status: { $ne: 'offline_auction' }
     };
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
     
     // Build sort options
     let sortOptions = {};

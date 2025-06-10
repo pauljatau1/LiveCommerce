@@ -832,8 +832,8 @@ router.get('/popular', (req, res, next) => {
  *         name: status
  *         schema:
  *           type: string
- *           enum: [scheduled, live, ended]
- *         description: Filter streams by status (optional)
+ *           enum: [scheduled, live, ended, live_upcoming]
+ *         description: Filter streams by status (optional). Use 'live_upcoming' to get both live and upcoming scheduled streams.
  *       - in: query
  *         name: type
  *         schema:
@@ -1282,8 +1282,8 @@ router.post('/open-live-show',
  *         name: status
  *         schema:
  *           type: string
- *           enum: [scheduled, live, ended]
- *         description: Filter streams by status (optional)
+ *           enum: [scheduled, live, ended, live_upcoming]
+ *         description: Filter streams by status (optional). Use 'live_upcoming' to get both live and upcoming scheduled streams.
  *       - in: query
  *         name: type
  *         schema:

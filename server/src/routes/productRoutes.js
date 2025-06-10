@@ -525,8 +525,7 @@ router.get('/buyer/auctions',
  * @swagger
  * /api/products/search:
  *   get:
- *     summary: Search products by query
- *     description: Search products by name, description, category, brand, tags, or SKU
+ *     summary: Deep search for products
  *     tags: [Products]
  *     parameters:
  *       - in: query
@@ -534,7 +533,39 @@ router.get('/buyer/auctions',
  *         schema:
  *           type: string
  *         required: true
- *         description: Search query term
+ *         description: Search query string
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *         required: false
+ *         default: newest
+ *         description: Sort products by the specified field
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         required: false
+ *         default: desc
+ *         description: Sort order (only applies to some sortBy options)
  *       - in: query
  *         name: page
  *         schema:
@@ -2982,6 +3013,22 @@ router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProdu
  *         schema:
  *           type: string
  *         description: Subcategory name
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
  *       - in: query
  *         name: page
  *         schema:
