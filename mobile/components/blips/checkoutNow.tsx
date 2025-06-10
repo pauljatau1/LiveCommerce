@@ -119,6 +119,8 @@ const CheckoutNow = ({
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
+  const [walletCredit, setWalletCredit] = useState<number>(0);
+  const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return product?.seller?.shippingInfo?.offersStorePickup;
@@ -431,6 +433,7 @@ const CheckoutNow = ({
       channel,
       streamId,
       isStorePickup: selectedDeliveryOpt == 1,
+      isWalletCredit: walletCredit > 0 ? true : false,
     };
     const token = await getToken();
     try {
@@ -657,6 +660,35 @@ const CheckoutNow = ({
       setCart(product);
     }
   }, [products]);
+
+  useEffect(() => {
+    if (selectedPayment == 1 || walletBalance == 0) {
+      setShowWalletCredit(false);
+      setWalletCredit(0);
+      return;
+    }
+
+    const orderTotal =
+      (deliveryFee && productTotal) ||
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+        ? deliveryFee +
+          (couponApplied ? couponApplied?.couponSubTotal : productTotal)
+        : null;
+
+    if (!orderTotal) {
+      return;
+    }
+
+    if (walletBalance < orderTotal - 100) {
+      setShowWalletCredit(true);
+    }
+  }, [
+    productTotal,
+    deliveryFee,
+    couponApplied,
+    selectedDeliveryOpt,
+    selectedPayment,
+  ]);
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -910,6 +942,43 @@ const CheckoutNow = ({
                   </View>
                 </View>
 
+                {showWalletCredit && (
+                  <TouchableOpacity
+                    className="mb-[1px]"
+                    style={{
+                      marginBottom: 0,
+                    }}
+                    onPress={() =>
+                      walletCredit > 0
+                        ? setWalletCredit(0)
+                        : setWalletCredit(walletBalance)
+                    }
+                  >
+                    <View
+                      className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                    >
+                      <View className="flex-row items-center gap-[10px]">
+                        <View>
+                          <AntDesign
+                            name="checkcircle"
+                            size={20}
+                            color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                          />
+                        </View>
+                        <Text
+                          className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                          numberOfLines={1}
+                        >
+                          Apply Auqli Credit
+                        </Text>
+                      </View>
+                      <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                        ₦{walletBalance?.toLocaleString()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
                 <View className="mb-[10px]">
                   <View
                     className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
@@ -981,6 +1050,20 @@ const CheckoutNow = ({
                       </Text>
                     </View>
                   )}
+                  {walletCredit > 0 && (
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Auqli Credit Applied
+                      </Text>
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        - ₦
+                        {walletCredit?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between items-center">
                     <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Shipping Fee
@@ -1014,7 +1097,8 @@ const CheckoutNow = ({
                               deliveryFee +
                               (couponApplied
                                 ? couponApplied?.couponSubTotal
-                                : productTotal)
+                                : productTotal) -
+                              walletCredit
                             )?.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -1041,7 +1125,8 @@ const CheckoutNow = ({
                             deliveryFee +
                             (couponApplied
                               ? couponApplied?.couponSubTotal
-                              : productTotal)
+                              : productTotal) -
+                            walletCredit
                           )?.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1064,10 +1149,11 @@ const CheckoutNow = ({
           amount={
             selectedDeliveryOpt == 0
               ? deliveryFee! +
-                (couponApplied ? couponApplied?.couponSubTotal : productTotal)
+                (couponApplied ? couponApplied?.couponSubTotal : productTotal) -
+                walletCredit
               : couponApplied
-                ? couponApplied?.couponSubTotal
-                : productTotal
+                ? couponApplied?.couponSubTotal - walletCredit
+                : productTotal - walletCredit
           }
           channels={[
             "card",

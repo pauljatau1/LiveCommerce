@@ -41,7 +41,10 @@ import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
-import { trackFacebookPurchase, trackFacebookEvent } from "@/utils/facebook-analytics";
+import {
+  trackFacebookPurchase,
+  trackFacebookEvent,
+} from "@/utils/facebook-analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -116,6 +119,8 @@ const Checkout = () => {
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
+  const [walletCredit, setWalletCredit] = useState<number>(0);
+  const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return !cart?.some(
@@ -549,6 +554,7 @@ const Checkout = () => {
       additionalDetails: "Please handle with care",
       paidFromWallet: selectedPayment == 1,
       isStorePickup: selectedDeliveryOpt == 1,
+      isWalletCredit: walletCredit > 0 ? true : false,
     };
 
     // return console.log(JSON.stringify(order));
@@ -576,7 +582,7 @@ const Checkout = () => {
           if (user) {
             console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
-            trackEventMixpanel('order_created', {
+            trackEventMixpanel("order_created", {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -615,7 +621,7 @@ const Checkout = () => {
               timestamp: new Date().toISOString(),
             });
 
-            trackEventCustomerio('order_created', {
+            trackEventCustomerio("order_created", {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -623,16 +629,24 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
               orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              deliveryOrderNo: response.data?.orders.map(
+                (order: any) => order.fezOrderNo || "N/A",
+              ),
               products: cartData?.map((item: any) => {
                 return {
                   name: item.name,
@@ -641,7 +655,7 @@ const Checkout = () => {
                     maximumFractionDigits: 2,
                   })}`,
                   productId: item._id,
-                }
+                };
               }),
               timestamp: new Date().toISOString(),
             });
@@ -654,16 +668,24 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
               orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              deliveryOrderNo: response.data?.orders.map(
+                (order: any) => order.fezOrderNo || "N/A",
+              ),
               products: cartData?.map((item: any) => {
                 return {
                   name: item.name,
@@ -672,7 +694,7 @@ const Checkout = () => {
                     maximumFractionDigits: 2,
                   })}`,
                   productId: item._id,
-                }
+                };
               }),
               timestamp: new Date().toISOString(),
             });
@@ -748,6 +770,7 @@ const Checkout = () => {
     cartTotal,
     cart,
     couponApplied,
+    walletCredit,
   ]);
 
   useEffect(() => {
@@ -776,8 +799,8 @@ const Checkout = () => {
         const user = JSON.parse(userData || "{}");
         if (user) {
           const cart = await AsyncStorage.getItem("cart");
-          const cartData = JSON.parse(cart || '{}');
-          trackEventMixpanel('checkout_started', {
+          const cartData = JSON.parse(cart || "{}");
+          trackEventMixpanel("checkout_started", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -801,7 +824,7 @@ const Checkout = () => {
             timestamp: new Date().toISOString(),
           });
 
-          trackEventCustomerio('checkout_started', {
+          trackEventCustomerio("checkout_started", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -816,7 +839,7 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -840,7 +863,7 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -856,6 +879,35 @@ const Checkout = () => {
 
     trackCheckout();
   }, []);
+
+  useEffect(() => {
+    if (selectedPayment == 1 || walletBalance == 0) {
+      setShowWalletCredit(false);
+      setWalletCredit(0);
+      return;
+    }
+
+    const orderTotal =
+      (deliveryFee && cartTotal) ||
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+        ? deliveryFee +
+          (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+        : null;
+
+    if (!orderTotal) {
+      return;
+    }
+
+    if (walletBalance < orderTotal - 100) {
+      setShowWalletCredit(true);
+    }
+  }, [
+    cartTotal,
+    deliveryFee,
+    couponApplied,
+    selectedDeliveryOpt,
+    selectedPayment,
+  ]);
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -1158,6 +1210,43 @@ const Checkout = () => {
                 </View>
               </View>
 
+              {showWalletCredit && (
+                <TouchableOpacity
+                  className="mb-[1px]"
+                  style={{
+                    marginBottom: 0,
+                  }}
+                  onPress={() =>
+                    walletCredit > 0
+                      ? setWalletCredit(0)
+                      : setWalletCredit(walletBalance)
+                  }
+                >
+                  <View
+                    className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                  >
+                    <View className="flex-row items-center gap-[10px]">
+                      <View>
+                        <AntDesign
+                          name="checkcircle"
+                          size={20}
+                          color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                        />
+                      </View>
+                      <Text
+                        className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                        numberOfLines={1}
+                      >
+                        Apply Auqli Credit
+                      </Text>
+                    </View>
+                    <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                      ₦{walletBalance?.toLocaleString()}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               <View className="mb-[10px]">
                 <View
                   className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
@@ -1225,6 +1314,20 @@ const Checkout = () => {
                     </Text>
                   </View>
                 )}
+                {walletCredit > 0 && (
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Auqli Credit Applied
+                    </Text>
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                      - ₦
+                      {walletCredit?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                )}
                 <View className="flex-row justify-between items-center">
                   <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                     Shipping Fee
@@ -1258,7 +1361,8 @@ const Checkout = () => {
                             deliveryFee +
                             (couponApplied
                               ? couponApplied?.couponSubTotal
-                              : cartTotal)
+                              : cartTotal) -
+                            walletCredit
                           )?.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1282,7 +1386,8 @@ const Checkout = () => {
                         deliveryFee +
                         (couponApplied
                           ? couponApplied?.couponSubTotal
-                          : cartTotal)
+                          : cartTotal) -
+                        walletCredit
                       )?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -1302,10 +1407,11 @@ const Checkout = () => {
             amount={
               selectedDeliveryOpt == 0
                 ? deliveryFee! +
-                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
+                  walletCredit
                 : couponApplied
-                  ? couponApplied?.couponSubTotal
-                  : cartTotal
+                  ? couponApplied?.couponSubTotal - walletCredit
+                  : cartTotal - walletCredit
             }
             channels={[
               "card",
@@ -1425,10 +1531,10 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             </Text>
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-                <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                  Store Pickup Available
-                </Text>
-              )}
+              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                Store Pickup Available
+              </Text>
+            )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{
