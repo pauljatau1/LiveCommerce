@@ -79,6 +79,13 @@ const sellerSchema = new mongoose.Schema({
       uploadedAt: { type: Date, default: Date.now }
     }]
   },
+  smileIdVerification: {
+    type: { type: String, enum: ['individual', 'business'] },
+    provider: { type: String, default: 'SmileID' },
+    result: { type: mongoose.Schema.Types.Mixed },
+    verifiedAt: { type: Date },
+    status: { type: String, enum: ['verified', 'failed', 'pending'], default: 'pending' }
+  },
   bankDetails: {
     bankCountry: { type: String },
     bankName: { type: String },
