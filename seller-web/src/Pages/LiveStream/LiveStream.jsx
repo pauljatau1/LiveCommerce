@@ -5,17 +5,24 @@ import LiveStreamCard from "../../Components/LiveStreamCard";
 import AuqliUniversity from "../../Components/AuqliUniversity";
 import { LivestreamContext } from "../../Contexts/LivestreamContext";
 import { NavLink } from 'react-router-dom';
-import VerificationDialog from "../../Components/VerificationDialog";
+import EmailVerificationModal from "../../Components/EmailVerificationModal";
+import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 
 
 const LiveStream = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const { getAllSellerActiveStreams, fetchedLiveStreams, isLoading } = useContext(LivestreamContext);
-    const { seller, authToken, fetchSellerDetails } = useAuthContext();
+    const { seller: sellerData, authToken, fetchSellerDetails } = useAuthContext();
     const [scheduledShows, setScheduledShows] = useState([]);
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+    const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+    const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
+
+    const sellerLocalData = JSON.parse(localStorage.getItem('seller'))
+    const seller = sellerData || sellerLocalData;
+    
+    const isPickupAddressRequired = seller?.accountType === 'individual' ? seller?.hasFilledAddress === false : seller?.hasFilledBusinessAddress === false;
 
     useEffect(() => {
         setHeaderName('Live Streams')
@@ -32,10 +39,12 @@ const LiveStream = () => {
 
     // Check if seller is verified
     useEffect(() => {
-        if (seller && seller.isVerified === false) {
-            setShowVerificationDialog(true);
+        if (seller && seller.emailVerified === false) {
+            setShowEmailVerificationModal(true);
+        } else if (seller && isPickupAddressRequired) {
+            setShowPickupAddressModal(true);
         }
-    }, [seller]);
+    }, []);
 
     useEffect(() => {
         if (fetchedLiveStreams && fetchedLiveStreams.length > 0) {
@@ -48,11 +57,15 @@ const LiveStream = () => {
     
     // Handle stream action clicks for unverified users
     const handleStreamActionClick = (e) => {
-        if (seller && !seller.isVerified) {
+        if (seller && !seller.emailVerified) {
             e.preventDefault();
-            setShowVerificationDialog(true);
+            setShowEmailVerificationModal(true);
+        } else if (seller && isPickupAddressRequired) {
+            e.preventDefault();
+            setShowPickupAddressModal(true);
         }
     };
+
     
     // Calculate time remaining until stream starts
     const getTimeRemaining = (scheduledTime) => {
@@ -103,11 +116,17 @@ const LiveStream = () => {
 
     return (
         <div className="flex flex-col mt-10 gap-8 ">
-            {/* Verification Dialog */}
-            <VerificationDialog 
-                isOpen={showVerificationDialog} 
-                onClose={() => setShowVerificationDialog(false)} 
-                isPending={seller?.accountPending}
+            {/* Email Verification Modal */}
+            <EmailVerificationModal 
+                isOpen={showEmailVerificationModal} 
+                onClose={() => setShowEmailVerificationModal(false)} 
+                userEmail={seller?.email}
+            />
+
+            {/* Pickup Address Verification Modal */}
+            <PickupAddressVerificationModal 
+                isOpen={showPickupAddressModal} 
+                onClose={() => setShowPickupAddressModal(false)} 
             />
             
             <div className="space-y-6">
@@ -116,7 +135,7 @@ const LiveStream = () => {
                         <LiveStreamCard 
                             item={item} 
                             key={item.id} 
-                            isVerified={seller?.isVerified}
+                            isVerified={seller?.emailVerified && !isPickupAddressRequired}
                             onUnverifiedAction={handleStreamActionClick}
                         />
                     ))}
@@ -233,7 +252,7 @@ const LiveStream = () => {
                                         </div>
                                         
                                         {/* Start Stream Button */}
-                                        {seller?.isVerified ? (
+                                        {seller?.emailVerified && !isPickupAddressRequired ? (
                                             <NavLink
                                                 to={timeRemaining.isPast ? '#' : `/dashboard/live-streams/live-stream-studio/${stream._id}`}
                                                 className={`absolute bottom-4 left-0 right-0 mx-auto w-[85%] text-xs font-medium font-inter py-2 rounded-lg transition-all duration-300 text-center ${

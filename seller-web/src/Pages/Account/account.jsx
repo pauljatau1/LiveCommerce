@@ -4,7 +4,7 @@ import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, AlertTriangle, Copy, Link2 } from "lucide-react";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, Link2 } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server";
@@ -16,8 +16,8 @@ import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
-import VerificationModal from "../../Components/VerificationModal";
-import VerificationDialog from "../../Components/VerificationDialog";
+import EmailVerificationModal from "../../Components/EmailVerificationModal";
+import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ui/tooltip";
@@ -43,8 +43,8 @@ export default function AccountPage() {
   });
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
-  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
-  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -78,6 +78,8 @@ export default function AccountPage() {
     }
   };
 
+  const isPickupAddressRequired = profile?.accountType === 'individual' ? profile?.hasFilledAddress === false : profile?.hasFilledBusinessAddress === false;
+
   useEffect(() => {
     setHeaderName("Account");
     
@@ -86,9 +88,11 @@ export default function AccountPage() {
     
     // Check for verification parameter
     if (queryParams.get('openVerification') === 'true') {
-      setVerificationModalOpen(true);
-      // Remove the query parameter from the URL without refreshing
-      navigate('/dashboard/account', { replace: true });
+      if (profile?.emailVerified === false) {
+        setShowEmailVerificationModal(true);
+      } else if (isPickupAddressRequired) {
+        setShowPickupAddressModal(true);
+      }
     }
     
     // Check for followers parameter
@@ -298,20 +302,9 @@ export default function AccountPage() {
     }
   };
 
-  // Handler for verification button
-  const handleCompleteVerification = () => {
-    // Don't open verification modal if account is already pending
-    if (profile?.accountPending) {
-      setVerificationDialogOpen(true);  // Show the info dialog instead
-    } else {
-      setVerificationModalOpen(true);   // Open verification modal
-    }
-  };
 
-  // Handler for showing verification dialog
-  const handleShowVerificationDialog = () => {
-    setVerificationDialogOpen(true);
-  };
+
+
 
   const handleCopyProfileLink = () => {
     if (profile?._id) {
@@ -355,14 +348,16 @@ export default function AccountPage() {
     );
   }
 
+
+
   return (
     <div className="min-h-screen bg-background">
       {/* Verification Modal */}
-      <VerificationModal 
-        isOpen={verificationModalOpen} 
+      <EmailVerificationModal 
+        isOpen={showEmailVerificationModal} 
         onClose={() => {
-          setVerificationModalOpen(false);
-          trackEvent("Seller Skipped Onboarding Verification", {
+          setShowEmailVerificationModal(false);
+          {/* trackEvent("Seller Skipped Onboarding Verification", {
             "seller id": profile._id,
             "seller email": profile.email,
             "seller store name": profile.storeName,
@@ -371,17 +366,18 @@ export default function AccountPage() {
             "seller phone number": profile.phoneNumber,
             "Signup Date": profile.createdAt,
             "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
-          });
+          }); */}
         }}
+        userEmail={profile?.businessEmail || profile?.email || ''}
       />
       
-      {/* Verification Dialog */}
+      {/* Pickup Address Verification Modal */}
       {profile && (
-        <VerificationDialog
-          isOpen={verificationDialogOpen}
+          <PickupAddressVerificationModal
+          isOpen={showPickupAddressModal}
           onClose={() => {
-            setVerificationDialogOpen(false);
-            trackEvent("Seller Skipped Onboarding Verification", {
+            setShowPickupAddressModal(false);
+            {/* trackEvent("Seller Skipped Onboarding Verification", {
               "seller id": profile._id,
               "seller email": profile.email,
               "seller store name": profile.storeName,
@@ -390,55 +386,100 @@ export default function AccountPage() {
               "seller phone number": profile.phoneNumber,
               "Signup Date": profile.createdAt,
               "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
-            });
+            }); */}
 
           }}
-          isPending={profile.accountPending}
         />
       )}
       
       {/* Verification Banners - Show based on account status */}
-      {profile && !profile.isVerified && (
+      {profile && (
         <>
-          {profile.accountPending ? (
-            // Account under review banner
-            <div className="bg-blue-50 mt-6 sm:mt-10 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
-              <div className="flex items-start flex-col gap-3 md:flex-row md:items-center md:gap-6">
+          {!profile.emailVerified ? (
+            // Email verification banner
+            <div className="bg-red-50 mt-6 sm:mt-10 border-l-4 border-red-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+              <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
                 <div className="flex items-center gap-2">
-                  <Icon icon="solar:clock-circle-bold" className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
-                  <h3 className="text-base sm:text-lg font-semibold text-blue-800">Your account is under review</h3>
+                  <Icon icon="fluent:mail-unread-24-filled" className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
+                  <h3 className="text-base sm:text-lg font-semibold text-red-800">Email verification required</h3>
                 </div>
-                <div className="flex-1 text-blue-700 text-xs sm:text-sm md:ml-2">
-                  Your verification information has been submitted and is currently being reviewed. You'll be notified when your account is either approved or declined.
+                <div className="flex-1 text-red-700 text-xs sm:text-sm lg:ml-2">
+                  Please verify your email address to continue using your seller account and access all features.
                 </div>
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
-                  onClick={handleShowVerificationDialog}
+                  className="bg-red-600 hover:bg-red-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
+                  onClick={() => setShowEmailVerificationModal(true)}
                 >
-                  View Details
+                  Verify Email
                 </Button>
               </div>
             </div>
-          ) : (
-            // Account needs verification banner
-            <div className="bg-amber-50 mt-6 sm:mt-10 border-l-4 border-amber-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
-              <div className="flex items-start flex-col gap-3 md:flex-row md:items-center md:gap-6">
+          ) : isPickupAddressRequired ? (
+            // Address verification banner
+            <div className="bg-orange-50 mt-6 sm:mt-10 border-l-4 border-orange-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+              <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 flex-shrink-0" />
-                  <h3 className="text-base sm:text-lg font-semibold text-amber-800">Your account is not verified</h3>
+                  <Icon icon="solar:map-point-bold" className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500 flex-shrink-0" />
+                  <h3 className="text-base sm:text-lg font-semibold text-orange-800">Pickup address required</h3>
                 </div>
-                <div className="flex-1 text-amber-700 text-xs sm:text-sm md:ml-2">
-                  Complete your account verification to unlock all seller features including adding products and livestreaming.
+                <div className="flex-1 text-orange-700 text-xs sm:text-sm lg:ml-2">
+                  Add your pickup address to start listing products and complete your seller profile setup.
                 </div>
                 <Button 
-                  className="bg-amber-600 hover:bg-amber-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
-                  onClick={handleCompleteVerification}
+                  className="bg-orange-600 hover:bg-orange-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
+                  onClick={() => setShowPickupAddressModal(true)}
                 >
-                  Complete Verification
+                  Add Address
                 </Button>
               </div>
             </div>
-          )}
+          ) : null
+          /* : !profile.isVerified && (
+            <>
+              {profile.accountPending ? (
+                // Account under review banner
+                <div className="bg-blue-50 mt-6 sm:mt-10 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+                  <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+                    <div className="flex items-center gap-2">
+                      <Icon icon="solar:clock-circle-bold" className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
+                      <h3 className="text-base sm:text-lg font-semibold text-blue-800">Your account is under review</h3>
+                    </div>
+                    <div className="flex-1 text-blue-700 text-xs sm:text-sm lg:ml-2">
+                      Your verification information has been submitted and is currently being reviewed. You&apos;ll be notified when your account is either approved or declined.
+                    </div>
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
+                      onClick={handleShowVerificationDialog}
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                // Account needs verification banner
+                <div className="bg-amber-50 mt-6 sm:mt-10 border-l-4 border-amber-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
+                  <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 flex-shrink-0" />
+                      <h3 className="text-base sm:text-lg font-semibold text-amber-800">Your account is not verified</h3>
+                    </div>
+                    <div className="flex-1 text-amber-700 text-xs sm:text-sm lg:ml-2">
+                      Complete your KYC verification to unlock all seller features including seemless withdrawals.
+                    </div>
+                    <Button 
+                      className="bg-amber-600 hover:bg-amber-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
+                      onClick={() => {
+                        // TODO: Navigate to verification page
+                        console.log('Navigate to verification page');
+                      }}
+                    >
+                      Complete Verification
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) */}
         </>
       )}
 

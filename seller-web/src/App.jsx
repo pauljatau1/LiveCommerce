@@ -73,6 +73,7 @@ const CreateCampaign = lazy(() => import('./Pages/MarketingPage/CreateCampaign')
 const Returns = lazy(() => import('./Pages/Orders/Returns'));
 const ReturnDetail = lazy(() => import('./Pages/Orders/ReturnDetail'));
 const Account = lazy(() => import('./Pages/Account/account'));
+const KycVerificationPage = lazy(() => import('./Pages/KycVerification/KycVerificationPage'));
 
 // Create an AppWrapper component to use hooks and initialize interceptors
 function AppInitializer() {
@@ -434,6 +435,11 @@ const router = createBrowserRouter([
           {
             path: 'analytics-insights',
             element: <AnalyticsDashboard />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'kyc-verification',
+            element: <KycVerificationPage />,
             errorElement: <NotFoundPage />
           }
         ]

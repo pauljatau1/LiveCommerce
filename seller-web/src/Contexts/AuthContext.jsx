@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { trackEvent, identifyUserMixpanel, identifyUserCustomerIO } from "../util/analytics";
+import { trackEvent, identifyUserMixpanel } from "../util/analytics";
 import { getClientIP } from '../Utilities/networkUtils';
 import { useIntercomChat } from '../Hooks/useIntercom';
 
@@ -224,18 +224,25 @@ function AuthProvider({ children }) {
             });
 
             if (response.status === 201 || response.status === 200) {
-                console.log( "create seller response", response);
-                // Store token but explicitly set isVerified to false
+                console.log("create seller response", response);
+                // Store token and user data
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
-                    isVerified: false // OTP verification still needed
+                    isVerified: false // Email verification still needed
                 }));
 
-                // Store user data without changing verification status
+                // Store user data
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
 
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
-                // Don't set isAuthenticated to true yet - important change
+
+                // Set the user as authenticated but with unverified email
+                dispatch({
+                    type: 'SET_TOKEN', payload: {
+                        data: response.data.token,
+                        isVerified: false // Email verification still needed
+                    }
+                });
 
                 toast.success(response.data.message, {
                     style: {
@@ -261,10 +268,10 @@ function AuthProvider({ children }) {
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     };
-                    
+
                     await identifyUserMixpanel(response.data.user._id, userData);
                     await trackEvent("Seller Signed Up", userData);
-                    
+
                     // Track seller account creation with Customer.io
                     if (window.cioanalytics) {
                         const clientIP = await getClientIP().catch(() => 'unknown');
@@ -277,7 +284,7 @@ function AuthProvider({ children }) {
                             created_at: Math.floor(new Date().getTime() / 1000),
                             user_type: 'seller'
                         });
-                        
+
                         // Then track events after a small delay
                         setTimeout(() => {
                             window.cioanalytics.track('seller_account_created', {
@@ -351,14 +358,14 @@ function AuthProvider({ children }) {
     const checkTokenValidity = async () => {
         try {
             const storedToken = localStorage.getItem('sellerToken');
-            
+
             // If there's no token at all, just return false without showing any error
             if (!storedToken) {
                 console.log('No token found, skipping validation');
                 dispatch({ type: 'CHECK_TOKEN_FAILED' });
                 return false;
             }
-            
+
             const tokenData = JSON.parse(storedToken);
             console.log('tokenData', tokenData)
             const response = await axios.get(`${BASE_URL}/seller/check-token`, {
@@ -379,16 +386,16 @@ function AuthProvider({ children }) {
             }
         } catch (error) {
             console.log("Token validation error:", error);
-            
+
             // Only show the error toast if there was actually a token that failed validation
             if (localStorage.getItem('sellerToken') && (error.response?.data?.message === "Invalid token" || error.response?.status === 401)) {
                 console.log("Invalid token detected, redirecting to login");
-                
+
                 // Clean up auth state
                 localStorage.removeItem('sellerToken');
                 localStorage.removeItem('seller');
                 dispatch({ type: 'LOGOUT' });
-                
+
                 // Show error toast
                 toast.error("Session expired", {
                     description: "Please log in again",
@@ -397,7 +404,7 @@ function AuthProvider({ children }) {
                         color: '#fff',
                     }
                 });
-                
+
                 // Redirect to login
                 navigate('/login', { replace: true });
             } else if (localStorage.getItem('sellerToken')) {
@@ -410,7 +417,7 @@ function AuthProvider({ children }) {
                     }
                 });
             }
-            
+
             dispatch({ type: 'CHECK_TOKEN_FAILED' });
             return false;
         }
@@ -436,13 +443,11 @@ function AuthProvider({ children }) {
                     // Set isVerified to true in localStorage
                     localStorage.setItem('sellerToken', JSON.stringify({
                         data: response.data.token,
-                        isVerified: true
                     }));
 
                     if (response.data.user) {
                         // Update the user in localStorage with verified status
                         const userData = response.data.user;
-                        userData.isVerified = true; 
                         userData.emailVerified = true; // Add emailVerified flag
                         localStorage.setItem('seller', JSON.stringify(userData));
                         dispatch({ type: 'STORE_SELLER', payload: userData });
@@ -452,7 +457,6 @@ function AuthProvider({ children }) {
                     dispatch({
                         type: 'SET_TOKEN', payload: {
                             data: response.data.token,
-                            isVerified: true
                         }
                     });
 
@@ -465,14 +469,14 @@ function AuthProvider({ children }) {
                     // This handles the case where the backend returns verification success but no token
                     dispatch({ type: 'VERIFY_OTP_SUCCESS' });
                     toast.success(response.data.message || 'Email verified successfully');
-                    
+
                     // Update email verification status in local storage
                     const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
                     if (sellerData) {
                         sellerData.emailVerified = true;
                         localStorage.setItem('seller', JSON.stringify(sellerData));
                     }
-                    
+
                     return true;
                 }
             }
@@ -511,6 +515,8 @@ function AuthProvider({ children }) {
                     theme: "dark",
                 });
 
+                return true;
+
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -536,14 +542,14 @@ function AuthProvider({ children }) {
                 // Check if account is disabled
                 if (response.data.user.isDisabled === true) {
                     dispatch({ type: 'ACCOUNT_DISABLED' });
-                    
+
                     // Store minimal data needed for the disabled dialog
                     localStorage.setItem('seller', JSON.stringify(response.data.user));
                     localStorage.setItem('sellerToken', JSON.stringify({
                         data: response.data.token,
                         isVerified: false
                     }));
-                    
+
                     toast.error('Account Disabled', {
                         description: 'Your account has been disabled. Please contact support.',
                         style: {
@@ -551,10 +557,10 @@ function AuthProvider({ children }) {
                             color: '#17171B',
                         }
                     });
-                    
+
                     return;
                 }
-                
+
                 // Check if email is verified before setting authenticated state
                 const isEmailVerified = response.data.user.emailVerified === true || response.data.user.isVerified === true;
 
@@ -574,123 +580,110 @@ function AuthProvider({ children }) {
                     isVerified: response.data.user.isVerified && isEmailVerified
                 }));
 
-                if (isEmailVerified) {
-                    // Get IP address (only with consent)
-                    let clientIP = 'unknown';
 
-                    try {
-                        clientIP = await getClientIP();
-                    } catch (e) {
-                        console.error('IP tracking failed:', e);
-                    }
+                // Get IP address (only with consent)
+                let clientIP = 'unknown';
 
-                    // Track analytics using our utility
-                    try {
-                        // User properties for identification
-                        const userTraits = {
-                            "$email": response?.data?.user?.email,
-                            "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                            "Store Name": response?.data?.user?.storeName,
-                            "User Type": "Seller",
-                            "Seller Account Type": response?.data?.user?.accountType,
-                            "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                            "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
-                            "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
-                            "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
-                            "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                            "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
-                            "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                            "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
-                            "IP Address": clientIP,
-                        };
-                        
-                        // Identify user
-                        await identifyUserMixpanel(response?.data?.user?._id, userTraits);
-                        
-                        // Track login event with device context and IP
-                        await trackEvent("Seller Login", {
-                            ...userTraits,
-                            "seller id": response?.data?.user?._id,
-                            "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                            "Device Type": getDeviceType(),
-                            "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
-                        });
-                    } catch (analyticError) {
-                        console.error('Analytics tracking error:', analyticError);
-                    }
+                try {
+                    clientIP = await getClientIP();
+                } catch (e) {
+                    console.error('IP tracking failed:', e);
+                }
 
-                    // Also identify the user in Microsoft Clarity
-                    if (window.initClarity) {
-                        // If clarity isn't directly available but initClarity is, use that
-                        window.initClarity({
-                            id: response?.data?.user?._id,
-                            email: response?.data?.user?.email,
-                            firstName: response?.data?.user?.firstName,
-                            lastName: response?.data?.user?.lastName
-                        });
-                    }
+                // Track analytics using our utility
+                try {
+                    // User properties for identification
+                    const userTraits = {
+                        "$email": response?.data?.user?.email,
+                        "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                        "Store Name": response?.data?.user?.storeName,
+                        "User Type": "Seller",
+                        "Seller Account Type": response?.data?.user?.accountType,
+                        "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
+                        "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
+                        "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
+                        "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
+                        "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                        "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
+                        "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                        "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                        "IP Address": clientIP,
+                    };
 
-                    console.log('login response:', response.data);
+                    // Identify user
+                    await identifyUserMixpanel(response?.data?.user?._id, userTraits);
 
-                    toast.success('Login successful', {
-                        style: {
-                            border: '1px solid #17171B',
-                        }
+                    // Track login event with device context and IP
+                    await trackEvent("Seller Login", {
+                        ...userTraits,
+                        "seller id": response?.data?.user?._id,
+                        "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                        "Device Type": getDeviceType(),
+                        "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                     });
+                } catch (analyticError) {
+                    console.error('Analytics tracking error:', analyticError);
+                }
 
-                    // Only navigate to dashboard if email is verified
+                // Also identify the user in Microsoft Clarity
+                if (window.initClarity) {
+                    // If clarity isn't directly available but initClarity is, use that
+                    window.initClarity({
+                        id: response?.data?.user?._id,
+                        email: response?.data?.user?.email,
+                        firstName: response?.data?.user?.firstName,
+                        lastName: response?.data?.user?.lastName
+                    });
+                }
 
-                    navigate('/dashboard/home', { replace: true });
-                    dispatch({ type: 'SET_DATA_READY', payload: true });
-                    window.dispatchEvent(new Event('appLoginComplete'));
+                console.log('login response:', response.data);
 
-                    // Identify user with Customer.io
-                    try {
-                        if (window.cioanalytics) {
-                            // Always use _id consistently (appears to be your MongoDB ID)
-                            window.cioanalytics.identify(response?.data?.user?._id, {
+                toast.success('Login successful', {
+                    style: {
+                        border: '1px solid #17171B',
+                    }
+                });
+
+                // Only navigate to dashboard if email is verified
+
+                navigate('/dashboard/home', { replace: true });
+                dispatch({ type: 'SET_DATA_READY', payload: true });
+                window.dispatchEvent(new Event('appLoginComplete'));
+
+                // Identify user with Customer.io
+                try {
+                    if (window.cioanalytics) {
+                        // Always use _id consistently (appears to be your MongoDB ID)
+                        window.cioanalytics.identify(response?.data?.user?._id, {
+                            seller_id: response?.data?.user?._id,
+                            email: response?.data?.user?.email,
+                            first_name: response?.data?.user?.firstName,
+                            last_name: response?.data?.user?.lastName,
+                            created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
+                            user_type: 'seller',
+                            account_type: response?.data?.user?.accountType,
+                            store_name: response?.data?.user?.storeName,
+                            location: `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
+                            total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                            ip_address: clientIP,
+                            device_type: getDeviceType(),
+                            approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
+                        });
+
+                        // Use setTimeout to ensure identification is processed before tracking events
+                        setTimeout(() => {
+                            window.cioanalytics.track('seller_account_login', {
                                 seller_id: response?.data?.user?._id,
                                 email: response?.data?.user?.email,
                                 first_name: response?.data?.user?.firstName,
                                 last_name: response?.data?.user?.lastName,
-                                created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
-                                user_type: 'seller',
-                                account_type: response?.data?.user?.accountType,
-                                store_name: response?.data?.user?.storeName,
-                                location: `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
-                                total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
-                                approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                             });
-                            
-                            // Use setTimeout to ensure identification is processed before tracking events
-                            setTimeout(() => {
-                                window.cioanalytics.track('seller_account_login', {
-                                    seller_id: response?.data?.user?._id,
-                                    email: response?.data?.user?.email,
-                                    first_name: response?.data?.user?.firstName,
-                                    last_name: response?.data?.user?.lastName,
-                                    ip_address: clientIP,
-                                    device_type: getDeviceType(),
-                                });
-                            }, 500);
-                        }
-                    } catch (error) {
-                        console.log('error tracking customer.io login event', error);
+                        }, 500);
                     }
-                    
-                } else {
-                    // If email not verified, send to signup page for OTP verification
-                    dispatch({ type: 'UNVERIFIED_SELLER', payload: response.data.user });
-                    navigate('/signup', { replace: true });
-                    toast.error('Email verification required', {
-                        description: 'Please verify your email before accessing the dashboard',
-                        style: {
-                            background: '#425466',
-                            color: '#F7FAFC',
-                        }
-                    });
+                } catch (error) {
+                    console.log('error tracking customer.io login event', error);
                 }
             }
         } catch (error) {
@@ -776,13 +769,13 @@ function AuthProvider({ children }) {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
-            
+
             // If there's no token or we're on direct login access, return without errors
             if (!sellerToken || sessionStorage.getItem('directLoginAccess') === 'true') {
                 dispatch({ type: 'SET_LOADING', payload: false });
                 return null;
             }
-            
+
             const tokenData = JSON.parse(sellerToken);
             console.log(tokenData);
             const response = await axios.get(`${BASE_URL}/seller/profile`, {
@@ -842,16 +835,16 @@ function AuthProvider({ children }) {
             }
         } catch (error) {
             console.log("Fetch seller details error:", error);
-            
+
             // Handle invalid token or authentication errors
             if (error.response?.data?.message === "Invalid token" || error.response?.status === 401) {
                 console.log("Invalid token detected in fetchSellerDetails, redirecting to login");
-                
+
                 // Clean up auth state
                 localStorage.removeItem('sellerToken');
                 localStorage.removeItem('seller');
                 dispatch({ type: 'LOGOUT' });
-                
+
                 // Show error toast
                 toast.error("Session expired", {
                     description: "Please log in again",
@@ -860,7 +853,7 @@ function AuthProvider({ children }) {
                         color: '#fff',
                     }
                 });
-                
+
                 // Redirect to login page
                 navigate('/login', { replace: true });
             } else if (error.response?.status === 404) {

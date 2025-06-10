@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Icon } from "@iconify/react";
-import { orderTempData, toDoCardTempData } from "../../Utilities/data";
-import { useNavigate, useNavigation } from "react-router-dom";
-import { useSidebar } from '../../Hooks/useSideBar';
-import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { BASE_URL } from "../../Constants/Server";
 import { getTotalSellerUCustomers, getPlatformAnnouncement, getPublicResources } from "../../Utilities/apiRestaurant";
-import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
 import { Link } from "react-router-dom";
 import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
@@ -17,21 +13,21 @@ import AnnouncementCard from "../../Components/AnnouncementCard";
 import DashboardSkeleton from "../../Components/ui/DashboardSkeleton";
 import DisabledAccountDialog from "../../Components/DisabledAccountDialog";
 import axios from "axios";
-import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FiShoppingBag, FiBarChart2, FiUserPlus } from 'react-icons/fi';
 import { FaStoreAlt } from "react-icons/fa";
 import { BiWallet } from 'react-icons/bi';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "../../Components/ui/tooltip";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
 import NoOrderFound from "../../assets/no-order-found.png";
 import { useIntercomChat } from "../../Hooks/useIntercom";
 import Skeleton from 'react-loading-skeleton';
-import VerificationDialog from "../../Components/VerificationDialog";
 import AuqliUniversity from "../../Components/AuqliUniversity";
-import { toast } from "sonner";
+import EmailVerificationModal from "../../Components/EmailVerificationModal";
+import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { handleApiError } from "../../util/tokenValidation";
 
 
@@ -75,19 +71,18 @@ const HomePage = () => {
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
   const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications, logout, isAccountDisabled } = useAuthContext();
-  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
-
+  const [searchParams, setSearchParams] = useSearchParams();
   // State management for dashboard data and UI
-  const [notification, setNotification] = useState(false);
+  const [notification] = useState(false);
   const [orders, setOrders] = useState([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
-  const [error, setError] = useState(null);
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]);
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
-  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
+  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
   useEffect(() => {
     setHeaderName("Dashboard")
@@ -120,34 +115,17 @@ const HomePage = () => {
     fetchInitialData();
   }, []);
 
-  // Check verification status when seller data is loaded
-  useEffect(() => {
-    if (seller) {
-      // Check both isVerified and emailVerified flags
-      const isEmailVerified = seller.emailVerified === true || seller.isVerified === true;
-      
-      if (!isEmailVerified) {
-        // Redirect unverified users to signup page
-        navigate('/signup', { replace: true });
-        toast.error('Email verification required', {
-          description: 'Please verify your email to continue',
-          style: {
-            background: '#425466',
-            color: '#F7FAFC',
-          }
-        });
-      } else if (seller.isVerified === false) {
-        setShowVerificationDialog(true);
-      }
-    }
-  }, [seller, navigate]);
+  
 
-  // Handle temporary dismissal of verification dialog
-  const handleCloseVerificationDialog = () => {
-    // Only allow temporary dismissal
-    // It will reappear on next page load or navigation
-    setShowVerificationDialog(false);
-  };
+
+  const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+
+  useEffect(() => {
+    const pickupAddressRequired = searchParams.get('pickupAddressRequired');
+    if (pickupAddressRequired) {
+      setShowPickupAddressModal(true);
+    }
+  }, [searchParams]);
 
   // Check for disabled account
   useEffect(() => {
@@ -161,6 +139,17 @@ const HomePage = () => {
       return () => clearTimeout(timer);
     }
   }, [isAccountDisabled]);
+
+  // Check for email verification status
+  useEffect(() => {
+    const storedSeller = JSON.parse(localStorage.getItem('seller') || '{}');
+    if (storedSeller && storedSeller._id) {
+      const isEmailVerified = storedSeller.emailVerified === true;
+      if (!isEmailVerified) {
+        setShowEmailVerificationModal(true);
+      }
+    }
+  }, []);
 
   // Handler for when the disabled account dialog is closed
   const handleCloseDisabledDialog = () => {
@@ -262,13 +251,12 @@ const HomePage = () => {
           // If the error wasn't handled by our utility, throw it for the outer catch
           throw apiError;
         }
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('Fetch aborted');
-          return;
-        }
-        setError(error.message);
-        console.error('Dashboard loading error:', error);
+              } catch (error) {
+          if (error.name === 'AbortError') {
+            console.log('Fetch aborted');
+            return;
+          }
+          console.error('Dashboard loading error:', error);
         
         // Ensure UI is not blocked even if data fetch fails
         setIsDataReady(true);
@@ -436,20 +424,17 @@ const HomePage = () => {
     };
   }, []);
 
+  const isPickupAddressRequired = sellerDetails?.accountType === 'individual' ? sellerDetails?.hasFilledAddress === false : sellerDetails?.hasFilledBusinessAddress === false;
+
   return (
-    <>
+    <div className="mt-28">
       {/* Disabled Account Dialog */}
       <DisabledAccountDialog
         isOpen={showDisabledDialog}
         onClose={handleCloseDisabledDialog}
       />
 
-      {/* Verification Dialog */}
-      <VerificationDialog 
-        isOpen={showVerificationDialog} 
-        onClose={handleCloseVerificationDialog} 
-        isPending={seller?.accountPending}
-      />
+
 
       {/* Notification */}
       {
@@ -462,7 +447,158 @@ const HomePage = () => {
         <DashboardSkeleton />
       ) : (
         <div>
-          {/* Greeting */}
+
+          {/* Verification Banner */}
+          {sellerDetails && (
+            !sellerDetails?.emailVerified || 
+            // !sellerDetails?.isVerified || 
+            isPickupAddressRequired ||
+            sellerDetails?.hasProducts === false ||
+            sellerDetails?.hasMoreThan10Blips === false
+          ) && (
+            <div className="hidden lg:flex mb-6">
+              <div className="w-full bg-[#ECECD5] rounded-xl p-[8px] ">
+                <div className="flex items-center overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <Icon icon="solar:shield-warning-bold" className="h-5 w-5 text-green-600" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    {/* Email Verification */}
+                    {sellerDetails?.emailVerified === false && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center cursor-help gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                              <Icon icon="material-symbols-light:mail-sharp" className="h-4 w-4 text-green-500" />
+                              <span className="text-xs font-medium whitespace-nowrap text-[#4D5E6D] ">E-mail not verified</span>
+                            </div>
+                            <button
+                              onClick={() => setShowEmailVerificationModal(true)}
+                              className="px-4 py-1.5 bg-green-600 whitespace-nowrap text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Verify
+                            </button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">
+                          <div className="p-2">
+                            <p className="font-medium text-sm text-gray-900 mb-1">Email Verification Required</p>
+                            <p className="text-xs text-gray-600">
+                              Verify your email to secure your account, receive order notifications, and enable password recovery. This helps protect your business and ensures you never miss important updates.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {/* KYC Verification 
+                    {sellerDetails?.isVerified === false && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                          <Icon icon="solar:shield-check-bold" className="h-4 w-4 text-green-500" />
+                          <span className="text-xs font-medium whitespace-nowrap text-[#4D5E6D]">You have pending KYC support</span>
+                        </div>
+                        <button
+                          className="px-4 py-1.5 bg-green-600 text-white whitespace-nowrap text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          Complete Now
+                        </button>
+                      </div>
+                    )} */}
+
+                    {/* Address Verification */}
+                    {isPickupAddressRequired && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center cursor-help gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                              <Icon icon="solar:map-point-bold" className="h-4 w-4 text-green-500" />
+                              <span className="text-xs font-medium whitespace-nowrap text-[#4D5E6D]">Pickup address required</span>
+                            </div>
+                            <button
+                              onClick={() => setShowPickupAddressModal(true)}
+                              className="px-4 py-1.5 bg-green-600 text-white whitespace-nowrap text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Add Address
+                            </button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">
+                          <div className="p-2">
+                            <p className="font-medium text-sm text-gray-900 mb-1">Pickup Address Required</p>
+                            <p className="text-xs text-gray-600">
+                              Add your pickup address to enable order fulfillment. This allows customers to place orders and helps us calculate accurate shipping costs for your products.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {/* Products Required */}
+                    {sellerDetails?.hasProducts === false && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center cursor-help gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                              <Icon icon="solar:bag-bold" className="h-4 w-4 text-green-500" />
+                              <span className="text-xs font-medium whitespace-nowrap text-[#4D5E6D]">Add your first product</span>
+                            </div>
+                            <button
+                              onClick={() => navigate('/dashboard/products')}
+                              className="px-4 py-1.5 bg-green-600 text-white whitespace-nowrap text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Add Product
+                            </button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">
+                          <div className="p-2">
+                            <p className="font-medium text-sm text-gray-900 mb-1">Start Selling Today</p>
+                            <p className="text-xs text-gray-600">
+                              Add your first product to start your selling journey on Auqli. Upload product images, set prices, and reach thousands of potential customers instantly.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {/* Blips Required */}
+                    {sellerDetails?.hasMoreThan10Blips === false && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 px-3 cursor-help py-1.5 bg-white rounded-lg border border-gray-200">
+                              <Icon icon="solar:video-frame-bold" className="h-4 w-4 text-green-500" />
+                              <span className="text-xs font-medium whitespace-nowrap text-[#4D5E6D]">Create more blips</span>
+                            </div>
+                            <button
+                              onClick={() => navigate('/dashboard/products')}
+                              className="px-4 py-1.5 bg-green-600 text-white whitespace-nowrap text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Create Blips
+                            </button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">
+                          <div className="p-2">
+                            <p className="font-medium text-sm text-gray-900 mb-1">Boost Your Visibility</p>
+                            <p className="text-xs text-gray-600">
+                              Create engaging blips to showcase your products and increase visibility. Blips help you connect with your audience, drive sales, and build your brand presence on Auqli.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Analytics Cards */}
           <div className="flex justify-center items-center">
@@ -495,7 +631,7 @@ const HomePage = () => {
                   </div>
                   
                   {/* Desktop grid layout */}
-                  <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 mt-6 xl:mt-9 w-full">
+                  <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 w-full">
                     {
                       homeAnalyticsCardData.map((card) => (
                         <HomeAnalyticsCard key={card.id} card={card} />
@@ -659,7 +795,7 @@ const HomePage = () => {
                     <Icon icon="line-md:bell-loop" className="text-gray-400 w-20 h-20  " />
                     <p className="text-base font-medium text-[#425466] font-inter">No notifications</p>
 
-                    <p className="text-sm text-[#425466] font-inter">You're all caught up!</p>
+                    <p className="text-sm text-[#425466] font-inter">You&apos;re all caught up!</p>
                   </div>
                 )}
               </div>
@@ -745,7 +881,26 @@ const HomePage = () => {
           </div>
         </div>
       )}
-    </>
+
+      
+      {/* Disabled Account Dialog */}
+      {showDisabledDialog && (
+        <DisabledAccountDialog onClose={handleCloseDisabledDialog} />
+      )}
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        isOpen={showEmailVerificationModal}
+        onClose={() => setShowEmailVerificationModal(false)}
+        userEmail={sellerDetails?.email || ''}
+      />
+
+      {/* Pickup Address Verification Modal */}
+      <PickupAddressVerificationModal
+        isOpen={showPickupAddressModal}
+        onClose={() => setShowPickupAddressModal(false)}
+      />
+    </div>
   )
 };
 

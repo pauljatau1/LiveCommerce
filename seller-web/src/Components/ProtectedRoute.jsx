@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { BASE_URL } from '../Constants/Server';
 import axios from 'axios';
 import DisabledAccountDialog from './DisabledAccountDialog';
+import PropTypes from 'prop-types';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
@@ -13,11 +14,13 @@ const ProtectedRoute = ({ children }) => {
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   // Define route types for easier checking
-  const isDashboardRoute = location.pathname.startsWith('/dashboard');
   const isSignUpRoute = location.pathname.startsWith('/signup');
   const isLoginRoute = location.pathname.startsWith('/login');
-  const isOnboardingRoute = location.pathname.startsWith('/onboarding');
   const isAuthRoute = isSignUpRoute || isLoginRoute;
+  const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+  console.log("sellerDetails", sellerDetails);
+
+
 
   // Handle disabled account dialog
   useEffect(() => {
@@ -30,6 +33,8 @@ const ProtectedRoute = ({ children }) => {
       return () => clearTimeout(timer);
     }
   }, [isAccountDisabled]);
+
+
 
   const handleCloseDisabledDialog = () => {
     setShowDisabledDialog(false);
@@ -68,38 +73,6 @@ const ProtectedRoute = ({ children }) => {
       return;
     }
 
-    // Check if email is verified (either explicit flag or implied via isVerified)
-    const isEmailVerified = sellerData?.emailVerified === true || sellerData?.isVerified === true;
-
-    // If email is not verified and we're not on signup page, redirect to signup for OTP verification
-    if (tokenData?.data && sellerData && !isEmailVerified && !isSignUpRoute) {
-      console.log('Email not verified, redirecting to signup for OTP verification');
-
-      // Save email to help identify the unverified user
-      if (sellerData?.email) {
-        dispatch({ type: 'UNVERIFIED_SELLER', payload: sellerData });
-      }
-
-      navigate('/signup', { replace: true });
-
-      toast.error('Email verification required', {
-        description: 'Please verify your email to continue',
-        style: {
-          background: '#425466',
-          color: '#F7FAFC',
-        }
-      });
-
-      return;
-    }
-
-    // Quick check for token and verified status before proceeding with API call
-    if (tokenData?.isVerified === true && isEmailVerified && !isDashboardRoute && !isOnboardingRoute && !isAuthRoute) {
-      console.log('User is verified, redirecting to dashboard');
-      navigate('/dashboard/home', { replace: true });
-      return;
-    }
-
     const checkTokenValidity = async () => {
       try {
         // Skip validation on auth pages
@@ -116,55 +89,14 @@ const ProtectedRoute = ({ children }) => {
         }
 
         // For non-auth pages, validate token
-        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+        await axios.get(`${BASE_URL}/seller/check-token`, {
           headers: {
             Authorization: `Bearer ${tokenData.data}`
           },
           signal
         });
 
-        if (response.status === 200) {
-          // Don't allow dashboard access for unverified email
-          if (isDashboardRoute && !isEmailVerified) {
-            navigate('/signup', { replace: true });
-            return;
-          }
 
-          // Skip onboarding check for verified users and allow accessing dashboard
-          if (isDashboardRoute && isEmailVerified) {
-            // Let them access the dashboard without redirecting
-            return;
-          }
-
-          // If on signup/login page and token is valid & email verified, redirect to dashboard
-          if ((isSignUpRoute || isLoginRoute) && isEmailVerified && tokenData?.isVerified === true) {
-            navigate('/dashboard/home', { replace: true });
-            return;
-          }
-
-          // Below checks only for non-dashboard routes
-          if (tokenData?.isVerified === false && !isDashboardRoute) {
-            if (sellerData?.onboardingProcess && isEmailVerified) {
-              if (!isOnboardingRoute) {
-                console.log('onboarding process', sellerData?.onboardingProcess)
-                navigate(`/onboarding/${sellerData?.onboardingProcess}`);
-                toast.success('Continue Onboarding', {
-                  description: 'Continue from where you left off',
-                  style: {
-                    background: '#17171B',
-                    color: '#fff',
-                  }
-                });
-              }
-            } else if (isEmailVerified) {
-              navigate('/dashboard/home');
-            }
-          } else if (tokenData?.isVerified === true && isEmailVerified && !isDashboardRoute && !isAuthRoute) {
-            navigate('/dashboard/home', { replace: true });
-          }
-        } else if (!isAuthRoute) {
-          navigate('/login');
-        }
       } catch (error) {
         console.log('token invalid error', error);
         if (error.response?.status === 401 && !isAuthRoute) {
@@ -201,6 +133,10 @@ const ProtectedRoute = ({ children }) => {
       {children}
     </>
   );
+};
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default ProtectedRoute;

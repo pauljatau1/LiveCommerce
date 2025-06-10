@@ -579,7 +579,156 @@ export const VerificationService = {
       console.error('Error updating account pending status:', error);
       throw error;
     }
-  }
+  },
+  
+  /**
+   * Saves individual SmileID verification result
+   * @param {Object} verificationData - The SmileID verification result data
+   * @returns {Promise} - The API response
+   */
+  saveIndividualVerification: async (verificationData) => {
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
+      const { data: authToken } = JSON.parse(token);
+      
+      const response = await axios.post(
+        `${BASE_URL}/seller/verification/smileid/individual`,
+        verificationData,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (response.status === 200) {
+        trackEvent("seller onboarding: Individual SmileID Verification Completed", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Verification Provider": verificationData.verificationProvider,
+          "Verified At": verificationData.verifiedAt,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": "SmileID Verified",
+        });
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error saving individual SmileID verification:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Saves business SmileID verification result
+   * @param {Object} verificationData - The SmileID verification result data
+   * @returns {Promise} - The API response
+   */
+  saveBusinessVerification: async (verificationData) => {
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
+      const { data: authToken } = JSON.parse(token);
+      
+      const response = await axios.post(
+        `${BASE_URL}/seller/verification/smileid/business`,
+        verificationData,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (response.status === 200) {
+        trackEvent("seller onboarding: Business SmileID Verification Completed", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Verification Provider": verificationData.verificationProvider,
+          "Verified At": verificationData.verifiedAt,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": "SmileID Verified",
+        });
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error saving business SmileID verification:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Generates a SmileID token for verification
+   * @param {Object} tokenRequest - Request data for token generation
+   * @returns {Promise} - The API response with token
+   */
+  generateSmileIdToken: async (tokenRequest) => {
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const { data: authToken } = JSON.parse(token);
+      
+      const response = await axios.post(
+        `${BASE_URL}/seller/verification/smileid/token`,
+        tokenRequest,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error generating SmileID token:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Processes SmileID job submission with captured images
+   * @param {Object} jobData - Job data containing images and partner_params
+   * @returns {Promise} - The API response with job result
+   */
+  processSmileIdJob: async (jobData) => {
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const sellerData = JSON.parse(localStorage.getItem('seller'));
+      const { data: authToken } = JSON.parse(token);
+      
+      const response = await axios.post(
+        `${BASE_URL}/seller/verification/smileid/process`,
+        jobData,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (response.status === 200) {
+        trackEvent("SmileID Job Submission", {
+          "seller id": sellerData._id,
+          "seller email": sellerData.email,
+          "seller store name": sellerData.storeName,
+          "seller first name": sellerData.firstName,
+          "seller last name": sellerData.lastName,
+          "seller phone number": sellerData.phoneNumber,
+          "Images Count": jobData.images ? jobData.images.length : 0,
+          "Account Type": sellerData.accountType,
+          "Job ID": response.data.jobId,
+          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
+        });
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error processing SmileID job:', error);
+      throw error;
+    }
+  },
 };
 
 export default VerificationService; 
