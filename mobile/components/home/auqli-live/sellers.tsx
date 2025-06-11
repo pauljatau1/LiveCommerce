@@ -23,12 +23,15 @@ const Sellers = () => {
         },
       );
 
-      if (response.status === 200) {
-        setSellers(
-          response.data?.sellers
-            ?.filter((seller: any) => seller?.isFeatured)
-            ?.slice(0, 10),
-        );
+      if (response.status == 200) {
+        var featuredShops = response.data?.sellers
+          .filter((seller: any) => seller?.isFeatured)
+          .slice(0, 10);
+
+        if (featuredShops?.length < 1) {
+          featuredShops = response.data?.sellers?.slice(0, 10);
+        }
+        setSellers(featuredShops);
       }
     } catch (err) {
       setError("Failed to load sellers");

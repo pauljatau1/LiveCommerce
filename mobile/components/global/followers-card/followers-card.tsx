@@ -1,5 +1,5 @@
 import { View, Text, Image, Pressable } from "react-native";
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "@/components/global/button/CustomButton";
 import { router } from "expo-router";
@@ -64,8 +64,12 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
               uri:
                 data?.storeAvatar?.url ||
                 "https://media.istockphoto.com/id/1315110986/vector/store-editable-stroke-outline-icon-isolated-on-white-background-flat-vector-illustration.jpg?s=612x612&w=0&k=20&c=mCrUUX3bWTZOvKrr3ontPWJKO_9HAOmboDxxd_XeIRI=",
+              width: 60,
+              height: 60,
             }}
             resizeMode="cover"
+            resizeMethod="resize"
+            progressiveRenderingEnabled={true}
             className="relative rounded-full w-[60px] h-[60px] bg-[#2e2e2e]"
           />
           <Text className="text-[#CCCCCCCC] text-[12.28px] text-center font-LexendDecaBold pt-1">
@@ -133,4 +137,4 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
   );
 };
 
-export default FollowCard;
+export default memo(FollowCard);

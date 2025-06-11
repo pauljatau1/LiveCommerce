@@ -24,11 +24,14 @@ const ForYouFeaturedShopsSection = () => {
       );
 
       if (response.status == 200) {
-        setShops(
-          response.data?.sellers
-            .filter((seller: any) => seller?.isFeatured)
-            .slice(0, 10),
-        );
+        var featuredShops = response.data?.sellers
+          .filter((seller: any) => seller?.isFeatured)
+          .slice(0, 10);
+
+        if (featuredShops?.length < 1) {
+          featuredShops = response.data?.sellers?.slice(0, 10);
+        }
+        setShops(featuredShops);
       }
     } catch (e) {
       console.log(e);
