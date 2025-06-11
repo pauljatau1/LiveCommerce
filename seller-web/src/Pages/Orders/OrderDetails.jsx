@@ -203,16 +203,31 @@ export default function OrderDetails() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to confirm delivery');
+        throw new Error(data.message || 'Failed to confirm pickup');
       }
   
-      toast.success('Delivery confirmed successfully');
-      // Close the dialog and reload the page
+      toast.success('Pickup confirmed successfully');
+      
+      // Close the dialog
       setProofUploadDialogOpen(false);
-      window.location.reload();
+      
+      // Fetch updated order details to refresh the status
+      const updatedOrderResponse = await fetch(`${BASE_URL}/order/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      
+      if (updatedOrderResponse.ok) {
+        const updatedOrder = await updatedOrderResponse.json();
+        setOrderData(updatedOrder);
+      } else {
+        // If we can't fetch the updated order, just reload the page
+        window.location.reload();
+      }
     } catch (error) {
-      console.error('Error confirming delivery:', error);
-      toast.error(error.message || 'Failed to confirm delivery');
+      console.error('Error confirming pickup:', error);
+      toast.error(error.message || 'Failed to confirm pickup');
     } finally {
       setIsConfirming(false);
       setConfirmDeliveryLoading(false);
@@ -385,7 +400,8 @@ export default function OrderDetails() {
       pending: 'bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 text-yellow-700',
       completed: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
       paid: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
-      failed: 'bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 text-red-700'
+      failed: 'bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 text-red-700',
+      abandoned: 'bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 text-orange-800'
     }
     return colors[status] || 'bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 text-gray-700'
   }
@@ -408,22 +424,32 @@ export default function OrderDetails() {
     <div className="container mx-auto sm:px-6 py-6 sm:py-10 space-y-4 sm:space-y-6 min-h-screen">
       {/* Order Header - More subtle design */}
       <Card className="border border-gray-100 -sm bg-white overflow-hidden">
-        <div className={`${order?.isStorePickup ? 'bg-gradient-to-r from-purple-50/90 to-purple-100/90' : 'bg-gradient-to-r from-green-50/90 to-green-100/90'} p-4 sm:p-6 text-gray-800`}>
+        <div className={`${order?.isStale ? 'bg-gradient-to-r from-orange-50/90 to-orange-100/90' : order?.isStorePickup ? 'bg-gradient-to-r from-purple-50/90 to-purple-100/90' : 'bg-gradient-to-r from-green-50/90 to-green-100/90'} p-4 sm:p-6 text-gray-800`}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className={`bg-white p-2 rounded-full -sm ${order?.isStorePickup ? 'text-purple-600' : 'text-green-600'}`}>
-                    <ShoppingBag className="h-5 w-5" />
+                  <div className={`bg-white p-2 rounded-full -sm ${order?.isStale ? 'text-orange-600' : order?.isStorePickup ? 'text-purple-600' : 'text-green-600'}`}>
+                    {order?.isStale ? (
+                      <XCircle className="h-5 w-5" />
+                    ) : (
+                      <ShoppingBag className="h-5 w-5" />
+                    )}
                   </div>
                   <h1 className="text-lg sm:text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="outline" className="bg-blue-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                       {order?.channel}
                     </Badge>
-                    <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
-                      {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
-                    </Badge>
+                    {order?.isStale ? (
+                      <Badge variant="outline" className="bg-orange-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                        Abandoned
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
+                        {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
+                      </Badge>
+                    )}
                     {order?.isStorePickup && (
                       <Badge variant="outline" className="bg-purple-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                         Store Pickup
@@ -450,8 +476,21 @@ export default function OrderDetails() {
                 </div>
               </div>
 
+              {/* Abandoned order warning message */}
+              {order?.isStale && (
+                <div className="bg-orange-100 border border-orange-200 rounded-md p-3 text-orange-800 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Order Abandoned</p>
+                      <p>This order was abandoned by the buyer who did not complete payment. No action is required from you.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                {!order?.isStorePickup && (
+                {!order?.isStale && !order?.isStorePickup && (
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
@@ -476,37 +515,39 @@ export default function OrderDetails() {
                     Print Shipping Label
                   </Button>
                 )}
-                {order?.isStorePickup && (
+                {!order?.isStale && order?.isStorePickup && (
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto bg-purple-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-purple-700"
                     onClick={() => setProofUploadDialogOpen(true)}
-                    disabled={confirmDeliveryLoading || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+                    disabled={confirmDeliveryLoading || 
+                             order?.storePickupStatus?.state === 'approved' || 
+                             order?.storePickupStatus?.state === 'confirmed_by_seller'}
                   >
                     {confirmDeliveryLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Confirming...
                       </>
-                    ) : shipping?.tracking?.status === 'delivered' ? (
+                    ) : order?.storePickupStatus?.state === 'approved' ? (
                       <>
                         <Check className="w-4 h-4" />
-                        Delivery Confirmed
+                        Pickup Approved
                       </>
-                    ) : shipping?.tracking?.status === 'pending_confirmation' ? (
+                    ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
                       <>
                         <Clock className="w-4 h-4" />
-                        Confirmation Pending
+                        Awaiting Approval
                       </>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        Confirm Delivery
+                        Confirm Pickup
                       </>
                     )}
                   </Button>
                 )}
-                {orderData?.order?.orderStatus?.hasReturn && (
+                {!order?.isStale && orderData?.order?.orderStatus?.hasReturn && (
                   <Button
                     onClick={() => navigate(`/dashboard/return/${orderData.order.orderStatus.returnRequestId}`)}
                     size="lg"
@@ -517,7 +558,7 @@ export default function OrderDetails() {
                   </Button>
                 )}
 
-                {shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
+                {!order?.isStale && shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
                   <Button
                     onClick={() => setConfirmCancelDialogOpen(true)}
                     variant="destructive"
@@ -532,14 +573,28 @@ export default function OrderDetails() {
             </div>
 
             <div className="flex flex-wrap gap-2 mt-1">
-              <Badge className={`${getStatusColor(order?.paymentInfo?.status)} px-3 py-1.5 rounded-md text-xs`}>
+              <Badge className={`${order?.isStale ? getStatusColor('abandoned') : getStatusColor(order?.paymentInfo?.status)} px-3 py-1.5 rounded-md text-xs`}>
                 <CreditCard className="h-3 w-3 mr-1" />
-                Payment: {order?.paymentInfo?.status === 'awaiting_cod' ? 'On Delivery' : order?.paymentInfo?.status}
+                Payment: {order?.isStale ? 'abandoned' : order?.paymentInfo?.status === 'awaiting_cod' ? 'On Delivery' : order?.paymentInfo?.status}
               </Badge>
-              <Badge className={`${getStatusColor(shipping?.tracking?.status)} px-3 py-1.5 rounded-md text-xs`}>
+              <Badge className={`${order?.isStale ? getStatusColor('abandoned') : getStatusColor(shipping?.tracking?.status)} px-3 py-1.5 rounded-md text-xs`}>
                 <Truck className="h-3 w-3 mr-1" />
-                Shipping: {shipping?.tracking?.status?.replace(/_/g, ' ')}
+                Shipping: {order?.isStale ? 'abandoned' : shipping?.tracking?.status?.replace(/_/g, ' ')}
               </Badge>
+              {order?.isStorePickup && (
+                <Badge className={`${
+                  order?.storePickupStatus?.state === 'approved' 
+                    ? 'bg-green-100 text-green-700' 
+                    : order?.storePickupStatus?.state === 'confirmed_by_seller'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                } px-3 py-1.5 rounded-md text-xs`}>
+                  <MapPin className="h-3 w-3 mr-1" />
+                  Pickup Status: {order?.storePickupStatus?.state === 'confirmed_by_seller' 
+                    ? 'Waiting Approval' 
+                    : order?.storePickupStatus?.state?.replace(/_/g, ' ')}
+                </Badge>
+              )}
               {order?.dispute?.status !== 'none' && (
                 <Badge variant="destructive" className="text-xs px-3 py-1.5 rounded-md capitalize transition-all duration-300">
                   <AlertCircle className="h-3 w-3 mr-1" />
@@ -713,8 +768,30 @@ export default function OrderDetails() {
                   </div>
                 </div>
 
+                {/* Show Order Abandoned if order is stale */}
+                {order?.isStale && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center -sm">
+                        <XCircle className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Order Abandoned</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {/* Use a calculated date for abandoned (e.g. a few hours after creation) */}
+                        {order?.createdAt ? new Date(new Date(order.createdAt).getTime() + 24 * 60 * 60 * 1000).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Buyer abandoned the order without completing payment. No further action is required.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Show Order Paid if payment status is 'paid' */}
-                {order?.paymentInfo?.status === 'paid' && (
+                {!order?.isStale && order?.paymentInfo?.status === 'paid' && (
                   <div className="flex gap-3">
                     <div className="relative">
                       <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center -sm">
@@ -731,6 +808,50 @@ export default function OrderDetails() {
                       <p className="text-xs text-gray-500 mt-1">
                         Payment of ₦{order?.totalAmount?.toLocaleString()} was received via {order?.paymentInfo?.method}.
                         {order?.paymentInfo?.transactionId && ` Transaction ID: ${order?.paymentInfo?.transactionId}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show store pickup confirmation if applicable */}
+                {order?.isStorePickup && order?.storePickupStatus?.state === 'confirmed_by_seller' && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center -sm">
+                        <Package className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Pickup Confirmed by Seller</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {order?.storePickupStatus?.confirmedAt ? new Date(order.storePickupStatus.confirmedAt).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Seller has confirmed the pickup and is awaiting admin approval.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show store pickup approval if applicable */}
+                {order?.isStorePickup && order?.storePickupStatus?.state === 'approved' && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center -sm">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Pickup Approved</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {order?.storePickupStatus?.approvedAt ? new Date(order.storePickupStatus.approvedAt).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Admin has approved the pickup confirmation. Order is complete.
                       </p>
                     </div>
                   </div>
@@ -771,28 +892,30 @@ export default function OrderDetails() {
                     </div>
                   ))
                 ) : (
-                  <div className="flex gap-3">
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center -sm">
-                        <Package className="w-4 h-4 text-white" />
+                  !order?.isStorePickup && (
+                    <div className="flex gap-3">
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center -sm">
+                          <Package className="w-4 h-4 text-white" />
+                        </div>
+                        {shipping?.estimatedDeliveryDate && (
+                          <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                        )}
                       </div>
-                      {shipping?.estimatedDeliveryDate && (
-                        <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
-                      )}
+                      <div className="flex-1 text-sm pb-6">
+                        <p className="font-medium text-gray-800">Awaiting Shipment</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {shipping?.tracking?.status === 'pending' 
+                            ? 'Order is awaiting pickup arrangement.' 
+                            : 'Order is being prepared for shipment.'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 text-sm pb-6">
-                      <p className="font-medium text-gray-800">Awaiting Shipment</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {shipping?.tracking?.status === 'pending' 
-                          ? 'Order is awaiting pickup arrangement.' 
-                          : 'Order is being prepared for shipment.'}
-                      </p>
-                    </div>
-                  </div>
+                  )
                 )}
 
                 {/* Expected Delivery if available */}
-                {shipping?.estimatedDeliveryDate && (
+                {shipping?.estimatedDeliveryDate && !order?.isStorePickup && (
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center -sm">
                       <Calendar className="w-4 h-4 text-white" />
@@ -1047,8 +1170,8 @@ export default function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Shipping Status */}
-          {!order?.isStorePickup && (
+          {/* Shipping Status - Hide if order is stale/abandoned */}
+          {!order?.isStorePickup && !order?.isStale && (
             <Card className="border border-gray-100 -sm bg-white">
               <CardHeader className="border-b border-gray-100 p-4">
                 <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
@@ -1212,11 +1335,12 @@ export default function OrderDetails() {
                         strokeLinejoin="round"
                         className="text-blue-500"
                       >
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
+                        <path
+                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       Shipping Documents
                     </h4>
@@ -1262,11 +1386,12 @@ export default function OrderDetails() {
                             strokeLinejoin="round"
                             className="text-gray-600"
                           >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
+                            <path
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
                           </svg>
                           Print Shipping Label
                         </Button>
@@ -1274,6 +1399,51 @@ export default function OrderDetails() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* If order is stale, show abandoned notification instead of shipping card */}
+          {order?.isStale && (
+            <Card className="border border-gray-100 -sm bg-white">
+              <CardHeader className="border-b border-gray-100 p-4">
+                <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                  Abandoned Order Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <div className="p-4 rounded-lg flex items-start gap-3 bg-orange-50 border border-orange-100">
+                  <div className="p-2 rounded-full bg-orange-100 flex-shrink-0">
+                    <XCircle className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-orange-800">Payment Not Completed</p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      This order was abandoned by the buyer who did not complete the payment process. No shipping or fulfillment is required.
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm text-orange-700">
+                      <li className="flex items-start gap-2">
+                        <div className="rounded-full bg-orange-200 p-1 mt-0.5">
+                          <Clock className="h-3 w-3 text-orange-700" />
+                        </div>
+                        <span>Order timeout: Payment window expired</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <div className="rounded-full bg-orange-200 p-1 mt-0.5">
+                          <ShoppingBag className="h-3 w-3 text-orange-700" />
+                        </div>
+                        <span>Products have been returned to inventory automatically</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <div className="rounded-full bg-orange-200 p-1 mt-0.5">
+                          <CreditCard className="h-3 w-3 text-orange-700" />
+                        </div>
+                        <span>No payment was processed or received</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1378,15 +1548,19 @@ export default function OrderDetails() {
       <Dialog open={proofUploadDialogOpen} onOpenChange={setProofUploadDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Upload Delivery Proof</DialogTitle>
+            <DialogTitle>Upload Pickup Proof</DialogTitle>
             <DialogDescription>
-              {shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation' ? (
+              {order?.storePickupStatus?.state === 'approved' ? (
+                <div className="text-green-600 mt-2">
+                  The pickup for this order has already been approved. No further action is needed.
+                </div>
+              ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
                 <div className="text-amber-600 mt-2">
-                  A pickup confirmation for this order is already {shipping?.tracking?.status === 'delivered' ? 'confirmed' : 'pending'}. 
+                  A pickup confirmation for this order is already submitted and waiting for approval.
                   You cannot submit another confirmation.
                 </div>
               ) : (
-                "Please upload a photo as proof of delivery. This could be a signed receipt or the delivered items with the customer."
+                "Please upload a photo as proof of pickup. This could be a signed receipt or the customer with the items."
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1405,11 +1579,11 @@ export default function OrderDetails() {
                     aria-hidden="true"
                   >
                     <path
-                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                      d="M28 8H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
                   </svg>
                   <div className="flex text-sm text-gray-600">
                     <label
@@ -1424,6 +1598,7 @@ export default function OrderDetails() {
                         accept="image/*"
                         className="sr-only"
                         onChange={handleProofUpload}
+                        disabled={order?.storePickupStatus?.state === 'approved' || order?.storePickupStatus?.state === 'confirmed_by_seller'}
                       />
                     </label>
                     <p className="pl-1">or drag and drop</p>
@@ -1444,9 +1619,10 @@ export default function OrderDetails() {
               <textarea
                 id="note"
                 className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Add any additional notes about the delivery..."
+                placeholder="Add any additional notes about the pickup..."
                 value={proofNote}
                 onChange={(e) => setProofNote(e.target.value)}
+                disabled={order?.storePickupStatus?.state === 'approved' || order?.storePickupStatus?.state === 'confirmed_by_seller'}
               />
             </div>
           </div>
@@ -1465,7 +1641,9 @@ export default function OrderDetails() {
             </Button>
             <Button
               type="button"
-              disabled={confirmDeliveryLoading || !proofImage || shipping?.tracking?.status === 'delivered' || shipping?.tracking?.status === 'pending_confirmation'}
+              disabled={confirmDeliveryLoading || !proofImage || 
+                      order?.storePickupStatus?.state === 'approved' || 
+                      order?.storePickupStatus?.state === 'confirmed_by_seller'}
               onClick={() => confirmDelivery(id, proofImage, proofNote)}
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
@@ -1474,8 +1652,12 @@ export default function OrderDetails() {
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Confirming...
                 </>
+              ) : order?.storePickupStatus?.state === 'approved' ? (
+                'Already Approved'
+              ) : order?.storePickupStatus?.state === 'confirmed_by_seller' ? (
+                'Awaiting Approval'
               ) : (
-                'Confirm Delivery'
+                'Confirm Pickup'
               )}
             </Button>
           </div>

@@ -16,7 +16,7 @@ const DashboardRoute = ({ children }) => {
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
   const validationAttemptedRef = useRef(false);
   const abortControllerRef = useRef(null);
-
+  
   // Handle disabled account
   useEffect(() => {
     if (isAccountDisabled) {
@@ -41,8 +41,8 @@ const DashboardRoute = ({ children }) => {
         // Skip token validation completely on login/signup pages
         const isAuthPage = location.pathname.includes('/login') ||
                           location.pathname.includes('/signup');
-
-        if (isAuthPage) {
+                          
+                          if (isAuthPage) {
           setIsVerified(true);
           setIsLoading(false);
           return;
@@ -76,7 +76,7 @@ const DashboardRoute = ({ children }) => {
           abortControllerRef.current.abort();
         }
         abortControllerRef.current = new AbortController();
-
+        
         // Don't validate on every render, only first time or after path changes
         if (!validationAttemptedRef.current) {
           validationAttemptedRef.current = true;
@@ -106,6 +106,8 @@ const DashboardRoute = ({ children }) => {
           }
         }
 
+        const isPickupAddressRequired = sellerData?.accountType === 'individual' ? sellerData?.hasFilledAddress === false : sellerData?.hasFilledBusinessAddress === false;
+        
         // Restricted paths that require verification
         const restrictedPaths = [
           '/dashboard/add-products',
@@ -120,9 +122,9 @@ const DashboardRoute = ({ children }) => {
         const currentPath = location.pathname;
         const isRestrictedPath = restrictedPaths.some(path => currentPath.startsWith(path));
 
-        if (isRestrictedPath && sellerData && sellerData.isVerified === false) {
-          toast.error('Verification Required', {
-            description: 'Complete your verification to access this feature',
+        if (isRestrictedPath && sellerData && sellerData.emailVerified === false) {
+          toast.error('Email Verification Required', {
+            description: 'Verify your email to access this feature',
             style: {
               background: '#17171B',
               color: '#fff',
@@ -131,6 +133,17 @@ const DashboardRoute = ({ children }) => {
 
           // Redirect to dashboard home where verification dialog will appear
           navigate('/dashboard/home', { replace: true });
+        } else if (isRestrictedPath && sellerData && isPickupAddressRequired) {
+          toast.error('Pickup Address Required', {
+            description: 'Register your pickup address to access this feature',
+            style: {
+              background: '#17171B',
+              color: '#fff',
+            }
+          });
+
+          // Redirect to dashboard home where verification dialog will appear
+          navigate('/dashboard/home?pickupAddressRequired=true', { replace: true });
         }
 
         // Allow access to dashboard with token, regardless of verification status for non-restricted pages

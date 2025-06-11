@@ -276,6 +276,7 @@ export default function OrdersDashboard() {
       delivered: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
       failed: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
       cancelled: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
+      abandoned: "bg-orange-100 px-3 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md py-1 text-orange-800",
     };
     return statusColors[status] || "bg-gray-100 text-gray-700";
   };
@@ -613,23 +614,25 @@ export default function OrdersDashboard() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(order.shipping.tracking.status)}>
-                            {order.shipping.tracking.status.replace("_", " ")}
+                          <Badge className={getStatusColor(order.isStale ? "abandoned" : order.shipping.tracking.status)}>
+                            {order.isStale ? "abandoned" : order.shipping.tracking.status.replace("_", " ")}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge
                             className={
-                              order.paymentInfo.status === "paid"
-                                ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
-                                : order.paymentInfo.status === "pending"
-                                  ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
-                                  : order.paymentInfo.status === "awaiting_cod"
-                                    ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
-                                    : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                              order.isStale
+                                ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
+                                : order.paymentInfo.status === "paid"
+                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
+                                  : order.paymentInfo.status === "pending"
+                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                                    : order.paymentInfo.status === "awaiting_cod"
+                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
                             }
                           >
-                            {order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
+                            {order.isStale ? "abandoned" : order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
@@ -669,12 +672,14 @@ export default function OrdersDashboard() {
                           <div className="space-y-2">
                             <Badge
                               className={
-                                order.isOpen
-                                  ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
-                                  : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                                order.isStale
+                                  ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
+                                  : order.isOpen
+                                    ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
+                                    : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
                               }
                             >
-                              {order.isOpen ? "Open" : "Closed"}
+                              {order.isStale ? "abandoned" : order.isOpen ? "Open" : "Closed"}
                             </Badge>
                             {!order.orderStatus?.hasReturn ? (
                               <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
@@ -759,12 +764,14 @@ export default function OrdersDashboard() {
                           </div>
                           <Badge
                             className={
-                              order.isOpen
-                                ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
-                                : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
+                              order.isStale
+                                ? "text-xs bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-orange-800"
+                                : order.isOpen
+                                  ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
+                                  : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
                             }
                           >
-                            {order.isOpen ? "Open" : "Closed"}
+                            {order.isStale ? "abandoned" : order.isOpen ? "Open" : "Closed"}
                           </Badge>
                         </div>
                         
@@ -781,24 +788,26 @@ export default function OrdersDashboard() {
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Shipping</p>
-                            <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(order.shipping.tracking.status)}`}>
-                              {order.shipping.tracking.status.replace("_", " ")}
+                            <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(order.isStale ? "abandoned" : order.shipping.tracking.status)}`}>
+                              {order.isStale ? "abandoned" : order.shipping.tracking.status.replace("_", " ")}
                             </Badge>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Payment</p>
                             <Badge
                               className={`text-xs px-2 py-0.5 ${
-                                order.paymentInfo.status === "paid"
-                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
-                                  : order.paymentInfo.status === "pending"
-                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
-                                    : order.paymentInfo.status === "awaiting_cod"
-                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
-                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
+                                order.isStale
+                                  ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md text-orange-800"
+                                  : order.paymentInfo.status === "paid"
+                                    ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
+                                    : order.paymentInfo.status === "pending"
+                                      ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
+                                      : order.paymentInfo.status === "awaiting_cod"
+                                        ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
+                                        : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
                               }`}
                             >
-                              {order.paymentInfo.status === "awaiting_cod" ? "COD" : order.paymentInfo.status}
+                              {order.isStale ? "abandoned" : order.paymentInfo.status === "awaiting_cod" ? "COD" : order.paymentInfo.status}
                             </Badge>
                           </div>
                         </div>

@@ -37,13 +37,9 @@ function VerificationDialog({
   const thumbnailUrl = videoId ? getYoutubeThumbnail(videoId) : null;
   
   // Set default title and message based on status
-  const defaultTitle = isPending 
-    ? "Account Under Review" 
-    : "Account Verification Required";
+  const defaultTitle = "Pickup Address Required";
     
-  const defaultMessage = isPending
-    ? "Your seller account verification is being reviewed. You'll be notified when your account is either approved or declined."
-    : "Your seller account is not verified yet. To access all features and start selling on Auqli, you need to complete your onboarding profile.";
+  const defaultMessage = "Your seller account does not have a pickup address yet. To access product listing features and start selling on Auqli, you need to add a pickup address.";
   
   // Use provided values or defaults
   const displayTitle = title || defaultTitle;
@@ -86,9 +82,9 @@ function VerificationDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-xl rounded-xl shadow-xl border border-orange-100">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-3 text-orange-600 text-xl font-semibold">
+        <DialogContent className="max-w-xl rounded-xl shadow-xl max-h-[80vh] overflow-y-auto border border-orange-100">
+          <DialogHeader className="pb-2 mt-10">
+            <DialogTitle className="flex items-center gap-3 flex-nowrap text-orange-600 text-xl font-semibold">
               <div className="bg-orange-100 p-2 rounded-full">
                 <Icon icon={isPending ? "solar:clock-circle-bold" : "solar:shield-warning-bold"} className="h-6 w-6 text-orange-600" />
               </div>
@@ -96,15 +92,15 @@ function VerificationDialog({
             </DialogTitle>
           </DialogHeader>
           
-          <div className="py-5 px-1">
-            <p className="text-gray-700 mb-4 leading-relaxed">
+          <div className="pb-5 px-1">
+            <p className="text-gray-700 text-base mb-4 leading-relaxed">
               {displayMessage}
             </p>
             {!isPending && (
               <div className="flex items-start gap-3 bg-blue-50 p-3 rounded-lg">
                 <Icon icon="solar:info-circle-bold" className="h-5 w-5 text-blue-600 mt-0.5" />
                 <p className="text-gray-700 text-sm">
-                  Please complete your profile information to continue with the verification process.
+                  Please add a pickup address to continue with your product listing.
                 </p>
               </div>
             )}
@@ -135,7 +131,7 @@ function VerificationDialog({
           <DialogFooter className="flex justify-end gap-3 pt-2">
             <button 
               onClick={onClose} 
-              className="px-5 py-2.5 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
+              className="px-5 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2"
             >
               <Icon icon="solar:close-circle-bold" className="h-4 w-4" />
               {isPending ? "Got it" : "Later"}
@@ -143,10 +139,10 @@ function VerificationDialog({
             {!isPending && (
               <button 
                 onClick={handleCompleteProfile}
-                className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm flex items-center gap-2"
+                className="px-5 py-2.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm flex items-center justify-center gap-1"
               >
-                <Icon icon="solar:user-check-bold" className="h-4 w-4" />
-                Complete Profile
+                <Icon icon="mdi:location" className="h-4 w-4" />
+                Add Address
               </button>
             )}
           </DialogFooter>

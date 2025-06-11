@@ -1,14 +1,13 @@
-import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { Icon } from "@iconify/react";
 import {
     Collapsible,
     CollapsibleContent,
 } from "../../Components/ui/collapsible";
 import { Button } from "../../Components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../Components/ui/card";
 import { Label } from "../../Components/ui/label";
 import { Input } from "../../Components/ui/input2";
-import { Textarea } from "../../Components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import { BASE_URL } from '../../Constants/Server';
 import { toast } from 'sonner';
@@ -21,38 +20,20 @@ import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
-import Header from '../../Components/ui/Header/Header';
-import NoCatImage from '../../assets/no-cat.png';
+
 // Comment out ProductSpecifications import
 // import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
 import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
 import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
 import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
-import VariantImageUpload from '../../Components/ui/VariantComponents/VariantImageUpload';
+
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 import { Checkbox } from "../../Components/ui/checkbox";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
-
-// Define the rich text editor toolbar options
-const quillModules = {
-    toolbar: [
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-        ['bold', 'italic'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        ['clean']
-    ],
-};
-
-const quillFormats = [
-    'header',
-    'bold', 'italic',
-    'list', 'bullet'
-];
+import SimpleEditor from '../../Components/ui/SimpleEditor';
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -102,7 +83,7 @@ const AddProduct = () => {
     const [contentProgress, setContentProgress] = useState(0);
     // Comment out productSpecs state
     // const [productSpecs, setProductSpecs] = useState({});
-    const { variantStructure } = useVariants();
+    // const { variantStructure } = useVariants(); // Commented out as it's not used in AddProduct
     const [categorySearchQuery, setCategorySearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -285,22 +266,6 @@ const AddProduct = () => {
         if (validFiles.length > 0) {
             toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
         }
-    };
-
-    // Simulate upload progress (remove this when implementing actual upload)
-    const simulateUpload = (file, onProgress) => {
-        return new Promise((resolve) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 5;
-                onProgress(progress);
-
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 200);
-        });
     };
 
     const fetchSeller = localStorage.getItem('seller');
@@ -946,13 +911,10 @@ const AddProduct = () => {
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
                                     <div className="border border-[#02020238] rounded-2xl overflow-hidden">
-                                        <ReactQuill
-                                            theme="snow"
+                                        <SimpleEditor
                                             value={description}
                                             onChange={setDescription}
                                             placeholder="Enter detailed product description"
-                                            modules={quillModules}
-                                            formats={quillFormats}
                                             className="min-h-[226px] rounded-2xl bg-white"
                                         />
                                     </div>

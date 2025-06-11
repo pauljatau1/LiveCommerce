@@ -29,12 +29,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../../Components/ui/dialog";
-import VerificationDialog from "../../Components/VerificationDialog";
+import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
 import { BASE_URL } from "../../Constants/Server";
 import axios from 'axios';
 import { toast } from "sonner";
+import EmailVerificationModal from "../../Components/EmailVerificationModal";
 
 
 // Import all icons directly
@@ -65,8 +66,7 @@ const ProductsPage = () => {
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); 
     const [sortType, setSortType] = useState('newest-to-oldest'); 
-    const { seller, fetchSellerDetails } = useAuthContext();
-    const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+    const { fetchSellerDetails } = useAuthContext();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
@@ -91,6 +91,13 @@ const ProductsPage = () => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const seller = JSON.parse(localStorage.getItem('seller'));
+    
+    // Email Verification Modal state
+    const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+
+    // Pickup Address Verification Modal state
+    const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
     useEffect(() => {
         setHeaderName('Products')
@@ -109,19 +116,6 @@ const ProductsPage = () => {
         })
     }, [])
 
-    // Check if seller is verified whenever seller value changes
-    useEffect(() => {
-        console.log("Seller verification check:", { 
-            seller, 
-            isVerified: seller?.isVerified
-        });
-        
-        // Only show verification dialog if seller has loaded and is not verified
-        if (seller && seller.isVerified === false) {
-            setShowVerificationDialog(true);
-        }
-    }, [seller]);
-
     // Reset page when sort type or tab changes
     useEffect(() => {
         setCurrentPage(1);
@@ -134,6 +128,9 @@ const ProductsPage = () => {
             fetchProducts();
         }
     }, [sortType, activeTab, itemsPerPage, currentPage, isStockUpdated, isSearchMode]);
+
+
+    
 
     const fetchProducts = () => {
         // Skip fetch if we're in search mode - search is handled by the search button
@@ -439,8 +436,6 @@ const ProductsPage = () => {
         ));
     }, [displayedProducts]);
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
     // Handle search input change
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
@@ -513,13 +508,22 @@ const ProductsPage = () => {
         };
     }, []);
 
+    const isPickupAddressRequired = seller?.accountType === 'individual' ? seller?.hasFilledAddress === false : seller?.hasFilledBusinessAddress === false;
+
     return (
         <>
             {/* Verification Dialog */}
-            <VerificationDialog 
-                isOpen={showVerificationDialog} 
-                onClose={() => setShowVerificationDialog(false)} 
+            <PickupAddressVerificationModal 
+                isOpen={showPickupAddressModal} 
+                onClose={() => setShowPickupAddressModal(false)} 
                 isPending={seller?.accountPending}
+            />
+
+            {/* Email Verification Modal */}
+            <EmailVerificationModal
+                isOpen={showEmailVerificationModal}
+                onClose={() => setShowEmailVerificationModal(false)}
+                userEmail={seller?.email || ''}
             />
 
             {/*isLoading && <Loader />*/}
@@ -572,9 +576,12 @@ const ProductsPage = () => {
                                     className="flex items-center gap-1 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-1.5 sm:py-2 px-2.5 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
                                     onClick={(e) => {
                                         // Strictly compare with boolean false to avoid undefined comparison issues
-                                        if (seller && seller.isVerified === false) {
+                                        if (seller && seller?.emailVerified === false) {
                                             e.preventDefault();
-                                            setShowVerificationDialog(true);
+                                            setShowEmailVerificationModal(true);
+                                        } else if (seller && isPickupAddressRequired) {
+                                            e.preventDefault();
+                                            setShowPickupAddressModal(true);
                                         }
                                     }}
                                 >

@@ -29,25 +29,8 @@ import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
 import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
-
-// Define the rich text editor toolbar options
-const quillModules = {
-    toolbar: [
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-        ['bold', 'italic'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        ['clean']
-    ],
-};
-
-const quillFormats = [
-    'header',
-    'bold', 'italic',
-    'list', 'bullet'
-];
+import SimpleEditor from '../../Components/ui/SimpleEditor';
 
 const EditProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -102,8 +85,7 @@ const EditProduct = () => {
         setNavName('Edit Product')
     }, [])
 
-    console.log('productId', id)
-    console.log('fetched product', product)
+
 
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
@@ -313,22 +295,6 @@ const EditProduct = () => {
         if (validFiles.length > 0) {
             toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
         }
-    };
-
-    // Simulate upload progress (remove this when implementing actual upload)
-    const simulateUpload = (file, onProgress) => {
-        return new Promise((resolve) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 5;
-                onProgress(progress);
-
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 200);
-        });
     };
 
     const fetchSeller = localStorage.getItem('seller');
@@ -836,7 +802,7 @@ const EditProduct = () => {
     }, [product]);
 
     useEffect(() => {
-        if (product?.variants) {
+        if (product?.variants && product.variants.length > 0) {
             // Transform backend variants to match variantStructure format
             const transformedVariants = product.variants.map(variant => ({
                 id: variant._id,
@@ -876,23 +842,34 @@ const EditProduct = () => {
             }));
 
             // Extract unique options for variant cards
-            const options = [
-                {
+            const options = [];
+            
+            // Add option-1 if main variant name exists
+            if (product?.variants[0]?.name) {
+                options.push({
                     id: 'option-1',
                     name: product?.variants[0]?.name,
                     values: product?.variants?.map(v => v.value)
-                },
-                {
+                });
+            }
+            
+            // Add option-2 if subvariant name exists
+            if (product?.variants[0]?.subVariants[0]?.name) {
+                options.push({
                     id: 'option-2',
                     name: product?.variants[0]?.subVariants[0]?.name,
                     values: [...new Set(product?.variants[0]?.subVariants?.map(sv => sv.value))]
-                },
-                {
+                });
+            }
+            
+            // Add option-3 if sub-subvariant name exists
+            if (product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name) {
+                options.push({
                     id: 'option-3',
                     name: product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name,
                     values: [...new Set(product?.variants[0]?.subVariants[0]?.subSubVariants?.map(ssv => ssv.value))]
-                }
-            ];
+                });
+            }
 
             // Update variant context
             if (variantContextRef.current) {
@@ -963,13 +940,12 @@ const EditProduct = () => {
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
                                     <div className="border border-[#02020238] rounded-2xl overflow-hidden">
-                                        <ReactQuill
-                                            theme="snow"
+                                        {/* Using Tiptap Simple Editor Template */}
+                                        <SimpleEditor
+                                            key={`simple-editor-${product?._id || 'new'}`}
                                             value={description}
                                             onChange={setDescription}
                                             placeholder="Enter product description"
-                                            modules={quillModules}
-                                            formats={quillFormats}
                                             className="min-h-[226px] rounded-2xl bg-white"
                                         />
                                     </div>

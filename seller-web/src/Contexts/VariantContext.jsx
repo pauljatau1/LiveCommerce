@@ -1,55 +1,7 @@
-import React, { createContext, useContext, useReducer, useMemo, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
 
 const VariantContext = createContext();
-
-const initialState = {
-  options: [],
-  variants: [],
-  variantCombinations: {},
-  expandedVariants: new Set(),
-  tempInputs: {},
-};
-
-function variantsReducer(state, action) {
-  switch (action.type) {
-    case 'ADD_OPTION':
-      return {
-        ...state,
-        options: [...state.options, action.payload]
-      };
-    case 'UPDATE_OPTION':
-      return {
-        ...state,
-        options: state.options.map(opt => 
-          opt.id === action.payload.id ? { ...opt, ...action.payload } : opt
-        )
-      };
-    case 'DELETE_OPTION':
-      return {
-        ...state,
-        options: state.options.filter(opt => opt.id !== action.payload)
-      };
-    case 'SET_VARIANT_COMBINATIONS':
-      return {
-        ...state,
-        variantCombinations: action.payload
-      };
-    case 'UPDATE_VARIANT_VALUE':
-      return {
-        ...state,
-        tempInputs: {
-          ...state.tempInputs,
-          [action.payload.path]: {
-            ...state.tempInputs[action.payload.path],
-            [action.payload.field]: action.payload.value
-          }
-        }
-      };
-    // ... other cases
-    default:
-      return state;
-  }
-}
 
 export const VariantsProvider = ({ children }) => {
     const [options, setOptions] = useState([]);
@@ -245,6 +197,10 @@ export const VariantsProvider = ({ children }) => {
             {children}
         </VariantContext.Provider>
     );
+};
+
+VariantsProvider.propTypes = {
+    children: PropTypes.node.isRequired
 };
 
 export const useVariants = () => {

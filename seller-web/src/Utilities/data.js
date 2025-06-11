@@ -85,6 +85,12 @@ export const sideBarNavData = [
     },
     {
         id: ObjectID().toHexString(),
+        name: 'KYC Verification',
+        icon: 'uiw:verification',
+        path: '/dashboard/kyc-verification'
+    },
+    {
+        id: ObjectID().toHexString(),
         name: 'Orders',
         icon: 'heroicons:shopping-bag',
         path: '/dashboard/orders'

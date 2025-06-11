@@ -5,16 +5,12 @@ import eyeOffIcon from '@iconify-icons/mdi/eye-off';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import Modal from '../../Components/Modal';
 import Logo from '../../assets/auqli-official-logo.png';
 import SignupImage from '../../assets/signup.png';
-import MailIcon from '../../assets/mail.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PhoneInput from 'react-phone-input-2';
-import OtpInput from 'react-otp-input';
 import 'react-phone-input-2/lib/style.css';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
-import { TooltipProvider } from '../../Components/ui/tooltip';
 
 // Add phone number validation utilities
 const isValidNigerianPhoneNumber = (phone) => {
@@ -52,10 +48,7 @@ const formatPhoneForBackend = (phone) => {
 
 const SignUpPage = () => {
   const navigate = useNavigate();
-  const { createSeller, isLoading, signUpSellerDetails, otpStatus, verifyOtp, requestNewOtp, unverifiedUser, dispatch } = useAuthContext();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [activateOtp, setActivateOtp] = useState(false);
+  const { createSeller, isLoading } = useAuthContext();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -68,38 +61,20 @@ const SignUpPage = () => {
     showConfirmPassword: false
   });
 
-  //use effect to check if the seller is authenticated and if the otp status is pending, if so, open the otp modal as a reroute from the signup page
+  // Check if seller is already authenticated and redirect to dashboard
   useEffect(() => {
-    // Check for token to enable auto-redirect after successful signup+OTP
     const sellerToken = localStorage.getItem('sellerToken');
     if (sellerToken) {
       const tokenData = JSON.parse(sellerToken);
       const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
-      // Check if email is verified
-      const isEmailVerified = sellerData.emailVerified === true || sellerData.isVerified === true;
 
-      // Only redirect if token exists AND is verified (after OTP)
-      if (tokenData.isVerified === true && isEmailVerified) {
+      // If user has valid token, redirect to dashboard
+      if (tokenData.data && sellerData._id) {
         navigate('/dashboard/home', { replace: true });
         return;
       }
     }
-
-    // Only show the OTP modal if verification is still pending
-    // Don't show the modal if otpStatus is "verified"
-    if (otpStatus === "verified") {
-      setIsModalOpen(false);
-      return;
-    }
-
-    // Show the OTP modal if signup was successful and OTP verification is pending
-    if (signUpSellerDetails && otpStatus === "pending") {
-      setIsModalOpen(true);
-    } else if (signUpSellerDetails && unverifiedUser) {
-      // Also show modal if user was redirected back to signup because they're unverified
-      setIsModalOpen(true);
-    }
-  }, [signUpSellerDetails, otpStatus, navigate, unverifiedUser]);
+  }, [navigate]);
 
   //function to submit the user data
   const submitUserData = async (event) => {
@@ -163,7 +138,9 @@ const SignUpPage = () => {
       );
 
       if (result) {
-
+        // Navigate directly to dashboard after successful signup
+        navigate('/dashboard/home', { replace: true });
+        
         //reset the form data
         setFormData({
           firstName: '',
@@ -175,43 +152,6 @@ const SignUpPage = () => {
           confirmPassword: '',
         });
       }
-    }
-  };
-
-  //function to verify otp after sign up
-  const handleOtpSubmit = async () => {
-    if (otp.length === 4 && signUpSellerDetails !== null) {
-      try {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        // Get the normalized email for OTP verification
-        const formattedEmail = signUpSellerDetails?.email.toLowerCase().replace(/\s+/g, '');
-        // Verify OTP - this will handle the redirection to dashboard if successful
-        const success = await verifyOtp(formattedEmail, otp);
-        if (success) {
-          // Close modal
-          setIsModalOpen(false);
-          // Directly navigate to dashboard
-          navigate('/dashboard/home', { replace: true });
-        }
-      } catch (error) {
-        console.error("Error verifying OTP:", error);
-        toast.error("Failed to verify OTP. Please try again.");
-      } finally {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    } else {
-      toast.error("Please enter the complete 4-digit OTP");
-    }
-  };
-
-  const handleNewOtpRequest = async () => {
-    if (signUpSellerDetails !== null) {
-      // Format email for OTP request
-      const formattedEmail = signUpSellerDetails?.email.toLowerCase().replace(/\s+/g, '');
-      await requestNewOtp(formattedEmail);
-      setActivateOtp(true);
-    } else {
-      toast.error("You are unauthorized to request for a new OTP");
     }
   };
 
@@ -266,7 +206,7 @@ const SignUpPage = () => {
           <div className="bg-[#F7FAFC] p-5 md:py-12 md:px-16 xl:py-10 xl:px-24 rounded-lg w-full xl:container xl:max-w-[680px]">
             <div className="text-center mb-8">
               <h2 className="text-xl md:text-3xl font-semibold font-inter">Create your account</h2>
-              <p className="text-sm md:text-base font-inter">It's free and easy</p>
+              <p className="text-sm md:text-base font-inter">It&apos;s free and easy</p>
             </div>
 
             <form onSubmit={submitUserData} className="space-y-4">
@@ -535,92 +475,6 @@ const SignUpPage = () => {
           </div>
         </div>
       </div>
-
-      {
-        isModalOpen && (
-          <Modal variant="otp">
-            <img src={MailIcon} alt="Mail Icon" className="w-[83.5px] h-[83.5px] lg:w-[127px] lg:h-[127px] mb-10" />
-            <h3 className="text-base sm:text-2xl font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">
-              {`We've sent a code to ${signUpSellerDetails?.email}`}
-            </h3>
-            <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-4 ">Please verify your email address by inputting the OTP we sent to your email.</p>
-            {
-              otpStatus === "verified" ? (
-                <>
-                  <p className="text-base sm:text-lg font-medium text-green-400 text-center mt-6">
-                    Your email has been verified successfully!
-                  </p>
-                  <button onClick={() => {
-                    setIsModalOpen(false);
-                    navigate('/dashboard/home', { replace: true });
-                  }} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300">
-                    Go to Dashboard
-                  </button>
-                </>
-              ) : activateOtp ? (
-                <>
-                  <div className="mb-5">
-                    <OtpInput
-                      value={otp}
-                      onChange={setOtp}
-                      numInputs={4}
-                      shouldAutoFocus={true}
-                      renderInput={(props, index) => (
-                        <Tooltip key={index}>
-                          <TooltipTrigger asChild>
-                            <input
-                              {...props}
-                              className='w-12 h-12 lg:w-20 lg:h-20 rounded-md bg-transparent border-2 border-[#0BB248] text-center text-xl lg:text-3xl text-[#FFFFFF] focus:outline-none'
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                            <p>4-digit verification code</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-
-                      containerStyle={{
-                        display: 'flex',
-                        marginTop: '48px',
-                        gap: '27px',
-                      }}
-                      skipDefaultStyles={true}
-                    />
-                  </div>
-                  <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-5">Didn&apos;t receive the OTP? <span className="text-[#0BB248] hover:underline cursor-pointer" onClick={handleNewOtpRequest}>Request New OTP</span></p>
-                  <button onClick={handleOtpSubmit} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border-[1.4px] border-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">
-                    {
-                      isLoading ? <CircularProgress color='white' size={20} /> : "Verify Code"
-                    }
-                  </button>
-                  <button onClick={() => setIsModalOpen(false)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border-[1.4px] border-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-5 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">cancel</button>
-                </>
-              ) : (
-                <>
-                  {
-                    unverifiedUser ? (
-                      <>
-                        <button
-                          onClick={handleNewOtpRequest}
-                          className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Request New Otp <Icon icon="radix-icons:arrow-top-right" width="25" height="25" color="#FFFFFF" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <a href={`https://mail.google.com/mail/u/0/#inbox`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Go to Gmail <Icon icon="radix-icons:arrow-top-right" width="25" height="25" color="#FFFFFF" />
-                        </a>
-                        <button onClick={() => setActivateOtp(true)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border border-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-5 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Input Code</button>
-                      </>
-                    )
-                  }
-                </>
-              )
-            }
-          </Modal>
-        )
-      }
     </div>
   )
 }
