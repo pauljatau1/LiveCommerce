@@ -268,6 +268,46 @@ exports.createOrder = async (req, res) => {
       if (!addressValidation.valid) {
         return res.status(400).json({ message: addressValidation.message });
       }
+      
+      // Check for seller information in items
+      for (const item of items) {
+        if (!item.seller || !item.seller.sellerId) {
+          return res.status(400).json({ 
+            message: 'Seller information is required for each item' 
+          });
+        }
+        
+        // Find the seller to verify address
+        const SellerModelForValidation = mongoose.model('Seller');
+        const seller = await SellerModelForValidation.findById(item.seller.sellerId);
+        if (!seller) {
+          return res.status(400).json({ message: `Seller not found for item with product ID ${item.productId}` });
+        }
+        
+        // Log all seller address info for debugging
+        console.log('DEBUG - Validating Seller Address:', {
+          sellerId: seller._id.toString(),
+          hasSenderInfo: !!(item.seller.senderInfo && item.seller.senderInfo.senderAddress),
+          hasSellerAddress: !!(seller.sellerAddress && seller.sellerAddress.addressLine1),
+          hasBusinessAddress: !!(seller.businessAddress && seller.businessAddress.addressLine1),
+          hasWarehouseAddress: !!(seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1),
+          hasLegacyAddress: !!seller.address
+        });
+        
+        // Check if we have a valid pickup address source
+        const hasSenderInfo = item.seller.senderInfo && item.seller.senderInfo.senderAddress;
+        const hasSellerAddress = seller.sellerAddress && seller.sellerAddress.addressLine1;
+        const hasBusinessAddress = seller.businessAddress && seller.businessAddress.addressLine1;
+        const hasWarehouseAddress = seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1;
+        const hasLegacyAddress = !!seller.address;
+        
+        // Only throw an error if we have absolutely no address information
+        if (!hasSenderInfo && !hasSellerAddress && !hasBusinessAddress && !hasWarehouseAddress && !hasLegacyAddress) {
+          return res.status(400).json({ 
+            message: `No valid pickup address available for seller: ${seller.storeName || seller.businessName || seller._id}. Please provide sender information or update seller address.`
+          });
+        }
+      }
     }
     
     // Only validate parcel if it's provided and not store pickup
@@ -696,6 +736,22 @@ exports.createOrder = async (req, res) => {
       // Generate a unique order ID
       const uniqueOrderId = `AUQLI-${uuidv4().substring(0, 8)}`;
       
+      // Get fresh seller data with all fields populated to ensure we have the latest address info
+      // Use mongoose model to avoid reference issues
+      const SellerModel = mongoose.model('Seller');
+      const fullSellerData = await SellerModel.findById(sellerId);
+      
+      // Log all available address data for debugging
+      console.log('DEBUG - Seller Address Data:', {
+        sellerId: sellerId,
+        hasSellerAddress: fullSellerData?.sellerAddress?.addressLine1 ? true : false,
+        sellerAddress: fullSellerData?.sellerAddress,
+        hasBusinessAddress: fullSellerData?.businessAddress?.addressLine1 ? true : false,
+        businessAddress: fullSellerData?.businessAddress,
+        hasWarehouseAddress: fullSellerData?.warehouseDetails?.address?.addressLine1 ? true : false,
+        warehouseAddress: fullSellerData?.warehouseDetails?.address
+      });
+      
       // Create order in database
       const order = new Order({
         order_id: uniqueOrderId,
@@ -724,17 +780,110 @@ exports.createOrder = async (req, res) => {
           zip: ''
         },
         pickup_address: isStorePickup ? {
-          first_name: seller.firstName,
-          last_name: seller.lastName,
-          email: seller.email,
-          phone: seller.phoneNumber,
-          line1: seller.sellerAddress?.addressLine1 || '',
-          line2: seller.sellerAddress?.addressLine2 || '',
-          city: seller.sellerAddress?.city || '',
-          state: seller.sellerAddress?.state || '',
-          country: seller.sellerAddress?.country || 'NG',
-          zip: seller.sellerAddress?.zipCode || ''
-        } : null,
+          first_name: fullSellerData.firstName,
+          last_name: fullSellerData.lastName,
+          email: fullSellerData.email,
+          phone: fullSellerData.phoneNumber,
+          line1: fullSellerData.sellerAddress?.addressLine1 || '',
+          line2: fullSellerData.sellerAddress?.addressLine2 || '',
+          city: fullSellerData.sellerAddress?.city || '',
+          state: fullSellerData.sellerAddress?.state || '',
+          country: fullSellerData.sellerAddress?.country || 'NG',
+          zip: fullSellerData.sellerAddress?.zipCode || ''
+        } : (() => {
+          // Determine which address to use for pickup based on availability
+          let address = null;
+          
+          // Start with sellerSenderInfo from request
+          if (sellerSenderInfo && sellerSenderInfo.senderAddress) {
+            // Use the address provided in the request
+            address = {
+              first_name: sellerSenderInfo.senderName ? sellerSenderInfo.senderName.split(' ')[0] : fullSellerData.firstName,
+              last_name: sellerSenderInfo.senderName ? sellerSenderInfo.senderName.split(' ').slice(1).join(' ') : fullSellerData.lastName,
+              email: sellerSenderInfo.senderEmail || fullSellerData.email,
+              phone: sellerSenderInfo.senderPhone || fullSellerData.phoneNumber,
+              line1: sellerSenderInfo.senderAddress,
+              state: sellerSenderInfo.pickUpState || "Lagos",
+              country: 'NG'
+            };
+            console.log('Order using pickup address from request');
+          } 
+          // Then try sellerAddress
+          else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
+            address = {
+              first_name: fullSellerData.firstName,
+              last_name: fullSellerData.lastName,
+              email: fullSellerData.email,
+              phone: fullSellerData.phoneNumber,
+              line1: fullSellerData.sellerAddress.addressLine1,
+              line2: fullSellerData.sellerAddress.addressLine2 || '',
+              city: fullSellerData.sellerAddress.city || '',
+              state: fullSellerData.sellerAddress.state || '',
+              country: fullSellerData.sellerAddress.country || 'NG',
+              zip: fullSellerData.sellerAddress.zipCode || ''
+            };
+            console.log('Order using seller address from database');
+          } 
+          // Try businessAddress
+          else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
+            address = {
+              first_name: fullSellerData.firstName,
+              last_name: fullSellerData.lastName,
+              email: fullSellerData.email,
+              phone: fullSellerData.phoneNumber,
+              line1: fullSellerData.businessAddress.addressLine1,
+              line2: fullSellerData.businessAddress.addressLine2 || '',
+              city: fullSellerData.businessAddress.city || '',
+              state: fullSellerData.businessAddress.state || '',
+              country: fullSellerData.businessAddress.country || 'NG',
+              zip: fullSellerData.businessAddress.zipCode || ''
+            };
+            console.log('Order using business address from database');
+          }
+          // Try warehouse address
+          else if (fullSellerData.warehouseDetails && fullSellerData.warehouseDetails.address && fullSellerData.warehouseDetails.address.addressLine1) {
+            address = {
+              first_name: fullSellerData.firstName,
+              last_name: fullSellerData.lastName,
+              email: fullSellerData.email,
+              phone: fullSellerData.phoneNumber || fullSellerData.warehouseDetails.contactNumber,
+              line1: fullSellerData.warehouseDetails.address.addressLine1,
+              line2: fullSellerData.warehouseDetails.address.addressLine2 || '',
+              city: fullSellerData.warehouseDetails.address.city || '',
+              state: fullSellerData.warehouseDetails.address.state || '',
+              country: fullSellerData.warehouseDetails.address.country || 'NG',
+              zip: fullSellerData.warehouseDetails.address.zipCode || ''
+            };
+            console.log('Order using warehouse address from database');
+          }
+          // Try legacy address field
+          else if (fullSellerData.address) {
+            address = {
+              first_name: fullSellerData.firstName,
+              last_name: fullSellerData.lastName,
+              email: fullSellerData.email,
+              phone: fullSellerData.phoneNumber,
+              line1: fullSellerData.address,
+              state: fullSellerData.state || 'Lagos',
+              country: 'NG'
+            };
+            console.log('Order using legacy address field from database');
+          } else {
+            console.log('No suitable pickup address found for seller', sellerId);
+            // Create minimal address with just the name
+            address = {
+              first_name: fullSellerData.firstName,
+              last_name: fullSellerData.lastName,
+              email: fullSellerData.email,
+              phone: fullSellerData.phoneNumber,
+              line1: 'Address not provided',
+              state: 'Lagos',
+              country: 'NG'
+            };
+          }
+          
+          return address;
+        })(),
         shipping: {
           carrier: isStorePickup ? null : {
             name: 'Fez Delivery',
@@ -814,8 +963,9 @@ exports.createOrder = async (req, res) => {
       }
       
       // Add buyer to seller's customers list if not already a customer
-      const Seller = mongoose.model('Seller');
-      const sellerDoc = await Seller.findById(sellerId);
+      // Use a different variable name to avoid redeclaration
+      const SellerModelForCustomer = mongoose.model('Seller');
+      const sellerDoc = await SellerModelForCustomer.findById(sellerId);
       
       if (sellerDoc) {
         // Check if buyer is already a customer
@@ -825,7 +975,7 @@ exports.createOrder = async (req, res) => {
         
         if (!existingCustomer) {
           // Add buyer as a new customer
-          await Seller.findByIdAndUpdate(
+          await SellerModelForCustomer.findByIdAndUpdate(
             sellerId,
             {
               $push: {
@@ -844,7 +994,7 @@ exports.createOrder = async (req, res) => {
           console.log(`Added buyer ${buyerId} as a new customer for seller ${sellerId}`);
         } else {
           // Update existing customer with new order data
-          await Seller.findOneAndUpdate(
+          await SellerModelForCustomer.findOneAndUpdate(
             { 
               _id: sellerId,
               'customers.buyerId': buyerId 
@@ -910,6 +1060,17 @@ exports.createOrder = async (req, res) => {
         sellerId
       });
       
+      // Log all available address data for debugging but don't redeclare fullSellerData
+      console.log('DEBUG - Seller Address Data:', {
+        sellerId: sellerId,
+        hasSellerAddress: fullSellerData?.sellerAddress?.addressLine1 ? true : false,
+        sellerAddress: fullSellerData?.sellerAddress,
+        hasBusinessAddress: fullSellerData?.businessAddress?.addressLine1 ? true : false,
+        businessAddress: fullSellerData?.businessAddress,
+        hasWarehouseAddress: fullSellerData?.warehouseDetails?.address?.addressLine1 ? true : false,
+        warehouseAddress: fullSellerData?.warehouseDetails?.address
+      });
+      
       // Prepare seller-specific parcel details for Fez
       const sellerParcel = {
         valueOfItem: sellerParcelInfo.valueOfItem.toString(),
@@ -939,11 +1100,52 @@ exports.createOrder = async (req, res) => {
         additionalDetails: additionalDetails || '',
         isItemCod: isItemCod && !isFullyPaidFromWallet,
         thirdparty: "true",
-        senderName: sellerSenderInfo.senderName || `${seller.firstName} ${seller.lastName}`,
-        senderAddress: sellerSenderInfo.senderAddress || seller.address || 'Not provided',
-        senderPhone: sellerSenderInfo.senderPhone || seller.phone || 'Not provided',
-        senderEmail: sellerSenderInfo.senderEmail || seller.email || '',
       };
+
+      // Get sender info (name, address, phone, email) from seller data if not provided
+      // First check if sender info is provided in the request
+      if (sellerSenderInfo.senderName) {
+        fezRequest.senderName = sellerSenderInfo.senderName;
+      } else {
+        fezRequest.senderName = `${fullSellerData.firstName} ${fullSellerData.lastName}`;
+      }
+
+      // Check for sender address in priority order:
+      // 1. Request sender info
+      // 2. Seller address
+      // 3. Business address
+      // 4. Warehouse address
+      // 5. Fallback to seller's default address if available
+      // 6. Default to "Not provided"
+      if (sellerSenderInfo.senderAddress) {
+        fezRequest.senderAddress = sellerSenderInfo.senderAddress;
+        console.log('Using sender address from request');
+      } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
+        const sellerAddr = fullSellerData.sellerAddress;
+        fezRequest.senderAddress = formatAddressForFez(sellerAddr);
+        console.log('Using seller address from database');
+      } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
+        const businessAddr = fullSellerData.businessAddress;
+        fezRequest.senderAddress = formatAddressForFez(businessAddr);
+        console.log('Using business address from database');
+      } else if (fullSellerData.warehouseDetails && fullSellerData.warehouseDetails.address && fullSellerData.warehouseDetails.address.addressLine1) {
+        const warehouseAddr = fullSellerData.warehouseDetails.address;
+        fezRequest.senderAddress = formatAddressForFez(warehouseAddr);
+        console.log('Using warehouse address from database');
+      } else if (fullSellerData.address) {
+        // Use the legacy address field if available
+        fezRequest.senderAddress = fullSellerData.address;
+        console.log('Using legacy address field from database');
+      } else {
+        fezRequest.senderAddress = 'Not provided';
+        console.log('No address found for seller', sellerId);
+      }
+
+      // Handle phone number
+      fezRequest.senderPhone = sellerSenderInfo.senderPhone || fullSellerData.phoneNumber || 'Not provided';
+      
+      // Handle email
+      fezRequest.senderEmail = sellerSenderInfo.senderEmail || fullSellerData.email || '';
       
       // Add cashOnDeliveryAmount for COD orders
       if (isItemCod && !isFullyPaidFromWallet) {
@@ -961,13 +1163,23 @@ exports.createOrder = async (req, res) => {
         fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
       }
       
+      // Handle pickup state in same priority order as address
       if (sellerSenderInfo.pickUpState) {
         fezRequest.pickUpState = sellerSenderInfo.pickUpState;
-      } else if (seller.state) {
-        fezRequest.pickUpState = seller.state;
+        console.log('Using pickup state from request:', fezRequest.pickUpState);
+      } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.state) {
+        fezRequest.pickUpState = fullSellerData.sellerAddress.state;
+        console.log('Using seller address state from database:', fezRequest.pickUpState);
+      } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.state) {
+        fezRequest.pickUpState = fullSellerData.businessAddress.state;
+        console.log('Using business address state from database:', fezRequest.pickUpState);
+      } else if (fullSellerData.state) {
+        fezRequest.pickUpState = fullSellerData.state;
+        console.log('Using seller state field from database:', fezRequest.pickUpState);
       } else {
         // Default to Lagos if no pickup state is provided
         fezRequest.pickUpState = "Lagos";
+        console.log('Using default state (Lagos) for seller', sellerId);
       }
       
       fezRequests.push(fezRequest);
@@ -3215,14 +3427,64 @@ exports.getDeliveryCost = async (req, res) => {
       });
     }
 
-    // Step 1: Group by sellerId and pickupState
+    // Get all seller IDs to fetch seller details in bulk
+    const sellerIds = pickupLocations.map(location => location.sellerId);
+    const uniqueSellerIds = [...new Set(sellerIds)];
+
+    console.log(`🔍 Fetching data for ${uniqueSellerIds.length} unique sellers`);
+    
+    // Fetch all sellers in one query for efficiency
+    const SellerModel = mongoose.model('Seller');
+    const sellers = await SellerModel.find({ _id: { $in: uniqueSellerIds } });
+    
+    // Create a lookup map for quick access
+    const sellerMap = {};
+    sellers.forEach(seller => {
+      sellerMap[seller._id.toString()] = seller;
+    });
+
+    console.log(`✅ Found ${sellers.length} sellers in database`);
+
+    // Step 1: Group by sellerId and pickupState, fill in missing pickup states
     const sellerGroups = {};
     for (const location of pickupLocations) {
-      const key = `${location.sellerId}_${location.pickUpState}`;
+      const sellerId = location.sellerId;
+      const seller = sellerMap[sellerId];
+      
+      if (!seller) {
+        console.log(`⚠️ Warning: Seller ${sellerId} not found in database`);
+        continue;
+      }
+      
+      // Determine pickup state in priority order
+      let pickUpState = location.pickUpState;
+      
+      if (!pickUpState) {
+        // Try to get state from seller data in priority order
+        if (seller.sellerAddress && seller.sellerAddress.state) {
+          pickUpState = seller.sellerAddress.state;
+          console.log(`Using seller address state for ${sellerId}: ${pickUpState}`);
+        } else if (seller.businessAddress && seller.businessAddress.state) {
+          pickUpState = seller.businessAddress.state;
+          console.log(`Using business address state for ${sellerId}: ${pickUpState}`);
+        } else if (seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.state) {
+          pickUpState = seller.warehouseDetails.address.state;
+          console.log(`Using warehouse address state for ${sellerId}: ${pickUpState}`);
+        } else if (seller.state) {
+          pickUpState = seller.state;
+          console.log(`Using seller state field for ${sellerId}: ${pickUpState}`);
+        } else {
+          pickUpState = "Lagos"; // Default to Lagos if no state information is available
+          console.log(`Using default state (Lagos) for ${sellerId}`);
+        }
+      }
+      
+      const key = `${sellerId}_${pickUpState}`;
+      
       if (!sellerGroups[key]) {
         sellerGroups[key] = {
-          sellerId: location.sellerId,
-          pickUpState: location.pickUpState,
+          sellerId,
+          pickUpState,
           totalWeight: 0,
         };
       }
@@ -5508,6 +5770,29 @@ async function handleFailedPayment(paymentData, res) {
     console.error('Error handling failed payment:', error);
     return res.status(200).json({ message: 'Error handling failed payment, but acknowledging webhook' });
   }
+}
+
+// Helper function to format address for Fez API
+function formatAddressForFez(addressObj) {
+  const addressParts = [];
+  
+  if (addressObj.addressLine1) {
+    addressParts.push(addressObj.addressLine1);
+  }
+  
+  if (addressObj.addressLine2) {
+    addressParts.push(addressObj.addressLine2);
+  }
+  
+  if (addressObj.city) {
+    addressParts.push(addressObj.city);
+  }
+  
+  if (addressObj.state) {
+    addressParts.push(addressObj.state);
+  }
+  
+  return addressParts.join(', ');
 }
 
 
