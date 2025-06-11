@@ -654,7 +654,7 @@ exports.getOrders = async (req, res) => {
     // Build the base query
     const query = { 
       buyer: req.user.id,
-      isStale: { $ne: true } // Exclude stale orders
+      isStale: { $ne: true } 
     };
 
     // Add tracking status filter if provided

@@ -24,7 +24,13 @@ const Return = require('../models/Return');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const Admin = require('../models/Admin');
 const mixpanel = require('../config/mixpanel');
+const { DeleteS3Objects } = require('../utils/s3');
 
+// SmileID integration
+const SIDCore = require("smile-identity-core");
+const SIDSignature = SIDCore.Signature;
+const SIDWebAPI = SIDCore.WebApi;
+const IDApi = SIDCore.IDApi; // ← Add IDApi import
 
 // Add this helper function at the top of the file
 const generateUniqueAgoraUid = async () => {
@@ -62,112 +68,19 @@ exports.register = async (req, res) => {
     // Basic input validation
     if (!firstName || !lastName || !email || !password || !phoneNumber || !storeName) {
       return res.status(400).json({ 
+        success: false,
         message: 'First name, last name, email, password, phone number, and store name are required.' 
       });
     }
 
-    // First check if email exists and its verification status
+    // First check if email exists
     const existingSeller = await Seller.findOne({ email });
 
     if (existingSeller) {
-      // If email exists and is verified, return error
-      if (existingSeller.emailVerified) {
-        return res.status(409).json({ 
-          message: 'Email is already in use.',
-        });
-      }
-
-      // If email exists but not verified, generate new OTP and update
-      const otp = generateOTP();
-      existingSeller.otp = otp;
-      await existingSeller.save();
-
-      console.log('existing email', email)
-
-      // Send verification email with new OTP
-      const msg = {
-        to: email,
-        from: 'Auqli Nigeria <support@auqli.com>',
-        subject: 'Verify Your Email - Auqli',
-        text: `Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}`,
-        html: `
-          <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto;">
-    <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-    <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli Nigeria — Let’s Get You Selling</h1>
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${existingSeller.firstName},</p>
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">Welcome to Auqli Nigeria — the future of live selling. Your account is live and you're just a few steps away from listing products and going live with your audience.</p>
-
-    <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-      <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
-    </div>
-    <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this verification, please ignore this email.</p>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Start by:</p>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Completing your seller profile</span>
-        </div>
-      </li>
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Uploading your first product</span>
-        </div>
-      </li>
-      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
-          <span>Exploring live selling tools</span>
-        </div>
-      </li>
-    </ul>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Visit our Help Center at <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or contact <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a>.</p>
-
-    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Join our seller community:</p>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">💬</span>
-          <span>WhatsApp Channel</span>
-        </div>
-      </li>
-      <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📢</span>
-          <span>Telegram Group</span>
-        </div>
-      </li>
-      <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
-        <div style="display: flex; align-items: center;">
-          <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">📱</span>
-          <span>Instagram | Twitter | Facebook</span>
-        </div>
-      </li>
-    </ul>
-
-    <hr style="border: 1px solid #333333; margin: 30px 0;">
-    <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-  </div>
-</div>
-
-        `
-      };
-
-      try {
-        await sgMail.send(msg);
-        return res.status(200).json({
-          message: 'Please verify your email with the OTP sent to your email address',
-          email: existingSeller.email,
-          user: existingSeller
-        });
-      } catch (error) {
-        console.error('Error sending email:', error);
-        return res.status(500).json({ message: 'Failed to send verification email', error: error.message });
-      }
+      return res.status(409).json({ 
+        success: false,
+        message: 'Email is already in use.',
+      });
     }
 
     // Generate unique Agora UID before creating new seller
@@ -191,42 +104,47 @@ exports.register = async (req, res) => {
     // Generate JWT token for new seller
     const token = generateToken(newSeller._id);
 
-    // Send welcome email with OTP
+    // Send welcome email
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Welcome to Auqli!',
-      text: `Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}`,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: "Welcome to Auqli — Let's Get You Selling",
+      text: `Hi ${firstName}, welcome to Auqli Nigeria! Your account is live and you're all set to start selling.`,
       html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli!</h1>
+        <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli Nigeria!</h1>
             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${firstName},</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Thank you for joining Auqli! We're excited to have you on board. To get started, please verify your email using the OTP below:</p>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
-            </div>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">Next Steps:</h3>
-              <ul style="color: #ffffff; margin-bottom: 0;">
-                <li style="margin-bottom: 10px;">Verify your email using the OTP above</li>
-                <li style="margin-bottom: 10px;">Complete your seller profile</li>
-                <li style="margin-bottom: 10px;">Set up your store</li>
-                <li>Start selling your products</li>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Welcome to Auqli Nigeria — the future of live selling. Your account is live and you're just a few steps away from listing products and going live with your audience.</p>
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Start by:</h3>
+              <ul style="color: #333333; margin-bottom: 0;">
+                <li style="margin-bottom: 10px;">✅ Completing your seller profile</li>
+                <li style="margin-bottom: 10px;">✅ Uploading your first product</li>
+                <li style="margin-bottom: 10px;">✅ Exploring live selling tools</li>
               </ul>
+              
             </div>
-            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't create an account with Auqli, please ignore this email.</p>
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Visit our <a href="https://help.auqli.live">Help Center</a> or contact <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Join our seller community:</p>
+            <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+              <a href="https://chat.whatsapp.com/B706oQeKNST1177sKGMQTy" style="color: #4CAF50; text-decoration: none;">💬 WhatsApp Channel</a>
+              <a href="https://t.me/auqlivendors" style="color: #4CAF50; text-decoration: none;">📢 Telegram Group</a>
+              <a href="https://www.instagram.com/auqliapp" style="color: #4CAF50; text-decoration: none;">📱 Instagram</a>
+              <a href="https://x.com/auqliapp" style="color: #4CAF50; text-decoration: none;">Twitter</a>
+              <a href="https://www.facebook.com/auqliapp/" style="color: #4CAF50; text-decoration: none;">Facebook</a>
+            </div>
+            <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            <p style="font-size: 14px; color: #666666; text-align: center;">Let's make selling social.</p>
+            <p style="font-size: 14px; color: #666666; text-align: center;">Team Auqli Nigeria</p>
           </div>
         </div>
       `
     };
 
-    await sgMail.send(msg);
-
-    // After successful seller creation and welcome email
+    // Send admin notification
     const adminMsg = {
       to: ['admin@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
@@ -255,9 +173,13 @@ exports.register = async (req, res) => {
     await Promise.all([
       sgMail.send(msg),
       sgMail.send(adminMsg)
-    ]);
+    ]).catch(error => {
+      console.error('Email sending error:', error);
+      // Continue execution even if email fails
+    });
 
     res.status(201).json({ 
+      success: true,
       message: 'Registration successful. Please verify your email.',
       user: newSeller, 
       token 
@@ -265,6 +187,7 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Registration failed', 
       error: error.message 
     });
@@ -322,22 +245,32 @@ exports.resendOTP = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Your Auqli OTP',
-      text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: "Here's Your Auqli OTP",
+      text: `Hi ${seller.firstName},\n\nYour one-time password (OTP) is: ${otp}\n\nPlease enter this code in the app to complete your sign-up. This code will expire in 10 minutes.\n\nIf you didn't request this, just ignore this message.\n\nNeed help? Contact our team anytime at support@auqli.com.`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Your New OTP</h1>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi there,</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">You requested a new OTP. Please use the code below to verify your email:</p>
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Here's Your Auqli OTP</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your one-time password (OTP) is:</p>
             <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
               <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
             </div>
-            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this OTP, please ignore this email.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Please enter this code in the app to complete your sign-up. This code will expire in 10 minutes.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">If you didn't request this, just ignore this message.</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Contact our team anytime at <a href="mailto:support@auqli.com" style="color: #4CAF50;">support@auqli.com</a>.</p>
+            
+            <div style="margin: 30px 0;">
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">Stay connected with Auqli Nigeria:</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">📢 Join our Telegram Group</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">💬 WhatsApp Channel</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">📱 Instagram | Twitter | Facebook</p>
+            </div>
+            
             <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <p style="font-size: 14px; color: #999999; text-align: center;">Team Auqli Nigeria</p>
           </div>
         </div>
       `
@@ -424,6 +357,7 @@ exports.getProfile = async (req, res) => {
         storePolicy: 1,
         accountPending: 1,
         offersStorePickup: 1, // Add this line to include offersStorePickup
+        smileIdVerification: 1,
       })
       .lean();
 
@@ -431,13 +365,23 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Get counts
-    const [orderCount, streamCount, categoriesCount, followingCount] = await Promise.all([
+    // Get counts and product-related data
+    const [orderCount, streamCount, categoriesCount, followingCount, products] = await Promise.all([
       Order.countDocuments({ seller: req.user.id }),
       Stream.countDocuments({ seller: req.user.id }),
       Seller.findById(req.user.id).select('categories').then(s => s.categories.length),
-      Buyer.countDocuments({ 'followers.sellerId': req.user.id })
+      Buyer.countDocuments({ 'followers.sellerId': req.user.id }),
+      Product.find({ seller: req.user.id }).select('blips').lean()
     ]);
+
+    // Check if seller has any products
+    const hasProducts = products.length > 0;
+
+    // Count total blips across all products
+    const totalBlips = products.reduce((total, product) => {
+      return total + (product.blips ? product.blips.length : 0);
+    }, 0);
+    const hasMoreThan10Blips = totalBlips > 10;
 
     // Add the count fields to the response
     const sellerProfile = {
@@ -447,6 +391,8 @@ exports.getProfile = async (req, res) => {
       totalOrders: orderCount,
       streamCount: streamCount,
       categoriesCount: categoriesCount,
+      hasProducts: hasProducts,
+      hasMoreThan10Blips: hasMoreThan10Blips,
       // Add current store status
       storeStatus: {
         isCurrentlyOpen: seller.isCurrentlyOpen?.(),
@@ -698,6 +644,675 @@ exports.uploadIndividualVerification = async (req, res) => {
   }
 };
 
+// Corrected SmileID Integration Endpoints
+// Key fixes:
+// 1. Use job_type instead of product for token generation
+// 2. Add proper job submission endpoint
+// 3. Fix verification success detection
+// 4. Ensure jobs appear in SmileID dashboard
+
+// Generate SmileID Token for Web Integration
+exports.generateSmileIdToken = async (req, res) => {
+  try {
+    const { accountType, userId, idType } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!accountType || !idType) {
+      return res.status(400).json({ 
+        message: 'Account type and ID type are required' 
+      });
+    }
+
+    // Validate account type
+    if (!['individual', 'business'].includes(accountType)) {
+      return res.status(400).json({ 
+        message: 'Account type must be either "individual" or "business"' 
+      });
+    }
+
+    // Validate ID type based on account type
+    let validIdTypes;
+    if (accountType === 'individual') {
+      validIdTypes = ['NIN_SLIP', 'BVN', 'V_NIN', 'PHONE_NUMBER'];
+    } else {
+      validIdTypes = ['BN', 'CO', 'IT'];
+    }
+
+    if (!validIdTypes.includes(idType)) {
+      return res.status(400).json({ 
+        message: `Invalid ID type for ${accountType} account. Valid types: ${validIdTypes.join(', ')}` 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Initialize SmileID connection
+    const connection = new SIDWebAPI(
+      process.env.SMILEID_PARTNER_ID,
+     `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`,
+      process.env.SMILEID_API_KEY,
+      process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1 // 0 for sandbox, 1 for production
+    );
+
+    // Generate unique IDs for tracking
+    const timestamp = Date.now();
+    const uniqueUserId = userId || `seller-${sellerId}-${timestamp}`;
+    const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+    // CRITICAL FIX: Use 'product' instead of 'job_type' for get_web_token
+    // Valid products: 'authentication', 'basic_kyc', 'smartselfie', 'biometric_kyc', 'enhanced_kyc', 'doc_verification'
+    let product;
+    if (accountType === 'individual') {
+      // For Enhanced KYC with NIN_V2 - use 'enhanced_kyc'
+      product = 'enhanced_kyc';
+    } else {
+      // For Business Verification - use 'doc_verification' 
+      product = 'doc_verification';
+    }
+
+    // Build request parameters correctly for get_web_token
+    const requestParams = {
+      user_id: uniqueUserId,
+      job_id: uniqueJobId,
+      product: product, // CRITICAL: Use 'product' not 'job_type' for get_web_token
+      callback_url: `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`, // Optional callback URL
+      // Add partner parameters for metadata
+      partner_params: {
+        seller_id: sellerId.toString(),
+        account_type: accountType,
+        id_type: idType,
+        verification_timestamp: new Date().toISOString(),
+        seller_email: seller.email,
+        seller_name: `${seller.firstName} ${seller.lastName}`
+      }
+    };
+
+    console.log('SmileID token request params:', JSON.stringify(requestParams, null, 2));
+
+    // Generate the token
+    const result = await connection.get_web_token(requestParams);
+
+    console.log('SmileID token response:', JSON.stringify(result, null, 2));
+
+    // Validate the response
+    if (!result || !result.token) {
+      throw new Error('Invalid token response from SmileID');
+    }
+
+    // Log successful token generation
+    console.log(`SmileID token generated for seller ${sellerId}, product: ${product}, account type: ${accountType}, ID type: ${idType}`);
+
+    res.json({
+      token: result.token,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(), // Token expires in 1 hour
+      userId: uniqueUserId,
+      jobId: uniqueJobId,
+      product: product,
+      accountType: accountType,
+      idType: idType,
+      success: result.success || true
+    });
+
+  } catch (error) {
+    console.error('SmileID token generation error:', error);
+    res.status(500).json({ 
+      message: 'Failed to generate SmileID token', 
+      error: error.message 
+    });
+  }
+};
+
+// Process SmileID Job Submission (Fixed for Enhanced KYC)
+exports.processSmileIdJob = async (req, res) => {
+  try {
+    const { images, partner_params, idInfo } = req.body;
+    const sellerId = req.user.id;
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // For Enhanced KYC (Individual verification with ID number), use IDApi instead of SIDWebAPI
+    if (seller.accountType === 'individual') {
+      
+      // Validate required ID information for Enhanced KYC
+      if (!idInfo || !idInfo.id_number || !idInfo.first_name || !idInfo.last_name) {
+        return res.status(400).json({ 
+          message: 'Required ID information missing for Enhanced KYC. Please provide first_name, last_name, and id_number.' 
+        });
+      }
+
+      // Initialize IDApi for Enhanced KYC
+      const connection = new IDApi(
+        process.env.SMILEID_PARTNER_ID,
+        process.env.SMILEID_API_KEY,
+        process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1
+      );
+
+      // Generate job parameters
+      const timestamp = Date.now();
+      const uniqueUserId = `seller-${sellerId}-${timestamp}`;
+      const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+      const partner_params_data = {
+        job_id: uniqueJobId,
+        user_id: uniqueUserId,
+        job_type: 5, // Enhanced KYC
+        seller_id: sellerId.toString(),
+        account_type: seller.accountType,
+        verification_timestamp: new Date().toISOString(),
+        seller_email: seller.email,
+        seller_name: `${seller.firstName} ${seller.lastName}`,
+        ...partner_params
+      };
+
+      // Prepare id_info according to SmileID Enhanced KYC documentation
+      const id_info = {
+        first_name: idInfo.first_name,
+        last_name: idInfo.last_name,
+        country: idInfo.country || 'NG',
+        id_type: idInfo.id_type || 'NIN_SLIP',
+        id_number: idInfo.id_number,
+        phone_number: idInfo.phone_number,
+        ...(idInfo.dob && { dob: idInfo.dob }) // Optional date of birth
+      };
+
+      // Note: NIN_SLIP does not require Enterprise ID (unlike NIN_V2)
+
+      // Set options for Enhanced KYC
+      const options = {
+        signature: true,
+        return_job_status: true,
+        return_history: true,
+        return_images: true
+      };
+
+      console.log('Submitting Enhanced KYC job to SmileID:');
+      console.log('Partner Params:', JSON.stringify(partner_params_data, null, 2));
+      console.log('ID Info:', JSON.stringify(id_info, null, 2));
+
+      // Submit Enhanced KYC job using IDApi
+      const result = await connection.submit_job(
+        partner_params_data,
+        id_info,
+        options
+      );
+
+      console.log('SmileID Enhanced KYC result:', JSON.stringify(result, null, 2));
+
+      // Save the job result
+      if (result && result.success !== false) {
+        await saveVerificationResult(sellerId, result, seller.accountType);
+      }
+
+      res.json({
+        success: true,
+        jobId: uniqueJobId,
+        result: result
+      });
+
+    } else {
+      // For business verification, keep using SIDWebAPI with images
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ 
+          message: 'Images are required for business verification' 
+        });
+      }
+
+      // Initialize SIDWebAPI for Business Verification
+      const connection = new SIDWebAPI(
+        process.env.SMILEID_PARTNER_ID,
+        process.env.SMILEID_CALLBACK_URL || `${process.env.BACKEND_URL}/api/seller/verification/smileid/callback`,
+        process.env.SMILEID_API_KEY,
+        process.env.SMILEID_SANDBOX_MODE === 'true' ? 0 : 1
+      );
+
+      // Generate job parameters for business verification
+      const timestamp = Date.now();
+      const uniqueUserId = `seller-${sellerId}-${timestamp}`;
+      const uniqueJobId = `job-${sellerId}-${timestamp}`;
+
+      const jobParams = {
+        user_id: uniqueUserId,
+        job_id: uniqueJobId,
+        job_type: 7, // Business Verification
+        partner_params: {
+          seller_id: sellerId.toString(),
+          account_type: seller.accountType,
+          verification_timestamp: new Date().toISOString(),
+          seller_email: seller.email,
+          seller_name: `${seller.firstName} ${seller.lastName}`,
+          ...partner_params
+        }
+      };
+
+      // Submit business verification job
+      const options = {
+        return_job_status: true,
+        return_history: true,
+        return_images: true
+      };
+
+      console.log('Submitting business verification job to SmileID:');
+      console.log('Job Params:', JSON.stringify(jobParams, null, 2));
+
+      const result = await connection.submit_job(
+        jobParams,
+        images,
+        idInfo || {},
+        options
+      );
+
+      console.log('SmileID business verification result:', JSON.stringify(result, null, 2));
+
+      // Save the job result
+      if (result && result.success !== false) {
+        await saveVerificationResult(sellerId, result, seller.accountType);
+      }
+
+      res.json({
+        success: true,
+        jobId: uniqueJobId,
+        result: result
+      });
+    }
+
+  } catch (error) {
+    console.error('SmileID job processing error:', error);
+    res.status(500).json({ 
+      message: 'Failed to process SmileID job', 
+      error: error.message 
+    });
+  }
+};
+
+// Helper function to save verification result
+const saveVerificationResult = async (sellerId, smileIdResult, accountType) => {
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) return;
+
+    // CRITICAL: Check for actual success based on images and result codes
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: accountType,
+      provider: 'SmileID',
+      result: smileIdResult,
+      verifiedAt: new Date(),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only set verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    console.log(`Verification result saved for seller ${sellerId}, success: ${isActuallySuccessful}`);
+  } catch (error) {
+    console.error('Error saving verification result:', error);
+  }
+};
+
+// Save Individual SmileID Verification Result
+exports.saveIndividualSmileIdVerification = async (req, res) => {
+  try {
+    const { smileIdResult, accountType, verifiedAt, verificationProvider } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!smileIdResult || !accountType || !verifiedAt || !verificationProvider) {
+      return res.status(400).json({ 
+        message: 'SmileID result, account type, verified date, and verification provider are required' 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // CRITICAL: Check if verification was actually successful based on images and result codes
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    console.log(`Individual verification assessment: hasImages=${hasImages}, resultCode=${smileIdResult.ResultCode}, isActuallySuccessful=${isActuallySuccessful}`);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: 'individual',
+      provider: verificationProvider,
+      result: smileIdResult,
+      verifiedAt: new Date(verifiedAt),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only mark as verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    // Track verification completion
+    try {
+      mixpanel.track('seller_individual_smileid_verification', {
+        distinct_id: sellerId,
+        sellerId: sellerId,
+        sellerName: `${seller.firstName} ${seller.lastName}`,
+        email: seller.email,
+        verificationProvider: verificationProvider,
+        verificationStatus: isActuallySuccessful ? 'verified' : 'failed',
+        verifiedAt: verifiedAt
+      });
+    } catch (trackingError) {
+      console.error('Mixpanel tracking error:', trackingError);
+    }
+
+    // Send confirmation email (only if not already sent via webhook)
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Identity Verification Completed',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Identity Verification ${isActuallySuccessful ? 'Successful' : 'Failed'}</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                Your identity verification using SmileID has been ${isActuallySuccessful ? 'completed successfully' : 'unsuccessful'}. 
+                ${isActuallySuccessful ? 'You can now continue with your seller onboarding process.' : 'Please try again or contact support for assistance.'}
+              </p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+    }
+
+    res.json({ 
+      message: 'Individual SmileID verification result saved successfully',
+      verification: seller.smileIdVerification,
+      actuallySuccessful: isActuallySuccessful
+    });
+
+  } catch (error) {
+    console.error('Save individual SmileID verification error:', error);
+    res.status(500).json({ 
+      message: 'Failed to save individual SmileID verification result', 
+      error: error.message 
+    });
+  }
+};
+
+// Save Business SmileID Verification Result
+exports.saveBusinessSmileIdVerification = async (req, res) => {
+  try {
+    const { smileIdResult, accountType, verifiedAt, verificationProvider } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!smileIdResult || !accountType || !verifiedAt || !verificationProvider) {
+      return res.status(400).json({ 
+        message: 'SmileID result, account type, verified date, and verification provider are required' 
+      });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if verification was actually successful
+    const hasImages = smileIdResult.images && smileIdResult.images.length > 0;
+    const isSuccessfulCode = smileIdResult.ResultCode && ['1012', '1020', '1021'].includes(smileIdResult.ResultCode.toString());
+    const isActuallySuccessful = hasImages && (isSuccessfulCode || smileIdResult.success === true);
+
+    console.log(`Business verification assessment: hasImages=${hasImages}, resultCode=${smileIdResult.ResultCode}, isActuallySuccessful=${isActuallySuccessful}`);
+
+    // Store SmileID verification result
+    seller.smileIdVerification = {
+      type: 'business',
+      provider: verificationProvider,
+      result: smileIdResult,
+      verifiedAt: new Date(verifiedAt),
+      status: isActuallySuccessful ? 'verified' : 'failed'
+    };
+
+    // Set verification documents as filled
+    seller.hasFilledVerificationDocuments = true;
+    
+    // Only mark as verified if actually successful
+    if (isActuallySuccessful) {
+      seller.isVerified = true;
+    }
+
+    await seller.save();
+
+    // Track verification completion
+    try {
+      mixpanel.track('seller_business_smileid_verification', {
+        distinct_id: sellerId,
+        sellerId: sellerId,
+        sellerName: `${seller.firstName} ${seller.lastName}`,
+        email: seller.email,
+        storeName: seller.storeName,
+        verificationProvider: verificationProvider,
+        verificationStatus: isActuallySuccessful ? 'verified' : 'failed',
+        verifiedAt: verifiedAt
+      });
+    } catch (trackingError) {
+      console.error('Mixpanel tracking error:', trackingError);
+    }
+
+    // Send confirmation email (only if not already sent via webhook)
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Business Verification Completed',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Business Verification ${isActuallySuccessful ? 'Successful' : 'Failed'}</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                Your business verification for "${seller.storeName || seller.businessName}" using SmileID has been ${isActuallySuccessful ? 'completed successfully' : 'unsuccessful'}. 
+                ${isActuallySuccessful ? 'You can now continue with your seller onboarding process.' : 'Please try again or contact support for assistance.'}
+              </p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+    }
+
+    res.json({ 
+      message: 'Business SmileID verification result saved successfully',
+      verification: seller.smileIdVerification,
+      actuallySuccessful: isActuallySuccessful
+    });
+
+  } catch (error) {
+    console.error('Save business SmileID verification error:', error);
+    res.status(500).json({ 
+      message: 'Failed to save business SmileID verification result', 
+      error: error.message 
+    });
+  }
+};
+
+// Handle SmileID callback for verification results
+exports.smileIdCallback = async (req, res) => {
+  try {
+    const verificationResult = req.body;
+    
+    console.log('SmileID verification callback received:', JSON.stringify(verificationResult, null, 2));
+
+    // Extract key information from the result
+    const {
+      job_id,
+      user_id,
+      partner_params,
+      ResultCode,
+      result_code,
+      ResultText,
+      result_text,
+      job_complete,
+      success,
+      Images,
+      images
+    } = verificationResult;
+
+    // Handle different result code formats
+    const resultCode = ResultCode || result_code;
+    const resultText = ResultText || result_text;
+
+    // CRITICAL: Determine if verification was successful
+    const hasImages = (Images && Images.length > 0) || (images && images.length > 0);
+    const isSuccessfulCode = ['1012', '1020', '1021'].includes(resultCode?.toString());
+    const isSuccessful = hasImages && (isSuccessfulCode || job_complete === true || success === true);
+    
+    console.log(`Callback verification assessment: hasImages=${hasImages}, resultCode=${resultCode}, isSuccessfulCode=${isSuccessfulCode}, isSuccessful=${isSuccessful}`);
+    
+    if (isSuccessful && partner_params?.seller_id) {
+      try {
+        const sellerId = partner_params.seller_id;
+        const accountType = partner_params.account_type;
+        
+        // Update seller verification status
+        const seller = await Seller.findById(sellerId);
+        if (seller) {
+          // Store the full verification result
+          seller.smileIdVerification = {
+            type: accountType,
+            provider: 'SmileID',
+            result: verificationResult,
+            verifiedAt: new Date(),
+            status: 'verified'
+          };
+
+          seller.hasFilledVerificationDocuments = true;
+          seller.isVerified = true;
+          
+          await seller.save();
+          console.log(`Seller ${sellerId} verification status updated successfully via callback`);
+
+          // Track verification completion
+          try {
+            mixpanel.track(`seller_${accountType}_smileid_verification_webhook`, {
+              distinct_id: sellerId,
+              sellerId: sellerId,
+              sellerName: `${seller.firstName} ${seller.lastName}`,
+              email: seller.email,
+              storeName: seller.storeName,
+              verificationProvider: 'SmileID',
+              verificationStatus: 'verified',
+              source: 'webhook',
+              resultCode: resultCode
+            });
+          } catch (trackingError) {
+            console.error('Mixpanel tracking error:', trackingError);
+          }
+
+          // Send confirmation email
+          try {
+            const emailSubject = accountType === 'business' ? 'Business Verification Completed' : 'Identity Verification Completed';
+            const businessText = accountType === 'business' ? 
+              `Your business verification for "${seller.storeName || seller.businessName}" using SmileID has been completed successfully.` :
+              'Your identity verification using SmileID has been completed successfully.';
+
+            const msg = {
+              to: seller.email,
+              from: 'Auqli Nigeria <support@auqli.com>',
+              subject: emailSubject,
+              html: `
+                <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+                  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+                    <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+                    <h1 style="color: #4CAF50; margin-bottom: 20px;">Verification Successful</h1>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                      ${businessText} You can now continue with your seller onboarding process.
+                    </p>
+                    <p style="font-size: 14px; color: #666666; margin-bottom: 20px;">
+                      <strong>Verification Details:</strong><br>
+                      Job ID: ${job_id}<br>
+                      Result Code: ${resultCode}<br>
+                      Completed: ${new Date().toLocaleString()}
+                    </p>
+                    <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+                    <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+                  </div>
+                </div>
+              `
+            };
+
+            await sgMail.send(msg);
+            console.log('Verification confirmation email sent to:', seller.email);
+          } catch (emailError) {
+            console.error('Email sending error:', emailError);
+          }
+        }
+
+      } catch (updateError) {
+        console.error('Error updating seller verification status:', updateError);
+      }
+    } else {
+      console.log(`Verification not successful for job ${job_id}. Result code: ${resultCode}, Has images: ${hasImages}, Job complete: ${job_complete}, Success: ${success}`);
+    }
+
+    // Respond to SmileID
+    res.status(200).json({ 
+      message: 'Callback received successfully',
+      job_id: job_id,
+      processed: true,
+      assessment: {
+        hasImages,
+        resultCode,
+        isSuccessful
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing SmileID callback:', error);
+    res.status(500).json({ 
+      message: 'Error processing callback',
+      error: error.message 
+    });
+  }
+};
+
 
 // Upload store avatar
 exports.uploadStoreAvatar = async (req, res) => {
@@ -713,6 +1328,9 @@ exports.uploadStoreAvatar = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Get existing product image URLs
+    const existingAvatar = seller.storeAvatar.url || "";
+
     const params = {
       Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${avatarFile.originalname}`,
@@ -726,8 +1344,15 @@ exports.uploadStoreAvatar = async (req, res) => {
       url: `https://` + process.env.CDN_URL + `/${data.Key}`,
       public_id: data.Key,
     };
-
+    
     const updatedSeller = await seller.save();
+
+    // deleted the previous avatar from s3
+    const objects = [{Key: existingAvatar.replace(`https://${process.env.CDN_URL}/`, '')}];
+    const s3Response = await DeleteS3Objects(objects, process.env.CDN_S3_BUCKET);
+    if (s3Response.Errors.length > 0) {
+      console.error('Failed to delete previous avatar: ', s3Response.Errors);
+    }
 
     res.json({ message: 'Store avatar uploaded successfully', seller: updatedSeller });
   } catch (error) {
@@ -749,6 +1374,9 @@ exports.uploadStoreBanner = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Get existing product image URLs
+    const existingBanner = seller.storeBanner.url || "";
+
     const params = {
       Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${bannerFile.originalname}`,
@@ -764,6 +1392,13 @@ exports.uploadStoreBanner = async (req, res) => {
     };
 
     const updatedSeller = await seller.save();
+    
+    // deleted the previous banner from s3
+    const objects = [{Key: existingBanner.replace(`https://${process.env.CDN_URL}/`, '')}];
+    const s3Response = await DeleteS3Objects(objects, process.env.CDN_S3_BUCKET);
+    if (s3Response.Errors.length > 0) {
+      console.error('Failed to delete previous baner: ', s3Response.Errors);
+    }
 
     res.json({ message: 'Store banner uploaded successfully', seller: updatedSeller });
   } catch (error) {
@@ -846,7 +1481,10 @@ exports.addBusinessInformation = async (req, res) => {
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
     }
 
     seller.businessEmail = businessEmail;
@@ -859,11 +1497,13 @@ exports.addBusinessInformation = async (req, res) => {
     const updatedSeller = await seller.save();
 
     res.json({ 
+      success: true,
       message: 'Business information added successfully', 
       seller: updatedSeller 
     });
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Failed to add business information', 
       error: error.message 
     });
@@ -1144,12 +1784,28 @@ exports.verifyOTP = async (req, res) => {
       seller.emailVerified = true;
       seller.otp = undefined; // Clear the OTP after verification
       await seller.save();
-      return res.json({ message: 'Email verified successfully.' });
+      
+      // Generate token for convenience
+      const token = generateToken(seller._id);
+      
+      return res.json({
+        success: true, 
+        message: 'Email verified successfully.',
+        user: seller,
+        token
+      });
     } else {
-      return res.status(400).json({ message: 'Invalid OTP.' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid OTP.' 
+      });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to verify OTP', 
+      error: error.message 
+    });
   }
 };
 
@@ -1468,13 +2124,17 @@ exports.updateIndividualInformation = async (req, res) => {
     // Validate required fields
     if (!firstName || !lastName || !sellerAddress) {
       return res.status(400).json({ 
+        success: false,
         message: 'First name, last name, and address are required' 
       });
     }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
     }
 
     seller.firstName = firstName;
@@ -1487,11 +2147,13 @@ exports.updateIndividualInformation = async (req, res) => {
     const updatedSeller = await seller.save();
 
     res.json({ 
+      success: true,
       message: 'Individual information updated successfully', 
       seller: updatedSeller 
     });
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Failed to update individual information', 
       error: error.message 
     });
@@ -4138,6 +4800,131 @@ exports.toggleAccountPending = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update account pending status',
+      error: error.message
+    });
+  }
+};
+
+// Mark seller as verified
+exports.markVerified = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+    
+    // Check if already verified
+    if (seller.isVerified) {
+      return res.status(200).json({
+        success: true,
+        message: 'Your store is already verified',
+        seller: seller
+      });
+    }
+    
+    // Update verification status
+    seller.isVerified = true;
+    const updatedSeller = await seller.save();
+    
+    // Track seller verification in mixpanel
+    try {
+      mixpanel.track('seller_self_verification', {
+        distinct_id: seller._id.toString(),
+        sellerId: seller._id.toString(),
+        sellerName: seller.firstName + " " + seller.lastName,
+        storeName: seller.storeName,
+        email: seller.email,
+        accountType: seller.accountType
+      });
+    } catch (trackingError) {
+      console.error('Failed to track verification event:', trackingError);
+    }
+    
+    // Send verification confirmation email
+    try {
+      const msg = {
+        to: seller.email,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Your Auqli Store is Now Verified',
+        html: `
+          <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Your Store is Now Verified!</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Congratulations ${seller.firstName}!</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your store "${seller.storeName}" is now verified on Auqli. This means your products can appear in featured listings and you'll have access to all seller features.</p>
+              <div style="background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next:</h3>
+                <ul style="color: #333333; margin-bottom: 0;">
+                  <li style="margin-bottom: 10px;">✅ Add more products to your store</li>
+                  <li style="margin-bottom: 10px;">✅ Schedule your first live stream</li>
+                  <li style="margin-bottom: 10px;">✅ Promote your store on social media</li>
+                </ul>
+              </div>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+              <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      };
+      
+      await sgMail.send(msg);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue execution even if email sending fails
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Your store has been successfully verified',
+      seller: updatedSeller
+    });
+  } catch (error) {
+    console.error('Error in markVerified:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify store',
+      error: error.message
+    });
+  }
+};
+
+// Check seller verification status
+exports.checkVerificationStatus = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      verification: {
+        isVerified: seller.isVerified,
+        emailVerified: seller.emailVerified,
+        accountPending: seller.accountPending,
+        storeName: seller.storeName
+      },
+      seller: seller
+    });
+  } catch (error) {
+    console.error('Error checking verification status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check verification status',
       error: error.message
     });
   }

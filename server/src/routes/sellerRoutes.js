@@ -400,6 +400,219 @@ router.post(
   sellerController.uploadIndividualVerification
 );
 
+// SmileID Integration Routes
+
+/**
+ * @swagger
+ * /api/seller/verification/smileid/token:
+ *   post:
+ *     summary: Generate SmileID token for web verification
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               accountType:
+ *                 type: string
+ *                 enum: [individual, business]
+ *               userId:
+ *                 type: string
+ *               idType:
+ *                 type: string
+ *                 enum: [NIN_SLIP, BUSINESS_REGISTRATION]
+ *     responses:
+ *       200:
+ *         description: SmileID token generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 expiresAt:
+ *                   type: string
+ *                 userId:
+ *                   type: string
+ *                 jobId:
+ *                   type: string
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verification/smileid/token', authMiddleware.verifyToken, sellerController.generateSmileIdToken);
+
+/**
+ * @swagger
+ * /api/seller/verification/smileid/process:
+ *   post:
+ *     summary: Process SmileID job submission with captured images
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               partner_params:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: SmileID job processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 jobId:
+ *                   type: string
+ *                 result:
+ *                   type: object
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verification/smileid/process', authMiddleware.verifyToken, sellerController.processSmileIdJob);
+
+/**
+ * @swagger
+ * /api/seller/verification/smileid/individual:
+ *   post:
+ *     summary: Save individual SmileID verification result
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               smileIdResult:
+ *                 type: object
+ *               accountType:
+ *                 type: string
+ *                 enum: [individual]
+ *               verifiedAt:
+ *                 type: string
+ *               verificationProvider:
+ *                 type: string
+ *                 enum: [SmileID]
+ *     responses:
+ *       200:
+ *         description: Individual verification result saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 verification:
+ *                   type: object
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verification/smileid/individual', authMiddleware.verifyToken, sellerController.saveIndividualSmileIdVerification);
+
+/**
+ * @swagger
+ * /api/seller/verification/smileid/business:
+ *   post:
+ *     summary: Save business SmileID verification result
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               smileIdResult:
+ *                 type: object
+ *               accountType:
+ *                 type: string
+ *                 enum: [business]
+ *               verifiedAt:
+ *                 type: string
+ *               verificationProvider:
+ *                 type: string
+ *                 enum: [SmileID]
+ *     responses:
+ *       200:
+ *         description: Business verification result saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 verification:
+ *                   type: object
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verification/smileid/business', authMiddleware.verifyToken, sellerController.saveBusinessSmileIdVerification);
+
+/**
+ * @swagger
+ * /api/seller/verification/smileid/callback:
+ *   post:
+ *     summary: SmileID webhook callback endpoint
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verification/smileid/callback', sellerController.smileIdCallback);
+
 /**
  * @swagger
  * /api/seller/business-details:
@@ -3412,5 +3625,87 @@ router.put('/account-pending', authMiddleware.verifyToken, authMiddleware.isSell
  *         description: Server error
  */
 router.put('/store-pickup', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.toggleStorePickup);
+
+/**
+ * @swagger
+ * /api/seller/mark-verified:
+ *   post:
+ *     summary: Mark seller's store as verified
+ *     description: Allows a seller to mark their own store as verified, updating their verification status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Store successfully verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Your store has been successfully verified
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     storeName:
+ *                       type: string
+ *                     isVerified:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/mark-verified', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.markVerified);
+
+/**
+ * @swagger
+ * /api/seller/verification-status:
+ *   get:
+ *     summary: Check seller verification status
+ *     description: Get the current verification status of the seller's account
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 verification:
+ *                   type: object
+ *                   properties:
+ *                     isVerified:
+ *                       type: boolean
+ *                     emailVerified:
+ *                       type: boolean
+ *                     accountPending:
+ *                       type: boolean
+ *                     storeName:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/verification-status', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.checkVerificationStatus);
 
 module.exports = router;

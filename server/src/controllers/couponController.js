@@ -414,7 +414,7 @@ exports.validateCoupon = async (req, res) => {
         productName: ap.product.name,
         originalPrice: ap.originalPrice,
         discountedPrice: ap.discountedPrice,
-        discount: ((ap.originalPrice - ap.discountedPrice) / ap.originalPrice * 100).toFixed(2) + '%',
+        discount: coupon.discountPercentage.toFixed(2) + '%',
         validUntil: coupon.endDate
       }));
 
@@ -741,7 +741,7 @@ exports.applySpecialCoupon = async (req, res) => {
             originalPrice: product.price,
             discountedPrice: productDiscount.discountedPrice,
             discountPercentage: coupon.discountPercentage,
-            savings: product.price - productDiscount.discountedPrice
+            savings: (product.price * coupon.discountPercentage) / 100
           },
           coupon: {
             code: coupon.code,
@@ -783,7 +783,7 @@ exports.applySpecialCoupon = async (req, res) => {
         originalPrice: product.price,
         discountedPrice: discountedPrice,
         discountPercentage: coupon.discountPercentage,
-        savings: product.price - discountedPrice
+        savings: (product.price * coupon.discountPercentage) / 100
       },
       coupon: {
         code: coupon.code,
@@ -911,7 +911,7 @@ exports.getProductCoupons = async (req, res) => {
         discountPercentage: coupon.discountPercentage,
         originalPrice: product.price,
         discountedPrice: productDiscount ? productDiscount.discountedPrice : discountedPrice,
-        savings: product.price - (productDiscount ? productDiscount.discountedPrice : discountedPrice),
+        savings: (product.price * coupon.discountPercentage) / 100,
         validUntil: coupon.endDate,
         usageLimit: coupon.usageLimit,
         usageCount: coupon.usageCount

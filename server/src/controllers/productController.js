@@ -13,6 +13,9 @@ const agenda = require('../config/agenda').agenda;
 const path = require('path');
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
+const { ProductDeleteS3ObjectsByUrls } = require('../services/products/images');
+const { ExtractAllImageUrlsFromVariants } = require('../services/products/variants/utils');
+const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 
 
 // Create a new product
@@ -834,11 +837,24 @@ exports.updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
+    const cdnPrefix = 'https://' + process.env.CDN_URL;
+    // this array will contain product images to be deleted
+    let deletedProductImageUrls = [];
     // Handle main product images
     if (updates.images && Array.isArray(updates.images)) {
+      // Get existing image URLs
+      const existingProductImageUrls = (product.images || []).map(img => img.url);
+      // Extract new image URLs
+      const newProductImageUrls = (updates.images || []).map(img => img.data);
+
+      // Find images that were removed
+      deletedProductImageUrls = existingProductImageUrls
+        .filter(url => url.startsWith(cdnPrefix)) // only keep images from your CDN
+        .filter(url => !newProductImageUrls.includes(url)); // then check which are not in the new list
+
       const imagesLinks = [];
       for (let image of updates.images) {
-        if (image.data.startsWith('https://'+ process.env.CDN_URL)) {
+        if (image.data.startsWith(cdnPrefix)) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
           // Process new base64 image
@@ -850,7 +866,7 @@ exports.updateProduct = async (req, res) => {
             ContentType: image.contentType,
           };
           const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: `https://` + process.env.CDN_URL + `/${data.Key}`});
+          imagesLinks.push({ url: cdnPrefix + `/${data.Key}`});
         }
       }
       updates.images = imagesLinks;
@@ -858,6 +874,14 @@ exports.updateProduct = async (req, res) => {
 
     // Process variant images if they exist
     if (updates.variants && Array.isArray(updates.variants)) {
+      const existingImageUrls = ExtractAllImageUrlsFromVariants(product.variants || []);
+      const updatedImageUrls = ExtractAllImageUrlsFromVariants(updates.variants || []);
+
+      // Images that are in DB but not in the update request
+      deletedProductVariantImageUrls = existingImageUrls
+        .filter(url => url.startsWith(cdnPrefix)) // only keep images from your CDN
+        .filter(url => !updatedImageUrls.includes(url));
+
       updates.variants = await Promise.all(updates.variants.map(async (variant) => {
         // Process main variant images
         let variantImages = [];
@@ -888,7 +912,7 @@ exports.updateProduct = async (req, res) => {
               
               const data = await s3.upload(params).promise();
               variantImages.push({
-                data: 'https://' + process.env.CDN_URL + `/${data.Key}`,
+                data: cdnPrefix + `/${data.Key}`,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
               });
@@ -925,7 +949,7 @@ exports.updateProduct = async (req, res) => {
                 
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
-                  data:`https://` + process.env.CDN_URL + `/${data.Key}`,
+                  data: cdnPrefix + `/${data.Key}`,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
                 });
@@ -962,7 +986,7 @@ exports.updateProduct = async (req, res) => {
                   
                   const data = await s3.upload(params).promise();
                   subSubVariantImages.push({
-                    data: `https://` + process.env.CDN_URL + `/${data.Key}`,
+                    data: cdnPrefix + `/${data.Key}`,
                     contentType: image.contentType,
                     isDefault: image.isDefault || false
                   });
@@ -1010,7 +1034,22 @@ exports.updateProduct = async (req, res) => {
       updatedAt: Date.now()
     });
 
+    // save product
     await product.save();
+    // delete product images if any
+    if (deletedProductImageUrls.length > 0) {
+      const s3Response = await ProductDeleteS3ObjectsByUrls(deletedProductImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
+      }
+    }
+    // delete produc variant images if any
+    if (deletedProductVariantImageUrls.length > 0) {
+      const s3Response = await ProductVariantDeleteS3ObjectsByUrls(deletedProductVariantImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
+      }
+    }
 
     // Populate seller information before sending response
     const updatedProduct = await Product.findById(id)
@@ -1050,14 +1089,21 @@ exports.deleteProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
-    // Delete product images from storage
-    if (product.images && product.images.length > 0) {
-      for (const image of product.images) {
-        const key = image.url.split('/').pop();
-        await s3.deleteObject({
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: key
-        }).promise();
+    // Get existing product image URLs
+    const existingProductImageUrls = (product.images || []).map(img => img.url);
+    // Get existing product variatn image URLs
+    const existingProductVariantImageUrls = ExtractAllImageUrlsFromVariants(product.variants || []);
+    
+    const allExistingImageUrls = [
+      ...existingProductImageUrls,
+      ...existingProductVariantImageUrls
+    ];
+
+    // delete product images and product variant images if any
+    if (allExistingImageUrls.length > 0) {
+      const s3Response = await ProductDeleteS3ObjectsByUrls(allExistingImageUrls);
+      if (s3Response.Errors.length > 0) {
+        console.error('Failed to delete some objects:', s3Response.Errors);
       }
     }
 
@@ -1082,7 +1128,7 @@ exports.deleteProduct = async (req, res) => {
 
 // Search products
 exports.searchProducts = async (req, res) => {
-  const { query } = req.query;
+  const { query, minPrice, maxPrice, condition } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -1187,7 +1233,7 @@ exports.updateProductStock = async (req, res) => {
 
 // Deep search products
 exports.deepSearchProducts = async (req, res) => {
-  const { query } = req.query;
+  const { query, minPrice, maxPrice, condition, sortBy = 'newest', order = 'desc' } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -1205,11 +1251,50 @@ exports.deepSearchProducts = async (req, res) => {
       ],
     };
 
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      queryFilter.price = {};
+      if (minPrice) queryFilter.price.$gte = Number(minPrice);
+      if (maxPrice) queryFilter.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      queryFilter.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    }
+
     // Get total count for pagination info
     const totalProducts = await Product.countDocuments(queryFilter);
     
     // Get paginated results
     const products = await Product.find(queryFilter)
+      .sort(sortOptions)
       .populate('seller', 'name avatarUrl about')
       .populate('reviews.buyer', 'firstName lastName')
       .skip(skip)
@@ -1406,17 +1491,32 @@ exports.getTrendingProductsByCategory = async (req, res) => {
 // Get products by main category
 exports.getProductsByCategory = async (req, res) => {
   const { category } = req.params;
-  const { limit = 20, page = 1 } = req.query;
+  const { limit = 20, page = 1, minPrice, maxPrice, condition } = req.query;
 
   try {
-    const products = await Product.find({ category })
+    // Build query object
+    const query = { category };
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+    
+    const products = await Product.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .populate('seller', 'name avatarUrl about offersStorePickup')
       .populate('reviews.buyer', 'firstName lastName');
 
-    const total = await Product.countDocuments({ category });
+    const total = await Product.countDocuments(query);
 
     res.json({
       products,
@@ -2353,6 +2453,9 @@ exports.getSellerProducts = async (req, res) => {
       limit = 10, 
       status, 
       visibility,
+      minPrice,
+      maxPrice,
+      condition,
       sortBy = 'newest' 
     } = req.query;
 
@@ -2368,6 +2471,18 @@ exports.getSellerProducts = async (req, res) => {
     }
     if (visibility) {
       query.visibility = visibility;
+    }
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
 
     // Build sort options
@@ -5927,7 +6042,7 @@ exports.getBlipDetails = async (req, res) => {
 exports.getProductsByCategoryAndSubcategory = async (req, res) => {
   try {
     const { category, subcategory } = req.params;
-    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc', minPrice, maxPrice, condition } = req.query;
     
     // Build query
     const query = { 
@@ -5937,6 +6052,18 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       visibility: 'visible',
       status: { $ne: 'offline_auction' }
     };
+    
+    // Add price filter if min or max price is provided
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
     
     // Build sort options
     let sortOptions = {};

@@ -1490,6 +1490,18 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
     if (!order.paid && order.paymentInfo.method === 'paystack') {
       console.log(`Marking unpaid Paystack order ${order.order_id} as stale after 30 minutes`);
       
+      // Log order payment details for debugging
+      console.log(`STALE ORDER PAYMENT DETAILS:`, {
+        orderId: order.order_id,
+        buyerId: order.buyer._id,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentInfo.method,
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        paystackAmount: order.paymentInfo.amount || order.totalAmount,
+        paymentStatus: order.paid ? 'PAID' : 'UNPAID'
+      });
+      
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {
         try {
@@ -1558,6 +1570,128 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         }
       }
       
+      // Check if this was a hybrid payment (wallet + Paystack) and refund wallet amount if needed
+      const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+      
+      console.log(`HYBRID PAYMENT CHECK for order ${order.order_id}:`, {
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        isHybridPayment: isHybridPayment,
+        willAttemptRefund: isHybridPayment ? 'YES' : 'NO'
+      });
+      
+      if (isHybridPayment) {
+        try {
+          console.log(`Order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
+          
+          const Buyer = mongoose.model('Buyer');
+          const buyer = await Buyer.findById(order.buyer);
+          
+          if (buyer) {
+            // Log wallet balance before refund
+            console.log(`WALLET REFUND - BEFORE: Buyer ${buyer._id} (${buyer.firstName} ${buyer.lastName}) current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+            
+            // Get the wallet amount to refund - use the proportional amount stored in this order
+            const refundAmount = order.paymentInfo.walletAmountUsed;
+            
+            // Check if this order is part of a batch (multiple seller orders from one checkout)
+            const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
+            
+            if (isBatchOrder) {
+              console.log(`Order ${order.order_id} is part of batch ${order.paymentInfo.batchId}`, {
+                batchTotalAmount: order.paymentInfo.batchTotalAmount,
+                batchWalletAmount: order.paymentInfo.batchWalletAmount,
+                thisOrderAmount: order.totalAmount,
+                thisOrderWalletAmount: refundAmount
+              });
+              
+              // Check if other orders in this batch have already been refunded
+              // If we don't do this check, we could end up refunding parts of the wallet amount multiple times
+              const Order = mongoose.model('Order');
+              const otherOrdersInBatch = await Order.find({
+                'paymentInfo.batchId': order.paymentInfo.batchId,
+                _id: { $ne: order._id }, // Exclude current order
+                'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 } // Look for orders with refunds
+              });
+              
+              if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
+                // Some orders in this batch have already been refunded
+                console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded`, {
+                  refundedOrders: otherOrdersInBatch.map(o => ({ 
+                    orderId: o.order_id, 
+                    refundedAmount: o.paymentInfo.refundedWalletAmount 
+                  }))
+                });
+              }
+            }
+            
+            // Create refund transaction
+            const refundTransaction = {
+              type: 'credit',
+              amount: refundAmount,
+              description: `Refund for unpaid order ${order.order_id} (stale)`,
+              status: 'completed',
+              createdAt: new Date()
+            };
+            
+            console.log(`WALLET REFUND - TRANSACTION DETAILS:`, {
+              buyerId: buyer._id,
+              buyerEmail: buyer.email,
+              transactionType: refundTransaction.type,
+              amount: refundTransaction.amount,
+              description: refundTransaction.description,
+              status: refundTransaction.status,
+              createdAt: refundTransaction.createdAt
+            });
+            
+            // Update buyer's wallet
+            const previousBalance = buyer.wallet.balance;
+            buyer.wallet.balance += refundAmount;
+            buyer.wallet.transactions.push(refundTransaction);
+            
+            await buyer.save();
+            
+            // Mark this order as having refunded its wallet amount to prevent double refunds
+            await Order.findByIdAndUpdate(order._id, {
+              'paymentInfo.refundedWalletAmount': refundAmount,
+              'paymentInfo.walletRefundedAt': new Date()
+            });
+            
+            // Log wallet balance after refund with detailed information
+            console.log(`WALLET REFUND - AFTER: Buyer ${buyer._id} wallet balance updated:`);
+            console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
+            console.log(`  - Refund amount: ₦${refundAmount.toLocaleString()}`);
+            console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+            console.log(`  - Transaction ID: ${refundTransaction._id}`);
+            console.log(`  - Order ID: ${order.order_id}`);
+            
+            console.log(`Successfully refunded ${refundAmount} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
+          } else {
+            console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
+            console.error(`WALLET REFUND FAILED - BUYER NOT FOUND:`, {
+              orderId: order.order_id,
+              buyerId: order.buyer,
+              walletAmountUsed: order.paymentInfo.walletAmountUsed,
+              buyerDetails: order.buyer ? {
+                _id: order.buyer._id,
+                email: order.buyer.email,
+                name: `${order.buyer.firstName} ${order.buyer.lastName}`
+              } : 'Not available'
+            });
+          }
+        } catch (refundError) {
+          console.error(`Error refunding wallet amount for stale order ${order.order_id}:`, refundError);
+          console.error(`WALLET REFUND FAILED - ERROR:`, {
+            orderId: order.order_id,
+            buyerId: order.buyer ? order.buyer._id : order.buyer,
+            walletAmountUsed: order.paymentInfo.walletAmountUsed,
+            errorMessage: refundError.message,
+            errorStack: refundError.stack
+          });
+          // Continue with order stale update even if refund fails
+        }
+      }
+      
       // Send notification emails to buyer and seller before marking the order as stale
       try {
         const sgMail = require('@sendgrid/mail');
@@ -1567,6 +1701,10 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         const itemsList = order.items.map(item => 
           `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
         ).join('<br>');
+        
+        // Add wallet refund info if applicable
+        const walletRefundInfo = isHybridPayment ? 
+          `<p><strong>Note:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} has been refunded to your wallet.</p>` : '';
         
         // Buyer notification email
         const buyerEmail = {
@@ -1586,6 +1724,8 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
                 <li>Items:<br>${itemsList}</li>
                 <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
               </ul>
+              
+              ${walletRefundInfo}
               
               <p>If you still wish to purchase these items, please place a new order.</p>
               <p>Thank you for your understanding.</p>
@@ -2018,6 +2158,62 @@ agenda.define('credit_welcome_bonus', async (job) => {
     
   } catch (error) {
     console.error('Error in credit_welcome_bonus job:', error);
+  }
+});
+
+// Define job to send a warning notification before unpaid orders are marked as stale
+agenda.define('send_unpaid_order_warning', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Sending warning notification for unpaid order ${orderId} before it's marked as stale`);
+    
+    const Order = mongoose.model('Order');
+    const { getToken } = require('../../Firebase');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    
+    // Find the order with populated buyer
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+    
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+    
+    // Check if order is still unpaid and was created with Paystack
+    if (!order.paid && order.paymentInfo.method === 'paystack') {
+      console.log(`Sending warning notification for unpaid Paystack order ${order.order_id}`);
+      
+      try {
+        // Get the buyer's Expo push token
+        const userToken = await getToken(order.buyer._id);
+        
+        if (userToken && userToken.token) {
+          // Send push notification to buyer
+          await expo.sendPushNotificationsAsync([{
+            to: userToken.token,
+            title: `Your Order Will Expire Soon`,
+            body: `Your order #${order.order_id} will be marked as stale in 10 minutes if payment is not completed.`,
+            data: {
+              orderId: order.order_id,
+              type: 'order_expiring_soon'
+            }
+          }]);
+          
+          console.log(`Successfully sent warning notification for unpaid order ${order.order_id}`);
+        } else {
+          console.log(`No push token found for buyer of order ${order.order_id}`);
+        }
+      } catch (notificationError) {
+        console.error(`Error sending warning notification for order ${order.order_id}:`, notificationError);
+      }
+    } else {
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not sending warning`);
+    }
+  } catch (error) {
+    console.error('Error in send_unpaid_order_warning job:', error);
   }
 });
 
