@@ -485,7 +485,8 @@ function SellerDetail() {
     if (!id) return;
 
     try {
-      const page = isNewFilter ? 1 : productsPagination.currentPage;
+      // If it's a new filter, we start from page 1, otherwise we use the next page
+      const page = isNewFilter ? 1 : productsPagination.currentPage + 1;
       
       if (isNewFilter) {
         setLoadingProducts(true);
@@ -504,13 +505,24 @@ function SellerDetail() {
 
       const response = await SellerService.getSellerProducts(id, params);
       
-      const { products, currentPage, totalPages, totalProducts, productsPerPage } = response.data;
+      console.log("API Response:", response.data); // Log the response to check structure
+      
+      // Extract products and pagination from the response based on API structure
+      const products = response.data.products || [];
+      
+      // Handle pagination data based on the API response structure
+      const pagination = response.data.pagination || {
+        currentPage: page,
+        totalPages: 1,
+        totalProducts: products.length,
+        limit: productsPagination.productsPerPage
+      };
       
       setProductsPagination({
-        currentPage,
-        totalPages,
-        totalProducts,
-        productsPerPage
+        currentPage: pagination.currentPage,
+        totalPages: pagination.totalPages,
+        totalProducts: pagination.totalProducts,
+        productsPerPage: pagination.limit
       });
 
       if (isNewFilter) {
@@ -530,7 +542,6 @@ function SellerDetail() {
   // Load more products
   const handleLoadMoreProducts = () => {
     if (productsPagination.currentPage < productsPagination.totalPages) {
-      setProductsPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }));
       fetchSellerProducts(false);
     }
   };
