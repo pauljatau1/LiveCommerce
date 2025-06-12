@@ -1793,10 +1793,7 @@ exports.getSpotlightStreams = async (req, res) => {
           query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
         }
       } else if (status === 'live_upcoming') {
-        // For live_upcoming, get both live streams and scheduled streams with future start time
-        query.status = { $in: ['live', 'scheduled'] };
-        
-        // Add a filter to make sure scheduled streams have a future start time
+        // For live_upcoming, create a $or query to get both live streams and scheduled streams with future start time
         query.$or = [
           { status: 'live' },
           { 

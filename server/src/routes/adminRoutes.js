@@ -3689,4 +3689,168 @@ router.delete('/products/:productId/blips/:blipId',
   adminController.deleteProductBlip
 );
 
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}/transactions:
+ *   get:
+ *     summary: Get transactions of a specific buyer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Buyer ID
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for transaction search
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for transaction search
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit, all]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of records to return
+ *     responses:
+ *       200:
+ *         description: Buyer transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     buyer:
+ *                       type: object
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                 pagination:
+ *                   type: object
+ *       400:
+ *         description: Invalid buyer ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not an admin
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyers/:buyerId/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getBuyerTransactions
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/transactions:
+ *   get:
+ *     summary: Get transactions of a specific seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for transaction search
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for transaction search
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [order_payment, withdrawal, platform_fee, processing_fee, all]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of records to return
+ *     responses:
+ *       200:
+ *         description: Seller transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     seller:
+ *                       type: object
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                 pagination:
+ *                   type: object
+ *       400:
+ *         description: Invalid seller ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not an admin
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/sellers/:sellerId/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerTransactions
+);
+
 module.exports = router;
