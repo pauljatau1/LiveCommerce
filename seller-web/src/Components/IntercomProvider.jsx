@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 const IntercomWrapper = ({ children }) => {
   return (
     <IntercomProvider 
-      appId="s2xos2me"
+      appId={import.meta.env.VITE_INTERCOM_APP_ID}
       autoBoot={false}
       shouldInitialize={true}
       onUnreadCountChange={() => {
