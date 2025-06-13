@@ -517,6 +517,9 @@ function BuyerDetail() {
                   </div>
                 </div>
               </div>
+
+              {/* Transactions List */}
+              <TransactionsList buyerId={id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -606,6 +609,157 @@ function BuyerDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function TransactionsList({ buyerId }: { buyerId: string | undefined }) {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const limit = 10;
+
+  useEffect(() => {
+    if (buyerId) {
+      fetchTransactions();
+    }
+  }, [buyerId, page]);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/admin/buyers/${buyerId}/transactions`, {
+        params: {
+          page,
+          limit,
+        },
+      });
+      
+      const { data, pagination } = response.data;
+      setTransactions(data.transactions || []);
+      setTotalPages(pagination.pages || 1);
+      setTotalTransactions(pagination.total || 0);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "NGN",
+    }).format(amount);
+  };
+
+  const getTransactionStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="secondary">Completed</Badge>;
+      case 'pending':
+        return <Badge variant="outline">Pending</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getTransactionTypeBadge = (type: string) => {
+    switch (type) {
+      case 'credit':
+        return <Badge className="bg-green-600">Credit</Badge>;
+      case 'debit':
+        return <Badge className="bg-red-600">Debit</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-medium mt-6 mb-3">Transaction History</h3>
+      
+      {loading ? (
+        <div className="flex justify-center p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : transactions.length > 0 ? (
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.map((transaction) => (
+                  <TableRow key={transaction._id}>
+                    <TableCell>{formatDate(transaction.createdAt)}</TableCell>
+                    <TableCell>{getTransactionTypeBadge(transaction.type)}</TableCell>
+                    <TableCell className={transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
+                      {formatCurrency(transaction.amount)}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {transaction.description}
+                    </TableCell>
+                    <TableCell>{getTransactionStatusBadge(transaction.status)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {transactions.length} of {totalTransactions} transactions
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-6 text-muted-foreground text-sm border rounded-md">
+          No transactions found for this buyer
+        </div>
+      )}
     </div>
   );
 }

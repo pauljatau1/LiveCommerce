@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,14 +14,48 @@ import { api } from "@/api/axios"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 
 interface Seller {
   _id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   businessName?: string;
   storeName?: string;
-  email: string;
+  email?: string;
+  personalInfo?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber?: string;
+  };
+  businessInfo?: {
+    businessName?: string;
+    businessType?: string;
+  };
+  storeInfo?: {
+    storeName?: string;
+    aboutStore?: string;
+    storeAvatar?: {
+      url: string;
+      public_id: string;
+    };
+    storeBanner?: {
+      url: string;
+      public_id: string;
+    };
+    categories?: string[];
+    followerCount?: number;
+  };
 }
 
 interface ProductStats {
@@ -61,15 +95,34 @@ interface Product {
   createdAt?: string;
   updatedAt?: string;
   condition?: string;
+  description?: string;
   discount?: ProductDiscount;
   seller?: Seller;
   stats?: ProductStats;
   inventory?: ProductInventory;
+  blips?: any[];
+  variants?: any[];
   images: {
     url: string;
     _id?: string;
   }[];
   reviews?: any[];
+  shippingInfo?: {
+    weight?: {
+      value?: number;
+      unit?: string;
+    };
+    dimensions?: {
+      length?: number;
+      width?: number;
+      height?: number;
+    };
+  };
+  returnPolicy?: {
+    allowed?: boolean;
+    periodInDays?: number;
+    conditions?: string[];
+  };
 }
 
 function Products() {
@@ -88,6 +141,9 @@ function Products() {
     totalProcessed: 0,
     errors: []
   })
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [loadingProductDetails, setLoadingProductDetails] = useState(false)
+  const [productDetailsOpen, setProductDetailsOpen] = useState(false)
 
   // Pagination and filtering state
   const [pagination, setPagination] = useState({
@@ -155,39 +211,44 @@ function Products() {
   }
 
   const fetchProducts = async (isNewSearch = false) => {
+    if (isNewSearch) {
+      setIsSearching(true)
+    } else if (pagination.currentPage === 1) {
+      setLoading(true)
+    } else {
+      setLoadingMore(true)
+    }
+    
+    fetchProductsWithParams(searchParams, isNewSearch)
+  }
+
+  const fetchProductsWithParams = async (params: any, isNewSearch = false) => {
     try {
       const currentPage = isNewSearch ? 1 : pagination.currentPage
-      if (isNewSearch) {
-        setIsSearching(true)
-      } else if (currentPage === 1) {
-        setLoading(true)
-      } else {
-        setLoadingMore(true)
-      }
-
+      
       // Determine if we should use search or regular endpoint
-      const endpoint = searchParams.query || 
-                      searchParams.category || 
-                      searchParams.minPrice || 
-                      searchParams.maxPrice || 
-                      searchParams.status
+      const endpoint = params.query || 
+                      params.category || 
+                      params.minPrice || 
+                      params.maxPrice || 
+                      params.status
         ? "/api/admin/products/search"
         : "/api/admin/products"
 
       // Build query parameters
-      const params = {
+      const queryParams = {
         page: currentPage,
         limit: pagination.productsPerPage,
-        ...(searchParams.query && { query: searchParams.query }),
-        ...(searchParams.category && { category: searchParams.category }),
-        ...(searchParams.minPrice && { minPrice: searchParams.minPrice }),
-        ...(searchParams.maxPrice && { maxPrice: searchParams.maxPrice }),
-        ...(searchParams.status && { status: searchParams.status }),
-        ...(searchParams.sortBy && { sortBy: searchParams.sortBy }),
-        ...(searchParams.sortOrder && { sortOrder: searchParams.sortOrder })
+        ...(params.query && { query: params.query }),
+        ...(params.category && { category: params.category }),
+        ...(params.minPrice && { minPrice: params.minPrice }),
+        ...(params.maxPrice && { maxPrice: params.maxPrice }),
+        ...(params.status && { status: params.status }),
+        ...(params.sortBy && { sortBy: params.sortBy }),
+        ...(params.sortOrder && { sortOrder: params.sortOrder })
       }
 
-      const response = await api.get(endpoint, { params })
+      const response = await api.get(endpoint, { params: queryParams })
       
       // Update pagination data
       setPagination({
@@ -204,7 +265,7 @@ function Products() {
         setProducts(prev => [...prev, ...response.data.products])
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch products";
+      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch products"
       toast.error(errorMessage)
       // If error occurs, set empty products to prevent showing stale data
       if (isNewSearch) {
@@ -231,23 +292,40 @@ function Products() {
 
   // Clear search input and trigger search with empty query
   const clearSearchInput = () => {
-    setSearchInput('')
-    setSearchParams(prev => ({ ...prev, query: '' }))
-    setPagination(prev => ({ ...prev, currentPage: 1 }))
-    setIsSearching(true)
-    fetchProducts(true)
-    toast.success("Search cleared")
-  }
+    setSearchInput('');
+    
+    // Create new search params with empty query
+    const newSearchParams = {
+      ...searchParams,
+      query: ''
+    };
+    
+    // Update state for consistency
+    setSearchParams(newSearchParams);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setIsSearching(true);
+    
+    // Use the new params directly
+    fetchProductsWithParams(newSearchParams, true);
+    toast.success("Search cleared");
+  };
 
   // Perform search when search button is clicked
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, currentPage: 1 }))
-    setSearchParams(prev => ({
-      ...prev,
+    
+    // Create a new searchParams object with the current searchInput
+    const newSearchParams = {
+      ...searchParams,
       query: searchInput
-    }))
+    }
+    
+    // Set state for consistency but don't wait for it
+    setSearchParams(newSearchParams)
     setIsSearching(true)
-    fetchProducts(true)
+    
+    // Use the new searchParams directly in the API call
+    fetchProductsWithParams(newSearchParams, true)
   }
 
   // Handle Enter key press in search input - prevent search on Enter
@@ -266,14 +344,22 @@ function Products() {
   // Apply all filters at once
   const applyFilters = () => {
     setPagination(prev => ({ ...prev, currentPage: 1 }))
-    setSearchParams(prev => ({
-      ...prev,
+    
+    // Create a new search params object with current filter inputs
+    const newSearchParams = {
+      ...searchParams,
       ...filterInputs
-    }))
+    }
+    
+    // Set state for consistency but don't wait for it
+    setSearchParams(newSearchParams)
     setIsSearching(true)
-    fetchProducts(true)
+    
+    // Use the new searchParams directly in the API call
+    fetchProductsWithParams(newSearchParams, true)
   }
 
+  // Reset all filters
   const resetFilters = () => {
     const resetValues = {
       query: '',
@@ -283,8 +369,10 @@ function Products() {
       status: '',
       sortBy: 'createdAt',
       sortOrder: 'desc'
-    }
-    setSearchInput('')
+    };
+    
+    // Update all state for consistency
+    setSearchInput('');
     setFilterInputs({
       category: '',
       minPrice: '',
@@ -292,21 +380,33 @@ function Products() {
       status: '',
       sortBy: 'createdAt',
       sortOrder: 'desc'
-    })
-    setSearchParams(resetValues)
-    setIsSearching(true)
-    fetchProducts(true)
-    toast.success("All filters have been reset")
-  }
+    });
+    setSearchParams(resetValues);
+    setIsSearching(true);
+    
+    // Use the reset values directly
+    fetchProductsWithParams(resetValues, true);
+    toast.success("All filters have been reset");
+  };
   
   // Clear a single filter
   const clearFilter = (filterName: string) => {
-    setPagination(prev => ({ ...prev, currentPage: 1 }))
-    setSearchParams(prev => ({ ...prev, [filterName]: '' }))
-    setIsSearching(true)
-    fetchProducts(true)
-    toast.success(`${filterName.charAt(0).toUpperCase() + filterName.slice(1)} filter cleared`)
-  }
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    
+    // Create new search params with the cleared filter
+    const newSearchParams = {
+      ...searchParams,
+      [filterName]: ''
+    };
+    
+    // Update state for consistency
+    setSearchParams(newSearchParams);
+    setIsSearching(true);
+    
+    // Use the new params directly
+    fetchProductsWithParams(newSearchParams, true);
+    toast.success(`${filterName.charAt(0).toUpperCase() + filterName.slice(1)} filter cleared`);
+  };
 
   const fetchSellers = async () => {
     try {
@@ -474,6 +574,21 @@ function Products() {
       toast.error("Failed to disable product. Please try again.");
     }
   };
+
+  // Function to fetch product details
+  const fetchProductDetails = async (productId: string) => {
+    setProductDetailsOpen(true)
+    try {
+      setLoadingProductDetails(true)
+      const response = await api.get(`/api/products/${productId}`)
+      setSelectedProduct(response.data)
+    } catch (error) {
+      console.error("Error fetching product details:", error)
+      toast.error("Failed to load product details")
+    } finally {
+      setLoadingProductDetails(false)
+    }
+  }
 
   // Initial loading state for the entire page
   if (loading && pagination.currentPage === 1 && products.length === 0) {
@@ -732,7 +847,7 @@ function Products() {
                             <img 
                               src={product.images[0].url} 
                               alt={product.name}
-                              className="w-16 h-16 object-cover rounded-md"
+                              className={`w-16 h-16 object-cover rounded-md ${product.images.length > 1 ? 'col-span-2 row-span-2' : ''}`}
                             />
                             {product.images.length > 1 && (
                               <Badge className="absolute -top-2 -right-2 bg-slate-700 text-white text-xs">
@@ -854,6 +969,24 @@ function Products() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
+                                className="text-blue-500 hover:text-blue-600"
+                                onClick={() => fetchProductDetails(product._id)}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View Product Details</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
                                 className="text-red-500 hover:text-red-600"
                                 onClick={() => handleDeleteProduct(product._id, product.name)}
                               >
@@ -935,6 +1068,289 @@ function Products() {
         </div>
       </Card>
 
+      {/* Product Details Modal */}
+      <Dialog open={productDetailsOpen} onOpenChange={setProductDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 text-white border-slate-700">
+          {loadingProductDetails ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-slate-400">Loading product details...</p>
+            </div>
+          ) : selectedProduct ? (
+            <>
+              <DialogHeader className="pb-4">
+                <DialogTitle className="text-xl text-white">{selectedProduct.name}</DialogTitle>
+                <DialogDescription className="flex flex-wrap gap-2 mt-2 text-slate-300">
+                  <Badge variant="outline" className="border-slate-700 text-slate-300">
+                    {selectedProduct.category}
+                  </Badge>
+                  {selectedProduct.subCategory && (
+                    <Badge variant="outline" className="border-slate-700 text-slate-300">{selectedProduct.subCategory}</Badge>
+                  )}
+                  {selectedProduct.brand && (
+                    <Badge variant="secondary" className="bg-slate-800 text-slate-300">{selectedProduct.brand}</Badge>
+                  )}
+                  <Badge className={`${
+                    selectedProduct.status === 'active' ? 'bg-green-900 text-green-300' :
+                    selectedProduct.status === 'draft' ? 'bg-amber-900 text-amber-300' :
+                    'bg-slate-800 text-slate-300'
+                  }`}>
+                    {selectedProduct.status.charAt(0).toUpperCase() + selectedProduct.status.slice(1)}
+                  </Badge>
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Product Images */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2 text-slate-300">Product Images</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                      selectedProduct.images.map((image, index) => (
+                        <div key={image._id || index} className="relative aspect-square">
+                          <img 
+                            src={image.url} 
+                            alt={`${selectedProduct.name} - Image ${index + 1}`}
+                            className={`w-full h-full object-cover rounded-md ${index === 0 ? 'col-span-2 row-span-2' : ''}`}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 bg-slate-800 flex items-center justify-center rounded-md p-4 h-40">
+                        <p className="text-slate-500">No images available</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Variants */}
+                  {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Variants</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedProduct.variants.map((variant, index) => (
+                          <div key={variant._id || index} className="flex flex-col items-center">
+                            {variant.images && variant.images.length > 0 && (
+                              <div className="w-12 h-12 rounded-md overflow-hidden mb-1">
+                                <img 
+                                  src={variant.images[0].data} 
+                                  alt={variant.value}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <span className="text-xs text-slate-300">{variant.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Blips */}
+                  {selectedProduct.blips && selectedProduct.blips.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Blips ({selectedProduct.blips.length})</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedProduct.blips.map((blip, index) => (
+                          <div key={blip._id || index} className="relative">
+                            <div className="w-16 h-28 bg-slate-800 rounded-md overflow-hidden">
+                              {blip.thumbnail ? (
+                                <img 
+                                  src={blip.thumbnail} 
+                                  alt={`Blip ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center h-full">
+                                  <span className="text-xs text-slate-500">Blip</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="absolute bottom-1 right-1 bg-slate-800 bg-opacity-80 text-white text-xs px-1 rounded-sm">
+                              {blip.viewCount || 0}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Product Details */}
+                <div className="space-y-6">
+                  {/* Price Information */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Pricing</h4>
+                    <div className="bg-slate-800 p-4 rounded-md">
+                      <div className="flex items-end gap-2">
+                        <span className="text-2xl font-bold text-white">{formatPrice(selectedProduct.price)}</span>
+                        {selectedProduct.discount?.isActive && (
+                          <Badge className="bg-red-900 text-red-300 mb-1">
+                            -{getDiscountPercentage(selectedProduct)}%
+                          </Badge>
+                        )}
+                      </div>
+                      {selectedProduct.discount?.isActive && (
+                        <span className="text-sm text-slate-400 line-through">
+                          {formatPrice(selectedProduct.price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Inventory Information */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Inventory</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <span className="text-sm text-slate-400">Current Stock</span>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-xl font-semibold text-white">{selectedProduct.stock}</span>
+                          <span className="text-xs text-slate-400">units</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <span className="text-sm text-slate-400">SKU</span>
+                        <div className="mt-1">
+                          <span className="text-sm font-medium text-white">{selectedProduct.sku || "N/A"}</span>
+                        </div>
+                      </div>
+                      {selectedProduct.upc && (
+                        <div className="bg-slate-800 p-4 rounded-md">
+                          <span className="text-sm text-slate-400">UPC</span>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium text-white">{selectedProduct.upc}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProduct.inventory?.lowStockThreshold && (
+                        <div className="bg-slate-800 p-4 rounded-md">
+                          <span className="text-sm text-slate-400">Low Stock Alert</span>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium text-white">{selectedProduct.inventory.lowStockThreshold} units</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Seller Information */}
+                  {selectedProduct.seller && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Seller Information</h4>
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <Store className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium text-white">
+                            {selectedProduct.seller.personalInfo?.firstName && selectedProduct.seller.personalInfo?.lastName ? 
+                              `${selectedProduct.seller.personalInfo.firstName} ${selectedProduct.seller.personalInfo.lastName}` :
+                             selectedProduct.seller.storeInfo?.storeName || 
+                             selectedProduct.seller.businessInfo?.businessName || 
+                             'Unknown Seller'}
+                          </span>
+                        </div>
+                        {selectedProduct.seller.storeInfo?.aboutStore && (
+                          <p className="mt-2 text-sm text-slate-400 line-clamp-2">
+                            {selectedProduct.seller.storeInfo.aboutStore}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Analytics */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Analytics</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Package2 className="h-4 w-4 text-blue-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.soldCount || 0}</span>
+                        <span className="text-xs text-slate-400">Sold</span>
+                      </div>
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Eye className="h-4 w-4 text-purple-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.views || 0}</span>
+                        <span className="text-xs text-slate-400">Views</span>
+                      </div>
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Star className="h-4 w-4 text-amber-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.averageRating || 0}</span>
+                        <span className="text-xs text-slate-400">Rating ({selectedProduct.stats?.reviewCount || 0})</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Shipping & Return */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedProduct.shippingInfo && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 text-slate-300">Shipping</h4>
+                        <div className="bg-slate-800 p-4 rounded-md text-sm">
+                          {selectedProduct.shippingInfo.weight && (
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-400">Weight:</span>
+                              <span className="text-white">{selectedProduct.shippingInfo.weight.value} {selectedProduct.shippingInfo.weight.unit}</span>
+                            </div>
+                          )}
+                          {selectedProduct.shippingInfo.dimensions && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Dimensions:</span>
+                              <span className="text-white">
+                                {selectedProduct.shippingInfo.dimensions.length} × {selectedProduct.shippingInfo.dimensions.width} × {selectedProduct.shippingInfo.dimensions.height}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {selectedProduct.returnPolicy && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 text-slate-300">Return Policy</h4>
+                        <div className="bg-slate-800 p-4 rounded-md text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Returns:</span>
+                            <span className="text-white">{selectedProduct.returnPolicy.allowed ? 'Allowed' : 'Not Allowed'}</span>
+                          </div>
+                          {selectedProduct.returnPolicy.allowed && selectedProduct.returnPolicy.periodInDays && (
+                            <div className="flex justify-between mt-1">
+                              <span className="text-slate-400">Return Period:</span>
+                              <span className="text-white">{selectedProduct.returnPolicy.periodInDays} days</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Product Description */}
+              {selectedProduct.description && (
+                <div className="mt-6">
+                  <Separator className="mb-4 bg-slate-700" />
+                  <h3 className="text-lg font-medium mb-2 text-white">Product Description</h3>
+                  <div 
+                    className="prose prose-sm max-w-none text-slate-300 bg-slate-800 p-4 rounded-md prose-headings:text-white prose-strong:text-white prose-a:text-blue-400"
+                    dangerouslySetInnerHTML={{ __html: selectedProduct.description }}
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-end mt-4">
+                <DialogClose asChild>
+                  <Button variant="outline" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 hover:text-white">Close</Button>
+                </DialogClose>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Info className="h-8 w-8 text-slate-500 mb-4" />
+              <p className="text-slate-400">No product details available</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
       {/* CSV Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
