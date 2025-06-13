@@ -45,22 +45,30 @@ const Home = () => {
     const initializeClarityUser = async () => {
       try {
         console.log("🎯 Starting Clarity user identification process...");
-        
+
         // Get user attributes
         const userAttributes = await getUserAttributesForClarity();
         if (userAttributes) {
-          console.log("🚀 User attributes found, calling clarity.identifyUser:", userAttributes);
+          console.log(
+            "🚀 User attributes found, calling clarity.identifyUser:",
+            userAttributes,
+          );
           clarity.identifyUser(userAttributes);
         } else {
-          console.log("⚠️ No user attributes available for Clarity tracking at app start");
-          
+          console.log(
+            "⚠️ No user attributes available for Clarity tracking at app start",
+          );
+
           // Set up a retry mechanism for when user logs in later
           setTimeout(async () => {
             try {
               console.log("🔄 Retrying Clarity user identification...");
               const retryUserAttributes = await getUserAttributesForClarity();
               if (retryUserAttributes) {
-                console.log("✅ Retry successful, identifying user:", retryUserAttributes);
+                console.log(
+                  "✅ Retry successful, identifying user:",
+                  retryUserAttributes,
+                );
                 clarity.identifyUser(retryUserAttributes);
               } else {
                 console.log("⚠️ Retry failed - still no user attributes");
@@ -95,15 +103,15 @@ const Home = () => {
       trackScreen("App Start", { isFirstTime: !!isFirstTime });
 
       if (isFirstTime) {
-        router.replace("../(root)/(tabs)/blips");
+        router.replace("/(root)/(tabs)/blips");
       } else {
-        router.replace("../(root)/(auth)/welcome");
+        router.replace("/(root)/(auth)/welcome");
       }
     }
     getToken();
     // SplashScreen.hideAsync();
   }, []);
-  
+
   return <View className="h-full w-full bg-[#121212]" />;
 };
 

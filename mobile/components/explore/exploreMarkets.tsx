@@ -26,17 +26,30 @@ import MainAuctionCard from "../global/auction-card/main";
 import CustomButton from "../global/button/CustomButton";
 import { router } from "expo-router";
 
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
+
 const ExploreMarket = ({ name, switchMode }: any) => {
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+
+  const [filter, setFilter] = useState<string>("None");
+  const [selectedFilters, setSelectedFilters] = useState<any>();
   const { data, isFetching, refetch, error, isLoading } =
     useGetAllProductsQuery({
       category: encodeURIComponent(name),
       page,
       limit: 10,
+      sortBy: filter,
+      minPrice: selectedFilters?.price?.min,
+      maxPrice: selectedFilters?.price?.max,
+      condition: selectedFilters?.condition?.toLowerCase()?.replace(" ", "-"),
     });
-  const [filter, setFilter] = useState<string>("None");
-  const [selectedFilters, setSelectedFilters] = useState<any>();
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
 
@@ -56,28 +69,20 @@ const ExploreMarket = ({ name, switchMode }: any) => {
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
-    setFilter(type);
-    handleFilter(selectedFilters, type);
-    // const sortedProducts = catalogSort(products, type);
-    // setFilteredProducts(sortedProducts);
+    console.log("explore catalog sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const handleFilter = (filters: any, sortType = "") => {
-    let appliedFilters = products?.slice();
-    if (filters?.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
-    }
-    if (filters?.condition) {
-      appliedFilters = appliedFilters.filter(
-        (product) =>
-          product?.condition ==
-          filters?.condition?.toLowerCase()?.replace(" ", "-"),
-      );
-    }
-    appliedFilters = catalogSort(appliedFilters, sortType || filter);
-    setFilteredProducts(appliedFilters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const renderProducts = (item: any) => {
@@ -348,7 +353,11 @@ const SortSheet = ({
                   width: 12,
                   height: 12,
                   borderRadius: 12,
-                  backgroundColor: selectedType == option ? "#fff" : "",
+                  backgroundColor:
+                    selectedType == option ||
+                    sortMap[options[index]] == selectedType
+                      ? "#fff"
+                      : "",
                 }}
               ></View>
             </View>

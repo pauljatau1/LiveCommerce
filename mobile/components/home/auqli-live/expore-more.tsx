@@ -15,7 +15,8 @@ const ExploreMoreSection = () => {
   const fetchMoreStreams = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams?status=live&limit=30`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams?status=live_upcoming&limit=30`,
       );
       if (response.status === 200) {
         setMoreStreams(response.data?.streams);

@@ -32,6 +32,14 @@ import { getToken } from "@/store/features/auth/utils";
 import FilterSheet from "@/components/catalog/filterSheet";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
 
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
+
 const SubCatProducts = () => {
   const { name, mainCat, subCat } = useLocalSearchParams();
   const [filter, setFilter] = useState<string>("None");
@@ -54,15 +62,20 @@ const SubCatProducts = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `${endpoint}?page=${page}&limit=10&sortBy=newest&order=desc`,
+          `${endpoint}?page=${page}&limit=10&sortBy=${filter}&minPrice=${selectedFilters?.price?.min || ""}&maxPrice=${selectedFilters?.price?.max || ""}&condition=${selectedFilters?.condition?.toLowerCase()?.replace(" ", "-") || ""}`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setProducts([...products, ...response.data.data]);
-      setFilteredProducts([...filteredProducts, ...response.data.data]);
+      if (page == 1) {
+        setProducts(response.data.data);
+        setFilteredProducts(response.data.data);
+      } else {
+        setProducts([...products, ...response.data.data]);
+        setFilteredProducts([...filteredProducts, ...response.data.data]);
+      }
 
       if (
         response.data?.currentPage == response.data?.totalPages ||
@@ -80,28 +93,20 @@ const SubCatProducts = () => {
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
-    setFilter(type);
-    handleFilter(selectedFilters, type);
-    // const sortedProducts = catalogSort(products, type);
-    // setFilteredProducts(sortedProducts);
+    console.log("explore catalog sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const handleFilter = (filters: any, sortType = "") => {
-    let appliedFilters = products?.slice();
-    if (filters?.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
-    }
-    if (filters?.condition) {
-      appliedFilters = appliedFilters.filter(
-        (product) =>
-          product?.condition ==
-          filters?.condition?.toLowerCase()?.replace(" ", "-"),
-      );
-    }
-    appliedFilters = catalogSort(appliedFilters, sortType || filter);
-    setFilteredProducts(appliedFilters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const renderProducts = (item: any) => {
@@ -173,7 +178,7 @@ const SubCatProducts = () => {
 
   useEffect(() => {
     handleGetProductData();
-  }, []);
+  }, [filter, selectedFilters]);
 
   return (
     <>
@@ -311,7 +316,11 @@ const SortSheet = ({
                   width: 12,
                   height: 12,
                   borderRadius: 12,
-                  backgroundColor: selectedType == option ? "#fff" : "",
+                  backgroundColor:
+                    selectedType == option ||
+                    sortMap[options[index]] == selectedType
+                      ? "#fff"
+                      : "",
                 }}
               ></View>
             </View>

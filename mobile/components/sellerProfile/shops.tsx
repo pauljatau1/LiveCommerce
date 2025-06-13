@@ -17,10 +17,20 @@ import BottomSheet from "../global/bottom-sheet";
 import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import ShopCard from "./shopItem";
 import FilterSheet from "../catalog/filterSheet";
-import { debounce } from "lodash";
+import { debounce, sortBy } from "lodash";
+
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
 
 const Shops = ({ sellerId, headerHeight, index }: any) => {
   const [page, setPage] = useState<number>(1);
+  const [filter, setFilter] = useState<string>("");
+  const [selectedFilters, setSelectedFilters] = useState<any>();
   const { data, isLoading, isFetching, isError, refetch } =
     useGetSellerProductsQuery({
       id: sellerId,
@@ -28,40 +38,51 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
       visibility: "visible",
       status: "active",
       limit: 10,
+      sortBy: filter,
+      minPrice: selectedFilters?.price?.min,
+      maxPrice: selectedFilters?.price?.max,
+      condition: selectedFilters?.condition?.toLowerCase()?.replace(" ", "-"),
     });
-  const [filter, setFilter] = useState<string>("None");
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
-  const [selectedFilters, setSelectedFilters] = useState<any>();
+
   const flatListRef = useRef<FlatList>(null);
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
-    setFilter(type);
-    handleFilter(selectedFilters, type);
+    console.log("seller sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
+    // handleFilter(selectedFilters, type);
     // const sortedProducts = catalogSort(products, type);
     // setFilteredProducts(sortedProducts);
   };
 
   const handleFilter = (filters: any, sortType = "") => {
-    let appliedFilters = products?.slice();
-    if (filters?.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
-    }
-    if (filters?.condition) {
-      appliedFilters = appliedFilters.filter(
-        (product) =>
-          product?.condition ==
-          filters?.condition?.toLowerCase()?.replace(" ", "-"),
-      );
-    }
-    appliedFilters = catalogSort(appliedFilters, sortType || filter);
-    setFilteredProducts(appliedFilters);
+    // let appliedFilters = products?.slice();
+    // if (filters?.price) {
+    //   appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
+    // }
+    // if (filters?.condition) {
+    //   appliedFilters = appliedFilters.filter(
+    //     (product) =>
+    //       product?.condition ==
+    //       filters?.condition?.toLowerCase()?.replace(" ", "-"),
+    //   );
+    // }
+    // appliedFilters = catalogSort(appliedFilters, sortType || filter);
+    // setFilteredProducts(appliedFilters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const renderProducts = useCallback(({ item }: any) => {
@@ -73,7 +94,6 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
         }}
       >
         <ShopCard
-          key={item?._id}
           id={item?._id}
           title={item?.name}
           price={item?.price}
@@ -111,13 +131,37 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
       });
       setPage((prevPage) => prevPage + 1);
     }
-  }, 400);
+  }, 200);
+
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+            marginVertical: 20,
+          }}
+        >
+          <ActivityIndicator size={20} color="#fff" />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
 
   useEffect(() => {
     if (data) {
       if (data?.products) {
-        setProducts([...products, ...data.products]);
-        setFilteredProducts([...filteredProducts, ...data.products]);
+        if (page == 1) {
+          setProducts(data.products);
+          setFilteredProducts(data.products);
+        } else {
+          setProducts([...products, ...data.products]);
+          setFilteredProducts([...filteredProducts, ...data.products]);
+        }
       }
 
       if (data?.currentPage == data?.totalPages || data?.totalPages == 0) {
@@ -209,8 +253,8 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
             keyExtractor={(item, index) => item?._id || index.toString()}
             numColumns={2}
             onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
             // nestedScrollEnabled={true}
-            // onEndReachedThreshold={0.5}
             columnWrapperStyle={{
               justifyContent: "space-between",
               marginBottom: 20,
@@ -222,6 +266,7 @@ const Shops = ({ sellerId, headerHeight, index }: any) => {
             ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyPlaceholder}
             showsVerticalScrollIndicator={false}
+            ListFooterComponent={renderListFooter}
             // onScroll={Animated.event(
             //   [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             //   { useNativeDriver: true },
@@ -318,7 +363,11 @@ const SortSheet = memo(
                     width: 12,
                     height: 12,
                     borderRadius: 12,
-                    backgroundColor: selectedType == option ? "#fff" : "",
+                    backgroundColor:
+                      selectedType == option ||
+                      sortMap[options[index]] == selectedType
+                        ? "#fff"
+                        : "",
                   }}
                 ></View>
               </View>
