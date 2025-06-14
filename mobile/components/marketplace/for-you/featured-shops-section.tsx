@@ -76,7 +76,7 @@ const ForYouFeaturedShopsSection = () => {
   return (
     <View className="w-[100%] pb-[9.5px]">
       <View className="flex-row items-center justify-between">
-        <SectionHeader title="Featured Shops" />
+        <SectionHeader title="Sellers to Follow" />
       </View>
       <View
         style={{

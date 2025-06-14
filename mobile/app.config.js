@@ -138,10 +138,10 @@ module.exports = ({ config }) => {
         [
           "react-native-fbsdk-next",
           {
-            appID: process.env.FACEBOOK_APP_ID,
-            clientToken: process.env.FACEBOOK_CLIENT_SECRET,
+            appID: `${process.env.FACEBOOK_APP_ID}`,
+            clientToken: `${process.env.FACEBOOK_CLIENT_SECRET}`,
             displayName: "Auqli",
-            scheme: `fb${process.env.FACEBOOK_APP_ID}`,
+            scheme: "fb" + process.env.FACEBOOK_APP_ID,
             advertiserIDCollectionEnabled: true,
             autoLogAppEventsEnabled: true,
             isAutoInitEnabled: true,
