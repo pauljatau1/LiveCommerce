@@ -489,7 +489,7 @@ function Orders() {
                     <TableCell>
                       {order.items.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          <span className="text-sm font-medium">{order.items[0].product.name}</span>
+                          <span className="text-sm font-medium">{order.items[0]?.product?.name || 'Product unavailable'}</span>
                           <span className="text-xs text-muted-foreground">
                             Qty: {order.items[0].quantity}
                             {order.items.length > 1 ? ` (+${order.items.length - 1} more)` : ''}

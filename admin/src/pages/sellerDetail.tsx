@@ -1812,7 +1812,7 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">{transaction.description}</td>
                           <td className={`py-3 text-sm font-medium ${transaction.type === 'processing_fee' ? 'text-red-400' : 'text-green-400'}`}>
-                            {transaction.type === 'processing_fee' ? '-' : ''}${transaction.amount.toLocaleString()}
+                            {transaction.type === 'processing_fee' ? '-' : ''}₦{transaction.amount.toLocaleString()}
                           </td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
@@ -1871,7 +1871,7 @@ function SellerDetail() {
                             </span>
                           </td>
                           <td className="py-3 text-sm font-medium text-green-400">
-                            ${withdrawal.amount.toLocaleString()}
+                            ₦{withdrawal.amount.toLocaleString()}
                           </td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
@@ -1979,7 +1979,7 @@ function SellerDetail() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-green-400">${customer.totalSpent?.toLocaleString(undefined, {
+                        <p className="font-medium text-green-400">₦{customer.totalSpent?.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}</p>

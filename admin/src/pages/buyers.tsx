@@ -180,7 +180,66 @@ function Buyers() {
   const handleSearchSubmit = () => {
     setSearch(searchInput);
     setCurrentPage(1); // Reset to first page on new search
-    fetchBuyers();
+    
+    // Use searchInput directly instead of relying on state update
+    const fetchWithSearch = async () => {
+      setLoading(true);
+      try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append("page", "1"); // Always start at page 1 for new search
+        params.append("limit", limit.toString());
+        
+        if (searchInput) params.append("search", searchInput);
+        
+        if (verificationFilter && verificationFilter !== "all") {
+          params.append("isVerified", verificationFilter === "verified" ? "true" : "false");
+        }
+        
+        if (statusFilter && statusFilter !== "all") {
+          params.append("isDisabled", statusFilter === "disabled" ? "true" : "false");
+        }
+        
+        if (countryFilter && countryFilter !== "all") {
+          params.append("country", countryFilter);
+        }
+        
+        // Map sortBy values to backend sort options
+        if (sortBy) {
+          let sortParam;
+          switch (sortBy) {
+            case "name_asc":
+              sortParam = "name_asc";
+              break;
+            case "name_desc":
+              sortParam = "name_desc";
+              break;
+            case "oldest":
+              sortParam = "oldest";
+              break;
+            case "email":
+              sortParam = "email";
+              break;
+            default:
+              sortParam = "newest"; // Default is newest first
+          }
+          params.append("sortBy", sortParam);
+        }
+        
+        const response = await api.get<PaginatedResponse>(`/api/admin/users?${params.toString()}`);
+        setBuyers(response.data.users);
+        setTotalPages(response.data.totalPages);
+        setTotalUsers(response.data.totalUsers);
+        setCurrentPage(response.data.currentPage);
+      } catch (err) {
+        setError("Failed to fetch buyers");
+        console.error("Error fetching buyers:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchWithSearch();
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

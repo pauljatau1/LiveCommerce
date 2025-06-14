@@ -433,6 +433,106 @@ function Sellers() {
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPage(1); // Reset to first page when filters change
+    
+    // Fetch with the updated filter value immediately
+    const updatedFilters = { ...filters, [key]: value };
+    fetchSellersWithFilters(updatedFilters);
+  };
+
+  // New function to fetch sellers with given filters
+  const fetchSellersWithFilters = async (filterValues: any) => {
+    try {
+      setLoading(true);
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('page', '1'); // Always start at page 1 for new filters
+      params.append('limit', limit.toString());
+      
+      if (filterValues.search) params.append('search', filterValues.search);
+      if (filterValues.isVerified) {
+        if (filterValues.isVerified === 'pending') {
+          // For pending verification, we'll filter client-side
+          params.append('isVerified', 'false');
+        } else {
+          params.append('isVerified', filterValues.isVerified);
+        }
+      }
+      if (filterValues.isDisabled) params.append('isDisabled', filterValues.isDisabled);
+      if (filterValues.country) params.append('country', filterValues.country);
+      if (filterValues.category) params.append('category', filterValues.category);
+      if (filterValues.emailVerified) params.append('emailVerified', filterValues.emailVerified);
+      if (filterValues.hasProducts) params.append('hasProducts', filterValues.hasProducts);
+      
+      // Map the sortBy value to the backend expected format
+      let sortByValue = "newest";
+      switch (filterValues.sortBy) {
+        case "name_asc": sortByValue = "name_asc"; break;
+        case "name_desc": sortByValue = "name_desc"; break;
+        case "oldest": sortByValue = "oldest"; break;
+        case "business_name": sortByValue = "business_name"; break;
+        case "store_name": sortByValue = "store_name"; break;
+        case "most_visited": sortByValue = "most_visited"; break;
+        case "most_followers": sortByValue = "most_followers"; break;
+        case "most_products": sortByValue = "most_products"; break;
+        default: sortByValue = "newest";
+      }
+      params.append('sortBy', sortByValue);
+      
+      const response = await api.get(`/api/admin/sellers?${params.toString()}`);
+      
+      if (response.data.success) {
+        let fetchedSellers = response.data.sellers;
+        
+        // Apply client-side filtering for pending verification
+        if (filterValues.isVerified === 'pending') {
+          fetchedSellers = fetchedSellers.filter((seller: Seller) => 
+            !seller.isVerified && 
+            (seller.accountType === 'business' || seller.accountType === 'individual') &&
+            seller.verificationDocuments?.documents &&
+            seller.verificationDocuments.documents.length > 0
+          );
+        }
+        
+        setAllSellers(fetchedSellers);
+        
+        // Apply client-side filtering based on selected tab
+        if (selectedTab === "all") {
+          setSellers(fetchedSellers);
+        } else {
+          const filteredSellers = fetchedSellers.filter((seller: Seller) => 
+            seller.accountType?.toLowerCase() === selectedTab
+          );
+          setSellers(filteredSellers);
+        }
+        
+        setPagination({
+          currentPage: response.data.currentPage,
+          totalPages: response.data.totalPages,
+          totalSellers: response.data.totalSellers,
+          sellersPerPage: response.data.sellersPerPage
+        });
+        
+        // Update aggregate stats if available in response
+        if (response.data.stats) {
+          setStats({
+            totalBusinessAccounts: response.data.stats.totalBusinessAccounts || 0,
+            totalIndividualAccounts: response.data.stats.totalIndividualAccounts || 0,
+            totalVerifiedSellers: response.data.stats.totalVerifiedSellers || 0,
+            totalProducts: response.data.stats.totalProducts || 0,
+            totalFeaturedSellers: response.data.stats.totalFeaturedSellers || 0,
+            totalIncompleteSellers: response.data.stats.totalIncompleteSellers || 0
+          });
+        }
+      } else {
+        throw new Error(response.data.message || "Failed to fetch sellers");
+      }
+    } catch (err) {
+      setError("Failed to fetch sellers");
+      console.error("Error fetching sellers:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle search input change (doesn't trigger API call)
