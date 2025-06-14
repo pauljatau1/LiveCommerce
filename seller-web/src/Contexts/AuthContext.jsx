@@ -663,7 +663,7 @@ function AuthProvider({ children }) {
                             user_type: 'seller',
                             account_type: response?.data?.user?.accountType,
                             store_name: response?.data?.user?.storeName,
-                            location: `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || 'pending onboarding completion'}`,
+                            location: `${response?.data?.user?.sellerAddress?.country || ''}, ${response?.data?.user?.sellerAddress?.city || ''}, ${response?.data?.user?.sellerAddress?.state || ''}, ${response?.data?.user?.sellerAddress?.addressLine1 || 'pending onboarding completion'}`,
                             total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                             ip_address: clientIP,
                             device_type: getDeviceType(),
