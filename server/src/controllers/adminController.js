@@ -7798,3 +7798,207 @@ exports.getAllProductBlips = async (req, res) => {
     });
   }
 };
+// Get transactions for a specific buyer
+exports.getBuyerTransactions = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+
+    // Validate buyerId
+    if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid buyer ID format'
+      });
+    }
+
+    // Check if buyer exists
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Build filter for wallet transactions
+    let transactions = [];
+    if (buyer.wallet && buyer.wallet.transactions && buyer.wallet.transactions.length > 0) {
+      transactions = [...buyer.wallet.transactions];
+      
+      // Apply filters
+      if (startDate || endDate) {
+        const startDateTime = startDate ? new Date(startDate) : null;
+        const endDateTime = endDate ? new Date(endDate) : null;
+        
+        transactions = transactions.filter(transaction => {
+          const transactionDate = new Date(transaction.createdAt);
+          if (startDateTime && endDateTime) {
+            return transactionDate >= startDateTime && transactionDate <= endDateTime;
+          } else if (startDateTime) {
+            return transactionDate >= startDateTime;
+          } else if (endDateTime) {
+            return transactionDate <= endDateTime;
+          }
+          return true;
+        });
+      }
+      
+      if (type && type !== 'all') {
+        transactions = transactions.filter(transaction => transaction.type === type);
+      }
+      
+      // Sort by most recent first
+      transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // Calculate total for pagination
+    const totalTransactions = transactions.length;
+    
+    // Apply pagination
+    const paginatedTransactions = transactions.slice(skip, skip + queryLimit);
+
+    // Prepare response
+    res.json({
+      success: true,
+      data: {
+        buyer: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          email: buyer.email,
+          walletBalance: buyer.wallet?.balance || 0
+        },
+        transactions: paginatedTransactions
+      },
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching buyer transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch buyer transactions',
+      error: error.message
+    });
+  }
+};
+
+// Get transactions for a specific seller
+exports.getSellerTransactions = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { startDate, endDate, type, page = 1, limit = 20 } = req.query;
+    const queryPage = parseInt(page);
+    const queryLimit = parseInt(limit);
+    const skip = (queryPage - 1) * queryLimit;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+
+    // Check if seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Find transactions for this seller
+    const filter = { seller: sellerId };
+    
+    // Apply date filters if provided
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.createdAt.$lte = new Date(endDate);
+      }
+    }
+    
+    // Apply type filter if provided
+    if (type && type !== 'all') {
+      filter.type = type;
+    }
+
+    // Get total count for pagination
+    const totalTransactions = await Transaction.countDocuments(filter);
+    
+    // Fetch transactions with pagination
+    const transactions = await Transaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(queryLimit)
+      .populate('orderId', 'order_id totalAmount buyer');
+
+    // Enhance transactions with buyer info where applicable
+    const enhancedTransactions = await Promise.all(transactions.map(async (transaction) => {
+      const transactionObj = transaction.toObject();
+      
+      // For order_payment transactions, try to get buyer info
+      if (transaction.type === 'order_payment' && transaction.orderId && transaction.orderId.buyer) {
+        try {
+          const buyer = await Buyer.findById(transaction.orderId.buyer)
+            .select('firstName lastName email');
+          
+          if (buyer) {
+            transactionObj.buyerInfo = {
+              _id: buyer._id,
+              name: `${buyer.firstName} ${buyer.lastName}`,
+              email: buyer.email
+            };
+          }
+        } catch (err) {
+          console.error('Error fetching buyer info for transaction:', err);
+        }
+      }
+      
+      return transactionObj;
+    }));
+
+    // Prepare response
+    res.json({
+      success: true,
+      data: {
+        seller: {
+          _id: seller._id,
+          firstName: seller.firstName,
+          lastName: seller.lastName,
+          email: seller.email,
+          storeName: seller.storeName,
+          businessName: seller.businessName,
+          walletBalance: seller.walletBalance || 0
+        },
+        transactions: enhancedTransactions
+      },
+      pagination: {
+        total: totalTransactions,
+        page: queryPage,
+        limit: queryLimit,
+        pages: Math.ceil(totalTransactions / queryLimit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching seller transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller transactions',
+      error: error.message
+    });
+  }
+};

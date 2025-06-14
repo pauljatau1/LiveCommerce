@@ -16,6 +16,7 @@ const jwt = require('jsonwebtoken');
 const { ProductDeleteS3ObjectsByUrls } = require('../services/products/images');
 const { ExtractAllImageUrlsFromVariants } = require('../services/products/variants/utils');
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
+const productBlips = require('../services/products/blips');
 
 
 // Create a new product
@@ -345,8 +346,9 @@ exports.getAllProducts = async (req, res) => {
       page = 1,
       limit = 10,
       category = '',
-      minPrice = 0,
-      maxPrice = Number.MAX_SAFE_INTEGER,
+      minPrice,
+      maxPrice,
+      condition,
       sortBy = 'newest',
       status = 'active',
       visibility = 'visible'
@@ -368,12 +370,16 @@ exports.getAllProducts = async (req, res) => {
       query.category = category;
     }
 
-    // Add price range filter
-    if (req.query.minPrice || req.query.maxPrice) {
-      query.price = {
-        $gte: Number(minPrice),
-        $lte: Number(maxPrice)
-      };
+    // Add price range filter if provided
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      query.price = {};
+      if (minPrice !== undefined) query.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
+    }
+
+    // Add condition filter if provided
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
 
     // Build sort options with a default
@@ -441,8 +447,9 @@ exports.getAllProducts = async (req, res) => {
           category,
           priceRange: {
             min: minPrice,
-            max: maxPrice !== Number.MAX_SAFE_INTEGER ? maxPrice : 'no limit'
+            max: maxPrice
           },
+          condition,
           sortBy,
           status,
           visibility
@@ -1252,10 +1259,10 @@ exports.deepSearchProducts = async (req, res) => {
     };
 
     // Add price filter if min or max price is provided
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       queryFilter.price = {};
-      if (minPrice) queryFilter.price.$gte = Number(minPrice);
-      if (maxPrice) queryFilter.price.$lte = Number(maxPrice);
+      if (minPrice !== undefined) queryFilter.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) queryFilter.price.$lte = Number(maxPrice);
     }
     
     // Add condition filter if provided (case-insensitive)
@@ -1307,6 +1314,16 @@ exports.deepSearchProducts = async (req, res) => {
         page,
         limit,
         pages: Math.ceil(totalProducts / limit)
+      },
+      filters: {
+        query,
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+        condition,
+        sortBy,
+        order
       }
     });
   } catch (error) {
@@ -1491,26 +1508,47 @@ exports.getTrendingProductsByCategory = async (req, res) => {
 // Get products by main category
 exports.getProductsByCategory = async (req, res) => {
   const { category } = req.params;
-  const { limit = 20, page = 1, minPrice, maxPrice, condition } = req.query;
+  const { limit = 20, page = 1, minPrice, maxPrice, condition, sortBy = 'newest', order = 'desc' } = req.query;
 
   try {
     // Build query object
-    const query = { category };
+    const query = { 
+      category,
+      status: 'active',
+      visibility: 'visible'
+    };
     
     // Add price filter if min or max price is provided
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
+      if (minPrice !== undefined) query.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
     
     // Add condition filter if provided (case-insensitive)
     if (condition) {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: -1 };
+    }
     
     const products = await Product.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .populate('seller', 'name avatarUrl about offersStorePickup')
@@ -1522,7 +1560,17 @@ exports.getProductsByCategory = async (req, res) => {
       products,
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
-      totalProducts: total
+      totalProducts: total,
+      filters: {
+        category,
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+        condition,
+        sortBy,
+        order
+      }
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve products by category', error: error.message });
@@ -2474,10 +2522,10 @@ exports.getSellerProducts = async (req, res) => {
     }
     
     // Add price filter if min or max price is provided
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
+      if (minPrice !== undefined) query.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
     
     // Add condition filter if provided (case-insensitive)
@@ -2522,6 +2570,7 @@ exports.getSellerProducts = async (req, res) => {
         createdAt
         brand
         sku
+        condition
       `)
       .sort(sortOptions)
       .skip((page - 1) * limit)
@@ -2553,7 +2602,15 @@ exports.getSellerProducts = async (req, res) => {
       })),
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: parseInt(page),
-      totalProducts
+      totalProducts,
+      filters: {
+        minPrice,
+        maxPrice,
+        condition,
+        status,
+        visibility,
+        sortBy
+      }
     });
 
   } catch (error) {
@@ -6049,15 +6106,14 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       category, 
       subCategory: subcategory,
       status: 'active',
-      visibility: 'visible',
-      status: { $ne: 'offline_auction' }
+      visibility: 'visible'
     };
     
     // Add price filter if min or max price is provided
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
+      if (minPrice !== undefined) query.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
     
     // Add condition filter if provided (case-insensitive)
@@ -6108,7 +6164,18 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       data: products,
       totalProducts: total,
       currentPage: parseInt(page),
-      totalPages: Math.ceil(total / parseInt(limit))
+      totalPages: Math.ceil(total / parseInt(limit)),
+      filters: {
+        category,
+        subcategory,
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+        condition,
+        sortBy,
+        order
+      }
     });
   } catch (error) {
     console.error('Error fetching products by category and subcategory:', error);
@@ -7083,6 +7150,9 @@ exports.addBlipToProduct = async (req, res) => {
       const fileName = uuidv4();
       const folderPath = `sellers/${sellerId}/products/${product._id}/blips/`;
       const videoKey = folderPath + `${fileName}.mp4`;
+
+      // TODO - ANDY - refactor this
+      // const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
       
       // Upload the video to S3
       const uploadParameters = {
@@ -7147,6 +7217,7 @@ exports.searchSellerProducts = async (req, res) => {
       category,
       minPrice, 
       maxPrice,
+      condition,
       sortBy = 'createdAt',
       order = 'desc',
       page = 1, 
@@ -7189,6 +7260,11 @@ exports.searchSellerProducts = async (req, res) => {
       if (maxPrice !== undefined) searchQuery.price.$lte = Number(maxPrice);
     }
 
+    // Add condition filter if provided
+    if (condition) {
+      searchQuery.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+
     // Build sort options
     let sortOptions = {};
     switch (sortBy) {
@@ -7226,6 +7302,17 @@ exports.searchSellerProducts = async (req, res) => {
         totalPages: Math.ceil(total / parseInt(limit)),
         totalProducts: total,
         hasMore: page * limit < total
+      },
+      filters: {
+        query,
+        category,
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+        condition,
+        sortBy,
+        order
       }
     });
 
@@ -7237,7 +7324,7 @@ exports.searchSellerProducts = async (req, res) => {
       error: error.message
     });
   }
-};
+}
 
 /**
  * Get related blips based on a specific blip ID
@@ -7524,11 +7611,14 @@ exports.deleteBlipFromProduct = async (req, res) => {
 
     // Get the blip URL to delete from storage if needed
     const blipUrl = blip.url;
+    const blipKey = blip.key;
     const thumbnailUrl = blip.thumbnail;
 
     // Remove the blip from the product
     product.blips.pull(blipId);
     await product.save();
+    // TODO - ANDY - fix this
+    // productBlips.DeleteBlipFromS3(sellerId, productId, blipKey)
 
     // Return success response
     res.status(200).json({
