@@ -1,5 +1,5 @@
 const { DeleteS3Objects } = require('../../utils/s3');
-
+const { v4: uuidv4 } = require('uuid');
 /**
  * Generate an unique file name with path for blips.
  * 
@@ -42,7 +42,7 @@ function GetFolderPath(sellerId, productId) {
  * @returns {Promise<{ Deleted: Array, Errors: Array }>}
  */
 async function DeleteBlipFromS3(sellerId, productId, blipName) {
-    const blipKey = GetFolderPath(sellerId, productId) + buildFileName(blipName)
+    const blipKey = GetFolderPath(sellerId, productId) + buildFileName(blipName);
     const objects = [{Key: blipKey}];
     return DeleteS3Objects(objects, process.env.CDN_S3_BUCKET);
 }

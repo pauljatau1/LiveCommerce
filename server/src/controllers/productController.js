@@ -7147,7 +7147,12 @@ exports.addBlipToProduct = async (req, res) => {
     
     for (const file of req.files) {
       // Generate unique file names
-      const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
+      const fileName = uuidv4();
+      const folderPath = `sellers/${sellerId}/products/${product._id}/blips/`;
+      const videoKey = folderPath + `${fileName}.mp4`;
+
+      // TODO - ANDY - refactor this
+      // const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
       
       // Upload the video to S3
       const uploadParameters = {
@@ -7612,7 +7617,8 @@ exports.deleteBlipFromProduct = async (req, res) => {
     // Remove the blip from the product
     product.blips.pull(blipId);
     await product.save();
-    productBlips.DeleteBlipFromS3(sellerId, productId, blipKey)
+    // TODO - ANDY - fix this
+    // productBlips.DeleteBlipFromS3(sellerId, productId, blipKey)
 
     // Return success response
     res.status(200).json({
