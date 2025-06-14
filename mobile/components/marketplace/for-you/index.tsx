@@ -12,6 +12,7 @@ import KeepShowingSection from "../keep-showing-section";
 import axios from "axios";
 import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
 import { ScrollView } from "react-native-virtualized-view";
+import MarketsSuggestedBlips from "./markets-suggested-blips";
 
 const ForYou = () => {
   const [banners, setBanners] = useState<any[]>([]);
@@ -68,6 +69,7 @@ const ForYou = () => {
           {/* <Carousel banners={banners} /> */}
           <ForYouNewAuqliSection />
           <ForYouFeaturedShopsSection />
+          <MarketsSuggestedBlips />
           <ForYouAuctionSection />
         </View>
         <KeepShowingSection />

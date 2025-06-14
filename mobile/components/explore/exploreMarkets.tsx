@@ -249,14 +249,14 @@ const ExploreMarket = ({ name, switchMode }: any) => {
         }}
       >
         <CustomButton
-          title="Live Show"
+          title="Live & Videos"
           className="!w-[130px]   rounded-tr-none rounded-br-none !bg-primary-200"
           onPress={() => {
             switchMode("liveshow");
           }}
         />
         <CustomButton
-          title="Markets"
+          title="Marketplace"
           textStyle="!text-[#141B34]"
           className="!w-[130px] rounded-tl-none rounded-bl-none !bg-[#F2F2F2] rounded-[40px]  "
           //   onPress={() => {

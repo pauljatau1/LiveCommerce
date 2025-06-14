@@ -1,4 +1,4 @@
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, Image, Pressable } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCardTemplate from "@/components/global/live-product-card/LiveProductCardTemplate";
@@ -8,6 +8,7 @@ import axios from "axios";
 import LiveProductCard from "@/components/global/live-product-card";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 import { Ionicons } from "@expo/vector-icons";
+import { icons } from "@/constants";
 
 const ExploreMoreSection = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -30,23 +31,87 @@ const ExploreMoreSection = () => {
 
   const renderEmptyStreams = useCallback(() => {
     return (
+      // <View
+      //   style={{
+      //     marginVertical: 40,
+      //     width: "100%",
+      //     alignItems: "center",
+      //     gap: 10,
+      //   }}
+      // >
+      //   <Ionicons
+      //     name="videocam-outline"
+      //     size={35}
+      //     color="#ccc"
+      //     style={{ opacity: 0.5 }}
+      //   />
+      //   <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+      //     No Streams
+      //   </Text>
+      // </View>
       <View
         style={{
-          marginVertical: 40,
-          width: "100%",
+          paddingHorizontal: 16,
           alignItems: "center",
-          gap: 10,
         }}
       >
-        <Ionicons
-          name="videocam-outline"
-          size={35}
-          color="#ccc"
-          style={{ opacity: 0.5 }}
-        />
-        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          No Streams
-        </Text>
+        <View
+          style={{
+            marginVertical: 24,
+            padding: 24,
+            paddingHorizontal: 32,
+            alignItems: "center",
+            // backgroundColor: "#000",
+            borderRadius: 8,
+            flexShrink: 1,
+            // paddingBottom: 40,
+          }}
+        >
+          <View
+            style={{
+              width: 102,
+              height: 102,
+              borderRadius: "50%",
+              backgroundColor: "#DDF9E7",
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Image
+              source={icons.sadEmoji}
+              resizeMode="contain"
+              className="w-[40px] h-[40px]"
+            />
+          </View>
+
+          <Text
+            className="mb-[4px] text-center text-[16px] font-LexendDecaSemiBold text-white"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            No Live Shows Right Now
+          </Text>
+          <Text
+            className="font-LexendDeca text-[14px] text-[#8F9099] text-center"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            But don't worry - Browse the marketplace and shop your favorite
+            items
+          </Text>
+
+          <Pressable
+            className="px-[16px] py-[8px] items-center justify-center rounded-[16px] bg-[#16783A] mt-[16px]"
+            onPress={() => router.push("/(root)/(tabs)/home/marketplace")}
+          >
+            <Text className="text-white text-[10px] font-LexendDecaSemiBold">
+              Browse Marketplace
+            </Text>
+          </Pressable>
+        </View>
       </View>
     );
   }, [moreStreams]);
@@ -83,7 +148,7 @@ const ExploreMoreSection = () => {
       ) : (
         renderEmptyStreams()
       )}
-      <View className="w-full relative px-[23px]">
+      {/* <View className="w-full relative px-[23px]">
         <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
           Still Searching
         </Text>
@@ -105,7 +170,7 @@ const ExploreMoreSection = () => {
             }}
           />
         </View>
-      </View>
+      </View> */}
     </View>
   );
 };

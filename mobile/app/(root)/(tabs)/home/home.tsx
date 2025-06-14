@@ -20,61 +20,59 @@ const { width, height } = Dimensions.get("window");
 const Homepage = () => {
   const { expoPushToken } = usePushNotifications();
   const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
-  // const token = useSelector((state: RootState) => state.authState.token);
-  const [isVisible, setIsVisible] = useState<boolean>(false);
-  const tries = useRef<number>(0);
+  // const [isVisible, setIsVisible] = useState<boolean>(false);
+  // const tries = useRef<number>(0);
 
-  const requestTrackingPermission = async () => {
-    const { status } = await requestTrackingPermissionsAsync();
-    if (status === "granted") {
-      console.log("Yay! I have user permission to track data");
-    } else {
-      console.log("Shucks! I dont have user permission to track data ", {
-        status,
-      });
-    }
-  };
+  // const requestTrackingPermission = async () => {
+  //   const { status } = await requestTrackingPermissionsAsync();
+  //   if (status === "granted") {
+  //     console.log("Yay! I have user permission to track data");
+  //   } else {
+  //     console.log("Shucks! I dont have user permission to track data ", {
+  //       status,
+  //     });
+  //   }
+  // };
 
-  const closeModal = useCallback(() => {
-    console.log("calling out");
+  // const closeModal = useCallback(() => {
+  //   console.log("calling out");
 
-    setIsVisible(false);
-  }, [isVisible]);
+  //   setIsVisible(false);
+  // }, [isVisible]);
 
-  const showPromotion = useCallback(async () => {
-    const isFirstTime = await AsyncStorage.getItem("isFirstTime");
-    const fromVerify = await AsyncStorage.getItem("fromVerify");
-    const verifyPayload = JSON.parse(fromVerify!);
-    const token = await AsyncStorage.getItem("token");
+  // const showPromotion = useCallback(async () => {
+  //   const isFirstTime = await AsyncStorage.getItem("isFirstTime");
+  //   const fromVerify = await AsyncStorage.getItem("fromVerify");
+  //   const verifyPayload = JSON.parse(fromVerify!);
+  //   const token = await AsyncStorage.getItem("token");
 
-    if (
-      isFirstTime &&
-      verifyPayload &&
-      verifyPayload.bonus?.amount == 2000 &&
-      token
-    ) {
-      setTimeout(() => setIsVisible(true), 3000);
-      await AsyncStorage.removeItem("fromVerify");
-    }
-  }, []);
+  //   if (
+  //     isFirstTime &&
+  //     verifyPayload &&
+  //     verifyPayload.bonus?.amount == 2000 &&
+  //     token
+  //   ) {
+  //     setTimeout(() => setIsVisible(true), 3000);
+  //     await AsyncStorage.removeItem("fromVerify");
+  //   }
+  // }, []);
 
-  useEffect(() => {
-    async function setIsFirstTime() {
-      await AsyncStorage.setItem("isFirstTime", "false");
-    }
+  // useEffect(() => {
+  //   async function setIsFirstTime() {
+  //     await AsyncStorage.setItem("isFirstTime", "false");
+  //   }
 
-    async function checkIfLoggedIn() {
-      const token = await AsyncStorage.getItem("token");
-      if (!token && tries?.current == 0) {
-        setTimeout(() => setIsVisible(true), 3000);
-        tries.current = 1;
-      }
-    }
-    requestTrackingPermission();
-    showPromotion();
-    setIsFirstTime();
-    // checkIfLoggedIn();
-  }, []);
+  //   async function checkIfLoggedIn() {
+  //     const token = await AsyncStorage.getItem("token");
+  //     if (!token && tries?.current == 0) {
+  //       setTimeout(() => setIsVisible(true), 3000);
+  //       tries.current = 1;
+  //     }
+  //   }
+  //   requestTrackingPermission();
+  //   showPromotion();
+  //   setIsFirstTime();
+  // }, []);
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -84,7 +82,7 @@ const Homepage = () => {
       >
         <Home />
         {/* <CreateAccountModal isVisible={isVisible} closeModal={closeModal} /> */}
-        <PromotionModal isVisible={isVisible} closeModal={closeModal} />
+        {/* <PromotionModal isVisible={isVisible} closeModal={closeModal} /> */}
       </View>
     </>
   );

@@ -18,17 +18,57 @@ import { toast } from "@/core/toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { getToken } from "@/store/features/auth/utils";
+import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import PromotionModal from "@/components/modals/promotion";
+import { Settings } from "react-native-fbsdk-next";
 
 const { height } = Dimensions.get("window");
 const Blips = () => {
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
-  const tabBarHeight = insets.bottom;
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videos, setVideos] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [isPromotionVisible, setIsPromotionVisible] = useState<boolean>(false);
+
+  const requestTrackingPermission = async () => {
+    const { status } = await requestTrackingPermissionsAsync();
+    if (status === "granted") {
+      console.log("Yay! I have user permission to track data");
+      await Settings.setAdvertiserTrackingEnabled(true);
+      console.log("Facebook Tracking Enabled ✅");
+    } else {
+      console.log("Shucks! I dont have user permission to track data ", {
+        status,
+      });
+    }
+  };
+
+  const closeModal = useCallback(() => {
+    console.log("calling out");
+
+    setIsPromotionVisible(false);
+  }, [isPromotionVisible]);
+
+  const showPromotion = useCallback(async () => {
+    const isFirstTime = await AsyncStorage.getItem("isFirstTime");
+    const fromVerify = await AsyncStorage.getItem("fromVerify");
+    const verifyPayload = JSON.parse(fromVerify!);
+    const token = await AsyncStorage.getItem("token");
+
+    if (
+      isFirstTime &&
+      verifyPayload &&
+      verifyPayload.bonus?.amount == 2000 &&
+      token
+    ) {
+      setTimeout(() => setIsPromotionVisible(true), 3000);
+      await AsyncStorage.removeItem("fromVerify");
+    }
+  }, []);
 
   const refreshBlips = useCallback(async () => {
     setRefreshing(true);
@@ -97,6 +137,15 @@ const Blips = () => {
 
   useEffect(() => {
     fetchMoreVideos();
+  }, []);
+
+  useEffect(() => {
+    async function setIsFirstTime() {
+      await AsyncStorage.setItem("isFirstTime", "false");
+    }
+    requestTrackingPermission();
+    showPromotion();
+    setIsFirstTime();
   }, []);
 
   const renderVideo = useCallback(
@@ -208,6 +257,7 @@ const Blips = () => {
           />
         )}
       </View>
+      <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} />
     </>
   );
 };

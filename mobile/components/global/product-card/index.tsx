@@ -159,7 +159,9 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                       width: 20,
                       height: 20,
                     }
-                  : require("../../../assets/icons/user-image-empty.png")
+                  : {
+                      uri: "https://cdn2.iconfinder.com/data/icons/facebook-ui-colored/48/JD-15-512.png",
+                    }
               }
               resizeMode="contain"
               resizeMethod="resize"
@@ -168,6 +170,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                 width: 20,
                 height: 20,
                 borderRadius: 20,
+                backgroundColor: "#2e2e2e",
               }}
             />
             <View className="shrink">

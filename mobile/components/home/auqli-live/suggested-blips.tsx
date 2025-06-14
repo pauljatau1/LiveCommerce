@@ -70,27 +70,32 @@ const SuggestedBlips = () => {
     );
   }, [blips]);
 
+  const redirectToBlips = useCallback(() => {
+    router.push("/(root)/(tabs)/blips");
+  }, []);
+
   return (
     <View className="pt-[16px] mb-5 w-full">
-      <SectionHeader title="Suggested Blips" btnText="" />
+      <SectionHeader
+        title="Suggested Blips"
+        btnText="More Blips"
+        action={redirectToBlips}
+      />
       {loading ? (
         <SuggestedBlipsSkeleton numOfLoaders={2} height={250} padding={16} />
       ) : blips?.length > 0 ? (
-        <View style={{}}>
+        <View style={{ paddingHorizontal: 16 }}>
           <FlatList
             data={blips}
             renderItem={({ item }) => (
-              <View
-                style={{
-                  width: (width - 32) / 2 - 24,
-                }}
-              >
+              <View className="w-1/2 py-2 shrink">
                 <BlipCard item={item} />
               </View>
             )}
             keyExtractor={(item, index) => item._id || index?.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingHorizontal: 16,
 

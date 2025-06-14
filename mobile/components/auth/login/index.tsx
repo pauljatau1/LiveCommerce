@@ -98,23 +98,23 @@ const Login = () => {
       dispatch(signIn(result));
       setPassword(password);
       setUserEmail(email);
-      
+
       // Track login event with Customer.io, Mixpanel, and Facebook via analytics.ts
       try {
         if (result) {
           // Identify the user directly
           identifyUser(result?.user?._id, {
-            "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            $email: email,
+            $name: result?.user?.firstName + " " + result?.user?.lastName,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,
             username: result?.user?.username,
           });
-          
-          trackEvent('buyer_login', {
+
+          trackEvent("buyer_login", {
             userId: result?.user?._id,
-            "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            $email: email,
+            $name: result?.user?.firstName + " " + result?.user?.lastName,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,
             username: result?.user?.username,
@@ -124,18 +124,20 @@ const Login = () => {
             emailVerified: result?.user?.emailVerified,
             walletBalance: `₦${result?.user?.wallet?.balance?.toLocaleString()}`,
             onHoldAmount: `₦${result?.user?.wallet?.onHoldAmount?.toLocaleString()}`,
-            onHoldItems: result?.user?.wallet?.onHoldAmount ? result?.user?.wallet?.onHoldItems[0] : "none",
+            onHoldItems: result?.user?.wallet?.onHoldAmount
+              ? result?.user?.wallet?.onHoldItems[0]
+              : "none",
             userType: "buyer",
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
         }
       } catch (trackError) {
         console.log("Analytics tracking error:", trackError);
         // Allow login flow to continue even if tracking fails
       }
-      
+
       if (result?.user?.selectedCategories?.length! > 0) {
-        router.replace("/(root)/(tabs)/home/home");
+        router.replace("/(root)/(tabs)/blips");
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
       console.log(error);
@@ -298,7 +300,9 @@ const Login = () => {
                       <CustomButton
                         title="🔍 Debug Facebook Analytics"
                         onPress={async () => {
-                          console.log("🧪 Starting Facebook Analytics Debug...");
+                          console.log(
+                            "🧪 Starting Facebook Analytics Debug...",
+                          );
                           await debugAnalytics();
                         }}
                         className="mb-4 !rounded border border-yellow-500 !bg-yellow-600 !text-white text-xs font-LexendDecaMedium"
@@ -330,7 +334,7 @@ const Login = () => {
                 <Pressable
                   onPress={() => {
                     dispatch(signInAsGuest());
-                    router.push("../../../(root)/(tabs)/home");
+                    router.push("/(root)/(tabs)/blips");
                   }}
                   className="self-center  mt-[12px]"
                 >

@@ -63,7 +63,7 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
             source={{
               uri:
                 data?.storeAvatar?.url ||
-                "https://media.istockphoto.com/id/1315110986/vector/store-editable-stroke-outline-icon-isolated-on-white-background-flat-vector-illustration.jpg?s=612x612&w=0&k=20&c=mCrUUX3bWTZOvKrr3ontPWJKO_9HAOmboDxxd_XeIRI=",
+                "https://cdn2.iconfinder.com/data/icons/facebook-ui-colored/48/JD-15-512.png",
               width: 60,
               height: 60,
             }}
@@ -72,7 +72,10 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
             progressiveRenderingEnabled={true}
             className="relative rounded-full w-[60px] h-[60px] bg-[#2e2e2e]"
           />
-          <Text className="text-[#CCCCCCCC] text-[12.28px] text-center font-LexendDecaBold pt-1">
+          <Text
+            className="text-[#CCCCCCCC] text-[12.28px] text-center font-LexendDecaBold pt-1"
+            numberOfLines={1}
+          >
             {data.storeName || data.businessName}
           </Text>
           <Text className="text-[#CCCCCCCC] text-[9px] pt-1 font-LexendDeca">

@@ -31,6 +31,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken } from "@/store/features/auth/utils";
 import FilterSheet from "@/components/catalog/filterSheet";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
+import { sortBy } from "lodash";
+import LottieView from "lottie-react-native";
 
 const sortMap = {
   None: "",
@@ -42,7 +44,7 @@ const sortMap = {
 
 const SubCatProducts = () => {
   const { name, mainCat, subCat } = useLocalSearchParams();
-  const [filter, setFilter] = useState<string>("None");
+  const [filter, setFilter] = useState<string>("");
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -50,20 +52,33 @@ const SubCatProducts = () => {
   const [selectedFilters, setSelectedFilters] = useState<any>();
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
 
   const handleGetProductData = async () => {
     if (hasReachedEnd) {
       return;
     }
-    let endpoint = `api/products/category/${mainCat}/subcategory/${subCat}`;
+    let endpoint = `api/products/category/${encodeURIComponent(mainCat?.toString())}/subcategory/${subCat}`;
 
+    if (page !== 1) {
+      setIsFetching(true);
+    }
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `${endpoint}?page=${page}&limit=10&sortBy=${filter}&minPrice=${selectedFilters?.price?.min || ""}&maxPrice=${selectedFilters?.price?.max || ""}&condition=${selectedFilters?.condition?.toLowerCase()?.replace(" ", "-") || ""}`,
+        process.env.EXPO_PUBLIC_API_URL + `${endpoint}`,
         {
+          params: {
+            page,
+            limit: 10,
+            sortBy: filter,
+            minPrice: selectedFilters?.price?.min,
+            maxPrice: selectedFilters?.price?.max,
+            condition: selectedFilters?.condition
+              ?.toLowerCase()
+              ?.replace(" ", "-"),
+          },
           headers: {
             Authorization: "Bearer " + token,
           },
@@ -88,6 +103,7 @@ const SubCatProducts = () => {
       console.log("ERROR GETTING MORE PRODUCT DATA", e);
     } finally {
       setIsLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -176,6 +192,32 @@ const SubCatProducts = () => {
     );
   }, [filter]);
 
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
   useEffect(() => {
     handleGetProductData();
   }, [filter, selectedFilters]);
@@ -221,6 +263,7 @@ const SubCatProducts = () => {
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={renderListHeader}
                 ListEmptyComponent={renderEmptyPlaceholder}
+                ListFooterComponent={renderListFooter}
                 onEndReached={handleGetProductData}
               />
             </View>

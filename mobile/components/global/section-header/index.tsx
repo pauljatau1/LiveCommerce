@@ -1,14 +1,10 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import React from "react";
 import { router } from "expo-router";
+import Entypo from "@expo/vector-icons/Entypo";
+import AntDesign from "@expo/vector-icons/AntDesign";
 
-const SectionHeader = ({
-  title,
-  btnText,
-}: {
-  title: string;
-  btnText?: string;
-}) => {
+const SectionHeader = ({ title, btnText, action }: any) => {
   return (
     <View
       className="flex-row justify-between items-center"
@@ -19,17 +15,26 @@ const SectionHeader = ({
       </Text>
       {btnText && (
         <TouchableOpacity
-          className="bg-white px-[9px] py-[5px] border-[0.717px] border-primary-200 rounded-[2.881px]"
+          className=" px-[9px] py-[5px] border-primary-200 flex-row items-center justify-center gap-[4px]"
           onPress={() => {
+            if (action) {
+              return action();
+            }
             router.push({
               pathname: `/(root)/catalog/moreProducts`,
               params: { name: title },
             });
           }}
         >
-          <Text className="text-primary-200 font-LexendDecaMedium text-[8px]">
+          <Text className="text-[#fff] font-LexendDecaMedium text-[12px]">
             {btnText}
           </Text>
+          <AntDesign
+            name="right"
+            size={12}
+            color="#fff"
+            style={{ marginTop: 2 }}
+          />
         </TouchableOpacity>
       )}
     </View>

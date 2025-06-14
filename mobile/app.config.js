@@ -106,35 +106,49 @@ module.exports = ({ config }) => {
             },
           },
         ],
-        [
-          "./plugins/withCustomStrings",
-          {
-            facebook_app_id: process.env.FACEBOOK_APP_ID,
-            facebook_client_token: process.env.FACEBOOK_CLIENT_SECRET,
-          },
-        ],
-        [
-          "./plugins/withAndroidManifestMetaData",
-          {
-            "com.facebook.sdk.ApplicationId": "@string/facebook_app_id",
-            "com.facebook.sdk.ClientToken": "@string/facebook_client_token",
-          },
-        ],
-        [
-          "./plugins/withFacebookContentProvider",
-          {
-            appId: process.env.FACEBOOK_APP_ID,
-          },
-        ],
-        [
-          "./plugins/withFacebookSDK",
-          {
-            appId: process.env.FACEBOOK_APP_ID,
-          },
-        ],
+        // [
+        //   "./plugins/withCustomStrings",
+        //   {
+        //     facebook_app_id: process.env.FACEBOOK_APP_ID,
+        //     facebook_client_token: process.env.FACEBOOK_CLIENT_SECRET,
+        //   },
+        // ],
+        // [
+        //   "./plugins/withAndroidManifestMetaData",
+        //   {
+        //     "com.facebook.sdk.ApplicationId": "@string/facebook_app_id",
+        //     "com.facebook.sdk.ClientToken": "@string/facebook_client_token",
+        //   },
+        // ],
+        // [
+        //   "./plugins/withFacebookContentProvider",
+        //   {
+        //     appId: process.env.FACEBOOK_APP_ID,
+        //   },
+        // ],
+        // [
+        //   "./plugins/withFacebookSDK",
+        //   {
+        //     appId: process.env.FACEBOOK_APP_ID,
+        //   },
+        // ],
         // "./plugins/withFirebaseModularHeaders",
-        "./plugins/withFacebookSDKDependencies",
+        // "./plugins/withFacebookSDKDependencies",
         "@react-native-firebase/app",
+        [
+          "react-native-fbsdk-next",
+          {
+            appID: process.env.FACEBOOK_APP_ID,
+            clientToken: process.env.FACEBOOK_CLIENT_SECRET,
+            displayName: "Auqli",
+            scheme: `fb${process.env.FACEBOOK_APP_ID}`,
+            advertiserIDCollectionEnabled: true,
+            autoLogAppEventsEnabled: true,
+            isAutoInitEnabled: true,
+            iosUserTrackingPermission:
+              "This identifier will be used to deliver personalized ads to you.",
+          },
+        ],
         [
           "expo-build-properties",
           {

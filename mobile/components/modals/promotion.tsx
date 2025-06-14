@@ -128,7 +128,7 @@ const PromotionModal = ({ isVisible, closeModal }: any) => {
               }}
             >
               <Text className="font-LexendDecaSemiBold text-[14px] text-[#16783A] text-center">
-                Homepage
+                Close
               </Text>
             </Pressable>
           </View>

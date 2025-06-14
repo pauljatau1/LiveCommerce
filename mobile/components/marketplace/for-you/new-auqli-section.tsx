@@ -4,11 +4,12 @@ import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import { useGetNewAuqliQuery } from "@/services/products";
 import { MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useCallback, memo } from "react";
-import { FlatList, View, Text } from "react-native";
+import { FlatList, View, Text, Pressable } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
-const ForYouNewAuqliSection = () => {
+const ForYouNewAuqliSection = ({ source }: any) => {
   const {
     data: products,
     error,
@@ -29,6 +30,26 @@ const ForYouNewAuqliSection = () => {
           sellerRating={row?.stats?.averageRating}
           moreDetails={row}
         />
+      </View>
+    );
+  }, []);
+
+  const renderFooter = useCallback(() => {
+    return (
+      <View
+        className="h-[auto] items-center justify-center pl-[12px]"
+        style={{
+          flexGrow: 1,
+        }}
+      >
+        <Pressable
+          className="rounded-[16px] p-[5px] px-[10px] bg-[#16783A]"
+          onPress={() => router.navigate("/(root)/(tabs)/home/marketplace")}
+        >
+          <Text className="font-LexendDecaMedium text-[#fff] text-[10px] self-center justify-center">
+            See More
+          </Text>
+        </Pressable>
       </View>
     );
   }, []);
@@ -58,7 +79,10 @@ const ForYouNewAuqliSection = () => {
 
   return (
     <View className="pt-[30px] w-[100%] pb-[8px]">
-      <SectionHeader title="New on Auqli" btnText="View All" />
+      <SectionHeader
+        title={source == "live" ? "New in Marketplace" : "New on Auqli"}
+        btnText={source == "live" ? "" : "View All"}
+      />
       <View
         style={
           {
@@ -80,6 +104,7 @@ const ForYouNewAuqliSection = () => {
             }}
             className="pt-[14px]"
             ListEmptyComponent={renderEmptyPlaceholder}
+            ListFooterComponent={source == "live" ? renderFooter : null}
           />
         )}
       </View>

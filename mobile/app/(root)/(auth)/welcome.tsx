@@ -61,7 +61,7 @@ const Home = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
         <TouchableOpacity
-          onPress={() => router.replace("../../(root)/(tabs)/home")}
+          onPress={() => router.replace("/(root)/(tabs)/blips")}
           style={{
             alignItems: "flex-end",
             // padding: 20,
@@ -189,7 +189,7 @@ const Home = () => {
             <Pressable
               onPress={() =>
                 isLastSlide
-                  ? router.replace("../../(root)/(tabs)/home")
+                  ? router.replace("/(root)/(tabs)/blips")
                   : swiperRef.current?.scrollBy(1)
               }
               style={{
@@ -226,7 +226,7 @@ const Home = () => {
             // />
             <CustomButton
               title="Get Started"
-              onPress={() => router.replace("../../(root)/(tabs)/home")}
+              onPress={() => router.replace("/(root)/(tabs)/blips")}
               style={{
                 width: width * 0.75, // 75% of screen width
                 marginBottom: 68,

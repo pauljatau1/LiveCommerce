@@ -12,6 +12,7 @@ import Octicons from "@expo/vector-icons/Octicons";
 import { getUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import { initializeSocket } from "@/core/sockets";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 const TabsLayout = () => {
   const status = useSelector((state: RootState) => state.authState.status);
@@ -112,16 +113,16 @@ const TabsLayout = () => {
       // tabBar={(props) => <TabBar {...props} />}
     >
       <Tabs.Screen
-        name="home"
+        name="blips"
         options={{
-          tabBarLabel: "Home",
-          title: "Home",
-          headerShown: false,
+          // tabBarLabel: "Blips",
 
+          title: "Blips",
+          headerShown: false,
           tabBarIcon: ({ focused, color }) =>
             focused ? (
               <Image
-                source={require("../../../assets/icons/home-icon-fill.png")}
+                source={require("../../../assets/icons/blips-fill.png")}
                 resizeMode="cover"
                 style={{
                   width: 22,
@@ -130,13 +131,43 @@ const TabsLayout = () => {
               />
             ) : (
               <Image
-                source={require("../../../assets/icons/home.png")}
+                source={require("../../../assets/icons/blips.png")}
                 resizeMode="cover"
                 style={{
-                  width: 26,
-                  height: 26,
+                  width: 22,
+                  height: 22,
                 }}
               />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="home"
+        options={{
+          tabBarLabel: "Live",
+          title: "Home",
+          headerShown: false,
+          tabBarIcon: ({ focused, color }) =>
+            focused ? (
+              <Ionicons name="videocam-outline" size={26} color="#16783A" />
+            ) : (
+              // <Image
+              //   source={require("../../../assets/icons/home-icon-fill.png")}
+              //   resizeMode="cover"
+              //   style={{
+              //     width: 22,
+              //     height: 22,
+              //   }}
+              // />
+              // <Image
+              //   source={require("../../../assets/icons/home.png")}
+              //   resizeMode="cover"
+              //   style={{
+              //     width: 26,
+              //     height: 26,
+              //   }}
+              // />
+              <Ionicons name="videocam-outline" size={26} color="#94A3B1" />
             ),
           // <AntDesign name="home" size={18} color={color} />
           // header() { return <HomeHeader />; }
@@ -171,35 +202,7 @@ const TabsLayout = () => {
             ),
         }}
       />
-      <Tabs.Screen
-        name="blips"
-        options={{
-          // tabBarLabel: "Blips",
 
-          title: "Blips",
-          headerShown: false,
-          tabBarIcon: ({ focused, color }) =>
-            focused ? (
-              <Image
-                source={require("../../../assets/icons/blips-fill.png")}
-                resizeMode="cover"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
-            ) : (
-              <Image
-                source={require("../../../assets/icons/blips.png")}
-                resizeMode="cover"
-                style={{
-                  width: 22,
-                  height: 22,
-                }}
-              />
-            ),
-        }}
-      />
       <Tabs.Screen
         name="connect"
         options={{
