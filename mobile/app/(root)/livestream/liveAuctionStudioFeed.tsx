@@ -91,6 +91,7 @@ import GlassImage from "./components/GlassImage";
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import StreamEndedAlert from './components/StreamEndedAlert';
+import RsvpSheet from "@/components/livestream/rsvpSheet";
 
 // Extract dimensions outside component to avoid recreation on each render
 const { width, height } = Dimensions.get("window");
@@ -311,7 +312,9 @@ const LiveAuctionStudio = memo(
       followSellerThroughStream,
       unfollowSellerThroughStream,
       checkIfSellerIsFollowedFromSellerProfile,
-      isStreamEnded
+      isStreamEnded,
+      isStreamScheduled,
+      scheduledStreamDetails
     } = useLivestream() as LivestreamContextType;
 
     // Initialize all state
@@ -425,6 +428,7 @@ const LiveAuctionStudio = memo(
     const [isHostPresent, setIsHostPresent] = useState(true);
     const [showNoHostAlert, setShowNoHostAlert] = useState(false);
     const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
+    const [rsvpSheet, showRsvpSheet] = useState<boolean>(isStreamScheduled);
 
     // Add ref for heart animation
     const heartsRef = useRef<FloatingHeartsRef>(null);
@@ -1526,7 +1530,7 @@ const LiveAuctionStudio = memo(
         setShowMenuPopover,
       ],
     );
-    
+
     // Optimize with useCallback
     const handleAutoLeaveStream = useCallback(
       async () => {
@@ -1552,7 +1556,7 @@ const LiveAuctionStudio = memo(
 
           // Disconnect the socket
           disconnectSocket();
-      
+
         } catch (error) {
           console.error("Error leaving stream:", error);
           // Show error message to user if needed
@@ -2621,6 +2625,26 @@ const LiveAuctionStudio = memo(
         </View>
 
         {/* Bottom Sheets */}
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          show={rsvpSheet}
+          onRequestClose={() => showRsvpSheet(false)}
+          snapPoints={["45%"]}
+          enableDynamicSizing={false}
+          keyboardBehavior={"interactive"}
+        >
+          {
+            scheduledStreamDetails && (
+              <RsvpSheet
+                streamDetails={scheduledStreamDetails}
+                closeSheet={() => showRsvpSheet(false)}
+              />
+            )
+          }
+        </BottomSheet>
+
         <BottomSheet
           bgColor="#121212"
           childrenStyle="!px-[11px]"

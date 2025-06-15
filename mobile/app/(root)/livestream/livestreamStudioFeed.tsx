@@ -67,6 +67,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import StreamEndedAlert from './components/StreamEndedAlert';
+import RsvpSheet from "@/components/livestream/rsvpSheet";
 
 const { height } = Dimensions.get("window");
 
@@ -93,7 +94,9 @@ const LivestreamStudioFeed = ({
     followSellerThroughStream,
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
-    isStreamEnded
+    isStreamEnded,
+    isStreamScheduled,
+    scheduledStreamDetails
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -183,6 +186,7 @@ const LivestreamStudioFeed = ({
     type: "regular",
     sellerFollowers: 0,
   });
+  const [rsvpSheet, showRsvpSheet] = useState<boolean>(isStreamScheduled);
 
   // Add state for leave stream loading
   const [isLeavingStream, setIsLeavingStream] = useState(false);
@@ -194,6 +198,7 @@ const LivestreamStudioFeed = ({
   const [isHostPresent, setIsHostPresent] = useState(true);
   const [showNoHostAlert, setShowNoHostAlert] = useState(false);
   const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
+
   // Add state to manage heart animations
   const heartsRef = useRef<FloatingHeartsRef>(null);
 
@@ -1219,7 +1224,7 @@ const LivestreamStudioFeed = ({
 
         // Disconnect the socket
         disconnectSocket();
-    
+
       } catch (error) {
         console.error("Error leaving stream:", error);
         // Show error message to user if needed
@@ -1983,6 +1988,26 @@ const LivestreamStudioFeed = ({
       </View>
 
       {/* Bottom Sheets */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={rsvpSheet}
+        onRequestClose={() => showRsvpSheet(false)}
+        snapPoints={["45%"]}
+        enableDynamicSizing={false}
+        keyboardBehavior={"interactive"}
+      >
+        {
+          scheduledStreamDetails && (
+            <RsvpSheet
+              streamDetails={scheduledStreamDetails}
+              closeSheet={() => showRsvpSheet(false)}
+            />
+          )
+        }
+      </BottomSheet>
+
       <BottomSheet
         bgColor="#121212"
         childrenStyle="!px-[11px]"

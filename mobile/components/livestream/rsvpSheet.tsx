@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import React, { useEffect, useMemo, useState, memo } from "react";
 import { AntDesign, SimpleLineIcons } from "@expo/vector-icons";
 import { formatTimeFromNow, formatTimeFromNowLive } from "@/helpers/helpers";
@@ -7,6 +7,7 @@ import { RootState } from "@/store";
 import { toast } from "@/core/toast";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
+import { GlassImage } from "@/app/(root)/livestream/components";
 
 const streamEnum = {
   open_show: "Liveshow",
@@ -33,7 +34,7 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
       }
       const response = await axios.post(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/${streamDetails._id}/${subscribed ? "unsubscribe" : "subscribe"}`,
+          `api/streams/${streamDetails?._id}/${subscribed ? "unsubscribe" : "subscribe"}`,
         {},
         {
           headers: {
@@ -51,9 +52,10 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
 
   const getIsSubscribed = async () => {
     try {
+      console.log("streamid", streamDetails?._id);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/${streamDetails._id}/is-subscribed`,
+          `api/streams/${streamDetails?._id}/is-subscribed`,
 
         {
           headers: {
@@ -94,6 +96,14 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
           </View>
         </Pressable>
       </View>
+      { streamDetails?.seller && (
+        <View className="flex-row items-center justify-center gap-[8px] mb-[5px]">
+          <GlassImage source={{ uri: streamDetails?.seller?.storeAvatar?.url }} containerClassName="w-[30px] h-[30px] rounded-full" imageClassName="w-full h-full rounded-full" glassClassName="w-full h-full rounded-full" placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />
+          <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
+            {streamDetails?.seller?.storeName}
+          </Text>
+        </View>
+      )}
       <View className="flex-row items-center justify-center gap-[8px] mb-[40px]">
         <SimpleLineIcons name="people" size={16} color="#16783A" />
         <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
