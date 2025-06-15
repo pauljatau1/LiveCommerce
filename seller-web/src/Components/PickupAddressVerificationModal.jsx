@@ -118,7 +118,7 @@ const PickupAddressVerificationModal = ({
   });
   
   // Onboarding video details
-  const onboardingVideoUrl = "https://www.youtube.com/watch?v=inkrDFsM_wI";
+  const onboardingVideoUrl = "https://www.youtube.com/watch?v=nAMdwpL_u90";
   const videoId = getYoutubeVideoId(onboardingVideoUrl);
   const thumbnailUrl = videoId ? getYoutubeThumbnail(videoId) : null;
   
