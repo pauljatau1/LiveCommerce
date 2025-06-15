@@ -36,6 +36,12 @@ import { Calendar } from "../calendar";
 import { Input } from "../input";
 import { Progress } from "../progress";
 import VideoPlayer from "@shared/VideoPlayer"; 
+// Import all icons directly
+import plusIcon from '@iconify-icons/tabler/plus';
+import magnifyingGlassIcon from '@iconify-icons/heroicons/magnifying-glass';
+import checkIcon from '@iconify-icons/lucide/check';
+
+import { BiPlayCircle } from 'react-icons/bi';
 
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
@@ -1704,7 +1710,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
 
     // Desktop Card Layout
     const DesktopCard = () => (
-        <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_120px] gap-4 px-6 py-4 items-center">
+        <div className="hidden lg:grid grid-cols-[80px_1.5fr_0.8fr_0.8fr_0.8fr_80px_120px_120px] gap-4 px-6 py-4 items-center">
             <img
                 src={item?.images[0]?.url}
                 alt={item?.name}
@@ -1754,6 +1760,22 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     <span className="text-sm text-gray-500">{item?.stock}</span>
                 )}
             </div>
+            {!isAuction && (
+                <div className="text-center">
+                    <button
+                        onClick={() => setOpenBlipUploadModal(true)}
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${
+                            item?.blips?.length > 0 
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                                : 'bg-red-100 text-red-600 hover:bg-red-200'
+                        }`}
+                        title="Blips are short promotional videos that showcase your product in action"
+                    >
+                        <BiPlayCircle className="w-4 h-4" />
+                        <span>{item?.blips?.length > 0 ? `${item?.blips.length} Blips` : 'Add Blip'}</span>
+                    </button>
+                </div>
+            )}
             <div className="flex items-center gap-2">
                 {!isAuction && (
                     <>
@@ -1769,7 +1791,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                             className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200" 
                             title="Upload a short promotional video for this product"
                         >
-                            <Icon icon="solar:video-frame-bold" className="w-4 h-4" />
+                            <BiPlayCircle className="w-4 h-4" />
                         </button>
                     </>
                 )}
@@ -1876,6 +1898,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                             <div className="flex gap-3 text-xs text-gray-500">
                                 <p>Stock: {item?.stock}</p>
                                 <p>Sold: {item?.stats?.soldCount || 0}</p>
+                                <p>Blips: {item?.blips?.length || 0}</p>
                             </div>
                         </>
                     )}
@@ -1919,8 +1942,8 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                         onClick={() => setOpenBlipUploadModal(true)}
                                         className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
                                     >
-                                        <Icon icon="solar:video-frame-bold" width="14" height="14" />
-                                        <span className="text-sm">Upload Blip</span>
+                                        <BiPlayCircle width="14" height="14" />
+                                        <span className="text-sm">Blip{item?.blips?.length > 0 ? ` (${item?.blips.length})` : ''} </span>
                                     </button>
                                 </>
                             ) : (
