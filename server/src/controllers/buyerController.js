@@ -1111,6 +1111,14 @@ exports.followSeller = async (req, res) => {
       followDate: new Date()
     });
 
+    // Send email notification to seller about the new follower
+    try {
+      await notificationController.sendNewFollowerEmail(seller, `${buyer.firstName} ${buyer.lastName}`);
+    } catch (emailError) {
+      console.error('Failed to send new follower email:', emailError);
+      // Continue execution even if email fails
+    }
+
     res.json({
       message: 'Successfully followed seller',
       followData: seller.followers[seller.followers.length - 1],
@@ -1147,7 +1155,7 @@ exports.unfollowSeller = async (req, res) => {
 
     // Remove from seller's followers list
     seller.followers = seller.followers.filter(
-      follower => follower.buyerId.toString() !== buyerId
+      follower => !follower.buyerId || follower.buyerId.toString() !== buyerId
     );
 
     // Remove from buyer's activity feed
@@ -1156,6 +1164,7 @@ exports.unfollowSeller = async (req, res) => {
         activity => !(
           activity.type === 'follow' &&
           activity.referenceModel === 'Seller' &&
+          activity.reference && 
           activity.reference.toString() === sellerId
         )
       );

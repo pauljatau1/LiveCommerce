@@ -2571,6 +2571,7 @@ exports.getSellerProducts = async (req, res) => {
         brand
         sku
         condition
+        blips
       `)
       .sort(sortOptions)
       .skip((page - 1) * limit)
@@ -2585,6 +2586,7 @@ exports.getSellerProducts = async (req, res) => {
         isLowStock: product.stock <= product.inventory.lowStockThreshold,
         hasDiscount: product.discount?.isActive || false,
         discountedPrice: product.discountedPrice,
+        blips: product.blips,
         stock: product.stock,
         // Add additional product information
         productInfo: {
@@ -3735,15 +3737,34 @@ exports.addBlipComment = async (req, res) => {
       );
 
       console.log('Seller notification created for blip comment');
+
+      // Send email notification to seller about the new comment
+      try {
+        const Seller = require('../models/Seller');
+        const seller = await Seller.findById(product.seller);
+
+        if (seller && seller.email) {
+          await notificationController.sendBlipCommentEmail(
+            seller,
+            buyerName,
+            product.name,
+            comment
+          );
+          console.log('Blip comment email sent to seller:', seller.email);
+        }
+      } catch (emailError) {
+        console.error('Failed to send blip comment email:', emailError);
+      }
+
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
-      // Continue execution even if notification fails
     }
 
     res.status(201).json({
       message: 'Comment added successfully',
       commentsCount: blip.comments.length
     });
+
   } catch (error) {
     res.status(500).json({
       message: 'Failed to add comment',

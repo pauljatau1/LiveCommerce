@@ -2041,3 +2041,120 @@ exports.processBatchOrderNotifications = async (buyerId) => {
     throw error;
   }
 };
+
+// Send email to seller when a buyer follows their store
+exports.sendNewFollowerEmail = async (seller, buyerName) => {
+  try {
+    console.log(`Sending new follower email to seller: ${seller.email} for buyer: ${buyerName}`);
+    
+    // Ensure SendGrid API key is set
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      console.error('Cannot send email: SendGrid API key is not configured');
+      throw new Error('SendGrid API key not configured');
+    }
+    
+    // Set the API key for safety
+    sgMail.setApiKey(apiKey);
+    
+    // Store name or business name
+    const storeName = seller.storeName || seller.businessName || 'Your store';
+    
+    const msg = {
+      to: seller.email,
+      from: 'Auqli <support@auqli.com>',
+      subject: '🎉 You have a new follower!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px;">
+            <h2 style="color: #333; margin-top: 15px;">New Store Follower</h2>
+          </div>
+          
+          <p style="color: #555; font-size: 16px;">Hi ${storeName},</p>
+          <p style="color: #555; font-size: 16px;">Great news — ${buyerName} just followed your store on Auqli!</p>
+          <p style="color: #555; font-size: 16px;">Keep posting fresh Blips to turn those followers into loyal buyers.</p>
+          
+          <div style="margin: 25px 0; text-align: center;">
+            <a href="https://seller.auqli.live/" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">View your profile</a>
+            <a href="https://seller.auqli.live/" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Post a new Blip</a>
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
+            <p>Thank you for selling with Auqli!</p>
+            <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+    
+    await sgMail.send(msg);
+    console.log(`New follower email sent successfully to seller: ${seller.email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending new follower email to seller:', error);
+    console.error('SendGrid error details:', error.response?.body?.errors);
+    return false;
+  }
+};
+
+// Send email to seller when a buyer comments on their blip
+exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) => {
+  try {
+    console.log(`Sending blip comment email to seller: ${seller.email} for buyer: ${buyerName}`);
+    
+    // Ensure SendGrid API key is set
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      console.error('Cannot send email: SendGrid API key is not configured');
+      throw new Error('SendGrid API key not configured');
+    }
+    
+    // Set the API key for safety
+    sgMail.setApiKey(apiKey);
+    
+    // Store name or business name
+    const sellerName = seller.storeName || seller.businessName || seller.firstName || 'Seller';
+    
+    const msg = {
+      to: seller.email,
+      from: 'Auqli <support@auqli.com>',
+      subject: '💬 New comment on your Blip',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px;">
+            <h2 style="color: #333; margin-top: 15px;">New Comment on Your Blip</h2>
+          </div>
+          
+          <p style="color: #555; font-size: 16px;">Hi ${sellerName},</p>
+          <p style="color: #555; font-size: 16px;">${buyerName} just left a comment on your Blip "${productName}":</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+            <p style="color: #333; font-style: italic;">"${comment}"</p>
+          </div>
+          
+          <div style="margin: 25px 0; text-align: center;">
+            <a href="https://seller.auqli.live/" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">Reply to the comment</a>
+            <a href="https://seller.auqli.live/" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Keep posting great content</a>
+          </div>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
+            <p>Thank you for selling with Auqli!</p>
+            <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+    
+    await sgMail.send(msg);
+    console.log(`Blip comment email sent successfully to seller: ${seller.email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending blip comment email to seller:', error);
+    console.error('SendGrid error details:', error.response?.body?.errors);
+    return false;
+  }
+};
+
+// Function to handle order creation notifications
