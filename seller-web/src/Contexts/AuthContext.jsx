@@ -32,7 +32,9 @@ function AuthProvider({ children }) {
         passwordResetSuccessful: false,
         isDataReady: false,
         emailVerified: false,
-        isAccountDisabled: false
+        isAccountDisabled: false,
+        isSubmittingOtp: false,
+        isResendingOtp: false,
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -203,6 +205,16 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     isAccountDisabled: true
+                }
+            case "SET_SUBMITTING_OTP":
+                return {
+                    ...state,
+                    isSubmittingOtp: action.payload
+                }
+            case "SET_RESENDING_OTP":
+                return {
+                    ...state,
+                    isResendingOtp: action.payload
                 }
             default:
                 return state;
@@ -427,7 +439,7 @@ function AuthProvider({ children }) {
     const verifyOtp = async (email, otp) => {
         try {
             shutdown()
-            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'SET_SUBMITTING_OTP', payload: true });
 
             const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
                 email,
@@ -483,11 +495,11 @@ function AuthProvider({ children }) {
             return false;
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError.response?.data?.message || 'Verification failed' });
-            toast.error(AxiosError.response?.data?.message || 'OTP verification failed');
+            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError?.response?.data?.message || 'Verification failed' });
+            toast.error(AxiosError?.response?.data?.message || 'OTP verification failed');
             return false;
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_SUBMITTING_OTP', payload: false });
         }
     };
 
@@ -495,8 +507,7 @@ function AuthProvider({ children }) {
     //function to request for new otp
     const requestNewOtp = async (email) => {
         try {
-            dispatch({ type: 'RESET' });
-            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'SET_RESENDING_OTP', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/resend-otp`, {
                 email
             });
@@ -520,10 +531,10 @@ function AuthProvider({ children }) {
             }
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError.response.data.message });
-            toast.error(AxiosError.response.data.message);
+            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError?.response?.data?.message });
+            toast.error(AxiosError?.response?.data?.message);
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_RESENDING_OTP', payload: false });
         }
     };
 

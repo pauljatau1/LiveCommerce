@@ -5,10 +5,9 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 const EmailVerificationModal = ({ isOpen, onClose, userEmail }) => {
-    const { verifyOtp, requestNewOtp, isLoading } = useAuthContext();
+    const { verifyOtp, requestNewOtp, isResendingOtp, isSubmittingOtp } = useAuthContext();
     const [step, setStep] = useState('welcome'); // 'welcome', 'otp', 'success'
     const [otp, setOtp] = useState(['', '', '', '']);
-    const [isResending, setIsResending] = useState(false);
     const [canResend, setCanResend] = useState(true);
     const [countdown, setCountdown] = useState(0);
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
@@ -86,12 +85,9 @@ const EmailVerificationModal = ({ isOpen, onClose, userEmail }) => {
     };
 
     const handleResendOtp = async () => {
-        if (!canResend || isResending) return;
-
-        setIsResending(true);
+        if (!canResend || isResendingOtp) return;
         setCanResend(false);
         setCountdown(60);
-
         try {
             await requestNewOtp(userEmail);
             toast.success('Verification code sent successfully');
@@ -100,9 +96,7 @@ const EmailVerificationModal = ({ isOpen, onClose, userEmail }) => {
             console.error('Resend OTP error:', error);
             setCanResend(true);
             setCountdown(0);
-        } finally {
-            setIsResending(false);
-        }
+        } 
     };
 
     const handleGetStarted = () => {
@@ -184,10 +178,10 @@ const EmailVerificationModal = ({ isOpen, onClose, userEmail }) => {
 
                             <button
                                 onClick={handleVerifyOtp}
-                                disabled={isLoading || otp.some(digit => !digit)}
+                                disabled={isSubmittingOtp || otp.some(digit => !digit)}
                                 className="w-full bg-[#0BB248] text-white font-semibold py-3 px-6 rounded-xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg mb-4"
                             >
-                                {isLoading ? (
+                                {isSubmittingOtp ? (
                                     <div className="flex items-center justify-center">
                                         <Icon icon="mdi:loading" width="20" height="20" className="animate-spin mr-2" />
                                         Verifying...
@@ -200,10 +194,10 @@ const EmailVerificationModal = ({ isOpen, onClose, userEmail }) => {
                             {/* Resend Button */}
                             <button
                                 onClick={handleResendOtp}
-                                disabled={!canResend || isResending}
+                                disabled={!canResend || isResendingOtp}
                                 className="text-green-600 cursor-pointer text-sm hover:text-green-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {isResending ? (
+                                {isResendingOtp ? (
                                     <div className="flex items-center justify-center">
                                         <Icon icon="mdi:loading" width="16" height="16" className="animate-spin mr-1" />
                                         Sending...
