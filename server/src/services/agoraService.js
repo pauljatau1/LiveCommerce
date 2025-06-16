@@ -10,7 +10,7 @@ class AgoraService {
     // Set different expiration times based on role
     const expirationTimes = {
       [RtcRole.PUBLISHER]: 3600, // 1 hour
-      [RtcRole.SUBSCRIBER]: 14400 // 4 hours
+      [RtcRole.SUBSCRIBER]: 86400 // 24 hours
     };
 
 
