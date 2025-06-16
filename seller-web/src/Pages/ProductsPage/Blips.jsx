@@ -13,6 +13,7 @@ import { CircularProgress } from '@mui/material';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { BASE_URL } from '../../Constants/Server';
+import { trackEvent } from '@/util/analytics';
 
 const Blips = () => {
   const dispatch = useDispatch();
@@ -60,10 +61,10 @@ const Blips = () => {
 
   const handleViewBlipDetails = (blip) => {
     console.log('Selected blip for details view:', blip);
-    
+
     // Ensure we have valid IDs
     const productId = blip.productId;
-    
+
     // Find the blipId - it might be in different fields
     let blipId = blip.blipId;
     if (!blipId) {
@@ -73,14 +74,14 @@ const Blips = () => {
         blipId = blip.id;
       }
     }
-    
+
     console.log(`Opening modal with productId: ${productId}, blipId: ${blipId}`);
-    
+
     if (!productId || !blipId) {
       console.error('Missing required IDs. ProductId:', productId, 'BlipId:', blipId);
       return;
     }
-    
+
     setSelectedBlip({
       ...blip,
       productId,
@@ -113,11 +114,11 @@ const Blips = () => {
           search: query || undefined
         }
       });
-      
+
       if (response.status === 200 && response.data.products) {
         setProductsForBlip(response.data.products);
         setTotalProductPages(response.data.totalPages || 1);
-        
+
         // Now fetch which products have blips
         const productIds = response.data.products.map(p => p._id);
         await fetchProductsBlipStatus(productIds);
@@ -134,14 +135,14 @@ const Blips = () => {
 
   const fetchProductsBlipStatus = async (productIds) => {
     if (!productIds.length) return;
-    
+
     try {
       const sellerToken = localStorage.getItem('sellerToken');
       const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-      
+
       // Create a map to store which products have blips
       const blipStatusMap = {};
-      
+
       // Fetch each product's blips status
       await Promise.all(productIds.map(async (productId) => {
         try {
@@ -150,7 +151,7 @@ const Blips = () => {
               Authorization: `Bearer ${tokenData.data}`
             }
           });
-          
+
           if (response.status === 200 && response.data) {
             // Check if the product has blips
             const hasBlips = response.data.blips && Array.isArray(response.data.blips) && response.data.blips.length > 0;
@@ -164,7 +165,7 @@ const Blips = () => {
           blipStatusMap[productId] = { hasBlips: false, blipCount: 0 };
         }
       }));
-      
+
       setProductsWithBlips(blipStatusMap);
     } catch (error) {
       console.error('Error fetching product blip status:', error);
@@ -184,11 +185,11 @@ const Blips = () => {
     if (productFilter === 'all') {
       return productsForBlip;
     } else if (productFilter === 'with-blips') {
-      return productsForBlip.filter(product => 
+      return productsForBlip.filter(product =>
         productsWithBlips[product._id]?.hasBlips
       );
     } else if (productFilter === 'without-blips') {
-      return productsForBlip.filter(product => 
+      return productsForBlip.filter(product =>
         !productsWithBlips[product._id]?.hasBlips
       );
     }
@@ -217,7 +218,7 @@ const Blips = () => {
     const files = Array.from(e.target.files);
     const validFiles = [];
     const newPreviewUrls = [];
-    
+
     // Validate each file
     files.forEach(file => {
       // Check if file is a video
@@ -225,7 +226,7 @@ const Blips = () => {
         toast.error(`${file.name} is not a video file`);
         return;
       }
-      
+
       // Check file size (max 50MB)
       if (file.size > 50 * 1024 * 1024) {
         toast.error(`${file.name} is too large (max 50MB)`);
@@ -233,7 +234,7 @@ const Blips = () => {
       }
 
       validFiles.push(file);
-      
+
       // Create preview URL
       const objectUrl = URL.createObjectURL(file);
       newPreviewUrls.push(objectUrl);
@@ -246,7 +247,7 @@ const Blips = () => {
   const handleRemoveFile = (index) => {
     // Revoke the URL to prevent memory leaks
     URL.revokeObjectURL(previewUrls[index]);
-    
+
     // Remove the file and preview
     setBlipVideos(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
@@ -257,7 +258,7 @@ const Blips = () => {
       toast.error('Please select a product first');
       return;
     }
-    
+
     if (blipVideos.length === 0) {
       toast.error('Please select at least one video to upload');
       return;
@@ -265,20 +266,20 @@ const Blips = () => {
 
     setIsUploading(true);
     setUploadProgress(0);
-    
+
     try {
       const formData = new FormData();
       blipVideos.forEach(file => {
         formData.append('blipVideos', file);
       });
-      
+
       const sellerToken = localStorage.getItem('sellerToken');
       const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-      
+
       // Create upload request with progress tracking
       const response = await axios.post(
-        `${BASE_URL}/products/${selectedProduct._id}/blips`, 
-        formData, 
+        `${BASE_URL}/products/${selectedProduct._id}/blips`,
+        formData,
         {
           headers: {
             Authorization: `Bearer ${tokenData.data}`,
@@ -290,19 +291,38 @@ const Blips = () => {
           }
         }
       );
-      
+
       if (response.status === 201) {
         toast.success(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`);
-        
+        const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+
+        trackEvent('blip_created', {
+          sellerId: sellerDetails?._id,
+          sellerName: sellerDetails?.firstName + ' ' + sellerDetails?.lastName,
+          storeName: sellerDetails?.storeName,
+          sellerEmail: sellerDetails?.email,
+          sellerPhone: sellerDetails?.phoneNumber,
+          sellerAddress: sellerDetails?.sellerAddress?.addressLine1,
+          sellerCity: sellerDetails?.sellerAddress?.city,
+          sellerState: sellerDetails?.sellerAddress?.state,
+          sellerZip: sellerDetails?.sellerAddress?.zipCode,
+          sellerCountry: sellerDetails?.sellerAddress?.country,
+          productId: selectedProduct?._id,
+          productName: selectedProduct?.name,
+          productPrice: `₦${selectedProduct?.price.toLocaleString('en-NG')}`,
+          blipCount: blipVideos.length
+        });
+
+
         // Clear the selected files
         setBlipVideos([]);
         setPreviewUrls([]);
         setSelectedProduct(null);
-        
+
         // Refresh the blips list
         dispatch(fetchSellerBlips({ page: 1, limit: itemsPerPage }));
         setCurrentPage(1);
-        
+
         // Close the modal
         setIsAddBlipModalOpen(false);
       }
@@ -319,18 +339,18 @@ const Blips = () => {
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    
+
     // Clear any existing timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
+
     // Set a new timeout to delay the search
     const timeout = setTimeout(() => {
       setProductPage(1); // Reset to first page
       fetchProductsForBlip(1, query);
     }, 500); // 500ms delay
-    
+
     setSearchTimeout(timeout);
   };
 
@@ -342,7 +362,7 @@ const Blips = () => {
     // Start with Previous button
     links.push(
       <PaginationItem key="prev">
-        <PaginationPrevious 
+        <PaginationPrevious
           onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
           className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
         />
@@ -446,61 +466,61 @@ const Blips = () => {
   // Mobile card view for each blip
   const renderMobileCard = (blip) => {
     return (
-    <div key={blip._id} className="bg-white rounded-lg shadow p-4 mb-4">
-      <div className="flex items-center mb-3">
-        <img 
-          src={blip.thumbnail} 
-          alt={blip.productName}
-          className="h-16 w-16 object-cover rounded mr-3 cursor-pointer"
-          onClick={() => handleViewBlipDetails(blip)}
-        />
-        <div className="flex-1 min-w-0">
-          <Link to={`/dashboard/edit-product/${blip.productId}`} className="text-blue-600 hover:underline font-medium block truncate">
-            {blip.productName}
-          </Link>
-          <div className="mt-1 flex items-center justify-between">
-            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-              blip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-            }`}>
-              {blip.status}
-            </span>
-            <span className="text-sm">₦{blip.price.toLocaleString('en-NG')}</span>
+      <div key={blip._id} className="bg-white rounded-lg shadow p-4 mb-4">
+        <div className="flex items-center mb-3">
+          <img
+            src={blip.thumbnail}
+            alt={blip.productName}
+            className="h-16 w-16 object-cover rounded mr-3 cursor-pointer"
+            onClick={() => handleViewBlipDetails(blip)}
+          />
+          <div className="flex-1 min-w-0">
+            <Link to={`/dashboard/edit-product/${blip.productId}`} className="text-blue-600 hover:underline font-medium block truncate">
+              {blip.productName}
+            </Link>
+            <div className="mt-1 flex items-center justify-between">
+              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${blip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                {blip.status}
+              </span>
+              <span className="text-sm">₦{blip.price.toLocaleString('en-NG')}</span>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-        <div>
-          <span className="text-gray-500">Stock:</span> 
-          <span className="font-medium ml-1">{blip.stock}</span>
+
+        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div>
+            <span className="text-gray-500">Stock:</span>
+            <span className="font-medium ml-1">{blip.stock}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Created:</span>
+            <span className="font-medium ml-1">{safeFormatDate(blip.createdAt)}</span>
+          </div>
+          <div className="col-span-2 flex space-x-4 mt-1">
+            <span className="text-xs flex items-center"><span className="mr-1">❤️</span> {blip.blipEngagement?.likesCount || 0}</span>
+            <span className="text-xs flex items-center"><span className="mr-1">💬</span> {blip.blipEngagement?.commentsCount || 0}</span>
+            <span className="text-xs flex items-center"><span className="mr-1">👁️</span> {blip.blipEngagement?.viewCount || 0}</span>
+          </div>
         </div>
-        <div>
-          <span className="text-gray-500">Created:</span> 
-          <span className="font-medium ml-1">{safeFormatDate(blip.createdAt)}</span>
-        </div>
-        <div className="col-span-2 flex space-x-4 mt-1">
-          <span className="text-xs flex items-center"><span className="mr-1">❤️</span> {blip.blipEngagement?.likesCount || 0}</span>
-          <span className="text-xs flex items-center"><span className="mr-1">💬</span> {blip.blipEngagement?.commentsCount || 0}</span>
-          <span className="text-xs flex items-center"><span className="mr-1">👁️</span> {blip.blipEngagement?.viewCount || 0}</span>
+
+        <div className="mt-2">
+          <button
+            onClick={() => handleViewBlipDetails(blip)}
+            className="w-full py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md text-sm font-medium text-center transition-colors"
+          >
+            View Details
+          </button>
         </div>
       </div>
-      
-      <div className="mt-2">
-        <button
-          onClick={() => handleViewBlipDetails(blip)}
-          className="w-full py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md text-sm font-medium text-center transition-colors"
-        >
-          View Details
-        </button>
-      </div>
-    </div>
-  )};
+    )
+  };
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex justify-between items-center mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">Product Blips</h1>
-        <button 
+        <button
           onClick={handleOpenAddBlipModal}
           className="bg-[#17171B] text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
         >
@@ -508,12 +528,12 @@ const Blips = () => {
           Add Blip
         </button>
       </div>
-      
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {blips.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg text-gray-600">You don't have any product blips yet.</p>
-            <button 
+            <button
               onClick={handleOpenAddBlipModal}
               className="mt-4 bg-[#17171B] text-white px-6 py-2 rounded-md text-sm font-medium"
             >
@@ -526,7 +546,7 @@ const Blips = () => {
             <div className="block md:hidden">
               {blips.map(renderMobileCard)}
             </div>
-            
+
             {/* Desktop view (table layout) */}
             <div className="hidden md:block">
               <div className="overflow-x-auto">
@@ -563,8 +583,8 @@ const Blips = () => {
                     {blips.map((blip) => (
                       <tr key={blip._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewBlipDetails(blip)}>
-                          <img 
-                            src={blip.thumbnail} 
+                          <img
+                            src={blip.thumbnail}
                             alt={blip.productName}
                             className="h-16 w-16 object-cover rounded"
                           />
@@ -581,9 +601,8 @@ const Blips = () => {
                           {blip.stock}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            blip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${blip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
                             {blip.status}
                           </span>
                         </td>
@@ -649,19 +668,19 @@ const Blips = () => {
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium">Select Product</label>
                 <div className="flex gap-2 text-xs">
-                  <button 
+                  <button
                     onClick={() => handleProductFilterChange('all')}
                     className={`px-2 py-1 rounded ${productFilter === 'all' ? 'bg-[#17171B] text-white' : 'bg-gray-100'}`}
                   >
                     All
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleProductFilterChange('with-blips')}
                     className={`px-2 py-1 rounded ${productFilter === 'with-blips' ? 'bg-[#17171B] text-white' : 'bg-gray-100'}`}
                   >
                     With Blips
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleProductFilterChange('without-blips')}
                     className={`px-2 py-1 rounded ${productFilter === 'without-blips' ? 'bg-[#17171B] text-white' : 'bg-gray-100'}`}
                   >
@@ -703,26 +722,26 @@ const Blips = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto p-1">
                   {getFilteredProducts().length === 0 ? (
                     <p className="col-span-full text-center py-4 text-gray-500">
-                      {searchQuery 
-                        ? `No products found matching "${searchQuery}"` 
-                        : productFilter !== 'all' 
-                          ? `No products ${productFilter === 'with-blips' ? 'with' : 'without'} blips found` 
+                      {searchQuery
+                        ? `No products found matching "${searchQuery}"`
+                        : productFilter !== 'all'
+                          ? `No products ${productFilter === 'with-blips' ? 'with' : 'without'} blips found`
                           : 'No active products found'}
                     </p>
                   ) : (
                     getFilteredProducts().map(product => (
-                      <div 
+                      <div
                         key={product._id}
                         onClick={() => handleProductSelect(product)}
                         className={`border rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-all
-                          ${selectedProduct?._id === product._id 
-                            ? 'border-[#17171B] bg-[#17171B]/5' 
+                          ${selectedProduct?._id === product._id
+                            ? 'border-[#17171B] bg-[#17171B]/5'
                             : 'border-gray-200 hover:border-gray-300'}`}
                       >
                         <div className="h-12 w-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                           {product.images && product.images[0] && product.images[0].url ? (
-                            <img 
-                              src={product.images[0].url} 
+                            <img
+                              src={product.images[0].url}
                               alt={product.name}
                               className="h-full w-full object-cover"
                               onError={(e) => {
@@ -770,11 +789,11 @@ const Blips = () => {
                     >
                       <Icon icon="heroicons:chevron-left" className="w-4 h-4" />
                     </button>
-                    
+
                     <span className="text-sm px-2">
                       Page {productPage} of {totalProductPages}
                     </span>
-                    
+
                     <button
                       onClick={() => productPage < totalProductPages && handleProductPageChange(productPage + 1)}
                       disabled={productPage === totalProductPages || isLoadingProducts}
@@ -785,13 +804,13 @@ const Blips = () => {
                   </div>
                 </div>
               )}
-              
+
               {/* Selection status message */}
               <div className="mt-3 p-2 rounded bg-blue-50 border border-blue-100">
                 <p className="text-sm text-blue-700 flex items-center">
                   <Icon icon="heroicons:information-circle" className="w-5 h-5 mr-1" />
-                  {selectedProduct 
-                    ? `Selected: ${selectedProduct.name}` 
+                  {selectedProduct
+                    ? `Selected: ${selectedProduct.name}`
                     : "Please select a product before uploading videos"}
                 </p>
               </div>
@@ -800,29 +819,29 @@ const Blips = () => {
             {/* Video Upload */}
             <div>
               <label className="block text-sm font-medium mb-2">Upload Blip Videos (Max 5)</label>
-              
-              <div 
+
+              <div
                 className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all
                   ${!selectedProduct ? 'opacity-50 pointer-events-none' : ''} 
                   ${blipVideos.length > 0 ? 'border-[#17171B]' : 'border-gray-300'}`}
                 onClick={handleTriggerFileInput}
               >
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   accept="video/*"
-                  className="hidden" 
+                  className="hidden"
                   onChange={handleFileChange}
                   ref={fileInputRef}
                   multiple
                   disabled={!selectedProduct}
                 />
-                
+
                 <div className="text-center space-y-3">
                   <Icon icon="solar:video-frame-bold" className="w-12 h-12 text-gray-400 mx-auto" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-700">
-                      {selectedProduct 
-                        ? "Click to select video files" 
+                      {selectedProduct
+                        ? "Click to select video files"
                         : "Select a product first"}
                     </p>
                     <p className="text-xs text-gray-500">MP4, MOV, or WebM up to 50MB each</p>
@@ -839,9 +858,9 @@ const Blips = () => {
                     {blipVideos.map((file, index) => (
                       <div key={index} className="relative">
                         <div className="aspect-[9/16] bg-gray-100 rounded-lg overflow-hidden">
-                          <video 
-                            src={previewUrls[index]} 
-                            className="w-full h-full object-cover" 
+                          <video
+                            src={previewUrls[index]}
+                            className="w-full h-full object-cover"
                             controls={false}
                           />
                         </div>
@@ -860,7 +879,7 @@ const Blips = () => {
                   </div>
                 </div>
               )}
-              
+
               {isUploading && (
                 <div className="space-y-2 mt-4">
                   <div className="flex justify-between text-sm">
@@ -877,7 +896,7 @@ const Blips = () => {
               <button
                 type="button"
                 onClick={handleCloseAddBlipModal}
-                className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-medium transition-all"
+                className="px-6 py-2 border border-[#17171B] rounded-lg hover:bg-gray-200 font-medium transition-all ease-in-out"
                 disabled={isUploading}
               >
                 Cancel
@@ -886,7 +905,7 @@ const Blips = () => {
                 type="button"
                 onClick={handleUpload}
                 disabled={!selectedProduct || blipVideos.length === 0 || isUploading}
-                className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                className="px-6 py-2 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
               >
                 {isUploading ? (
                   <>

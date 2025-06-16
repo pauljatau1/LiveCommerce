@@ -25,21 +25,22 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import axios from 'axios';
 import React from 'react';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
-    DialogTitle, 
-    DialogDescription 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription
 } from "../../ui/dialog";
 import { Calendar } from "../calendar";
 import { Input } from "../input";
 import { Progress } from "../progress";
-import VideoPlayer from "@shared/VideoPlayer"; 
+import VideoPlayer from "@shared/VideoPlayer";
 // Import all icons directly
 import plusIcon from '@iconify-icons/tabler/plus';
 import magnifyingGlassIcon from '@iconify-icons/heroicons/magnifying-glass';
 import checkIcon from '@iconify-icons/lucide/check';
+import { trackEvent } from '@/util/analytics'
 
 import { BiPlayCircle } from 'react-icons/bi';
 
@@ -56,13 +57,13 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
             });
-            
+
             if (response.status === 200) {
                 setAuctionData(response.data);
             }
@@ -81,7 +82,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             // Rerun with default values from the API (will use previous settings)
             const response = await axios.post(`${BASE_URL}/products/${auctionData._id}/rerun-auction`, {}, {
                 headers: {
@@ -89,7 +90,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.status === 200) {
                 toast.success("Auction rerun successfully", {
                     description: "Your auction has been rescheduled with previous settings",
@@ -147,7 +148,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
     // Determine if there's a current leader (highest bidder) in the auction
     const getCurrentLeader = () => {
         if (!auctionData?.auction?.bids || auctionData.auction.bids.length === 0) return null;
-        
+
         // Sort bids by amount in descending order and get the highest
         const sortedBids = [...auctionData.auction.bids].sort((a, b) => b.amount - a.amount);
         return sortedBids[0];
@@ -166,7 +167,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                         Detailed information about this auction's performance
                     </DialogDescription>
                 </DialogHeader>
-                
+
                 {loading ? (
                     <div className="flex justify-center py-12">
                         <CircularProgress color="inherit" />
@@ -181,9 +182,9 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                         {/* Product Basic Info - More responsive */}
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="w-full sm:w-auto">
-                                <img 
-                                    src={auctionData.images[0].url} 
-                                    alt={auctionData.name} 
+                                <img
+                                    src={auctionData.images[0].url}
+                                    alt={auctionData.name}
                                     className="w-full sm:w-24 h-24 rounded-lg object-cover"
                                 />
                             </div>
@@ -192,7 +193,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 <p className="text-sm text-gray-500">{auctionData.category} • {auctionData.subCategory}</p>
                             </div>
                         </div>
-                        
+
                         {/* Auction Stats - More responsive grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div className="bg-gray-50 p-4 rounded-lg">
@@ -220,7 +221,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 </p>
                             </div>
                         </div>
-                        
+
                         {/* Auction Timeline - Better mobile layout */}
                         <div className="bg-gray-50 p-4 rounded-lg">
                             <h4 className="font-medium mb-4">Auction Timeline</h4>
@@ -239,15 +240,15 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* Winner Info / Current Leader */}
                         {isEnded && auctionData.auction?.winner ? (
                             <div className="border border-green-100 bg-green-50 p-4 rounded-lg">
                                 <h4 className="font-medium text-green-800 mb-4">Auction Winner</h4>
                                 <div className="flex items-center gap-3">
                                     {auctionData.auction.winner.buyer?.profileImage && (
-                                        <img 
-                                            src={auctionData.auction.winner.buyer.profileImage.url} 
+                                        <img
+                                            src={auctionData.auction.winner.buyer.profileImage.url}
                                             alt={`${auctionData.auction.winner.buyer.firstName} ${auctionData.auction.winner.buyer.lastName}`}
                                             className="w-10 h-10 rounded-full object-cover"
                                         />
@@ -268,8 +269,8 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 <h4 className="font-medium text-purple-800 mb-4">Current Leader</h4>
                                 <div className="flex items-center gap-3">
                                     {currentLeader.buyer?.profileImage && (
-                                        <img 
-                                            src={currentLeader.buyer.profileImage.url} 
+                                        <img
+                                            src={currentLeader.buyer.profileImage.url}
                                             alt={`${currentLeader.buyer.firstName} ${currentLeader.buyer.lastName}`}
                                             className="w-10 h-10 rounded-full object-cover"
                                         />
@@ -286,11 +287,11 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 </div>
                             </div>
                         ) : null}
-                        
+
                         {/* Rerun Auction Button for ended auctions */}
                         {canRerun && (
                             <div className="flex justify-center">
-                                <button 
+                                <button
                                     onClick={() => {
                                         onClose();
                                         setShowRerunDialog(true);
@@ -302,7 +303,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 </button>
                             </div>
                         )}
-                        
+
                         {/* Bid History - Responsive table */}
                         {auctionData.auction?.bids && auctionData.auction.bids.length > 0 && (
                             <div className="overflow-x-auto">
@@ -350,13 +351,12 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                                             <div className="text-sm text-gray-500">{formatDate(bid.createdAt)}</div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                                bid.status === 'won' ? 'bg-green-100 text-green-800' : 
-                                                                bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' : 
-                                                                'bg-gray-100 text-gray-800'
-                                                            }`}>
-                                                                {bid.status === 'won' ? 'Won' : 
-                                                                 bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bid.status === 'won' ? 'bg-green-100 text-green-800' :
+                                                                    bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' :
+                                                                        'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                {bid.status === 'won' ? 'Won' :
+                                                                    bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -367,7 +367,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                 </div>
                             </div>
                         )}
-                        
+
                         {/* Analytics - Responsive grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             <div className="bg-gray-50 p-4 rounded-lg">
@@ -405,7 +405,7 @@ AuctionPerformanceModal.propTypes = {
 const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting }) => {
     const [stockChange, setStockChange] = useState(0);
     const [operation, setOperation] = useState('add'); // 'add' or 'subtract'
-    
+
 
     // Modal style configuration
     const modalStyle = {
@@ -480,31 +480,29 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
 
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center gap-3">
-                                    <button 
+                                    <button
                                         onClick={handleStockIncreaseButton}
-                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
-                                            operation === 'add' 
-                                                ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]' 
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'add'
+                                                ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]'
                                                 : 'bg-gray-100 text-gray-600'
-                                        }`}
+                                            }`}
                                     >
                                         Add Stock
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={handleStockDecreaseButton}
-                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
-                                            operation === 'subtract' 
-                                                ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]' 
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'subtract'
+                                                ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]'
                                                 : 'bg-gray-100 text-gray-600'
-                                        }`}
+                                            }`}
                                     >
                                         Remove Stock
                                     </button>
                                 </div>
 
                                 <p className="text-sm text-gray-500 text-center">
-                                    {operation === 'add' 
-                                        ? `Adding stock will increase total to: ${item?.stock + stockChange}` 
+                                    {operation === 'add'
+                                        ? `Adding stock will increase total to: ${item?.stock + stockChange}`
                                         : `Removing stock will decrease total to: ${Math.max(0, item?.stock - stockChange)}`
                                     }
                                 </p>
@@ -533,23 +531,21 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                         }}
                                     />
                                     <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => setStockChange(prev => prev + 1)} 
-                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
-                                                operation === 'add' 
-                                                    ? 'bg-[#0BB248] text-white' 
+                                        <button
+                                            onClick={() => setStockChange(prev => prev + 1)}
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
+                                                    ? 'bg-[#0BB248] text-white'
                                                     : 'bg-[#DF0707] text-white'
-                                            }`}
+                                                }`}
                                         >
                                             <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
                                         </button>
-                                        <button 
-                                            onClick={() => setStockChange(prev => Math.max(0, prev - 1))} 
-                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
-                                                operation === 'add' 
-                                                    ? 'bg-[#0BB248] text-white' 
+                                        <button
+                                            onClick={() => setStockChange(prev => Math.max(0, prev - 1))}
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
+                                                    ? 'bg-[#0BB248] text-white'
                                                     : 'bg-[#DF0707] text-white'
-                                            }`}
+                                                }`}
                                             disabled={stockChange <= 0}
                                         >
                                             <Icon icon="solar:minus-circle-bold" className="w-6 h-6" />
@@ -567,11 +563,10 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                 Cancel
                             </button>
                             <button
-                                className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${
-                                    operation === 'add' 
-                                        ? 'bg-[#0BB248] hover:bg-[#0BB248]/80' 
+                                className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${operation === 'add'
+                                        ? 'bg-[#0BB248] hover:bg-[#0BB248]/80'
                                         : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
-                                }`}
+                                    }`}
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || stockChange <= 0}
                             >
@@ -610,13 +605,13 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
             });
-            
+
             if (response.status === 200) {
                 setProductData(response.data);
             }
@@ -667,7 +662,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                         Comprehensive information about this product
                     </DialogDescription>
                 </DialogHeader>
-                
+
                 {loading ? (
                     <div className="flex justify-center py-12">
                         <CircularProgress color="inherit" />
@@ -683,8 +678,8 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                         <div className="flex gap-6">
                             <div className="w-1/3">
                                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                                    <img 
-                                        src={productData.images[0]?.url} 
+                                    <img
+                                        src={productData.images[0]?.url}
                                         alt={productData.name}
                                         className="w-full h-full object-cover"
                                     />
@@ -692,7 +687,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                 <div className="grid grid-cols-3 gap-2 mt-2">
                                     {productData.images.slice(1).map((image, index) => (
                                         <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                                            <img 
+                                            <img
                                                 src={image.url}
                                                 alt={`${productData.name} ${index + 2}`}
                                                 className="w-full h-full object-cover"
@@ -705,11 +700,10 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                 <div>
                                     <h2 className="text-xl font-semibold">{productData.name}</h2>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className={`px-2 py-1 rounded-full text-xs ${
-                                            productData.status === 'active' 
-                                                ? 'bg-green-100 text-green-800' 
+                                        <span className={`px-2 py-1 rounded-full text-xs ${productData.status === 'active'
+                                                ? 'bg-green-100 text-green-800'
                                                 : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
+                                            }`}>
                                             {productData.status.charAt(0).toUpperCase() + productData.status.slice(1)}
                                         </span>
                                         <span className="text-sm text-gray-500">SKU: {productData.sku}</span>
@@ -735,7 +729,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                 </div>
                                 <div className="space-y-2">
                                     <p className="text-sm text-gray-500">Description</p>
-                                    <div className="text-sm prose prose-sm max-w-none overflow-auto max-h-[200px]" 
+                                    <div className="text-sm prose prose-sm max-w-none overflow-auto max-h-[200px]"
                                         dangerouslySetInnerHTML={{ __html: productData.description || '' }}>
                                     </div>
                                 </div>
@@ -932,9 +926,8 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 name="startDate"
                                 value={formData.startDate}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
-                                    formErrors.startDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                }`}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.startDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
                                 min={new Date().toISOString().slice(0, 16)}
                             />
                             {formErrors.startDate && (
@@ -953,9 +946,8 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                 value={formData.endDate}
                                 onChange={handleChange}
                                 required
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
-                                    formErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                }`}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
                                 min={new Date().toISOString().slice(0, 16)}
                             />
                             {formErrors.endDate && (
@@ -975,9 +967,8 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                     value={formData.minBid}
                                     onChange={handleChange}
                                     placeholder={`Previous: ₦${defaultValues?.minBid || 0}`}
-                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
-                                        formErrors.minBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                    }`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.minBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                        }`}
                                     min="0"
                                 />
                                 {formErrors.minBid && (
@@ -996,9 +987,8 @@ const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues 
                                     value={formData.maxBid}
                                     onChange={handleChange}
                                     placeholder={`Previous: ₦${defaultValues?.maxBid || 0}`}
-                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${
-                                        formErrors.maxBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                    }`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.maxBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                        }`}
                                     min="0"
                                 />
                                 {formErrors.maxBid && (
@@ -1080,18 +1070,18 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
     // Fetch complete product data with blips when modal opens
     const fetchProductWithBlips = useCallback(async () => {
         if (!productId) return;
-        
+
         setIsLoadingProduct(true);
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             const response = await axios.get(`${BASE_URL}/products/${productId}`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
             });
-            
+
             if (response.status === 200 && response.data) {
                 // Check if the returned product has blips
                 if (response.data.blips && Array.isArray(response.data.blips)) {
@@ -1119,7 +1109,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             if (product?.blips && Array.isArray(product.blips)) {
                 setExistingBlips(product.blips);
             }
-            
+
             // Then fetch the latest data from API to ensure we have the most recent blips
             fetchProductWithBlips();
         }
@@ -1129,7 +1119,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
         const files = Array.from(e.target.files);
         const validFiles = [];
         const newPreviewUrls = [];
-        
+
         // Validate each file
         files.forEach(file => {
             // Check if file is a video
@@ -1137,7 +1127,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                 toast.error(`${file.name} is not a video file`);
                 return;
             }
-            
+
             // Check file size (max 50MB)
             if (file.size > 50 * 1024 * 1024) {
                 toast.error(`${file.name} is too large (max 50MB)`);
@@ -1145,12 +1135,12 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
             }
 
             validFiles.push(file);
-            
+
             // Create preview URL
             const objectUrl = URL.createObjectURL(file);
             newPreviewUrls.push(objectUrl);
         });
-        
+
         // Check if adding these files would exceed limit of 5 total blips
         if (existingBlips.length + validFiles.length > 5) {
             toast.error(`You can only have a maximum of 5 blips per product. You currently have ${existingBlips.length}.`);
@@ -1166,7 +1156,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
     const handleRemoveFile = (index) => {
         // Revoke the URL to prevent memory leaks
         URL.revokeObjectURL(previewUrls[index]);
-        
+
         // Remove the file and preview
         setBlipVideos(prev => prev.filter((_, i) => i !== index));
         setPreviewUrls(prev => prev.filter((_, i) => i !== index));
@@ -1180,20 +1170,20 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
 
         setIsUploading(true);
         setUploadProgress(0);
-        
+
         try {
             const formData = new FormData();
             blipVideos.forEach(file => {
                 formData.append('blipVideos', file);
             });
-            
+
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             // Create upload request with progress tracking
             const response = await axios.post(
-                `${BASE_URL}/products/${productId}/blips`, 
-                formData, 
+                `${BASE_URL}/products/${productId}/blips`,
+                formData,
                 {
                     headers: {
                         Authorization: `Bearer ${tokenData.data}`,
@@ -1205,7 +1195,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                     }
                 }
             );
-            
+
             if (response.status === 201) {
                 toast.success(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`, {
                     style: {
@@ -1213,12 +1203,31 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         color: '#fff',
                     }
                 });
-                
+
                 // Update existing blips with new ones from response
                 if (response.data && response.data.blips) {
                     setExistingBlips(response.data.blips);
                 }
-                
+
+                const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+
+                trackEvent('blip_created', {
+                    sellerId: sellerDetails?._id,
+                    sellerName: sellerDetails?.firstName + ' ' + sellerDetails?.lastName,
+                    storeName: sellerDetails?.storeName,
+                    sellerEmail: sellerDetails?.email,
+                    sellerPhone: sellerDetails?.phoneNumber,
+                    sellerAddress: sellerDetails?.sellerAddress?.addressLine1,
+                    sellerCity: sellerDetails?.sellerAddress?.city,
+                    sellerState: sellerDetails?.sellerAddress?.state,
+                    sellerZip: sellerDetails?.sellerAddress?.zipCode,
+                    sellerCountry: sellerDetails?.sellerAddress?.country,
+                    productId: productId,
+                    productName: product?.name,
+                    productPrice: `₦${product?.price.toLocaleString('en-NG')}`,
+                    blipCount: blipVideos.length
+                });
+
                 // Clear the selected files
                 setBlipVideos([]);
                 setPreviewUrls([]);
@@ -1239,23 +1248,23 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
 
     const handleDeleteBlip = async (blipId) => {
         if (!blipId) return;
-        
+
         setIsDeleting(true);
         setDeletingBlipId(blipId);
-        
+
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             const response = await axios.delete(
-                `${BASE_URL}/products/${productId}/blips/${blipId}`, 
+                `${BASE_URL}/products/${productId}/blips/${blipId}`,
                 {
                     headers: {
                         Authorization: `Bearer ${tokenData.data}`
                     }
                 }
             );
-            
+
             if (response.status === 200) {
                 toast.success('Blip video deleted successfully', {
                     style: {
@@ -1263,7 +1272,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         color: '#fff',
                     }
                 });
-                
+
                 // Remove the deleted blip from the list
                 setExistingBlips(prev => prev.filter(blip => blip._id !== blipId));
             }
@@ -1304,11 +1313,11 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         Add up to 5 short video blips to showcase your product
                     </DialogDescription>
                 </DialogHeader>
-                
+
                 {/* Product Information */}
                 <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg my-4">
-                    <img 
-                        src={product?.images[0]?.url} 
+                    <img
+                        src={product?.images[0]?.url}
                         alt={product?.name}
                         className="w-16 h-16 rounded-lg object-cover"
                     />
@@ -1322,13 +1331,13 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         </p>
                     </div>
                 </div>
-                
+
                 {/* Existing Blips Section */}
                 {existingBlips.length > 0 ? (
                     <div className="space-y-3 mt-4">
                         <div className="flex justify-between items-center">
                             <h4 className="font-medium text-lg">Existing Blips</h4>
-                            <button 
+                            <button
                                 onClick={fetchProductWithBlips}
                                 disabled={isLoadingProduct}
                                 className="text-xs flex items-center gap-1 text-[#17171B] hover:text-[#17171B]/80"
@@ -1337,7 +1346,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 <span>Refresh</span>
                             </button>
                         </div>
-                        
+
                         {isLoadingProduct ? (
                             <div className="flex justify-center items-center py-8">
                                 <CircularProgress size={30} color="inherit" />
@@ -1347,9 +1356,9 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 {existingBlips.map((blip) => (
                                     <div key={blip._id} className="border rounded-lg p-3 relative">
                                         <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                            <VideoPlayer 
-                                                src={blip.url} 
-                                                poster={blip.thumbnail}  
+                                            <VideoPlayer
+                                                src={blip.url}
+                                                poster={blip.thumbnail}
                                                 style={{ borderRadius: 0, maxHeight: 360 }}
                                                 className="w-full h-full object-contain"
                                             />
@@ -1357,37 +1366,37 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                         <div className="flex justify-between items-center mt-2">
                                             <span className="text-xs text-gray-500">
                                                 <div className="flex items-center">
-                                                {/* Added date */}
-                                                <span>
-                                                    Added:&nbsp;{new Date(blip.createdAt).toLocaleDateString()}
-                                                </span>
-
-                                                {/* show only while NOT processed */}
-                                                {!blip.processed && (
-                                                    <span className="flex items-center gap-2 text-red-500 ml-5">
-                                                    {/* loader */}
-                                                    <svg
-                                                        className="h-4 w-4 animate-spin"
-                                                        viewBox="0 0 24 24"
-                                                        aria-hidden="true"
-                                                    >
-                                                        <circle
-                                                        className="opacity-25"
-                                                        cx="12" cy="12" r="10"
-                                                        stroke="currentColor" strokeWidth="4" fill="none"
-                                                        />
-                                                        <path
-                                                        className="opacity-75"
-                                                        fill="currentColor"
-                                                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-                                                        />
-                                                    </svg>
-                                                    <span>Processing…</span>
+                                                    {/* Added date */}
+                                                    <span>
+                                                        Added:&nbsp;{new Date(blip.createdAt).toLocaleDateString()}
                                                     </span>
-                                                )}
+
+                                                    {/* show only while NOT processed */}
+                                                    {!blip.processed && (
+                                                        <span className="flex items-center gap-2 text-red-500 ml-5">
+                                                            {/* loader */}
+                                                            <svg
+                                                                className="h-4 w-4 animate-spin"
+                                                                viewBox="0 0 24 24"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12" cy="12" r="10"
+                                                                    stroke="currentColor" strokeWidth="4" fill="none"
+                                                                />
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                                                                />
+                                                            </svg>
+                                                            <span>Processing…</span>
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </span>
-                                            <button 
+                                            <button
                                                 onClick={() => handleDeleteBlip(blip._id)}
                                                 disabled={isDeleting && deletingBlipId === blip._id}
                                                 className="text-red-500 hover:text-red-700 p-1"
@@ -1421,27 +1430,27 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                         )}
                     </div>
                 )}
-                
+
                 {/* Add New Blips Section */}
                 <div className="space-y-6 mt-6">
                     <h4 className="font-medium text-lg">Add New Blips {blipVideos.length > 0 ? `(${blipVideos.length})` : ''}</h4>
-                    
+
                     {/* Only show upload area if not at max capacity */}
                     {existingBlips.length < 5 ? (
-                        <div 
+                        <div
                             className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all
                                 ${blipVideos.length > 0 ? 'border-[#17171B]' : 'border-gray-300'}`}
                             onClick={handleTriggerFileInput}
                         >
-                            <input 
-                                type="file" 
+                            <input
+                                type="file"
                                 accept="video/*"
-                                className="hidden" 
+                                className="hidden"
                                 onChange={handleFileChange}
                                 ref={fileInputRef}
                                 multiple
                             />
-                            
+
                             <div className="text-center space-y-3">
                                 <Icon icon="solar:video-frame-bold" className="w-12 h-12 text-gray-400 mx-auto" />
                                 <div className="space-y-1">
@@ -1456,7 +1465,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                             <p className="text-center">You've reached the maximum limit of 5 blips for this product. Delete existing blips to add new ones.</p>
                         </div>
                     )}
-                    
+
                     {/* Selected Files Preview */}
                     {blipVideos.length > 0 && (
                         <div className="space-y-4">
@@ -1464,7 +1473,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {blipVideos.map((file, index) => (
                                     <div key={index} className="border rounded-lg p-3 relative">
-                                        <button 
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleRemoveFile(index);
@@ -1474,9 +1483,9 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                             <Icon icon="solar:close-circle-bold" className="w-6 h-6 text-gray-700" />
                                         </button>
                                         <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                                            <video 
-                                                src={previewUrls[index]} 
-                                                className="w-full h-full object-contain" 
+                                            <video
+                                                src={previewUrls[index]}
+                                                className="w-full h-full object-contain"
                                                 controls
                                             />
                                         </div>
@@ -1488,7 +1497,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                             </div>
                         </div>
                     )}
-                    
+
                     {isUploading && (
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
@@ -1498,12 +1507,12 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                             <Progress value={uploadProgress} className="h-2" />
                         </div>
                     )}
-                    
+
                     <div className="flex justify-end gap-3 pt-4">
                         <button
                             type="button"
                             onClick={handleClose}
-                            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-medium transition-all"
+                            className="px-6 py-2 border border-[#17171B] rounded-lg hover:bg-gray-200 font-medium transition-all"
                             disabled={isUploading || isDeleting}
                         >
                             {blipVideos.length > 0 || existingBlips.length > 0 ? 'Done' : 'Cancel'}
@@ -1513,7 +1522,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                 type="button"
                                 onClick={handleUpload}
                                 disabled={blipVideos.length === 0 || isUploading || isDeleting}
-                                className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                                className="px-6 py-2 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
                             >
                                 {isUploading ? (
                                     <>
@@ -1585,15 +1594,15 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const getTimeLeft = (auction) => {
         if (!auction) return 'N/A';
         if (auction.status === 'ended') return 'Ended';
-        
+
         const now = new Date();
         const end = new Date(auction.endDate);
         if (now > end) return 'Ended';
-        
+
         const diff = end - now;
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        
+
         if (days > 0) return `${days}d ${hours}h`;
         return `${hours}h`;
     };
@@ -1615,8 +1624,8 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         const params = {
             page: 1,
             limit: 10
-        }; 
-        dispatch(fetchSellerProducts(params)); 
+        };
+        dispatch(fetchSellerProducts(params));
     }, [dispatch]);
 
     console.log(item)
@@ -1665,14 +1674,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-            
+
             const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, formData, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`,
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.status === 200) {
                 toast.success("Auction rerun successfully", {
                     description: "Your auction has been rescheduled with the new settings",
@@ -1704,9 +1713,9 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     };
 
     // Check if the auction is ended and can be rerun
-    const canRerunAuction = isAuction && 
-                            item.auction?.status === 'ended' && 
-                            item.status === 'offline_auction';
+    const canRerunAuction = isAuction &&
+        item.auction?.status === 'ended' &&
+        item.status === 'offline_auction';
 
     // Desktop Card Layout
     const DesktopCard = () => (
@@ -1764,11 +1773,10 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 <div className="text-center">
                     <button
                         onClick={() => setOpenBlipUploadModal(true)}
-                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${
-                            item?.blips?.length > 0 
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${item?.blips?.length > 0
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                 : 'bg-red-100 text-red-600 hover:bg-red-200'
-                        }`}
+                            }`}
                         title="Blips are short promotional videos that showcase your product in action"
                     >
                         <BiPlayCircle className="w-4 h-4" />
@@ -1779,16 +1787,16 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             <div className="flex items-center gap-2">
                 {!isAuction && (
                     <>
-                        <button 
+                        <button
                             onClick={() => setOpenProductDetails(true)}
-                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200"
                             title="View detailed information about this product"
                         >
                             <Icon icon="solar:eye-bold" className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                             onClick={() => setOpenBlipUploadModal(true)}
-                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200" 
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200"
                             title="Upload a short promotional video for this product"
                         >
                             <BiPlayCircle className="w-4 h-4" />
@@ -1796,9 +1804,9 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     </>
                 )}
                 {isAuction && (
-                    <button 
+                    <button
                         onClick={() => setOpenAuctionModal(true)}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200" 
+                        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200"
                         title="View auction statistics and bidding history"
                     >
                         <Icon icon="solar:graph-bold" className="w-4 h-4" />
@@ -1806,7 +1814,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 )}
                 <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
                     <PopoverTrigger asChild>
-                        <button 
+                        <button
                             className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#17171B]/5 transition-all duration-200"
                             title="More actions"
                         >
@@ -1996,34 +2004,34 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 {DesktopCard()}
                 {MobileCard()}
             </div>
-            
+
             {/* Stock Update Modal */}
-            <StockUpdateModal 
-                open={openStockModal} 
-                onClose={() => setOpenStockModal(false)} 
+            <StockUpdateModal
+                open={openStockModal}
+                onClose={() => setOpenStockModal(false)}
                 item={item}
                 onUpdate={handleStockUpdate}
                 isSubmitting={isSubmitting}
             />
-            
+
             {/* Product Details Modal */}
-            <ProductDetailsModal 
-                open={openProductDetails} 
+            <ProductDetailsModal
+                open={openProductDetails}
                 onClose={() => setOpenProductDetails(false)}
                 productId={item._id}
                 handleDelete={() => setShowDeleteDialog(true)}
             />
-            
+
             {/* Auction Performance Modal */}
-            <AuctionPerformanceModal 
-                open={openAuctionModal} 
+            <AuctionPerformanceModal
+                open={openAuctionModal}
                 onClose={() => setOpenAuctionModal(false)}
                 auctionId={item._id}
                 setShowRerunDialog={setShowRerunDialog}
             />
-            
+
             {/* Rerun Auction Dialog */}
-            <RerunAuctionDialog 
+            <RerunAuctionDialog
                 open={showRerunDialog}
                 onClose={() => setShowRerunDialog(false)}
                 onSubmit={handleRerunAuction}
@@ -2034,7 +2042,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     startingBid: item.auction?.startingBid || item.price
                 }}
             />
-            
+
             {/* Blip Upload Modal */}
             <BlipUploadModal
                 open={openBlipUploadModal}
@@ -2042,7 +2050,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 productId={item._id}
                 product={item}
             />
-            
+
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent className="sm:max-w-[500px] max-w-[90vw] mx-auto">
@@ -2052,7 +2060,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                             Are you sure you want to delete this product? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="py-4 space-y-4">
                         <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
                             <img
@@ -2065,7 +2073,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 <p className="text-xs sm:text-sm text-gray-500">SKU: {item?.sku || 'N/A'}</p>
                             </div>
                         </div>
-                        
+
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
                             <h4 className="font-medium text-yellow-800 mb-2">What happens when you delete this product?</h4>
                             <ul className="list-disc pl-5 space-y-1 text-yellow-700">
@@ -2078,7 +2086,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 )}
                             </ul>
                         </div>
-                        
+
                         <div className="flex gap-3 justify-end pt-2">
                             <button
                                 onClick={() => setShowDeleteDialog(false)}
