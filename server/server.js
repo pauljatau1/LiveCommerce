@@ -2,7 +2,7 @@ require('dotenv').config();
 const { app, server } = require('./src/app');
 const connectDB = require('./src/config/database');
 const logger = require('./src/utils/logger');
-const { startAgenda } = require('./src/config/agenda');
+const { startAgenda, isAgendaInitialized } = require('./src/config/agenda');
 
 const PORT = process.env.PORT || 8000;
 
@@ -34,8 +34,13 @@ const startServer = async () => {
     // Start Agenda after MongoDB connection
     try {
       console.log('Starting Agenda job scheduler...');
-      await startAgenda();
-      logger.info('Agenda started successfully');
+      const agendaStarted = await startAgenda();
+      
+      if (agendaStarted && isAgendaInitialized()) {
+        logger.info('Agenda started and initialized successfully');
+      } else {
+        logger.error('Agenda may not be properly initialized');
+      }
     } catch (agendaError) {
       logger.error(`Failed to start Agenda: ${agendaError.message}`);
       console.error('Agenda error but continuing server startup:', agendaError.message);

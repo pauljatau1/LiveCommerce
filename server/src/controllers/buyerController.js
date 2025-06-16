@@ -3124,12 +3124,35 @@ exports.getSellersToFollow = async (req, res) => {
         sortOptions = { 'stats.averageRating': -1 };
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Execute query with pagination
-    const [sellers, total] = await Promise.all([
-      Seller.find(query)
+    // Get total count for randomization
+    const total = await Seller.countDocuments(query);
+    const parsedLimit = parseInt(limit);
+    
+    // Determine if we should randomize (only if we have more sellers than the limit)
+    const shouldRandomize = total > parsedLimit;
+    
+    let sellers;
+    if (shouldRandomize) {
+      // Random skip for randomization
+      const maxSkip = total - parsedLimit;
+      const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
+      
+      // Execute query with random skip for pagination
+      sellers = await Seller.find(query)
+        .select(`
+          storeName businessName aboutStore storeAvatar 
+          categories stats followers isVerified isFeatured 
+          createdAt
+        `)
+        .skip(randomSkip)
+        .limit(parsedLimit)
+        .lean();
+    } else {
+      // Calculate regular pagination skip
+      const skip = (parseInt(page) - 1) * parsedLimit;
+      
+      // Execute query with regular pagination
+      sellers = await Seller.find(query)
         .select(`
           storeName businessName aboutStore storeAvatar 
           categories stats followers isVerified isFeatured 
@@ -3137,13 +3160,15 @@ exports.getSellersToFollow = async (req, res) => {
         `)
         .sort(sortOptions)
         .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Seller.countDocuments(query)
-    ]);
+        .limit(parsedLimit)
+        .lean();
+    }
 
+    // Shuffle the sellers for additional randomization
+    const shuffledSellers = [...sellers].sort(() => 0.5 - Math.random());
+    
     // Transform seller data
-    const transformedSellers = sellers.map(seller => ({
+    const transformedSellers = shuffledSellers.map(seller => ({
       _id: seller._id,
       storeName: seller.storeName || seller.businessName || "Shop", // Default to "Shop" if no name available
       businessName: seller.businessName,
@@ -3160,14 +3185,19 @@ exports.getSellersToFollow = async (req, res) => {
       createdAt: seller.createdAt
     }));
 
+    // Calculate pagination values for response
+    const parsedPage = parseInt(page);
+    const pages = Math.ceil(total / parsedLimit);
+    const skip = shouldRandomize ? 0 : (parsedPage - 1) * parsedLimit; // For randomized results, skip is conceptually 0
+    
     // Return response with pagination
     res.json({
       sellers: transformedSellers,
       pagination: {
         total,
-        pages: Math.ceil(total / parseInt(limit)),
-        current: parseInt(page),
-        hasMore: skip + transformedSellers.length < total
+        pages,
+        current: parsedPage,
+        hasMore: shouldRandomize ? transformedSellers.length < total : skip + transformedSellers.length < total
       }
     });
 

@@ -660,22 +660,7 @@ agenda.define('create-auction-winner-order', async (job) => {
 
     console.log('Starting create-auction-winner-order job for product:', productId);
 
-    // Check if an order already exists for this auction
-    const existingOrder = await Order.findOne({ 
-      channel: 'auction',
-      'items.product': productId
-    });
-    
-    if (existingOrder) {
-      console.log('Order already exists for auction product:', {
-        productId,
-        orderId: existingOrder._id,
-        orderStatus: existingOrder.items[0].status
-      });
-      return;
-    }
-
-    // Fetch the product with populated winner and seller data
+    // Fetch the product first to get the auction end date
     const product = await Product.findById(productId)
       .populate('auction.winner.buyer')
       .populate('seller');
@@ -706,6 +691,31 @@ agenda.define('create-auction-winner-order', async (job) => {
       return;
     }
 
+    // Get the auction end date to use in the order check
+    const auctionEndDate = product.auction.winner.winningDate || product.auction.endDate;
+    
+    // Create a unique ID for this auction run
+    const auctionRunId = `${productId}-${auctionEndDate.getTime()}`;
+    
+    console.log(`Checking for existing orders for auction run ID: ${auctionRunId}`);
+    
+    // Check if an order already exists for this specific auction run
+    const existingOrder = await Order.findOne({ 
+      channel: 'auction',
+      'items.product': productId,
+      'metadata.auctionRunId': auctionRunId
+    });
+    
+    if (existingOrder) {
+      console.log('Order already exists for this auction run:', {
+        productId,
+        orderId: existingOrder._id,
+        orderStatus: existingOrder.items[0].status,
+        auctionRunId
+      });
+      return;
+    }
+
     const buyer = product.auction.winner.buyer;
     const seller = product.seller;
     const bidAmount = product.auction.winner.bidAmount;
@@ -714,7 +724,8 @@ agenda.define('create-auction-winner-order', async (job) => {
       buyer: buyer._id,
       seller: seller._id,
       product: product._id,
-      bidAmount
+      bidAmount,
+      auctionEndDate
     });
 
     // Default shipping fee of 1000 as requested
@@ -824,6 +835,14 @@ agenda.define('create-auction-winner-order', async (job) => {
           zip: ''
         })
       },
+      buyerDetails: {
+        _id: freshBuyer._id,
+        firstName: freshBuyer.firstName,
+        lastName: freshBuyer.lastName,
+        email: freshBuyer.email,
+        phoneNumber: freshBuyer.phoneNumber,
+        profileImage: freshBuyer.profileImage
+      },
       shipping: {
         method: 'standard',
         fee: {
@@ -840,6 +859,10 @@ agenda.define('create-auction-winner-order', async (job) => {
         status: 'paid',
         paymentReference,
         paidAt: new Date()
+      },
+      metadata: {
+        auctionEndDate: auctionEndDate,
+        auctionRunId: auctionRunId // Add a unique ID for this auction run
       }
     });
 
@@ -2217,9 +2240,116 @@ agenda.define('send_unpaid_order_warning', async (job) => {
   }
 });
 
+// Define the job for stream auto end
+agenda.define('stream_auto_end', async (job) => {
+  let streamId;
+  try {
+    const { streamId: jobStreamId, sellerId, jobId, reason } = job.attrs.data;
+    streamId = jobStreamId;
+
+    console.log(`[AGENDA] Running stream auto-end job ${jobId} for streamId: ${streamId}, reason: ${reason}`);
+
+    // Get the Stream model to check if the stream is still live
+    const Stream = require('../models/Stream');
+
+    // Use findOneAndUpdate to get and mark the stream as processing in one atomic operation
+    // This creates a "lock" to prevent other jobs from processing the same stream
+    const stream = await Stream.findOneAndUpdate(
+      { _id: streamId, status: 'live' },
+      { $set: { processingEndJob: true } },
+      { new: false } // Return the document as it was before the update
+    );
+
+    if (!stream) {
+      console.log(`[AGENDA] Stream ${streamId} not found or not live, cancelling auto-end job`);
+      return;
+    }
+
+    // If stream was already marked as processing, another job is handling it
+    if (stream.processingEndJob) {
+      console.log(`[AGENDA] Stream ${streamId} is already being processed by another job, skipping`);
+      return;
+    }
+
+    // Get seller ID from the stream if not provided
+    const streamSellerId = sellerId || stream.seller.toString();
+
+    // Check if the seller has reconnected and has an active socket connection
+    const socketManager = require('../socket/socketManager');
+    const activeUsers = socketManager.getActiveUsers();
+
+    if (activeUsers && activeUsers.has(streamSellerId)) {
+      console.log(`[AGENDA] Seller ${streamSellerId} has reconnected, cancelling auto-end job`);
+      // Remove the processing flag since we're not ending the stream
+      await Stream.updateOne(
+        { _id: streamId },
+        { $unset: { processingEndJob: 1 } }
+      );
+      return;
+    }
+
+    // Create a streamController instance to directly call the endStream method
+    const streamController = require('../controllers/streamController');
+
+    // Create mock request and response objects
+    const mockReq = {
+      params: { streamId },
+      user: { id: streamSellerId },
+      io: socketManager.getIO()
+    };
+
+    const mockRes = {
+      status: function(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json: function(data) {
+        console.log(`[AGENDA] Stream auto-end response: ${JSON.stringify(data)}`);
+        return this;
+      }
+    };
+
+    // Call the endStream controller method directly
+    await streamController.endStream(mockReq, mockRes);
+
+    console.log(`[AGENDA] Successfully ended stream ${streamId} due to timeout after seller ${streamSellerId} disconnected`);
+  } catch (error) {
+    console.error('[AGENDA] Error in stream_auto_end job:', error);
+  } finally {
+    // Make sure we clear the processing flag if something went wrong
+    if (streamId) {
+      try {
+        const Stream = require('../models/Stream');
+        await Stream.updateOne(
+          { _id: streamId, processingEndJob: true },
+          { $unset: { processingEndJob: 1 } }
+        );
+      } catch (cleanupError) {
+        console.error('[AGENDA] Error cleaning up processing flag:', cleanupError);
+      }
+    }
+  }
+});
+
+// Add a function to check if agenda is initialized
+const isAgendaInitialized = () => {
+  if (!agenda) {
+    console.error('Agenda is not initialized');
+    return false;
+  }
+  return true;
+};
+
 // Start Agenda
 const startAgenda = async () => {
   try {
+    console.log('Starting Agenda job scheduler...');
+    
+    if (!agenda) {
+      console.error('Agenda instance is null or undefined');
+      throw new Error('Agenda instance is not available');
+    }
+    
     await agenda.start();
     console.log('Agenda started successfully');
 
@@ -2246,103 +2376,20 @@ const startAgenda = async () => {
     await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
     console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
 
-    // Stream Auto End job
-    agenda.define('stream_auto_end', async (job) => {
-      let streamId;
-      try {
-        const { streamId: jobStreamId, sellerId, jobId, reason } = job.attrs.data;
-        streamId = jobStreamId;
-        
-        console.log(`[AGENDA] Running stream auto-end job ${jobId} for streamId: ${streamId}, reason: ${reason}`);
-        
-        // Get the Stream model to check if the stream is still live
-        const Stream = require('../models/Stream');
-        
-        // Use findOneAndUpdate to get and mark the stream as processing in one atomic operation
-        // This creates a "lock" to prevent other jobs from processing the same stream
-        const stream = await Stream.findOneAndUpdate(
-          { _id: streamId, status: 'live' },
-          { $set: { processingEndJob: true } },
-          { new: false } // Return the document as it was before the update
-        );
-        
-        if (!stream) {
-          console.log(`[AGENDA] Stream ${streamId} not found or not live, cancelling auto-end job`);
-          return;
-        }
-        
-        // If stream was already marked as processing, another job is handling it
-        if (stream.processingEndJob) {
-          console.log(`[AGENDA] Stream ${streamId} is already being processed by another job, skipping`);
-          return;
-        }
-        
-        // Get seller ID from the stream if not provided
-        const streamSellerId = sellerId || stream.seller.toString();
-        
-        // Check if the seller has reconnected and has an active socket connection
-        const socketManager = require('../socket/socketManager');
-        const activeUsers = socketManager.getActiveUsers();
-        
-        if (activeUsers && activeUsers.has(streamSellerId)) {
-          console.log(`[AGENDA] Seller ${streamSellerId} has reconnected, cancelling auto-end job`);
-          // Remove the processing flag since we're not ending the stream
-          await Stream.updateOne(
-            { _id: streamId },
-            { $unset: { processingEndJob: 1 } }
-          );
-          return;
-        }
-        
-        // Create a streamController instance to directly call the endStream method
-        const streamController = require('../controllers/streamController');
-        
-        // Create mock request and response objects
-        const mockReq = {
-          params: { streamId },
-          user: { id: streamSellerId },
-          io: socketManager.getIO()
-        };
-        
-        const mockRes = {
-          status: function(code) {
-            this.statusCode = code;
-            return this;
-          },
-          json: function(data) {
-            console.log(`[AGENDA] Stream auto-end response: ${JSON.stringify(data)}`);
-            return this;
-          }
-        };
-        
-        // Call the endStream controller method directly
-        await streamController.endStream(mockReq, mockRes);
-        
-        console.log(`[AGENDA] Successfully ended stream ${streamId} due to timeout after seller ${streamSellerId} disconnected`);
-      } catch (error) {
-        console.error('[AGENDA] Error in stream_auto_end job:', error);
-      } finally {
-        // Make sure we clear the processing flag if something went wrong
-        if (streamId) {
-          try {
-            const Stream = require('../models/Stream');
-            await Stream.updateOne(
-              { _id: streamId, processingEndJob: true },
-              { $unset: { processingEndJob: 1 } }
-            );
-          } catch (cleanupError) {
-            console.error('[AGENDA] Error cleaning up processing flag:', cleanupError);
-          }
-        }
-      }
-    });
+    console.log('All agenda jobs scheduled successfully');
+    return true;
   } catch (error) {
     console.error('Failed to start Agenda:', error);
+    return false;
   }
 };
+
+
+
 
 // Export agenda instance and startAgenda function
 module.exports = {
   agenda,
-  startAgenda
+  startAgenda,
+  isAgendaInitialized
 }; 

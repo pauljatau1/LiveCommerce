@@ -1432,20 +1432,54 @@ exports.getBuyerFeedProducts = async (req, res) => {
   }
 };
 
-// Get trending products based on review count and ratings
+// Get trending products based on orders and view count with randomization
 exports.getTrendingProducts = async (req, res) => {
   try {
-    const products = await Product.find({ 
-      status: 'active', 
+    // Define the trending product query
+    const trendingQuery = {
+      status: 'active',
       visibility: 'visible',
-      status: { $ne: 'offline_auction' }
-    })
-      .sort({ 'analytics.views': -1, 'analytics.likes': -1 })
-      .limit(10)
+      $or: [
+        { 'analytics.views': { $gt: 10 } },
+        { 'analytics.orderCount': { $gt: 0 } }
+      ]
+    };
+
+    // Define the fallback query for any active and visible products
+    const fallbackQuery = {
+      status: 'active',
+      visibility: 'visible'
+    };
+
+    // First, try to get the count of trending products
+    let productCount = await Product.countDocuments(trendingQuery);
+
+    // Decide which query to use
+    let queryToUse = trendingQuery;
+    if (productCount === 0) {
+      // If no trending products, use the fallback query
+      queryToUse = fallbackQuery;
+      productCount = await Product.countDocuments(fallbackQuery);
+    }
+
+    // Limit to max 20 products
+    const limit = Math.min(20, productCount);
+    
+    // Skip a random number of documents for randomization
+    const skip = productCount > limit ? 
+      Math.floor(Math.random() * (productCount - limit)) : 0;
+    
+    // Fetch the products
+    const products = await Product.find(queryToUse)
+      .skip(skip)
+      .limit(limit)
       .populate('seller', sellerPopulationFields);
 
+    // Shuffle the results for additional randomization
+    const shuffledProducts = products.sort(() => 0.5 - Math.random());
+    
     // Add review stats data to each product
-    const productsWithStats = products.map(product => {
+    const productsWithStats = shuffledProducts.map(product => {
       const productObj = product.toObject();
       return {
         ...productObj,
@@ -2214,59 +2248,85 @@ exports.getSellerBlips = async (req, res) => {
 
 // Get suggested blips based on user preferences or popular blips
 exports.getSuggestedBlips = async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  
-  // Check if user is authenticated
-  const buyerId = req.user?.id;
-  const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
-
   try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+    
+    // Check if user is authenticated
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+    
     console.log('Starting getSuggestedBlips aggregation...');
     
-    let matchStage = { 
+    // Define match stages
+    const primaryMatchStage = {
       blips: { $exists: true, $ne: [] },
-      blips: { $elemMatch: { processed: true } },  // at least one processed blip
+      blips: { $elemMatch: { processed: true } },
       $nor: [
         {
-          status: 'offline_auction', 
+          status: 'offline_auction',
           'auction.status': 'ended'
         }
       ]
     };
     
-    // If user is authenticated, get their preferred categories
-    let preferredCategories = [];
+    const fallbackMatchStage = {
+      blips: { $exists: true, $ne: [] }
+    };
+    
+    // Get buyer's preferred categories and followed sellers if authenticated
+    let buyerCategories = [];
+    let followedSellers = [];
     if (isAuthenticated) {
-      console.log(`Getting preferred categories for buyer: ${buyerId}`);
-      const buyer = await mongoose.model('Buyer').findById(buyerId).select('selectedCategories');
+      console.log(`Getting preferences for buyer: ${buyerId}`);
+      const buyer = await mongoose.model('Buyer').findById(buyerId).select('selectedCategories following');
       
       if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-        preferredCategories = buyer.selectedCategories.map(cat => cat.name);
-        console.log(`Found preferred categories: ${preferredCategories.join(', ')}`);
-        
-        if (preferredCategories.length > 0) {
-          matchStage.category = { $in: preferredCategories };
-        }
+        buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
+          acc.push(cat.name);
+          if (cat.subCategories) {
+            acc.push(...cat.subCategories.map(sub => sub.name));
+          }
+          return acc;
+        }, []);
+        console.log(`Found preferred categories: ${buyerCategories.join(', ')}`);
       } else {
         console.log('No preferred categories found for buyer');
       }
+      
+      if (buyer && buyer.following) {
+        followedSellers = buyer.following.map(follow => follow.sellerId.toString());
+        console.log(`Found followed sellers: ${followedSellers.length}`);
+      }
     }
     
-    // Default sorting will be based on popularity if no specific categories are available
-    const sortStage = preferredCategories.length > 0 
-      ? { createdAt: -1 } // Newest first for category-matched content
-      : { 'blipEngagement.viewCount': -1, 'blipEngagement.likesCount': -1 }; // Most popular based on views and likes
+    // Get total count for primary match stage
+    let total = await mongoose.model('Product').countDocuments(primaryMatchStage);
+    const poolSize = Math.max(10, Math.min(total, limit * 3));
     
-    // Get all potential blips - we'll filter for unique sellers in JS
-    const allBlips = await mongoose.model('Product').aggregate([
-      // Match products that have blips (and match category if authenticated)
-      { $match: matchStage },
-      // Unwind the blips array
-      { $unwind: '$blips' },
-      // keep only the processed ones
-      { $match: { 'blips.processed': true } },
-      // Lookup seller information
+    const now = new Date();
+    
+    // Common pipeline stages
+    const commonPipeline = [
+      {
+        $addFields: {
+          randomScore: { $rand: {} },
+          daysSinceCreation: {
+            $divide: [
+              { $subtract: [now, { $ifNull: ["$blips.createdAt", now] }] },
+              1000 * 60 * 60 * 24
+            ]
+          },
+          engagementScore: {
+            $add: [
+              { $ifNull: ["$blips.viewCount", 0] },
+              { $multiply: [{ $size: { $ifNull: ["$blips.likes", []] } }, 5] },
+              { $multiply: [{ $size: { $ifNull: ["$blips.comments", []] } }, 10] }
+            ]
+          }
+        }
+      },
       {
         $lookup: {
           from: 'sellers',
@@ -2276,7 +2336,6 @@ exports.getSuggestedBlips = async (req, res) => {
         }
       },
       { $unwind: '$sellerInfo' },
-      // Lookup auction bidder information
       {
         $lookup: {
           from: 'buyers',
@@ -2285,10 +2344,11 @@ exports.getSuggestedBlips = async (req, res) => {
           as: 'highestBidder'
         }
       },
-      // Project needed fields
+      { $sort: { randomScore: -1 } },
+      { $limit: poolSize },
       {
         $project: {
-          _id: '$_id', // This is the product ID
+          _id: '$_id',
           blipId: '$blips._id',
           blipUrl: '$blips.url',
           processed: '$blips.processed',
@@ -2433,57 +2493,241 @@ exports.getSuggestedBlips = async (req, res) => {
               else: 0
             }
           },
-          createdAt: '$blips.createdAt'
+          createdAt: '$blips.createdAt',
+          daysSinceCreation: 1,
+          engagementScore: 1
         }
-      },
-      // Sort by popularity or recency
-      { $sort: sortStage }
-    ]);
-
-    // Filter to ensure unique sellers
-    const uniqueSellerBlips = [];
-    const seenSellerIds = new Set();
+      }
+    ];
     
-    for (const blip of allBlips) {
-      const sellerId = blip.seller._id.toString();
-      if (!seenSellerIds.has(sellerId)) {
-        uniqueSellerBlips.push(blip);
-        seenSellerIds.add(sellerId);
+    // Primary pipeline
+    const primaryPipeline = [
+      { $match: primaryMatchStage },
+      { $unwind: '$blips' },
+      { $match: { 'blips.processed': true } },
+      ...commonPipeline
+    ];
+    
+    // Fetch blips with primary criteria
+    let allBlips = await mongoose.model('Product').aggregate(primaryPipeline);
+    
+    // Fallback if no blips are found
+    if (allBlips.length === 0) {
+      console.log('No processed blips found, falling back to all blips');
+      total = await mongoose.model('Product').countDocuments(fallbackMatchStage);
+      const fallbackPipeline = [
+        { $match: fallbackMatchStage },
+        { $unwind: '$blips' },
+        ...commonPipeline
+      ];
+      allBlips = await mongoose.model('Product').aggregate(fallbackPipeline);
+    }
+    
+    // Handle case when no blips are found (should be rare with fallback)
+    if (allBlips.length === 0) {
+      return res.json({
+        blips: [],
+        isPersonalized: buyerCategories.length > 0,
+        currentPage: page,
+        totalPages: 0,
+        totalBlips: 0
+      });
+    }
+    
+    // Process blips with additional metadata for categorization
+    const transformedBlips = allBlips.map(blip => {
+      const isInBuyerCategory = buyerCategories.length > 0 && 
+        (buyerCategories.includes(blip.category) || buyerCategories.includes(blip.subCategory));
+      const isFollowingSeller = followedSellers.includes(blip.seller._id.toString());
+      
+      blip._metadata = {
+        isInBuyerCategory,
+        isFollowingSeller: isFollowingSeller || blip.seller.isFollowing,
+        engagementScore: blip.engagementScore,
+        daysSinceCreation: blip.daysSinceCreation,
+        isNewBlip: blip.daysSinceCreation < 7,
+        isLowView: (blip.blipEngagement.viewCount || 0) < 50,
+        sellerId: blip.seller._id.toString()
+      };
+      
+      delete blip.daysSinceCreation;
+      delete blip.engagementScore;
+      
+      return blip;
+    });
+    
+    // Categorize blips
+    const categorizedBlips = {
+      newInBuyerCategory: [],
+      followedSellers: [],
+      highEngagement: [],
+      undiscovered: [],
+      random: []
+    };
+    
+    transformedBlips.forEach(blip => {
+      const meta = blip._metadata;
+      delete blip._metadata;
+      
+      if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
+        categorizedBlips.newInBuyerCategory.push(blip);
+      } else if (isAuthenticated && meta.isFollowingSeller) {
+        categorizedBlips.followedSellers.push(blip);
+      } else if (meta.engagementScore > 100) {
+        categorizedBlips.highEngagement.push(blip);
+      } else if (meta.isLowView) {
+        categorizedBlips.undiscovered.push(blip);
+      } else {
+        categorizedBlips.random.push(blip);
+      }
+    });
+    
+    // Shuffle each category
+    Object.keys(categorizedBlips).forEach(category => {
+      const array = categorizedBlips[category];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    });
+    
+    // Distribute blips
+    const rearrangedBlips = [];
+    const sellerTracker = new Map();
+    const productTracker = new Map();
+    const minSellerDistance = 3;
+    
+    const addBlipsFromCategory = (category, count) => {
+      let added = 0;
+      let index = 0;
+      
+      while (added < count && index < categorizedBlips[category].length) {
+        const blip = categorizedBlips[category][index];
+        const sellerId = blip.seller._id.toString();
+        const productId = blip.productId.toString();
+        
+        if (productTracker.has(productId)) {
+          index++;
+          continue;
+        }
+        
+        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
+        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
+          rearrangedBlips.push(blip);
+          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
+          productTracker.set(productId, true);
+          categorizedBlips[category].splice(index, 1);
+          added++;
+        } else {
+          index++;
+        }
+        
+        if (index >= categorizedBlips[category].length && added < count && categorizedBlips[category].length > 0) {
+          index = 0;
+          const blip = categorizedBlips[category][0];
+          rearrangedBlips.push(blip);
+          sellerTracker.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
+          productTracker.set(blip.productId.toString(), true);
+          categorizedBlips[category].splice(0, 1);
+          added++;
+        }
+      }
+      
+      return added;
+    };
+    
+    const totalNeeded = limit;
+    let remaining = totalNeeded;
+    
+    const categoryOrder = [
+      'newInBuyerCategory',
+      'highEngagement',
+      'followedSellers',
+      'undiscovered',
+      'random'
+    ];
+    
+    for (const category of categoryOrder) {
+      if (remaining > 0 && categorizedBlips[category].length > 0) {
+        const toAdd = Math.min(1, remaining, categorizedBlips[category].length);
+        const added = addBlipsFromCategory(category, toAdd);
+        remaining -= added;
       }
     }
-
-    // Apply pagination after ensuring unique sellers
-    const totalBlips = uniqueSellerBlips.length;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedBlips = uniqueSellerBlips.slice(startIndex, endIndex);
-
-    console.log(`Found ${paginatedBlips.length} suggested blips with unique sellers`);
-
-    // Process blips to add isFollowing property
-    const processedBlips = paginatedBlips.map(blip => {
-      // Create a new object without the followers array
-      const { seller, ...rest } = blip;
+    
+    while (remaining > 0) {
+      let addedAny = false;
       
-      // Return the processed blip
-      return {
-        ...rest,
-        seller
-      };
-    });
-
-    console.log(`Total suggested blips count (unique sellers): ${totalBlips}`);
-
+      for (const category of categoryOrder) {
+        if (remaining > 0 && categorizedBlips[category].length > 0) {
+          const toAdd = Math.min(5, remaining, categorizedBlips[category].length);
+          const added = addBlipsFromCategory(category, toAdd);
+          remaining -= added;
+          if (added > 0) addedAny = true;
+        }
+      }
+      
+      if (!addedAny) break;
+    }
+    
+    if (remaining > 0) {
+      const allRemaining = [].concat(...Object.values(categorizedBlips));
+      for (let i = allRemaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allRemaining[i], allRemaining[j]] = [allRemaining[j], allRemaining[i]];
+      }
+      
+      let index = 0;
+      while (remaining > 0 && index < allRemaining.length) {
+        const blip = allRemaining[index];
+        const sellerId = blip.seller._id.toString();
+        const productId = blip.productId.toString();
+        
+        if (productTracker.has(productId)) {
+          index++;
+          continue;
+        }
+        
+        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
+        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
+          rearrangedBlips.push(blip);
+          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
+          productTracker.set(productId, true);
+          remaining--;
+        }
+        
+        index++;
+        
+        if (index >= allRemaining.length && remaining > 0 && allRemaining.length > 0) {
+          for (let i = 0; i < allRemaining.length; i++) {
+            const blip = allRemaining[i];
+            if (!productTracker.has(blip.productId.toString())) {
+              rearrangedBlips.push(blip);
+              productTracker.set(blip.productId.toString(), true);
+              remaining--;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`Found ${rearrangedBlips.length} suggested blips with distribution algorithm`);
+    
     res.json({
-      blips: processedBlips,
-      isPersonalized: preferredCategories.length > 0,
+      blips: rearrangedBlips,
+      isPersonalized: buyerCategories.length > 0,
       currentPage: page,
-      totalPages: Math.ceil(totalBlips / limit),
-      totalBlips
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
     });
   } catch (error) {
     console.error('Detailed error in getSuggestedBlips:', error);
-    res.status(500).json({ message: 'Failed to retrieve suggested blips', error: error.message });
+    res.status(500).json({ 
+      status: false,
+      message: 'Failed to retrieve suggested blips', 
+      error: error.message 
+    });
   }
 };
 
@@ -3382,18 +3626,23 @@ exports.getPersonalizedProducts = async (req, res) => {
       'stats.averageRating': order === 'desc' ? -1 : 1
     };
 
-    // Try to get category-specific products first
-    let products = await Product.find(categoryQuery)
-      .sort({ [sortBy]: sortOptions[sortBy] })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
-      .populate('seller', sellerPopulationFields)
-      .populate('reviews.buyer', 'firstName lastName');
-
-    // If no products found in preferred categories, get regular products
-    if (products.length === 0) {
-      console.log('No products found in preferred categories, fetching regular products');
-      products = await Product.find(baseQuery)
+    // Get total count for randomization
+    const categoryCount = await Product.countDocuments(categoryQuery);
+    const shouldRandomize = categoryCount > parseInt(limit);
+    
+    // Try to get category-specific products first with randomization
+    let products;
+    if (shouldRandomize) {
+      // Random skip for category-specific products
+      const randomSkip = Math.floor(Math.random() * (categoryCount - parseInt(limit) + 1));
+      products = await Product.find(categoryQuery)
+        .skip(randomSkip)
+        .limit(parseInt(limit))
+        .populate('seller', sellerPopulationFields)
+        .populate('reviews.buyer', 'firstName lastName');
+    } else {
+      // Use original sort if not enough products for randomization
+      products = await Product.find(categoryQuery)
         .sort({ [sortBy]: sortOptions[sortBy] })
         .skip((page - 1) * limit)
         .limit(parseInt(limit))
@@ -3401,13 +3650,41 @@ exports.getPersonalizedProducts = async (req, res) => {
         .populate('reviews.buyer', 'firstName lastName');
     }
 
+    // If no products found in preferred categories, get regular products
+    if (products.length === 0) {
+      console.log('No products found in preferred categories, fetching regular products');
+      const baseCount = await Product.countDocuments(baseQuery);
+      const shouldRandomizeBase = baseCount > parseInt(limit);
+      
+      if (shouldRandomizeBase) {
+        // Random skip for base products
+        const randomSkip = Math.floor(Math.random() * (baseCount - parseInt(limit) + 1));
+        products = await Product.find(baseQuery)
+          .skip(randomSkip)
+          .limit(parseInt(limit))
+          .populate('seller', sellerPopulationFields)
+          .populate('reviews.buyer', 'firstName lastName');
+      } else {
+        // Use original sort if not enough products for randomization
+        products = await Product.find(baseQuery)
+          .sort({ [sortBy]: sortOptions[sortBy] })
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit))
+          .populate('seller', sellerPopulationFields)
+          .populate('reviews.buyer', 'firstName lastName');
+      }
+    }
+
     // Get total count based on which query was successful
     const total = products.length > 0 
       ? await Product.countDocuments(categoryQuery)
       : await Product.countDocuments(baseQuery);
       
+    // Shuffle the products for additional randomization
+    const shuffledProducts = [...products].sort(() => 0.5 - Math.random());
+    
     // Add review stats data to each product
-    const productsWithStats = products.map(product => {
+    const productsWithStats = shuffledProducts.map(product => {
       const productObj = product.toObject();
       return {
         ...productObj,
@@ -5467,6 +5744,8 @@ exports.getBuyerBids = async (req, res) => {
 agenda.define('end-auction', async (job) => {
   try {
     const { productId } = job.attrs.data;
+    console.log(`Starting end-auction job for product: ${productId}`);
+    
     const Product = mongoose.model('Product');
     const Buyer = mongoose.model('Buyer');
     const sgMail = require('@sendgrid/mail');
@@ -5482,11 +5761,20 @@ agenda.define('end-auction', async (job) => {
       return;
     }
     
+    console.log(`Found product for end-auction job: ${productId}`, {
+      productName: product.name,
+      auctionStatus: product.auction.status,
+      hasCurrentHighestBid: !!product.auction.currentHighestBid?.buyer,
+      hasWinner: !!product.auction.winner?.buyer
+    });
+    
     let winner;
     
     // Only call endAuction if the auction is still ongoing
     if (product.auction.status === 'ongoing') {
+      console.log(`Ending ongoing auction for product: ${productId}`);
       winner = await product.endAuction();
+      console.log(`Auction ended, winner set:`, winner ? 'Yes' : 'No');
     } else if (product.auction.status === 'ended') {
       // If auction already ended, just get the winner information
       winner = product.auction.winner;
@@ -5503,6 +5791,7 @@ agenda.define('end-auction', async (job) => {
     
     // Remove duplicates
     const uniqueBidderIds = [...new Set(bidderIds)];
+    console.log(`Found ${uniqueBidderIds.length} non-winning bidders to release holds for`);
     
     // Release holds for all non-winning bidders
     for (const bidderId of uniqueBidderIds) {
@@ -5531,6 +5820,8 @@ agenda.define('end-auction', async (job) => {
     }
 
     if (winner) {
+      console.log(`Preparing to send emails and create order for auction winner: ${productId}`);
+      
       // Send winner notification
       const winnerEmail = {
         to: product.auction.currentHighestBid.buyer.email,
@@ -5568,14 +5859,49 @@ agenda.define('end-auction', async (job) => {
         `
       };
 
-      await Promise.all([
-        sgMail.send(winnerEmail),
-        sgMail.send(sellerEmail)
-      ]);
+      try {
+        console.log(`Sending winner and seller emails for auction: ${productId}`);
+        await Promise.all([
+          sgMail.send(winnerEmail),
+          sgMail.send(sellerEmail)
+        ]);
+        console.log(`Emails sent successfully for auction: ${productId}`);
+      } catch (emailError) {
+        console.error(`Error sending auction emails: ${emailError.message}`, emailError);
+      }
       
-      // Schedule order creation (do this after the emails to ensure the order doesn't exist yet when sending emails)
-      await job.agenda.now('create-auction-winner-order', { productId: product._id });
-      console.log('Scheduled auction winner order creation after auction end:', product._id);
+      // Check if an order already exists for this auction
+      try {
+        const Order = mongoose.model('Order');
+    const existingOrder = await Order.findOne({ 
+      channel: 'auction',
+          'items.product': productId
+    });
+    
+    if (existingOrder) {
+          console.log('Order already exists for auction product:', {
+        productId,
+        orderId: existingOrder._id,
+            orderStatus: existingOrder.items[0].status
+          });
+        } else {
+          // Schedule order creation (do this after the emails to ensure the order doesn't exist yet when sending emails)
+          console.log(`Scheduling create-auction-winner-order job for product: ${productId}`);
+          
+          // Check if agenda is properly initialized
+          if (!job.agenda) {
+            console.error('Agenda instance is not available in job object');
+            return;
+          }
+          
+          await job.agenda.now('create-auction-winner-order', { productId: product._id });
+          console.log('Successfully scheduled auction winner order creation after auction end:', product._id);
+        }
+      } catch (orderError) {
+        console.error(`Error checking for existing order or scheduling order creation: ${orderError.message}`, orderError);
+      }
+    } else {
+      console.log(`No winner to process for auction: ${productId}`);
     }
 
   } catch (error) {
@@ -6223,34 +6549,22 @@ exports.getSubcategoriesWithProducts = async (req, res) => {
       });
     }
     
-    // Extract unique subcategories and count products in each
-    const subcategories = {};
-    products.forEach(product => {
-      if (product.subCategory) {
-        if (!subcategories[product.subCategory]) {
-          subcategories[product.subCategory] = 0;
-        }
-        subcategories[product.subCategory]++;
-      }
-    });
+    // Extract unique categories from the products
+    const categories = [...new Set(products.map(product => product.category))];
     
-    // Convert to array format with counts
-    const result = Object.keys(subcategories).map(subcat => ({
-      name: subcat,
-      productCount: subcategories[subcat]
-    }));
+    // Get full category details from the Category model
+    const categoryDetails = await Category.find({ name: { $in: categories } });
     
     return res.status(200).json({
       success: true,
-      count: result.length,
-      data: result
+      count: categoryDetails.length,
+      data: categoryDetails
     });
   } catch (error) {
-    console.error('Error fetching subcategories with products:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
+    console.error('Error fetching seller product categories:', error);
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
     });
   }
 };
@@ -6398,102 +6712,95 @@ exports.getSellerSubcategoriesWithProducts = async (req, res) => {
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 10);
     const skip = (page - 1) * limit;
 
-    let query = {};
-    
-    // Add blips existence condition
-    query['blips.0'] = { $exists: true }; // Only products with blips
-    query.blips = { $elemMatch: { processed: true } }; // At least one processed blip
+    // Define primary and fallback match stages
+    const primaryMatchStage = {
+      $and: [
+        { 'blips.0': { $exists: true } },
+        { blips: { $elemMatch: { processed: true } } },
+        {
+          $or: [
+            { status: { $ne: 'offline_auction' } },
+            { 
+              $and: [ 
+                { status: 'offline_auction' },
+                { 'auction.status': { $ne: 'ended' } },
+                { 'auction.endDate': { $gt: new Date() } }
+              ]
+            }
+          ]
+        }
+      ]
+    };
 
-    // Filter out offline auctions that have ended
-    const now = new Date();
-    query.$and = [
-      { 'blips.0': { $exists: true } },
-      {
-        $or: [
-          { status: { $ne: 'offline_auction' } }, // Include non-auction products
-          { 
-            $and: [ 
-              { status: 'offline_auction' },
-              { 'auction.status': { $ne: 'ended' } },
-              { 'auction.endDate': { $gt: now } }
-            ]
-          } // Include only ongoing or scheduled auctions
-        ]
-      }
-    ];
+    const fallbackMatchStage = {
+      'blips.0': { $exists: true },
+      status: 'active'
+    };
 
     // Get buyer ID for isFollowing check
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
-
-    if (req.user) {
-      // Authenticated user - personalize based on their preferences
-      const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
+    
+    // Get buyer's preferred categories and followed sellers if authenticated
+    let buyerCategories = [];
+    let followedSellers = [];
+    if (isAuthenticated) {
+      const buyer = await Buyer.findById(buyerId).select('selectedCategories following');
       
       if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-        // Get all category names including subcategories
-        const categories = buyer.selectedCategories.reduce((acc, cat) => {
+        buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
           acc.push(cat.name);
           if (cat.subCategories) {
             acc.push(...cat.subCategories.map(sub => sub.name));
           }
           return acc;
         }, []);
-
-        // Add categories to query with reduced weight
-        query.$and.push({
+        
+        // Add categories to primary match stage
+        primaryMatchStage.$and.push({
           $or: [
-            { category: { $in: categories } },
-            { subCategory: { $in: categories } },
-            { category: { $exists: true } } // Allow some non-matching categories
+            { category: { $in: buyerCategories } },
+            { subCategory: { $in: buyerCategories } }
           ]
         });
       }
+      
+      if (buyer && buyer.following) {
+        followedSellers = buyer.following.map(follow => follow.sellerId.toString());
+      }
     }
 
-    // Get total count for pagination (excluding ended auctions)
-    const total = await Product.countDocuments(query);
-    
-    // If there are no results with category filtering, just show all valid blips
-    if ((await Product.countDocuments(query)) === 0) {
-      query = {
-        $and: [
-          { 'blips.0': { $exists: true } },
-          { status: 'active' }, // Only active products
-          {
-            $or: [
-              { status: { $ne: 'offline_auction' } },
-              { 
-                $and: [ 
-                  { status: 'offline_auction' },
-                  { 'auction.status': { $ne: 'ended' } },
-                  { 'auction.endDate': { $gt: now } }
-                ]
-              }
-            ]
-          }
-        ]
-      };
-    }
+    // Get total count for primary match stage
+    let total = await Product.countDocuments(primaryMatchStage);
+    const poolSize = Math.max(10, Math.min(total, limit * 3));
+    const now = new Date();
 
-    // Get products with proper pagination and increased randomization
-    const products = await Product.aggregate([
-      { $match: query },
-      { $unwind: "$blips" },
-      { $match: { "blips.processed": true } },
+    // Common pipeline stages
+    const commonPipeline = [
       {
         $addFields: {
-          // Increase the weight of randomness to ensure more shuffling on each fetch
-          randomScore: { $rand: {} } // Random score between 0 and 1
+          randomScore: { $rand: {} },
+          daysSinceCreation: {
+            $divide: [
+              { $subtract: [now, { $ifNull: ["$blips.createdAt", now] }] },
+              1000 * 60 * 60 * 24
+            ]
+          },
+          engagementScore: {
+            $add: [
+              { $ifNull: ["$blips.viewCount", 0] },
+              { $multiply: [{ $ifNull: ["$blips.likesCount", 0] }, 5] },
+              { $multiply: [{ $ifNull: ["$blips.commentsCount", 0] }, 10] }
+            ]
+          }
         }
       },
-      { $sort: { randomScore: -1 } }, // Sort primarily by random score
-      { $skip: skip },
-      { $limit: limit },
+      { $sort: { randomScore: -1 } },
+      { $limit: poolSize },
       {
         $project: {
           _id: 1,
@@ -6509,12 +6816,37 @@ exports.getPersonalizedBlips = async (req, res) => {
           images: { $arrayElemAt: ["$images.url", 0] },
           blip: "$blips",
           reviews: 1,
-          createdAt: 1
+          createdAt: 1,
+          daysSinceCreation: 1,
+          engagementScore: 1
         }
       }
-    ]).exec();
+    ];
 
-    // Populate necessary fields
+    // Primary pipeline
+    const primaryPipeline = [
+      { $match: primaryMatchStage },
+      { $unwind: "$blips" },
+      { $match: { "blips.processed": true } },
+      ...commonPipeline
+    ];
+
+    // Fetch blips with primary criteria
+    let products = await Product.aggregate(primaryPipeline).exec();
+
+    // Fallback if no blips are found
+    if (products.length === 0) {
+      console.log('No processed blips found with primary criteria, falling back to all active blips');
+      total = await Product.countDocuments(fallbackMatchStage);
+      const fallbackPipeline = [
+        { $match: fallbackMatchStage },
+        { $unwind: "$blips" },
+        ...commonPipeline
+      ];
+      products = await Product.aggregate(fallbackPipeline).exec();
+    }
+
+    // Populate seller info
     await Product.populate(products, [
       {
         path: 'seller',
@@ -6522,17 +6854,28 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     ]);
 
-    // Transform the data to match getAllBlips structure
+    // Handle case when no blips are found (should be rare with fallback)
+    if (products.length === 0) {
+      return res.json({
+        blips: [],
+        currentPage: page,
+        totalPages: 0,
+        totalBlips: 0
+      });
+    }
+
+    // Transform the data
     const transformedBlips = products.map(product => {
-      // Check if the buyer is following this seller
       const isFollowing = product.seller.followers && buyerId ? 
         product.seller.followers.some(follower => 
           follower.buyerId && follower.buyerId.toString() === buyerId.toString()
         ) : false;
         
-      // Check if the buyer has liked this blip
       const isLiked = isAuthenticated && product.blip.likes ? 
         product.blip.likes.some(like => like.toString() === buyerId) : false;
+
+      const isInBuyerCategory = buyerCategories.length > 0 && 
+        (buyerCategories.includes(product.category) || buyerCategories.includes(product.subCategory));
 
       return {
         discount: {
@@ -6544,7 +6887,7 @@ exports.getPersonalizedBlips = async (req, res) => {
         _id: product._id,
         blipId: product.blip._id,
         blipUrl: product.blip.url,
-        thumbnail: product.blip.thumbnail,
+        thumbnail: product.blip.thumbnail || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png',
         processed: product.blip.processed,
         productId: product._id,
         productName: product.name,
@@ -6586,57 +6929,172 @@ exports.getPersonalizedBlips = async (req, res) => {
           totalStoreReviews: product.seller.stats ? product.seller.stats.totalReviews : 0,
           isFollowing: isFollowing,
           isFeatured: product.seller.isFeatured
+        },
+        _metadata: {
+          isInBuyerCategory,
+          isFollowingSeller: isFollowing || followedSellers.includes(product.seller._id.toString()),
+          engagementScore: product.engagementScore,
+          daysSinceCreation: product.daysSinceCreation,
+          isNewBlip: product.daysSinceCreation < 7,
+          isLowView: (product.blip.viewCount || 0) < 50,
+          sellerId: product.seller._id.toString()
         }
       };
     });
 
-    // Further randomize the blips using Fisher-Yates shuffle
-    for (let i = transformedBlips.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
-    }
+    // Categorize blips
+    const categorizedBlips = {
+      newInBuyerCategory: [],
+      followedSellers: [],
+      highEngagement: [],
+      undiscovered: [],
+      random: []
+    };
 
-    // Ensure blips from the same product and seller are not too close together
-    const rearrangedBlips = [];
-    const productCache = new Map(); // Track last position of each product
-    const sellerCache = new Map(); // Track last position of each seller
-    const minDistance = Math.max(2, Math.floor(transformedBlips.length / 3)); // Minimum distance between repeats
-
-    // First, add blips to the result while maintaining distance
-    let remainingBlips = [...transformedBlips];
-    
-    while (remainingBlips.length > 0) {
-      let addedBlip = false;
+    transformedBlips.forEach(blip => {
+      const meta = blip._metadata;
+      delete blip._metadata;
       
-      for (let i = 0; i < remainingBlips.length; i++) {
-        const blip = remainingBlips[i];
-        const productId = blip.productId.toString();
+      if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
+        categorizedBlips.newInBuyerCategory.push(blip);
+      } else if (isAuthenticated && meta.isFollowingSeller) {
+        categorizedBlips.followedSellers.push(blip);
+      } else if (meta.engagementScore > 100) {
+        categorizedBlips.highEngagement.push(blip);
+      } else if (meta.isLowView) {
+        categorizedBlips.undiscovered.push(blip);
+      } else {
+        categorizedBlips.random.push(blip);
+      }
+    });
+
+    // Shuffle each category
+    Object.keys(categorizedBlips).forEach(category => {
+      const array = categorizedBlips[category];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    });
+
+    // Distribute blips
+    const rearrangedBlips = [];
+    const sellerTracker = new Map();
+    const productTracker = new Map();
+    const minSellerDistance = 3;
+    
+    const addBlipsFromCategory = (category, count) => {
+      let added = 0;
+      let index = 0;
+      
+      while (added < count && index < categorizedBlips[category].length) {
+        const blip = categorizedBlips[category][index];
         const sellerId = blip.seller._id.toString();
+        const productId = blip.productId.toString();
         
-        const lastProductPos = productCache.get(productId) || -minDistance;
-        const lastSellerPos = sellerCache.get(sellerId) || -minDistance;
+        if (productTracker.has(productId)) {
+          index++;
+          continue;
+        }
         
-        // Check if the current position is far enough from previous occurrences
-        if (rearrangedBlips.length - lastProductPos >= minDistance && 
-            rearrangedBlips.length - lastSellerPos >= Math.ceil(minDistance/2)) {
-          
+        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
+        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
           rearrangedBlips.push(blip);
-          productCache.set(productId, rearrangedBlips.length - 1);
-          sellerCache.set(sellerId, rearrangedBlips.length - 1);
-          
-          remainingBlips.splice(i, 1);
-          addedBlip = true;
-          break;
+          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
+          productTracker.set(productId, true);
+          categorizedBlips[category].splice(index, 1);
+          added++;
+        } else {
+          index++;
+        }
+        
+        if (index >= categorizedBlips[category].length && added < count && categorizedBlips[category].length > 0) {
+          index = 0;
+          const blip = categorizedBlips[category][0];
+          rearrangedBlips.push(blip);
+          sellerTracker.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
+          productTracker.set(blip.productId.toString(), true);
+          categorizedBlips[category].splice(0, 1);
+          added++;
         }
       }
       
-      // If we couldn't add any blip with desired spacing, add the first remaining one
-      if (!addedBlip && remainingBlips.length > 0) {
-        const blip = remainingBlips[0];
-        rearrangedBlips.push(blip);
-        productCache.set(blip.productId.toString(), rearrangedBlips.length - 1);
-        sellerCache.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
-        remainingBlips.splice(0, 1);
+      return added;
+    };
+    
+    const totalNeeded = limit;
+    let remaining = totalNeeded;
+    
+    const categoryOrder = [
+      'newInBuyerCategory',
+      'highEngagement',
+      'followedSellers',
+      'undiscovered',
+      'random'
+    ];
+    
+    for (const category of categoryOrder) {
+      if (remaining > 0 && categorizedBlips[category].length > 0) {
+        const toAdd = Math.min(1, remaining, categorizedBlips[category].length);
+        const added = addBlipsFromCategory(category, toAdd);
+        remaining -= added;
+      }
+    }
+    
+    while (remaining > 0) {
+      let addedAny = false;
+      
+      for (const category of categoryOrder) {
+        if (remaining > 0 && categorizedBlips[category].length > 0) {
+          const toAdd = Math.min(5, remaining, categorizedBlips[category].length);
+          const added = addBlipsFromCategory(category, toAdd);
+          remaining -= added;
+          if (added > 0) addedAny = true;
+        }
+      }
+      
+      if (!addedAny) break;
+    }
+    
+    if (remaining > 0) {
+      const allRemaining = [].concat(...Object.values(categorizedBlips));
+      for (let i = allRemaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allRemaining[i], allRemaining[j]] = [allRemaining[j], allRemaining[i]];
+      }
+      
+      let index = 0;
+      while (remaining > 0 && index < allRemaining.length) {
+        const blip = allRemaining[index];
+        const sellerId = blip.seller._id.toString();
+        const productId = blip.productId.toString();
+        
+        if (productTracker.has(productId)) {
+          index++;
+          continue;
+        }
+        
+        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
+        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
+          rearrangedBlips.push(blip);
+          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
+          productTracker.set(productId, true);
+          remaining--;
+        }
+        
+        index++;
+        
+        if (index >= allRemaining.length && remaining > 0 && allRemaining.length > 0) {
+          for (let i = 0; i < allRemaining.length; i++) {
+            const blip = allRemaining[i];
+            if (!productTracker.has(blip.productId.toString())) {
+              rearrangedBlips.push(blip);
+              productTracker.set(blip.productId.toString(), true);
+              remaining--;
+              break;
+            }
+          }
+        }
       }
     }
 
@@ -6648,6 +7106,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error in getPersonalizedBlips:', error);
     res.status(500).json({
       status: false,
       message: 'Failed to fetch personalized blips',
