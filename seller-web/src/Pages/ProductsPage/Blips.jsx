@@ -313,18 +313,19 @@ const Blips = () => {
           blipCount: blipVideos.length
         });
 
-
         // Clear the selected files
         setBlipVideos([]);
         setPreviewUrls([]);
         setSelectedProduct(null);
 
-        // Refresh the blips list
-        dispatch(fetchSellerBlips({ page: 1, limit: itemsPerPage }));
-        setCurrentPage(1);
-
-        // Close the modal
+        // Close the modal first to prevent duplicate rendering
         setIsAddBlipModalOpen(false);
+
+        // Refresh the blips list - using a slight delay to ensure the backend has processed the upload
+        setTimeout(() => {
+          dispatch(fetchSellerBlips({ page: 1, limit: itemsPerPage }));
+          setCurrentPage(1);
+        }, 500);
       }
     } catch (error) {
       console.error('Error uploading blips:', error);
@@ -468,12 +469,24 @@ const Blips = () => {
     return (
       <div key={blip._id} className="bg-white rounded-lg shadow p-4 mb-4">
         <div className="flex items-center mb-3">
-          <img
-            src={blip.thumbnail}
-            alt={blip.productName}
-            className="h-16 w-16 object-cover rounded mr-3 cursor-pointer"
-            onClick={() => handleViewBlipDetails(blip)}
-          />
+          {blip.thumbnail ? (
+            <img
+              src={blip.thumbnail}
+              alt={blip.productName}
+              className="h-16 w-16 object-cover rounded mr-3 cursor-pointer"
+              onClick={() => handleViewBlipDetails(blip)}
+            />
+          ) : (
+            <div 
+              className="h-16 w-16 bg-gray-200 rounded mr-3 flex items-center justify-center cursor-pointer"
+              onClick={() => handleViewBlipDetails(blip)}
+            >
+              <div className="flex flex-col items-center">
+                <Icon icon="solar:video-frame-broken" className="w-6 h-6 text-gray-500" />
+                <span className="text-xs text-gray-500 mt-1">Processing</span>
+              </div>
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <Link to={`/dashboard/edit-product/${blip.productId}`} className="text-blue-600 hover:underline font-medium block truncate">
               {blip.productName}
@@ -583,11 +596,20 @@ const Blips = () => {
                     {blips.map((blip) => (
                       <tr key={blip._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewBlipDetails(blip)}>
-                          <img
-                            src={blip.thumbnail}
-                            alt={blip.productName}
-                            className="h-16 w-16 object-cover rounded"
-                          />
+                          {blip.thumbnail ? (
+                            <img
+                              src={blip.thumbnail}
+                              alt={blip.productName}
+                              className="h-16 w-16 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="h-16 w-16 bg-gray-200 rounded flex items-center justify-center">
+                              <div className="flex flex-col items-center">
+                                <Icon icon="solar:video-frame-broken" className="w-6 h-6 text-gray-500" />
+                                <span className="text-xs text-gray-500 mt-1">Processing</span>
+                              </div>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Link to={`/dashboard/edit-product/${blip.productId}`} className="text-blue-600 hover:underline">
@@ -691,16 +713,16 @@ const Blips = () => {
 
               {/* Search input */}
               <div className="relative mb-3">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                {/* <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                   <Icon icon="heroicons:magnifying-glass" className="w-4 h-4 text-gray-500" />
-                </div>
-                <input
+                </div> */}
+                {/* <input
                   type="text"
                   className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
                   placeholder="Search products by name..."
                   value={searchQuery}
                   onChange={handleSearchChange}
-                />
+                /> */}
                 {searchQuery && (
                   <button
                     onClick={() => {

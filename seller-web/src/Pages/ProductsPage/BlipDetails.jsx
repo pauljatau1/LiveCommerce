@@ -6,6 +6,7 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import Loader from '../../Components/Loader';
 import { formatDistanceToNow } from 'date-fns';
 import VideoPlayer from '@/Shared/VideoPlayer';
+import { Icon } from '@iconify/react';
 
 const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
   const dispatch = useDispatch();
@@ -245,12 +246,24 @@ const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
             {/* Blip Video and Details */}
             <div className="space-y-4">
               <div className="aspect-[9/16] w-full max-w-[300px] mx-auto rounded-md overflow-hidden bg-gray-100">
-                <VideoPlayer 
-                  src={blipDetails.blipUrl} 
-                  poster={blipDetails.thumbnail} 
-                  autoPlay={false}
-                  className="w-full h-full object-contain"
-                />
+                {blipDetails.blipUrl || blipDetails.thumbnail ? (
+                  <VideoPlayer 
+                    src={blipDetails.blipUrl} 
+                    poster={blipDetails.thumbnail} 
+                    autoPlay={false}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200">
+                    <Icon icon="solar:video-frame-broken" className="w-12 h-12 text-gray-500" />
+                    <span className="text-sm text-gray-500 mt-2">Processing Video</span>
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-pulse"></div>
+                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
