@@ -1,5 +1,4 @@
 const Product = require('../models/Product');
-const cloudinary = require('../config/cloudinary');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
@@ -8,11 +7,7 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
-const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
 const agenda = require('../config/agenda').agenda;
-const path = require('path');
-const sharp = require('sharp');
-const jwt = require('jsonwebtoken');
 const { ProductDeleteS3ObjectsByUrls } = require('../services/products/images');
 const { ExtractAllImageUrlsFromVariants } = require('../services/products/variants/utils');
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
@@ -7164,16 +7159,14 @@ exports.addBlipToProduct = async (req, res) => {
     }
 
     // Process each uploaded blip
-    const newBlips = [];
+    const newBlips = []
     
     for (const file of req.files) {
       // Generate unique file names
-      const fileName = uuidv4();
-      const folderPath = `sellers/${sellerId}/products/${product._id}/blips/`;
-      const videoKey = folderPath + `${fileName}.mp4`;
-
-      // TODO - ANDY - refactor this
-      // const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
+      const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
+      
+      // Extract fileName from filename without extension
+      const fileName = productBlips.ExtractFilenameFromS3Path(videoKey);
       
       // Upload the video to S3
       const uploadParameters = {
@@ -7638,8 +7631,9 @@ exports.deleteBlipFromProduct = async (req, res) => {
     // Remove the blip from the product
     product.blips.pull(blipId);
     await product.save();
-    // TODO - ANDY - fix this
-    // productBlips.DeleteBlipFromS3(sellerId, productId, blipKey)
+
+    // delete product from S3
+    productBlips.DeleteBlipFromS3(sellerId, productId, blipKey, process.env.RAW_BLIPS_S3_BUCKET)
 
     // Return success response
     res.status(200).json({
