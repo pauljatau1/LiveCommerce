@@ -3853,4 +3853,90 @@ router.get('/sellers/:sellerId/transactions',
   adminController.getSellerTransactions
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/reminders/no-products:
+ *   post:
+ *     summary: Send reminder emails to sellers who haven't uploaded any products
+ *     tags: [Admin, Reminders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reminder emails sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 results:
+ *                   type: object
+ *                   properties:
+ *                     totalSellers:
+ *                       type: integer
+ *                     emailsSent:
+ *                       type: integer
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       500:
+ *         description: Failed to send reminder emails
+ */
+router.post('/sellers/reminders/no-products',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.sendRemindersToSellersWithoutProducts
+);
+
+/**
+ * @swagger
+ * /api/admin/sellers/reminders/no-blips:
+ *   post:
+ *     summary: Send reminder emails to sellers who haven't uploaded any blips
+ *     tags: [Admin, Reminders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reminder emails sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 results:
+ *                   type: object
+ *                   properties:
+ *                     totalSellers:
+ *                       type: integer
+ *                     sellersWithProducts:
+ *                       type: integer
+ *                     sellersWithoutBlips:
+ *                       type: integer
+ *                     emailsSent:
+ *                       type: integer
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       500:
+ *         description: Failed to send reminder emails
+ */
+router.post('/sellers/reminders/no-blips',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.sendRemindersToSellersWithoutBlips
+);
+
 module.exports = router;

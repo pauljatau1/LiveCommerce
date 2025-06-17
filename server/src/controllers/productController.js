@@ -12,6 +12,7 @@ const { ProductDeleteS3ObjectsByUrls } = require('../services/products/images');
 const { ExtractAllImageUrlsFromVariants } = require('../services/products/variants/utils');
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
+const Fuse = require('fuse.js');
 
 
 // Create a new product
@@ -334,7 +335,7 @@ const sellerPopulationFields = [
   'offersStorePickup'       
 ];
 
-// Get all products
+// Get all products excluding drafts
 exports.getAllProducts = async (req, res) => {
   try {
     const {
@@ -349,8 +350,10 @@ exports.getAllProducts = async (req, res) => {
       visibility = 'visible'
     } = req.query;
 
-    // Build query - start with base query that excludes offline_auction products
-    let query = { status: { $ne: 'offline_auction' } };
+    // Build query - start with base query that excludes offline_auction and draft products
+    let query = {
+      status: { $ne: 'offline_auction', $nin: ['draft'] }
+    };
 
     // Only add additional status filter if specifically provided in the query
     if (req.query.status) {
@@ -1235,105 +1238,134 @@ exports.updateProductStock = async (req, res) => {
 
 // Deep search products
 exports.deepSearchProducts = async (req, res) => {
-  const { query, minPrice, maxPrice, condition, sortBy = 'newest', order = 'desc' } = req.query;
+  const {
+    query = '',
+    minPrice,
+    maxPrice,
+    condition,
+    sortBy = 'newest',
+    order = 'desc',
+  } = req.query;
+
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
 
   try {
-    const queryFilter = {
-      status: 'active',
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } },
-        { category: { $regex: query, $options: 'i' } },
-        { brand: { $regex: query, $options: 'i' } },
-        { tags: { $regex: query, $options: 'i' } },
-        { sku: { $regex: query, $options: 'i' } },
-      ],
-    };
+    const filter = { status: 'active' };
 
-    // Add price filter if min or max price is provided
+    // Price range filter
     if (minPrice !== undefined || maxPrice !== undefined) {
-      queryFilter.price = {};
-      if (minPrice !== undefined) queryFilter.price.$gte = Number(minPrice);
-      if (maxPrice !== undefined) queryFilter.price.$lte = Number(maxPrice);
+      filter.price = {};
+      if (minPrice !== undefined) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice !== undefined) filter.price.$lte = parseFloat(maxPrice);
     }
-    
-    // Add condition filter if provided (case-insensitive)
+
+    // Condition filter
     if (condition) {
-      queryFilter.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+      filter.condition = new RegExp(`^${condition}$`, 'i');
     }
 
-    // Build sort options
-    let sortOptions = {};
-    switch (sortBy) {
-      case 'price_asc':
-        sortOptions = { price: 1 };
-        break;
-      case 'price_desc':
-        sortOptions = { price: -1 };
-        break;
-      case 'oldest':
-        sortOptions = { createdAt: 1 };
-        break;
-      case 'popular':
-        sortOptions = { 'analytics.views': -1 };
-        break;
-      case 'best_selling':
-        sortOptions = { 'stats.soldCount': -1 };
-        break;
-      case 'rating':
-        sortOptions = { 'stats.averageRating': -1 };
-        break;
-      case 'newest':
-      default:
-        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    // Basic match stage for full-text or regex query
+    let searchResults = [];
+    let total = 0;
+
+    if (query.trim()) {
+      // Fallback regex-based MongoDB search
+      const mongoSearchQuery = {
+        ...filter,
+        $or: [
+          { name: { $regex: query, $options: 'i' } },
+          { description: { $regex: query, $options: 'i' } },
+          { category: { $regex: query, $options: 'i' } },
+          { brand: { $regex: query, $options: 'i' } },
+          { tags: { $regex: query, $options: 'i' } },
+          { sku: { $regex: query, $options: 'i' } },
+        ],
+      };
+
+      const dbResults = await Product.find(mongoSearchQuery)
+        .populate('seller', 'name avatarUrl about')
+        .populate('reviews.buyer', 'firstName lastName');
+
+      // Use Fuse.js for fuzzy matching on returned set
+      const fuse = new Fuse(dbResults, {
+        keys: ['name', 'description', 'brand', 'category', 'tags', 'sku'],
+        threshold: 0.4, // lower = stricter match
+        includeScore: true,
+      });
+
+      const fuzzyResults = fuse.search(query);
+      searchResults = fuzzyResults
+        .map((result) => result.item)
+        .slice(skip, skip + limit);
+
+      total = fuzzyResults.length;
+    } else {
+      // No search query — regular listing with filters only
+      total = await Product.countDocuments(filter);
+      searchResults = await Product.find(filter)
+        .sort(getSortOptions(sortBy, order))
+        .populate('seller', 'name avatarUrl about')
+        .populate('reviews.buyer', 'firstName lastName')
+        .skip(skip)
+        .limit(limit);
     }
 
-    // Get total count for pagination info
-    const totalProducts = await Product.countDocuments(queryFilter);
-    
-    // Get paginated results
-    const products = await Product.find(queryFilter)
-      .sort(sortOptions)
-      .populate('seller', 'name avatarUrl about')
-      .populate('reviews.buyer', 'firstName lastName')
-      .skip(skip)
-      .limit(limit);
-
-    res.json({
-      products,
+    return res.json({
+      products: searchResults,
       pagination: {
-        total: totalProducts,
+        total,
         page,
         limit,
-        pages: Math.ceil(totalProducts / limit)
+        pages: Math.ceil(total / limit),
       },
       filters: {
         query,
-        priceRange: {
-          min: minPrice,
-          max: maxPrice
-        },
+        priceRange: { min: minPrice, max: maxPrice },
         condition,
         sortBy,
-        order
-      }
+        order,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to deep search products', error: error.message });
+    console.error('Search error:', error);
+    return res.status(500).json({
+      message: 'Failed to deep search products',
+      error: error.message,
+    });
   }
 };
+
+// Helper: Get sort options
+function getSortOptions(sortBy, order) {
+  const direction = order === 'asc' ? 1 : -1;
+  switch (sortBy) {
+    case 'price_asc':
+      return { price: 1 };
+    case 'price_desc':
+      return { price: -1 };
+    case 'oldest':
+      return { createdAt: 1 };
+    case 'popular':
+      return { 'analytics.views': -1 };
+    case 'best_selling':
+      return { 'stats.soldCount': -1 };
+    case 'rating':
+      return { 'stats.averageRating': -1 };
+    case 'newest':
+    default:
+      return { createdAt: direction };
+  }
+}
 
 // Get products that just arrived
 // Get just arrived products
 exports.getJustArrivedProducts = async (req, res) => {
   try {
-    const products = await Product.find({ 
-      status: 'active', 
-      visibility: 'visible',
-      status: { $ne: 'offline_auction' }
+    const products = await Product.find({
+      status: 'active',
+      visibility: 'visible'
     })
       .sort({ createdAt: -1 })
       .limit(10)
@@ -3602,12 +3634,11 @@ exports.getPersonalizedProducts = async (req, res) => {
     console.log('Category Names:', categoryNames);
     console.log('Subcategory Names:', subcategoryNames);
 
-    // Build base query for active and visible products
+    // Build base query for active and visible products, excluding drafts
     const baseQuery = {
-      status: 'active',
+      status: { $in: ['active', 'offline_auction'] }, // Exclude 'draft' status
       visibility: 'visible',
-      stock: { $gt: 0 },
-      status: { $ne: 'offline_auction' }
+      stock: { $gt: 0 }
     };
 
     // Build category-specific query
@@ -3629,7 +3660,7 @@ exports.getPersonalizedProducts = async (req, res) => {
     // Get total count for randomization
     const categoryCount = await Product.countDocuments(categoryQuery);
     const shouldRandomize = categoryCount > parseInt(limit);
-    
+
     // Try to get category-specific products first with randomization
     let products;
     if (shouldRandomize) {
@@ -3655,7 +3686,7 @@ exports.getPersonalizedProducts = async (req, res) => {
       console.log('No products found in preferred categories, fetching regular products');
       const baseCount = await Product.countDocuments(baseQuery);
       const shouldRandomizeBase = baseCount > parseInt(limit);
-      
+
       if (shouldRandomizeBase) {
         // Random skip for base products
         const randomSkip = Math.floor(Math.random() * (baseCount - parseInt(limit) + 1));
@@ -3676,13 +3707,13 @@ exports.getPersonalizedProducts = async (req, res) => {
     }
 
     // Get total count based on which query was successful
-    const total = products.length > 0 
+    const total = products.length > 0
       ? await Product.countDocuments(categoryQuery)
       : await Product.countDocuments(baseQuery);
-      
+
     // Shuffle the products for additional randomization
     const shuffledProducts = [...products].sort(() => 0.5 - Math.random());
-    
+
     // Add review stats data to each product
     const productsWithStats = shuffledProducts.map(product => {
       const productObj = product.toObject();
@@ -3710,6 +3741,7 @@ exports.getPersonalizedProducts = async (req, res) => {
     });
   }
 };
+
 
 // Add a new controller method for updating product discount
 exports.updateProductDiscount = async (req, res) => {
