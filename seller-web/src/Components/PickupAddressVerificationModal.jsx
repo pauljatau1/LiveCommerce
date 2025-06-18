@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import VerificationService from '@/services/VerificationService';
 import { Icon } from '@iconify/react';
+import { trackEvent } from '@/util/analytics';
 
 // Nigerian States and Cities Data
 const NIGERIAN_STATES = [
@@ -446,7 +447,25 @@ const PickupAddressVerificationModal = ({
           }
         };
         
-        await VerificationService.updateIndividualInformation(individualInfo);
+        const result = await VerificationService.updateIndividualInformation(individualInfo);
+        const sellerDetails = JSON.parse(localStorage.getItem('seller')) || {};
+
+        if (result.status === 200) {
+          trackEvent("seller pickup address verification completed", {
+            "seller id": sellerDetails._id,
+            "seller email": sellerDetails.email,
+            "seller store name": sellerDetails.storeName,
+            "seller first name": sellerDetails.firstName,
+            "seller last name": sellerDetails.lastName,
+            "seller phone number": sellerDetails.phoneNumber,
+            "Country": individualInfo.sellerAddress.country,
+            "State": individualInfo.sellerAddress.state,
+            "City": individualInfo.sellerAddress.city,
+            "Address Line 1": individualInfo.sellerAddress.addressLine1,
+            "Address Line 2": individualInfo.sellerAddress.addressLine2,
+            "Zip Code": individualInfo.sellerAddress.zipCode,
+          });
+        }
       } else {
         // Handle business address
         const seller = JSON.parse(localStorage.getItem('seller')) || {};
@@ -464,7 +483,25 @@ const PickupAddressVerificationModal = ({
           }
         };
         
-        await VerificationService.addBusinessInformation(businessInfo);
+       const result = await VerificationService.addBusinessInformation(businessInfo);
+       const sellerDetails = JSON.parse(localStorage.getItem('seller')) || {};
+
+       if (result.status === 200) {
+         trackEvent("seller pickup address adddress verification completed", {
+           "seller id": sellerDetails._id,
+           "seller email": sellerDetails.email,
+           "seller store name": sellerDetails.storeName,
+           "seller first name": sellerDetails.firstName,
+           "seller last name": sellerDetails.lastName,
+           "seller phone number": sellerDetails.phoneNumber,
+           "Country": businessInfo.businessAddress.country,
+           "State": businessInfo.businessAddress.state,
+           "City": businessInfo.businessAddress.city,
+           "Address Line 1": businessInfo.businessAddress.addressLine1,
+           "Address Line 2": businessInfo.businessAddress.addressLine2,
+           "Zip Code": businessInfo.businessAddress.zipCode,
+         });
+       }
       }
       
       // Success notification

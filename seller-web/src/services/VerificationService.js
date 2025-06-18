@@ -28,7 +28,7 @@ export const VerificationService = {
       console.log('response', response);
 
       if (response.status === 200) {
-        trackEvent("seller onboarding step 1: Account Type Selected", {
+        trackEvent("seller Account Type Selected", {
           "Account Type": accountType,
           "seller id": sellerData._id,
           "seller email": sellerData.email,
@@ -56,7 +56,6 @@ export const VerificationService = {
   updateIndividualInformation: async (individualInfo) => {
     try {
       const token = localStorage.getItem('sellerToken');
-      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -67,26 +66,7 @@ export const VerificationService = {
         }
       );
 
-      if (response.status === 200) {
-        trackEvent("seller onboarding step 2: Individual Information Updated", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Country": individualInfo.country,
-          "State": individualInfo.state,
-          "City": individualInfo.city,
-          "Address Line 1": individualInfo.addressLine1,
-          "Address Line 2": individualInfo.addressLine2,
-          "Zip Code": individualInfo.zipCode,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
-      
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error updating individual information:', error);
       throw error;
@@ -201,7 +181,6 @@ export const VerificationService = {
   addBusinessInformation: async (businessInfo) => {
     try {
       const token = localStorage.getItem('sellerToken');
-      const sellerData = JSON.parse(localStorage.getItem('seller'));
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
@@ -211,27 +190,8 @@ export const VerificationService = {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
-
-      if (response.status === 200) {
-        trackEvent("seller onboarding step 5: Business Information Added", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Business Number": businessInfo.businessNumber,
-          "Business Email": businessInfo.businessEmail,
-          "Business Country": businessInfo.businessAddress.country,
-          "Business State": businessInfo.businessAddress.state,
-          "Business City": businessInfo.businessAddress.city,
-          "Business Address": businessInfo.businessAddress.addressLine1,
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
-        });
-      }
       
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error adding business information:', error);
       throw error;
