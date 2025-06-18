@@ -1592,7 +1592,7 @@ const ProductDescription = () => {
         showCloseIcon={false}
         title=""
         show={showCheckout}
-        snapPoints={["70%"]}
+        snapPoints={["85%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowCheckout(false)}
         keyboardBehavior={"interactive"}

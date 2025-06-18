@@ -10,11 +10,8 @@ const AuthLayout = () => {
   // }
   return (
     <Stack>
-      <Stack.Screen
-        name="home"
-        options={{ headerShown: false, animation: "ios_from_left" }}
-      />
       <Stack.Screen name="marketplace" options={{ headerShown: false }} />
+      <Stack.Screen name="home" options={{ headerShown: false }} />
     </Stack>
   );
 };

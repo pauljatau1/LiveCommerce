@@ -13,8 +13,11 @@ import axios from "axios";
 import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
 import { ScrollView } from "react-native-virtualized-view";
 import MarketsSuggestedBlips from "./markets-suggested-blips";
+import { useDispatch } from "react-redux";
+import { products } from "@/services/products";
 
 const ForYou = () => {
+  const dispatch = useDispatch();
   const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const handleGetBanners = async () => {
@@ -32,6 +35,21 @@ const ForYou = () => {
     }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = () => {
+    setRefreshing(true);
+
+    dispatch(
+      products.util.invalidateTags([
+        "foryouProducts",
+        "newProducts",
+        "trendingProducts",
+      ]),
+    );
+
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     console.log("rendering");
 
@@ -40,10 +58,10 @@ const ForYou = () => {
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      // refreshControl={
-      //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      // }
-      // nestedScrollEnabled={true}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      nestedScrollEnabled={true}
       contentContainerStyle={{
         paddingTop: 20,
         paddingBottom: 80,

@@ -16,6 +16,7 @@ import type { FC } from "react";
 import React, { useCallback, useEffect, useMemo, useRef, memo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { createCustomBackdrop } from "./createCustomBackdrop";
 
 type Props = {
   show: boolean;
@@ -193,7 +194,7 @@ const BottomSheetComponent = ({
       onChange={handleSheetChanges}
       handleComponent={enablePanDownToClose ? BottomSheetHandle : null}
       enableHandlePanningGesture={enablePanDownToClose}
-      backdropComponent={renderBackdrop}
+      backdropComponent={createCustomBackdrop()}
       handleIndicatorStyle={handleIndicatorStyle}
       footerComponent={footerComponent}
       enableContentPanningGesture={enableContentPanningGesture}
