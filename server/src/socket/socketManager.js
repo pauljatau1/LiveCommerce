@@ -1204,7 +1204,7 @@ function initializeSocket(server) {
             sellerName: userDetails.storeName || 'Host',
             streamId: data.streamId,
             isHost: true,
-            announcementId: announcementObj.id,
+            announcementId: Date.now().toString(),
             current: true
           },
           timestamp: new Date()
