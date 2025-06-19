@@ -7798,6 +7798,255 @@ exports.getAllProductBlips = async (req, res) => {
     });
   }
 };
+// Send reminder emails to sellers who have not uploaded any products
+exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
+  try {
+    // Find sellers who registered more than 7 days ago but have no products
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 7); // 7 days ago
+    
+    // Find sellers with no products who registered before the cutoff date
+    const sellers = await Seller.find({
+      createdAt: { $lt: cutoffDate },
+      isDisabled: false,
+      emailVerified: true
+    });
+
+    // Prepare for tracking results
+    const results = {
+      totalSellers: sellers.length,
+      emailsSent: 0,
+      errors: []
+    };
+
+    // Check each seller for products
+    for (const seller of sellers) {
+      // Count products for this seller
+      const productCount = await Product.countDocuments({ seller: seller._id });
+      
+      // If seller has no products, send reminder email
+      if (productCount === 0) {
+        try {
+          // Ensure SendGrid API key is set
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          
+          // Prepare email content
+          const emailMsg = {
+            to: seller.email,
+            from: 'Auqli Support <support@auqli.com>',
+            subject: 'Start Selling on Auqli - Upload Your First Product',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Ready to Start Selling?</h2>
+                <p>Dear ${seller.firstName},</p>
+                <p>We noticed that you haven't uploaded any products to your Auqli store yet. Getting started is easy!</p>
+                
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                  <h3 style="margin-top: 0;">Why sell on Auqli?</h3>
+                  <ul>
+                    <li>Reach thousands of potential customers</li>
+                    <li>Easy-to-use seller dashboard</li>
+                    <li>Secure payments and reliable shipping options</li>
+                    <li>Dedicated seller support</li>
+                  </ul>
+                </div>
+                
+                <p>To upload your first product:</p>
+                <ol>
+                  <li>Log in to your seller account</li>
+                  <li>Navigate to your dashboard</li>
+                  <li>Click Products on the side bar</li>
+                  <li>Fill in your product details and upload images</li>
+                  <li>Publish your product</li>
+                  <li>Add a blip to your product to increase visibility</li>
+                </ol>
+                
+                <div style="text-align: center; margin: 25px 0;">
+                  <a href="https://seller.auqli.live" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                    LOGIN TO YOUR ACCOUNT
+                  </a>
+                </div>
+                
+                <p>Need help getting started? Our support team is ready to assist you:</p>
+                <p>Email: <a href="mailto:support@auqli.com" style="color: #4CAF50;">support@auqli.com</a></p>
+              
+                
+                <p>We're excited to see what you'll offer on Auqli!</p>
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `
+          };
+          
+          // Send the email
+          await sgMail.send(emailMsg);
+          results.emailsSent++;
+          
+          console.log(`Reminder email sent to seller without products: ${seller.email}`);
+        } catch (emailError) {
+          console.error(`Error sending reminder email to ${seller.email}:`, emailError);
+          results.errors.push({
+            sellerId: seller._id,
+            email: seller.email,
+            error: emailError.message
+          });
+        }
+      }
+    }
+    
+    // Return success response with results
+    res.json({
+      success: true,
+      message: `Successfully processed ${results.totalSellers} sellers and sent ${results.emailsSent} reminder emails`,
+      results
+    });
+  } catch (error) {
+    console.error('Error sending reminders to sellers without products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send reminder emails',
+      error: error.message
+    });
+  }
+};
+
+// Send reminder emails to sellers who have not uploaded any blips
+exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
+  try {
+    // Find active sellers who are verified
+    const sellers = await Seller.find({
+      isDisabled: false,
+      emailVerified: true
+    });
+
+    // Prepare for tracking results
+    const results = {
+      totalSellers: sellers.length,
+      sellersWithProducts: 0,
+      sellersWithoutBlips: 0,
+      emailsSent: 0,
+      errors: []
+    };
+
+    // Check each seller for products with blips
+    for (const seller of sellers) {
+      // Count products for this seller
+      const productCount = await Product.countDocuments({ seller: seller._id });
+      
+      if (productCount > 0) {
+        results.sellersWithProducts++;
+        
+        // Count products with blips for this seller
+        const productsWithBlips = await Product.countDocuments({ 
+          seller: seller._id,
+          'blips.0': { $exists: true } // At least one blip exists
+        });
+        
+        // If seller has products but no blips, send reminder email
+        if (productsWithBlips === 0) {
+          results.sellersWithoutBlips++;
+          
+          try {
+            // Ensure SendGrid API key is set
+            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+            
+            // Get a sample of the seller's products (up to 3)
+            const sellerProducts = await Product.find({ seller: seller._id })
+              .select('name images')
+              .limit(3);
+            
+            // Create product list HTML
+            const productListHTML = sellerProducts.map(product => `
+              <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
+                <img src="${product.images[0]?.url || 'https://via.placeholder.com/100'}" 
+                     alt="${product.name}" 
+                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px; float: left;">
+                <div style="margin-left: 60px;">
+                  <p style="margin: 0; font-weight: bold;">${product.name}</p>
+                  <p style="margin: 5px 0 0 0; font-size: 12px;">Add a blip to increase visibility!</p>
+                </div>
+                <div style="clear: both;"></div>
+              </div>
+            `).join('');
+            
+            // Prepare email content
+            const emailMsg = {
+              to: seller.email,
+              from: 'Auqli Support <support@auqli.com>',
+              subject: 'Boost Your Sales with Product Blips on Auqli',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Increase Your Product Visibility with Blips!</h2>
+                  <p>Dear ${seller.firstName},</p>
+                  <p>We noticed that you haven't added any blips to your products on Auqli. Product blips are short videos that can significantly increase your product visibility and conversion rates!</p>
+                  
+                  <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                    <h3 style="margin-top: 0;">Why add blips to your products?</h3>
+                    <ul>
+                      <li><strong>200% higher engagement</strong> compared to static images</li>
+                      <li><strong>75% increase</strong> in time spent viewing your products</li>
+                      <li><strong>40% higher conversion rate</strong> for products with blips</li>
+                      <li>Appear in the popular blips feed for more visibility</li>
+                    </ul>
+                  </div>
+                  
+                  <h3>Your products waiting for blips:</h3>
+                  ${productListHTML}
+                  ${sellerProducts.length < productCount ? `<p style="font-style: italic; text-align: center;">And ${productCount - sellerProducts.length} more...</p>` : ''}
+                  
+                  <p>Adding blips is easy! Simply:</p>
+                  <ol>
+                    <li>Log in to your seller account</li>
+                    <li>Go to your product list</li>
+                    <li>Select a product and click "Add Blip"</li>
+                    <li>Upload a short video (15-60 seconds) showcasing your product</li>
+                  </ol>
+                  
+                  <div style="text-align: center; margin: 25px 0;">
+                    <a href="https://seller.auqli.live/dashboard/blips" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                      ADD BLIPS NOW
+                    </a>
+                  </div>
+                  
+                
+                  
+                  <p>Best regards,<br>The Auqli Team</p>
+                </div>
+              `
+            };
+            
+            // Send the email
+            await sgMail.send(emailMsg);
+            results.emailsSent++;
+            
+            console.log(`Reminder email sent to seller without blips: ${seller.email}`);
+          } catch (emailError) {
+            console.error(`Error sending blip reminder email to ${seller.email}:`, emailError);
+            results.errors.push({
+              sellerId: seller._id,
+              email: seller.email,
+              error: emailError.message
+            });
+          }
+        }
+      }
+    }
+    
+    // Return success response with results
+    res.json({
+      success: true,
+      message: `Successfully processed ${results.totalSellers} sellers and sent ${results.emailsSent} blip reminder emails`,
+      results
+    });
+  } catch (error) {
+    console.error('Error sending reminders to sellers without blips:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send blip reminder emails',
+      error: error.message
+    });
+  }
+};
+
 // Get transactions for a specific buyer
 exports.getBuyerTransactions = async (req, res) => {
   try {

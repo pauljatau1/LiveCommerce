@@ -1194,6 +1194,19 @@ function initializeSocket(server) {
           current: true,
           sellerId: socket.user.id,
           sellerName: userDetails.storeName || 'Host',
+          type: 'announcement',
+          user: userDetails.storeName || 'Host',
+          avatar: userDetails.storeAvatar?.url || '',
+          content: data.content.trim(),
+          data: {
+            message: data.content.trim(),
+            sellerId: socket.user.id,
+            sellerName: userDetails.storeName || 'Host',
+            streamId: data.streamId,
+            isHost: true,
+            announcementId: Date.now().toString(),
+            current: true
+          },
           timestamp: new Date()
         };
 

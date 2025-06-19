@@ -1403,15 +1403,24 @@ productSchema.methods.placeBid = async function(buyerId, bidAmount) {
 
 // Add this before module.exports
 productSchema.methods.endAuction = async function(maxBidReached = false, io = null) {
+  console.log(`Starting endAuction method for product: ${this._id}, maxBidReached: ${maxBidReached}`);
+  
   if (this.status !== 'offline_auction' || 
       (this.auction.status !== 'ongoing' && !maxBidReached)) {
+    console.error(`Cannot end auction - invalid status: product status=${this.status}, auction status=${this.auction.status}`);
     throw new Error('Cannot end auction - invalid status');
   }
 
+  console.log(`Setting auction status to ended for product: ${this._id}`);
   this.auction.status = 'ended';
   
   // Always set the winner to the highest bidder when ending auction
   if (this.auction.currentHighestBid && this.auction.currentHighestBid.buyer) {
+    console.log(`Setting winner for auction: ${this._id}`, {
+      buyerId: this.auction.currentHighestBid.buyer,
+      bidAmount: this.auction.currentHighestBid.amount
+    });
+    
     // Set the winner
     this.auction.winner = {
       buyer: this.auction.currentHighestBid.buyer,
@@ -1420,6 +1429,7 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
     };
 
     // Update bid statuses
+    console.log(`Updating bid statuses for ${this.auction.bids.length} bids`);
     this.auction.bids.forEach(bid => {
       if (bid.buyer.toString() === this.auction.winner.buyer.toString()) {
         bid.status = 'won';
@@ -1430,18 +1440,46 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
     
     // Schedule order creation job
     try {
+      console.log(`Attempting to schedule order creation for auction winner: ${this._id}`);
       const agenda = require('../config/agenda').agenda;
+      
+      // Check if agenda is properly initialized
+      if (!agenda) {
+        console.error('Agenda instance is not available or not properly initialized');
+        throw new Error('Agenda not initialized');
+      }
+      
+      // Check if an order already exists for this auction
+      const Order = mongoose.model('Order');
+      const existingOrder = await Order.findOne({ 
+        channel: 'auction',
+        'items.product': this._id
+      });
+      
+      if (existingOrder) {
+        console.log('Order already exists for auction product:', {
+          productId: this._id,
+          orderId: existingOrder._id,
+          orderStatus: existingOrder.items[0].status
+        });
+        return;
+      }
+      
       await agenda.now('create-auction-winner-order', { productId: this._id });
-      console.log('Scheduled auction winner order creation for product:', this._id);
+      console.log('Successfully scheduled auction winner order creation for product:', this._id);
     } catch (error) {
       console.error('Failed to schedule auction winner order creation:', {
         productId: this._id,
-        error: error.message
+        error: error.message,
+        stack: error.stack
       });
     }
+  } else {
+    console.log(`No winner set for auction: ${this._id} - no highest bid found`);
   }
 
   await this.save();
+  console.log(`Auction ${this._id} successfully ended and saved`);
   
   // Emit WebSocket event if io is provided
   if (io) {

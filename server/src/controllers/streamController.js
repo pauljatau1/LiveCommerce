@@ -948,14 +948,42 @@ exports.getStreamDetails = async (req, res) => {
 
 exports.joinStream = async (req, res) => {
   try {
-    // First check if the stream exists and is live
+    // First check if the stream exists (regardless of status)
     let stream = await Stream.findOne({
-      _id: req.params.streamId,
-      status: 'live'
+      _id: req.params.streamId
     });
 
     if (!stream) {
-      return res.status(404).json({ message: 'Active stream not found' });
+      return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    // Now check the stream status
+    if (stream.status === 'scheduled') {
+      // Populate the stream with the same fields as in getStreamsByStatus
+      const populatedStream = await Stream.findById(stream._id)
+        .populate('seller', 'storeName businessName storeAvatar rating')
+        .populate('products.product', 'name description images price')
+        .lean();
+      
+      // Add subscribersCount to stream
+      const streamWithSubscriberCount = {
+        ...populatedStream,
+        subscribersCount: populatedStream.subscribers ? populatedStream.subscribers.length : 0,
+        viewerCount: populatedStream.viewers ? populatedStream.viewers.length : 0
+      };
+      
+      return res.status(500).json({ 
+        message: 'Stream has not started yet',
+        stream: streamWithSubscriberCount
+      });
+    }
+
+    if (stream.status === 'ended') {
+      return res.status(500).json({ message: 'Stream has already ended' });
+    }
+
+    if (stream.status !== 'live') {
+      return res.status(500).json({ message: `Cannot join stream with status: ${stream.status}` });
     }
 
     // Fetch complete buyer details
