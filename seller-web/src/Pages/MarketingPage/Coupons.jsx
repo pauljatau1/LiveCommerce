@@ -29,6 +29,8 @@ import {
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import PropTypes from "prop-types";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/Components/ui/command"
+import { Check } from "lucide-react"
 
 export default function Coupons() {
   // Add coupon type state
@@ -59,6 +61,13 @@ export default function Coupons() {
   const navigate = useNavigate()
   const [startTimeOption, setStartTimeOption] = useState('immediately')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [paginationData, setPaginationData] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0
+  })
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -73,7 +82,14 @@ export default function Coupons() {
           })
 
           const sellerId = profileResponse.data._id
-          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`)
+          
+          // Update to include pagination parameters
+          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
+            params: {
+              page: currentPage,
+              limit: itemsPerPage
+            }
+          })
 
           // Filter out products that are already on discount
           const availableProducts = productsResponse.data.products.map(product => ({
@@ -83,6 +99,13 @@ export default function Coupons() {
           }))
 
           setSellerProducts(availableProducts)
+          
+          // Set pagination data
+          setPaginationData({
+            currentPage: productsResponse.data.currentPage || 1,
+            totalPages: productsResponse.data.totalPages || 1,
+            totalProducts: productsResponse.data.totalProducts || availableProducts.length
+          })
         }
       } catch (error) {
         setError("Failed to fetch products: " + error.message)
@@ -92,7 +115,7 @@ export default function Coupons() {
     }
 
     fetchSellerProducts()
-  }, [])
+  }, [currentPage, itemsPerPage]) // Add dependencies to re-fetch when page changes
 
   // Update form data when start time option changes
   useEffect(() => {
@@ -246,6 +269,24 @@ export default function Coupons() {
       daysRemaining: Math.ceil((new Date(product.discountEndDate) - new Date()) / (1000 * 60 * 60 * 24))
     };
   };
+
+  // Add pagination handlers
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < paginationData.totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit)
+    setCurrentPage(1) // Reset to first page when changing items per page
+  }
 
   return (
     <div className=" mx-auto p-6">
@@ -649,8 +690,110 @@ export default function Coupons() {
                 )}
               </TableBody>
             </Table>
-            <div className="p-4 border-t text-sm text-gray-500">
-              Showing {filteredProducts.length} items
+            <div className="p-4 border-t text-sm text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                Showing {filteredProducts.length} of {paginationData.totalProducts} items
+              </div>
+              
+              {paginationData.totalPages > 1 && (
+                <div className="flex items-center justify-center flex-wrap gap-3 w-full sm:w-auto">
+                  {/* Mobile pagination display */}
+                  <div className="flex sm:hidden items-center justify-center w-full">
+                    <button 
+                      onClick={handlePreviousPage}
+                      disabled={currentPage <= 1}
+                      className={`flex-1 ${
+                        currentPage <= 1 
+                          ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                      } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
+                    >
+                      <span className="text-xs">Prev</span>
+                    </button>
+                    
+                    <span className="px-4 py-2 text-xs bg-gray-50 border-t border-b border-gray-200">
+                      Page {currentPage} of {paginationData.totalPages}
+                    </span>
+                    
+                    <button 
+                      onClick={handleNextPage}
+                      disabled={currentPage >= paginationData.totalPages}
+                      className={`flex-1 ${
+                        currentPage >= paginationData.totalPages 
+                          ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                      } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
+                    >
+                      <span className="text-xs">Next</span>
+                    </button>
+                  </div>
+                  
+                  {/* Desktop pagination controls */}
+                  <div className="hidden sm:flex items-center justify-center gap-3">
+                    <button 
+                      onClick={handlePreviousPage}
+                      disabled={currentPage <= 1}
+                      className={`text-xs sm:text-sm font-cabin font-normal ${
+                        currentPage <= 1 
+                          ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                      } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                    >
+                      <p className="text-xs sm:text-sm font-cabin font-normal">Previous</p>
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                      <span className="px-3 py-2 rounded-md bg-[#0BB248] text-white">
+                        {currentPage}
+                      </span>
+                      <span className="text-gray-600">of</span>
+                      <span className="px-3 py-2 rounded-md border border-gray-200">
+                        {paginationData.totalPages}
+                      </span>
+                    </div>
+                    
+                    <button 
+                      onClick={handleNextPage}
+                      disabled={currentPage >= paginationData.totalPages}
+                      className={`text-xs sm:text-sm font-cabin font-normal ${
+                        currentPage >= paginationData.totalPages 
+                          ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                      } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                    >
+                      <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
+                    </button>
+                  </div>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#17171B] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out">
+                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0">
+                      <Command>
+                        <CommandList>
+                          <CommandGroup>
+                            <CommandItem onSelect={() => handleItemsPerPageChange(10)}>
+                              <span>10 per page</span>
+                              {itemsPerPage === 10 && <Check className="ml-auto h-4 w-4" />}
+                            </CommandItem>
+                            <CommandItem onSelect={() => handleItemsPerPageChange(20)}>
+                              <span>20 per page</span>
+                              {itemsPerPage === 20 && <Check className="ml-auto h-4 w-4" />}
+                            </CommandItem>
+                            <CommandItem onSelect={() => handleItemsPerPageChange(50)}>
+                              <span>50 per page</span>
+                              {itemsPerPage === 50 && <Check className="ml-auto h-4 w-4" />}
+                            </CommandItem>
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
           </div>
         </div>

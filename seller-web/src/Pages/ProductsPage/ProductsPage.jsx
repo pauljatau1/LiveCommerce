@@ -58,6 +58,7 @@ import arrowLongLeftIcon from '@iconify-icons/gg/arrow-long-left';
 import arrowLongRightIcon from '@iconify-icons/gg/arrow-long-right';
 import arrowDownIcon from '@iconify-icons/simple-line-icons/arrow-down';
 import checkIcon from '@iconify-icons/lucide/check';
+import { BiPlayCircle } from 'react-icons/bi';
 
 const ProductsPage = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -806,22 +807,25 @@ const ProductsPage = () => {
                             <div className="hidden sm:block overflow-x-auto">
                                 <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden min-w-[768px]">
                                     {/* Table Headers */}
-                                    <div className={`grid ${activeTab === 'auctions' ? 'grid-cols-[80px_1fr_1fr_1fr_100px_100px]' : 'grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px]'} gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white`}>
+                                    <div className={`grid ${activeTab === 'auctions' ? 'grid-cols-[80px_1fr_1fr_1fr_100px_100px]' : 'grid-cols-[80px_1.5fr_0.8fr_0.8fr_0.8fr_80px_120px_120px]'} gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white`}>
                                         <div className="text-sm font-medium text-[#17171B]">Image</div>
                                         <div className="text-sm font-medium text-[#17171B]">Product Name</div>
                                         {activeTab !== 'auctions' && (
                                             <div className="text-sm font-medium text-[#17171B]">Upload Status</div>
                                         )}
-                                        <div className="text-sm font-medium text-[#17171B]">
+                                        <div className="text-sm  font-medium text-[#17171B]">
                                             {activeTab === 'auctions' ? 'Auction Status' : 'Sold Count'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#17171B]">
+                                        <div className="text-sm font-medium  text-[#17171B]">
                                             {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#17171B] text-center">
-                                            {activeTab === 'auctions' ? 'Time Left' : 'Stock Count'}
+                                        <div className="text-sm font-medium  text-[#17171B] text-center">
+                                            {activeTab === 'auctions' ? 'Time Left' : 'Stock'}
                                         </div>
-                                        <div className="text-sm font-medium text-[#17171B] text-center">Actions</div>
+                                        {activeTab !== 'auctions' && (
+                                            <div className="text-sm font-medium  text-[#17171B] text-center">Blips</div>
+                                        )}
+                                        <div className="text-sm font-medium  text-[#17171B] text-center">Actions</div>
                                     </div>
 
                                     {/* Products List for Desktop/Tablet */}
@@ -1054,8 +1058,13 @@ const ProductsPage = () => {
                                                                         }}
                                                                         className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-md w-[calc(50%-4px)]"
                                                                     >
-                                                                        <Icon icon={videoFrameBoldIcon} className="w-3.5 h-3.5" />
+                                                                        <BiPlayCircle className="w-3.5 h-3.5" />
                                                                         <span>Blip</span>
+                                                                        {item.blips?.length > 0 && (
+                                                                            <span className="ml-1 bg-indigo-700 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                                                                {item.blips.length}
+                                                                            </span>
+                                                                        )}
                                                                     </button>
                                                                 </>
                                                             )}

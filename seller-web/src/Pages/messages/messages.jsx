@@ -588,16 +588,26 @@ export default function ChatInterface() {
     fetchConversations();
   }, []);
 
+  // Add a state to track if initial messages are loaded for a conversation
+  const [initialMessagesLoaded, setInitialMessagesLoaded] = useState({});
+  
   // Fetch messages when conversation changes
   useEffect(() => {
     if (!currentConversation) return;
     console.log('Conversation changed, fetching messages');
+    
+    // Check if we already loaded messages for this conversation
+    if (initialMessagesLoaded[currentConversation._id]) {
+      console.log('Messages already loaded for this conversation, skipping fetch');
+      return;
+    }
+    
     // Reset pagination state when conversation changes
     setCurrentPage(1);
     setHasMoreMessages(true);
     setMessages([]);
     fetchMessages(1);
-  }, [currentConversation]);
+  }, [currentConversation?._id]); // Only depend on the conversation ID, not the entire object
 
   // Create a more robust scrollToBottom function with direct DOM manipulation
   const scrollToBottom = (immediate = true) => {
@@ -625,15 +635,16 @@ export default function ChatInterface() {
     }
   };
 
-  // Update the fetchMessages function to handle pagination
+  // Update the fetchMessages function to handle pagination with debounce
   const fetchMessages = async (page = 1) => {
     if (!currentConversation) return;
     
     const conversationId = currentConversation._id;
     
-    if (page === 1) {
+    // Only show loading state for the first page AND when no messages are loaded yet
+    if (page === 1 && messages.length === 0) {
       setIsLoadingMessages(true);
-    } else {
+    } else if (page > 1) {
       setLoadingMoreMessages(true);
     }
     
@@ -657,10 +668,23 @@ export default function ChatInterface() {
         // Keep messages in their API-returned order (newest first)
         if (page === 1) {
           // First page, just set the messages
-          setMessages(data.messages || []);
+          // Prevent duplicate messages by checking IDs
+          const uniqueMessages = data.messages || [];
+          setMessages(uniqueMessages);
+          
+          // Mark this conversation as having loaded messages
+          setInitialMessagesLoaded(prev => ({
+            ...prev,
+            [conversationId]: true
+          }));
         } else {
           // Additional pages, append to existing messages while maintaining order (newest first)
-          setMessages(prevMessages => [...prevMessages, ...data.messages]);
+          // Prevent duplicate messages by checking IDs
+          setMessages(prevMessages => {
+            const existingIds = new Set(prevMessages.map(msg => msg._id));
+            const newMessages = (data.messages || []).filter(msg => !existingIds.has(msg._id));
+            return [...prevMessages, ...newMessages];
+          });
         }
         
         // Update pagination state
@@ -670,7 +694,7 @@ export default function ChatInterface() {
         
         // If it's the first page, scroll to bottom
         if (page === 1) {
-          scrollToBottom(true);
+          setTimeout(() => scrollToBottom(true), 50);
         }
       }
     } catch (error) {
@@ -764,37 +788,93 @@ export default function ChatInterface() {
 
       // Update messages if the message belongs to current conversation
       if (messageData.conversation === currentConversation?._id) {
-        // Add new messages at the beginning (newest first)
-        setMessages(prev => [messageData, ...prev]);
+        // Add new messages at the beginning (newest first) without triggering a full reload
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          const messageExists = prev.some(msg => msg._id === messageData._id);
+          if (messageExists) {
+            return prev;
+          }
+          return [messageData, ...prev];
+        });
         
         // Force immediate scroll to bottom for new messages
-        scrollToBottom(true);
+        setTimeout(() => scrollToBottom(true), 50);
       }
 
-      // Update conversations list
+      // Update conversations list without triggering message reload
       setConversations(prev =>
-        prev.map(conv =>
-          conv._id === messageData.conversation
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: messageData.content,
-                  createdAt: messageData.createdAt
-                },
-                // Only increment unread count if not currently viewing this conversation
-                unreadCount: currentConversation?._id === conv._id 
-                  ? 0 
-                  : (conv.unreadCount || 0) + 1
-              }
-            : conv
-        )
+        prev.map(conv => {
+          if (conv._id === messageData.conversation) {
+            return {
+              ...conv,
+              lastMessage: {
+                content: messageData.content,
+                createdAt: messageData.createdAt
+              },
+              // Only increment unread count if not currently viewing this conversation
+              unreadCount: currentConversation?._id === conv._id 
+                ? 0 
+                : (conv.unreadCount || 0) + 1
+            };
+          }
+          return conv;
+        })
       );
+    });
+
+    // Listen for user status changes without triggering message refetching
+    socket.on('user_status_change', (data) => {
+      console.log('User status changed:', data);
+      
+      // Update conversations list without changing current conversation object reference
+      setConversations(prev => prev.map(conv => {
+        if (conv.participant.id === data.userId) {
+          return {
+            ...conv,
+            participant: {
+              ...conv.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        }
+        return conv;
+      }));
+
+      // Update current conversation participant status without changing the entire object
+      if (currentConversation?.participant?.id === data.userId) {
+        // Use a function that doesn't trigger the conversation change effect
+        setCurrentConversation(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            participant: {
+              ...prev.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        });
+      }
+    });
+
+    // Add a typing indicator event
+    socket.on('typing_indicator', (data) => {
+      // Only show typing indicator if it's for the current conversation
+      if (data.conversationId === currentConversation?._id && 
+          data.senderId !== sellerId) {
+        // Handle typing indicator without reloading messages
+        console.log('User is typing...');
+      }
     });
 
     return () => {
       socket.off('receive_message');
+      socket.off('typing_indicator');
+      socket.off('user_status_change');
     };
-  }, [socket, currentConversation]);
+  }, [socket, currentConversation?.participant?.id, sellerId]); // Only depend on participant ID
 
   // Update the handleSendMessage function to work with the new order
   const handleSendMessage = async () => {
@@ -1132,13 +1212,22 @@ export default function ChatInterface() {
         conversations.map((conv) => (
           <div
             key={conv._id}
-            className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
+            className={`p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
               currentConversation?._id === conv._id ? 'bg-green-50' : ''
             }`}
             onClick={async () => {
+              // Check if we're already on this conversation
+              if (currentConversation?._id === conv._id) {
+                return; // Don't do anything if clicking the same conversation
+              }
+              
               // First clear the current messages to avoid showing wrong messages
               setMessages([]);
-              setIsLoadingMessages(true);
+              
+              // Only show loading if we haven't loaded messages for this conversation before
+              if (!initialMessagesLoaded[conv._id]) {
+                setIsLoadingMessages(true);
+              }
               
               // Immediately set the current conversation for instant UI update
               setCurrentConversation(conv);
@@ -1156,75 +1245,43 @@ export default function ChatInterface() {
                 replace: true // Use replace to avoid navigation history stacking
               });
 
-              // Start fetching messages for this conversation
-              try {
-                const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-                const response = await fetch(
-                  `${BASE_URL}/messages/${conv._id}?page=1&limit=20`,
-                  {
-                    headers: {
-                      'Authorization': `Bearer ${sellerToken}`
-                    }
-                  }
-                );
-                const data = await response.json();
-                
-                // Only update if we're still on the same conversation
-                if (currentConversation?._id === conv._id) {
-                  // Get messages in API-returned order (newest first)
-                  setMessages(data.messages || []);
-                  
-                  // Update pagination state
-                  setCurrentPage(data.pagination.currentPage);
-                  setTotalPages(data.pagination.totalPages);
-                  setHasMoreMessages(data.pagination.hasMore);
-                  
-                  // Force immediate scroll to bottom after loading messages
-                  scrollToBottom(true);
-                }
-              } catch (error) {
-                console.error('Error fetching messages:', error);
-                toast.error('Failed to load messages');
-              } finally {
-                if (currentConversation?._id === conv._id) {
-                  setIsLoadingMessages(false);
-                }
-              }
+              // If we already have messages for this conversation, don't fetch again
+              // The useEffect will handle fetching if needed
             }}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-2">
               <div className="relative">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-9 w-9">
                   <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
                   <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
                 </Avatar>
                 {/* Online status indicator */}
-                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
                   conv.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
                 }`} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900">
+                <div className="flex justify-between items-center mb-0.5">
+                  <h3 className="text-xs font-semibold text-gray-900 truncate">
                     {conv.participant.name}
                   </h3>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-[10px] text-gray-500">
                     {formatMessageTime(conv.lastMessage.createdAt)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-sm text-gray-600 truncate">
+                  <p className="text-xs text-gray-600 truncate">
                     {conv.lastMessage.content.slice(0, 22)}{conv.lastMessage.content.length > 22 ? '...' : ''}
                   </p>
                   {conv.unreadCount > 0 && (
-                    <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                    <span className="ml-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                       {conv.unreadCount}
                     </span>
                   )}
                 </div>
                 {/* Last active status */}
                 {!conv.participant.isOnline && conv.participant.lastActive && (
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-[10px] text-gray-400 mt-0.5">
                     Last active {formatLastActive(conv.participant.lastActive)}
                   </p>
                 )}
@@ -1299,15 +1356,15 @@ export default function ChatInterface() {
   const renderMessages = () => (
     <div 
       ref={messagesContainerRef}
-      className="flex-1 p-4 overflow-y-auto"
+      className="flex-1 p-3 overflow-y-auto"
     >
-      {isLoadingMessages ? (
+      {isLoadingMessages && messages.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-40">
           <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
           <p className="text-sm text-gray-500">Loading messages...</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Loading indicator for more messages */}
           {loadingMoreMessages && (
             <div className="flex justify-center py-2">
@@ -1327,13 +1384,13 @@ export default function ChatInterface() {
                   className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
                 >
                   {!isSeller && (
-                    <Avatar className="h-8 w-8 mr-2 mt-1">
+                    <Avatar className="h-7 w-7 mr-1 mt-1">
                       <AvatarImage src={currentConversation?.participant?.avatar || "/placeholder.svg"} />
                       <AvatarFallback>{currentConversation?.participant?.name?.[0]}</AvatarFallback>
                     </Avatar>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                    className={`max-w-[75%] md:max-w-[70%] rounded-2xl px-3 py-2 ${
                       isSeller
                         ? 'bg-green-100 text-gray-800'
                         : 'bg-gray-100 text-gray-800'
@@ -1353,19 +1410,19 @@ export default function ChatInterface() {
                     )}
 
                     {message.messageType === 'product' && message.product && (
-                      <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+                      <div className="bg-white rounded-lg p-2 mb-2 shadow-sm">
                         <img
                           src={message.product.image}
                           alt={message.product.name}
-                          className="w-full h-24 object-cover rounded-md"
+                          className="w-full h-20 object-cover rounded-md"
                           onLoad={() => {
                             if (messagesContainerRef.current) {
                               messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
                             }
                           }}
                         />
-                        <h4 className="text-sm font-medium mt-2">{message.product.name}</h4>
-                        <p className="text-sm font-medium text-green-600 mt-1">
+                        <h4 className="text-xs font-medium mt-2">{message.product.name}</h4>
+                        <p className="text-xs font-medium text-green-600 mt-1">
                           ₦ {message.product.price.toLocaleString()}
                         </p>
                       </div>
@@ -1382,11 +1439,11 @@ export default function ChatInterface() {
                     {/* Only show content as text if it's not a campaign message */}
                     {(!message.messageType || message.messageType === 'text' || 
                       (message.messageType !== 'campaign' && message.content)) && (
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-xs md:text-sm break-words">{message.content}</p>
                     )}
 
                     <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[9px] md:text-[10px] text-gray-500">
                         {formatMessageTime(message.createdAt)}
                       </span>
                       {isSeller && (
@@ -1402,11 +1459,11 @@ export default function ChatInterface() {
                 </div>
               );
             })
-          ) : (
-            <div className="flex items-center justify-center h-full text-sm text-gray-500">
+          ) : !isLoadingMessages ? (
+            <div className="flex items-center justify-center h-full text-xs md:text-sm text-gray-500">
               Start the conversation!
             </div>
-          )}
+          ) : null}
           <div ref={messagesEndRef} />
         </div>
       )}
@@ -1841,10 +1898,40 @@ export default function ChatInterface() {
       `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` : 
       currentConversation.participant.name;
     
+    // Add state for typing indicator
+    const [showTypingIndicator, setShowTypingIndicator] = useState(false);
+    
+    // Listen for typing events
+    useEffect(() => {
+      if (!socket || !currentConversation) return;
+      
+      const handleTypingStarted = (data) => {
+        if (data.conversationId === currentConversation._id && 
+            data.senderId !== sellerId) {
+          setShowTypingIndicator(true);
+        }
+      };
+      
+      const handleTypingStopped = (data) => {
+        if (data.conversationId === currentConversation._id && 
+            data.senderId !== sellerId) {
+          setShowTypingIndicator(false);
+        }
+      };
+      
+      socket.on('typing_started', handleTypingStarted);
+      socket.on('typing_stopped', handleTypingStopped);
+      
+      return () => {
+        socket.off('typing_started', handleTypingStarted);
+        socket.off('typing_stopped', handleTypingStopped);
+      };
+    }, [socket, currentConversation, sellerId]);
+    
     return (
-      <div className="bg-white border-b p-4">
+      <div className="bg-white border-b p-3">
         {/* Add mobile back button */}
-        <div className="flex items-center gap-2 mb-4 md:hidden">
+        <div className="flex items-center gap-2 mb-3 md:hidden">
           <Button
             variant="ghost"
             size="sm"
@@ -1854,14 +1941,14 @@ export default function ChatInterface() {
               setCurrentConversation(null);
             }}
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium">Back to chats</span>
+          <span className="text-xs font-medium">Back to chats</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar className="h-16 w-16">
+            <Avatar className="h-12 w-12 md:h-16 md:w-16">
               <AvatarImage 
                 src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
                 alt={displayName}
@@ -1871,53 +1958,65 @@ export default function ChatInterface() {
               </AvatarFallback>
             </Avatar>
             {/* Online status indicator */}
-            <span className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
+            <span className={`absolute bottom-0 right-0 h-3 w-3 md:h-4 md-w-4 rounded-full border-2 border-white ${
               currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
             }`} />
           </div>
           
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">
+            <div className="flex items-center gap-1">
+              <h2 className="text-base md:text-xl font-semibold truncate max-w-[180px] md:max-w-none">
                 {displayName}
               </h2>
-              {/* Online/Offline status text */}
-              <span className={`text-sm ${
-                currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
-              }`}>
-                {currentConversation.participant.isOnline ? 'Online' : 
-                  currentConversation.participant.lastActive ? 
-                    `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
-                    'Offline'
-                }
-              </span>
+              {/* Show typing indicator instead of status when typing */}
+              {showTypingIndicator ? (
+                <span className="text-xs md:text-sm text-green-500 flex items-center">
+                  typing
+                  <span className="ml-1 flex">
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '0ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '200ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '400ms' }}></span>
+                  </span>
+                </span>
+              ) : (
+                /* Online/Offline status text */
+                <span className={`text-xs md:text-sm ${
+                  currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
+                }`}>
+                  {currentConversation.participant.isOnline ? 'Online' : 
+                    currentConversation.participant.lastActive ? 
+                      `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
+                      'Offline'
+                  }
+                </span>
+              )}
             </div>
             
             {/* Show loading indicator for buyer details */}
             {!buyerDetails && (
-              <div className="flex items-center text-sm text-gray-500 mt-1">
-                <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              <div className="flex items-center text-xs text-gray-500 mt-1">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 <span>Loading details...</span>
               </div>
             )}
             
             {/* Show buyer details once loaded */}
             {buyerDetails && (
-              <div className=" hidden sm:flex items-center gap-4 text-sm text-gray-600 mt-1">
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-600 mt-1">
                 {primaryAddress && (
                   <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
+                    <MapPin className="h-3 w-3" />
                     <span>{primaryAddress.state}, {primaryAddress.country}</span>
                   </div>
                 )}
                 {buyerDetails?.orderStats?.withSeller && (
                   <>
                     <div className="flex items-center gap-1">
-                      <ShoppingBag className="h-4 w-4" />
+                      <ShoppingBag className="h-3 w-3" />
                       <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Banknote className="h-4 w-4" />
+                      <Banknote className="h-3 w-3" />
                       <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
                     </div>
                   </>
@@ -1938,14 +2037,14 @@ export default function ChatInterface() {
 
   // Update the message input area
   const renderMessageInput = () => (
-    <div className="px-4 py-3 border-t bg-white relative message-input-container">
+    <div className="px-3 py-2 border-t bg-white relative message-input-container">
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
           <Input
             value={messageInput}
             onChange={(e) => setMessageInput(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 text-base md:text-sm rounded-full bg-gray-50 pr-24"
+            className="flex-1 text-sm rounded-full bg-gray-50 pr-24"
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             enterKeyHint="send"
           />
@@ -1953,26 +2052,26 @@ export default function ChatInterface() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full md:hidden"
+              className="h-7 w-7 rounded-full md:hidden"
               onClick={() => setIsProductDrawerOpen(true)}
             >
-              <Package className="h-5 w-5 text-gray-500" />
+              <Package className="h-4 w-4 text-gray-500" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full hidden md:block"
+              className="h-7 w-7 rounded-full hidden md:block"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
-              <SmileIcon className="h-5 w-5 text-gray-500" />
+              <SmileIcon className="h-4 w-4 text-gray-500" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full"
+              className="h-7 w-7 rounded-full"
               onClick={() => document.getElementById('file-upload').click()}
             >
-              <PaperclipIcon className="h-5 w-5 text-gray-500" />
+              <PaperclipIcon className="h-4 w-4 text-gray-500" />
             </Button>
           </div>
         </div>
@@ -1987,14 +2086,14 @@ export default function ChatInterface() {
         
         <Button
           size="icon"
-          className="h-10 w-10 rounded-full bg-green-600 hover:bg-green-700"
+          className="h-9 w-9 rounded-full bg-green-600 hover:bg-green-700"
           onClick={handleSendMessage}
           disabled={isSending}
         >
           {isSending ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <SendHorizontal className="h-5 w-5" />
+            <SendHorizontal className="h-4 w-4" />
           )}
         </Button>
       </div>
@@ -2207,6 +2306,39 @@ export default function ChatInterface() {
     </Drawer>
   );
 
+  // Add debounced message input handler to emit typing events
+  const [isTyping, setIsTyping] = useState(false);
+  
+  useEffect(() => {
+    let typingTimeout;
+    
+    if (messageInput && currentConversation && socket) {
+      if (!isTyping) {
+        setIsTyping(true);
+        // Emit typing started event
+        socket.emit('typing_started', {
+          conversationId: currentConversation._id,
+          senderId: sellerId
+        });
+      }
+      
+      // Clear existing timeout
+      clearTimeout(typingTimeout);
+      
+      // Set new timeout to stop typing indicator
+      typingTimeout = setTimeout(() => {
+        setIsTyping(false);
+        // Emit typing stopped event
+        socket.emit('typing_stopped', {
+          conversationId: currentConversation._id,
+          senderId: sellerId
+        });
+      }, 2000); // 2 seconds after user stops typing
+    }
+    
+    return () => clearTimeout(typingTimeout);
+  }, [messageInput, currentConversation, socket, sellerId, isTyping]);
+
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
 
@@ -2279,7 +2411,7 @@ export default function ChatInterface() {
           </div>
           {renderQuickTools()}
         </div>
-      </div>
+      </div> 
     </div>
   );
 }

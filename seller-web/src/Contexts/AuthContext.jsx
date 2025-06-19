@@ -32,7 +32,9 @@ function AuthProvider({ children }) {
         passwordResetSuccessful: false,
         isDataReady: false,
         emailVerified: false,
-        isAccountDisabled: false
+        isAccountDisabled: false,
+        isSubmittingOtp: false,
+        isResendingOtp: false,
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -203,6 +205,16 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     isAccountDisabled: true
+                }
+            case "SET_SUBMITTING_OTP":
+                return {
+                    ...state,
+                    isSubmittingOtp: action.payload
+                }
+            case "SET_RESENDING_OTP":
+                return {
+                    ...state,
+                    isResendingOtp: action.payload
                 }
             default:
                 return state;
@@ -427,7 +439,7 @@ function AuthProvider({ children }) {
     const verifyOtp = async (email, otp) => {
         try {
             shutdown()
-            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'SET_SUBMITTING_OTP', payload: true });
 
             const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
                 email,
@@ -460,6 +472,17 @@ function AuthProvider({ children }) {
                         }
                     });
 
+                    const sellerDetails = JSON.parse(localStorage.getItem('seller') || '{}');
+
+                    trackEvent("Seller Email Verified", {
+                        "Seller ID": sellerDetails?._id,
+                        "Email": sellerDetails?.email,
+                        "Verification Method": "Email",
+                        "Seller Name": `${sellerDetails?.firstName} ${sellerDetails?.lastName}`,
+                        "Seller Store Name": sellerDetails?.storeName,
+                        "Seller Phone Number": sellerDetails?.phoneNumber,
+                    });
+
                     toast.success('Account verified successfully!');
 
                     // Return success - navigation will be handled by the component
@@ -483,11 +506,11 @@ function AuthProvider({ children }) {
             return false;
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError.response?.data?.message || 'Verification failed' });
-            toast.error(AxiosError.response?.data?.message || 'OTP verification failed');
+            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError?.response?.data?.message || 'Verification failed' });
+            toast.error(AxiosError?.response?.data?.message || 'OTP verification failed');
             return false;
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_SUBMITTING_OTP', payload: false });
         }
     };
 
@@ -495,8 +518,7 @@ function AuthProvider({ children }) {
     //function to request for new otp
     const requestNewOtp = async (email) => {
         try {
-            dispatch({ type: 'RESET' });
-            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'SET_RESENDING_OTP', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/resend-otp`, {
                 email
             });
@@ -520,10 +542,10 @@ function AuthProvider({ children }) {
             }
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError.response.data.message });
-            toast.error(AxiosError.response.data.message);
+            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError?.response?.data?.message });
+            toast.error(AxiosError?.response?.data?.message);
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_RESENDING_OTP', payload: false });
         }
     };
 
@@ -590,6 +612,9 @@ function AuthProvider({ children }) {
                     console.error('IP tracking failed:', e);
                 }
 
+                const isPickupAddressRequired = response?.data?.user?.accountType === 'individual' ? response?.data?.user?.hasFilledAddress === false : response?.data?.user?.hasFilledBusinessAddress === false;
+                const onboardingCompletionStatus = response?.data?.user?.emailVerified && !isPickupAddressRequired ? "Completed" : "Not Completed";
+
                 // Track analytics using our utility
                 try {
                     // User properties for identification
@@ -600,7 +625,9 @@ function AuthProvider({ children }) {
                         "User Type": "Seller",
                         "Seller Account Type": response?.data?.user?.accountType,
                         "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                        "Verification Status": response?.data?.user?.isVerified ? "Verified" : "Not Verified",
+                        "Email Verification Status": response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                        "Onboarding Completion Status": onboardingCompletionStatus,
+                        "Onboarding Steps Remaining": `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
                         "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
                         "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
                         "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
@@ -657,6 +684,9 @@ function AuthProvider({ children }) {
                         window.cioanalytics.identify(response?.data?.user?._id, {
                             seller_id: response?.data?.user?._id,
                             email: response?.data?.user?.email,
+                            email_verification_status: response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                            onboarding_completion_status: onboardingCompletionStatus,
+                            onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
                             first_name: response?.data?.user?.firstName,
                             last_name: response?.data?.user?.lastName,
                             created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
@@ -814,24 +844,6 @@ function AuthProvider({ children }) {
                 if (!isEmailVerified) {
                     dispatch({ type: 'UNVERIFIED_SELLER', payload: userData });
                 }
-
-                const profileComplete = Boolean(
-                    response.data.storeName &&
-                    response.data.businessAddress &&
-                    response.data.bankDetails &&
-                    response.data.isProfileComplete
-                );
-
-                trackEvent("Seller Profile Completed", {
-                    "seller id": response.data._id,
-                    "seller email": response.data.email,
-                    "seller store name": response.data.storeName,
-                    "seller first name": response.data.firstName,
-                    "seller last name": response.data.lastName,
-                    "seller phone number": response.data.phoneNumber,
-                    "seller profile completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
-                    "user type": "Seller"
-                });
             }
         } catch (error) {
             console.log("Fetch seller details error:", error);
@@ -952,13 +964,6 @@ function AuthProvider({ children }) {
         if (/android/i.test(userAgent)) return "Android";
         if (/iPad|iPhone|iPod/.test(userAgent)) return "iOS";
         return "Desktop";
-    };
-
-    // Add helper function
-    const calculateProfileCompletion = (sellerData) => {
-        const requiredFields = ['storeName', 'businessAddress', 'bankDetails', 'isProfileComplete', 'storeAvatar', 'storeBanner'];
-        const completedFields = requiredFields.filter(field => sellerData[field]);
-        return Math.round((completedFields.length / requiredFields.length) * 100);
     };
 
     // Add this helper function in your AuthProvider component
