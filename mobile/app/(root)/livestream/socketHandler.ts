@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end' | 'liveshow_order';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end' | 'liveshow_order' | 'announcement';
   user: string;
   avatar?: string;
   content: string;
