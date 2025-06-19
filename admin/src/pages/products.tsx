@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 
@@ -144,6 +145,10 @@ function Products() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [loadingProductDetails, setLoadingProductDetails] = useState(false)
   const [productDetailsOpen, setProductDetailsOpen] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showNoProductsConfirmation, setShowNoProductsConfirmation] = useState(false)
+  const [showNoBlipsConfirmation, setShowNoBlipsConfirmation] = useState(false)
 
   // Pagination and filtering state
   const [pagination, setPagination] = useState({
@@ -164,7 +169,6 @@ function Products() {
     sortBy: 'createdAt',
     sortOrder: 'desc'
   })
-  const [isSearching, setIsSearching] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [categories, setCategories] = useState<string[]>([])
 
@@ -540,7 +544,7 @@ function Products() {
     }
 
     try {
-      const response = await api.delete(`/admin/products/${productId}`);
+      const response = await api.delete(`/api/admin/products/${productId}`);
       
       if (response.data.success) {
         toast.success("Product deleted successfully");
@@ -560,7 +564,7 @@ function Products() {
     }
 
     try {
-      const response = await api.put(`/admin/products/${productId}/disable`);
+      const response = await api.put(`/api/admin/products/${productId}/disable`);
       
       if (response.data.success) {
         toast.success("Product disabled successfully");
@@ -572,6 +576,38 @@ function Products() {
     } catch (error) {
       console.error("Error disabling product:", error);
       toast.error("Failed to disable product. Please try again.");
+    }
+  };
+
+  // Send reminder emails to sellers without products
+  const sendRemindersToSellersWithoutProducts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.post('/api/admin/sellers/reminders/no-products');
+      toast.success(response.data.message || 'Reminder emails sent to sellers without products');
+      setShowNoProductsConfirmation(false);
+      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error sending reminder emails:', error);
+      toast.error(error.response?.data?.message || 'Failed to send reminder emails');
+      setShowNoProductsConfirmation(false);
+      setIsLoading(false);
+    }
+  };
+
+  // Send reminder emails to sellers without blips
+  const sendRemindersToSellersWithoutBlips = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.post('/api/admin/sellers/reminders/no-blips');
+      toast.success(response.data.message || 'Reminder emails sent to sellers without blips');
+      setShowNoBlipsConfirmation(false);
+      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error sending reminder emails:', error);
+      toast.error(error.response?.data?.message || 'Failed to send reminder emails');
+      setShowNoBlipsConfirmation(false);
+      setIsLoading(false);
     }
   };
 
@@ -608,6 +644,88 @@ function Products() {
           <p className="text-muted-foreground">Manage your product inventory ({pagination.totalProducts} products)</p>
         </div>
         <div className="flex space-x-3">
+          <Dialog open={showNoProductsConfirmation} onOpenChange={setShowNoProductsConfirmation}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="bg-amber-600 text-white hover:bg-amber-700"
+              >
+                <Info className="h-4 w-4 mr-2" />
+                Remind No Products
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Reminder Emails</DialogTitle>
+                <DialogDescription>
+                  This will send reminder emails to all sellers who have not uploaded any products yet.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to send reminder emails to all sellers without products? This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter className="sm:justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button 
+                  type="button" 
+                  className="bg-amber-600 hover:bg-amber-700" 
+                  onClick={sendRemindersToSellersWithoutProducts}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Info className="h-4 w-4 mr-2" />}
+                  Send Reminders
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog open={showNoBlipsConfirmation} onOpenChange={setShowNoBlipsConfirmation}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Remind No Blips
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Reminder Emails</DialogTitle>
+                <DialogDescription>
+                  This will send reminder emails to all sellers who have products but no blips.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to send reminder emails to all sellers without blips? This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter className="sm:justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button 
+                  type="button" 
+                  className="bg-emerald-600 hover:bg-emerald-700" 
+                  onClick={sendRemindersToSellersWithoutBlips}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Store className="h-4 w-4 mr-2" />}
+                  Send Reminders
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
           <Button 
             onClick={() => setShowFilters(!showFilters)} 
             variant="outline" 
@@ -933,11 +1051,22 @@ function Products() {
                             ? 'Low Stock'
                             : 'Out of Stock'}
                         </span>
-                        {product.visibility && (
-                          <Badge variant="outline" className="text-xs w-fit">
-                            {product.visibility.charAt(0).toUpperCase() + product.visibility.slice(1)}
+                        {product.status === 'active' && (
+                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800 w-fit">
+                            Active
                           </Badge>
                         )}
+                        {product.status === 'draft' && (
+                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 w-fit">
+                            Draft
+                          </Badge>
+                        )}
+                        {product.status === 'offline_auction' && (
+                          <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 w-fit">
+                            Offline Auction
+                          </Badge>
+                        )}
+                        
                         {product.condition && (
                           <Badge variant="outline" className="text-xs capitalize w-fit">
                             {product.condition}
