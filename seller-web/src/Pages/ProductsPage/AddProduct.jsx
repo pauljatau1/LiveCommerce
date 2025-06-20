@@ -20,6 +20,7 @@ import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
+import ImageEditModal from '../../Components/ui/ImageEditModal';
 
 // Comment out ProductSpecifications import
 // import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
@@ -88,6 +89,11 @@ const AddProduct = () => {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    
+    // Image editing modal state
+    const [isImageEditModalOpen, setIsImageEditModalOpen] = useState(false);
+    const [currentEditingImage, setCurrentEditingImage] = useState("");
+    const [currentEditingFile, setCurrentEditingFile] = useState(null);
 
     // Check URL parameters for ?type=auction
     useEffect(() => {
@@ -239,33 +245,50 @@ const AddProduct = () => {
             return;
         }
 
-        const newImages = await Promise.all(validFiles.map(file => {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve({
-                    url: reader.result,
-                    contentType: file.type,
-                    isDefault: false
-                });
-                reader.readAsDataURL(file);
-            });
-        }));
-
-        if (newImages.length > 0) {
-            newImages[0].isDefault = true;
+        // Process each valid file and check dimensions
+        for (const file of validFiles) {
+            try {
+                const dimensions = await checkImageDimensions(file);
+                
+                if (dimensions.isMobileScreenshot) {
+                    // Show image editing modal for mobile screenshot-like images
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setCurrentEditingImage(reader.result);
+                        setCurrentEditingFile(file);
+                        setIsImageEditModalOpen(true);
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    toast.warning('Image has mobile screenshot aspect ratio. Please edit it for better product display.');
+                    // Process only the first problematic image to avoid multiple modals
+                    break;
+                } else {
+                    // Process normally if aspect ratio is acceptable
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const newImage = {
+                            url: reader.result,
+                            contentType: file.type,
+                            isDefault: images.length === 0 // First image is default
+                        };
+                        setImages(prev => [...prev, newImage]);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            } catch (error) {
+                console.error('Error checking image dimensions:', error);
+                toast.error(`Failed to process ${file.name}`);
+            }
         }
-
-        setImages(prev => [...prev, ...newImages]);
 
         // Show message if some files were not processed due to limit
         if (files.length > remainingSlots) {
             toast.warning(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`);
         }
 
-        // Show success message for valid files
-        if (validFiles.length > 0) {
-            toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
-        }
+        // Clear the file input to allow selecting the same file again
+        e.target.value = '';
     };
 
     const fetchSeller = localStorage.getItem('seller');
@@ -333,6 +356,35 @@ const AddProduct = () => {
     useEffect(() => {
         debouncedSearch(categorySearchQuery);
     }, [categorySearchQuery, debouncedSearch]);
+
+    // Helper function to check if image has mobile screenshot aspect ratio
+    const isMobileScreenshotAspectRatio = (width, height) => {
+        const aspectRatio = width / height;
+        
+        // Mobile screenshots typically have aspect ratios less than 0.8 (height > 1.25 * width)
+        // Common mobile screenshot ratios: 9:16 (0.5625), 9:18 (0.5), 9:19.5 (0.46), etc.
+        // We'll use 0.8 as threshold - images narrower than this are likely mobile screenshots
+        const MOBILE_SCREENSHOT_THRESHOLD = 0.8;
+        
+        return aspectRatio < MOBILE_SCREENSHOT_THRESHOLD;
+    };
+
+    // Helper function to check image dimensions
+    const checkImageDimensions = (file) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                resolve({
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                    aspectRatio: img.naturalWidth / img.naturalHeight,
+                    isMobileScreenshot: isMobileScreenshotAspectRatio(img.naturalWidth, img.naturalHeight)
+                });
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+        });
+    };
 
     //submit product
     const handleSubmitProduct = async (e) => {
@@ -817,6 +869,24 @@ const AddProduct = () => {
         setSelectedCategory(category);
         setSelectedSubCategory(subCategory || '');
         setPlatformFee(selectedCategoryObj?.platformFee || 0);
+    };
+
+    // Handler for saving edited image
+    const handleSaveEditedImage = (editedImageData) => {
+        const newImage = {
+            url: editedImageData.url,
+            contentType: editedImageData.contentType,
+            isDefault: images.length === 0 // First image is default
+        };
+        setImages(prev => [...prev, newImage]);
+        toast.success('Image added successfully after editing!');
+    };
+
+    // Handler for closing image edit modal
+    const handleCloseImageEditModal = () => {
+        setIsImageEditModalOpen(false);
+        setCurrentEditingImage("");
+        setCurrentEditingFile(null);
     };
 
     return (
@@ -1525,6 +1595,15 @@ const AddProduct = () => {
                     </div>
                 )
             }
+
+            {/* Image Edit Modal */}
+            <ImageEditModal
+                isOpen={isImageEditModalOpen}
+                onClose={handleCloseImageEditModal}
+                image={currentEditingImage}
+                onSave={handleSaveEditedImage}
+                originalFile={currentEditingFile}
+            />
         </>
     );
 };
