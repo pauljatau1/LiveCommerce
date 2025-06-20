@@ -3416,7 +3416,7 @@ const getFezAuthToken = async () => {
 exports.getDeliveryCost = async (req, res) => {
   try {
     console.log('🚚 Starting delivery cost calculation request...');
-    const { state, pickupLocations } = req.body;
+    const { state, pickupLocations, freeShipping, fromCompatibleVersion } = req.body;
 
     // Validate input
     if (!Array.isArray(pickupLocations)) {
@@ -3495,6 +3495,32 @@ exports.getDeliveryCost = async (req, res) => {
 
     console.log('🧹 Merged pickup locations:', mergedPickupLocations);
 
+    // Check if free shipping or fromCompatibleVersion is enabled
+    // Skip the Fez API call entirely in both cases
+    if (freeShipping === true || fromCompatibleVersion === true) {
+      console.log('🎁 Free shipping or compatible version enabled - skipping Fez API call');
+      
+      const description = fromCompatibleVersion 
+        ? 'Costs Fetched Successfully (Zero Cost Applied)' 
+        : 'Free Shipping Applied';
+      
+      return res.status(200).json({
+        status: 'Success',
+        description,
+        costs: mergedPickupLocations.map(location => ({
+          sellerId: location.sellerId,
+          pickUpState: location.pickUpState,
+          weight: location.totalWeight,
+          cost: 0,
+          status: 'Success',
+          error: null
+        })),
+        totalCost: 0,
+        freeShipping: true,
+        ...(fromCompatibleVersion && { fromCompatibleVersion: true })
+      });
+    }
+
     // Get fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
@@ -3545,6 +3571,11 @@ exports.getDeliveryCost = async (req, res) => {
 
     // Step 3: Sum only successful ones
     const successfulResults = results.filter(r => r.status === 'Success');
+    
+    // Note: We no longer need to handle fromCompatibleVersion here
+    // as we've already handled it before making the API call
+    
+    // Normal flow - calculate actual costs
     const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
 
     console.log('✅ Successfully retrieved delivery costs');
@@ -3559,7 +3590,8 @@ exports.getDeliveryCost = async (req, res) => {
         status: result.status,
         error: result.error || null
       })),
-      totalCost
+      totalCost,
+      freeShipping: false
     });
 
   } catch (error) {

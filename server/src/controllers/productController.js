@@ -1296,10 +1296,33 @@ exports.deepSearchProducts = async (req, res) => {
       });
 
       const fuzzyResults = fuse.search(query);
-      searchResults = fuzzyResults
-        .map((result) => result.item)
-        .slice(skip, skip + limit);
-
+      const mappedResults = fuzzyResults.map((result) => result.item);
+      
+      // Apply sorting to the fuzzy search results
+      const sortOptions = getSortOptions(sortBy, order);
+      mappedResults.sort((a, b) => {
+        // Get the first sort key
+        const sortKey = Object.keys(sortOptions)[0];
+        const sortDirection = sortOptions[sortKey];
+        
+        // Handle nested properties (e.g. 'analytics.views')
+        const getValue = (obj, path) => {
+          return path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
+        };
+        
+        const aValue = getValue(a, sortKey);
+        const bValue = getValue(b, sortKey);
+        
+        // Handle null/undefined values
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return sortDirection > 0 ? -1 : 1;
+        if (bValue === null) return sortDirection > 0 ? 1 : -1;
+        
+        // Compare values based on sort direction
+        return sortDirection * (aValue > bValue ? 1 : aValue < bValue ? -1 : 0);
+      });
+      
+      searchResults = mappedResults.slice(skip, skip + limit);
       total = fuzzyResults.length;
     } else {
       // No search query — regular listing with filters only
