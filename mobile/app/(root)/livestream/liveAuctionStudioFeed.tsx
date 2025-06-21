@@ -101,6 +101,7 @@ const { width, height } = Dimensions.get("window");
 // Extend the StreamNotification type to include isCurrentUser property
 interface ExtendedStreamNotificationData {
   isCurrentUser?: boolean;
+  isHost?: boolean;
   message?: string;
   sellerId?: string;
   sellerName?: string;
@@ -218,11 +219,25 @@ const CommentItem = memo(({ item, renderAvatar, styles }: CommentItemProps) => {
       </View>
     );
   } else {
+    const isHost = item.data?.isHost === true;
     return (
       <View style={styles.regularCommentItem}>
         {renderAvatar()}
         <View style={styles.regularCommentContent}>
-          <Text style={styles.commentUser}>{item.user}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+            <Text style={styles.commentUser}>{item.user}</Text>
+            {isHost && (
+              <View style={{ 
+                marginLeft: 8, 
+                backgroundColor: '#16783A', 
+                paddingHorizontal: 6, 
+                paddingVertical: 2, 
+                borderRadius: 4 
+              }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>Host</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.regularCommentText}>{item.content}</Text>
         </View>
       </View>
