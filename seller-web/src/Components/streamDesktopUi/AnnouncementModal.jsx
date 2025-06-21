@@ -192,13 +192,17 @@ const AnnouncementModal = ({
     const newAnnouncement = {
       id: latestNotification.id,
       content: latestNotification.content,
-      current: latestNotification.data.current || false,
+      current: true, // New announcements are always current/live
       sellerId: latestNotification.data.sellerId,
       sellerName: latestNotification.data.sellerName,
       timestamp: latestNotification.timestamp
     };
 
-    setAnnouncements(prevAnnouncements => [...prevAnnouncements, newAnnouncement]);
+    // Set all existing announcements to current: false and add the new one as current: true
+    setAnnouncements(prevAnnouncements => [
+      ...prevAnnouncements.map(announcement => ({ ...announcement, current: false })),
+      newAnnouncement
+    ]);
     
     // Cleanup processed notifications periodically
     if (processedNotificationsRef.current.size > 200) {
