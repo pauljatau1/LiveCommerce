@@ -1365,13 +1365,240 @@ if (seller.businessEmail) {
 
 
 // Get all orders with advanced filtering and search
+// Get all possible order statuses for filter dropdowns
+exports.getOrderStatusOptions = async (req, res) => {
+  try {
+    // Get all distinct item statuses
+    const itemStatuses = await Order.distinct('items.status');
+    
+    // Get all distinct shipment tracking statuses
+    const shipmentStatuses = await Order.distinct('shipping.tracking.status');
+    
+    // Get all distinct payment methods
+    const paymentMethods = await Order.distinct('paymentInfo.method');
+    
+    res.json({
+      itemStatuses,
+      shipmentStatuses,
+      paymentMethods,
+      openClosedOptions: ['open', 'closed'],
+      paymentStatusOptions: ['paid', 'unpaid'],
+      staleOptions: ['stale', 'active']
+    });
+  } catch (error) {
+    console.error('Error getting order status options:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve order status options',
+      error: error.message
+    });
+  }
+};
+
+// Get order statistics for admin dashboard
+exports.getOrderStats = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Date filter
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
+    }
+    
+    // Get order counts by status
+    const statusCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $unwind: '$items' },
+      { $group: {
+          _id: '$items.status',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get order counts by payment method
+    const paymentMethodCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$paymentInfo.method',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$totalAmount' }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get order counts by day for the past 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const ordersByDay = await Order.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: thirtyDaysAgo },
+          ...dateFilter
+        } 
+      },
+      {
+        $group: {
+          _id: { 
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } 
+          },
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    // Get counts for open vs closed orders
+    const openClosedCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$isOpen',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Get counts for stale orders
+    const staleCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$isStale',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Format the response
+    const stats = {
+      byStatus: statusCounts.reduce((acc, curr) => {
+        acc[curr._id || 'unknown'] = curr.count;
+        return acc;
+      }, {}),
+      byPaymentMethod: paymentMethodCounts.reduce((acc, curr) => {
+        acc[curr._id || 'unknown'] = {
+          count: curr.count,
+          amount: curr.totalAmount
+        };
+        return acc;
+      }, {}),
+      byDay: ordersByDay.reduce((acc, curr) => {
+        acc[curr._id] = {
+          count: curr.count,
+          revenue: curr.revenue
+        };
+        return acc;
+      }, {}),
+      openVsClosed: openClosedCounts.reduce((acc, curr) => {
+        acc[curr._id ? 'open' : 'closed'] = curr.count;
+        return acc;
+      }, { open: 0, closed: 0 }),
+      staleOrders: staleCounts.reduce((acc, curr) => {
+        if (curr._id === true) acc.stale = curr.count;
+        else acc.active = curr.count;
+        return acc;
+      }, { stale: 0, active: 0 })
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting order statistics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve order statistics',
+      error: error.message
+    });
+  }
+};
+
 exports.getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      isStale,
+      isOpen,
+      paid,
+      search,
+      shipmentStatus,
+      startDate,
+      endDate,
+      seller,
+      paymentMethod,
+      isCashOnDelivery
+    } = req.query;
+    
     const skip = (page - 1) * limit;
 
-    // Build query based on status filter
-    const query = status ? { 'items.status': status } : {};
+    // Build query based on filters
+    const query = {};
+
+    // Filter by item status
+    if (status) {
+      query['items.status'] = status;
+    }
+
+    // Filter by stale orders
+    if (isStale !== undefined) {
+      query.isStale = isStale === 'true';
+    }
+
+    // Filter by open/closed orders
+    if (isOpen !== undefined) {
+      query.isOpen = isOpen === 'true';
+    }
+
+    // Filter by payment status
+    if (paid !== undefined) {
+      query.paid = paid === 'true';
+    }
+
+    // Filter by payment method
+    if (paymentMethod) {
+      query['paymentInfo.method'] = paymentMethod;
+    }
+
+    // Filter by cash on delivery
+    if (isCashOnDelivery !== undefined) {
+      query['paymentInfo.isCashOnDelivery'] = isCashOnDelivery === 'true';
+    }
+
+    // Filter by seller
+    if (seller) {
+      query.seller = seller;
+    }
+
+    // Filter by shipment status
+    if (shipmentStatus) {
+      query['shipping.tracking.status'] = shipmentStatus;
+    }
+
+    // Filter by date range
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Search by order ID, buyer name, or product name
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { order_id: searchRegex },
+        { 'buyerDetails.firstName': searchRegex },
+        { 'buyerDetails.lastName': searchRegex },
+        { 'items.productName': searchRegex }
+      ];
+    }
 
     const orders = await Order.find(query)
       .populate('buyer', 'firstName lastName email phoneNumber')
@@ -1383,11 +1610,21 @@ exports.getAllOrders = async (req, res) => {
 
     const total = await Order.countDocuments(query);
 
+    // Get available filter options for dropdowns
+    const statusOptions = await Order.distinct('items.status');
+    const shipmentStatusOptions = await Order.distinct('shipping.tracking.status');
+    const paymentMethodOptions = await Order.distinct('paymentInfo.method');
+
     res.json({
       orders,
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
-      totalOrders: total
+      totalOrders: total,
+      filterOptions: {
+        status: statusOptions,
+        shipmentStatus: shipmentStatusOptions,
+        paymentMethod: paymentMethodOptions
+      }
     });
 
   } catch (error) {
@@ -7689,7 +7926,14 @@ exports.getAllProductBlips = async (req, res) => {
           },
           contentType: '$blips.contentType',
           productName: '$name',
-          productDescription: { $substr: ['$description', 0, 100] }, // Truncated description
+          // Fix: Replace $isString with $type to check if description is a string
+          // productDescription: {
+          //   $cond: {
+          //     if: { $eq: [{ $type: '$description' }, 'string'] },
+          //     then: { $substr: ['$description', 0, 100] },
+          //     else: ''
+          //   }
+          // },
           price: '$price',
           category: '$category',
           subCategory: '$subCategory',

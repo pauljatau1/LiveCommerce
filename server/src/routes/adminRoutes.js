@@ -696,6 +696,8 @@ router.get('/banners/category/:categoryId', authMiddleware.verifyToken, adminCon
  *         description: Internal server error
  */
 router.get('/orders', authMiddleware.verifyToken, adminController.getAllOrders);
+router.get('/orders/stats', authMiddleware.verifyToken, adminController.getOrderStats);
+router.get('/orders/status-options', authMiddleware.verifyToken, adminController.getOrderStatusOptions);
 
 /**
  * @swagger

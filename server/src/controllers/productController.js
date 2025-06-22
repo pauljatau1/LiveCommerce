@@ -3648,7 +3648,6 @@ exports.getPersonalizedProducts = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Extract categories and subcategories from buyer's preferences
     const categoryNames = buyer.selectedCategories.map(cat => cat.name);
     const subcategoryNames = buyer.selectedCategories.flatMap(category =>
       category.subCategories.map(sub => sub.name)
@@ -3657,14 +3656,12 @@ exports.getPersonalizedProducts = async (req, res) => {
     console.log('Category Names:', categoryNames);
     console.log('Subcategory Names:', subcategoryNames);
 
-    // Build base query for active and visible products, excluding drafts
     const baseQuery = {
-      status: { $in: ['active', 'offline_auction'] }, // Exclude 'draft' status
+      status: 'active',
       visibility: 'visible',
       stock: { $gt: 0 }
     };
 
-    // Build category-specific query
     const categoryQuery = categoryNames.length || subcategoryNames.length ? {
       ...baseQuery,
       $or: [
@@ -3673,21 +3670,17 @@ exports.getPersonalizedProducts = async (req, res) => {
       ]
     } : baseQuery;
 
-    // Build sort object
     const sortOptions = {
       createdAt: order === 'desc' ? -1 : 1,
       price: order === 'desc' ? -1 : 1,
       'stats.averageRating': order === 'desc' ? -1 : 1
     };
 
-    // Get total count for randomization
     const categoryCount = await Product.countDocuments(categoryQuery);
     const shouldRandomize = categoryCount > parseInt(limit);
 
-    // Try to get category-specific products first with randomization
     let products;
     if (shouldRandomize) {
-      // Random skip for category-specific products
       const randomSkip = Math.floor(Math.random() * (categoryCount - parseInt(limit) + 1));
       products = await Product.find(categoryQuery)
         .skip(randomSkip)
@@ -3695,7 +3688,6 @@ exports.getPersonalizedProducts = async (req, res) => {
         .populate('seller', sellerPopulationFields)
         .populate('reviews.buyer', 'firstName lastName');
     } else {
-      // Use original sort if not enough products for randomization
       products = await Product.find(categoryQuery)
         .sort({ [sortBy]: sortOptions[sortBy] })
         .skip((page - 1) * limit)
@@ -3704,14 +3696,12 @@ exports.getPersonalizedProducts = async (req, res) => {
         .populate('reviews.buyer', 'firstName lastName');
     }
 
-    // If no products found in preferred categories, get regular products
     if (products.length === 0) {
       console.log('No products found in preferred categories, fetching regular products');
       const baseCount = await Product.countDocuments(baseQuery);
       const shouldRandomizeBase = baseCount > parseInt(limit);
 
       if (shouldRandomizeBase) {
-        // Random skip for base products
         const randomSkip = Math.floor(Math.random() * (baseCount - parseInt(limit) + 1));
         products = await Product.find(baseQuery)
           .skip(randomSkip)
@@ -3719,7 +3709,6 @@ exports.getPersonalizedProducts = async (req, res) => {
           .populate('seller', sellerPopulationFields)
           .populate('reviews.buyer', 'firstName lastName');
       } else {
-        // Use original sort if not enough products for randomization
         products = await Product.find(baseQuery)
           .sort({ [sortBy]: sortOptions[sortBy] })
           .skip((page - 1) * limit)
@@ -3729,15 +3718,56 @@ exports.getPersonalizedProducts = async (req, res) => {
       }
     }
 
-    // Get total count based on which query was successful
     const total = products.length > 0
       ? await Product.countDocuments(categoryQuery)
       : await Product.countDocuments(baseQuery);
 
-    // Shuffle the products for additional randomization
-    const shuffledProducts = [...products].sort(() => 0.5 - Math.random());
+    // === Helper to avoid 5 consecutive products from the same seller ===
+    function reorderToAvoidSellerClusters(products, maxConsecutive = 4) {
+      const result = [];
+      const queue = [...products];
+      let lastSellerId = null;
+      let count = 0;
 
-    // Add review stats data to each product
+      while (queue.length > 0) {
+        let found = false;
+
+        for (let i = 0; i < queue.length; i++) {
+          const product = queue[i];
+          const currentSellerId = product.seller?._id?.toString();
+
+          if (currentSellerId !== lastSellerId || count < maxConsecutive) {
+            result.push(product);
+            queue.splice(i, 1);
+
+            if (currentSellerId === lastSellerId) {
+              count++;
+            } else {
+              lastSellerId = currentSellerId;
+              count = 1;
+            }
+
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          const fallback = queue.shift();
+          result.push(fallback);
+          lastSellerId = fallback.seller?._id?.toString();
+          count = 1;
+        }
+      }
+
+      return result;
+    }
+
+    // Shuffle first, then reorder to avoid seller clusters
+    const shuffledProducts = reorderToAvoidSellerClusters(
+      [...products].sort(() => 0.5 - Math.random())
+    );
+
     const productsWithStats = shuffledProducts.map(product => {
       const productObj = product.toObject();
       return {
@@ -3764,6 +3794,7 @@ exports.getPersonalizedProducts = async (req, res) => {
     });
   }
 };
+
 
 
 // Add a new controller method for updating product discount
@@ -6771,7 +6802,6 @@ exports.getPersonalizedBlips = async (req, res) => {
     const limit = Math.max(1, parseInt(req.query.limit) || 10);
     const skip = (page - 1) * limit;
 
-    // Define primary and fallback match stages
     const primaryMatchStage = {
       $and: [
         { 'blips.0': { $exists: true } },
@@ -6779,8 +6809,8 @@ exports.getPersonalizedBlips = async (req, res) => {
         {
           $or: [
             { status: { $ne: 'offline_auction' } },
-            { 
-              $and: [ 
+            {
+              $and: [
                 { status: 'offline_auction' },
                 { 'auction.status': { $ne: 'ended' } },
                 { 'auction.endDate': { $gt: new Date() } }
@@ -6796,17 +6826,16 @@ exports.getPersonalizedBlips = async (req, res) => {
       status: 'active'
     };
 
-    // Get buyer ID for isFollowing check
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
-    
-    // Get buyer's preferred categories and followed sellers if authenticated
+
     let buyerCategories = [];
     let followedSellers = [];
+
     if (isAuthenticated) {
       const buyer = await Buyer.findById(buyerId).select('selectedCategories following');
-      
-      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+
+      if (buyer?.selectedCategories?.length > 0) {
         buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
           acc.push(cat.name);
           if (cat.subCategories) {
@@ -6814,8 +6843,7 @@ exports.getPersonalizedBlips = async (req, res) => {
           }
           return acc;
         }, []);
-        
-        // Add categories to primary match stage
+
         primaryMatchStage.$and.push({
           $or: [
             { category: { $in: buyerCategories } },
@@ -6823,18 +6851,16 @@ exports.getPersonalizedBlips = async (req, res) => {
           ]
         });
       }
-      
-      if (buyer && buyer.following) {
-        followedSellers = buyer.following.map(follow => follow.sellerId.toString());
+
+      if (buyer?.following?.length > 0) {
+        followedSellers = buyer.following.map(f => f.sellerId.toString());
       }
     }
 
-    // Get total count for primary match stage
     let total = await Product.countDocuments(primaryMatchStage);
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     const now = new Date();
 
-    // Common pipeline stages
     const commonPipeline = [
       {
         $addFields: {
@@ -6878,7 +6904,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     ];
 
-    // Primary pipeline
     const primaryPipeline = [
       { $match: primaryMatchStage },
       { $unwind: "$blips" },
@@ -6886,30 +6911,26 @@ exports.getPersonalizedBlips = async (req, res) => {
       ...commonPipeline
     ];
 
-    // Fetch blips with primary criteria
     let products = await Product.aggregate(primaryPipeline).exec();
 
-    // Fallback if no blips are found
     if (products.length === 0) {
-      console.log('No processed blips found with primary criteria, falling back to all active blips');
+      console.log('No primary blips, falling back to general pool');
       total = await Product.countDocuments(fallbackMatchStage);
+
       const fallbackPipeline = [
         { $match: fallbackMatchStage },
         { $unwind: "$blips" },
         ...commonPipeline
       ];
+
       products = await Product.aggregate(fallbackPipeline).exec();
     }
 
-    // Populate seller info
-    await Product.populate(products, [
-      {
-        path: 'seller',
-        select: 'firstName lastName storeName storeAvatar aboutStore stats isFeatured followers'
-      }
-    ]);
+    await Product.populate(products, {
+      path: 'seller',
+      select: 'firstName lastName storeName storeAvatar aboutStore stats isFeatured followers'
+    });
 
-    // Handle case when no blips are found (should be rare with fallback)
     if (products.length === 0) {
       return res.json({
         blips: [],
@@ -6919,17 +6940,17 @@ exports.getPersonalizedBlips = async (req, res) => {
       });
     }
 
-    // Transform the data
     const transformedBlips = products.map(product => {
-      const isFollowing = product.seller.followers && buyerId ? 
-        product.seller.followers.some(follower => 
-          follower.buyerId && follower.buyerId.toString() === buyerId.toString()
-        ) : false;
-        
-      const isLiked = isAuthenticated && product.blip.likes ? 
-        product.blip.likes.some(like => like.toString() === buyerId) : false;
+      const isFollowing = product.seller.followers && buyerId
+        ? product.seller.followers.some(follower =>
+            follower.buyerId?.toString() === buyerId.toString())
+        : false;
 
-      const isInBuyerCategory = buyerCategories.length > 0 && 
+      const isLiked = isAuthenticated && product.blip.likes
+        ? product.blip.likes.some(like => like.toString() === buyerId)
+        : false;
+
+      const isInBuyerCategory = buyerCategories.length > 0 &&
         (buyerCategories.includes(product.category) || buyerCategories.includes(product.subCategory));
 
       return {
@@ -6966,10 +6987,10 @@ exports.getPersonalizedBlips = async (req, res) => {
           likesCount: product.blip.likesCount || 0,
           commentsCount: product.blip.commentsCount || 0,
           viewCount: product.blip.viewCount || 0,
-          isLiked: isLiked
+          isLiked
         },
-        averageRating: product.reviews?.length > 0 
-          ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
+        averageRating: product.reviews?.length > 0
+          ? product.reviews.reduce((acc, r) => acc + r.rating, 0) / product.reviews.length
           : null,
         reviewCount: product.reviews?.length || 0,
         createdAt: product.blip.createdAt,
@@ -6980,9 +7001,9 @@ exports.getPersonalizedBlips = async (req, res) => {
           storeName: product.seller.storeName,
           storeAvatar: product.seller.storeAvatar,
           aboutStore: product.seller.aboutStore,
-          storeRating: product.seller.stats ? product.seller.stats.averageRating : 0,
-          totalStoreReviews: product.seller.stats ? product.seller.stats.totalReviews : 0,
-          isFollowing: isFollowing,
+          storeRating: product.seller.stats?.averageRating || 0,
+          totalStoreReviews: product.seller.stats?.totalReviews || 0,
+          isFollowing,
           isFeatured: product.seller.isFeatured
         },
         _metadata: {
@@ -6997,7 +7018,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       };
     });
 
-    // Categorize blips
     const categorizedBlips = {
       newInBuyerCategory: [],
       followedSellers: [],
@@ -7009,7 +7029,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     transformedBlips.forEach(blip => {
       const meta = blip._metadata;
       delete blip._metadata;
-      
+
       if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
         categorizedBlips.newInBuyerCategory.push(blip);
       } else if (isAuthenticated && meta.isFollowingSeller) {
@@ -7023,7 +7043,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
-    // Shuffle each category
     Object.keys(categorizedBlips).forEach(category => {
       const array = categorizedBlips[category];
       for (let i = array.length - 1; i > 0; i--) {
@@ -7032,129 +7051,42 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
-    // Distribute blips
-    const rearrangedBlips = [];
-    const sellerTracker = new Map();
-    const productTracker = new Map();
-    const minSellerDistance = 3;
-    
-    const addBlipsFromCategory = (category, count) => {
-      let added = 0;
-      let index = 0;
-      
-      while (added < count && index < categorizedBlips[category].length) {
-        const blip = categorizedBlips[category][index];
-        const sellerId = blip.seller._id.toString();
-        const productId = blip.productId.toString();
-        
-        if (productTracker.has(productId)) {
-          index++;
-          continue;
-        }
-        
-        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
-        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
-          rearrangedBlips.push(blip);
-          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
-          productTracker.set(productId, true);
-          categorizedBlips[category].splice(index, 1);
-          added++;
-        } else {
-          index++;
-        }
-        
-        if (index >= categorizedBlips[category].length && added < count && categorizedBlips[category].length > 0) {
-          index = 0;
-          const blip = categorizedBlips[category][0];
-          rearrangedBlips.push(blip);
-          sellerTracker.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
-          productTracker.set(blip.productId.toString(), true);
-          categorizedBlips[category].splice(0, 1);
-          added++;
-        }
-      }
-      
-      return added;
-    };
-    
     const totalNeeded = limit;
-    let remaining = totalNeeded;
-    
-    const categoryOrder = [
-      'newInBuyerCategory',
-      'highEngagement',
-      'followedSellers',
-      'undiscovered',
-      'random'
+    const prioritizedBlips = [
+      ...categorizedBlips.newInBuyerCategory,
+      ...categorizedBlips.highEngagement,
+      ...categorizedBlips.followedSellers,
+      ...categorizedBlips.undiscovered
     ];
-    
-    for (const category of categoryOrder) {
-      if (remaining > 0 && categorizedBlips[category].length > 0) {
-        const toAdd = Math.min(1, remaining, categorizedBlips[category].length);
-        const added = addBlipsFromCategory(category, toAdd);
-        remaining -= added;
-      }
-    }
-    
-    while (remaining > 0) {
-      let addedAny = false;
-      
-      for (const category of categoryOrder) {
-        if (remaining > 0 && categorizedBlips[category].length > 0) {
-          const toAdd = Math.min(5, remaining, categorizedBlips[category].length);
-          const added = addBlipsFromCategory(category, toAdd);
-          remaining -= added;
-          if (added > 0) addedAny = true;
-        }
-      }
-      
-      if (!addedAny) break;
-    }
-    
-    if (remaining > 0) {
-      const allRemaining = [].concat(...Object.values(categorizedBlips));
-      for (let i = allRemaining.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allRemaining[i], allRemaining[j]] = [allRemaining[j], allRemaining[i]];
-      }
-      
-      let index = 0;
-      while (remaining > 0 && index < allRemaining.length) {
-        const blip = allRemaining[index];
-        const sellerId = blip.seller._id.toString();
-        const productId = blip.productId.toString();
-        
-        if (productTracker.has(productId)) {
-          index++;
-          continue;
-        }
-        
-        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
-        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
-          rearrangedBlips.push(blip);
-          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
-          productTracker.set(productId, true);
-          remaining--;
-        }
-        
-        index++;
-        
-        if (index >= allRemaining.length && remaining > 0 && allRemaining.length > 0) {
-          for (let i = 0; i < allRemaining.length; i++) {
-            const blip = allRemaining[i];
-            if (!productTracker.has(blip.productId.toString())) {
-              rearrangedBlips.push(blip);
-              productTracker.set(blip.productId.toString(), true);
-              remaining--;
-              break;
-            }
-          }
-        }
+
+    const seenProducts = new Set();
+    const finalBlips = [];
+    const combinedBlips = [...prioritizedBlips, ...categorizedBlips.random];
+
+    let lastSellerId = null;
+    for (const blip of combinedBlips) {
+      const currentSellerId = blip.seller._id.toString();
+      const productId = blip.productId.toString();
+
+      if (
+        !seenProducts.has(productId) &&
+        finalBlips.length < totalNeeded &&
+        currentSellerId !== lastSellerId
+      ) {
+        finalBlips.push(blip);
+        seenProducts.add(productId);
+        lastSellerId = currentSellerId;
       }
     }
 
+    if (finalBlips.length < totalNeeded) {
+      const remaining = totalNeeded - finalBlips.length;
+      const allUnseen = transformedBlips.filter(blip => !seenProducts.has(blip.productId.toString()));
+      finalBlips.push(...allUnseen.slice(0, remaining));
+    }
+
     res.json({
-      blips: rearrangedBlips,
+      blips: finalBlips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
@@ -7169,6 +7101,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     });
   }
 };
+
 
 // Rerun an ended offline auction
 exports.rerunOfflineAuction = async (req, res) => {
