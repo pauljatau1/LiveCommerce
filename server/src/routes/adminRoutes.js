@@ -3941,4 +3941,199 @@ router.post('/sellers/reminders/no-blips',
   adminController.sendRemindersToSellersWithoutBlips
 );
 
+/**
+ * @swagger
+ * /api/admin/major-categories:
+ *   post:
+ *     summary: Create a new major category
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Name of the major category
+ *               categoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of category IDs to add to this major category
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image for the major category
+ *     responses:
+ *       201:
+ *         description: Major category created successfully
+ *       400:
+ *         description: Bad request - invalid data or categories already assigned to another major category
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/major-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  upload.single('image'),
+  adminController.createMajorCategory
+);
+
+/**
+ * @swagger
+ * /api/admin/major-categories:
+ *   get:
+ *     summary: Get all major categories
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of major categories
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/major-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.getMajorCategories
+);
+
+/**
+ * @swagger
+ * /api/admin/major-categories/{id}:
+ *   get:
+ *     summary: Get a specific major category by ID
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Major category ID
+ *     responses:
+ *       200:
+ *         description: Major category details
+ *       404:
+ *         description: Major category not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/major-categories/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.getMajorCategoryById
+);
+
+/**
+ * @swagger
+ * /api/admin/major-categories/{id}:
+ *   put:
+ *     summary: Update a major category
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Major category ID
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Name of the major category
+ *               categoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of category IDs to add to this major category
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image for the major category
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether the major category is active
+ *     responses:
+ *       200:
+ *         description: Major category updated successfully
+ *       400:
+ *         description: Bad request - invalid data or categories already assigned to another major category
+ *       404:
+ *         description: Major category not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/major-categories/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  upload.single('image'),
+  adminController.updateMajorCategory
+);
+
+/**
+ * @swagger
+ * /api/admin/major-categories/{id}:
+ *   delete:
+ *     summary: Delete a major category
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Major category ID
+ *     responses:
+ *       200:
+ *         description: Major category deleted successfully
+ *       404:
+ *         description: Major category not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/major-categories/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.deleteMajorCategory
+);
+
+/**
+ * @swagger
+ * /api/admin/unassigned-categories:
+ *   get:
+ *     summary: Get categories not assigned to any major category
+ *     tags: [Admin, Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of unassigned categories
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/unassigned-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin,
+  adminController.getUnassignedCategories
+);
+
 module.exports = router;

@@ -5,6 +5,7 @@ const Banner = require('../models/Banner');
 const Announcement = require('../models/Annoucement');
 const Resource = require('../models/Resource');
 const PlatformNotification = require('../models/PlatformNotification');
+const MajorCategory = require('../models/MajorCategory');
 
 // Get all active platform notifications
 exports.getActivePlatformNotifications = async (req, res) => {
@@ -57,6 +58,27 @@ exports.getActivePlatformNotifications = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve platform notifications',
+      error: error.message
+    });
+  }
+};
+
+// Get all active major categories
+exports.getMajorCategories = async (req, res) => {
+  try {
+    const majorCategories = await MajorCategory.find({ isActive: true })
+      .populate('categories', 'name image')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: majorCategories
+    });
+  } catch (error) {
+    console.error('Get major categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get major categories',
       error: error.message
     });
   }

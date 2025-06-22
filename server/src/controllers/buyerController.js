@@ -3379,4 +3379,225 @@ exports.getActivityStatus = async (req, res) => {
   }
 };
 
+// Select major categories and add their child categories to buyer's selected categories
+exports.selectMajorCategories = async (req, res) => {
+  try {
+    const { majorCategoryIds } = req.body;
+    const buyerId = req.user.id;
+
+    if (!majorCategoryIds || !Array.isArray(majorCategoryIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'majorCategoryIds array is required'
+      });
+    }
+
+    // Find the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Find all the specified major categories
+    const MajorCategory = mongoose.model('MajorCategory');
+    const majorCategories = await MajorCategory.find({
+      _id: { $in: majorCategoryIds },
+      isActive: true
+    }).populate('categories');
+
+    if (majorCategories.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active major categories found with the provided IDs'
+      });
+    }
+
+    // Get all category IDs from the major categories
+    const categoryIds = [];
+    majorCategories.forEach(majorCategory => {
+      majorCategory.categories.forEach(category => {
+        categoryIds.push(category._id);
+      });
+    });
+
+    // Find all the categories with their subcategories
+    const Category = mongoose.model('Category');
+    const categories = await Category.find({ _id: { $in: categoryIds } });
+
+    // Format categories for buyer's selectedCategories field
+    const formattedCategories = categories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name
+      }))
+    }));
+
+    // Update buyer's selectedCategories
+    // Merge with existing categories to avoid duplicates
+    const existingCategoryNames = buyer.selectedCategories.map(cat => cat.name);
+    const newCategories = formattedCategories.filter(cat => !existingCategoryNames.includes(cat.name));
+    
+    buyer.selectedCategories = [...buyer.selectedCategories, ...newCategories];
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Major categories selected successfully',
+      selectedCategories: buyer.selectedCategories,
+      addedCategories: newCategories
+    });
+  } catch (error) {
+    console.error('Error selecting major categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to select major categories',
+      error: error.message
+    });
+  }
+};
+
+// Update major categories selection (replaces categories from selected major categories)
+exports.updateMajorCategoriesSelection = async (req, res) => {
+  try {
+    const { majorCategoryIds } = req.body;
+    const buyerId = req.user.id;
+
+    if (!majorCategoryIds || !Array.isArray(majorCategoryIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'majorCategoryIds array is required'
+      });
+    }
+
+    // Find the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Find all the specified major categories
+    const MajorCategory = mongoose.model('MajorCategory');
+    const majorCategories = await MajorCategory.find({
+      _id: { $in: majorCategoryIds },
+      isActive: true
+    }).populate('categories');
+
+    if (majorCategories.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active major categories found with the provided IDs'
+      });
+    }
+
+    // Get all category IDs from the major categories
+    const categoryIds = [];
+    majorCategories.forEach(majorCategory => {
+      majorCategory.categories.forEach(category => {
+        categoryIds.push(category._id);
+      });
+    });
+
+    // Find all the categories with their subcategories
+    const Category = mongoose.model('Category');
+    const categories = await Category.find({ _id: { $in: categoryIds } });
+
+    // Format categories for buyer's selectedCategories field
+    const formattedCategories = categories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name
+      }))
+    }));
+
+    // Get categories that are manually selected (not from major categories)
+    const existingCategoryNames = buyer.selectedCategories.map(cat => cat.name);
+    const majorCategoryNames = formattedCategories.map(cat => cat.name);
+    
+    // Keep only categories that are not part of any major category
+    const manuallySelectedCategories = buyer.selectedCategories.filter(
+      cat => !majorCategoryNames.includes(cat.name)
+    );
+    
+    // Replace the buyer's selectedCategories with the combination
+    buyer.selectedCategories = [...manuallySelectedCategories, ...formattedCategories];
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Major categories selection updated successfully',
+      selectedCategories: buyer.selectedCategories,
+      majorCategorySelections: formattedCategories,
+      manualSelections: manuallySelectedCategories
+    });
+  } catch (error) {
+    console.error('Error updating major categories selection:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update major categories selection',
+      error: error.message
+    });
+  }
+};
+
+// Get buyer's selected major categories
+exports.getSelectedMajorCategories = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+
+    // Find the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Get all buyer's selected category names
+    const selectedCategoryNames = buyer.selectedCategories.map(cat => cat.name);
+    
+    // Find all major categories and their associated categories
+    const MajorCategory = mongoose.model('MajorCategory');
+    const allMajorCategories = await MajorCategory.find({ isActive: true })
+      .populate('categories');
+    
+    // Filter major categories to find ones that have all their categories selected by the buyer
+    const selectedMajorCategories = allMajorCategories.filter(majorCategory => {
+      // Check if all categories in this major category are selected by the buyer
+      const categoriesInMajor = majorCategory.categories.map(cat => cat.name);
+      return categoriesInMajor.every(catName => selectedCategoryNames.includes(catName));
+    });
+
+    // Format response
+    const formattedMajorCategories = selectedMajorCategories.map(majorCategory => ({
+      _id: majorCategory._id,
+      name: majorCategory.name,
+      image: majorCategory.image,
+      categoryCount: majorCategory.categories.length,
+      categories: majorCategory.categories.map(cat => ({
+        _id: cat._id,
+        name: cat.name
+      }))
+    }));
+
+    res.json({
+      success: true,
+      selectedMajorCategories: formattedMajorCategories
+    });
+  } catch (error) {
+    console.error('Error getting selected major categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get selected major categories',
+      error: error.message
+    });
+  }
+};
+
 

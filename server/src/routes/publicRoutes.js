@@ -49,6 +49,20 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
 
 /**
  * @swagger
+ * /api/public/major-categories:
+ *   get:
+ *     summary: Get all active major categories
+ *     tags: [Public]
+ *     responses:
+ *       200:
+ *         description: List of active major categories retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/major-categories', publicController.getMajorCategories);
+
+/**
+ * @swagger
  * /api/public/categories:
  *   get:
  *     summary: Get all categories

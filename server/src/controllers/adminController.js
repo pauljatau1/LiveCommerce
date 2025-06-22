@@ -3,6 +3,7 @@ const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
 const Category = require('../models/Category'); 
+const MajorCategory = require('../models/MajorCategory');
 const Banner = require('../models/Banner'); 
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
@@ -8379,6 +8380,376 @@ exports.getBuyerTransactions = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch buyer transactions',
+      error: error.message
+    });
+  }
+};
+
+// Major Category Controller Functions
+
+// Create a new major category
+exports.createMajorCategory = async (req, res) => {
+  try {
+    const { name, categoryIds } = req.body;
+    
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Name is required' 
+      });
+    }
+    
+    // Check if major category with the same name already exists
+    const existingMajorCategory = await MajorCategory.findOne({ name });
+    if (existingMajorCategory) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Major category with this name already exists' 
+      });
+    }
+    
+    // Create image object if file is uploaded
+    let image = null;
+    if (req.file) {
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `major-categories/${uuidv4()}-${req.file.originalname}`,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+      const data = await s3.upload(params).promise();
+      
+      image = {
+        url: `https://${process.env.CDN_URL}/${data.Key}`,
+        public_id: data.Key,
+      };
+    }
+    
+    // Validate and check if categories are already assigned to another major category
+    let parsedCategoryIds = categoryIds;
+    
+    // Check if categoryIds is a string (JSON array) and parse it
+    if (categoryIds && typeof categoryIds === 'string') {
+      try {
+        parsedCategoryIds = JSON.parse(categoryIds);
+      } catch (err) {
+        console.error('Error parsing categoryIds:', err);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid category IDs format'
+        });
+      }
+    }
+    
+    if (parsedCategoryIds && parsedCategoryIds.length > 0) {
+      // Check if categories exist
+      const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
+      if (categories.length !== parsedCategoryIds.length) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'One or more categories do not exist' 
+        });
+      }
+      
+      // Check if any of the categories are already assigned to another major category
+      const assignedCategories = await MajorCategory.find({ 
+        categories: { $in: parsedCategoryIds } 
+      });
+      
+      if (assignedCategories.length > 0) {
+        // Get names of already assigned categories
+        const conflictingCategoryIds = [];
+        assignedCategories.forEach(majorCat => {
+          const conflicts = majorCat.categories.filter(catId => 
+            parsedCategoryIds.includes(catId.toString())
+          );
+          conflictingCategoryIds.push(...conflicts);
+        });
+        
+        const conflictingCategories = await Category.find({ 
+          _id: { $in: conflictingCategoryIds } 
+        });
+        
+        return res.status(400).json({ 
+          success: false,
+          message: 'Some categories are already assigned to another major category', 
+          conflictingCategories: conflictingCategories.map(c => c.name)
+        });
+      }
+    }
+    
+    // Create new major category
+    const majorCategory = new MajorCategory({
+      name,
+      image,
+      categories: parsedCategoryIds || []
+    });
+    
+    await majorCategory.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Major category created successfully',
+      majorCategory
+    });
+  } catch (error) {
+    console.error('Create major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create major category',
+      error: error.message
+    });
+  }
+};
+
+// Get all major categories
+exports.getMajorCategories = async (req, res) => {
+  try {
+    const majorCategories = await MajorCategory.find()
+      .populate('categories', 'name image')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: majorCategories
+    });
+  } catch (error) {
+    console.error('Get major categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get major categories',
+      error: error.message
+    });
+  }
+};
+
+// Get a single major category by ID
+exports.getMajorCategoryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const majorCategory = await MajorCategory.findById(id)
+      .populate('categories', 'name image subCategories');
+    
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: majorCategory
+    });
+  } catch (error) {
+    console.error('Get major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get major category',
+      error: error.message
+    });
+  }
+};
+
+// Update a major category
+exports.updateMajorCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, categoryIds, isActive } = req.body;
+    
+    const majorCategory = await MajorCategory.findById(id);
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    // Check if name is being changed and if it already exists
+    if (name && name !== majorCategory.name) {
+      const existingMajorCategory = await MajorCategory.findOne({ name });
+      if (existingMajorCategory) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Major category with this name already exists' 
+        });
+      }
+      majorCategory.name = name;
+    }
+    
+    // Handle image upload if file is provided
+    if (req.file) {
+      // Delete old image from S3 if it exists
+      if (majorCategory.image && majorCategory.image.public_id) {
+        await s3.deleteObject({
+          Bucket: process.env.CDN_S3_BUCKET,
+          Key: majorCategory.image.public_id
+        }).promise();
+      }
+      
+      // Upload new image
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `major-categories/${uuidv4()}-${req.file.originalname}`,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+      const data = await s3.upload(params).promise();
+      
+      majorCategory.image = {
+        url: `https://${process.env.CDN_URL}/${data.Key}`,
+        public_id: data.Key,
+      };
+    }
+    
+    // Update isActive if provided
+    if (isActive !== undefined) {
+      majorCategory.isActive = isActive;
+    }
+    
+    // Update categories if provided
+    if (categoryIds) {
+      // Parse categoryIds if it's a string
+      let parsedCategoryIds = categoryIds;
+      if (typeof categoryIds === 'string') {
+        try {
+          parsedCategoryIds = JSON.parse(categoryIds);
+        } catch (err) {
+          console.error('Error parsing categoryIds:', err);
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid category IDs format'
+          });
+        }
+      }
+      
+      // Check if categories exist
+      const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
+      if (categories.length !== parsedCategoryIds.length) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'One or more categories do not exist' 
+        });
+      }
+      
+      // Find categories that are being added (not in the current list)
+      const currentCategoryIds = majorCategory.categories.map(id => id.toString());
+      const newCategoryIds = parsedCategoryIds.filter(id => !currentCategoryIds.includes(id));
+      
+      // Check if any new categories are already assigned to another major category
+      if (newCategoryIds.length > 0) {
+        const assignedCategories = await MajorCategory.find({
+          _id: { $ne: id }, // Exclude the current major category
+          categories: { $in: newCategoryIds }
+        });
+        
+        if (assignedCategories.length > 0) {
+          // Get names of already assigned categories
+          const conflictingCategoryIds = [];
+          assignedCategories.forEach(majorCat => {
+            const conflicts = majorCat.categories.filter(catId => 
+              newCategoryIds.includes(catId.toString())
+            );
+            conflictingCategoryIds.push(...conflicts);
+          });
+          
+          const conflictingCategories = await Category.find({ 
+            _id: { $in: conflictingCategoryIds } 
+          });
+          
+          return res.status(400).json({ 
+            success: false,
+            message: 'Some categories are already assigned to another major category', 
+            conflictingCategories: conflictingCategories.map(c => c.name)
+          });
+        }
+      }
+      
+      majorCategory.categories = parsedCategoryIds;
+    }
+    
+    majorCategory.updatedAt = Date.now();
+    await majorCategory.save();
+    
+    res.json({
+      success: true,
+      message: 'Major category updated successfully',
+      majorCategory
+    });
+  } catch (error) {
+    console.error('Update major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update major category',
+      error: error.message
+    });
+  }
+};
+
+// Delete a major category
+exports.deleteMajorCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const majorCategory = await MajorCategory.findById(id);
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    // Delete image from S3 if it exists
+    if (majorCategory.image && majorCategory.image.public_id) {
+      await s3.deleteObject({
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: majorCategory.image.public_id
+      }).promise();
+    }
+    
+    await MajorCategory.findByIdAndDelete(id);
+    
+    res.json({ 
+      success: true,
+      message: 'Major category deleted successfully' 
+    });
+  } catch (error) {
+    console.error('Delete major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete major category',
+      error: error.message
+    });
+  }
+};
+
+// Get unassigned categories (categories not assigned to any major category)
+exports.getUnassignedCategories = async (req, res) => {
+  try {
+    // Find all categories that are assigned to major categories
+    const majorCategories = await MajorCategory.find();
+    const assignedCategoryIds = [];
+    
+    majorCategories.forEach(majorCat => {
+      assignedCategoryIds.push(...majorCat.categories);
+    });
+    
+    // Find all categories that are not in the assigned list
+    const unassignedCategories = await Category.find({
+      _id: { $nin: assignedCategoryIds }
+    }).select('name image subCategories');
+    
+    res.json({
+      success: true,
+      data: unassignedCategories
+    });
+  } catch (error) {
+    console.error('Get unassigned categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get unassigned categories',
       error: error.message
     });
   }
