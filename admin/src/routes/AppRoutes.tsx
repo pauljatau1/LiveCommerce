@@ -7,6 +7,7 @@ import Dashboard from '@/pages/dashboard';
 import Sellers from '@/pages/sellers';
 import SellerDetail from '@/pages/sellerDetail';
 import Categories from '@/pages/categories';
+import MajorCategories from '@/pages/majorCategories';
 import ProtectedRoute from './ProtectedRoute';
 import MainLayout from '@/components/layouts/MainLayout';
 import Buyers from '@/pages/buyers';
@@ -62,6 +63,7 @@ function App() {
             <Route path="/dashboard/sellers" element={<Sellers />} />
             <Route path="/dashboard/seller/:id" element={<SellerDetail />} />
             <Route path="/dashboard/categories" element={<Categories />} />
+            <Route path="/dashboard/major-categories" element={<MajorCategories />} />
             <Route path="/dashboard/buyers" element={<Buyers />} />
             <Route path="/dashboard/buyer-detail/:id" element={<BuyerDetail />} />
             <Route path="/dashboard/orders" element={<Orders />} />

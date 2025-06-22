@@ -29,7 +29,8 @@ import {
   Bell,
   MessageSquare,
   BoltIcon,
-  Zap
+  Zap,
+  FolderTree
 } from 'lucide-react';
 
 // Interface for simplified seller data
@@ -59,6 +60,7 @@ const mainLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Package, label: 'Products', path: '/dashboard/products' },
   { icon: Zap, label: 'Blips', path: '/dashboard/blips' },
+  { icon: FolderTree, label: 'Major Categories', path: '/dashboard/major-categories' },
   { icon: Folder, label: 'Categories', path: '/dashboard/categories' },
   { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
