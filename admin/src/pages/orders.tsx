@@ -10,7 +10,8 @@ import {
   Loader2,
   Search,
   Filter,
-  X
+  X,
+  Clock
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -149,11 +150,35 @@ function Orders() {
   // Filter state
   const [filters, setFilters] = useState({
     search: "",
-    status: "all" // 'all', 'open', 'closed'
+    status: "",
+    isStale: "",
+    isOpen: "",
+    paid: "",
+    shipmentStatus: "",
+    startDate: "",
+    endDate: "",
+    paymentMethod: "",
+    isCashOnDelivery: ""
+  })
+  
+  // Filter options from API
+  const [filterOptions, setFilterOptions] = useState({
+    itemStatuses: [],
+    shipmentStatuses: [],
+    paymentMethods: []
   })
   
   // Search input state (separate from filter state to avoid immediate API calls)
   const [searchInput, setSearchInput] = useState("")
+  
+  // Order statistics state
+  const [orderStats, setOrderStats] = useState({
+    byStatus: {},
+    byPaymentMethod: {},
+    byDay: {},
+    openVsClosed: { open: 0, closed: 0 },
+    staleOrders: { stale: 0, active: 0 }
+  })
   
   // Calculate total revenue from paid orders using useMemo
   const totalRevenue = useMemo(() => {
@@ -168,11 +193,53 @@ function Orders() {
       ?.filter(order => order.paymentInfo?.status === 'pending')
       ?.length || 0
   }, [ordersData?.orders])
+  
+  // Fetch order statistics
+  const fetchOrderStats = async () => {
+    try {
+      const { startDate, endDate } = filters;
+      let url = '/api/admin/orders/stats';
+      
+      // Add date filters if present
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await api.get(url);
+      setOrderStats(response.data);
+    } catch (error) {
+      console.error('Error fetching order statistics:', error);
+    }
+  }
+  
+  // Fetch stats when date filters change
+  useEffect(() => {
+    fetchOrderStats();
+  }, [filters.startDate, filters.endDate])
 
+  // Fetch filter options on component mount
+  useEffect(() => {
+    fetchFilterOptions()
+  }, [])
+  
   // Fetch orders when page, limit, or filters change
   useEffect(() => {
     fetchOrders(currentPage, limit)
   }, [currentPage, limit, filters])
+  
+  // Fetch available filter options from API
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await api.get('/api/admin/orders/status-options')
+      setFilterOptions(response.data)
+    } catch (error) {
+      console.error('Error fetching filter options:', error)
+    }
+  }
 
   const fetchOrders = async (page: number, pageLimit: number) => {
     try {
@@ -184,8 +251,10 @@ function Orders() {
         limit: pageLimit.toString()
       })
       
-      if (filters.search) params.append('search', filters.search)
-      if (filters.status !== 'all') params.append('status', filters.status)
+      // Add all active filters to the query
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value)
+      })
       
       const response = await api.get(`/api/admin/orders?${params.toString()}`)
       setOrdersData(response.data)
@@ -211,7 +280,9 @@ function Orders() {
   }
   
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
+    // Convert "all" value to empty string for API filtering
+    const filterValue = value === "all" ? "" : value
+    setFilters(prev => ({ ...prev, [key]: filterValue }))
     setCurrentPage(1) // Reset to first page when changing filters
   }
   
@@ -230,8 +301,24 @@ function Orders() {
   }
   
   const clearFilters = () => {
-    setFilters({ search: "", status: "all" })
+    setFilters({
+      search: "",
+      status: "",
+      isStale: "",
+      isOpen: "",
+      paid: "",
+      shipmentStatus: "",
+      startDate: "",
+      endDate: "",
+      paymentMethod: "",
+      isCashOnDelivery: ""
+    })
     setSearchInput("")
+  }
+  
+  // Check if any filter is active
+  const hasActiveFilters = () => {
+    return Object.values(filters).some(value => value !== "")
   }
 
   const handleDeleteFezOrder = async () => {
@@ -320,7 +407,7 @@ function Orders() {
       </div>
 
       {/* Order Stats */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <Card className="p-6">
           <div className="flex items-center gap-4">
             <div className="bg-primary/10 p-3 rounded-lg">
@@ -329,6 +416,10 @@ function Orders() {
             <div>
               <p className="text-muted-foreground text-sm">Total Orders</p>
               <h3 className="text-2xl font-bold">{ordersData?.totalOrders || 0}</h3>
+              <div className="text-xs text-muted-foreground mt-1">
+                <span className="text-green-500">{orderStats.openVsClosed.open}</span> open / 
+                <span className="text-gray-500"> {orderStats.openVsClosed.closed}</span> closed
+              </div>
             </div>
           </div>
         </Card>
@@ -339,8 +430,22 @@ function Orders() {
               <Package className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-muted-foreground text-sm">Pending Orders</p>
-              <h3 className="text-2xl font-bold">{pendingOrders}</h3>
+              <p className="text-muted-foreground text-sm">Order Status</p>
+              <h3 className="text-2xl font-bold">
+                {Object.entries(orderStats.byStatus || {}).slice(0, 1).map(([status, count]) => (
+                  <span key={status}>{count as number}</span>
+                ))}
+              </h3>
+              <div className="text-xs text-muted-foreground mt-1">
+                {Object.entries(orderStats.byStatus || {}).slice(0, 1).map(([status, count]) => (
+                  <span key={status} className="capitalize">{status}</span>
+                ))}
+                {Object.keys(orderStats.byStatus || {}).length > 1 && (
+                  <span className="ml-1">
+                    +{Object.keys(orderStats.byStatus || {}).length - 1} more
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -353,6 +458,26 @@ function Orders() {
             <div>
               <p className="text-muted-foreground text-sm">Total Revenue</p>
               <h3 className="text-2xl font-bold">₦{totalRevenue.toLocaleString()}</h3>
+              <div className="text-xs text-muted-foreground mt-1">
+                {Object.entries(orderStats.byPaymentMethod || {}).slice(0, 1).map(([method, data]) => (
+                  <span key={method}>{method}: ₦{(data as any)?.amount?.toLocaleString() || 0}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-yellow-500/10 p-3 rounded-lg">
+              <Clock className="h-6 w-6 text-yellow-500" />
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Stale Orders</p>
+              <h3 className="text-2xl font-bold">{orderStats.staleOrders?.stale || 0}</h3>
+              <div className="text-xs text-muted-foreground mt-1">
+                {orderStats.staleOrders?.active || 0} active orders
+              </div>
             </div>
           </div>
         </Card>
@@ -360,10 +485,10 @@ function Orders() {
 
       {/* Order Filters */}
       <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
           <div className="relative flex-1">
             <Input
-              placeholder="Search by order ID or customer name..."
+              placeholder="Search by order ID, customer name or product..."
               value={searchInput}
               onChange={handleSearchInputChange}
               onKeyDown={handleSearchSubmit}
@@ -381,63 +506,284 @@ function Orders() {
             </Button>
           </div>
           
-          <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters()}
+            title="Clear all filters"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Visible Filters */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {/* Order Status Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Item Status</label>
             <Select
-              value={filters.status}
+              value={filters.status || "all"}
               onValueChange={(value) => handleFilterChange('status', value)}
             >
-              <SelectTrigger className="w-[180px]">
-                <span className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Filter by status" />
-                </span>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {filterOptions.itemStatuses?.map((status) => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Open/Closed Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Order State</label>
+            <Select
+              value={filters.isOpen || "all"}
+              onValueChange={(value) => handleFilterChange('isOpen', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Open/Closed" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Orders</SelectItem>
-                <SelectItem value="open">Open Orders</SelectItem>
-                <SelectItem value="closed">Closed Orders</SelectItem>
+                <SelectItem value="true">Open Orders</SelectItem>
+                <SelectItem value="false">Closed Orders</SelectItem>
               </SelectContent>
             </Select>
-            
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={clearFilters}
-              disabled={!filters.search && filters.status === "all"}
-              title="Clear filters"
+          </div>
+          
+          {/* Payment Status Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Payment Status</label>
+            <Select
+              value={filters.paid || "all"}
+              onValueChange={(value) => handleFilterChange('paid', value)}
             >
-              <X className="h-4 w-4" />
-            </Button>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="true">Paid</SelectItem>
+                <SelectItem value="false">Unpaid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Payment Method Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Payment Method</label>
+            <Select
+              value={filters.paymentMethod || "all"}
+              onValueChange={(value) => handleFilterChange('paymentMethod', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Methods</SelectItem>
+                {filterOptions.paymentMethods?.map((method) => (
+                  <SelectItem key={method} value={method}>{method}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Shipment Status Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Shipment Status</label>
+            <Select
+              value={filters.shipmentStatus || "all"}
+              onValueChange={(value) => handleFilterChange('shipmentStatus', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Shipment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Shipments</SelectItem>
+                {filterOptions.shipmentStatuses?.map((status) => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Stale Orders Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Stale Orders</label>
+            <Select
+              value={filters.isStale || "all"}
+              onValueChange={(value) => handleFilterChange('isStale', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Stale" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="true">Stale Orders</SelectItem>
+                <SelectItem value="false">Active Orders</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        {/* Date Range Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Start Date</label>
+            <Input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">End Date</label>
+            <Input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              className="h-8"
+            />
           </div>
         </div>
         
         {/* Active filters display */}
-        {(filters.search || filters.status !== "all") && (
-          <div className="flex items-center gap-2 mt-4 text-sm">
+        {hasActiveFilters() && (
+          <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
             <span className="text-muted-foreground">Active filters:</span>
             {filters.search && (
-              <Badge variant="secondary" className="px-2 py-1">
-                Search: {filters.search}
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                Search: {filters.search.length > 15 ? filters.search.substring(0, 15) + '...' : filters.search}
                 <Button
                   variant="ghost" 
                   size="icon" 
                   className="h-4 w-4 ml-1 -mr-1"
                   onClick={() => handleFilterChange('search', '')}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </Button>
               </Badge>
             )}
-            {filters.status !== "all" && (
-              <Badge variant="secondary" className="px-2 py-1">
-                Status: {filters.status === "open" ? "Open" : "Closed"}
+            {filters.status && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                Status: {filters.status}
                 <Button
                   variant="ghost" 
                   size="icon" 
                   className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('status', 'all')}
+                  onClick={() => handleFilterChange('status', '')}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.isOpen && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                {filters.isOpen === 'true' ? 'Open' : 'Closed'}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('isOpen', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.paid && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                {filters.paid === 'true' ? 'Paid' : 'Unpaid'}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('paid', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.shipmentStatus && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                Ship: {filters.shipmentStatus}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('shipmentStatus', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.isStale && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                {filters.isStale === 'true' ? 'Stale' : 'Not Stale'}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('isStale', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.paymentMethod && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                Method: {filters.paymentMethod}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('paymentMethod', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.isCashOnDelivery && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                {filters.isCashOnDelivery === 'true' ? 'COD' : 'Non-COD'}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('isCashOnDelivery', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.startDate && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                From: {filters.startDate}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('startDate', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {filters.endDate && (
+              <Badge variant="secondary" className="px-2 py-0.5 h-6">
+                To: {filters.endDate}
+                <Button
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 -mr-1"
+                  onClick={() => handleFilterChange('endDate', '')}
+                >
+                  <X className="h-2.5 w-2.5" />
                 </Button>
               </Badge>
             )}
@@ -446,26 +792,26 @@ function Orders() {
       </Card>
 
       {/* Orders Table */}
-      <Card className="p-6 overflow-auto">
-        <div className="w-full min-w-max md:min-w-0 relative">
+      <Card className="p-6 overflow-hidden">
+        <div className="w-full overflow-x-auto relative">
           {isLoadingPage && (
             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
-          <Table>
+          <Table className="min-w-[1000px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Seller</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Shipping</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead className="hidden md:table-cell">Date</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="w-[100px]">Order ID</TableHead>
+                <TableHead className="w-[120px]">Customer</TableHead>
+                <TableHead className="w-[120px]">Seller</TableHead>
+                <TableHead className="w-[150px]">Items</TableHead>
+                <TableHead className="w-[100px]">Payment</TableHead>
+                <TableHead className="w-[150px]">Shipping</TableHead>
+                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[120px]">Total</TableHead>
+                <TableHead className="hidden md:table-cell w-[120px]">Date</TableHead>
+                <TableHead className="w-[60px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -489,7 +835,13 @@ function Orders() {
                     <TableCell>
                       {order.items.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          <span className="text-sm font-medium">{order.items[0]?.product?.name || 'Product unavailable'}</span>
+                          <span className="text-sm font-medium truncate max-w-[150px]" title={order.items[0]?.product?.name || 'Product unavailable'}>
+                            {order.items[0]?.product?.name 
+                              ? (order.items[0].product.name.length > 50 
+                                ? order.items[0].product.name.substring(0, 50) + '...' 
+                                : order.items[0].product.name)
+                              : 'Product unavailable'}
+                          </span>
                           <span className="text-xs text-muted-foreground">
                             Qty: {order.items[0].quantity}
                             {order.items.length > 1 ? ` (+${order.items.length - 1} more)` : ''}
