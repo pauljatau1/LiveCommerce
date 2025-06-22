@@ -9,6 +9,8 @@ import {
   Image,
   StyleSheet,
   RefreshControl,
+  Alert,
+  Linking,
 } from "react-native";
 import VideoItem from "@/components/blips/videoItem";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +24,8 @@ import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import PromotionModal from "@/components/modals/promotion";
 import { Settings } from "react-native-fbsdk-next";
+import { checkVersion } from "react-native-check-version";
+import DeviceInfo from "react-native-device-info";
 
 const { height } = Dimensions.get("window");
 const Blips = () => {
@@ -33,6 +37,25 @@ const Blips = () => {
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isPromotionVisible, setIsPromotionVisible] = useState<boolean>(false);
+
+  const verifyAppVersion = async () => {
+    const version = await checkVersion();
+    console.log("Got version info:", version);
+
+    if (version.needsUpdate) {
+      Alert.alert(
+        "New Update Available",
+        "Update the app to get the latest features",
+        [
+          { text: "Cancel" },
+          {
+            text: "Update",
+            onPress: () => Linking.openURL(version.url),
+          },
+        ],
+      );
+    }
+  };
 
   const requestTrackingPermission = async () => {
     const { status } = await requestTrackingPermissionsAsync();
@@ -146,6 +169,7 @@ const Blips = () => {
     requestTrackingPermission();
     showPromotion();
     setIsFirstTime();
+    verifyAppVersion();
   }, []);
 
   const renderVideo = useCallback(

@@ -18,6 +18,7 @@ import DeleteSheet from "@/components/settings/deleteSheet";
 import LoadingModal from "@/components/global/loading-modal";
 import { useRequestDeleteMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
+import DeviceInfo from "react-native-device-info";
 // import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const { width, height } = Dimensions.get("window");
@@ -242,6 +243,12 @@ const Settings = () => {
                 Delete Account
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <View className="mb-[28px]">
+            <Text className="text-[#ccc] font-LexendDecaLight text-center opacity-50">
+              App Version {DeviceInfo?.getVersion()}
+            </Text>
           </View>
         </View>
       </ScrollView>
