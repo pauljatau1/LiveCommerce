@@ -267,15 +267,31 @@ export default function OrderDetails() {
     // Check if order exists and has items
     if (!order || !order.items) return false;
     
-    // Check if shipping status is pending
-    const isShippingPending = order.shipping?.tracking?.status === 'pending';
+    // Check if payment status is paid
+    const isPaymentPaid = order?.paymentInfo?.status === 'paid';
+    
+    // Check if shipping status is pending (handle different formats of "pending")
+    const shippingStatus = order.shipping?.tracking?.status?.toLowerCase() || '';
+    const isShippingPending = shippingStatus === 'pending' || shippingStatus.includes('pending');
     
     // Check if all items are in pending status and none are cancelled
-    const areItemsPending = order.items.every(item => item.status === 'pending');
-    const isAnyCancelled = order.items.some(item => item.status === 'cancelled');
+    const areItemsPending = order.items.every(item => item.status?.toLowerCase() === 'pending');
+    const isAnyCancelled = order.items.some(item => item.status?.toLowerCase() === 'cancelled');
     
-    // Order can be cancelled if shipping is pending, all items are pending, and none are cancelled
-    return isShippingPending && areItemsPending && !isAnyCancelled;
+    // Debug logs
+    console.log('Order cancellable check:', {
+      isPaymentPaid,
+      isShippingPending,
+      areItemsPending,
+      isAnyCancelled,
+      paymentStatus: order?.paymentInfo?.status,
+      shippingStatus: order.shipping?.tracking?.status,
+      formattedShippingStatus: shippingStatus,
+      itemStatuses: order.items.map(item => item.status)
+    });
+    
+    // Order can be cancelled if payment is paid, shipping is pending, all items are pending, and none are cancelled
+    return isPaymentPaid && isShippingPending && areItemsPending && !isAnyCancelled;
   };
 
   // Update the handleCancelOrder function
@@ -490,7 +506,7 @@ export default function OrderDetails() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                {!order?.isStale && !order?.isStorePickup && (
+                {!order?.isStale && !order?.isStorePickup && order?.paymentInfo?.status === 'paid' && (
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
@@ -558,7 +574,12 @@ export default function OrderDetails() {
                   </Button>
                 )}
 
-                {!order?.isStale && shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
+                {/* Cancel Order Button - Show for paid orders with pending shipping */}
+                {!order?.isStale && order?.paymentInfo?.status === 'paid' && 
+                 (shipping?.tracking?.status === 'pending' || 
+                  shipping?.tracking?.status?.toLowerCase()?.includes('pending')) && 
+                 items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) && 
+                 !items?.some(item => item.status?.toLowerCase() === 'cancelled') && (
                   <Button
                     onClick={() => setConfirmCancelDialogOpen(true)}
                     variant="destructive"
@@ -568,6 +589,36 @@ export default function OrderDetails() {
                     <XCircle className="mr-2 h-3 w-3" />
                     Cancel Order
                   </Button>
+                )}
+                
+                {/* Message for paid orders that can't be cancelled due to processing */}
+                {!order?.isStale && order?.paymentInfo?.status === 'paid' && 
+                 ((shipping?.tracking?.status !== 'pending' && 
+                   !shipping?.tracking?.status?.toLowerCase()?.includes('pending')) ||
+                  !items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) ||
+                  items?.some(item => item.status?.toLowerCase() === 'cancelled')) && (
+                  <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-600">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Order In Progress</p>
+                        <p>This order is already being processed and cannot be cancelled. Please contact support if you need assistance.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Message for unpaid orders */}
+                {!order?.isStale && !order?.isStorePickup && shipping?.tracking?.status === 'pending' && order?.paymentInfo?.status !== 'paid' && (
+                  <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-600">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Order Actions Limited</p>
+                        <p>You cannot cancel or print shipping labels for unpaid orders. These options will become available once payment is received.</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -1320,7 +1371,7 @@ export default function OrderDetails() {
                 </div>
 
                 {/* Shipping Documents */}
-                {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && (
+                {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && order?.paymentInfo?.status === 'paid' && (
                   <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                     <h4 className="font-medium flex items-center gap-2 text-gray-800">
                       <svg

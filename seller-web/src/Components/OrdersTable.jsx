@@ -35,7 +35,8 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
   const filteredOrders = ordersList.filter((order) => {
     const orderDate = new Date(order.createdAt)
     const dateInRange = date?.from && date?.to ? orderDate >= date.from && orderDate <= date.to : true
-    return dateInRange
+    // Filter out abandoned orders (orders with isStale=true)
+    return dateInRange && !order.isStale
   })
 
   return (

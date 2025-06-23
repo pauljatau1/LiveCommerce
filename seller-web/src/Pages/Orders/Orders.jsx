@@ -151,18 +151,15 @@ export default function OrdersDashboard() {
   const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]); // Store all orders
+  const [filteredOrders, setFilteredOrders] = useState([]); // Store filtered orders
+  const [displayedOrders, setDisplayedOrders] = useState([]); // Store paginated orders to display
   const [loading, setLoading] = useState(true);
   const [sellerId, setSellerId] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage, setOrdersPerPage] = useState(20);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    pages: 0,
-    currentPage: 1,
-    limit: 20
-  });
+  const [totalPages, setTotalPages] = useState(1);
   const [date, setDate] = useState();
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -175,11 +172,12 @@ export default function OrdersDashboard() {
     setNavName("");
   }, []);
 
-  const fetchOrders = async (id, token, params = {}) => {
+  const fetchOrders = async (id, token) => {
     try {
+      setLoading(true);
+      // Fetch all orders at once with a large limit
       const queryParams = new URLSearchParams({
-        page: params.page || currentPage,
-        limit: params.limit || ordersPerPage,
+        limit: 1000, // Fetch a large number of orders
         ...(date?.from && date?.to && {
           startDate: date.from.toISOString(),
           endDate: date.to.toISOString()
@@ -187,12 +185,6 @@ export default function OrdersDashboard() {
         ...(searchTerm && { search: searchTerm }),
         ...(paymentFilter !== "all" && { paymentStatus: paymentFilter }),
         ...(channelFilter !== "all" && { channel: channelFilter }),
-        ...(activeTab !== "all" && {
-          status: activeTab === "process" ? "pending" :
-                 activeTab === "transit" ? "in_transit" :
-                 activeTab === "delivered" ? "delivered" :
-                 activeTab === "cancelled" ? "cancelled" : undefined
-        }),
         sort: sortConfig
       });
 
@@ -202,18 +194,63 @@ export default function OrdersDashboard() {
         },
       });
       const data = await response.json();
-      setOrders(data.orders);
-      setPagination({
-        total: data.pagination.total,
-        pages: data.pagination.pages,
-        currentPage: data.pagination.currentPage,
-        limit: data.pagination.limit
-      });
+      
+      // Store all orders
+      setAllOrders(data.orders || []);
+      
+      // Apply filters based on active tab
+      applyFilters(data.orders || []);
     } catch (error) {
       console.error("Error fetching orders:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Apply filters based on active tab and other filter criteria
+  const applyFilters = (orders) => {
+    let filtered = [...orders];
+    
+    // Apply tab-specific filters
+    if (activeTab === "abandoned") {
+      // Only show abandoned orders (isStale=true)
+      filtered = filtered.filter(order => order.isStale === true);
+    } else {
+      // For all other tabs, exclude abandoned orders
+      filtered = filtered.filter(order => !order.isStale);
+      
+      // Further filter based on shipping status for specific tabs
+      if (activeTab === "process") {
+        filtered = filtered.filter(order => order.shipping.tracking.status === "pending");
+      } else if (activeTab === "transit") {
+        filtered = filtered.filter(order => order.shipping.tracking.status === "picked_up");
+      } else if (activeTab === "delivered") {
+        filtered = filtered.filter(order => order.shipping.tracking.status === "delivered");
+      } else if (activeTab === "cancelled") {
+        filtered = filtered.filter(order => order.shipping.tracking.status === "cancelled");
+      }
+      // "all" tab shows all non-abandoned orders, no additional filtering needed
+    }
+    
+    // Store filtered orders
+    setFilteredOrders(filtered);
+    
+    // Calculate total pages
+    const pages = Math.max(1, Math.ceil(filtered.length / ordersPerPage));
+    setTotalPages(pages);
+    
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+    
+    // Update displayed orders for page 1
+    updateDisplayedOrders(filtered, 1);
+  };
+
+  // Update displayed orders based on current page
+  const updateDisplayedOrders = (orders, page) => {
+    const startIndex = (page - 1) * ordersPerPage;
+    const endIndex = startIndex + ordersPerPage;
+    setDisplayedOrders(orders.slice(startIndex, endIndex));
   };
 
   useEffect(() => {
@@ -241,17 +278,29 @@ export default function OrdersDashboard() {
     fetchSellerProfile();
   }, []);
 
-  // Refetch orders when filters change
+  // Re-apply filters when any filter criteria changes
+  useEffect(() => {
+    if (allOrders.length > 0) {
+      applyFilters(allOrders);
+    }
+  }, [activeTab, date, searchTerm, paymentFilter, channelFilter]);
+
+  // Update displayed orders when page or ordersPerPage changes
+  useEffect(() => {
+    updateDisplayedOrders(filteredOrders, currentPage);
+  }, [currentPage, ordersPerPage, filteredOrders]);
+
+  // Re-fetch orders only when date, search, payment, channel, or sort changes
   useEffect(() => {
     if (sellerId) {
       const sellerToken = JSON.parse(localStorage.getItem("sellerToken"));
       fetchOrders(sellerId, sellerToken.data);
     }
-  }, [currentPage, ordersPerPage, date, searchTerm, paymentFilter, channelFilter, activeTab, sortConfig]);
+  }, [date, searchTerm, paymentFilter, channelFilter, sortConfig]);
 
   const handleOrdersPerPageChange = (e) => {
     setOrdersPerPage(Number.parseInt(e, 10));
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page when changing items per page
   };
 
   const handlePrevPage = () => {
@@ -259,7 +308,7 @@ export default function OrdersDashboard() {
   };
 
   const handleNextPage = () => {
-    setCurrentPage((prevPage) => Math.min(pagination.pages, prevPage + 1));
+    setCurrentPage((prevPage) => Math.min(totalPages, prevPage + 1));
   };
 
   if (loading) {
@@ -290,11 +339,12 @@ export default function OrdersDashboard() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Orders</SelectItem>
-            <SelectItem value="process">To Process</SelectItem>
-            <SelectItem value="transit">Transit</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all">All Orders (Active)</SelectItem>
+            <SelectItem value="process">To Process (Pending Shipping)</SelectItem>
+            <SelectItem value="transit">In Transit (Picked Up)</SelectItem>
+            <SelectItem value="delivered">Delivered Orders</SelectItem>
+            <SelectItem value="cancelled">Cancelled Orders</SelectItem>
+            <SelectItem value="abandoned">Abandoned Orders (Stale)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -445,32 +495,44 @@ export default function OrdersDashboard() {
               <TabsTrigger
                 value="all"
                 className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="All active orders (excludes abandoned orders)"
               >
                 All Orders
               </TabsTrigger>
               <TabsTrigger
                 value="process"
                 className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="Orders with pending shipping status (excludes abandoned orders)"
               >
                 To Process
               </TabsTrigger>
               <TabsTrigger
                 value="transit"
                 className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="Orders that have been picked up (excludes abandoned orders)"
               >
-                Transit
+                In Transit
               </TabsTrigger>
               <TabsTrigger
                 value="delivered"
                 className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="Orders with delivered shipping status (excludes abandoned orders)"
               >
                 Delivered
               </TabsTrigger>
               <TabsTrigger
                 value="cancelled"
                 className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="Orders with cancelled shipping status (excludes abandoned orders)"
               >
                 Cancelled
+              </TabsTrigger>
+              <TabsTrigger
+                value="abandoned"
+                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                title="Stale orders that were abandoned (isStale=true)"
+              >
+                Abandoned
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -581,8 +643,8 @@ export default function OrdersDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.length > 0 ? (
-                    orders.map((order) => (
+                  {displayedOrders.length > 0 ? (
+                    displayedOrders.map((order) => (
                       <TableRow key={order._id} className="hover:bg-gray-50">
                         <TableCell>
                           <div className="space-y-1">
@@ -746,9 +808,9 @@ export default function OrdersDashboard() {
 
             {/* Mobile Card View */}
             <div className="sm:hidden">
-              {orders.length > 0 ? (
+              {displayedOrders.length > 0 ? (
                 <div className="space-y-3">
-                  {orders.map((order) => (
+                  {displayedOrders.map((order) => (
                     <div key={order._id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       <div className="p-4 border-b border-gray-100">
                         <div className="flex justify-between items-start mb-3">
@@ -913,7 +975,7 @@ export default function OrdersDashboard() {
               </Select>
               <div className="flex items-center gap-2 sm:gap-4">
                 <span className="text-xs sm:text-sm font-inter text-gray-500">
-                  Page {pagination.currentPage} of {pagination.pages}
+                  Page {currentPage} of {totalPages}
                 </span>
                 <div className="flex gap-2 sm:gap-4">
                   <Button 
@@ -928,7 +990,7 @@ export default function OrdersDashboard() {
                     variant="outline"
                     className="bg-white text-xs sm:text-sm px-2 sm:px-3 py-1 h-8 sm:h-10"
                     onClick={handleNextPage}
-                    disabled={currentPage === pagination.pages}
+                    disabled={currentPage === totalPages}
                   >
                     Next →
                   </Button>
