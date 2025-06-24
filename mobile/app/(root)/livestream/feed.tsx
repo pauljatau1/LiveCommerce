@@ -37,6 +37,9 @@ const LivestreamFeed = () => {
   const [fetching, setFetching] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const flatlistRef = useRef<FlatList>(null);
+  
+  // Refs to hold cleanup functions for each livestream component
+  const livestreamRefs = useRef<{[key: number]: { cleanup: () => Promise<void> } | null}>({});
 
   const refreshLives = useCallback(async () => {
     setRefreshing(true);
@@ -102,9 +105,33 @@ const LivestreamFeed = () => {
   }, []);
 
   const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: any }) => {
+    async ({ viewableItems }: { viewableItems: any }) => {
       if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index);
+        const newIndex = viewableItems[0].index;
+        
+        // If the index is changing, cleanup the previous stream BEFORE updating currentIndex
+        if (newIndex !== currentIndex) {
+          console.log(`🔄 [Feed] Scrolling from index ${currentIndex} to ${newIndex}`);
+          
+          // Cleanup the current stream before switching
+          const currentStreamRef = livestreamRefs.current[currentIndex];
+          if (currentStreamRef?.cleanup) {
+            console.log(`🧹 [Feed] Triggering cleanup for stream at index ${currentIndex}`);
+            try {
+              await currentStreamRef.cleanup();
+              console.log(`✅ [Feed] Cleanup completed for stream at index ${currentIndex}`);
+            } catch (error) {
+              console.error(`❌ [Feed] Cleanup failed for stream at index ${currentIndex}:`, error);
+            }
+          } else {
+            console.log(`⚠️ [Feed] No cleanup function found for stream at index ${currentIndex}`);
+          }
+          
+          // Small delay to ensure cleanup completes before render changes
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        setCurrentIndex(newIndex);
       }
     },
   ).current;
@@ -115,12 +142,18 @@ const LivestreamFeed = () => {
 
   const renderLive = useCallback(
     ({ item, index }: any) => {
+      const registerCleanup = (cleanupFn: () => Promise<void>) => {
+        livestreamRefs.current[index] = { cleanup: cleanupFn };
+        console.log(`📝 [Feed] Registered cleanup function for stream at index ${index}`);
+      };
+
       if (item?.type == "open_show") {
         return (
           <LivestreamStudioFeed
             id={item._id}
             isVisible={index === currentIndex}
             shared={itmSource?.toString() == "share"}
+            onRegisterCleanup={registerCleanup}
           />
         );
       }
@@ -129,6 +162,7 @@ const LivestreamFeed = () => {
           id={item._id}
           isVisible={index === currentIndex}
           shared={itmSource?.toString() == "share"}
+          onRegisterCleanup={registerCleanup}
         />
       );
     },

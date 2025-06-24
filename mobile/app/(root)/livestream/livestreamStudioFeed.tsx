@@ -77,11 +77,13 @@ const LivestreamStudioFeed = ({
   isVisible,
   onInteractionStart,
   shared,
+  onRegisterCleanup,
 }: {
   id: any;
   isVisible: boolean;
   onInteractionStart?: () => void;
   shared: boolean;
+  onRegisterCleanup?: (cleanupFn: () => Promise<void>) => void;
 }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -249,19 +251,18 @@ const LivestreamStudioFeed = ({
         commentsListRef.current.scrollToEnd({ animated: true });
       }
 
-      // Cleanup function - will run when:
-      // 1. Component unmounts
-      // 2. isVisible changes from true to false
-      // 3. id changes (which should disconnect and reconnect)
+      // Cleanup will be handled proactively by the parent component
+      // when scrolling away, so we only need to handle unmounting here
       return () => {
-        // Since we only run the effect when isVisible is true,
-        // this cleanup will only run when we're either unmounting
-        // or isVisible is changing to false, both cases where we want to leave
-        handleAutoLeaveStream();
+        // Only cleanup if component is unmounting completely (not just scrolling away)
+        // The parent will handle scrolling cleanup proactively
+        console.log(`🔧 [Studio] Component unmounting cleanup for stream ${id}`);
       };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
+
+
 
   // Separate useEffect for keyboard event listeners
   useEffect(() => {
@@ -862,6 +863,28 @@ const LivestreamStudioFeed = ({
       message.startsWith("audio_unmuted:")
     ) {
       console.log(message);
+    } else if (message === "leaving_channel_start") {
+      console.log("Starting channel cleanup process");
+      setStatus("Leaving stream...");
+    } else if (message.startsWith("stopped_video_track:")) {
+      console.log("Stopped video track:", message);
+    } else if (message.startsWith("stopped_audio_track:")) {
+      console.log("Stopped audio track:", message);
+    } else if (message.startsWith("unsubscribed_video:")) {
+      console.log("Unsubscribed from video:", message);
+    } else if (message.startsWith("unsubscribed_audio:")) {
+      console.log("Unsubscribed from audio:", message);
+    } else if (message === "cleanup_complete") {
+      console.log("Channel cleanup completed successfully");
+      setStatus("Stream left successfully");
+    } else if (message.startsWith("debug:")) {
+      console.log("Debug:", message);
+    } else if (message.startsWith("force_stopped_")) {
+      console.log("Force stopped track:", message);
+    } else if (message === "js_injection_called_leaveChannel") {
+      console.log("🎯 JavaScript injection successfully called leaveChannel");
+    } else if (message === "js_injection_leaveChannel_not_found") {
+      console.log("❌ JavaScript injection: leaveChannel function not found!");
     } else {
       setStatus(message);
     }
@@ -1265,23 +1288,35 @@ const LivestreamStudioFeed = ({
   };
 
   // Optimize with useCallback
-  const handleAutoLeaveStream = useCallback(
-    async () => {
-      if (!id) return;
+      const handleAutoLeaveStream = useCallback(
+      async () => {
+        if (!id) return;
 
-      try {
+        try {
         setIsLeavingStream(true);
 
         // First tell the WebView to leave the Agora channel
+        console.log("🔄 About to call WebView leaveChannel...");
         if (webViewRef.current) {
+          console.log("✅ WebView ref exists, injecting JavaScript...");
           webViewRef.current.injectJavaScript(`
-        if (window.leaveChannel) {
-          window.leaveChannel();
-          true;
-        }
-      `);
+            console.log("📱 JavaScript injection received");
+            if (typeof window.leaveChannel === 'function') {
+              console.log("📱 leaveChannel function found, calling it...");
+              window.leaveChannel();
+              window.ReactNativeWebView.postMessage("js_injection_called_leaveChannel");
+            } else {
+              console.log("📱 leaveChannel function not found!");
+              window.ReactNativeWebView.postMessage("js_injection_leaveChannel_not_found");
+            }
+            true;
+          `);
+          console.log("⏱️ Waiting for WebView to process...");
           // Give a small delay to allow the WebView to process the leave command
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          console.log("✅ WebView processing delay completed");
+        } else {
+          console.log("❌ WebView ref is null!");
         }
 
         // Call the leaveStream API endpoint
@@ -1308,6 +1343,14 @@ const LivestreamStudioFeed = ({
       setShowMenuPopover,
     ],
   );
+
+  // Register cleanup function with parent when component is ready
+  useEffect(() => {
+    if (isVisible && streamConfig && onRegisterCleanup) {
+      console.log(`📋 [Studio] Registering cleanup function for stream ${id}`);
+      onRegisterCleanup(handleAutoLeaveStream);
+    }
+  }, [isVisible, streamConfig, onRegisterCleanup, handleAutoLeaveStream, id]);
 
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
