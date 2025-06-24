@@ -77,6 +77,9 @@ const EditProduct = () => {
     const [categorySearchQuery, setCategorySearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [hasLinksInDescription, setHasLinksInDescription] = useState(false);
+    const [detectedLinksInDescription, setDetectedLinksInDescription] = useState([]);
+    const [linksWereDetected, setLinksWereDetected] = useState(false); // Track if links were ever detected
     // Comment out productSpecs state
     // const [productSpecs, setProductSpecs] = useState({});
 
@@ -490,6 +493,20 @@ const EditProduct = () => {
 
             console.log('submit product data', productData);
             
+            // Check for links in description before validation
+            if (hasLinksInDescription || linksWereDetected) {
+                toast.error('Product description contained links', {
+                    description: linksWereDetected ? 
+                        'Links were detected and removed from the description. Please manually clear and re-enter the description to proceed.' :
+                        `Please remove the following links: ${detectedLinksInDescription.join(', ')}`,
+                    style: {
+                        background: '#17171B',
+                        color: '#fff',
+                    }
+                });
+                return;
+            }
+
             // Validate all required fields and collect missing fields
             const missingFields = [];
             
@@ -895,6 +912,23 @@ const EditProduct = () => {
         setSelectedSubCategory(subCategory);
     };
 
+    // Handle link detection in description
+    const handleLinkDetection = (hasLinks, links) => {
+        setHasLinksInDescription(hasLinks);
+        setDetectedLinksInDescription(links);
+        
+        // If links are detected, set the persistent flag
+        if (hasLinks && links.length > 0) {
+            setLinksWereDetected(true);
+        }
+        
+        // Only reset the flag if no links are detected AND user manually cleared them
+        if (!hasLinks && linksWereDetected) {
+            // Keep the flag true to prevent submission until user manually clears
+            // This ensures they acknowledge the links were removed
+        }
+    };
+
     return (
         <>
             {
@@ -939,14 +973,30 @@ const EditProduct = () => {
                                 {/* Description */}
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
+                                    {linksWereDetected && (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+                                            <Icon icon="solar:danger-triangle-bold" className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                            <div className="text-sm text-yellow-800">
+                                                <strong>Links Detected & Removed:</strong> Links were found in the original description and have been removed. 
+                                                Please manually edit the description to proceed with the update.
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="border border-[#02020238] rounded-2xl overflow-hidden">
                                         {/* Using Tiptap Simple Editor Template */}
                                         <SimpleEditor
                                             key={`simple-editor-${product?._id || 'new'}`}
                                             value={description}
-                                            onChange={setDescription}
+                                            onChange={(value) => {
+                                                setDescription(value);
+                                                // Reset the persistent flag when user manually edits
+                                                if (linksWereDetected && value !== description) {
+                                                    setLinksWereDetected(false);
+                                                }
+                                            }}
                                             placeholder="Enter product description"
                                             className="min-h-[226px] rounded-2xl bg-white"
+                                            onLinkDetected={handleLinkDetection}
                                         />
                                     </div>
                                 </div>

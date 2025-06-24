@@ -89,6 +89,8 @@ const AddProduct = () => {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [hasLinksInDescription, setHasLinksInDescription] = useState(false);
+    const [detectedLinksInDescription, setDetectedLinksInDescription] = useState([]);
     
     // Image editing modal state
     const [isImageEditModalOpen, setIsImageEditModalOpen] = useState(false);
@@ -547,6 +549,18 @@ const AddProduct = () => {
 
             console.log('submit product data', productData);
             
+            // Check for links in description before validation
+            if (hasLinksInDescription) {
+                toast.error('Product description contains links', {
+                    description: `Please remove the following links: ${detectedLinksInDescription.join(', ')}`,
+                    style: {
+                        background: '#17171B',
+                        color: '#fff',
+                    }
+                });
+                return;
+            }
+
             // Validate all required fields and collect missing fields
             const missingFields = [];
             
@@ -871,6 +885,12 @@ const AddProduct = () => {
         setPlatformFee(selectedCategoryObj?.platformFee || 0);
     };
 
+    // Handle link detection in description
+    const handleLinkDetection = (hasLinks, links) => {
+        setHasLinksInDescription(hasLinks);
+        setDetectedLinksInDescription(links);
+    };
+
     // Handler for saving edited image
     const handleSaveEditedImage = (editedImageData) => {
         const newImage = {
@@ -986,6 +1006,7 @@ const AddProduct = () => {
                                             onChange={setDescription}
                                             placeholder="Enter detailed product description"
                                             className="min-h-[226px] rounded-2xl bg-white"
+                                            onLinkDetected={handleLinkDetection}
                                         />
                                     </div>
                                 </div>
