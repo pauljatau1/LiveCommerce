@@ -383,6 +383,25 @@ const VideoItem = ({
 
   const handleBuyNow = useCallback(async () => {
     const token = await getToken();
+    const userData = await AsyncStorage.getItem("user");
+    const user = JSON.parse(userData || "{}");
+    trackEvent("blip_checkout_initiated", {
+      blipId: id,
+      productId: item?._id,
+      productName: item?.name,
+      productPrice: `₦${item?.discount?.isActive
+        ? item?.discount?.discountedPrice?.toLocaleString() ||
+          0
+        : item?.price?.toLocaleString()}`,
+      isDiscounted: item?.discount?.isActive,
+      productStock: item?.stock,
+      userId: user?._id,
+      email: user?.email,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      username: user?.username,
+      timestamp: new Date().toISOString(),
+    })
     if (!token) return setShowAuthSheet(true);
     setShowCheckout(true);
   }, []);
