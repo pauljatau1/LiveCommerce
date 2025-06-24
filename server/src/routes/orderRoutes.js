@@ -1378,7 +1378,7 @@ router.post('/:orderId/cancel-shipment',
  * /api/order/delivery-cost:
  *   post:
  *     summary: Get delivery cost from Fez Delivery
- *     description: Fetches the cost of delivery based on destination state, pickup state, and weight
+ *     description: Fetches the cost of delivery based on destination state, pickup state, and weight. Supports free shipping options.
  *     tags: [Order]
  *     requestBody:
  *       content:
@@ -1389,12 +1389,27 @@ router.post('/:orderId/cancel-shipment',
  *               state:
  *                 type: string
  *                 description: The destination state to deliver to (if not provided, costs for all states will be returned)
- *               pickUpState:
- *                 type: string
- *                 description: The state from which the item is being shipped (optional)
- *               weight:
- *                 type: number
- *                 description: Weight of the parcel in kg (optional, defaults to 0-5kg range)
+ *               pickupLocations:
+ *                 type: array
+ *                 description: Array of pickup locations with seller details
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     sellerId:
+ *                       type: string
+ *                       description: ID of the seller
+ *                     pickUpState:
+ *                       type: string
+ *                       description: The state from which the item is being shipped (optional)
+ *                     weight:
+ *                       type: number
+ *                       description: Weight of the parcel in kg
+ *               freeShipping:
+ *                 type: boolean
+ *                 description: When set to true, returns all costs as 0 without calling Fez API
+ *               fromCompatibleVersion:
+ *                 type: boolean
+ *                 description: When set to true, returns all costs as 0 without calling Fez API (similar to freeShipping but with different response format)
  *     responses:
  *       200:
  *         description: Delivery costs retrieved successfully
@@ -1408,18 +1423,39 @@ router.post('/:orderId/cancel-shipment',
  *                   example: "Success"
  *                 description:
  *                   type: string
- *                   example: "Cost Fetched Successfully"
- *                 Cost:
+ *                   example: "Costs Fetched Successfully"
+ *                 costs:
  *                   type: array
  *                   items:
  *                     type: object
  *                     properties:
- *                       state:
+ *                       sellerId:
+ *                         type: string
+ *                         example: "60d5f8b9e6b5a50015b3c123"
+ *                       pickUpState:
  *                         type: string
  *                         example: "Lagos"
+ *                       weight:
+ *                         type: number
+ *                         example: 2.5
  *                       cost:
+ *                         type: number
+ *                         example: 900
+ *                       status:
  *                         type: string
- *                         example: "900"
+ *                         example: "Success"
+ *                       error:
+ *                         type: string
+ *                         example: null
+ *                 totalCost:
+ *                   type: number
+ *                   example: 900
+ *                 freeShipping:
+ *                   type: boolean
+ *                   description: Indicates if free shipping was applied (true for both freeShipping and fromCompatibleVersion modes)
+ *                 fromCompatibleVersion:
+ *                   type: boolean
+ *                   description: Indicates if compatible version mode was used (returns zero costs without calling Fez API)
  *       400:
  *         description: Invalid request parameters
  *       500:
