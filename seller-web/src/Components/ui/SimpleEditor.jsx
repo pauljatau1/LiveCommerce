@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Typography from '@tiptap/extension-typography'
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useState, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { 
   Bold, 
@@ -22,10 +22,65 @@ import {
   List,
   ListOrdered,
   Undo,
-  Redo
+  Redo,
+  AlertTriangle
 } from 'lucide-react'
 
-const SimpleEditor = memo(({ value, onChange, placeholder, className }) => {
+// Link detection regex patterns
+const URL_PATTERNS = [
+  // HTTP/HTTPS URLs
+  /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gi,
+  // www. URLs
+  /www\.[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gi,
+  // Domain.extension patterns
+  /\b[a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9]*\.(com|org|net|edu|gov|mil|int|co|uk|ca|au|de|fr|jp|cn|in|br|ru|it|es|nl|se|no|dk|fi|pl|be|ch|at|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|ie|pt|gr|is|lu|mt|cy|tr|il|za|ng|ke|gh|ug|tz|mw|zm|zw|bw|sz|ls|na|ao|mz|mg|mu|sc|km|dj|so|er|et|sd|ly|eg|ma|tn|dz|mr|ml|bf|ne|td|cf|cm|gq|ga|cg|cd|st|gw|gn|sl|lr|ci|gh|tg|bj|sn|gm|cv|mr|eh)\b/gi,
+  // Email patterns (which could be used as links)
+  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
+  // IP addresses
+  /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/gi
+]
+
+const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDetected }) => {
+  const [linkWarning, setLinkWarning] = useState(false)
+  const [detectedLinks, setDetectedLinks] = useState([])
+
+  // Function to detect links in text
+  const detectLinks = useCallback((text) => {
+    if (!text) return { hasLinks: false, links: [] }
+    
+    // Remove HTML tags to check plain text
+    const plainText = text.replace(/<[^>]*>/g, ' ')
+    const foundLinks = []
+    
+    URL_PATTERNS.forEach(pattern => {
+      const matches = plainText.match(pattern)
+      if (matches) {
+        foundLinks.push(...matches)
+      }
+    })
+    
+    return {
+      hasLinks: foundLinks.length > 0,
+      links: [...new Set(foundLinks)] // Remove duplicates
+    }
+  }, [])
+
+  // Function to remove links from content
+  const removeLinkFromContent = useCallback((content, linkToRemove) => {
+    let cleanContent = content
+    URL_PATTERNS.forEach(pattern => {
+      cleanContent = cleanContent.replace(pattern, (match) => {
+        if (match === linkToRemove) {
+          return '[LINK REMOVED]'
+        }
+        return match
+      })
+    })
+    return cleanContent
+  }, []);
+
+
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -64,11 +119,69 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className }) => {
     content: value || '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
-      onChange(html === '<p></p>' ? '' : html)
+      const content = html === '<p></p>' ? '' : html
+      
+      // Detect links in the content
+      const linkCheck = detectLinks(content)
+      
+      if (linkCheck.hasLinks) {
+        setLinkWarning(true)
+        setDetectedLinks(linkCheck.links)
+        
+        // Call parent callback if provided
+        if (onLinkDetected) {
+          onLinkDetected(true, linkCheck.links)
+        }
+        
+        // Auto-remove links after a short delay to allow user to see the warning
+        setTimeout(() => {
+          let cleanContent = content
+          linkCheck.links.forEach(link => {
+            cleanContent = removeLinkFromContent(cleanContent, link)
+          })
+          
+          if (cleanContent !== content) {
+            editor.commands.setContent(cleanContent)
+            onChange(cleanContent)
+          }
+        }, 2000) // 2 second delay to show warning
+        
+      } else {
+        setLinkWarning(false)
+        setDetectedLinks([])
+        
+        if (onLinkDetected) {
+          onLinkDetected(false, [])
+        }
+      }
+      
+      onChange(content)
     },
     editorProps: {
       attributes: {
         class: 'focus:outline-none min-h-[200px] p-4',
+      },
+      handlePaste: (view, event) => {
+        const clipboardData = event.clipboardData || window.clipboardData
+        const pastedData = clipboardData.getData('text/plain')
+        
+        // Check if pasted content contains links
+        const linkCheck = detectLinks(pastedData)
+        if (linkCheck.hasLinks) {
+          event.preventDefault()
+          setLinkWarning(true)
+          setDetectedLinks(linkCheck.links)
+          
+          // Show warning for longer on paste
+          setTimeout(() => {
+            setLinkWarning(false)
+            setDetectedLinks([])
+          }, 5000)
+          
+          return true // Prevent default paste behavior
+        }
+        
+        return false // Allow normal paste
       },
     },
   })
@@ -77,8 +190,61 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className }) => {
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value || '')
+      
+      // Also check for links in the incoming value
+      if (value) {
+        const linkCheck = detectLinks(value)
+        if (linkCheck.hasLinks) {
+          setLinkWarning(true)
+          setDetectedLinks(linkCheck.links)
+          
+          // Call parent callback immediately to prevent submission
+          if (onLinkDetected) {
+            onLinkDetected(true, linkCheck.links)
+          }
+          
+          // Auto-remove links after showing warning, but keep the parent notified
+          setTimeout(() => {
+            let cleanContent = value
+            linkCheck.links.forEach(link => {
+              cleanContent = removeLinkFromContent(cleanContent, link)
+            })
+            
+            if (cleanContent !== value) {
+              editor.commands.setContent(cleanContent)
+              onChange(cleanContent)
+              
+              // Re-check for any remaining links after cleanup
+              const recheckLinks = detectLinks(cleanContent)
+              if (onLinkDetected) {
+                onLinkDetected(recheckLinks.hasLinks, recheckLinks.links)
+              }
+            }
+          }, 5000) // 5 second delay for initial load to ensure user sees warning
+          
+        } else {
+          setLinkWarning(false)
+          setDetectedLinks([])
+          
+          if (onLinkDetected) {
+            onLinkDetected(false, [])
+          }
+        }
+      }
     }
-  }, [editor, value])
+  }, [editor, value, detectLinks, removeLinkFromContent, onLinkDetected, onChange])
+
+  // Auto-hide warning after 5 seconds
+  useEffect(() => {
+    if (linkWarning) {
+      const timer = setTimeout(() => {
+        setLinkWarning(false)
+        setDetectedLinks([])
+      }, 5000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [linkWarning])
 
   if (!editor) {
     return (
@@ -90,6 +256,28 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className }) => {
 
   return (
     <div className={`border border-gray-300 rounded-lg overflow-hidden ${className || ''}`}>
+      {/* Link Warning Banner */}
+      {linkWarning && (
+        <div className="bg-red-50 border-b border-red-200 p-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-red-800">Links Not Allowed</h4>
+              <p className="text-sm text-red-700 mt-1">
+                Links are not permitted in product descriptions for security reasons. 
+                {detectedLinks.length > 0 && (
+                  <>
+                    <br />
+                    <span className="font-medium">Detected: </span>
+                    {detectedLinks.join(', ')}
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
         {/* Text Formatting */}
@@ -421,6 +609,7 @@ SimpleEditor.propTypes = {
   onChange: PropTypes.func.isRequired,
   placeholder: PropTypes.string,
   className: PropTypes.string,
+  onLinkDetected: PropTypes.func,
 }
 
 export default SimpleEditor 
