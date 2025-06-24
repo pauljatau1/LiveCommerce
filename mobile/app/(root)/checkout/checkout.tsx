@@ -135,7 +135,7 @@ const Checkout = () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -221,9 +221,9 @@ const Checkout = () => {
       recipientPhone:
         user.phoneNumber.replaceAll("-", "")?.length > 14
           ? user.phoneNumber
-              .replaceAll("-", "")
-              ?.replace("+234", "")
-              ?.replace("0", "")
+            .replaceAll("-", "")
+            ?.replace("+234", "")
+            ?.replace("0", "")
           : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
@@ -285,9 +285,9 @@ const Checkout = () => {
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                  .replaceAll("-", "")
-                  ?.replace("+234", "")
-                  ?.replace("0", "")
+                .replaceAll("-", "")
+                ?.replace("+234", "")
+                ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -579,6 +579,21 @@ const Checkout = () => {
         try {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
+          const itemsTotal = (deliveryFee && cartTotal) ||
+            (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+            ? "₦" +
+            (
+              deliveryFee +
+              (couponApplied
+                ? couponApplied?.couponSubTotal
+                : cartTotal) -
+              walletCredit
+            )?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+            : 0;
+
           if (user) {
             console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
@@ -590,13 +605,7 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
+              itemsTotal: itemsTotal,
               shippingTotal: `₦${response.data?.totals?.shippingTotal?.toLocaleString(
                 undefined,
                 {
@@ -629,13 +638,7 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
+              itemsTotal: itemsTotal,
               shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
                 undefined,
                 {
@@ -660,21 +663,28 @@ const Checkout = () => {
               timestamp: new Date().toISOString(),
             });
 
-            trackFacebookPurchase(cartTotal, "NGN", {
-              userId: user?._id,
+            const facebookItemsTotal = (deliveryFee && cartTotal) ||
+              (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+              ? (
+                deliveryFee +
+                (couponApplied
+                  ? couponApplied?.couponSubTotal
+                  : cartTotal) -
+                walletCredit
+              )?.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+              : 0;;
+
+            trackFacebookPurchase(Number(facebookItemsTotal), "NGN", {
               email: user?.email,
               firstName: user?.firstName,
               lastName: user?.lastName,
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
+              itemsTotal: itemsTotal,
               shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
                 undefined,
                 {
@@ -849,7 +859,6 @@ const Checkout = () => {
           });
 
           trackFacebookEvent("InitiateCheckout", {
-            userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
             lastName: user?.lastName,
@@ -889,9 +898,9 @@ const Checkout = () => {
 
     const orderTotal =
       (deliveryFee && cartTotal) ||
-      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
         ? deliveryFee +
-          (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+        (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
         : null;
 
     if (!orderTotal) {
@@ -958,10 +967,10 @@ const Checkout = () => {
               >
                 {index == 1
                   ? "₦" +
-                    walletBalance?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                  walletBalance?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
                   : item.description}
               </Text>
             </View>
@@ -995,7 +1004,7 @@ const Checkout = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView
         className="flex-1 bg-[#121212] "
-        // style={{ minHeight: height }}
+      // style={{ minHeight: height }}
       >
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
@@ -1114,8 +1123,8 @@ const Checkout = () => {
 
               {cart?.length > 0
                 ? cart.map((cartItem, index) => (
-                    <CartItem cartItem={cartItem} key={index} />
-                  ))
+                  <CartItem cartItem={cartItem} key={index} />
+                ))
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
@@ -1338,10 +1347,10 @@ const Checkout = () => {
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {deliveryFee
                         ? "₦" +
-                          deliveryFee?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                         : "-"}
                     </Text>
                   )}
@@ -1355,18 +1364,18 @@ const Checkout = () => {
                   ) : (
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {(deliveryFee && cartTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                         ? "₦" +
-                          (
-                            deliveryFee +
-                            (couponApplied
-                              ? couponApplied?.couponSubTotal
-                              : cartTotal) -
-                            walletCredit
-                          )?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                        (
+                          deliveryFee +
+                          (couponApplied
+                            ? couponApplied?.couponSubTotal
+                            : cartTotal) -
+                          walletCredit
+                        )?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                         : "-"}
                     </Text>
                   )}
@@ -1380,18 +1389,18 @@ const Checkout = () => {
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
                   {(deliveryFee && cartTotal) ||
-                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
                     ? "₦" +
-                      (
-                        deliveryFee +
-                        (couponApplied
-                          ? couponApplied?.couponSubTotal
-                          : cartTotal) -
-                        walletCredit
-                      )?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
+                    (
+                      deliveryFee +
+                      (couponApplied
+                        ? couponApplied?.couponSubTotal
+                        : cartTotal) -
+                      walletCredit
+                    )?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                     : "-"}
                   )
                 </Text>
@@ -1407,8 +1416,8 @@ const Checkout = () => {
             amount={
               selectedDeliveryOpt == 0
                 ? deliveryFee! +
-                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
-                  walletCredit
+                (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
+                walletCredit
                 : couponApplied
                   ? couponApplied?.couponSubTotal - walletCredit
                   : cartTotal - walletCredit
@@ -1531,10 +1540,10 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             </Text>
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                Store Pickup Available
-              </Text>
-            )}
+                <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                  Store Pickup Available
+                </Text>
+              )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{

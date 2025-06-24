@@ -185,7 +185,6 @@ const CartScreen = () => {
                 productName: data?.name,
                 productPrice: `₦${data?.price?.toLocaleString()}`,
                 productImage: data?.images[0]?.url,
-                userId: user?._id,
                 email: user?.email,
                 firstName: user?.firstName,
                 lastName: user?.lastName,

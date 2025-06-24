@@ -147,7 +147,6 @@ const CreateAccount = () => {
             });
 
             trackFacebookEvent('CompleteRegistration', {
-              userId: result?.user?._id,
               email: email,
               firstName: result?.user?.firstName,
               lastName: result?.user?.lastName,

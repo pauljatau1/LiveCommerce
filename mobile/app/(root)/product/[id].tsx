@@ -476,7 +476,6 @@ const ProductDescription = () => {
             currency: "NGN",
             value: `₦${productDetails?.price?.toLocaleString()}`,
             description: productDetails?.description,
-            userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
             lastName: user?.lastName,
