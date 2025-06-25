@@ -1,9 +1,10 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
 import React, { useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { AntDesign, Ionicons, MaterialIcons, FontAwesome, Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import moment from 'moment';
 import GlassImage from '@/app/(root)/livestream/components/GlassImage';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet'; 
 
 interface StoreInfo {
   name: string;
@@ -395,7 +396,7 @@ const StreamInfoComponent = ({
 
   // Main render - simplified for performance
   return (
-    <ScrollView 
+    <BottomSheetScrollView 
       className="h-[400px]" 
       showsVerticalScrollIndicator={false}
       removeClippedSubviews={true}
@@ -405,7 +406,7 @@ const StreamInfoComponent = ({
         {renderStoreSection()}
         {renderStreamDetails()}
       </View>
-    </ScrollView>
+    </BottomSheetScrollView>
   );
 };
 

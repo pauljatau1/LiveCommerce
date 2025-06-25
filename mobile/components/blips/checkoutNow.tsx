@@ -3,7 +3,6 @@ import {
   Text,
   Pressable,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   BackHandler,
 } from "react-native";
@@ -27,7 +26,7 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 const mockDeliveryOtions = [
   {
@@ -772,7 +771,7 @@ const CheckoutNow = ({
   );
   return (
     <View className="p-[8px] pb-[16px]">
-      <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
+      <BottomSheetScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator
             size={"small"}
@@ -1140,7 +1139,7 @@ const CheckoutNow = ({
             )}
           </>
         )}
-      </ScrollView>
+      </BottomSheetScrollView>
       <LoadingModal isVisible={orderLoading} />
       {showPaystack && (
         <Paystack

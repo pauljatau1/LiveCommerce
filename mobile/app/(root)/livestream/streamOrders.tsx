@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { LivestreamContextType } from "@/types/streams/livestreamStudio";
 import GlassImage from '@/app/(root)/livestream/components/GlassImage';
+import { BottomSheetScrollView, BottomSheetFlatList, BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
 
 // Define interface for order item
 interface OrderItem {
@@ -427,7 +428,7 @@ const StreamOrdersComponent = ({ streamId, closeSheet }: StreamOrdersProps) => {
   const isMounted = useRef(true);
   
   // FlatList ref to prevent recreation
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<BottomSheetFlatListMethods>(null);
 
   // Setup animations
   const startAnimations = useCallback(() => {
@@ -579,7 +580,7 @@ const StreamOrdersComponent = ({ streamId, closeSheet }: StreamOrdersProps) => {
   ), [breatheAnim]);
 
   return (
-    <ScrollView 
+    <BottomSheetScrollView 
       style={styles.container} 
       showsVerticalScrollIndicator={false}
       removeClippedSubviews={true}
@@ -589,7 +590,7 @@ const StreamOrdersComponent = ({ streamId, closeSheet }: StreamOrdersProps) => {
 
       {isLoading ? renderSkeletonLoader : 
        error ? <ErrorState error={error} onRetry={fetchOrders} /> : (
-        <FlatList
+        <BottomSheetFlatList
           ref={listRef}
           data={orders}
           renderItem={renderOrderItem}
@@ -609,7 +610,7 @@ const StreamOrdersComponent = ({ streamId, closeSheet }: StreamOrdersProps) => {
           })}
         />
       )}
-    </ScrollView>
+    </BottomSheetScrollView>
   );
 };
 

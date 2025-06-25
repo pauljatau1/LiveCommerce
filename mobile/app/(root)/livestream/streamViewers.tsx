@@ -1,7 +1,8 @@
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Dimensions, Animated, ScrollView } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import React, { useRef, useEffect, useState, useCallback, useMemo, memo, useReducer } from 'react';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BottomSheetScrollView, BottomSheetFlatList, BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
 
 interface Viewer {
   _id: string;
@@ -252,7 +253,7 @@ const StreamViewers = memo(function StreamViewers({ viewers = [], hostInfo, clos
   const breatheAnim = useRef(new Animated.Value(0)).current;
   
   // List ref to prevent scroll recreations
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<BottomSheetFlatListMethods>(null);
 
   // Process viewers data only when it changes
   useEffect(() => {
@@ -416,7 +417,7 @@ const StreamViewers = memo(function StreamViewers({ viewers = [], hostInfo, clos
 
   // Main render function - optimized to avoid unnecessary calculations
   return (
-    <ScrollView 
+    <BottomSheetScrollView 
       showsVerticalScrollIndicator={false} 
       style={styles.container}
       removeClippedSubviews={true}
@@ -427,7 +428,7 @@ const StreamViewers = memo(function StreamViewers({ viewers = [], hostInfo, clos
       {hostInfo && renderHostSection()}
 
       {isLoading ? renderSkeletonItems() : (
-        <FlatList
+        <BottomSheetFlatList
           ref={listRef}
           scrollEnabled={false}
           data={safeViewers}
@@ -448,14 +449,14 @@ const StreamViewers = memo(function StreamViewers({ viewers = [], hostInfo, clos
           })}
         />
       )}
-    </ScrollView>
+    </BottomSheetScrollView>
   );
 });
 
 // Pre-compute styles once
 const styles = StyleSheet.create({
   container: {
-    height: 300,
+    height: "100%",
     backgroundColor: COLORS.dark,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

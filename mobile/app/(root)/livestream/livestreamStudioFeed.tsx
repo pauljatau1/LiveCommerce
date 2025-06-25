@@ -265,6 +265,7 @@ const LivestreamStudioFeed = ({
 
 
   // Separate useEffect for keyboard event listeners
+  // Separate useEffect for keyboard event listeners
   useEffect(() => {
     // Enhanced keyboard listeners for zero-latency updates
     const keyboardWillShow = Keyboard.addListener(
@@ -272,6 +273,9 @@ const LivestreamStudioFeed = ({
       (e) => {
         keyboardVisibleRef.current = true;
         keyboardHeightRef.current = e.endCoordinates.height;
+        if (showShop || showCheckout) {
+          return;
+        }
         // Force immediate re-render
         forceUpdate({});
       },
@@ -282,6 +286,9 @@ const LivestreamStudioFeed = ({
       (e) => {
         keyboardVisibleRef.current = false;
         keyboardHeightRef.current = 0;
+        if (showShop || showCheckout) {
+          return;
+        }
         // Force immediate re-render
         forceUpdate({});
       },
@@ -292,7 +299,7 @@ const LivestreamStudioFeed = ({
       keyboardWillShow.remove();
       keyboardWillHide.remove();
     };
-  }, []); // Empty dependency array since we don't need any dependencies for keyboard events
+  }, [showShop, showCheckout]);
 
   console.log("keyboardHeightRef", keyboardHeightRef.current);
   console.log("keyboardVisibleRef", keyboardVisibleRef.current);
@@ -2166,6 +2173,8 @@ const LivestreamStudioFeed = ({
         snapPoints={["45%"]}
         enableDynamicSizing={false}
         keyboardBehavior={"interactive"}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         {
           scheduledStreamDetails && (
@@ -2187,6 +2196,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowProductPreview(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         {selectedProduct && (
           <ProductPreview
@@ -2206,6 +2217,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowCheckout(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         {selectedProduct && (
           <CheckoutNow
@@ -2234,6 +2247,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowViewers(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamViewers
           viewers={detailedViewers}
@@ -2256,7 +2271,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -2285,6 +2301,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowOrders(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
       </BottomSheet>
@@ -2300,6 +2318,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowShop(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <ShopBottomSheet
           sellerId={sellerId}
@@ -2318,6 +2338,8 @@ const LivestreamStudioFeed = ({
         snapPoints={["55%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowAnnouncementSheet(false)}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <AnnouncementView 
           announcement={selectedAnnouncement} 

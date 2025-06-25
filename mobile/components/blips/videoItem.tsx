@@ -963,6 +963,8 @@ const VideoItem = ({
           titleColor="!text-white"
           onRequestClose={() => setShowCheckout(false)}
           keyboardBehavior={"interactive"}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <CheckoutNow
             productId={product.id}

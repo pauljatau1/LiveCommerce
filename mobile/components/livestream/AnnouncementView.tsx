@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 import  GlassImage  from '@/app/(root)/livestream/components/GlassImage';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 
 interface AnnouncementViewProps {
   announcement: {
@@ -28,7 +29,7 @@ const AnnouncementView = React.memo(({ announcement, closeSheet }: AnnouncementV
   });
 
   return (
-    <ScrollView className="h-[100vh] py-4" showsVerticalScrollIndicator={false}>
+    <BottomSheetScrollView className="h-[100vh] py-4" showsVerticalScrollIndicator={false}>
       <View className="flex-row items-center mb-4">
         {announcement.avatar ? (
           <GlassImage
@@ -64,7 +65,7 @@ const AnnouncementView = React.memo(({ announcement, closeSheet }: AnnouncementV
       <View className="bg-[rgba(255,255,255,0.05)] px-4 py-5 rounded-lg">
         <Text className="text-white text-base leading-6">{announcement.content}</Text>
       </View>
-    </ScrollView>
+    </BottomSheetScrollView>
   );
 });
 

@@ -527,6 +527,9 @@ const LiveAuctionStudio = memo(
         (e) => {
           keyboardVisibleRef.current = true;
           keyboardHeightRef.current = e.endCoordinates.height;
+          if (showShop || showCheckout) {
+            return;
+          }
           // Force immediate re-render
           forceUpdate({});
         },
@@ -537,6 +540,9 @@ const LiveAuctionStudio = memo(
         (e) => {
           keyboardVisibleRef.current = false;
           keyboardHeightRef.current = 0;
+          if (showShop || showCheckout) {
+            return;
+          }
           // Force immediate re-render
           forceUpdate({});
         },
@@ -547,7 +553,7 @@ const LiveAuctionStudio = memo(
         keyboardWillShow.remove();
         keyboardWillHide.remove();
       };
-    }, []); // Empty dependency array since we don't need any dependencies for keyboard events
+    }, [showShop, showCheckout]); // Empty dependency array since we don't need any dependencies for keyboard events
 
     //console.log('keyboardHeightRef', keyboardHeightRef.current);
     //console.log('keyboardVisibleRef', keyboardVisibleRef.current);
@@ -2790,6 +2796,8 @@ const LiveAuctionStudio = memo(
           snapPoints={["45%"]}
           enableDynamicSizing={false}
           keyboardBehavior={"interactive"}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {
             scheduledStreamDetails && (
@@ -2811,6 +2819,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowProductPreview(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {selectedProduct && (
             <ProductPreview
@@ -2830,6 +2840,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowCheckout(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {selectedProduct && (
             <CheckoutNow
@@ -2859,6 +2871,7 @@ const LiveAuctionStudio = memo(
           onRequestClose={() => setShowBidVariation(false)}
           keyboardBehavior="fillParent"
           enableContentPanningGesture={true}
+          enablePanDownToClose={true}
         >
           {selectedBidProduct && (
             <BidVariationSelector
@@ -2906,6 +2919,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowViewers(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamViewers
             viewers={detailedViewers}
@@ -2928,6 +2943,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowStreamInfo(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamInfo
             storeInfo={{
@@ -2956,6 +2973,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowOrders(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
         </BottomSheet>
@@ -2971,6 +2990,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowBidError(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <BidErrorMessage
             errorMessage={bidErrorMessage}
@@ -2989,6 +3010,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowOrderCreatedNotification(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {activeOrderCreated && (
             <OrderCreatedNotification
@@ -3014,6 +3037,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowShop(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <AuctionShopBottomSheet
             streamProducts={streamProducts}
@@ -3032,6 +3057,8 @@ const LiveAuctionStudio = memo(
           snapPoints={["55%"]}
           titleColor="!text-white"
           onRequestClose={() => setShowAnnouncementSheet(false)}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <AnnouncementView 
             announcement={selectedAnnouncement} 
