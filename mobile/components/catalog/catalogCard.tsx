@@ -227,7 +227,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
           </Text>
         </View>
 
-        <View className="mt-[4px]">
+        <View className="mt-[4px] flex-row items-center justify-between">
           {moreDetails?.reviewCount > 0 ||
           moreDetails?.stats?.totalReviews > 0 ? (
             <View className="flex-row items-center gap-[6px]">
@@ -267,6 +267,11 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
               No Reviews
             </Text>
           )}
+          <View className=" bg-[#0EA245] py-[2px] px-[5px] rounded-[14px] shrink">
+            <Text className="text-[6px] text-white font-LexendDecaBold">
+              Free Shipping
+            </Text>
+          </View>
         </View>
         {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
