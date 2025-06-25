@@ -228,41 +228,6 @@ const MobileChatMessage = ({ message }) => {
         </div>
       );
 
-    case 'announcement':
-      return (
-        <div className="flex items-center mb-1 animate-fadeIn px-2">
-          <div className="w-full bg-black/50 backdrop-blur-sm border-l-2 border-[#4F46E5] rounded-lg px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Icon icon="heroicons:megaphone" className="w-3 h-3 text-[#4F46E5]" />
-              <span className="text-[#4F46E5] text-[10px] font-semibold uppercase">Announcement</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="relative">
-                <div className="w-6 h-6 rounded-full overflow-hidden bg-black/20 border border-[#4F46E5]/50">
-                  {renderAvatar()}
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#4F46E5] rounded-full flex items-center justify-center">
-                  <Icon icon="heroicons:megaphone" className="w-1.5 h-1.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 mb-1">
-                  <p className="text-[11px] font-medium text-white truncate">
-                    {message.user}
-                  </p>
-                  <span className="text-[9px] px-1 py-0.5 bg-[#4F46E5]/20 text-[#4F46E5] rounded">
-                    Host
-                  </span>
-                </div>
-                <p className="text-[11px] text-white break-words">
-                  {message.content}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-
     default:
       return (
         <div className="flex items-start mb-1 px-2 animate-fadeIn">

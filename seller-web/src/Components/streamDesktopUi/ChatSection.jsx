@@ -10,9 +10,9 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
   const [messages, setMessages] = useState(() => {
     // Check if liveStreamDetails has chatInteractions
     if (liveStreamDetails?.chatInteractions?.length > 0) {
-      return liveStreamDetails.chatInteractions;
+      return liveStreamDetails.chatInteractions.filter(msg => msg.type !== 'announcement');
     }
-    return initialMessages;
+    return initialMessages.filter(msg => msg.type !== 'announcement');
   });
   const [commentInput, setCommentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -32,8 +32,9 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
   // Update messages when liveStreamDetails or chatInteractions change
   useEffect(() => {
     if (liveStreamDetails?.chatInteractions?.length > 0) {
-      console.log('Initializing chat messages from history:', liveStreamDetails.chatInteractions.length);
-      setMessages(liveStreamDetails.chatInteractions);
+      const filteredMessages = liveStreamDetails.chatInteractions.filter(msg => msg.type !== 'announcement');
+      console.log('Initializing chat messages from history:', filteredMessages.length);
+      setMessages(filteredMessages);
     }
   }, [liveStreamDetails]);
   
@@ -44,8 +45,8 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
       
       console.log('Processing notification:', latestNotification.type, 'for stream:', latestNotification.data?.streamId);
       
-      // Only add notifications for the current stream
-      if (latestNotification.data?.streamId === streamId) {
+      // Only add notifications for the current stream and exclude announcements
+      if (latestNotification.data?.streamId === streamId && latestNotification.type !== 'announcement') {
         // Avoid duplicates by checking if the notification ID already exists in messages
         setMessages(prevMessages => {
           const messageExists = prevMessages.some(msg => msg.id === latestNotification.id || msg._id === latestNotification.id);

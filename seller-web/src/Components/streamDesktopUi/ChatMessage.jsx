@@ -242,40 +242,6 @@ const ChatMessage = ({ message }) => {
         </div>
       );
 
-    case 'announcement':
-      return (
-        <div className="flex items-center justify-center py-2 my-1">
-          <div className="w-full bg-[#1A1A2E] border-l-4 border-[#4F46E5] rounded-md px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon icon="heroicons:megaphone" className="w-4 h-4 text-[#4F46E5]" />
-              <span className="text-[#4F46E5] text-xs font-semibold uppercase">Announcement</span>
-              {formattedTime && (
-                <span className="text-xs text-gray-500 ml-auto">{formattedTime}</span>
-              )}
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="relative">
-                {renderAvatar()}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#4F46E5] rounded-full flex items-center justify-center">
-                  <Icon icon="heroicons:megaphone" className="w-2.5 h-2.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-white font-medium text-sm" style={{ color: usernameColor }}>
-                    {message.user}
-                  </p>
-                  <span className="text-xs px-2 py-0.5 bg-[#4F46E5]/20 text-[#4F46E5] rounded">
-                    Host
-                  </span>
-                </div>
-                <p className="text-white text-sm">{message.content}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-
     default:
       return (
         <div className="flex items-start gap-2 mb-3">
