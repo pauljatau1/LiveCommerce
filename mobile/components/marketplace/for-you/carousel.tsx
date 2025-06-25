@@ -21,40 +21,21 @@ const Carousel = ({ banners }: any) => {
           marginHorizontal: margin,
           borderRadius: 10,
           overflow: "hidden",
+          height: 200,
+          width: screenWidth - margin * 2,
         }}
       >
         <Image
           source={{ uri: item.mainImage.url || null }}
           style={{
-            height: 200,
-            width: screenWidth - margin * 2,
+            height: "100%",
+            width: "100%",
             alignSelf: "center",
-            opacity: 0.3,
-            backgroundColor: "#000",
+            backgroundColor: "#2e2e2e20",
           }}
+          resizeMode="cover"
+          resizeMethod="resize"
         />
-        <View
-          style={{
-            position: "absolute",
-            top: 70,
-            left: 0,
-            right: 0,
-            alignItems: "center",
-          }}
-        >
-          <Text className="font-LexendDecaExtraBold text-[#ccc] uppercase text-[15px]">
-            {item.title}
-          </Text>
-          <Text className="font-LexendDecaExtraBold text-[#16783A] uppercase text-[15px] text-center  p-2 rounded-[2px]">
-            {item.description}
-          </Text>
-          {/* <View className="flex items-center justify-center w-[120px]">
-            <CustomButton
-              title="Shop now"
-              className="mb-4 mt-[18px] !rounded-[8.016px] !text-white text-sm font-LexendDecaBold"
-            />
-          </View> */}
-        </View>
       </View>
     );
   }, []);
