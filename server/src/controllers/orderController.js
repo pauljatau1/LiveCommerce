@@ -622,8 +622,8 @@ exports.createOrder = async (req, res) => {
       
       // Calculate shipping fee based on weight
       // This is a simple example - replace with your actual calculation logic
-      const baseShippingFee = 1000; // Base fee in Naira
-      const weightFactor = 500; // Additional fee per kg
+      const baseShippingFee = 0; // Base fee in Naira
+      const weightFactor = 0; // Additional fee per kg
       
       // If a specific shipping fee was provided for this seller in the request, use that
       // Check if any of the items from this seller has shipping fee info
