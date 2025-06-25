@@ -823,7 +823,7 @@ const ProductDescription = () => {
                         />
                       </View>
                     )}
-                    <View className="flex flex-row items-center justify-between ">
+                    <View className="flex flex-row items-center justify-between gap-[12px] flex-wrap">
                       {productDetails?.status == "offline_auction" ? (
                         <View className="flex flex-row items-end">
                           <Text className="text-[22px] text-white font-LexendDecaMedium">
@@ -851,7 +851,7 @@ const ProductDescription = () => {
                         </View>
                       )}
 
-                      <View className="flex flex-row items-center gap-[6px]">
+                      <View className="flex flex-row items-center gap-[6px] shrink">
                         {productDetails?.discount?.isActive ? (
                           <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
                             <Text className="text-[9px] text-black font-LexendDecaBold">
@@ -861,6 +861,11 @@ const ProductDescription = () => {
                             </Text>
                           </View>
                         ) : null}
+                        <View className=" bg-[#0EA245] py-[5px] px-[17px] rounded-[14px]">
+                          <Text className="text-[9px] text-white font-LexendDecaBold">
+                            Free Shipping
+                          </Text>
+                        </View>
                         <View className=" bg-[#0EA245] py-[5px] px-[17px] rounded-[14px]">
                           <Text className="text-[9px] text-white font-LexendDecaBold">
                             {productDetails?.condition}
