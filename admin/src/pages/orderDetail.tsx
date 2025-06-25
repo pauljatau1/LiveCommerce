@@ -71,7 +71,7 @@ interface OrderDetail {
     paid: boolean
     isStale: boolean
     isStorePickup: boolean
-    storePickupStatus: string | null
+    storePickupStatus: string | { state: string } | null
     paymentInfo: {
       method: string
       status: string
@@ -116,6 +116,14 @@ interface OrderDetail {
   }
   seller: {
     sellerAddress?: {
+      country: string
+      state: string
+      city: string
+      addressLine1: string
+      addressLine2?: string
+      zipCode: string
+    }
+    businessAddress?: {
       country: string
       state: string
       city: string
@@ -658,9 +666,9 @@ function OrderDetail() {
         
         {/* Order Timeline */}
         <div className="mt-6 border-t border-gray-800 pt-4">
-          <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-blue-400" /> Order Timeline
-          </h3>
+                      <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-blue-400" /> Order Timeline
+            </h3>
           
           {orderData && (
             <div className="space-y-4">
@@ -683,7 +691,7 @@ function OrderDetail() {
                     </div>
                   </div>
                   
-                  <div className="flex items-start gap-3">
+                  {/* <div className="flex items-start gap-3">
                     <div className="mt-1 flex flex-col items-center">
                       <div className="h-3 w-3 rounded-full bg-green-500"></div>
                       <div className="h-12 w-0.5 bg-gray-700"></div>
@@ -697,7 +705,7 @@ function OrderDetail() {
                         Payment of ₦{orderData.order?.totalAmount?.toLocaleString()} received via {orderData.order?.paymentInfo?.method}
                       </p>
                     </div>
-                  </div>
+                  </div> */}
                   
                   {orderData.items?.[0]?.statusHistory?.slice(0).reverse().map((status, index) => (
                     <div key={index} className="flex items-start gap-3">
@@ -855,9 +863,10 @@ function OrderDetail() {
                       {orderData.seller.sellerAddress.addressLine2 && `, ${orderData.seller.sellerAddress.addressLine2}`}
                     </p>
                     <p className="text-sm text-white">
-                      {orderData.seller.sellerAddress.city && `${orderData.seller.sellerAddress.city}, `}
-                      {orderData.seller.sellerAddress.state}, {orderData.seller.sellerAddress.country}
-                      {orderData.seller.sellerAddress.zipCode && ` ${orderData.seller.sellerAddress.zipCode}`}
+                      {orderData.seller.sellerAddress.city && typeof orderData.seller.sellerAddress.city === 'string' ? `${orderData.seller.sellerAddress.city}, ` : ''}
+                      {typeof orderData.seller.sellerAddress.state === 'string' ? orderData.seller.sellerAddress.state : ''}
+                      {typeof orderData.seller.sellerAddress.country === 'string' ? `, ${orderData.seller.sellerAddress.country}` : ''}
+                      {orderData.seller.sellerAddress.zipCode && typeof orderData.seller.sellerAddress.zipCode === 'string' ? ` ${orderData.seller.sellerAddress.zipCode}` : ''}
                     </p>
                   </div>
                 </div>
@@ -876,68 +885,23 @@ function OrderDetail() {
               <div className="bg-red-600/20 p-2 rounded-lg">
                 <MapPin className="h-5 w-5 text-red-500" />
               </div>
-              <h2 className="text-lg font-semibold text-white">Delivery & Pickup Information</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {orderData?.order?.isStorePickup ? "Store Pickup Information" : "Delivery & Pickup Information"}
+              </h2>
             </div>
           </div>
           
           <div className="p-6 space-y-4">
-            {/* Delivery Address */}
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-medium flex items-center gap-2">
-                  <User className="h-4 w-4 text-blue-400" /> Recipient Details
-                </h3>
-                <Badge className="bg-blue-600/20 text-blue-400 border-blue-800">
-                  Delivery Address
-                </Badge>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="text-sm text-white">
-                    {orderData?.addresses?.delivery?.first_name} {orderData?.addresses?.delivery?.last_name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Email</span>
-                  <span className="text-sm text-white">{orderData?.addresses?.delivery?.email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Phone</span>
-                  <span className="text-sm text-white">{orderData?.addresses?.delivery?.phone}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin className="h-4 w-4 text-red-400" />
-                <h3 className="text-white font-medium">Delivery Address</h3>
-              </div>
-              
-              <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
-                <p>{orderData?.addresses?.delivery?.line1}</p>
-                {orderData?.addresses?.delivery?.city && <p>{orderData?.addresses?.delivery?.city}</p>}
-                <p>
-                  {orderData?.addresses?.delivery?.state} {orderData?.addresses?.delivery?.country && `, ${orderData?.addresses?.delivery?.country}`}
-                  {orderData?.addresses?.delivery?.zip && ` ${orderData?.addresses?.delivery?.zip}`}
-                </p>
-              </div>
-            </div>
-            
-            {/* Pickup Address */}
-            {orderData?.addresses?.pickup && (
+            {!orderData?.order?.isStorePickup && (
               <>
-                <div className="border-t border-gray-700 my-4"></div>
-                
+                {/* Delivery Address */}
                 <div className="bg-gray-800 p-4 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-white font-medium flex items-center gap-2">
-                      <Store className="h-4 w-4 text-purple-400" /> Seller Details
+                      <User className="h-4 w-4 text-blue-400" /> Recipient Details
                     </h3>
-                    <Badge className="bg-purple-600/20 text-purple-400 border-purple-800">
-                      Pickup Address
+                    <Badge className="bg-blue-600/20 text-blue-400 border-blue-800">
+                      Delivery Address
                     </Badge>
                   </div>
                   
@@ -945,64 +909,170 @@ function OrderDetail() {
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Name</span>
                       <span className="text-sm text-white">
-                        {orderData?.addresses?.pickup?.first_name} {orderData?.addresses?.pickup?.last_name}
+                        {orderData?.addresses?.delivery?.first_name} {orderData?.addresses?.delivery?.last_name}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Email</span>
-                      <span className="text-sm text-white">{orderData?.addresses?.pickup?.email}</span>
+                      <span className="text-sm text-white">{orderData?.addresses?.delivery?.email}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Phone</span>
-                      <span className="text-sm text-white">{orderData?.addresses?.pickup?.phone}</span>
+                      <span className="text-sm text-white">{orderData?.addresses?.delivery?.phone}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="bg-gray-800 p-4 rounded-lg">
                   <div className="flex items-center gap-2 mb-3">
-                    <Store className="h-4 w-4 text-purple-400" />
-                    <h3 className="text-white font-medium">Pickup Address</h3>
+                    <MapPin className="h-4 w-4 text-red-400" />
+                    <h3 className="text-white font-medium">Delivery Address</h3>
                   </div>
                   
                   <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
-                    <p>{orderData?.addresses?.pickup?.line1}</p>
-                    {orderData?.addresses?.pickup?.city && <p>{orderData?.addresses?.pickup?.city}</p>}
+                    <p>{orderData?.addresses?.delivery?.line1}</p>
+                    {orderData?.addresses?.delivery?.city && <p>{orderData?.addresses?.delivery?.city}</p>}
                     <p>
-                      {orderData?.addresses?.pickup?.state} {orderData?.addresses?.pickup?.country && `, ${orderData?.addresses?.pickup?.country}`}
-                      {orderData?.addresses?.pickup?.zip && ` ${orderData?.addresses?.pickup?.zip}`}
+                      {typeof orderData?.addresses?.delivery?.state === 'string' ? orderData?.addresses?.delivery?.state : ''}
+                      {orderData?.addresses?.delivery?.country && typeof orderData?.addresses?.delivery?.country === 'string' ? `, ${orderData?.addresses?.delivery?.country}` : ''}
+                      {orderData?.addresses?.delivery?.zip && typeof orderData?.addresses?.delivery?.zip === 'string' ? ` ${orderData?.addresses?.delivery?.zip}` : ''}
                     </p>
                   </div>
                 </div>
+                
+                {/* Pickup Address */}
+                {orderData?.addresses?.pickup && (
+                  <>
+                    <div className="border-t border-gray-700 my-4"></div>
+                    
+                    <div className="bg-gray-800 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-white font-medium flex items-center gap-2">
+                          <Store className="h-4 w-4 text-purple-400" /> Seller Details
+                        </h3>
+                        <Badge className="bg-purple-600/20 text-purple-400 border-purple-800">
+                          Pickup Address
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Name</span>
+                          <span className="text-sm text-white">
+                            {orderData?.addresses?.pickup?.first_name} {orderData?.addresses?.pickup?.last_name}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Email</span>
+                          <span className="text-sm text-white">{orderData?.addresses?.pickup?.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Phone</span>
+                          <span className="text-sm text-white">{orderData?.addresses?.pickup?.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-800 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Store className="h-4 w-4 text-purple-400" />
+                        <h3 className="text-white font-medium">Pickup Address</h3>
+                      </div>
+                      
+                      <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
+                        <p>{orderData?.addresses?.pickup?.line1}</p>
+                        {orderData?.addresses?.pickup?.city && <p>{orderData?.addresses?.pickup?.city}</p>}
+                        <p>
+                          {typeof orderData?.addresses?.pickup?.state === 'string' ? orderData?.addresses?.pickup?.state : ''}
+                          {orderData?.addresses?.pickup?.country && typeof orderData?.addresses?.pickup?.country === 'string' ? `, ${orderData?.addresses?.pickup?.country}` : ''}
+                          {orderData?.addresses?.pickup?.zip && typeof orderData?.addresses?.pickup?.zip === 'string' ? ` ${orderData?.addresses?.pickup?.zip}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
             
             {orderData?.order?.isStorePickup && (
-              <div className="bg-gray-800 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-medium flex items-center gap-2">
-                    <Store className="h-4 w-4 text-purple-400" /> Store Pickup
-                  </h3>
-                  <Badge className={`${
-                    orderData?.order?.storePickupStatus === 'ready' 
-                      ? 'bg-green-600/20 text-green-500 border-green-800'
-                      : orderData?.order?.storePickupStatus === 'picked' 
-                      ? 'bg-blue-600/20 text-blue-500 border-blue-800'
-                      : 'bg-yellow-600/20 text-yellow-500 border-yellow-800'
-                  }`}>
-                    {orderData?.order?.storePickupStatus 
-                      ? orderData.order.storePickupStatus.toUpperCase() 
-                      : 'PENDING'}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Store Name</span>
-                    <span className="text-sm text-white">{orderData?.seller?.storeName}</span>
+              <>
+                <div className="bg-gray-800 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-medium flex items-center gap-2">
+                      <Store className="h-4 w-4 text-purple-400" /> Store Pickup
+                    </h3>
+                    <Badge className={`${
+                      (typeof orderData?.order?.storePickupStatus === 'object' && orderData?.order?.storePickupStatus?.state === 'ready') || 
+                      orderData?.order?.storePickupStatus === 'ready'
+                        ? 'bg-green-600/20 text-green-500 border-green-800'
+                        : (typeof orderData?.order?.storePickupStatus === 'object' && orderData?.order?.storePickupStatus?.state === 'picked') || 
+                          orderData?.order?.storePickupStatus === 'picked'
+                        ? 'bg-blue-600/20 text-blue-500 border-blue-800'
+                        : 'bg-yellow-600/20 text-yellow-500 border-yellow-800'
+                    }`}>
+                      {orderData?.order?.storePickupStatus
+                        ? (typeof orderData.order.storePickupStatus === 'string' 
+                            ? orderData.order.storePickupStatus.toUpperCase() 
+                            : typeof orderData.order.storePickupStatus === 'object' && orderData.order.storePickupStatus?.state
+                              ? orderData.order.storePickupStatus.state.toUpperCase()
+                              : 'PENDING')
+                        : 'PENDING'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Store Name</span>
+                      <span className="text-sm text-white">{orderData?.seller?.storeName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Business Name</span>
+                      <span className="text-sm text-white">{orderData?.seller?.businessName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Contact</span>
+                      <span className="text-sm text-white">{orderData?.seller?.phoneNumber || 'N/A'}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+
+                {/* Store Address */}
+                {(orderData?.seller?.businessAddress || orderData?.seller?.sellerAddress) && (
+                  <div className="bg-gray-800 p-4 rounded-lg mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin className="h-4 w-4 text-purple-400" />
+                      <h3 className="text-white font-medium">Store Address</h3>
+                    </div>
+                    
+                    <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
+                      {/* Use businessAddress if available, otherwise fall back to sellerAddress */}
+                      {orderData?.seller?.businessAddress ? (
+                        <>
+                          <p>{orderData.seller.businessAddress.addressLine1}</p>
+                          {orderData.seller.businessAddress.addressLine2 && <p>{orderData.seller.businessAddress.addressLine2}</p>}
+                          {orderData.seller.businessAddress.city && <p>{orderData.seller.businessAddress.city}</p>}
+                          <p>
+                            {typeof orderData.seller.businessAddress.state === 'string' ? orderData.seller.businessAddress.state : ''}
+                            {orderData.seller.businessAddress.country && typeof orderData.seller.businessAddress.country === 'string' ? `, ${orderData.seller.businessAddress.country}` : ''}
+                            {orderData.seller.businessAddress.zipCode && typeof orderData.seller.businessAddress.zipCode === 'string' ? ` ${orderData.seller.businessAddress.zipCode}` : ''}
+                          </p>
+                        </>
+                      ) : orderData?.seller?.sellerAddress && (
+                        <>
+                          <p>{orderData.seller.sellerAddress.addressLine1}</p>
+                          {orderData.seller.sellerAddress.addressLine2 && <p>{orderData.seller.sellerAddress.addressLine2}</p>}
+                          {orderData.seller.sellerAddress.city && <p>{orderData.seller.sellerAddress.city}</p>}
+                          <p>
+                            {typeof orderData.seller.sellerAddress.state === 'string' ? orderData.seller.sellerAddress.state : ''}
+                            {orderData.seller.sellerAddress.country && typeof orderData.seller.sellerAddress.country === 'string' ? `, ${orderData.seller.sellerAddress.country}` : ''}
+                            {orderData.seller.sellerAddress.zipCode && typeof orderData.seller.sellerAddress.zipCode === 'string' ? ` ${orderData.seller.sellerAddress.zipCode}` : ''}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </Card>

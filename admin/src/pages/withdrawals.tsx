@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, X, Eye, Loader2, PlayCircle, AlertCircle, Building2 } from "lucide-react";
+import { Check, X, Eye, Loader2, PlayCircle, AlertCircle, Building2, ArrowUpFromLine } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -25,6 +26,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 interface WithdrawalNote {
   content: string;
@@ -58,6 +60,7 @@ interface Withdrawal {
     transferReference?: string;
     transferRecipientCode?: string;
     paystackStatus?: string;
+    transferCompleted?: boolean;
   };
 }
 
@@ -71,10 +74,10 @@ function Withdrawals() {
   const [statusNote, setStatusNote] = useState("");
   const [pendingAction, setPendingAction] = useState<'processing' | 'completed' | 'rejected' | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [transferStatus, setTransferStatus] = useState({ loading: false, error: null });
+  const [transferStatus, setTransferStatus] = useState<{ loading: boolean; error: string | null }>({ loading: false, error: null });
   const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
   const [requiresOTP, setRequiresOTP] = useState(false);
-  const [transferCode, setTransferCode] = useState(null);
+  const [transferCode, setTransferCode] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
 
   const fetchWithdrawals = async () => {
@@ -107,7 +110,7 @@ function Withdrawals() {
         status: pendingAction,
         note: statusNote.trim() || undefined
       });
-      toast.success(`Withdrawal ${pendingAction}`);
+      toast.success(`Withdrawal status updated to ${pendingAction}`);
       fetchWithdrawals();
       setIsStatusModalOpen(false);
       setStatusNote("");
@@ -119,22 +122,24 @@ function Withdrawals() {
     }
   };
 
-  const handleTransfer = async (withdrawal) => {
+  const handleTransfer = async (withdrawal: Withdrawal) => {
     setSelectedWithdrawal(withdrawal);
     setTransferStatus({ loading: false, error: null });
     setIsTransferModalOpen(true);
   };
 
   const confirmTransfer = async () => {
+    if (!selectedWithdrawal) return;
+    
     setTransferStatus({ loading: true, error: null });
     try {
       // Use bankIdentifierCode from withdrawal request
       const transferData = {
-        bankCode: selectedWithdrawal?.bankDetails?.bankIdentifierCode,
-        accountNumber: selectedWithdrawal?.bankDetails?.accountNumber,
-        accountName: selectedWithdrawal?.bankDetails?.accountName,
-        bankName: selectedWithdrawal?.bankDetails?.bankName,
-        amount: selectedWithdrawal?.amount
+        bankCode: selectedWithdrawal.bankDetails?.bankIdentifierCode,
+        accountNumber: selectedWithdrawal.bankDetails?.accountNumber,
+        accountName: selectedWithdrawal.bankDetails?.accountName,
+        bankName: selectedWithdrawal.bankDetails?.bankName,
+        amount: selectedWithdrawal.amount
       };
 
       const response = await api.post(
@@ -146,13 +151,16 @@ function Withdrawals() {
       
       // Store the Paystack transfer reference
       const paystackReference = response.data.data.transfer.reference;
-      setSelectedWithdrawal(prev => ({
-        ...prev,
-        paymentInfo: {
-          ...prev.paymentInfo,
-          transferReference: paystackReference
-        }
-      }));
+      
+      if (selectedWithdrawal) {
+        setSelectedWithdrawal({
+          ...selectedWithdrawal,
+          paymentInfo: {
+            ...selectedWithdrawal.paymentInfo,
+            transferReference: paystackReference
+          }
+        });
+      }
       
       // Start polling for transfer status
       const pollInterval = setInterval(async () => {
@@ -183,6 +191,19 @@ function Withdrawals() {
           if (status === 'completed') {
             clearInterval(pollInterval);
             setTransferPolling(null);
+            
+            // Update the withdrawal with transfer completed flag
+            if (selectedWithdrawal) {
+              setSelectedWithdrawal({
+                ...selectedWithdrawal,
+                paymentInfo: {
+                  ...selectedWithdrawal.paymentInfo,
+                  transferCompleted: true,
+                  paystackStatus: 'completed'
+                }
+              });
+            }
+            
             toast.success("Transfer completed successfully");
             await fetchWithdrawals();
             setIsTransferModalOpen(false);
@@ -194,7 +215,7 @@ function Withdrawals() {
             setIsTransferModalOpen(false);
           }
           // Continue polling for 'processing' status
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error polling transfer status:", error);
           if (error.response?.status === 404) {
             clearInterval(pollInterval);
@@ -205,7 +226,7 @@ function Withdrawals() {
       }, 5000);
 
       setTransferPolling(pollInterval);
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || "Failed to initiate transfer";
       setTransferStatus({
         loading: false,
@@ -225,13 +246,25 @@ function Withdrawals() {
       );
 
       if (response.data.success) {
+        // Update the withdrawal with transfer completed flag
+        if (selectedWithdrawal) {
+          setSelectedWithdrawal({
+            ...selectedWithdrawal,
+            paymentInfo: {
+              ...selectedWithdrawal.paymentInfo,
+              transferCompleted: true,
+              paystackStatus: 'completed'
+            }
+          });
+        }
+        
         toast.success("Transfer finalized successfully");
         setRequiresOTP(false);
         setOtpValue('');
         await fetchWithdrawals();
         setIsTransferModalOpen(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error.response?.data?.error || "Failed to finalize transfer";
       toast.error(errorMessage);
     }
@@ -270,24 +303,45 @@ function Withdrawals() {
     return colors[status];
   };
 
-  const renderActions = (withdrawal) => (
-    <div className="flex space-x-2">
+  // Fixed type for badge variants
+  type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+  
+  const getStatusBadgeVariant = (status: Withdrawal['status']): BadgeVariant => {
+    const variants: Record<Withdrawal['status'], BadgeVariant> = {
+      pending: "default",
+      processing: "secondary",
+      completed: "default",
+      rejected: "destructive"
+    };
+    return variants[status];
+  };
+
+  // Check if transfer is completed for a withdrawal
+  const isTransferCompleted = (withdrawal: Withdrawal): boolean => {
+    return !!withdrawal.paymentInfo?.transferCompleted;
+  };
+
+  const renderActions = (withdrawal: Withdrawal) => (
+    <div className="flex flex-col space-y-2">
       <Button 
         variant="outline" 
         size="sm"
+        className="w-full justify-start"
         onClick={() => {
           setSelectedWithdrawal(withdrawal);
           setIsDetailsModalOpen(true);
         }}
       >
-        <Eye className="h-4 w-4" />
+        <Eye className="h-4 w-4 mr-2" />
+        <span>View Details</span>
       </Button>
+      
       {withdrawal.status === 'pending' && (
         <>
           <Button 
-            variant="outline" 
+            variant="default" 
             size="sm" 
-            className="text-blue-500"
+            className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => {
               setSelectedWithdrawal(withdrawal);
               setPendingAction('processing');
@@ -295,12 +349,13 @@ function Withdrawals() {
             }}
             disabled={processingId === withdrawal._id}
           >
-            <PlayCircle className="h-4 w-4" />
+            <PlayCircle className="h-4 w-4 mr-2" />
+            <span>Start Processing</span>
           </Button>
           <Button 
-            variant="outline" 
+            variant="destructive" 
             size="sm" 
-            className="text-red-500"
+            className="w-full justify-start"
             onClick={() => {
               setSelectedWithdrawal(withdrawal);
               setPendingAction('rejected');
@@ -308,37 +363,51 @@ function Withdrawals() {
             }}
             disabled={processingId === withdrawal._id}
           >
-            <X className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-green-500"
-            onClick={() => handleTransfer(withdrawal)}
-            disabled={transferStatus.loading}
-          >
-            {transferStatus.loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              'Transfer'
-            )}
+            <X className="h-4 w-4 mr-2" />
+            <span>Reject Request</span>
           </Button>
         </>
       )}
+      
       {withdrawal.status === 'processing' && (
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="text-green-500"
-          onClick={() => {
-            setSelectedWithdrawal(withdrawal);
-            setPendingAction('completed');
-            setIsStatusModalOpen(true);
-          }}
-          disabled={processingId === withdrawal._id}
-        >
-          <Check className="h-4 w-4" />
-        </Button>
+        <>
+          {isTransferCompleted(withdrawal) ? (
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="w-full justify-start bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => {
+                setSelectedWithdrawal(withdrawal);
+                setPendingAction('completed');
+                setIsStatusModalOpen(true);
+              }}
+              disabled={processingId === withdrawal._id}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              <span>Mark as Completed</span>
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => handleTransfer(withdrawal)}
+              disabled={transferStatus.loading}
+            >
+              {transferStatus.loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowUpFromLine className="h-4 w-4 mr-2" />
+                  <span>Initiate Transfer</span>
+                </>
+              )}
+            </Button>
+          )}
+        </>
       )}
     </div>
   );
@@ -350,6 +419,11 @@ function Withdrawals() {
           <DialogTitle>
             {requiresOTP ? 'Enter OTP to Complete Transfer' : 'Confirm Transfer'}
           </DialogTitle>
+          <DialogDescription>
+            {requiresOTP 
+              ? 'Enter the one-time password sent to your phone to verify this transfer'
+              : 'Review the transfer details before confirming the transaction'}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -362,7 +436,7 @@ function Withdrawals() {
                 </div>
                 <div>
                   <p className="font-semibold">Recipient</p>
-                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
+                  <p>{selectedWithdrawal.seller?.firstName || 'N/A'} {selectedWithdrawal.seller?.lastName || ''}</p>
                 </div>
               </div>
 
@@ -374,11 +448,11 @@ function Withdrawals() {
                   </div>
                   <div>
                     <div className="font-medium text-gray-700">
-                      {selectedWithdrawal.bankDetails.bankName}
+                      {selectedWithdrawal.bankDetails?.bankName || 'N/A'}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {selectedWithdrawal.bankDetails.accountNumber}
-                      {selectedWithdrawal.bankDetails.bankIdentifierCode && (
+                      {selectedWithdrawal.bankDetails?.accountNumber || 'N/A'}
+                      {selectedWithdrawal.bankDetails?.bankIdentifierCode && (
                         <span className="ml-2 text-gray-400">
                           (BIC: {selectedWithdrawal.bankDetails.bankIdentifierCode})
                         </span>
@@ -467,6 +541,17 @@ function Withdrawals() {
     </Dialog>
   );
 
+  // Function to get custom styling for status badges
+  const getStatusBadgeClass = (status: Withdrawal['status']): string => {
+    const classes = {
+      pending: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+      processing: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+      completed: "bg-green-100 text-green-800 hover:bg-green-200",
+      rejected: "bg-red-100 text-red-800 hover:bg-red-200"
+    };
+    return classes[status];
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -507,63 +592,82 @@ function Withdrawals() {
         </Card>
       </div>
 
-      <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Reference</TableHead>
-              <TableHead>Seller</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Bank Details</TableHead>
-              <TableHead>Request Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {withdrawals.map((withdrawal) => (
-              <TableRow key={withdrawal._id}>
-                <TableCell className="font-mono text-xs">
-                  {withdrawal.reference}
-                </TableCell>
-                <TableCell>
-                  {withdrawal.seller.firstName} {withdrawal.seller.lastName}
-                </TableCell>
-                <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-gray-50">
-                      <Building2 className="h-4 w-4 text-gray-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-300">
-                        {withdrawal.bankDetails.bankName}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {withdrawal.bankDetails.accountNumber}
-                        {withdrawal.bankDetails.bankIdentifierCode && (
-                          <span className="ml-2 text-gray-400">
-                            (BIC: {withdrawal.bankDetails.bankIdentifierCode})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>{formatDate(withdrawal.requestDate)}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(withdrawal.status)}`}>
-                    {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {renderActions(withdrawal)}
-                </TableCell>
+      {isLoading ? (
+        <Card className="p-6 flex justify-center items-center h-64">
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p>Loading withdrawal requests...</p>
+          </div>
+        </Card>
+      ) : withdrawals.length === 0 ? (
+        <Card className="p-6 flex justify-center items-center h-64">
+          <div className="text-center">
+            <p className="text-lg font-medium">No withdrawal requests found</p>
+            <p className="text-muted-foreground">Withdrawal requests will appear here when sellers make them</p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Reference</TableHead>
+                <TableHead>Seller</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Bank Details</TableHead>
+                <TableHead>Request Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[200px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+            </TableHeader>
+            <TableBody>
+              {withdrawals.map((withdrawal) => (
+                <TableRow key={withdrawal._id}>
+                  <TableCell className="font-mono text-xs">
+                    {withdrawal.reference}
+                  </TableCell>
+                  <TableCell>
+                    {withdrawal.seller?.firstName || 'N/A'} {withdrawal.seller?.lastName || ''}
+                  </TableCell>
+                  <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-gray-50">
+                        <Building2 className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700">
+                          {withdrawal.bankDetails?.bankName || 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {withdrawal.bankDetails?.accountNumber || 'N/A'}
+                          {withdrawal.bankDetails?.bankIdentifierCode && (
+                            <span className="ml-2 text-gray-400">
+                              (BIC: {withdrawal.bankDetails.bankIdentifierCode})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{withdrawal.requestDate ? formatDate(withdrawal.requestDate) : 'N/A'}</TableCell>
+                  <TableCell>
+                    <div className={`px-2 py-1 rounded-full text-xs inline-block ${getStatusBadgeClass(withdrawal.status)}`}>
+                      {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
+                      {withdrawal.status === 'processing' && isTransferCompleted(withdrawal) && (
+                        <span className="ml-1 text-xs">(Transfer Complete)</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {renderActions(withdrawal)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
       {renderTransferModal()}
 
@@ -572,36 +676,55 @@ function Withdrawals() {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Withdrawal Details</DialogTitle>
+            <DialogDescription>
+              Review all information related to this withdrawal request
+            </DialogDescription>
           </DialogHeader>
           {selectedWithdrawal && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="font-semibold">Seller Information</h4>
-                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
-                  <p className="text-sm text-muted-foreground">{selectedWithdrawal.seller.email}</p>
+                  <p>{selectedWithdrawal.seller?.firstName || 'N/A'} {selectedWithdrawal.seller?.lastName || ''}</p>
+                  <p className="text-sm text-muted-foreground">{selectedWithdrawal.seller?.email || 'N/A'}</p>
                 </div>
                 <div>
                   <h4 className="font-semibold">Bank Details</h4>
-                  <p>{selectedWithdrawal.bankDetails.bankName}</p>
+                  <p>{selectedWithdrawal.bankDetails?.bankName || 'N/A'}</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedWithdrawal.bankDetails.accountNumber} ({selectedWithdrawal.bankDetails.accountName})
+                    {selectedWithdrawal.bankDetails?.accountNumber || 'N/A'} ({selectedWithdrawal.bankDetails?.accountName || 'N/A'})
                   </p>
                 </div>
               </div>
               
+              {selectedWithdrawal.paymentInfo?.transferReference && (
+                <div className="bg-blue-50 p-3 rounded-md">
+                  <h4 className="font-semibold mb-1">Transfer Information</h4>
+                  <p className="text-sm">Reference: {selectedWithdrawal.paymentInfo.transferReference}</p>
+                  {selectedWithdrawal.paymentInfo.transferCompleted && (
+                    <p className="text-sm text-green-600 font-medium mt-1">
+                      Transfer has been completed
+                    </p>
+                  )}
+                </div>
+              )}
+              
               <div>
                 <h4 className="font-semibold mb-2">Notes History</h4>
-                <div className="space-y-2">
-                  {selectedWithdrawal.notes.map((note) => (
-                    <div key={note._id} className="bg-muted p-3 rounded-md">
-                      <p className="text-sm">{note.content}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        By {note.addedBy} on {formatDate(note.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                {selectedWithdrawal.notes && selectedWithdrawal.notes.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedWithdrawal.notes.map((note) => (
+                      <div key={note._id} className="bg-muted p-3 rounded-md">
+                        <p className="text-sm">{note.content}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          By {note.addedBy} on {formatDate(note.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No notes have been added to this withdrawal request.</p>
+                )}
               </div>
             </div>
           )}
@@ -612,8 +735,28 @@ function Withdrawals() {
       <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Withdrawal Status</DialogTitle>
+            <DialogTitle>
+              {pendingAction === 'processing' && 'Start Processing Withdrawal'}
+              {pendingAction === 'completed' && 'Mark Withdrawal as Completed'}
+              {pendingAction === 'rejected' && 'Reject Withdrawal Request'}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAction === 'processing' && 'This will mark the withdrawal as being processed'}
+              {pendingAction === 'completed' && 'This will mark the withdrawal as successfully completed'}
+              {pendingAction === 'rejected' && 'This will reject the withdrawal request'}
+            </DialogDescription>
           </DialogHeader>
+          
+          {pendingAction === 'completed' && selectedWithdrawal && !isTransferCompleted(selectedWithdrawal) && (
+            <Alert className="mt-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Transfer Not Completed</AlertTitle>
+              <AlertDescription>
+                You need to complete the transfer process before marking this withdrawal as completed.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label htmlFor="note">Add a note (optional)</label>
@@ -627,13 +770,31 @@ function Withdrawals() {
           </div>
           <DialogFooter>
             <Button
+              variant="outline"
+              onClick={() => {
+                setIsStatusModalOpen(false);
+                setStatusNote("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={pendingAction === 'rejected' ? 'destructive' : 'default'}
               onClick={handleStatusUpdate}
-              disabled={processingId === selectedWithdrawal?._id}
+              disabled={Boolean(processingId === selectedWithdrawal?._id) || 
+                Boolean(pendingAction === 'completed' && selectedWithdrawal && !isTransferCompleted(selectedWithdrawal))}
             >
               {processingId === selectedWithdrawal?._id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
               ) : (
-                'Confirm'
+                <>
+                  {pendingAction === 'processing' && 'Start Processing'}
+                  {pendingAction === 'completed' && 'Mark as Completed'}
+                  {pendingAction === 'rejected' && 'Reject Request'}
+                </>
               )}
             </Button>
           </DialogFooter>

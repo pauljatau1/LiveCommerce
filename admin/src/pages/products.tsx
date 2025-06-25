@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info, AlertTriangle, MinusCircle } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import { Link } from 'react-router-dom'
 
 interface Seller {
   _id: string;
@@ -33,6 +34,7 @@ interface Seller {
   businessName?: string;
   storeName?: string;
   email?: string;
+  phoneNumber?: string;
   personalInfo?: {
     firstName: string;
     lastName: string;
@@ -182,6 +184,17 @@ function Products() {
     sortOrder: 'desc'
   })
 
+  // New state for seller pagination and search in the import modal
+  const [sellerPagination, setSellerPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalSellers: 0,
+    sellersPerPage: 15
+  })
+  const [sellerSearch, setSellerSearch] = useState('')
+  const [sellerSearchInput, setSellerSearchInput] = useState('')
+  const [loadingMoreSellers, setLoadingMoreSellers] = useState(false)
+
   useEffect(() => {
     setLoading(true)
     fetchProducts()
@@ -201,6 +214,13 @@ function Products() {
     })
     setSearchInput(searchParams.query)
   }, [searchParams])
+
+  // Fetch sellers when sellerPagination.currentPage or sellerSearch changes
+  useEffect(() => {
+    if (showImportModal) {
+      fetchSellers()
+    }
+  }, [sellerPagination.currentPage, sellerSearch, showImportModal])
 
   const fetchCategories = async () => {
     try {
@@ -415,12 +435,68 @@ function Products() {
   const fetchSellers = async () => {
     try {
       setLoadingSellers(true)
-      const response = await api.get("/api/admin/sellers")
-      setSellers(response.data)
+      console.log("Fetching sellers...")
+      
+      // Build query parameters
+      const params = new URLSearchParams()
+      params.append('page', sellerPagination.currentPage.toString())
+      params.append('limit', sellerPagination.sellersPerPage.toString())
+      
+      // Add search parameter if exists
+      if (sellerSearch) {
+        params.append('search', sellerSearch)
+      }
+      
+      const response = await api.get(`/api/admin/sellers?${params.toString()}`)
+      console.log("Sellers API response:", response.data)
+      
+      // Extract sellers from the nested response structure
+      if (response && response.data) {
+        // Check if response.data has a sellers property (new API format)
+        if (response.data.sellers && Array.isArray(response.data.sellers)) {
+          console.log(`Found ${response.data.sellers.length} sellers in nested format`)
+          
+          // If loading more (pagination), append to existing sellers
+          if (sellerPagination.currentPage > 1 && !sellerSearch) {
+            setSellers(prev => [...prev, ...response.data.sellers])
+          } else {
+            setSellers(response.data.sellers)
+          }
+          
+          // Update pagination data
+          setSellerPagination({
+            currentPage: response.data.currentPage || 1,
+            totalPages: response.data.totalPages || 1,
+            totalSellers: response.data.totalSellers || 0,
+            sellersPerPage: response.data.sellersPerPage || 10
+          })
+        } 
+        // Fallback to direct response.data if it's an array (old API format)
+        else if (Array.isArray(response.data)) {
+          console.log(`Found ${response.data.length} sellers in direct format`)
+          
+          // If loading more (pagination), append to existing sellers
+          if (sellerPagination.currentPage > 1 && !sellerSearch) {
+            setSellers(prev => [...prev, ...response.data])
+          } else {
+            setSellers(response.data)
+          }
+        } 
+        else {
+          console.warn("Unexpected sellers API response format:", response.data)
+          setSellers([])
+        }
+      } else {
+        console.warn("Empty response from sellers API")
+        setSellers([])
+      }
     } catch (error) {
+      console.error("Error fetching sellers:", error)
       toast.error("Failed to fetch sellers")
+      setSellers([]) // Ensure sellers is an array even if the API call fails
     } finally {
       setLoadingSellers(false)
+      setLoadingMoreSellers(false)
     }
   }
 
@@ -482,9 +558,12 @@ function Products() {
       })
       
       // Find the seller name for the success message
-      const sellerName = sellers.find(s => s._id === sellerId)?.storeName || 
+      const sellerName = Array.isArray(sellers) ? 
+                        (sellers.find(s => s._id === sellerId)?.storeName || 
                         sellers.find(s => s._id === sellerId)?.businessName || 
-                        'the seller'
+                        sellers.find(s => s._id === sellerId)?.firstName && sellers.find(s => s._id === sellerId)?.lastName ? 
+                          `${sellers.find(s => s._id === sellerId)?.firstName} ${sellers.find(s => s._id === sellerId)?.lastName}` : 
+                        'the seller') : 'the seller';
       
       toast.success(
         `Successfully imported ${response.data.results.createdProducts.length} products${response.data.results.errors.length > 0 ? ` with ${response.data.results.errors.length} errors` : ''}. ${sellerName} has been notified via email with details.`,
@@ -517,6 +596,60 @@ function Products() {
       totalProcessed: 0,
       errors: []
     })
+    // Reset seller search and pagination
+    setSellerSearchInput('')
+    setSellerSearch('')
+    setSellerPagination({
+      currentPage: 1,
+      totalPages: 1,
+      totalSellers: 0,
+      sellersPerPage: 15
+    })
+  }
+
+  // Add a function to handle opening the import modal
+  const handleOpenImportModal = () => {
+    setShowImportModal(true)
+    // Fetch sellers if they haven't been fetched yet - No need to call here, will be called by useEffect
+    // if (!Array.isArray(sellers) || sellers.length === 0) {
+    //   fetchSellers()
+    // }
+  }
+
+  // Function to handle seller search
+  const handleSellerSearch = () => {
+    setSellerSearch(sellerSearchInput)
+    setSellerPagination(prev => ({ ...prev, currentPage: 1 })) // Reset to first page
+    // fetchSellers() - No need to call here, will be called by useEffect
+  }
+  
+  // Function to handle seller search input change
+  const handleSellerSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSellerSearchInput(e.target.value)
+  }
+  
+  // Function to handle seller search on Enter key
+  const handleSellerSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSellerSearch()
+    }
+  }
+  
+  // Function to load more sellers
+  const loadMoreSellers = () => {
+    if (sellerPagination.currentPage < sellerPagination.totalPages) {
+      setLoadingMoreSellers(true)
+      setSellerPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))
+      // fetchSellers() - No need to call here, will be called by useEffect
+    }
+  }
+  
+  // Function to clear seller search
+  const clearSellerSearch = () => {
+    setSellerSearchInput('')
+    setSellerSearch('')
+    setSellerPagination(prev => ({ ...prev, currentPage: 1 }))
+    // fetchSellers() - No need to call here, will be called by useEffect
   }
 
   // Format price to readable format with currency
@@ -557,25 +690,42 @@ function Products() {
     }
   };
 
-  // Handle disable product
-  const handleDisableProduct = async (productId: string, productName: string) => {
-    if (!confirm(`Are you sure you want to disable "${productName}"? The product will be set to draft status.`)) {
-      return;
-    }
+  // State for disable product modal
+  const [disableModalOpen, setDisableModalOpen] = useState(false);
+  const [productToDisable, setProductToDisable] = useState<{id: string, name: string} | null>(null);
+  const [disableReason, setDisableReason] = useState('');
+  const [disablingProduct, setDisablingProduct] = useState(false);
 
+  // Handle opening disable product modal
+  const openDisableModal = (productId: string, productName: string) => {
+    setProductToDisable({id: productId, name: productName});
+    setDisableReason('');
+    setDisableModalOpen(true);
+  };
+
+  // Handle disable product
+  const handleDisableProduct = async () => {
+    if (!productToDisable) return;
+    
     try {
-      const response = await api.put(`/api/admin/products/${productId}/disable`);
+      setDisablingProduct(true);
+      const response = await api.put(`/api/admin/products/${productToDisable.id}/disable`, {
+        reason: disableReason
+      });
       
       if (response.data.success) {
         toast.success("Product disabled successfully");
         // Update the product status in the list
         setProducts(products.map(product => 
-          product._id === productId ? { ...product, status: 'draft' } : product
+          product._id === productToDisable.id ? { ...product, status: 'draft' } : product
         ));
+        setDisableModalOpen(false);
       }
     } catch (error) {
       console.error("Error disabling product:", error);
       toast.error("Failed to disable product. Please try again.");
+    } finally {
+      setDisablingProduct(false);
     }
   };
 
@@ -735,7 +885,7 @@ function Products() {
             {showFilters ? 'Hide Filters' : 'Show Filters'}
           </Button>
           <Button 
-            onClick={() => setShowImportModal(true)} 
+            onClick={handleOpenImportModal} 
             variant="outline" 
             className="bg-indigo-600 text-white hover:bg-indigo-700"
           >
@@ -999,7 +1149,9 @@ function Products() {
                             <div className="mt-1 flex items-center">
                               <span className="text-xs inline-flex items-center gap-1">
                                 <Store className="h-3 w-3" />
-                                {product.seller.storeName || product.seller.businessName || `${product.seller.firstName} ${product.seller.lastName}`}
+                                <Link to={`/dashboard/seller/${product.seller._id}`} className="hover:text-blue-400 hover:underline">
+                                  {product.seller.storeName || product.seller.businessName || `${product.seller.firstName || ''} ${product.seller.lastName || ''}`.trim() || 'Unknown Seller'}
+                                </Link>
                               </span>
                             </div>
                           )}
@@ -1135,9 +1287,9 @@ function Products() {
                                 variant="outline" 
                                 size="sm" 
                                 className="text-amber-500 hover:text-amber-600"
-                                onClick={() => handleDisableProduct(product._id, product.name)}
+                                onClick={() => openDisableModal(product._id, product.name)}
                               >
-                                <Tag className="h-3.5 w-3.5" />
+                                <MinusCircle className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -1369,13 +1521,13 @@ function Products() {
                       <div className="bg-slate-800 p-4 rounded-md">
                         <div className="flex items-center gap-2">
                           <Store className="h-4 w-4 text-slate-400" />
-                          <span className="font-medium text-white">
+                          <Link to={`/dashboard/seller/${selectedProduct.seller._id}`} className="font-medium text-white hover:text-blue-400 hover:underline">
                             {selectedProduct.seller.personalInfo?.firstName && selectedProduct.seller.personalInfo?.lastName ? 
                               `${selectedProduct.seller.personalInfo.firstName} ${selectedProduct.seller.personalInfo.lastName}` :
                              selectedProduct.seller.storeInfo?.storeName || 
                              selectedProduct.seller.businessInfo?.businessName || 
                              'Unknown Seller'}
-                          </span>
+                          </Link>
                         </div>
                         {selectedProduct.seller.storeInfo?.aboutStore && (
                           <p className="mt-2 text-sm text-slate-400 line-clamp-2">
@@ -1483,7 +1635,7 @@ function Products() {
       {/* CSV Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 relative">
+          <div className="bg-white rounded-lg w-full max-w-3xl p-6 relative max-h-[95vh] overflow-y-auto">
             <button 
               onClick={resetUploadState}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
@@ -1601,19 +1753,114 @@ function Products() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Select Seller
                     </label>
-                    <select 
-                      value={sellerId}
-                      onChange={handleSellerChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      disabled={loadingSellers || uploading}
-                    >
-                      <option value="">Select a seller</option>
-                      {sellers.map(seller => (
-                        <option key={seller._id} value={seller._id}>
-                          {seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`}
-                        </option>
-                      ))}
-                    </select>
+                    
+                    {/* Seller Search Input */}
+                    <div className="mb-3">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search sellers by name, email, store..."
+                          value={sellerSearchInput}
+                          onChange={handleSellerSearchInputChange}
+                          onKeyDown={handleSellerSearchKeyPress}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        {sellerSearchInput && (
+                          <button 
+                            onClick={clearSellerSearch}
+                            className="absolute right-[70px] top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                            aria-label="Clear search"
+                            type="button"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                        <Button 
+                          type="button"
+                          onClick={handleSellerSearch}
+                          disabled={loadingSellers}
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 py-1 px-3 h-8 text-sm"
+                        >
+                          {loadingSellers ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Seller Selection */}
+                    <div className="border border-gray-300 rounded-md max-h-[300px] overflow-y-auto">
+                      <div className="p-2 bg-gray-50 border-b border-gray-300 sticky top-0 z-10">
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>Select a seller ({sellerPagination.totalSellers} total)</span>
+                          {sellerSearch && (
+                            <span>
+                              Showing results for: <span className="font-medium">{sellerSearch}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="divide-y divide-gray-200">
+                        {Array.isArray(sellers) && sellers.length > 0 ? (
+                          sellers.map(seller => (
+                            <div 
+                              key={seller._id} 
+                              className={`p-3 cursor-pointer hover:bg-gray-50 ${sellerId === seller._id ? 'bg-indigo-50' : ''}`}
+                              onClick={() => setSellerId(seller._id)}
+                            >
+                              <div className="flex items-center">
+                                <input
+                                  type="radio"
+                                  name="sellerId"
+                                  value={seller._id}
+                                  checked={sellerId === seller._id}
+                                  onChange={() => setSellerId(seller._id)}
+                                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3">
+                                  <p className="font-medium text-sm">
+                                    {seller.storeName || seller.businessName || `${seller.firstName || ''} ${seller.lastName || ''}`.trim() || 'Unknown Seller'}
+                                  </p>
+                                  <p className="text-xs text-gray-500">{seller.email}</p>
+                                  {seller.phoneNumber && (
+                                    <p className="text-xs text-gray-500">Phone: {seller.phoneNumber}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : loadingSellers ? (
+                          <div className="p-4 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
+                            <p className="mt-2 text-sm text-gray-500">Loading sellers...</p>
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {sellerSearch ? 'No sellers found matching your search' : 'No sellers available'}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Load More Button */}
+                      {sellerPagination.currentPage < sellerPagination.totalPages && (
+                        <div className="p-2 border-t border-gray-300">
+                          <button
+                            type="button"
+                            onClick={loadMoreSellers}
+                            disabled={loadingMoreSellers}
+                            className="w-full py-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            {loadingMoreSellers ? (
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Loading more...
+                              </div>
+                            ) : (
+                              `Load more sellers (${sellers.length} of ${sellerPagination.totalSellers})`
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div>
@@ -1658,7 +1905,7 @@ function Products() {
                     <Button 
                       type="submit"
                       className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      disabled={uploading}
+                      disabled={uploading || !sellerId || !csvFile}
                     >
                       {uploading ? (
                         <>
@@ -1674,6 +1921,56 @@ function Products() {
           </div>
         </div>
       )}
+
+      {/* Disable Product Modal */}
+      <Dialog open={disableModalOpen} onOpenChange={setDisableModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable Product</DialogTitle>
+            <DialogDescription>
+              {productToDisable && (
+                <>
+                  You are about to disable <span className="font-medium">{productToDisable.name}</span>. 
+                  The product will be set to draft status and won't be visible to buyers.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="disable-reason" className="block text-sm font-medium mb-2">
+              Reason for disabling
+            </label>
+            <textarea
+              id="disable-reason"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              rows={3}
+              placeholder="Enter reason for disabling this product..."
+              value={disableReason}
+              onChange={(e) => setDisableReason(e.target.value)}
+            />
+            <div className="mt-2 flex items-center text-sm text-amber-600">
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              <span>This information will be logged for administrative purposes.</span>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button 
+              type="button" 
+              className="bg-amber-600 hover:bg-amber-700" 
+              onClick={handleDisableProduct}
+              disabled={disablingProduct}
+            >
+              {disablingProduct ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MinusCircle className="h-4 w-4 mr-2" />}
+              Disable Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

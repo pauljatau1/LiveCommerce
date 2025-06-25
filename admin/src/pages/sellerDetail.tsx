@@ -586,21 +586,31 @@ function SellerDetail() {
     }
   };
 
+  // State for disable product reason
+  const [disableProductReason, setDisableProductReason] = useState("");
+  const [disablingProduct, setDisablingProduct] = useState(false);
+
   // Handle disable product
   const handleDisableProduct = async () => {
     if (!selectedProduct) return;
 
     try {
-      await SellerService.disableProduct(selectedProduct._id);
+      setDisablingProduct(true);
+      await SellerService.disableProduct(selectedProduct._id, {
+        reason: disableProductReason
+      });
       toast.success("Product disabled successfully");
       setSellerProducts(products => products.map(p => 
         p._id === selectedProduct._id ? { ...p, status: 'draft' } : p
       ));
       setShowDisableProductModal(false);
       setSelectedProduct(null);
+      setDisableProductReason("");
     } catch (error) {
       console.error("Error disabling product:", error);
       toast.error("Failed to disable product");
+    } finally {
+      setDisablingProduct(false);
     }
   };
 
@@ -1631,17 +1641,17 @@ function SellerDetail() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                                 
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-amber-400 hover:text-amber-300 border-zinc-700 hover:bg-amber-500/10"
-                                  onClick={() => {
-                                    setSelectedProduct(product);
-                                    setShowDisableProductModal(true);
-                                  }}
-                                >
-                                  <Tag className="h-3.5 w-3.5" />
-                                </Button>
+                                                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-amber-400 hover:text-amber-300 border-zinc-700 hover:bg-amber-500/10"
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    setShowDisableProductModal(true);
+                  }}
+                >
+                  <MinusCircle className="h-3.5 w-3.5" />
+                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -2234,7 +2244,7 @@ function SellerDetail() {
           <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
-                <Tag className="h-5 w-5 text-amber-400" />
+                <MinusCircle className="h-5 w-5 text-amber-400" />
                 Disable Product
               </DialogTitle>
               <DialogDescription className="text-zinc-400">
@@ -2258,12 +2268,32 @@ function SellerDetail() {
                 </div>
               </div>
             </div>
+            
+            <div className="py-4">
+              <label htmlFor="disable-reason" className="block text-sm font-medium mb-2 text-zinc-300">
+                Reason for disabling
+              </label>
+              <Textarea
+                id="disable-reason"
+                className="w-full px-3 py-2 border rounded-md bg-zinc-800 border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                rows={3}
+                placeholder="Enter reason for disabling this product..."
+                value={disableProductReason}
+                onChange={(e) => setDisableProductReason(e.target.value)}
+              />
+              <div className="mt-2 flex items-center text-sm text-amber-400">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                <span>This information will be logged for administrative purposes.</span>
+              </div>
+            </div>
+            
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowDisableProductModal(false);
                   setSelectedProduct(null);
+                  setDisableProductReason("");
                 }}
                 className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700"
               >
@@ -2271,8 +2301,14 @@ function SellerDetail() {
               </Button>
               <Button
                 onClick={handleDisableProduct}
+                disabled={disablingProduct}
                 className="bg-amber-600 hover:bg-amber-700"
               >
+                {disablingProduct ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <MinusCircle className="h-4 w-4 mr-2" />
+                )}
                 Disable Product
               </Button>
             </DialogFooter>
