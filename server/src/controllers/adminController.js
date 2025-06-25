@@ -3,6 +3,7 @@ const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
 const Category = require('../models/Category'); 
+const MajorCategory = require('../models/MajorCategory');
 const Banner = require('../models/Banner'); 
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
@@ -1365,13 +1366,240 @@ if (seller.businessEmail) {
 
 
 // Get all orders with advanced filtering and search
+// Get all possible order statuses for filter dropdowns
+exports.getOrderStatusOptions = async (req, res) => {
+  try {
+    // Get all distinct item statuses
+    const itemStatuses = await Order.distinct('items.status');
+    
+    // Get all distinct shipment tracking statuses
+    const shipmentStatuses = await Order.distinct('shipping.tracking.status');
+    
+    // Get all distinct payment methods
+    const paymentMethods = await Order.distinct('paymentInfo.method');
+    
+    res.json({
+      itemStatuses,
+      shipmentStatuses,
+      paymentMethods,
+      openClosedOptions: ['open', 'closed'],
+      paymentStatusOptions: ['paid', 'unpaid'],
+      staleOptions: ['stale', 'active']
+    });
+  } catch (error) {
+    console.error('Error getting order status options:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve order status options',
+      error: error.message
+    });
+  }
+};
+
+// Get order statistics for admin dashboard
+exports.getOrderStats = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Date filter
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
+    }
+    
+    // Get order counts by status
+    const statusCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $unwind: '$items' },
+      { $group: {
+          _id: '$items.status',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get order counts by payment method
+    const paymentMethodCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$paymentInfo.method',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$totalAmount' }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get order counts by day for the past 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const ordersByDay = await Order.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: thirtyDaysAgo },
+          ...dateFilter
+        } 
+      },
+      {
+        $group: {
+          _id: { 
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } 
+          },
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    // Get counts for open vs closed orders
+    const openClosedCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$isOpen',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Get counts for stale orders
+    const staleCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: {
+          _id: '$isStale',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Format the response
+    const stats = {
+      byStatus: statusCounts.reduce((acc, curr) => {
+        acc[curr._id || 'unknown'] = curr.count;
+        return acc;
+      }, {}),
+      byPaymentMethod: paymentMethodCounts.reduce((acc, curr) => {
+        acc[curr._id || 'unknown'] = {
+          count: curr.count,
+          amount: curr.totalAmount
+        };
+        return acc;
+      }, {}),
+      byDay: ordersByDay.reduce((acc, curr) => {
+        acc[curr._id] = {
+          count: curr.count,
+          revenue: curr.revenue
+        };
+        return acc;
+      }, {}),
+      openVsClosed: openClosedCounts.reduce((acc, curr) => {
+        acc[curr._id ? 'open' : 'closed'] = curr.count;
+        return acc;
+      }, { open: 0, closed: 0 }),
+      staleOrders: staleCounts.reduce((acc, curr) => {
+        if (curr._id === true) acc.stale = curr.count;
+        else acc.active = curr.count;
+        return acc;
+      }, { stale: 0, active: 0 })
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting order statistics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve order statistics',
+      error: error.message
+    });
+  }
+};
+
 exports.getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      isStale,
+      isOpen,
+      paid,
+      search,
+      shipmentStatus,
+      startDate,
+      endDate,
+      seller,
+      paymentMethod,
+      isCashOnDelivery
+    } = req.query;
+    
     const skip = (page - 1) * limit;
 
-    // Build query based on status filter
-    const query = status ? { 'items.status': status } : {};
+    // Build query based on filters
+    const query = {};
+
+    // Filter by item status
+    if (status) {
+      query['items.status'] = status;
+    }
+
+    // Filter by stale orders
+    if (isStale !== undefined) {
+      query.isStale = isStale === 'true';
+    }
+
+    // Filter by open/closed orders
+    if (isOpen !== undefined) {
+      query.isOpen = isOpen === 'true';
+    }
+
+    // Filter by payment status
+    if (paid !== undefined) {
+      query.paid = paid === 'true';
+    }
+
+    // Filter by payment method
+    if (paymentMethod) {
+      query['paymentInfo.method'] = paymentMethod;
+    }
+
+    // Filter by cash on delivery
+    if (isCashOnDelivery !== undefined) {
+      query['paymentInfo.isCashOnDelivery'] = isCashOnDelivery === 'true';
+    }
+
+    // Filter by seller
+    if (seller) {
+      query.seller = seller;
+    }
+
+    // Filter by shipment status
+    if (shipmentStatus) {
+      query['shipping.tracking.status'] = shipmentStatus;
+    }
+
+    // Filter by date range
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Search by order ID, buyer name, or product name
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { order_id: searchRegex },
+        { 'buyerDetails.firstName': searchRegex },
+        { 'buyerDetails.lastName': searchRegex },
+        { 'items.productName': searchRegex }
+      ];
+    }
 
     const orders = await Order.find(query)
       .populate('buyer', 'firstName lastName email phoneNumber')
@@ -1383,11 +1611,21 @@ exports.getAllOrders = async (req, res) => {
 
     const total = await Order.countDocuments(query);
 
+    // Get available filter options for dropdowns
+    const statusOptions = await Order.distinct('items.status');
+    const shipmentStatusOptions = await Order.distinct('shipping.tracking.status');
+    const paymentMethodOptions = await Order.distinct('paymentInfo.method');
+
     res.json({
       orders,
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
-      totalOrders: total
+      totalOrders: total,
+      filterOptions: {
+        status: statusOptions,
+        shipmentStatus: shipmentStatusOptions,
+        paymentMethod: paymentMethodOptions
+      }
     });
 
   } catch (error) {
@@ -7689,7 +7927,14 @@ exports.getAllProductBlips = async (req, res) => {
           },
           contentType: '$blips.contentType',
           productName: '$name',
-          productDescription: { $substr: ['$description', 0, 100] }, // Truncated description
+          // Fix: Replace $isString with $type to check if description is a string
+          // productDescription: {
+          //   $cond: {
+          //     if: { $eq: [{ $type: '$description' }, 'string'] },
+          //     then: { $substr: ['$description', 0, 100] },
+          //     else: ''
+          //   }
+          // },
           price: '$price',
           category: '$category',
           subCategory: '$subCategory',
@@ -8135,6 +8380,376 @@ exports.getBuyerTransactions = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch buyer transactions',
+      error: error.message
+    });
+  }
+};
+
+// Major Category Controller Functions
+
+// Create a new major category
+exports.createMajorCategory = async (req, res) => {
+  try {
+    const { name, categoryIds } = req.body;
+    
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Name is required' 
+      });
+    }
+    
+    // Check if major category with the same name already exists
+    const existingMajorCategory = await MajorCategory.findOne({ name });
+    if (existingMajorCategory) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Major category with this name already exists' 
+      });
+    }
+    
+    // Create image object if file is uploaded
+    let image = null;
+    if (req.file) {
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `major-categories/${uuidv4()}-${req.file.originalname}`,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+      const data = await s3.upload(params).promise();
+      
+      image = {
+        url: `https://${process.env.CDN_URL}/${data.Key}`,
+        public_id: data.Key,
+      };
+    }
+    
+    // Validate and check if categories are already assigned to another major category
+    let parsedCategoryIds = categoryIds;
+    
+    // Check if categoryIds is a string (JSON array) and parse it
+    if (categoryIds && typeof categoryIds === 'string') {
+      try {
+        parsedCategoryIds = JSON.parse(categoryIds);
+      } catch (err) {
+        console.error('Error parsing categoryIds:', err);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid category IDs format'
+        });
+      }
+    }
+    
+    if (parsedCategoryIds && parsedCategoryIds.length > 0) {
+      // Check if categories exist
+      const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
+      if (categories.length !== parsedCategoryIds.length) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'One or more categories do not exist' 
+        });
+      }
+      
+      // Check if any of the categories are already assigned to another major category
+      const assignedCategories = await MajorCategory.find({ 
+        categories: { $in: parsedCategoryIds } 
+      });
+      
+      if (assignedCategories.length > 0) {
+        // Get names of already assigned categories
+        const conflictingCategoryIds = [];
+        assignedCategories.forEach(majorCat => {
+          const conflicts = majorCat.categories.filter(catId => 
+            parsedCategoryIds.includes(catId.toString())
+          );
+          conflictingCategoryIds.push(...conflicts);
+        });
+        
+        const conflictingCategories = await Category.find({ 
+          _id: { $in: conflictingCategoryIds } 
+        });
+        
+        return res.status(400).json({ 
+          success: false,
+          message: 'Some categories are already assigned to another major category', 
+          conflictingCategories: conflictingCategories.map(c => c.name)
+        });
+      }
+    }
+    
+    // Create new major category
+    const majorCategory = new MajorCategory({
+      name,
+      image,
+      categories: parsedCategoryIds || []
+    });
+    
+    await majorCategory.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Major category created successfully',
+      majorCategory
+    });
+  } catch (error) {
+    console.error('Create major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create major category',
+      error: error.message
+    });
+  }
+};
+
+// Get all major categories
+exports.getMajorCategories = async (req, res) => {
+  try {
+    const majorCategories = await MajorCategory.find()
+      .populate('categories', 'name image')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: majorCategories
+    });
+  } catch (error) {
+    console.error('Get major categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get major categories',
+      error: error.message
+    });
+  }
+};
+
+// Get a single major category by ID
+exports.getMajorCategoryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const majorCategory = await MajorCategory.findById(id)
+      .populate('categories', 'name image subCategories');
+    
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: majorCategory
+    });
+  } catch (error) {
+    console.error('Get major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get major category',
+      error: error.message
+    });
+  }
+};
+
+// Update a major category
+exports.updateMajorCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, categoryIds, isActive } = req.body;
+    
+    const majorCategory = await MajorCategory.findById(id);
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    // Check if name is being changed and if it already exists
+    if (name && name !== majorCategory.name) {
+      const existingMajorCategory = await MajorCategory.findOne({ name });
+      if (existingMajorCategory) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Major category with this name already exists' 
+        });
+      }
+      majorCategory.name = name;
+    }
+    
+    // Handle image upload if file is provided
+    if (req.file) {
+      // Delete old image from S3 if it exists
+      if (majorCategory.image && majorCategory.image.public_id) {
+        await s3.deleteObject({
+          Bucket: process.env.CDN_S3_BUCKET,
+          Key: majorCategory.image.public_id
+        }).promise();
+      }
+      
+      // Upload new image
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `major-categories/${uuidv4()}-${req.file.originalname}`,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+      const data = await s3.upload(params).promise();
+      
+      majorCategory.image = {
+        url: `https://${process.env.CDN_URL}/${data.Key}`,
+        public_id: data.Key,
+      };
+    }
+    
+    // Update isActive if provided
+    if (isActive !== undefined) {
+      majorCategory.isActive = isActive;
+    }
+    
+    // Update categories if provided
+    if (categoryIds) {
+      // Parse categoryIds if it's a string
+      let parsedCategoryIds = categoryIds;
+      if (typeof categoryIds === 'string') {
+        try {
+          parsedCategoryIds = JSON.parse(categoryIds);
+        } catch (err) {
+          console.error('Error parsing categoryIds:', err);
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid category IDs format'
+          });
+        }
+      }
+      
+      // Check if categories exist
+      const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
+      if (categories.length !== parsedCategoryIds.length) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'One or more categories do not exist' 
+        });
+      }
+      
+      // Find categories that are being added (not in the current list)
+      const currentCategoryIds = majorCategory.categories.map(id => id.toString());
+      const newCategoryIds = parsedCategoryIds.filter(id => !currentCategoryIds.includes(id));
+      
+      // Check if any new categories are already assigned to another major category
+      if (newCategoryIds.length > 0) {
+        const assignedCategories = await MajorCategory.find({
+          _id: { $ne: id }, // Exclude the current major category
+          categories: { $in: newCategoryIds }
+        });
+        
+        if (assignedCategories.length > 0) {
+          // Get names of already assigned categories
+          const conflictingCategoryIds = [];
+          assignedCategories.forEach(majorCat => {
+            const conflicts = majorCat.categories.filter(catId => 
+              newCategoryIds.includes(catId.toString())
+            );
+            conflictingCategoryIds.push(...conflicts);
+          });
+          
+          const conflictingCategories = await Category.find({ 
+            _id: { $in: conflictingCategoryIds } 
+          });
+          
+          return res.status(400).json({ 
+            success: false,
+            message: 'Some categories are already assigned to another major category', 
+            conflictingCategories: conflictingCategories.map(c => c.name)
+          });
+        }
+      }
+      
+      majorCategory.categories = parsedCategoryIds;
+    }
+    
+    majorCategory.updatedAt = Date.now();
+    await majorCategory.save();
+    
+    res.json({
+      success: true,
+      message: 'Major category updated successfully',
+      majorCategory
+    });
+  } catch (error) {
+    console.error('Update major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update major category',
+      error: error.message
+    });
+  }
+};
+
+// Delete a major category
+exports.deleteMajorCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const majorCategory = await MajorCategory.findById(id);
+    if (!majorCategory) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Major category not found' 
+      });
+    }
+    
+    // Delete image from S3 if it exists
+    if (majorCategory.image && majorCategory.image.public_id) {
+      await s3.deleteObject({
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: majorCategory.image.public_id
+      }).promise();
+    }
+    
+    await MajorCategory.findByIdAndDelete(id);
+    
+    res.json({ 
+      success: true,
+      message: 'Major category deleted successfully' 
+    });
+  } catch (error) {
+    console.error('Delete major category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete major category',
+      error: error.message
+    });
+  }
+};
+
+// Get unassigned categories (categories not assigned to any major category)
+exports.getUnassignedCategories = async (req, res) => {
+  try {
+    // Find all categories that are assigned to major categories
+    const majorCategories = await MajorCategory.find();
+    const assignedCategoryIds = [];
+    
+    majorCategories.forEach(majorCat => {
+      assignedCategoryIds.push(...majorCat.categories);
+    });
+    
+    // Find all categories that are not in the assigned list
+    const unassignedCategories = await Category.find({
+      _id: { $nin: assignedCategoryIds }
+    }).select('name image subCategories');
+    
+    res.json({
+      success: true,
+      data: unassignedCategories
+    });
+  } catch (error) {
+    console.error('Get unassigned categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get unassigned categories',
       error: error.message
     });
   }

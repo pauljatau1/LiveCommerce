@@ -1011,38 +1011,8 @@ exports.createOrder = async (req, res) => {
         }
       }
       
-      // Update product stock for each item in the order
-      for (const item of sellerItemsList) {
-        // Find the product before update to log its current stock
-        const productBefore = await Product.findById(item.product);
-        console.log('Product before stock update:', {
-          productId: productBefore._id,
-          currentStock: productBefore.stock,
-          currentInventoryQuantity: productBefore.inventory.quantity,
-          currentSoldCount: productBefore.stats.soldCount,
-          itemQuantity: item.quantity
-        });
-
-        const updateResult = await Product.findByIdAndUpdate(
-          item.product,
-          { 
-            $inc: { 
-              'stats.soldCount': item.quantity,
-              'stock': -item.quantity,
-              'inventory.quantity': -item.quantity 
-            }
-          },
-          { new: true, session } // Return the updated document and use the transaction session
-        );
-
-        console.log('Product after stock update:', {
-          productId: updateResult._id,
-          newStock: updateResult.stock,
-          newInventoryQuantity: updateResult.inventory.quantity,
-          newSoldCount: updateResult.stats.soldCount,
-          updateSuccessful: !!updateResult
-        });
-      }
+      // Stock will be updated when the order is paid
+      console.log('Stock update deferred until payment is confirmed');
       
       orders.push(order);
       
@@ -1314,43 +1284,50 @@ exports.createOrder = async (req, res) => {
       console.log('No orders to send notifications for');
     }
 
-    // Send a notification email to Slack
+    // Only send Slack notification for paid orders
     try {
-      // Get seller names for each order
-      const orderSellerInfo = await Promise.all(
-        orders.map(async (order) => {
-          const seller = await Seller.findById(order.seller);
-          return {
-            orderId: order.order_id,
-            sellerName: seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller'
-          };
-        })
-      );
+      // Check if any orders are paid
+      const paidOrders = orders.filter(order => order.paid === true);
       
-      // Send a simple notification to Slack email
-      const slackEmailMsg = {
-        to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
-        from: {
-          email: 'support@auqli.com',
-          name: 'Auqli Orders'
-        },
-        subject: 'New Order on Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>New Order on Auqli</h2>
-            <p>A new order has been created on Auqli.</p>
-            <p>Order count: ${orders.length}</p>
-            <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
-            ${orderSellerInfo.map(info => 
-              `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
-            ).join('')}
-            <p>Time: ${new Date().toISOString()}</p>
-          </div>
-        `
-      };
+      if (paidOrders.length > 0) {
+        // Get seller names for each paid order
+        const orderSellerInfo = await Promise.all(
+          paidOrders.map(async (order) => {
+            const seller = await Seller.findById(order.seller);
+            return {
+              orderId: order.order_id,
+              sellerName: seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller'
+            };
+          })
+        );
+        
+        // Send a simple notification to Slack email only for paid orders
+        const slackEmailMsg = {
+          to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
+          from: {
+            email: 'support@auqli.com',
+            name: 'Auqli Orders'
+          },
+          subject: 'New Paid Order on Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2>New Paid Order on Auqli</h2>
+              <p>A new paid order has been created on Auqli.</p>
+              <p>Paid order count: ${paidOrders.length}</p>
+              <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
+              ${orderSellerInfo.map(info => 
+                `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
+              ).join('')}
+              <p>Time: ${new Date().toISOString()}</p>
+            </div>
+          `
+        };
 
-      await sgMail.send(slackEmailMsg);
-      console.log('Slack notification email sent for new order');
+        await sgMail.send(slackEmailMsg);
+        console.log('Slack notification email sent for new paid order');
+      } else {
+        console.log('No paid orders to send Slack notification for');
+      }
     } catch (slackEmailError) {
       console.error('Error sending Slack notification email:', slackEmailError);
       // Continue processing even if email fails
@@ -3932,6 +3909,97 @@ const verifyPaystackTransaction = async (reference) => {
   }
 };
 
+// Helper function to update product stock when an order is paid
+const updateProductStockForPaidOrder = async (order) => {
+  console.log(`Updating product stock for paid order ${order.order_id}`);
+  
+  try {
+    // Update product stock for each item in the order
+    for (const item of order.items) {
+      // Find the product before update to log its current stock
+      const productBefore = await Product.findById(item.product);
+      
+      if (!productBefore) {
+        console.error(`Product not found for item in order ${order.order_id}:`, item.product);
+        continue;
+      }
+      
+      console.log('Product before stock update:', {
+        productId: productBefore._id,
+        currentStock: productBefore.stock,
+        currentInventoryQuantity: productBefore.inventory.quantity,
+        currentSoldCount: productBefore.stats.soldCount,
+        itemQuantity: item.quantity
+      });
+
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true } // Return the updated document
+      );
+
+      console.log('Product after stock update:', {
+        productId: updateResult._id,
+        newStock: updateResult.stock,
+        newInventoryQuantity: updateResult.inventory.quantity,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error updating product stock for order ${order.order_id}:`, error);
+    return false;
+  }
+};
+
+// Helper function to send Slack notification for paid orders
+const sendSlackNotificationForPaidOrder = async (order, buyer) => {
+  console.log(`Sending Slack notification for paid order ${order.order_id}`);
+  
+  try {
+    // Get seller info
+    const seller = await Seller.findById(order.seller);
+    const sellerName = seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller';
+    
+    // Send a simple notification to Slack email
+    const slackEmailMsg = {
+      to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli Orders'
+      },
+      subject: 'New Paid Order on Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2>New Paid Order on Auqli</h2>
+          <p>A new order has been paid on Auqli.</p>
+          <p>Order ID: ${order.order_id}</p>
+          <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
+          <p>Store: ${sellerName}</p>
+          <p>Payment Method: ${order.paymentInfo.method}</p>
+          <p>Amount: ₦${order.totalAmount}</p>
+          <p>Time: ${new Date().toISOString()}</p>
+        </div>
+      `
+    };
+
+    await sgMail.send(slackEmailMsg);
+    console.log('Slack notification email sent for paid order');
+    return true;
+  } catch (slackEmailError) {
+    console.error('Error sending Slack notification email:', slackEmailError);
+    return false;
+  }
+};
+
 // Mark order as paid (for Paystack payments)
 exports.markOrderAsPaid = async (req, res) => {
   try {
@@ -3993,6 +4061,9 @@ exports.markOrderAsPaid = async (req, res) => {
             otherOrder.paymentInfo.paidAt = new Date();
             otherOrder.notificationsSent = true;
             
+            // Update product stock for this order too
+            await updateProductStockForPaidOrder(otherOrder);
+            
             // Check if this is a hybrid payment (wallet + Paystack)
             const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
             
@@ -4032,6 +4103,9 @@ exports.markOrderAsPaid = async (req, res) => {
                 // Continue without failing the request
               }
             }
+            
+            // Send Slack notification for the paid order
+            await sendSlackNotificationForPaidOrder(otherOrder, buyer);
             
             return updatedOtherOrder;
           });
@@ -4087,6 +4161,9 @@ exports.markOrderAsPaid = async (req, res) => {
       // Just confirming the payment here
     }
     
+    // Update product stock now that the order is paid
+    await updateProductStockForPaidOrder(order);
+    
     // Cancel the stale job for this order
     try {
       const agenda = require('../config/agenda');
@@ -4132,6 +4209,9 @@ exports.markOrderAsPaid = async (req, res) => {
         // Continue without failing the request
       }
     }
+    
+    // Send Slack notification for the paid order
+    await sendSlackNotificationForPaidOrder(order, buyer);
 
     // Check for other orders from the same buyer in the same time window
     let otherOrdersUpdated = [];
@@ -4161,6 +4241,9 @@ exports.markOrderAsPaid = async (req, res) => {
           otherOrder.paymentInfo.paymentReference = paymentReference || null;
           otherOrder.paymentInfo.paidAt = new Date();
           otherOrder.notificationsSent = true;
+          
+          // Update product stock for this order too
+          await updateProductStockForPaidOrder(otherOrder);
           
           // Check if this is a hybrid payment (wallet + Paystack)
           const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
@@ -4199,6 +4282,9 @@ exports.markOrderAsPaid = async (req, res) => {
               console.error(`Error sending order confirmation email for order ${otherOrder.order_id}:`, emailError);
             }
           }
+          
+          // Send Slack notification for the paid order
+          await sendSlackNotificationForPaidOrder(updatedOtherOrder, otherBuyer);
           
           return updatedOtherOrder;
         });
@@ -4262,7 +4348,10 @@ exports.verifyPaymentByReference = async (req, res) => {
       order.paymentInfo.paymentReference = reference;
       order.paymentInfo.paidAt = new Date();
 
-        // Check if this is a hybrid payment (wallet + Paystack)
+              // Update product stock now that the order is paid
+      await updateProductStockForPaidOrder(order);
+      
+      // Check if this is a hybrid payment (wallet + Paystack)
         const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
         
         if (isHybridPayment) {
@@ -4278,9 +4367,14 @@ exports.verifyPaymentByReference = async (req, res) => {
         
         await order.save();
         
-        // Get the buyer for notification
+        // Get the buyer for notification and send Slack email
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
+        
+        // Send Slack notification for the paid order
+        if (buyer) {
+          await sendSlackNotificationForPaidOrder(order, buyer);
+        }
         
         // Add a flag to track if notifications have been sent
         const notificationsAlreadySent = order.notificationsSent || false;
@@ -4394,6 +4488,15 @@ exports.handlePaystackWebhook = async (req, res) => {
       order.paymentInfo.transactionId = event.data.id;
       order.paymentInfo.paymentReference = event.data.reference;
       order.paymentInfo.paidAt = new Date();
+      
+      // Update product stock now that the order is paid
+      await updateProductStockForPaidOrder(order);
+      
+      // Get the buyer for notification and send Slack email
+      const webhookBuyer = await Buyer.findById(order.buyer);
+      if (webhookBuyer) {
+        await sendSlackNotificationForPaidOrder(order, webhookBuyer);
+      }
       
       // Cancel the stale job for this order
       try {

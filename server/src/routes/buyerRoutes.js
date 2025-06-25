@@ -2404,4 +2404,180 @@ router.post('/toggle-activity',
  */
 router.get('/activity-status', authMiddleware.verifyToken, buyerController.getActivityStatus);
 
+/**
+ * @swagger
+ * /api/buyer/select-major-categories:
+ *   post:
+ *     summary: Select major categories and add their child categories to buyer's selected categories
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - majorCategoryIds
+ *             properties:
+ *               majorCategoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of major category IDs
+ *     responses:
+ *       200:
+ *         description: Major categories selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 selectedCategories:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       subCategories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                 addedCategories:
+ *                   type: array
+ *                   description: Categories that were newly added
+ *       400:
+ *         description: Invalid request - majorCategoryIds array is required
+ *       404:
+ *         description: Buyer or major categories not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/select-major-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.selectMajorCategories
+);
+
+/**
+ * @swagger
+ * /api/buyer/update-major-categories:
+ *   put:
+ *     summary: Update major categories selection (replaces categories from selected major categories)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - majorCategoryIds
+ *             properties:
+ *               majorCategoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of major category IDs to select
+ *     responses:
+ *       200:
+ *         description: Major categories selection updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 selectedCategories:
+ *                   type: array
+ *                   description: All selected categories (from major categories and manual selections)
+ *                 majorCategorySelections:
+ *                   type: array
+ *                   description: Categories from selected major categories
+ *                 manualSelections:
+ *                   type: array
+ *                   description: Categories that were manually selected (not from major categories)
+ *       400:
+ *         description: Invalid request - majorCategoryIds array is required
+ *       404:
+ *         description: Buyer or major categories not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/update-major-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.updateMajorCategoriesSelection
+);
+
+/**
+ * @swagger
+ * /api/buyer/selected-major-categories:
+ *   get:
+ *     summary: Get buyer's selected major categories
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Selected major categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 selectedMajorCategories:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       image:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                           public_id:
+ *                             type: string
+ *                       categoryCount:
+ *                         type: integer
+ *                       categories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/selected-major-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getSelectedMajorCategories
+);
+
 module.exports = router;

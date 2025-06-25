@@ -10,7 +10,8 @@ const compression = require('compression');
 const passport = require('./config/passport');
 const mongoose = require('mongoose');
 const mixpanelClient = require('./config/mixpanel');
-
+const responseFormatter = require('./middlewares/response.middleware');
+const ValidationError = require('./utils/errors/ValidationError');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -34,10 +35,17 @@ const couponRoutes = require('./routes/couponRoutes');
 const flashSaleRoutes = require('./routes/flashSaleRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 
+// Example routes for refactoring
+const userRoutes = require('./modules/user/routes/user.routes');
+const listingRoutes = require('./modules/listing/routes/listing.route');
+const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
 const server = http.createServer(app);
 socketManager.initializeSocket(server);
+
+// add reponse formatter
+app.use(responseFormatter);
 
 // Get the socket.io instance and store it in the app
 const io = socketManager.getIO();
@@ -142,12 +150,33 @@ app.use('/api/flash-sales', flashSaleRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/pickup', pickupRoutes);
+
+// example routes for refactoring
+app.use('/api/users', userRoutes);
+app.use('/api/users/:userId/listings', listingRoutes);
+
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Basic error handling
 app.use((err, req, res, next) => {
-   console.error(err.stack);
+   console.error(err);
+
+   if (err instanceof ValidationError) {
+    return res.status(err.status).json({
+      success: false,
+      message: err.message,
+      errors: err.errors,
+    });
+  }
+
+  if (err instanceof NotFoundException) {
+    return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
    res.status(500).json({ error: 'Something went wrong!' });
 });
 
