@@ -67,6 +67,7 @@ const sellerSchema = new mongoose.Schema({
   },
   accountType: { type: String, enum: ['individual', 'business'] },
   isVerified: { type: Boolean, default: false },
+  isInternational: { type: Boolean, default: false },
   verificationDocuments: {
     type: { type: String, enum: ['company', 'individual'] },
     documents: [{

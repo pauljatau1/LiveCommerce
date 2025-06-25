@@ -2686,6 +2686,56 @@ router.put('/sellers/:sellerId/revoke-verification', authMiddleware.verifyToken,
 
 /**
  * @swagger
+ * /api/admin/sellers/{sellerId}/international:
+ *   put:
+ *     summary: Mark a seller as international
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Seller marked as international successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/international', authMiddleware.verifyToken, adminController.markSellerAsInternational);
+
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/revoke-international:
+ *   put:
+ *     summary: Revoke a seller's international status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Seller international status revoked successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/revoke-international', authMiddleware.verifyToken, adminController.revokeSellerInternationalStatus);
+
+/**
+ * @swagger
  * /api/admin/fez-orders/{orderNo}:
  *   delete:
  *     summary: Delete/Cancel a Fez delivery order

@@ -5535,7 +5535,145 @@ exports.revokeSellerVerification = async (req, res) => {
   }
 };
 
-// ... existing code ...
+/**
+ * Mark a seller as international
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.markSellerAsInternational = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // If seller is already marked as international, return success
+    if (seller.isInternational) {
+      return res.status(200).json({
+        success: true,
+        message: 'Seller is already marked as international',
+        seller: {
+          _id: seller._id,
+          firstName: seller.firstName,
+          lastName: seller.lastName,
+          businessName: seller.businessName,
+          email: seller.email,
+          isInternational: seller.isInternational
+        }
+      });
+    }
+    
+    // Update seller to international status
+    seller.isInternational = true;
+    await seller.save();
+    
+    // Send email notification
+    const { sendInternationalSellerEmail } = require('../utils/emailService');
+    await sendInternationalSellerEmail(seller);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller has been marked as international successfully',
+      seller: {
+        _id: seller._id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        businessName: seller.businessName,
+        email: seller.email,
+        isInternational: seller.isInternational
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error marking seller as international:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark seller as international',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Revoke a seller's international status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.revokeSellerInternationalStatus = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // If seller is not marked as international, return message
+    if (!seller.isInternational) {
+      return res.status(200).json({
+        success: true,
+        message: 'Seller is not marked as international',
+        seller: {
+          _id: seller._id,
+          firstName: seller.firstName,
+          lastName: seller.lastName,
+          businessName: seller.businessName,
+          email: seller.email,
+          isInternational: seller.isInternational
+        }
+      });
+    }
+    
+    // Update seller to revoke international status
+    seller.isInternational = false;
+    await seller.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller international status has been revoked successfully',
+      seller: {
+        _id: seller._id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        businessName: seller.businessName,
+        email: seller.email,
+        isInternational: seller.isInternational
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error revoking seller international status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke seller international status',
+      error: error.message
+    });
+  }
+};
 
 /**
  * Delete/Cancel a Fez delivery order
@@ -6738,9 +6876,9 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Chat with us in the Seller Center or email us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
     
-          <p>Let’s get your shop live and thriving. 🚀</p>
+          <p>Let's get your shop live and thriving. 🚀</p>
     
-          <p>We’re excited to have you on board.</p>
+          <p>We're excited to have you on board.</p>
     
           <p>Best regards,<br>The Auqli Team</p>
     

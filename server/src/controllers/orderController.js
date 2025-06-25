@@ -741,9 +741,13 @@ exports.createOrder = async (req, res) => {
       const SellerModel = mongoose.model('Seller');
       const fullSellerData = await SellerModel.findById(sellerId);
       
+      // Check if seller is international
+      const isInternationalSeller = fullSellerData?.isInternational === true;
+      
       // Log all available address data for debugging
       console.log('DEBUG - Seller Address Data:', {
         sellerId: sellerId,
+        isInternational: isInternationalSeller,
         hasSellerAddress: fullSellerData?.sellerAddress?.addressLine1 ? true : false,
         sellerAddress: fullSellerData?.sellerAddress,
         hasBusinessAddress: fullSellerData?.businessAddress?.addressLine1 ? true : false,
@@ -1055,104 +1059,118 @@ exports.createOrder = async (req, res) => {
         // console.log(`⚠️ Truncated item description for order ${order.order_id} to fit Fez API limit`);
       }
       
-      // Create Fez Delivery request with sender information and seller-specific parcel details
-      const fezRequest = {
-        recipientAddress: shippingAddress.recipientAddress,
-        recipientState: shippingAddress.recipientState,
-        recipientName: shippingAddress.recipientName,
-        recipientPhone: shippingAddress.recipientPhone,
-        recipientEmail: shippingAddress.recipientEmail || '',
-        uniqueID: order.order_id, // Unique ID for each order
-        BatchID: sellerBatchId, // Seller-specific batch ID
-        valueOfItem: sellerParcel.valueOfItem,
-        weight: Math.max(1, Math.round(sellerParcel.weight)),
-        itemDescription: sellerParcel.itemDescription,
-        additionalDetails: additionalDetails || '',
-        isItemCod: isItemCod && !isFullyPaidFromWallet,
-        thirdparty: "true",
-      };
-
-      // Get sender info (name, address, phone, email) from seller data if not provided
-      // First check if sender info is provided in the request
-      if (sellerSenderInfo.senderName) {
-        fezRequest.senderName = sellerSenderInfo.senderName;
-      } else {
-        fezRequest.senderName = `${fullSellerData.firstName} ${fullSellerData.lastName}`;
+      // Skip Fez Delivery request creation for international sellers
+      let fezRequest = null;
+      
+      // Only create Fez request if seller is not international
+      if (!isInternationalSeller && !isStorePickup) {
+        // Create Fez Delivery request with sender information and seller-specific parcel details
+        fezRequest = {
+          recipientAddress: shippingAddress.recipientAddress,
+          recipientState: shippingAddress.recipientState,
+          recipientName: shippingAddress.recipientName,
+          recipientPhone: shippingAddress.recipientPhone,
+          recipientEmail: shippingAddress.recipientEmail || '',
+          uniqueID: order.order_id, // Unique ID for each order
+          BatchID: sellerBatchId, // Seller-specific batch ID
+          valueOfItem: sellerParcel.valueOfItem,
+          weight: Math.max(1, Math.round(sellerParcel.weight)),
+          itemDescription: sellerParcel.itemDescription,
+          additionalDetails: additionalDetails || '',
+          isItemCod: isItemCod && !isFullyPaidFromWallet,
+          thirdparty: "true",
+        };
+        
+        console.log(`Creating Fez request for non-international seller: ${sellerId}`);
+      } else if (isInternationalSeller) {
+        console.log(`Skipping Fez request for international seller: ${sellerId}`);
       }
 
-      // Check for sender address in priority order:
-      // 1. Request sender info
-      // 2. Seller address
-      // 3. Business address
-      // 4. Warehouse address
-      // 5. Fallback to seller's default address if available
-      // 6. Default to "Not provided"
-      if (sellerSenderInfo.senderAddress) {
-        fezRequest.senderAddress = sellerSenderInfo.senderAddress;
-        console.log('Using sender address from request');
-      } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
-        const sellerAddr = fullSellerData.sellerAddress;
-        fezRequest.senderAddress = formatAddressForFez(sellerAddr);
-        console.log('Using seller address from database');
-      } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
-        const businessAddr = fullSellerData.businessAddress;
-        fezRequest.senderAddress = formatAddressForFez(businessAddr);
-        console.log('Using business address from database');
-      } else if (fullSellerData.warehouseDetails && fullSellerData.warehouseDetails.address && fullSellerData.warehouseDetails.address.addressLine1) {
-        const warehouseAddr = fullSellerData.warehouseDetails.address;
-        fezRequest.senderAddress = formatAddressForFez(warehouseAddr);
-        console.log('Using warehouse address from database');
-      } else if (fullSellerData.address) {
-        // Use the legacy address field if available
-        fezRequest.senderAddress = fullSellerData.address;
-        console.log('Using legacy address field from database');
-      } else {
-        fezRequest.senderAddress = 'Not provided';
-        console.log('No address found for seller', sellerId);
+      // Only process Fez request if it was created (for non-international sellers)
+      if (fezRequest) {
+        // Get sender info (name, address, phone, email) from seller data if not provided
+        // First check if sender info is provided in the request
+        if (sellerSenderInfo.senderName) {
+          fezRequest.senderName = sellerSenderInfo.senderName;
+        } else {
+          fezRequest.senderName = `${fullSellerData.firstName} ${fullSellerData.lastName}`;
+        }
+  
+        // Check for sender address in priority order:
+        // 1. Request sender info
+        // 2. Seller address
+        // 3. Business address
+        // 4. Warehouse address
+        // 5. Fallback to seller's default address if available
+        // 6. Default to "Not provided"
+        if (sellerSenderInfo.senderAddress) {
+          fezRequest.senderAddress = sellerSenderInfo.senderAddress;
+          console.log('Using sender address from request');
+        } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
+          const sellerAddr = fullSellerData.sellerAddress;
+          fezRequest.senderAddress = formatAddressForFez(sellerAddr);
+          console.log('Using seller address from database');
+        } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
+          const businessAddr = fullSellerData.businessAddress;
+          fezRequest.senderAddress = formatAddressForFez(businessAddr);
+          console.log('Using business address from database');
+        } else if (fullSellerData.warehouseDetails && fullSellerData.warehouseDetails.address && fullSellerData.warehouseDetails.address.addressLine1) {
+          const warehouseAddr = fullSellerData.warehouseDetails.address;
+          fezRequest.senderAddress = formatAddressForFez(warehouseAddr);
+          console.log('Using warehouse address from database');
+        } else if (fullSellerData.address) {
+          // Use the legacy address field if available
+          fezRequest.senderAddress = fullSellerData.address;
+          console.log('Using legacy address field from database');
+        } else {
+          fezRequest.senderAddress = 'Not provided';
+          console.log('No address found for seller', sellerId);
+        }
+  
+        // Handle phone number
+        fezRequest.senderPhone = sellerSenderInfo.senderPhone || fullSellerData.phoneNumber || 'Not provided';
+        
+        // Handle email
+        fezRequest.senderEmail = sellerSenderInfo.senderEmail || fullSellerData.email || '';
+        
+        // Add cashOnDeliveryAmount for COD orders
+        if (isItemCod && !isFullyPaidFromWallet) {
+          const orderTotal = order.totalAmount + sellerShippingFee;
+          fezRequest.cashOnDeliveryAmount = orderTotal.toString();
+        }
+        
+        // Add optional fields if provided
+        if (pickUpDate) {
+          fezRequest.pickUpDate = pickUpDate;
+        } else {
+          // Set a default pickup date (tomorrow)
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        }
+        
+        // Handle pickup state in same priority order as address
+        if (sellerSenderInfo.pickUpState) {
+          fezRequest.pickUpState = sellerSenderInfo.pickUpState;
+          console.log('Using pickup state from request:', fezRequest.pickUpState);
+        } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.state) {
+          fezRequest.pickUpState = fullSellerData.sellerAddress.state;
+          console.log('Using seller address state from database:', fezRequest.pickUpState);
+        } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.state) {
+          fezRequest.pickUpState = fullSellerData.businessAddress.state;
+          console.log('Using business address state from database:', fezRequest.pickUpState);
+        } else if (fullSellerData.state) {
+          fezRequest.pickUpState = fullSellerData.state;
+          console.log('Using seller state field from database:', fezRequest.pickUpState);
+        } else {
+          // Default to Lagos if no pickup state is provided
+          fezRequest.pickUpState = "Lagos";
+          console.log('Using default state (Lagos) for seller', sellerId);
+        }
+        
+        // Add to fezRequests array only if it's not an international seller
+        fezRequests.push(fezRequest);
       }
-
-      // Handle phone number
-      fezRequest.senderPhone = sellerSenderInfo.senderPhone || fullSellerData.phoneNumber || 'Not provided';
-      
-      // Handle email
-      fezRequest.senderEmail = sellerSenderInfo.senderEmail || fullSellerData.email || '';
-      
-      // Add cashOnDeliveryAmount for COD orders
-      if (isItemCod && !isFullyPaidFromWallet) {
-        const orderTotal = order.totalAmount + sellerShippingFee;
-        fezRequest.cashOnDeliveryAmount = orderTotal.toString();
-      }
-      
-      // Add optional fields if provided
-      if (pickUpDate) {
-        fezRequest.pickUpDate = pickUpDate;
-      } else {
-        // Set a default pickup date (tomorrow)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-      }
-      
-      // Handle pickup state in same priority order as address
-      if (sellerSenderInfo.pickUpState) {
-        fezRequest.pickUpState = sellerSenderInfo.pickUpState;
-        console.log('Using pickup state from request:', fezRequest.pickUpState);
-      } else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.state) {
-        fezRequest.pickUpState = fullSellerData.sellerAddress.state;
-        console.log('Using seller address state from database:', fezRequest.pickUpState);
-      } else if (fullSellerData.businessAddress && fullSellerData.businessAddress.state) {
-        fezRequest.pickUpState = fullSellerData.businessAddress.state;
-        console.log('Using business address state from database:', fezRequest.pickUpState);
-      } else if (fullSellerData.state) {
-        fezRequest.pickUpState = fullSellerData.state;
-        console.log('Using seller state field from database:', fezRequest.pickUpState);
-      } else {
-        // Default to Lagos if no pickup state is provided
-        fezRequest.pickUpState = "Lagos";
-        console.log('Using default state (Lagos) for seller', sellerId);
-      }
-      
-      fezRequests.push(fezRequest);
       
      
       const notificationData = {
@@ -1194,11 +1212,22 @@ exports.createOrder = async (req, res) => {
       });
     }
     
-    // Update orders with Fez tracking information (only for non-store pickup orders)
+    // Update orders with Fez tracking information (only for non-store pickup and non-international seller orders)
     if (!isStorePickup && fezResponse.data && fezResponse.data.status === 'Success') {
       const orderNos = fezResponse.data.orderNos;
       
       for (const order of orders) {
+        // Get the seller to check if they're international
+        const SellerModel = mongoose.model('Seller');
+        const orderSeller = await SellerModel.findById(order.seller);
+        const isInternationalSeller = orderSeller?.isInternational === true;
+        
+        // Skip updating tracking for international sellers
+        if (isInternationalSeller) {
+          console.log(`Skipping Fez tracking update for international seller order: ${order.order_id}`);
+          continue;
+        }
+        
         const fezOrderNo = orderNos[order.order_id];
         if (fezOrderNo) {
           await Order.findByIdAndUpdate(
@@ -1224,6 +1253,12 @@ exports.createOrder = async (req, res) => {
     
     for (const order of orders) {
       const sellerInfo = sellerItems[order.seller.toString()];
+      
+      // Get the seller to check if they're international
+      const SellerModel = mongoose.model('Seller');
+      const orderSeller = await SellerModel.findById(order.seller);
+      const isInternationalSeller = orderSeller?.isInternational === true;
+      
       orderSummaries.push({
         orderId: order._id,
         order_id: order.order_id,
@@ -1232,7 +1267,8 @@ exports.createOrder = async (req, res) => {
         itemsTotal: order.totalAmount, // This is just the items total
         shippingFee: sellerInfo.shippingFee,
         orderTotal: order.totalAmount + sellerInfo.shippingFee, // Total including shipping
-        fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
+        fezOrderNo: isInternationalSeller ? null : (fezResponse.data?.orderNos?.[order.order_id] || null),
+        isInternationalSeller: isInternationalSeller // Add flag to indicate international seller
       });
     }
     
@@ -5929,5 +5965,273 @@ function formatAddressForFez(addressObj) {
   
   return addressParts.join(', ');
 }
+
+/**
+ * Update tracking information for an international seller's order
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.updateInternationalOrderTracking = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { trackingNumber, trackingUrl, estimatedDeliveryDate } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate input
+    if (!trackingNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tracking number is required'
+      });
+    }
+
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Verify the seller owns this order
+    if (order.seller.toString() !== sellerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to update this order'
+      });
+    }
+
+    // Check if seller is international
+    const seller = await Seller.findById(sellerId);
+    if (!seller || !seller.isInternational) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only international sellers can use this endpoint'
+      });
+    }
+
+    // Update tracking information
+    order.shipping.tracking.number = trackingNumber;
+    if (trackingUrl) {
+      order.shipping.tracking.url = trackingUrl;
+    }
+    if (estimatedDeliveryDate) {
+      order.shipping.estimatedDeliveryDate = estimatedDeliveryDate;
+    }
+
+    // Add tracking history entry
+    order.shipping.tracking.history.push({
+      status: 'tracking_updated',
+      timestamp: new Date(),
+      description: 'Tracking information updated by seller'
+    });
+
+    // Save the updated order
+    await order.save();
+
+    // Send email notification to buyer
+    try {
+      const buyer = await Buyer.findById(order.buyer);
+      if (buyer && buyer.email) {
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        
+        await sgMail.send({
+          to: buyer.email,
+          from: {
+            email: 'support@auqli.com',
+            name: 'Auqli Orders'
+          },
+          subject: `Order #${order.order_id} - Tracking Information Updated`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order Tracking Updated</h2>
+              <p>Dear ${buyer.firstName},</p>
+              <p>The tracking information for your order #${order.order_id} has been updated by the seller.</p>
+              <p><strong>New Tracking Number:</strong> ${trackingNumber}</p>
+              ${trackingUrl ? `<p><strong>Tracking URL:</strong> <a href="${trackingUrl}" target="_blank">${trackingUrl}</a></p>` : ''}
+              ${estimatedDeliveryDate ? `<p><strong>Estimated Delivery Date:</strong> ${estimatedDeliveryDate}</p>` : ''}
+              <p>You can track your order using the tracking information provided.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        });
+        
+        console.log(`Tracking update notification email sent to buyer ${buyer.email}`);
+      }
+    } catch (emailError) {
+      console.error('Failed to send tracking update email:', emailError);
+      // Continue execution despite email error
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Order tracking information updated successfully',
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        tracking: {
+          number: order.shipping.tracking.number,
+          url: order.shipping.tracking.url,
+          estimatedDeliveryDate: order.shipping.estimatedDeliveryDate
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error updating international order tracking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update order tracking information',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update shipping status for an international seller's order
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.updateInternationalOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate status
+    const validStatuses = ['Picked-Up', 'Dispatched', 'Delivered', 'Cancelled'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Verify the seller owns this order
+    if (order.seller.toString() !== sellerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to update this order'
+      });
+    }
+
+    // Check if seller is international
+    const seller = await Seller.findById(sellerId);
+    if (!seller || !seller.isInternational) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only international sellers can use this endpoint'
+      });
+    }
+
+    // Update order status
+    order.shipping.tracking.status = status;
+    order.shipping.tracking.lastUpdate = new Date();
+
+    // Add tracking history entry
+    order.shipping.tracking.history.push({
+      status,
+      timestamp: new Date(),
+      description: `Order marked as ${status} by seller`
+    });
+
+    // If status is Delivered, update all items to delivered
+    if (status === 'Delivered') {
+      order.items.forEach(item => {
+        item.status = 'delivered';
+        item.statusHistory.push({
+          status: 'delivered',
+          timestamp: new Date(),
+          note: 'Automatically updated when order was marked as delivered'
+        });
+      });
+    }
+
+    // If status is Cancelled, update all items to cancelled
+    if (status === 'Cancelled') {
+      order.items.forEach(item => {
+        item.status = 'cancelled';
+        item.statusHistory.push({
+          status: 'cancelled',
+          timestamp: new Date(),
+          note: 'Automatically updated when order was marked as cancelled'
+        });
+      });
+
+      // Close the order
+      order.isOpen = false;
+      order.closedAt = new Date();
+      order.closedBy = 'seller';
+      order.closedReason = 'Order cancelled by international seller';
+    }
+
+    // Save the updated order
+    await order.save();
+
+    // Send email notification to buyer
+    try {
+      const buyer = await Buyer.findById(order.buyer);
+      if (buyer && buyer.email) {
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        
+        await sgMail.send({
+          to: buyer.email,
+          from: {
+            email: 'support@auqli.com',
+            name: 'Auqli Orders'
+          },
+          subject: `Order #${order.order_id} - Status Updated to ${status}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order Status Updated</h2>
+              <p>Dear ${buyer.firstName},</p>
+              <p>The status of your order #${order.order_id} has been updated to <strong>${status}</strong>.</p>
+              ${status === 'Delivered' ? 
+                '<p>Your order has been delivered! If you have any issues with your order, please contact the seller or our support team.</p>' : ''}
+              ${status === 'Cancelled' ? 
+                '<p>Your order has been cancelled by the seller. If you have any questions, please contact our support team.</p>' : ''}
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        });
+        
+        console.log(`Status update notification email sent to buyer ${buyer.email}`);
+      }
+    } catch (emailError) {
+      console.error('Failed to send status update email:', emailError);
+      // Continue execution despite email error
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Order status updated successfully',
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        status: order.shipping.tracking.status,
+        lastUpdate: order.shipping.tracking.lastUpdate
+      }
+    });
+  } catch (error) {
+    console.error('Error updating international order status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update order status',
+      error: error.message
+    });
+  }
+};
+
 
 
