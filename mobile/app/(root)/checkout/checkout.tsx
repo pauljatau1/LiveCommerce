@@ -37,7 +37,11 @@ import { Paystack } from "react-native-paystack-webview";
 import OrderPopup from "@/components/global/orders/order-popup";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import {
+  FontAwesome5,
+  MaterialCommunityIcons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
@@ -121,6 +125,7 @@ const Checkout = () => {
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
   const [walletCredit, setWalletCredit] = useState<number>(0);
   const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
+  const [freeShipping, setFreeShipping] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return !cart?.some(
@@ -303,8 +308,6 @@ const Checkout = () => {
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -390,6 +393,7 @@ const Checkout = () => {
         {
           state: selectedAddress.recipientState,
           pickupLocations: payload,
+          fromCompatibleVersion: true,
         },
 
         {
@@ -402,6 +406,7 @@ const Checkout = () => {
 
       setDeliveryFeeObject(response.data?.costs);
       setFetchedShippingFee(response.data?.totalCost);
+      setFreeShipping(response.data?.freeShipping);
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
@@ -418,6 +423,7 @@ const Checkout = () => {
       // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
+      setLoading(false);
     }
   };
 
@@ -493,7 +499,7 @@ const Checkout = () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
-    if (!deliveryFee && selectedDeliveryOpt == 0) {
+    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
       return toast.error("error getting delivery fee");
     }
 
@@ -781,6 +787,8 @@ const Checkout = () => {
     cart,
     couponApplied,
     walletCredit,
+    selectedDeliveryOpt,
+    freeShipping,
   ]);
 
   useEffect(() => {
@@ -898,7 +906,8 @@ const Checkout = () => {
 
     const orderTotal =
       (deliveryFee && cartTotal) ||
-        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+      (freeShipping && cartTotal)
         ? deliveryFee +
         (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
         : null;
@@ -916,6 +925,7 @@ const Checkout = () => {
     couponApplied,
     selectedDeliveryOpt,
     selectedPayment,
+    freeShipping,
   ]);
 
   const renderPaymentOptions = useCallback(
@@ -1008,7 +1018,7 @@ const Checkout = () => {
       >
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
-            className="absolute left-[18px]"
+            className="absolute left-[12px]"
             onPress={async () => {
               try {
                 const userData = await AsyncStorage.getItem("user");
@@ -1056,6 +1066,15 @@ const Checkout = () => {
             Checkout
           </Text>
         </View>
+        {freeShipping && (
+          <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+            <FontAwesome5 name="truck" size={14} color="white" />
+            <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+              Free Shipping on All Orders!
+            </Text>
+          </View>
+        )}
+
         <ScrollView className="bg-[#121212]">
           {loading ? (
             <ActivityIndicator
@@ -1347,11 +1366,13 @@ const Checkout = () => {
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {deliveryFee
                         ? "₦" +
-                        deliveryFee?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                        : "-"}
+                          deliveryFee?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : freeShipping
+                          ? "FREE"
+                          : "-"}
                     </Text>
                   )}
                 </View>
@@ -1364,7 +1385,8 @@ const Checkout = () => {
                   ) : (
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {(deliveryFee && cartTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                      (freeShipping && cartTotal)
                         ? "₦" +
                         (
                           deliveryFee +
@@ -1389,7 +1411,8 @@ const Checkout = () => {
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
                   {(deliveryFee && cartTotal) ||
-                    (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                  (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                  (freeShipping && cartTotal)
                     ? "₦" +
                     (
                       deliveryFee +

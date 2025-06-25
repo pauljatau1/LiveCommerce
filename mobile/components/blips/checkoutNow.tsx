@@ -22,6 +22,7 @@ import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import {
   AntDesign,
+  FontAwesome5,
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";
@@ -120,6 +121,7 @@ const CheckoutNow = ({
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
   const [walletCredit, setWalletCredit] = useState<number>(0);
   const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
+  const [freeShipping, setFreeShipping] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return product?.seller?.shippingInfo?.offersStorePickup;
@@ -257,8 +259,6 @@ const CheckoutNow = ({
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -323,6 +323,7 @@ const CheckoutNow = ({
         {
           state: selectedAddress.recipientState,
           pickupLocations: payload,
+          fromCompatibleVersion: true,
         },
 
         {
@@ -333,6 +334,7 @@ const CheckoutNow = ({
       );
       setDeliveryFeeObject(response.data?.costs);
       setFetchedShippingFee(response.data?.totalCost);
+      setFreeShipping(response.data?.freeShipping);
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
@@ -349,6 +351,7 @@ const CheckoutNow = ({
       // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
+      setLoading(false);
     }
   };
 
@@ -366,7 +369,7 @@ const CheckoutNow = ({
       });
     }
 
-    if (!deliveryFee && selectedDeliveryOpt == 0) {
+    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
       return show({
         text2: "error getting delivery fee",
         type: "error",
@@ -669,7 +672,8 @@ const CheckoutNow = ({
 
     const orderTotal =
       (deliveryFee && productTotal) ||
-      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+      (freeShipping && productTotal)
         ? deliveryFee +
           (couponApplied ? couponApplied?.couponSubTotal : productTotal)
         : null;
@@ -687,6 +691,7 @@ const CheckoutNow = ({
     couponApplied,
     selectedDeliveryOpt,
     selectedPayment,
+    freeShipping,
   ]);
 
   const renderPaymentOptions = useCallback(
@@ -799,6 +804,14 @@ const CheckoutNow = ({
               </View>
             ) : (
               <View className=" gap-[30px] pb-[20px]">
+                {freeShipping && (
+                  <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+                    <FontAwesome5 name="truck" size={14} color="white" />
+                    <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+                      Free Shipping on All Orders!
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   className="p-[20px] rounded-[16px] flex-row items-center justify-between"
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
@@ -1077,7 +1090,9 @@ const CheckoutNow = ({
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })
-                          : "-"}
+                          : freeShipping
+                            ? "FREE"
+                            : "-"}
                       </Text>
                     )}
                   </View>
@@ -1090,7 +1105,8 @@ const CheckoutNow = ({
                     ) : (
                       <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                         {(deliveryFee && productTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                        (freeShipping && productTotal)
                           ? "₦" +
                             (
                               deliveryFee +
@@ -1118,7 +1134,8 @@ const CheckoutNow = ({
                     <Text className="text-white text-[16px] font-LexendDecaMedium">
                       Pay (
                       {(deliveryFee && productTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                      (freeShipping && productTotal)
                         ? "₦" +
                           (
                             deliveryFee +
