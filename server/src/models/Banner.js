@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
 const bannerSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
+  title: { type: String },
+  description: { type: String },
   mainImage: {
     url: { type: String, required: true },
     public_id: { type: String, required: true }
   },
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
-  callToActionLink: { type: String, required: true },
+  category: { type: String },
+  callToActionLink: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -787,7 +787,7 @@ router.get('/sellers/:id', async (req, res) => {
         followers storeVisits shippingOptions warehouseDetails
         firstName lastName phoneNumber businessNumber taxInformation
         accountType verificationDocuments emailVerified isNewSeller
-        activityFeed customers sellerAddress email reviews stats
+        activityFeed customers sellerAddress email reviews stats isInternational
       `);
     
     if (!seller) {

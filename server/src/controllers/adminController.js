@@ -69,7 +69,8 @@ cloudinary.config({
 
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
-const { sendAdminLoginNotificationEmail } = require('../utils/emailService');
+const emailService = require('../utils/emailService');
+const { sendAdminLoginNotificationEmail } = emailService;
 const rateLimit = require('express-rate-limit');
 
 // Create a map to track failed login attempts
@@ -5535,7 +5536,145 @@ exports.revokeSellerVerification = async (req, res) => {
   }
 };
 
-// ... existing code ...
+/**
+ * Mark a seller as international
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.markSellerAsInternational = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // If seller is already marked as international, return success
+    if (seller.isInternational) {
+      return res.status(200).json({
+        success: true,
+        message: 'Seller is already marked as international',
+        seller: {
+          _id: seller._id,
+          firstName: seller.firstName,
+          lastName: seller.lastName,
+          businessName: seller.businessName,
+          email: seller.email,
+          isInternational: seller.isInternational
+        }
+      });
+    }
+    
+    // Update seller to international status
+    seller.isInternational = true;
+    await seller.save();
+    
+    // Send email notification
+    const { sendInternationalSellerEmail } = require('../utils/emailService');
+    await sendInternationalSellerEmail(seller);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller has been marked as international successfully',
+      seller: {
+        _id: seller._id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        businessName: seller.businessName,
+        email: seller.email,
+        isInternational: seller.isInternational
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error marking seller as international:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark seller as international',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Revoke a seller's international status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.revokeSellerInternationalStatus = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+    
+    const seller = await Seller.findById(sellerId);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // If seller is not marked as international, return message
+    if (!seller.isInternational) {
+      return res.status(200).json({
+        success: true,
+        message: 'Seller is not marked as international',
+        seller: {
+          _id: seller._id,
+          firstName: seller.firstName,
+          lastName: seller.lastName,
+          businessName: seller.businessName,
+          email: seller.email,
+          isInternational: seller.isInternational
+        }
+      });
+    }
+    
+    // Update seller to revoke international status
+    seller.isInternational = false;
+    await seller.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seller international status has been revoked successfully',
+      seller: {
+        _id: seller._id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        businessName: seller.businessName,
+        email: seller.email,
+        isInternational: seller.isInternational
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error revoking seller international status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke seller international status',
+      error: error.message
+    });
+  }
+};
 
 /**
  * Delete/Cancel a Fez delivery order
@@ -5747,6 +5886,102 @@ exports.deleteFezOrder = async (req, res) => {
     });
   }
 };
+
+// Bulk update product conditions for a seller
+exports.bulkUpdateProductCondition = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { condition } = req.body;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
+      });
+    }
+
+    // Check if seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Validate condition
+    if (!condition || typeof condition !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid condition value is required'
+      });
+    }
+
+    // Normalize condition value (case-insensitive)
+    const validConditions = ['new', 'fairly-used'];
+    const normalizedCondition = condition.toLowerCase();
+    
+    if (!validConditions.includes(normalizedCondition)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Condition must be either "New" or "Fairly-Used"'
+      });
+    }
+    
+    // Format condition with proper capitalization
+    const formattedCondition = normalizedCondition === 'new' ? 'New' : 'Fairly-Used';
+
+    // Update all products for this seller
+    const updateResult = await Product.updateMany(
+      { seller: sellerId },
+      { $set: { condition: formattedCondition } }
+    );
+
+    // Send email notification to seller
+    const products = await Product.find({ seller: sellerId }).select('name');
+    await sendBulkConditionUpdateEmail(seller, formattedCondition, products.length);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully updated condition to "${formattedCondition}" for all products`,
+      updatedCount: updateResult.modifiedCount,
+      totalProducts: updateResult.matchedCount
+    });
+  } catch (error) {
+    console.error('Bulk update product condition error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update product conditions',
+      error: error.message
+    });
+  }
+};
+
+// Email function for bulk condition update
+async function sendBulkConditionUpdateEmail(seller, condition, totalProducts) {
+  try {
+    const subject = `Product Condition Update - ${seller.storeName || seller.businessName || 'Your Store'}`;
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Product Condition Update</h2>
+        <p>Hello ${seller.firstName || 'Seller'},</p>
+        <p>We're writing to inform you that an admin has updated the condition of all your products to <strong>${condition}</strong>.</p>
+        <p><strong>Total products affected:</strong> ${totalProducts}</p>
+        <p>If you believe this change was made in error, please contact our support team.</p>
+        <p>Thank you for selling on our platform!</p>
+        <p>Best regards,<br>The Admin Team</p>
+      </div>
+    `;
+
+    await emailService.sendEmail(seller.email, subject, emailHtml);
+    console.log(`Bulk condition update email sent to seller ${seller._id}`);
+  } catch (error) {
+    console.error('Error sending bulk condition update email:', error);
+    // Don't throw error, just log it - we don't want to fail the API response if just the email fails
+  }
+}
 
 exports.searchProducts = async (req, res) => {
   try {
@@ -6281,6 +6516,7 @@ exports.getSellerProducts = async (req, res) => {
         createdAt
         updatedAt
         brand
+        condition
         sku
         visibility
       `)
@@ -6738,9 +6974,9 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Chat with us in the Seller Center or email us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
     
-          <p>Let’s get your shop live and thriving. 🚀</p>
+          <p>Let's get your shop live and thriving. 🚀</p>
     
-          <p>We’re excited to have you on board.</p>
+          <p>We're excited to have you on board.</p>
     
           <p>Best regards,<br>The Auqli Team</p>
     

@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const sellerController = require('../controllers/sellerController');
+const orderController = require('../controllers/orderController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const storeVisitMiddleware = require('../middlewares/storeVisitMiddleware');
+const mongoose = require('mongoose');
+const Seller = require('../models/Seller');
 
 /**
  * @swagger
@@ -3707,5 +3710,241 @@ router.post('/mark-verified', authMiddleware.verifyToken, authMiddleware.isSelle
  *         description: Server error
  */
 router.get('/verification-status', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.checkVerificationStatus);
+
+/**
+ * @swagger
+ * /api/seller/international/orders/{orderId}/tracking:
+ *   put:
+ *     summary: Update tracking information for an international seller's order
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               trackingNumber:
+ *                 type: string
+ *                 required: true
+ *                 description: New tracking number for the order
+ *               trackingUrl:
+ *                 type: string
+ *                 description: URL where the buyer can track the shipment (optional)
+ *               estimatedDeliveryDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Estimated delivery date (optional)
+ *     responses:
+ *       200:
+ *         description: Order tracking information updated successfully
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Not authorized or not an international seller
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/international/orders/:orderId/tracking', authMiddleware.verifyToken, orderController.updateInternationalOrderTracking);
+
+/**
+ * @swagger
+ * /api/seller/international/orders/{orderId}/status:
+ *   put:
+ *     summary: Update shipping status for an international seller's order
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 required: true
+ *                 description: New status (Picked-Up, Dispatched, Delivered, Cancelled)
+ *                 enum: [Picked-Up, Dispatched, Delivered, Cancelled]
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Not authorized or not an international seller
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/international/orders/:orderId/status', authMiddleware.verifyToken, orderController.updateInternationalOrderStatus);
+
+/**
+ * @swagger
+ * /api/seller/international/orders:
+ *   get:
+ *     summary: Get orders for an international seller
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Picked-Up, Dispatched, Delivered, Cancelled, pending]
+ *         description: Filter by order status
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *       403:
+ *         description: Not authorized or not an international seller
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/international/orders', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { page = 1, limit = 10, status } = req.query;
+    
+    // Check if seller is international
+    const seller = await Seller.findById(sellerId);
+    if (!seller || !seller.isInternational) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only international sellers can use this endpoint'
+      });
+    }
+    
+    // Build query
+    const query = { seller: sellerId };
+    if (status) {
+      query['shipping.tracking.status'] = status;
+    }
+    
+    // Get orders with pagination
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 },
+      populate: [
+        { path: 'buyer', select: 'firstName lastName email' }
+      ]
+    };
+    
+    const Order = mongoose.model('Order');
+    const orders = await Order.paginate(query, options);
+    
+    res.status(200).json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    console.error('Error getting international seller orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get orders',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/seller/international/orders/{orderId}:
+ *   get:
+ *     summary: Get a specific order's details for an international seller
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order details retrieved successfully
+ *       403:
+ *         description: Not authorized or not an international seller
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/international/orders/:orderId', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { orderId } = req.params;
+    
+    // Check if seller is international
+    const seller = await Seller.findById(sellerId);
+    if (!seller || !seller.isInternational) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only international sellers can use this endpoint'
+      });
+    }
+    
+    // Get order details
+    const Order = mongoose.model('Order');
+    const order = await Order.findOne({ _id: orderId, seller: sellerId })
+      .populate('buyer', 'firstName lastName email')
+      .populate('items.product', 'name images');
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Error getting international seller order details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get order details',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;

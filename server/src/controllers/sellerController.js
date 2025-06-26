@@ -359,6 +359,7 @@ exports.getProfile = async (req, res) => {
         offersStorePickup: 1, // Add this line to include offersStorePickup
         smileIdVerification: 1,
         socialMedia: 1,
+        isInternational: 1,
       })
       .lean();
 

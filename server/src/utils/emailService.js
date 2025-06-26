@@ -51,7 +51,7 @@ const sendAdminLoginNotificationEmail = async (email, username, metadata) => {
   
   const msg = {
     to: email,
-    from: VERIFIED_SENDER, // Using the verified sender email
+    from: VERIFIED_SENDER,
     subject: 'Admin Dashboard Access Alert',
     text: `Security Alert: Your Auqli admin account (${username}) was used to log in on ${loginDate}. IP: ${metadata.ip}, Browser: ${metadata.userAgent}. If this wasn't you, please contact support immediately.`,
     html: `
@@ -122,7 +122,68 @@ const sendAdminLoginNotificationEmail = async (email, username, metadata) => {
   }
 };
 
+/**
+ * Sends a notification email when a seller is marked as international
+ * @param {Object} seller - The seller object
+ */
+const sendInternationalSellerEmail = async (seller) => {
+  console.log(`Attempting to send international seller notification to ${seller.email}`);
+  
+  // Validate API key is set
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('SENDGRID_API_KEY is not set in environment variables');
+    return false;
+  }
+  
+  const sellerName = seller.businessName || `${seller.firstName} ${seller.lastName}`;
+  
+  const msg = {
+    to: seller.email,
+    from: VERIFIED_SENDER,
+    subject: 'Congratulations! Your Account Has Been Upgraded to International Seller Status',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #333;">Your Account Has Been Upgraded!</h2>
+        <p>Dear ${sellerName},</p>
+        
+        <p>We are excited to inform you that your Auqli seller account has been upgraded to <strong>International Seller</strong> status!</p>
+        
+        <div style="background-color: #f8f8f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>What this means for you:</strong></p>
+          <ul>
+            <li>You can now sell your products internationally</li>
+            <li>Access to global shipping options</li>
+            <li>Expanded customer base across different countries</li>
+          
+          </ul>
+        </div>
+        
+        <p>Our team has reviewed your account and determined that you meet our criteria for international selling. This status upgrade allows you to reach customers beyond local borders and expand your business globally.</p>
+        
+        <p>If you have any questions about your new international seller status or need assistance setting up international shipping options, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+        
+        <p>Thank you for being a valued seller on Auqli!</p>
+        
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `,
+  };
+
+  try {
+    const response = await sgMail.send(msg);
+    console.log(`International seller notification email sent to ${seller.email} successfully`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send international seller notification email to ${seller.email}:`, error);
+    if (error.response) {
+      console.error('SendGrid error response body:', error.response.body);
+    }
+    return false;
+  }
+};
+
 module.exports = { 
   sendPasswordResetEmail,
-  sendAdminLoginNotificationEmail
+  sendAdminLoginNotificationEmail,
+  sendInternationalSellerEmail
 };

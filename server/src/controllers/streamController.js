@@ -1807,7 +1807,7 @@ exports.getSpotlightStreams = async (req, res) => {
       });
     }
 
-    // Build query for streams from featured sellers
+    // Build query for streams from featured seller
     const query = {
       seller: { $in: featuredSellerIds }
     };
