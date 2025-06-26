@@ -188,7 +188,7 @@ function Banners() {
                   required
                 />
               </div>
-              <div className="grid gap-2">
+              {/* <div className="grid gap-2">
                 <label htmlFor="description">Description</label>
                 <Textarea
                   id="description"
@@ -217,7 +217,7 @@ function Banners() {
                   placeholder="Enter call to action link"
                   required
                 />
-              </div>
+              </div> */}
               <div className="grid gap-2">
                 <label htmlFor="mainImage">Banner Image</label>
                 <Input

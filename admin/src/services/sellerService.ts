@@ -101,6 +101,7 @@ export interface UpdateSellerData {
   isVerified?: boolean;
   isFeatured?: boolean;
   isDisabled?: boolean;
+  isInternational?: boolean;
   accountPending?: boolean;
 }
 
@@ -141,6 +142,11 @@ export const SellerService = {
     return await api.put(`/api/admin/sellers/${sellerId}/feature`);
   },
   
+  // Toggle a seller's international status
+  toggleInternational: async (sellerId: string) => {
+    return await api.put(`/api/admin/sellers/${sellerId}/international`);
+  },
+  
   // Reject a seller's verification
   rejectVerification: async (sellerId: string, data: { reason: string, details?: string }) => {
     return await api.put(`/api/admin/sellers/${sellerId}/reject`, data);
@@ -179,5 +185,10 @@ export const SellerService = {
   // Deduct funds from seller wallet
   deductFromSellerWallet: async (sellerId: string, data: { amount: number, reason: string }) => {
     return await api.post(`/api/admin/sellers/${sellerId}/wallet/deduct`, data);
+  },
+  
+  // Bulk update product condition for all seller products
+  bulkUpdateProductCondition: async (sellerId: string, condition: string) => {
+    return await api.put(`/api/admin/sellers/${sellerId}/products/bulk-update-condition`, { condition });
   }
 }; 

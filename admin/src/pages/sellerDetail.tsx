@@ -71,7 +71,8 @@ import {
   MinusCircle,
   ArrowUpRight,
   ArrowDownRight,
-  CreditCard
+  CreditCard,
+  Globe
 } from "lucide-react";
 import EditSellerForm from "@/components/sellers/EditSellerForm";
 import { toast } from "sonner";
@@ -210,6 +211,7 @@ interface Seller {
   isVerified: boolean;
   isFeatured: boolean;
   isDisabled?: boolean;
+  isInternational?: boolean;
   accountType?: string;
   businessType?: string;
   createdAt: string;
@@ -335,6 +337,11 @@ function SellerDetail() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Bulk update condition state
+  const [showBulkUpdateConditionModal, setShowBulkUpdateConditionModal] = useState(false);
+  const [selectedCondition, setSelectedCondition] = useState('New');
+  const [isUpdatingCondition, setIsUpdatingCondition] = useState(false);
 
   useEffect(() => {
     // Set loading state
@@ -439,6 +446,22 @@ function SellerDetail() {
       setSeller({ ...seller, isDisabled: !seller.isDisabled });
     } catch (error) {
       console.error("Error toggling disabled status:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleInternational = async () => {
+    if (!seller) return;
+    
+    setActionLoading('international');
+    try {
+      await SellerService.toggleInternational(seller._id);
+      setSeller({ ...seller, isInternational: !seller.isInternational });
+      toast.success(`Seller ${seller.isInternational ? 'removed from' : 'marked as'} international successfully`);
+    } catch (error) {
+      console.error("Error toggling international status:", error);
+      toast.error("Failed to update international status");
     } finally {
       setActionLoading(null);
     }
@@ -731,6 +754,31 @@ function SellerDetail() {
     }
   };
 
+  // Handle bulk update product condition
+  const handleBulkUpdateCondition = async () => {
+    if (!id || !selectedCondition) {
+      toast.error("Please select a condition");
+      return;
+    }
+
+    try {
+      setIsUpdatingCondition(true);
+      
+      await SellerService.bulkUpdateProductCondition(id, selectedCondition);
+      
+      // Refresh product list
+      fetchSellerProducts(true);
+      
+      toast.success(`Successfully updated all products to condition: ${selectedCondition}`);
+      setShowBulkUpdateConditionModal(false);
+    } catch (error: any) {
+      console.error("Error updating product conditions:", error);
+      toast.error(error.response?.data?.message || "Failed to update product conditions");
+    } finally {
+      setIsUpdatingCondition(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -852,6 +900,23 @@ function SellerDetail() {
                 )}
                 {seller?.isFeatured ? "Remove from Featured" : "Mark as Featured"}
               </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* International Status */}
+              <DropdownMenuLabel>International Status</DropdownMenuLabel>
+              <DropdownMenuItem 
+                onClick={handleToggleInternational}
+                disabled={actionLoading === 'international'}
+                className="flex items-center cursor-pointer"
+              >
+                {actionLoading === 'international' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Globe className={`h-4 w-4 mr-2 ${seller?.isInternational ? "text-blue-400" : "text-muted-foreground"}`} />
+                )}
+                {seller?.isInternational ? "Remove International Status" : "Mark as International"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -919,6 +984,12 @@ function SellerDetail() {
                     Featured Seller
                   </Badge>
                 )}
+                {seller.isInternational && (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-400 px-2 py-1">
+                    <Globe className="h-3 w-3 mr-1" />
+                    International Seller
+                  </Badge>
+                )}
                 {seller.isProfileComplete && (
                   <Badge variant="outline" className="bg-blue-500/10 text-blue-400 px-2 py-1">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -947,7 +1018,7 @@ function SellerDetail() {
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Overview Ta */}
         <TabsContent value="overview" className="space-y-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1410,6 +1481,15 @@ function SellerDetail() {
               </h3>
               <div className="flex items-center gap-3">
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkUpdateConditionModal(true)}
+                  className="bg-blue-600/20 border-blue-600/40 text-blue-400 hover:bg-blue-600/30 mr-2"
+                >
+                  <Tag className="h-4 w-4 mr-2" />
+                  Update All Conditions
+                </Button>
+                <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setShowDeleteAllProductsModal(true)}
@@ -1455,19 +1535,7 @@ function SellerDetail() {
                   <option value="draft">Draft</option>
                   <option value="offline_auction">Offline Auction</option>
                 </select>
-                <select
-                  name="sortBy"
-                  value={productsFilter.sortBy}
-                  onChange={handleProductFilterChange}
-                  className="bg-zinc-800 text-white border border-zinc-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                  <option value="best_selling">Best Selling</option>
-                  <option value="most_viewed">Most Viewed</option>
-                </select>
+               
                 <Button
                   variant="outline"
                   size="sm"
@@ -1608,6 +1676,9 @@ function SellerDetail() {
                                     : 'bg-blue-500/20 text-blue-400'
                                 }`}>
                                   {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs w-fit bg-zinc-700 text-zinc-300">
+                                  {product.condition}
                                 </Badge>
                               </div>
                             </TableCell>
@@ -2524,6 +2595,72 @@ function SellerDetail() {
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
               Delete All Products
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Product Condition Modal */}
+      <Dialog open={showBulkUpdateConditionModal} onOpenChange={setShowBulkUpdateConditionModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Tag className="h-5 w-5 text-blue-400" />
+              Update All Product Conditions
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              This will update the condition for all products of {seller ? getDisplayName(seller) : "this seller"}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">
+                Select Condition*
+              </label>
+              <select
+                value={selectedCondition}
+                onChange={(e) => setSelectedCondition(e.target.value)}
+                className="w-full bg-zinc-800 border-zinc-700 text-white rounded-md px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="New">New</option>
+                <option value="Fairly-Used">Fairly-Used</option>
+                <option value="Refurbished">Refurbished</option>
+              </select>
+            </div>
+            
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 text-amber-400 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Important Note</p>
+                  <p className="mt-1">This action will update the condition for all products of this seller. This may affect how products are displayed and filtered in search results.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBulkUpdateConditionModal(false);
+              }}
+              className="border-zinc-700 text-zinc-400"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkUpdateCondition}
+              disabled={isUpdatingCondition || !selectedCondition}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isUpdatingCondition ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Tag className="h-4 w-4 mr-2" />
+              )}
+              Update All Products
             </Button>
           </DialogFooter>
         </DialogContent>
