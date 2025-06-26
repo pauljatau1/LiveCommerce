@@ -5025,27 +5025,32 @@ exports.cancelOrderBySeller = async (req, res) => {
     }
 
     // Only attempt to cancel with Fez if order has tracking number
-    if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
-      try {
-        // Get a fresh authentication token for Fez
-        const authToken = await getFezAuthToken();
-        
-        // Cancel the shipment with Fez
-        await axios.post(
-          `${FEZ_API_URL}/order/cancel/${order.shipping.tracking.number}`,
-          {},
-          {
-            headers: {
-              'Authorization': `Bearer ${authToken}`,
-              'secret-key': process.env.FEZ_SECRET_KEY 
-            }
-          }
-        );
-      } catch (fezError) {
-        console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
-        // Continue with order cancellation even if Fez cancellation fails
+if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
+  try {
+    // Get a fresh authentication token for Fez
+    const authToken = await getFezAuthToken();
+
+    // Cancel the shipment with Fez using DELETE method
+    const response = await axios.delete(
+      `${FEZ_API_URL}/order`,
+      {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': process.env.FEZ_SECRET_KEY
+        },
+        data: {
+          orderNo: order.shipping.tracking.number
+        }
       }
-    }
+    );
+
+    console.log('Fez cancellation response:', response.data);
+  } catch (fezError) {
+    console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
+    // Continue with order cancellation even if Fez cancellation fails
+  }
+}
+
 
     // Fix for buyerDetails validation error
     if (!order.buyerDetails || !order.buyerDetails._id) {

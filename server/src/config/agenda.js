@@ -729,7 +729,7 @@ agenda.define('create-auction-winner-order', async (job) => {
     });
 
     // Default shipping fee of 1000 as requested
-    const shippingFee = 1000;
+    const shippingFee = 0;
     const totalAmount = bidAmount + shippingFee;
 
     // Get the most up-to-date buyer information

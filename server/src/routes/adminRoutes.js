@@ -4186,4 +4186,47 @@ router.get('/unassigned-categories',
   adminController.getUnassignedCategories
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/products/bulk-update-condition:
+ *   put:
+ *     summary: Bulk update condition for all products of a seller
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               condition:
+ *                 type: string
+ *                 description: Product condition to apply to all seller products (e.g., "New" or "Fairly-Used")
+ *                 required: true
+ *     responses:
+ *       200:
+ *         description: Products condition updated successfully
+ *       400:
+ *         description: Invalid condition value or seller ID
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/sellers/:sellerId/products/bulk-update-condition',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.bulkUpdateProductCondition
+);
+
 module.exports = router;
