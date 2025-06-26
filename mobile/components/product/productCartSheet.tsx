@@ -107,6 +107,12 @@ const CartSheet = ({
         });
 
         trackFacebookEvent('AddToCart', {
+          content_id: productDetails?._id,
+          content_name: productDetails?.name,
+          content_type: "product",
+          currency: "NGN",
+          value: `₦${productDetails?.price?.toLocaleString()}`,
+          description: productDetails?.description,
           email: user?.email,
           firstName: user?.firstName,
           lastName: user?.lastName,
