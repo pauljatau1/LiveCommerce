@@ -223,9 +223,9 @@ export default function OrdersDashboard() {
       if (activeTab === "process") {
         filtered = filtered.filter(order => order.shipping.tracking.status === "pending");
       } else if (activeTab === "transit") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "picked_up");
+        filtered = filtered.filter(order => order.shipping.tracking.status === "picked_up" || order.shipping.tracking.status === "picked-up");
       } else if (activeTab === "delivered") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "delivered");
+        filtered = filtered.filter(order => order.shipping.tracking.status === "delivered" || order.shipping.tracking.status === "Delivered");
       } else if (activeTab === "cancelled") {
         filtered = filtered.filter(order => order.shipping.tracking.status === "cancelled");
       }
@@ -323,6 +323,7 @@ export default function OrdersDashboard() {
       "in-transit": "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
       in_transit: "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
       delivered: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      Delivered: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
       failed: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
       cancelled: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
       abandoned: "bg-orange-100 px-3 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md py-1 text-orange-800",
