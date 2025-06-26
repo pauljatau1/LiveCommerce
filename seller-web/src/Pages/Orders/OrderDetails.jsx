@@ -23,6 +23,7 @@ export default function OrderDetails() {
   const { id } = useParams()
   const [orderData, setOrderData] = useState(null)
   const [sellerProfile, setSellerProfile] = useState(null)
+  const [isInternationalSeller, setIsInternationalSeller] = useState(false)
   const [loading, setLoading] = useState(true)
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
   const [orderStatus, setOrderStatus] = useState(null)
@@ -38,6 +39,18 @@ export default function OrderDetails() {
   const [cancelLoading, setCancelLoading] = useState(false)
   const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
+  
+  // International seller tracking form states
+  const [trackingDialogOpen, setTrackingDialogOpen] = useState(false)
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [trackingUrl, setTrackingUrl] = useState('')
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('')
+  const [updatingTracking, setUpdatingTracking] = useState(false)
+  
+  // International seller status update form states
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [shippingStatus, setShippingStatus] = useState('')
+  const [updatingStatus, setUpdatingStatus] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -81,6 +94,11 @@ export default function OrderDetails() {
           })
           const profileResult = await profileResponse.json()
           setSellerProfile(profileResult)
+          
+          // Check if seller is international
+          if (profileResult && profileResult.isInternational) {
+            setIsInternationalSeller(true)
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -262,6 +280,106 @@ export default function OrderDetails() {
     }
   };
 
+  // Add function to update tracking information for international sellers
+  const updateTrackingInformation = async () => {
+    if (!trackingNumber) {
+      toast.error('Tracking number is required');
+      return;
+    }
+
+    setUpdatingTracking(true);
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/international/orders/${id}/tracking`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingNumber,
+          trackingUrl: trackingUrl || undefined,
+          estimatedDeliveryDate: estimatedDeliveryDate || undefined
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update tracking information');
+      }
+
+      toast.success('Tracking information updated successfully');
+      setTrackingDialogOpen(false);
+      
+      // Refresh order details
+      const updatedOrderResponse = await fetch(`${BASE_URL}/order/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      
+      if (updatedOrderResponse.ok) {
+        const updatedOrder = await updatedOrderResponse.json();
+        setOrderData(updatedOrder);
+      }
+    } catch (error) {
+      console.error('Error updating tracking information:', error);
+      toast.error(error.message || 'Failed to update tracking information');
+    } finally {
+      setUpdatingTracking(false);
+    }
+  };
+
+  // Add function to update order status for international sellers
+  const updateOrderStatus = async () => {
+    if (!shippingStatus) {
+      toast.error('Please select a status');
+      return;
+    }
+
+    setUpdatingStatus(true);
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/international/orders/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: shippingStatus
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update order status');
+      }
+
+      toast.success('Order status updated successfully');
+      setStatusDialogOpen(false);
+      
+      // Refresh order details
+      const updatedOrderResponse = await fetch(`${BASE_URL}/order/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      
+      if (updatedOrderResponse.ok) {
+        const updatedOrder = await updatedOrderResponse.json();
+        setOrderData(updatedOrder);
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error(error.message || 'Failed to update order status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   // Add this helper function to check if order is cancellable
   const isOrderCancellable = (order) => {
     // Check if order exists and has items
@@ -301,11 +419,11 @@ export default function OrderDetails() {
       return;
     }
 
-    if (!isOrderCancellable(orderData)) {
-      toast.error('This order cannot be cancelled');
-      setCancelDialogOpen(false);
-      return;
-    }
+    // if (!isOrderCancellable(orderData)) {
+    //   toast.error('This order cannot be cancelled');
+    //   setCancelDialogOpen(false);
+    //   return;
+    // }
 
     setCancelLoading(true);
     try {
@@ -1120,8 +1238,76 @@ export default function OrderDetails() {
           </Card>
         </div>
 
+
+        
+
         {/* Sidebar */}
         <div className="space-y-6 w-full">
+        {isInternationalSeller && order?.paymentInfo?.status === 'paid' && !order?.isStale && (
+                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">
+                      <h4 className="font-medium flex items-center gap-2 text-blue-800 mb-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-blue-600"
+                        >
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="2" y1="12" x2="22" y2="12"></line>
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                        International Seller Controls
+                      </h4>
+                      <p className="text-sm text-blue-700 mb-3">
+                        As an international seller, you can update tracking information and shipping status for this order.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          className="flex-1 flex items-center font-inter bg-blue-600 hover:bg-blue-700 transition-all duration-300 justify-center gap-2"
+                          onClick={() => {
+                            // Initialize tracking form with current values if available
+                            setTrackingNumber(shipping?.tracking?.number || '');
+                            setTrackingUrl(shipping?.tracking?.url || '');
+                            setEstimatedDeliveryDate(shipping?.estimatedDeliveryDate ? 
+                              new Date(shipping.estimatedDeliveryDate).toISOString().split('T')[0] : '');
+                            setTrackingDialogOpen(true);
+                          }}
+                        >
+                          <Package className="h-4 w-4" />
+                          Update Tracking Info
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 flex items-center font-inter justify-center gap-2 border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700"
+                          onClick={() => {
+                            // Initialize status form with current status if available
+                            const currentStatus = shipping?.tracking?.status || '';
+                            // Map API status to form status options
+                            let formStatus = '';
+                            if (currentStatus.toLowerCase().includes('pick')) formStatus = 'Picked-Up';
+                            else if (currentStatus.toLowerCase().includes('dispatch') || currentStatus.toLowerCase().includes('transit')) formStatus = 'Dispatched';
+                            else if (currentStatus.toLowerCase().includes('deliver')) formStatus = 'Delivered';
+                            else if (currentStatus.toLowerCase().includes('cancel')) formStatus = 'Cancelled';
+                            
+                            setShippingStatus(formStatus);
+                            setStatusDialogOpen(true);
+                          }}
+                        >
+                          <Truck className="h-4 w-4" />
+                          Update Shipping Status
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
           {/* Addresses */}
           <Card className="border w-full border-gray-100 -sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
@@ -1204,7 +1390,7 @@ export default function OrderDetails() {
               </div>
 
               {/* Only show shipping method summary if not store pickup */}
-              {!order?.isStorePickup && (
+              {!order?.isStorePickup && !isInternationalSeller && (
                 <div className="mt-2 pt-2 border-t border-gray-100">
                   <div className="flex items-center gap-2 text-sm text-gray-700">
                     <Truck className="h-4 w-4 text-blue-500" />
@@ -1221,7 +1407,8 @@ export default function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Shipping Status - Hide if order is stale/abandoned */}
+         
+          {/* Shipping Status - Hide if orde is stale/abandoned */}
           {!order?.isStorePickup && !order?.isStale && (
             <Card className="border border-gray-100 -sm bg-white">
               <CardHeader className="border-b border-gray-100 p-4">
@@ -1344,6 +1531,7 @@ export default function OrderDetails() {
                           <p className="text-sm font-medium">{shipping?.tracking?.number || "Not available yet"}</p>
                         </div>
                       </div>
+                      
                       <div className="flex items-start gap-2">
                         <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
                         <div>
@@ -1450,6 +1638,9 @@ export default function OrderDetails() {
                     </div>
                   </div>
                 )}
+
+                {/* International Seller Controls */}
+                
               </CardContent>
             </Card>
           )}
@@ -1552,11 +1743,11 @@ export default function OrderDetails() {
             <DialogTitle>Cancel Order</DialogTitle>
             <DialogDescription>
               Please provide a reason for cancelling this order. This will be communicated to the buyer.
-              {!isOrderCancellable(orderData) && (
+              {/* {!isOrderCancellable(orderData) && (
                 <div className="mt-2 text-red-500">
                   This order cannot be cancelled because it has already been processed or cancelled.
                 </div>
-              )}
+              )} */}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1570,7 +1761,7 @@ export default function OrderDetails() {
                 placeholder="Please explain why you're cancelling this order..."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                disabled={!isOrderCancellable(orderData)}
+              
               />
             </div>
           </div>
@@ -1585,7 +1776,7 @@ export default function OrderDetails() {
             </Button>
             <Button
               type="button"
-              disabled={cancelLoading || !isOrderCancellable(orderData)}
+              disabled={cancelLoading}
               onClick={handleCancelOrder}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
@@ -1709,6 +1900,137 @@ export default function OrderDetails() {
                 'Awaiting Approval'
               ) : (
                 'Confirm Pickup'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Tracking Information Dialog for International Sellers */}
+      <Dialog open={trackingDialogOpen} onOpenChange={setTrackingDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Tracking Information</DialogTitle>
+            <DialogDescription>
+              Enter the tracking details for this international order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="trackingNumber" className="text-sm font-medium text-gray-700">
+                Tracking Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="trackingNumber"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter tracking number"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="trackingUrl" className="text-sm font-medium text-gray-700">
+                Tracking URL (Optional)
+              </label>
+              <input
+                id="trackingUrl"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter tracking URL"
+                value={trackingUrl}
+                onChange={(e) => setTrackingUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="estimatedDeliveryDate" className="text-sm font-medium text-gray-700">
+                Estimated Delivery Date (Optional)
+              </label>
+              <input
+                id="estimatedDeliveryDate"
+                type="date"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={estimatedDeliveryDate}
+                onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTrackingDialogOpen(false)}
+              className="border-gray-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={updatingTracking || !trackingNumber}
+              onClick={updateTrackingInformation}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {updatingTracking ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Updating...
+                </>
+              ) : (
+                'Update Tracking'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Status Update Dialog for International Sellers */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Order Status</DialogTitle>
+            <DialogDescription>
+              Select the current status of this international order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="shippingStatus" className="text-sm font-medium text-gray-700">
+                Shipping Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="shippingStatus"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={shippingStatus}
+                onChange={(e) => setShippingStatus(e.target.value)}
+              >
+                <option value="">Select a status</option>
+                <option value="Picked-Up">Picked-Up</option>
+                <option value="Dispatched">Dispatched</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStatusDialogOpen(false)}
+              className="border-gray-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={updatingStatus || !shippingStatus}
+              onClick={updateOrderStatus}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {updatingStatus ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Updating...
+                </>
+              ) : (
+                'Update Status'
               )}
             </Button>
           </div>
