@@ -14,7 +14,8 @@ const SpotLight = () => {
   const fetchSpotlightLiveStreams = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams/spotlight?status=live`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/spotlight?status=live_upcoming`,
       );
       if (response.status === 200) {
         setSpotLight(response.data?.streams);

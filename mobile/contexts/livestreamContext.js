@@ -18,6 +18,8 @@ export const LivestreamProvider = ({ children }) => {
     activeStreamDetails: null,
     isDataReady: false,
     isStreamEnded: false,
+    isStreamScheduled: false,
+    scheduledStreamDetails: null,
   };
 
   const [state, dispatch] = useReducer((state, action) => {
@@ -34,6 +36,8 @@ export const LivestreamProvider = ({ children }) => {
         return { ...state, isDataReady: action.payload };
       case "RESET_STREAM_ENDED":
         return { ...state, isStreamEnded: false };
+      case "SET_IS_STREAM_SCHEDULED":
+        return { ...state, isStreamScheduled: action.isStreamScheduled, scheduledStreamDetails: action.scheduledStreamDetails };
       default:
         return state;
     }
@@ -64,7 +68,7 @@ export const LivestreamProvider = ({ children }) => {
       dispatch({ type: "SET_IS_LOADING", payload: true });
       // Reset the stream ended state when joining a new stream
       dispatch({ type: "SET_STREAM_ENDED", payload: false });
-      
+      dispatch({ type: "SET_IS_STREAM_SCHEDULED", isStreamScheduled: false, scheduledStreamDetails: null });
       const token = await AsyncStorage.getItem("token");
       const userToken = JSON.parse(token);
 
@@ -124,17 +128,13 @@ export const LivestreamProvider = ({ children }) => {
       console.error("Error joining stream:", error);
       
       // Check if the error is a 404 error (stream ended)
-      if (
-        error?.response?.status === 404 || 
-        (error?.response?.data?.message && (
-          error.response.data.message.includes("Active stream not found") ||
-          error.response.data.message.includes("not found") ||
-          error.response.data.message.includes("ended") ||
-          error.response.data.message.includes("no longer available")
-        ))
-      ) {
+      if (error?.response?.data?.message === "Stream has already ended") {
         console.log("Stream ended or not found, setting stream ended state");
         dispatch({ type: "SET_STREAM_ENDED", payload: true });
+      } else if (error?.response?.data?.message === "Stream has not started yet") {
+        console.log("Stream is not active, setting stream scheduled state");
+        console.log("Scheduled stream details", error?.response?.data?.stream);
+        dispatch({ type: "SET_IS_STREAM_SCHEDULED", isStreamScheduled: true, scheduledStreamDetails: error?.response?.data?.stream });
       }
       
       throw new Error(

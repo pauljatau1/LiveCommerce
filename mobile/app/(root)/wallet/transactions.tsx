@@ -43,6 +43,10 @@ const Transactions = () => {
 
   const onChange = (event: any, selectedDate: any) => {
     setShowIOSDatePicker(false);
+
+    if (event?.type == "dismissed") {
+      return;
+    }
     if (selectedDate == date) {
       return;
     }

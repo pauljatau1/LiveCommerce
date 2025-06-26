@@ -6,9 +6,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState, memo } from "react";
 
 const Tags = ({ tags, setSelected, selected }: any) => {
+  const tabsRef = useRef<FlatList | any>();
+
+  useEffect(() => {
+    if (tabsRef.current) {
+      tabsRef.current.scrollToIndex({
+        index: tags.indexOf(selected),
+        animated: true,
+        viewPosition: 0.5,
+      });
+    }
+  }, [selected, tags]);
   return (
     <View
       style={[
@@ -21,6 +32,7 @@ const Tags = ({ tags, setSelected, selected }: any) => {
       className=" mt-[17px] border-b-[1px]"
     >
       <FlatList
+        ref={tabsRef}
         horizontal
         data={tags}
         showsHorizontalScrollIndicator={false}
@@ -41,12 +53,15 @@ const Tags = ({ tags, setSelected, selected }: any) => {
         }}
         contentContainerStyle={styles.container}
         keyExtractor={(item, index) => item?.toString()}
+        onScrollToIndexFailed={({ index }) =>
+          console.log("scroll failed ", { index })
+        }
       />
     </View>
   );
 };
 
-export default Tags;
+export default memo(Tags);
 
 const styles = StyleSheet.create({
   tagText: {

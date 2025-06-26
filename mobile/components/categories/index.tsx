@@ -122,7 +122,7 @@ const Categories = () => {
       try {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || "{}");
-        trackEvent('buyer_profile_completed', {
+        trackEvent("buyer_profile_completed", {
           userId: user?._id,
           email: user?.email,
           firstName: user?.firstName,
@@ -131,14 +131,19 @@ const Categories = () => {
           userType: "buyer",
           phoneNumber: user?.phoneNumber,
           country: user?.country,
-          selectedCategories: selectedCategories.map((category) => category.name),
-          timestamp: new Date().toISOString()
+          selectedCategories: selectedCategories.map(
+            (category) => category.name,
+          ),
+          timestamp: new Date().toISOString(),
         });
       } catch (trackError) {
-        console.log("Customer.io profile completion tracking error:", trackError);
+        console.log(
+          "Customer.io profile completion tracking error:",
+          trackError,
+        );
         // Allow profile completion flow to continue even if tracking fails
       }
-      router.replace("/(root)/(tabs)/home");
+      router.replace("/(root)/(tabs)/blips");
       toast.success(result.message);
     } catch (error: any) {
       console.log("result", error);
@@ -149,7 +154,7 @@ const Categories = () => {
 
   const renderSkeletonLoader = () => {
     return (
-      <View className="flex-row gap-[18px] justify-between items-center flex-wrap">
+      <View className="flex-row gap-[18px] justify-between items-center flex-wrap px-[16px]">
         <Skeleton
           style={{
             backgroundColor: "#121212",
@@ -164,6 +169,32 @@ const Categories = () => {
           height={173}
         />
 
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
         <Skeleton
           style={{
             backgroundColor: "#121212",

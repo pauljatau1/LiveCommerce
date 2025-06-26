@@ -1,10 +1,18 @@
-import { View, Text, FlatList, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  Dimensions,
+} from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import FollowCard from "../../global/followers-card/followers-card";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
 import { Entypo } from "@expo/vector-icons";
+
+const { width } = Dimensions.get("window");
 
 const Sellers = () => {
   const [sellers, setSellers] = useState<any[]>([]);
@@ -23,12 +31,15 @@ const Sellers = () => {
         },
       );
 
-      if (response.status === 200) {
-        setSellers(
-          response.data?.sellers
-            ?.filter((seller: any) => seller?.isFeatured)
-            ?.slice(0, 10),
-        );
+      if (response.status == 200) {
+        var featuredShops = response.data?.sellers
+          .filter((seller: any) => seller?.isFeatured)
+          .slice(0, 10);
+
+        if (featuredShops?.length < 1) {
+          featuredShops = response.data?.sellers?.slice(0, 10);
+        }
+        setSellers(featuredShops);
       }
     } catch (err) {
       setError("Failed to load sellers");
@@ -83,17 +94,17 @@ const Sellers = () => {
             data={sellers}
             renderItem={({ item }) => (
               <View
-                className=" mb-[5.54px] w-[50%] shrink"
                 style={{
-                  flexShrink: 1,
+                  width: (width - 32) / 2 - 16,
                 }}
               >
                 <FollowCard item={item._id} data={item} />
               </View>
             )}
             keyExtractor={(item) => item._id}
+            horizontal
             showsHorizontalScrollIndicator={false}
-            numColumns={2}
+            // numColumns={2}
             contentContainerStyle={{
               justifyContent: "space-between",
             }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image, Dimensions, Pressable, RefreshControl, TextInput, InteractionManager } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions, Pressable, RefreshControl, InteractionManager } from 'react-native';
 import { AntDesign, Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { MotiView } from 'moti';
 import { Tabs } from 'expo-router';
 import * as Animatable from 'react-native-animatable';
+import { BottomSheetFlatList, BottomSheetTextInput, BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
 const { width } = Dimensions.get('window');
 
 // Types for the auction products
@@ -652,8 +653,8 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
   const [noMoreAuctionProducts, setNoMoreAuctionProducts] = useState(false);
   
   // Add refs for FlatLists to enable scrollToOffset and other imperative methods
-  const auctionListRef = useRef<FlatList<AuctionProduct>>(null);
-  const buyNowListRef = useRef<FlatList<StreamProduct>>(null);
+  const auctionListRef = useRef<BottomSheetFlatListMethods>(null);
+  const buyNowListRef = useRef<BottomSheetFlatListMethods>(null);
   
   // Track if component is mounted to avoid state updates after unmount
   const isMounted = useRef(true);
@@ -663,7 +664,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
     const skeletonData = [1, 2, 3, 4, 5];
     
     return (
-      <FlatList
+      <BottomSheetFlatList
         data={skeletonData}
         renderItem={({ item, index }) => <AuctionSkeleton item={index} />}
         keyExtractor={(item) => `auction-skeleton-${item}`}
@@ -686,7 +687,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
     const skeletonData = [1, 2, 3, 4, 5];
     
     return (
-      <FlatList
+      <BottomSheetFlatList
         data={skeletonData}
         renderItem={({ item, index }) => <BuyNowSkeleton item={index} />}
         keyExtractor={(item) => `buynow-skeleton-${item}`}
@@ -971,7 +972,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
     </View>
   ), []);
 
-  // Optimized renderItem functions for FlatList
+  // Optimized renderItem functions for BottomSheetFlatList
   const renderAuctionItem = useCallback(({ item, index }: { item: AuctionProduct, index: number }) => {
     // Only animate the first 5 items to reduce animation overhead
     const shouldAnimate = index < 5;
@@ -1091,7 +1092,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <AntDesign name="search1" size={18} color="#777" style={styles.searchIcon} />
-        <TextInput
+        <BottomSheetTextInput
           style={styles.searchInput}
           placeholder="Search products..."
           placeholderTextColor="#777"
@@ -1137,7 +1138,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
             ) : filteredAuctionProducts.length === 0 ? (
               searchQuery ? EmptySearchView : EmptyAuctionsView
             ) : (
-              <FlatList<AuctionProduct>
+              <BottomSheetFlatList<AuctionProduct>
                 ref={auctionListRef}
                 data={filteredAuctionProducts}
                 renderItem={renderAuctionItem}
@@ -1188,7 +1189,7 @@ const ShopBottomSheet = memo(({ sellerId, streamId, closeSheet }: ShopBottomShee
                 )}
               </View>
             ) : (
-              <FlatList<StreamProduct>
+              <BottomSheetFlatList<StreamProduct>
                 ref={buyNowListRef}
                 data={filteredBuyNowProducts}
                 renderItem={renderBuyNowItem}

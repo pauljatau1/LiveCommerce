@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import React, { useState, useMemo, useCallback, memo } from 'react';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
-import { BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 // Predefined bid increment options
 const BID_VARIATIONS = [500, 1000, 1500, 2000];
@@ -273,7 +273,7 @@ const BidVariationSelector = ({
   ]);
 
   return (
-    <BottomSheetView style={styles.container}>
+    <View style={styles.container}>
       <Header title="Place your bid" subtitle={headerSubtitle} />
 
       {/* Standard Bid Variations */}
@@ -302,7 +302,7 @@ const BidVariationSelector = ({
         isDisabled={isSubmitDisabled}
         nextBidText={nextBidText}
       />
-    </BottomSheetView>
+    </View>
   );
 };
 

@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, Dimensions, RefreshControl, TextInput, ListRenderItem } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, RefreshControl, ListRenderItem } from 'react-native';
 import { AntDesign, Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import * as Animatable from 'react-native-animatable';
+import { BottomSheetFlatList, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 const { width } = Dimensions.get('window');
 
@@ -216,7 +217,7 @@ const SearchBar = memo(({
 }) => (
   <View style={styles.searchContainer}>
     <AntDesign name="search1" size={18} color="#777" style={styles.searchIcon} />
-    <TextInput
+    <BottomSheetTextInput
       style={styles.searchInput}
       placeholder="Search products..."
       placeholderTextColor="#777"
@@ -507,7 +508,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
     />
   ), []);
 
-  // Memoize renderItem function for FlatList
+  // Memoize renderItem function for BottomSheetFlatList
   const renderAuctionCardItem = useCallback(({ item, index }: { item: StreamProduct, index: number }) => (
     <AnimatedAuctionCardItem 
       item={item} 
@@ -536,7 +537,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
     />
   ), [refreshing, handleRefresh]);
 
-  // Memoize FlatList content container style
+  // Memoize BottomSheetFlatList content container style
   const contentContainerStyle = useMemo(() => ({ padding: 16 }), []);
 
   return (
@@ -569,7 +570,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
         {activeTab === 'Auctions' && (
           <>
             {isLoading ? (
-              <FlatList
+              <BottomSheetFlatList
                 data={[1, 2, 3, 4, 5]}
                 renderItem={renderSkeletonItem}
                 keyExtractor={skeletonKeyExtractor}
@@ -583,7 +584,7 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
             ) : filteredAuctionProducts.length === 0 ? (
               searchQuery ? <SearchResult query={searchQuery} /> : <EmptyAuctions />
             ) : (
-              <FlatList
+              <BottomSheetFlatList
                 data={filteredAuctionProducts}
                 renderItem={renderAuctionCardItem}
                 keyExtractor={keyExtractor}
@@ -598,8 +599,6 @@ function AuctionShopBottomSheet({ streamProducts, closeSheet, isLoading = false 
             )}
           </>
         )}
-
-        {activeTab === 'Categories' && categoriesEmptyState}
       </View>
     </View>
   );
@@ -614,7 +613,7 @@ export default MemoizedAuctionShopBottomSheet;
 
 const styles = StyleSheet.create({
   container: {
-    height: 600,
+    height: "100%",
     backgroundColor: '#121212',
   },
   header: {
@@ -663,7 +662,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   tabContent: {
-    flex: 1,
   },
   // Modern card styles
   card: {

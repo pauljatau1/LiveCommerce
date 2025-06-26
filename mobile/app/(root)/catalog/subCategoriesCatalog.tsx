@@ -31,10 +31,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken } from "@/store/features/auth/utils";
 import FilterSheet from "@/components/catalog/filterSheet";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
+import { sortBy } from "lodash";
+import LottieView from "lottie-react-native";
+
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
 
 const SubCatProducts = () => {
   const { name, mainCat, subCat } = useLocalSearchParams();
-  const [filter, setFilter] = useState<string>("None");
+  const [filter, setFilter] = useState<string>("");
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -42,27 +52,45 @@ const SubCatProducts = () => {
   const [selectedFilters, setSelectedFilters] = useState<any>();
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
 
   const handleGetProductData = async () => {
     if (hasReachedEnd) {
       return;
     }
-    let endpoint = `api/products/category/${mainCat}/subcategory/${subCat}`;
+    let endpoint = `api/products/category/${encodeURIComponent(mainCat?.toString())}/subcategory/${subCat}`;
 
+    if (page !== 1) {
+      setIsFetching(true);
+    }
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `${endpoint}?page=${page}&limit=10&sortBy=newest&order=desc`,
+        process.env.EXPO_PUBLIC_API_URL + `${endpoint}`,
         {
+          params: {
+            page,
+            limit: 10,
+            sortBy: filter,
+            minPrice: selectedFilters?.price?.min,
+            maxPrice: selectedFilters?.price?.max,
+            condition: selectedFilters?.condition
+              ?.toLowerCase()
+              ?.replace(" ", "-"),
+          },
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setProducts([...products, ...response.data.data]);
-      setFilteredProducts([...filteredProducts, ...response.data.data]);
+      if (page == 1) {
+        setProducts(response.data.data);
+        setFilteredProducts(response.data.data);
+      } else {
+        setProducts([...products, ...response.data.data]);
+        setFilteredProducts([...filteredProducts, ...response.data.data]);
+      }
 
       if (
         response.data?.currentPage == response.data?.totalPages ||
@@ -75,33 +103,26 @@ const SubCatProducts = () => {
       console.log("ERROR GETTING MORE PRODUCT DATA", e);
     } finally {
       setIsLoading(false);
+      setIsFetching(false);
     }
   };
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
-    setFilter(type);
-    handleFilter(selectedFilters, type);
-    // const sortedProducts = catalogSort(products, type);
-    // setFilteredProducts(sortedProducts);
+    console.log("explore catalog sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const handleFilter = (filters: any, sortType = "") => {
-    let appliedFilters = products?.slice();
-    if (filters?.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
-    }
-    if (filters?.condition) {
-      appliedFilters = appliedFilters.filter(
-        (product) =>
-          product?.condition ==
-          filters?.condition?.toLowerCase()?.replace(" ", "-"),
-      );
-    }
-    appliedFilters = catalogSort(appliedFilters, sortType || filter);
-    setFilteredProducts(appliedFilters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const renderProducts = (item: any) => {
@@ -171,9 +192,35 @@ const SubCatProducts = () => {
     );
   }, [filter]);
 
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
   useEffect(() => {
     handleGetProductData();
-  }, []);
+  }, [filter, selectedFilters]);
 
   return (
     <>
@@ -216,6 +263,7 @@ const SubCatProducts = () => {
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={renderListHeader}
                 ListEmptyComponent={renderEmptyPlaceholder}
+                ListFooterComponent={renderListFooter}
                 onEndReached={handleGetProductData}
               />
             </View>
@@ -311,7 +359,11 @@ const SortSheet = ({
                   width: 12,
                   height: 12,
                   borderRadius: 12,
-                  backgroundColor: selectedType == option ? "#fff" : "",
+                  backgroundColor:
+                    selectedType == option ||
+                    sortMap[options[index]] == selectedType
+                      ? "#fff"
+                      : "",
                 }}
               ></View>
             </View>

@@ -22,7 +22,12 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [subCategory, setSubCategory] = useState<string>("");
   const { data, isFetching, refetch, error, isLoading } =
-    useGetAllProductsQuery({ category: name, page, limit, subCategory });
+    useGetAllProductsQuery({
+      category: encodeURIComponent(name),
+      page,
+      limit,
+      subCategory,
+    });
 
   const [products, setProducts] = useState<any[]>([]);
   const strippedCategory = category?.subCategories?.map(

@@ -91,6 +91,9 @@ import GlassImage from "./components/GlassImage";
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import StreamEndedAlert from './components/StreamEndedAlert';
+import RsvpSheet from "@/components/livestream/rsvpSheet";
+// Add import for AnnouncementView component
+import AnnouncementView from '@/components/livestream/AnnouncementView';
 
 // Extract dimensions outside component to avoid recreation on each render
 const { width, height } = Dimensions.get("window");
@@ -98,6 +101,7 @@ const { width, height } = Dimensions.get("window");
 // Extend the StreamNotification type to include isCurrentUser property
 interface ExtendedStreamNotificationData {
   isCurrentUser?: boolean;
+  isHost?: boolean;
   message?: string;
   sellerId?: string;
   sellerName?: string;
@@ -215,11 +219,25 @@ const CommentItem = memo(({ item, renderAvatar, styles }: CommentItemProps) => {
       </View>
     );
   } else {
+    const isHost = item.data?.isHost === true;
     return (
       <View style={styles.regularCommentItem}>
         {renderAvatar()}
         <View style={styles.regularCommentContent}>
-          <Text style={styles.commentUser}>{item.user}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+            <Text style={styles.commentUser}>{item.user}</Text>
+            {isHost && (
+              <View style={{ 
+                marginLeft: 8, 
+                backgroundColor: '#16783A', 
+                paddingHorizontal: 6, 
+                paddingVertical: 2, 
+                borderRadius: 4 
+              }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>Host</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.regularCommentText}>{item.content}</Text>
         </View>
       </View>
@@ -293,11 +311,13 @@ const LiveAuctionStudio = memo(
     isVisible,
     onInteractionStart,
     shared,
+    onRegisterCleanup,
   }: {
     id: any;
     isVisible: boolean;
     onInteractionStart?: () => void;
     shared: boolean;
+    onRegisterCleanup?: (cleanupFn: () => Promise<void>) => void;
   }) => {
     // These are all the declaration that should be early in the component
     const insets = useSafeAreaInsets();
@@ -311,7 +331,9 @@ const LiveAuctionStudio = memo(
       followSellerThroughStream,
       unfollowSellerThroughStream,
       checkIfSellerIsFollowedFromSellerProfile,
-      isStreamEnded
+      isStreamEnded,
+      isStreamScheduled,
+      scheduledStreamDetails
     } = useLivestream() as LivestreamContextType;
 
     // Initialize all state
@@ -419,12 +441,28 @@ const LiveAuctionStudio = memo(
       useState(false);
 
     // Add new state for detailed viewers
-    const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
+      const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
 
-    // Add state for host presence
-    const [isHostPresent, setIsHostPresent] = useState(true);
-    const [showNoHostAlert, setShowNoHostAlert] = useState(false);
-    const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
+  // Add state for host presence
+  const [isHostPresent, setIsHostPresent] = useState(true);
+  const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+  const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
+  const [rsvpSheet, showRsvpSheet] = useState<boolean>(isStreamScheduled);
+  
+  // Add state for announcements
+  const [liveAnnouncements, setLiveAnnouncements] = useState<Array<{
+    id: string;
+    type: "announcement";
+    user: string;
+    avatar?: any;
+    content: string;
+    timestamp: Date;
+    data?: any;
+  }>>([]);
+  
+  // Add state for announcement bottom sheet
+  const [showAnnouncementSheet, setShowAnnouncementSheet] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
 
     // Add ref for heart animation
     const heartsRef = useRef<FloatingHeartsRef>(null);
@@ -470,15 +508,12 @@ const LiveAuctionStudio = memo(
           commentsListRef.current.scrollToEnd({ animated: true });
         }
 
-        // Cleanup function - will run when:
-        // 1. Component unmounts
-        // 2. isVisible changes from true to false
-        // 3. id changes (which should disconnect and reconnect)
+        // Cleanup will be handled proactively by the parent component
+        // when scrolling away, so we only need to handle unmounting here
         return () => {
-          // Since we only run the effect when isVisible is true,
-          // this cleanup will only run when we're either unmounting
-          // or isVisible is changing to false, both cases where we want to leave
-          handleAutoLeaveStream();
+          // Only cleanup if component is unmounting completely (not just scrolling away)
+          // The parent will handle scrolling cleanup proactively
+          console.log(`🔧 [Auction] Component unmounting cleanup for stream ${id}`);
         };
       }
       // No cleanup needed if isVisible is false, as we didn't setup anything
@@ -492,6 +527,9 @@ const LiveAuctionStudio = memo(
         (e) => {
           keyboardVisibleRef.current = true;
           keyboardHeightRef.current = e.endCoordinates.height;
+          if (showShop || showCheckout) {
+            return;
+          }
           // Force immediate re-render
           forceUpdate({});
         },
@@ -502,6 +540,9 @@ const LiveAuctionStudio = memo(
         (e) => {
           keyboardVisibleRef.current = false;
           keyboardHeightRef.current = 0;
+          if (showShop || showCheckout) {
+            return;
+          }
           // Force immediate re-render
           forceUpdate({});
         },
@@ -512,7 +553,7 @@ const LiveAuctionStudio = memo(
         keyboardWillShow.remove();
         keyboardWillHide.remove();
       };
-    }, []); // Empty dependency array since we don't need any dependencies for keyboard events
+    }, [showShop, showCheckout]); // Empty dependency array since we don't need any dependencies for keyboard events
 
     //console.log('keyboardHeightRef', keyboardHeightRef.current);
     //console.log('keyboardVisibleRef', keyboardVisibleRef.current);
@@ -743,6 +784,13 @@ const LiveAuctionStudio = memo(
             break;
           }
 
+          case "announcement": {
+            console.log("Announcement received:", notification.content);
+            // Add announcement to the announcements array instead of liveComments
+            setLiveAnnouncements((prev: Array<any>) => [...prev, notification as any]);
+            break;
+          }
+
           case "auction_start": {
             console.log("Auction started for product:", notification);
             // Update UI to show auction start event
@@ -968,6 +1016,7 @@ const LiveAuctionStudio = memo(
         setCurrentBidWinner,
         commentsListRef,
         getInitials,
+        setLiveAnnouncements,
       ],
     );
 
@@ -1113,6 +1162,28 @@ const LiveAuctionStudio = memo(
           message.startsWith("audio_unmuted:")
         ) {
           //console.log(message);
+        } else if (message === "leaving_channel_start") {
+          console.log("Starting channel cleanup process");
+          setStatus("Leaving stream...");
+        } else if (message.startsWith("stopped_video_track:")) {
+          console.log("Stopped video track:", message);
+        } else if (message.startsWith("stopped_audio_track:")) {
+          console.log("Stopped audio track:", message);
+        } else if (message.startsWith("unsubscribed_video:")) {
+          console.log("Unsubscribed from video:", message);
+        } else if (message.startsWith("unsubscribed_audio:")) {
+          console.log("Unsubscribed from audio:", message);
+        } else if (message === "cleanup_complete") {
+          console.log("Channel cleanup completed successfully");
+          setStatus("Stream left successfully");
+        } else if (message.startsWith("debug:")) {
+          console.log("Debug:", message);
+        } else if (message.startsWith("force_stopped_")) {
+          console.log("Force stopped track:", message);
+        } else if (message === "js_injection_called_leaveChannel") {
+          console.log("🎯 [Auction] JavaScript injection successfully called leaveChannel");
+        } else if (message === "js_injection_leaveChannel_not_found") {
+          console.log("❌ [Auction] JavaScript injection: leaveChannel function not found!");
         } else {
           setStatus(message);
         }
@@ -1526,25 +1597,37 @@ const LiveAuctionStudio = memo(
         setShowMenuPopover,
       ],
     );
-    
-    // Optimize with useCallback
-    const handleAutoLeaveStream = useCallback(
-      async () => {
-        if (!id) return;
 
-        try {
+    // Optimize with useCallback
+          const handleAutoLeaveStream = useCallback(
+        async () => {
+          if (!id) return;
+
+          try {
           setIsLeavingStream(true);
 
           // First tell the WebView to leave the Agora channel
+          console.log("🔄 [Auction] About to call WebView leaveChannel...");
           if (webViewRef.current) {
+            console.log("✅ [Auction] WebView ref exists, injecting JavaScript...");
             webViewRef.current.injectJavaScript(`
-          if (window.leaveChannel) {
-            window.leaveChannel();
-            true;
-          }
-        `);
+              console.log("📱 [Auction] JavaScript injection received");
+              if (typeof window.leaveChannel === 'function') {
+                console.log("📱 [Auction] leaveChannel function found, calling it...");
+                window.leaveChannel();
+                window.ReactNativeWebView.postMessage("js_injection_called_leaveChannel");
+              } else {
+                console.log("📱 [Auction] leaveChannel function not found!");
+                window.ReactNativeWebView.postMessage("js_injection_leaveChannel_not_found");
+              }
+              true;
+            `);
+            console.log("⏱️ [Auction] Waiting for WebView to process...");
             // Give a small delay to allow the WebView to process the leave command
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            console.log("✅ [Auction] WebView processing delay completed");
+          } else {
+            console.log("❌ [Auction] WebView ref is null!");
           }
 
           // Call the leaveStream API endpoint
@@ -1552,7 +1635,7 @@ const LiveAuctionStudio = memo(
 
           // Disconnect the socket
           disconnectSocket();
-      
+
         } catch (error) {
           console.error("Error leaving stream:", error);
           // Show error message to user if needed
@@ -1571,6 +1654,14 @@ const LiveAuctionStudio = memo(
         setShowMenuPopover,
       ],
     );
+
+    // Register cleanup function with parent when component is ready
+    useEffect(() => {
+      if (isVisible && streamConfig && onRegisterCleanup) {
+        console.log(`📋 [Auction] Registering cleanup function for stream ${id}`);
+        onRegisterCleanup(handleAutoLeaveStream);
+      }
+    }, [isVisible, streamConfig, onRegisterCleanup, handleAutoLeaveStream, id]);
 
     // Optimize with useCallback
     const handleFollowSeller = useCallback(
@@ -2028,19 +2119,44 @@ const LiveAuctionStudio = memo(
             handleAuctionOrderCreated,
           );
         }
+
+        // Check for announcements in stream data
+        const streamAnnouncements = (streamDetails.stream as any)?.liveAnnouncements || 
+                                   (streamDetails.stream as any)?.announcements || [];
+        
+        if (Array.isArray(streamAnnouncements) && streamAnnouncements.length > 0) {
+          console.log("Found announcements in stream data:", streamAnnouncements);
+          setLiveAnnouncements(streamAnnouncements);
+        }
+
+        // Filter out announcement types as they will be displayed separately
+        const filteredChatInteractions = chatInteractions.filter(
+          (interaction: any) => interaction.type !== 'announcement'
+        );
+
+        // ... rest of existing setupLivestream function ...
       } catch (error: any) {
         console.error("Error setting up livestream:", error);
-
         setStatus("Error: " + (error as Error).message);
       }
     }, [
-      id,
-      joinStream,
-      handleStreamNotification,
-      handleBidTimerUpdate,
-      handleBidTimerComplete,
+      id, 
+      joinStream, 
+      handleStreamNotification, 
+      handleBidTimerUpdate, 
+      handleBidTimerComplete, 
       handleAuctionOrderCreated,
-      // other dependencies
+      setStatus,
+      setLikes,
+      setComments, 
+      setStreamProducts, 
+      setCurrentProductIndex,
+      setStreamConfig,
+      setStreamData,
+      setStreamDetails,
+      setStoreInfo,
+      setLiveAnnouncements, // Add this dependency
+      getSocket,
     ]);
 
     // Create a single condition to check if UI should be shown
@@ -2430,49 +2546,99 @@ const LiveAuctionStudio = memo(
 
                   {/* Live Comments Section */}
                   {shouldShowUI && (
-                    <ScrollView
-                      ref={commentsListRef}
-                      style={styles.commentsContainer}
-                      nestedScrollEnabled={true}
-                      onLayout={() => {
-                        // Scroll to end on initial layout
-                        if (
-                          commentsListRef.current &&
-                          liveComments.length > 0
-                        ) {
-                          setTimeout(() => {
-                            commentsListRef.current?.scrollToEnd({
-                              animated: false,
-                            });
-                          }, 100);
-                        }
-                      }}
-                      showsVerticalScrollIndicator={false}
-                      fadingEdgeLength={350}
-                      contentContainerStyle={styles.commentsList}
-                      onContentSizeChange={() => {
-                        // Scroll to end when content size changes
-                        if (
-                          commentsListRef.current &&
-                          liveComments.length > 0
-                        ) {
-                          setTimeout(() => {
-                            commentsListRef.current?.scrollToEnd({
-                              animated: false,
-                            });
-                          }, 100);
-                        }
-                      }}
-                      maintainVisibleContentPosition={{
-                        minIndexForVisible: 0,
-                        autoscrollToTopThreshold: 10,
-                      }}
-                      removeClippedSubviews={false}
-                    >
-                      {liveComments?.map((item: any, index: number) => (
-                        <View key={index}>{renderCommentItem({ item })}</View>
-                      ))}
-                    </ScrollView>
+                    <View className="absolute bottom-0 left-0 w-[70%] z-10">
+                      <ScrollView
+                        ref={commentsListRef}
+                        style={styles.commentsContainer}
+                        nestedScrollEnabled={true}
+                        onLayout={() => {
+                          // Scroll to end on initial layout
+                          if (commentsListRef.current && liveComments.length > 0) {
+                            setTimeout(() => {
+                              commentsListRef.current?.scrollToEnd({
+                                animated: false,
+                              });
+                            }, 100);
+                          }
+                        }}
+                        showsVerticalScrollIndicator={false}
+                        fadingEdgeLength={350}
+                        contentContainerStyle={styles.commentsList}
+                        onContentSizeChange={() => {
+                          // Scroll to end when content size changes
+                          if (commentsListRef.current && liveComments.length > 0) {
+                            setTimeout(() => {
+                              commentsListRef.current?.scrollToEnd({
+                                animated: false,
+                              });
+                            }, 100);
+                          }
+                        }}
+                        maintainVisibleContentPosition={{
+                          minIndexForVisible: 0,
+                          autoscrollToTopThreshold: 10,
+                        }}
+                        removeClippedSubviews={false}
+                      >
+                        {liveComments?.map((item: any, index: number) => (
+                          <View key={index}>{renderCommentItem({ item })}</View>
+                        ))}
+                      </ScrollView>
+
+                      {/* Announcements Section - Displayed prominently */}
+                      {shouldShowUI &&
+                        liveAnnouncements?.some((item: any) => item.type === 'announcement' && item.data?.current === true) && (
+                          <View style={styles.featuredAnnouncementContainer}>
+                            {liveAnnouncements
+                              .filter(item => item.type === 'announcement' && item.data?.current === true)
+                              .slice(-1)
+                              .map((announcement, index) => (
+                                <TouchableOpacity 
+                                  key={index} 
+                                  style={styles.featuredAnnouncement}
+                                  onPress={() => {
+                                    setSelectedAnnouncement(announcement);
+                                    setShowAnnouncementSheet(true);
+                                  }}
+                                  activeOpacity={0.8}
+                                >
+                                  <View style={styles.featuredAnnouncementLeft}>
+                                    {announcement.avatar ? (
+                                      <GlassImage
+                                        source={typeof announcement.avatar === 'string'
+                                          ? { uri: announcement.avatar }
+                                          : announcement.avatar}
+                                        imageStyle={styles.announcementAvatar}
+                                        glassStyle={styles.announcementAvatar}
+                                        placeholderColor="rgba(255, 255, 255, 0.1)"
+                                        blurIntensity={20}
+                                        tint="dark"
+                                        showActivityIndicator={false}
+                                      />
+                                    ) : (
+                                      <View style={styles.announcementAvatarFallback}>
+                                        <Text style={styles.announcementAvatarText}>
+                                          {announcement.user?.charAt(0)?.toUpperCase() || '?'}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                  <View style={styles.featuredAnnouncementRight}>
+                                    <View style={styles.featuredAnnouncementHeader}>
+                                      <Text numberOfLines={1} style={styles.featuredAnnouncementUser}>{announcement.user}</Text>
+                                      <View style={styles.featuredModTag}>
+                                        <Text style={styles.featuredModTagText}>Host</Text>
+                                      </View>
+                                    </View>
+                                    <Text numberOfLines={2} style={[styles.featuredAnnouncementText, {flex: 1, marginRight: 8}]}>
+                                      {announcement.content}
+                                    </Text>
+                                  </View>
+                                </TouchableOpacity>
+                              ))}
+                          </View>
+                        )}
+                    </View>
                   )}
                 </View>
 
@@ -2625,12 +2791,36 @@ const LiveAuctionStudio = memo(
           bgColor="#121212"
           childrenStyle="!px-[11px]"
           showCloseIcon={false}
+          show={rsvpSheet}
+          onRequestClose={() => showRsvpSheet(false)}
+          snapPoints={["45%"]}
+          enableDynamicSizing={false}
+          keyboardBehavior={"interactive"}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
+        >
+          {
+            scheduledStreamDetails && (
+              <RsvpSheet
+                streamDetails={scheduledStreamDetails}
+                closeSheet={() => showRsvpSheet(false)}
+              />
+            )
+          }
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
           title=""
           show={showProductPreview}
           snapPoints={["70%"]}
           titleColor="!text-white"
           onRequestClose={() => setShowProductPreview(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {selectedProduct && (
             <ProductPreview
@@ -2650,6 +2840,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowCheckout(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {selectedProduct && (
             <CheckoutNow
@@ -2661,6 +2853,8 @@ const LiveAuctionStudio = memo(
                 ""
               }
               channel="liveshow"
+              blipId=""
+              streamId={activeStreamDetails?.stream?._id}
             />
           )}
         </BottomSheet>
@@ -2677,6 +2871,7 @@ const LiveAuctionStudio = memo(
           onRequestClose={() => setShowBidVariation(false)}
           keyboardBehavior="fillParent"
           enableContentPanningGesture={true}
+          enablePanDownToClose={true}
         >
           {selectedBidProduct && (
             <BidVariationSelector
@@ -2724,6 +2919,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowViewers(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamViewers
             viewers={detailedViewers}
@@ -2746,6 +2943,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowStreamInfo(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamInfo
             storeInfo={{
@@ -2774,6 +2973,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowOrders(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
         </BottomSheet>
@@ -2789,6 +2990,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowBidError(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <BidErrorMessage
             errorMessage={bidErrorMessage}
@@ -2807,6 +3010,8 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowOrderCreatedNotification(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           {activeOrderCreated && (
             <OrderCreatedNotification
@@ -2832,11 +3037,32 @@ const LiveAuctionStudio = memo(
           titleColor="!text-white"
           onRequestClose={() => setShowShop(false)}
           keyboardBehavior="interactive"
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
         >
           <AuctionShopBottomSheet
             streamProducts={streamProducts}
             closeSheet={() => setShowShop(false)}
             isLoading={isLoading}
+          />
+        </BottomSheet>
+
+        {/* Announcement Bottom Sheet */}
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showAnnouncementSheet}
+          snapPoints={["55%"]}
+          titleColor="!text-white"
+          onRequestClose={() => setShowAnnouncementSheet(false)}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
+        >
+          <AnnouncementView 
+            announcement={selectedAnnouncement} 
+            closeSheet={() => setShowAnnouncementSheet(false)} 
           />
         </BottomSheet>
 
@@ -2910,12 +3136,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   commentsContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: "70%",
     maxHeight: 200,
-    zIndex: 10,
   },
   commentsList: {
     paddingHorizontal: 8,
@@ -3346,6 +3567,124 @@ const styles = StyleSheet.create({
   leaveButtonText: {
     color: "#FFFFFF",
     fontWeight: "bold",
+  },
+  // Announcement styles
+  featuredAnnouncementContainer: {
+    marginTop: 10,
+    marginBottom: 10,
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backdropFilter: "blur(10px)",
+    opacity: 0.6,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#16783A",
+    maxWidth: "90%",
+  },
+  featuredAnnouncement: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  featuredAnnouncementLeft: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  announcementAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  announcementAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  announcementAvatarText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  featuredAnnouncementRight: {
+    flex: 1,
+  },
+  featuredAnnouncementHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+    width: 120,
+  },
+  featuredAnnouncementUser: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  featuredModTag: {
+    backgroundColor: "#16783A",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  featuredModTagText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  featuredAnnouncementText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+  announcementItem: {
+    flexDirection: "row",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 0,
+    maxWidth: "100%",
+    alignSelf: "flex-start",
+    flex: 1,
+  },
+  announcementContent: {
+    flexDirection: "column",
+    flex: 1,
+  },
+  announcementHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  announcementUser: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  modTag: {
+    backgroundColor: "#16783A",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  modTagText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  announcementText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    lineHeight: 16,
   },
 });
 

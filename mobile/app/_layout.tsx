@@ -1,3 +1,4 @@
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -5,7 +6,6 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
 // import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Provider } from "react-redux";
 import { store } from "@/store";
@@ -87,11 +87,11 @@ function RootLayoutNav() {
   }
 
   return (
-    <Provider store={store}>
-      {/* <KeyboardProvider> */}
-      <ToastProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        {/* <KeyboardProvider> */}
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-          <GestureHandlerRootView>
+          <ToastProvider>
             <BottomSheetModalProvider>
               <LivestreamProvider>
                 <Stack>
@@ -114,12 +114,12 @@ function RootLayoutNav() {
                 <FlashMessage floating style={styles.flashMessage} />
               </LivestreamProvider>
             </BottomSheetModalProvider>
-          </GestureHandlerRootView>
+          </ToastProvider>
         </SafeAreaProvider>
-      </ToastProvider>
 
-      {/* </KeyboardProvider> */}
-    </Provider>
+        {/* </KeyboardProvider> */}
+      </Provider>
+    </GestureHandlerRootView>
   );
 }
 

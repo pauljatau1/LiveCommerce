@@ -15,7 +15,12 @@ import Auctions from "./auctions";
 import Coming from "./coming";
 import { ScrollView } from "react-native-virtualized-view";
 import CustomButton from "../global/button/CustomButton";
-import { router, useFocusEffect, useSegments } from "expo-router";
+import {
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useSegments,
+} from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 
@@ -24,9 +29,11 @@ const Home = () => {
   // const segments = useSegments();
   // const layout = useWindowDimensions();
 
+  const { homeTab } = useLocalSearchParams();
+
   const [index, setIndex] = useState(0);
 
-  const [selected, setSelected] = useState("Auqli Live");
+  const [selected, setSelected] = useState(homeTab?.toString() || "Auqli Live");
   const [routes] = useState([
     { key: "Auqli Live", title: "Auqli Live" },
     { key: "Live Auctions", title: "Auctions" },
@@ -38,7 +45,7 @@ const Home = () => {
   const renderContent = useCallback(() => {
     switch (selected) {
       case "Auqli Live":
-        return <AuqliLive />;
+        return <AuqliLive setActiveTab={setActiveTab} />;
       // case "For You":
       //   return <ForYou />;
       case "Live Auctions":
@@ -51,6 +58,10 @@ const Home = () => {
         return <Text className="text-white">No Content Available</Text>;
     }
   }, [selected]);
+
+  const setActiveTab = useCallback((tab: string) => {
+    setSelected(tab);
+  }, []);
 
   // const renderScene = ({ route }: { route: any }) => {
   //   switch (route.key) {
@@ -123,14 +134,14 @@ const Home = () => {
         }}
       >
         <CustomButton
-          title="Live Show"
+          title="Live & Videos"
           className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
           onPress={() => {
             router.push("/(root)/(tabs)/home/home");
           }}
         />
         <CustomButton
-          title="Markets"
+          title="Marketplace"
           textStyle="!text-[#141B34]"
           className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
           onPress={() => {
@@ -154,14 +165,14 @@ const TabWrapper = ({ children }: { children: any }) => {
       {children}
       <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
         <CustomButton
-          title="Live Show"
+          title="Live & Videos"
           className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
           onPress={() => {
             router.push("/(root)/(tabs)/home/home");
           }}
         />
         <CustomButton
-          title="Markets"
+          title="Marketplace"
           textStyle="!text-[#141B34]"
           className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
           onPress={() => {

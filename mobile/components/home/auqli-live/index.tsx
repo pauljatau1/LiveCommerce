@@ -1,5 +1,5 @@
 import { View, Text, RefreshControl, Platform } from "react-native";
-import React from "react";
+import React, { memo } from "react";
 import PopularCard from "./popular-card";
 import SpotLight from "./spot-light";
 import Sellers from "./sellers";
@@ -14,8 +14,9 @@ import { ScrollView } from "react-native-virtualized-view";
 import UpComing from "./upcoming-shows";
 import { trackScreen } from "@/utils/customerio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ForYouNewAuqliSection from "@/components/marketplace/for-you/new-auqli-section";
 
-const AuqliLive = () => {
+const AuqliLive = ({ setActiveTab }: any) => {
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = () => {
     setRefreshing(true);
@@ -62,13 +63,15 @@ const AuqliLive = () => {
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
       )} */}
         <ForYou />
-        <PopularCard />
-        <SpotLight />
+        <UpComing setActiveTab={setActiveTab} />
+
+        {/* <PopularCard /> */}
+        {/* <SpotLight /> */}
         <SuggestedBlips />
+        <ForYouNewAuqliSection source="live" />
         <Sellers />
-        <Favourite />
-        <UpComing />
-        <WatchCategory />
+        {/* <Favourite /> */}
+        {/* <WatchCategory /> */}
 
         <ExploreMoreSection />
       </View>
@@ -76,4 +79,4 @@ const AuqliLive = () => {
   );
 };
 
-export default AuqliLive;
+export default memo(AuqliLive);

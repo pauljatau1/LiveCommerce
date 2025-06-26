@@ -37,11 +37,18 @@ import { Paystack } from "react-native-paystack-webview";
 import OrderPopup from "@/components/global/orders/order-popup";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import {
+  FontAwesome5,
+  MaterialCommunityIcons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
-import { trackFacebookPurchase, trackFacebookEvent } from "@/utils/facebook-analytics";
+import {
+  trackFacebookPurchase,
+  trackFacebookEvent,
+} from "@/utils/facebook-analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -116,6 +123,9 @@ const Checkout = () => {
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
+  const [walletCredit, setWalletCredit] = useState<number>(0);
+  const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
+  const [freeShipping, setFreeShipping] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return !cart?.some(
@@ -130,7 +140,7 @@ const Checkout = () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -216,9 +226,9 @@ const Checkout = () => {
       recipientPhone:
         user.phoneNumber.replaceAll("-", "")?.length > 14
           ? user.phoneNumber
-              .replaceAll("-", "")
-              ?.replace("+234", "")
-              ?.replace("0", "")
+            .replaceAll("-", "")
+            ?.replace("+234", "")
+            ?.replace("0", "")
           : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
@@ -280,9 +290,9 @@ const Checkout = () => {
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                  .replaceAll("-", "")
-                  ?.replace("+234", "")
-                  ?.replace("0", "")
+                .replaceAll("-", "")
+                ?.replace("+234", "")
+                ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -298,8 +308,6 @@ const Checkout = () => {
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -385,6 +393,7 @@ const Checkout = () => {
         {
           state: selectedAddress.recipientState,
           pickupLocations: payload,
+          fromCompatibleVersion: true,
         },
 
         {
@@ -397,6 +406,7 @@ const Checkout = () => {
 
       setDeliveryFeeObject(response.data?.costs);
       setFetchedShippingFee(response.data?.totalCost);
+      setFreeShipping(response.data?.freeShipping);
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
@@ -413,6 +423,7 @@ const Checkout = () => {
       // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
+      setLoading(false);
     }
   };
 
@@ -488,7 +499,7 @@ const Checkout = () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
-    if (!deliveryFee && selectedDeliveryOpt == 0) {
+    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
       return toast.error("error getting delivery fee");
     }
 
@@ -549,6 +560,7 @@ const Checkout = () => {
       additionalDetails: "Please handle with care",
       paidFromWallet: selectedPayment == 1,
       isStorePickup: selectedDeliveryOpt == 1,
+      isWalletCredit: walletCredit > 0 ? true : false,
     };
 
     // return console.log(JSON.stringify(order));
@@ -573,10 +585,25 @@ const Checkout = () => {
         try {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
+          const itemsTotal = (deliveryFee && cartTotal) ||
+            (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+            ? "₦" +
+            (
+              deliveryFee +
+              (couponApplied
+                ? couponApplied?.couponSubTotal
+                : cartTotal) -
+              walletCredit
+            )?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+            : 0;
+
           if (user) {
             console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
-            trackEventMixpanel('order_created', {
+            trackEventMixpanel("order_created", {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -584,13 +611,7 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
+              itemsTotal: itemsTotal,
               shippingTotal: `₦${response.data?.totals?.shippingTotal?.toLocaleString(
                 undefined,
                 {
@@ -615,7 +636,7 @@ const Checkout = () => {
               timestamp: new Date().toISOString(),
             });
 
-            trackEventCustomerio('order_created', {
+            trackEventCustomerio("order_created", {
               userId: user?._id,
               email: user?.email,
               firstName: user?.firstName,
@@ -623,16 +644,18 @@ const Checkout = () => {
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              itemsTotal: itemsTotal,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
               orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              deliveryOrderNo: response.data?.orders.map(
+                (order: any) => order.fezOrderNo || "N/A",
+              ),
               products: cartData?.map((item: any) => {
                 return {
                   name: item.name,
@@ -641,29 +664,44 @@ const Checkout = () => {
                     maximumFractionDigits: 2,
                   })}`,
                   productId: item._id,
-                }
+                };
               }),
               timestamp: new Date().toISOString(),
             });
 
-            trackFacebookPurchase(cartTotal, "NGN", {
-              userId: user?._id,
+            const facebookItemsTotal = (deliveryFee && cartTotal) ||
+              (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+              ? (
+                deliveryFee +
+                (couponApplied
+                  ? couponApplied?.couponSubTotal
+                  : cartTotal) -
+                walletCredit
+              )?.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+              : 0;;
+
+            trackFacebookPurchase(Number(facebookItemsTotal), "NGN", {
               email: user?.email,
               firstName: user?.firstName,
               lastName: user?.lastName,
               username: user?.username,
               orderId: response.data.orders.map((order: any) => order.orderId),
               sellerId: response.data.orders[0]?.seller,
-              itemsTotal: `₦${response.data?.totals?.itemsTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              itemsTotal: itemsTotal,
+              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}`,
               orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map((order: any) => order.fezOrderNo),
+              deliveryOrderNo: response.data?.orders.map(
+                (order: any) => order.fezOrderNo || "N/A",
+              ),
               products: cartData?.map((item: any) => {
                 return {
                   name: item.name,
@@ -672,7 +710,7 @@ const Checkout = () => {
                     maximumFractionDigits: 2,
                   })}`,
                   productId: item._id,
-                }
+                };
               }),
               timestamp: new Date().toISOString(),
             });
@@ -748,6 +786,9 @@ const Checkout = () => {
     cartTotal,
     cart,
     couponApplied,
+    walletCredit,
+    selectedDeliveryOpt,
+    freeShipping,
   ]);
 
   useEffect(() => {
@@ -776,8 +817,8 @@ const Checkout = () => {
         const user = JSON.parse(userData || "{}");
         if (user) {
           const cart = await AsyncStorage.getItem("cart");
-          const cartData = JSON.parse(cart || '{}');
-          trackEventMixpanel('checkout_started', {
+          const cartData = JSON.parse(cart || "{}");
+          trackEventMixpanel("checkout_started", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -801,7 +842,7 @@ const Checkout = () => {
             timestamp: new Date().toISOString(),
           });
 
-          trackEventCustomerio('checkout_started', {
+          trackEventCustomerio("checkout_started", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -816,7 +857,7 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -826,7 +867,6 @@ const Checkout = () => {
           });
 
           trackFacebookEvent("InitiateCheckout", {
-            userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
             lastName: user?.lastName,
@@ -840,7 +880,7 @@ const Checkout = () => {
                   maximumFractionDigits: 2,
                 })}`,
                 productId: item._id,
-              }
+              };
             }),
             totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -856,6 +896,37 @@ const Checkout = () => {
 
     trackCheckout();
   }, []);
+
+  useEffect(() => {
+    if (selectedPayment == 1 || walletBalance == 0) {
+      setShowWalletCredit(false);
+      setWalletCredit(0);
+      return;
+    }
+
+    const orderTotal =
+      (deliveryFee && cartTotal) ||
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+      (freeShipping && cartTotal)
+        ? deliveryFee +
+        (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+        : null;
+
+    if (!orderTotal) {
+      return;
+    }
+
+    if (walletBalance < orderTotal - 100) {
+      setShowWalletCredit(true);
+    }
+  }, [
+    cartTotal,
+    deliveryFee,
+    couponApplied,
+    selectedDeliveryOpt,
+    selectedPayment,
+    freeShipping,
+  ]);
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -906,10 +977,10 @@ const Checkout = () => {
               >
                 {index == 1
                   ? "₦" +
-                    walletBalance?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
+                  walletBalance?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
                   : item.description}
               </Text>
             </View>
@@ -943,11 +1014,11 @@ const Checkout = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView
         className="flex-1 bg-[#121212] "
-        // style={{ minHeight: height }}
+      // style={{ minHeight: height }}
       >
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
-            className="absolute left-[18px]"
+            className="absolute left-[12px]"
             onPress={async () => {
               try {
                 const userData = await AsyncStorage.getItem("user");
@@ -995,6 +1066,15 @@ const Checkout = () => {
             Checkout
           </Text>
         </View>
+        {freeShipping && (
+          <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+            <FontAwesome5 name="truck" size={14} color="white" />
+            <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+              Free Shipping on All Orders!
+            </Text>
+          </View>
+        )}
+
         <ScrollView className="bg-[#121212]">
           {loading ? (
             <ActivityIndicator
@@ -1062,8 +1142,8 @@ const Checkout = () => {
 
               {cart?.length > 0
                 ? cart.map((cartItem, index) => (
-                    <CartItem cartItem={cartItem} key={index} />
-                  ))
+                  <CartItem cartItem={cartItem} key={index} />
+                ))
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
@@ -1158,6 +1238,43 @@ const Checkout = () => {
                 </View>
               </View>
 
+              {showWalletCredit && (
+                <TouchableOpacity
+                  className="mb-[1px]"
+                  style={{
+                    marginBottom: 0,
+                  }}
+                  onPress={() =>
+                    walletCredit > 0
+                      ? setWalletCredit(0)
+                      : setWalletCredit(walletBalance)
+                  }
+                >
+                  <View
+                    className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                  >
+                    <View className="flex-row items-center gap-[10px]">
+                      <View>
+                        <AntDesign
+                          name="checkcircle"
+                          size={20}
+                          color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                        />
+                      </View>
+                      <Text
+                        className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                        numberOfLines={1}
+                      >
+                        Apply Auqli Credit
+                      </Text>
+                    </View>
+                    <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                      ₦{walletBalance?.toLocaleString()}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               <View className="mb-[10px]">
                 <View
                   className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
@@ -1225,6 +1342,20 @@ const Checkout = () => {
                     </Text>
                   </View>
                 )}
+                {walletCredit > 0 && (
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Auqli Credit Applied
+                    </Text>
+                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                      - ₦
+                      {walletCredit?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                )}
                 <View className="flex-row justify-between items-center">
                   <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                     Shipping Fee
@@ -1239,7 +1370,9 @@ const Checkout = () => {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })
-                        : "-"}
+                        : freeShipping
+                          ? "FREE"
+                          : "-"}
                     </Text>
                   )}
                 </View>
@@ -1252,17 +1385,19 @@ const Checkout = () => {
                   ) : (
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                       {(deliveryFee && cartTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                      (freeShipping && cartTotal)
                         ? "₦" +
-                          (
-                            deliveryFee +
-                            (couponApplied
-                              ? couponApplied?.couponSubTotal
-                              : cartTotal)
-                          )?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
+                        (
+                          deliveryFee +
+                          (couponApplied
+                            ? couponApplied?.couponSubTotal
+                            : cartTotal) -
+                          walletCredit
+                        )?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                         : "-"}
                     </Text>
                   )}
@@ -1276,17 +1411,19 @@ const Checkout = () => {
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
                   Pay (
                   {(deliveryFee && cartTotal) ||
-                  (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                  (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                  (freeShipping && cartTotal)
                     ? "₦" +
-                      (
-                        deliveryFee +
-                        (couponApplied
-                          ? couponApplied?.couponSubTotal
-                          : cartTotal)
-                      )?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
+                    (
+                      deliveryFee +
+                      (couponApplied
+                        ? couponApplied?.couponSubTotal
+                        : cartTotal) -
+                      walletCredit
+                    )?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                     : "-"}
                   )
                 </Text>
@@ -1302,10 +1439,11 @@ const Checkout = () => {
             amount={
               selectedDeliveryOpt == 0
                 ? deliveryFee! +
-                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+                (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
+                walletCredit
                 : couponApplied
-                  ? couponApplied?.couponSubTotal
-                  : cartTotal
+                  ? couponApplied?.couponSubTotal - walletCredit
+                  : cartTotal - walletCredit
             }
             channels={[
               "card",

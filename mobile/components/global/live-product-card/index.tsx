@@ -155,8 +155,8 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         showCloseIcon={false}
         show={rsvpSheet}
         onRequestClose={() => showRsvpSheet(false)}
-        snapPoints={["35%"]}
-        enableDynamicSizing={false}
+        // snapPoints={["35%"]}
+        enableDynamicSizing={true}
         keyboardBehavior={"interactive"}
       >
         <RsvpSheet

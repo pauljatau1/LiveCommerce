@@ -101,5 +101,7 @@ export interface LivestreamContextType {
     checkIfSellerIsFollowedFromSellerProfile: (sellerId: string) => Promise<any>;
     fetchStreamOrders: (streamId: string) => Promise<any>;
     isStreamEnded: boolean;
+    isStreamScheduled: boolean;
+    scheduledStreamDetails: StreamDetails | null;
     // Add other properties as needed
 }

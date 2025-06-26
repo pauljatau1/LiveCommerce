@@ -408,7 +408,10 @@ const SingleOrder = () => {
                     {order?.order?.isStorePickup && (
                       <StorePickupDetails
                         details={order.items[0]}
-                        address={order?.seller?.sellerAddress}
+                        address={
+                          order?.seller?.sellerAddress ||
+                          order?.seller?.businessAddress
+                        }
                       />
                     )}
 

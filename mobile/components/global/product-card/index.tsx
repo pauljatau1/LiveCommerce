@@ -159,7 +159,9 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                       width: 20,
                       height: 20,
                     }
-                  : require("../../../assets/icons/user-image-empty.png")
+                  : {
+                      uri: "https://cdn2.iconfinder.com/data/icons/facebook-ui-colored/48/JD-15-512.png",
+                    }
               }
               resizeMode="contain"
               resizeMethod="resize"
@@ -168,6 +170,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
                 width: 20,
                 height: 20,
                 borderRadius: 20,
+                backgroundColor: "#2e2e2e",
               }}
             />
             <View className="shrink">
@@ -236,7 +239,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
           </Text>
         </View>
 
-        <View className="mt-[4px]">
+        <View className="mt-[4px] flex-row items-center justify-between">
           {moreDetails?.reviewCount > 0 ||
           moreDetails?.stats?.totalReviews > 0 ? (
             <View className="flex-row items-center gap-[6px]">
@@ -276,6 +279,11 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
               No Reviews
             </Text>
           )}
+          <View className=" bg-[#0EA245] py-[2px] px-[5px] rounded-[14px] shrink">
+            <Text className="text-[6px] text-white font-LexendDecaBold">
+              Free Shipping
+            </Text>
+          </View>
         </View>
 
         {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">

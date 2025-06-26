@@ -76,6 +76,7 @@ const Marketplace = () => {
       setSelected(allCategories[0]?.name);
     } catch (e) {
       console.log(e);
+      setSelected(allCategories[0]?.name);
       setCategories(allCategories.map((ct: any) => ct.name));
     }
   };
@@ -134,7 +135,7 @@ const Marketplace = () => {
         }}
       ></ScrollView> */}
 
-      {renderContent()}
+      {selected && renderContent()}
 
       {/* {selected == "For You s" ? (
           <View>
@@ -166,7 +167,7 @@ const Marketplace = () => {
 
       <View className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">
         <CustomButton
-          title="Live Show"
+          title="Live & Videos"
           textStyle="!text-[#141B34]"
           className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
           onPress={() => {
@@ -174,7 +175,7 @@ const Marketplace = () => {
           }}
         />
         <CustomButton
-          title="Markets"
+          title="Marketplace"
           className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
           onPress={() => {
             router.push("/(root)/(tabs)/home/marketplace");

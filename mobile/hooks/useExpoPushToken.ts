@@ -119,7 +119,7 @@ export const usePushNotifications = (): PushNotificationState => {
         const notificationData = response.notification.request.content.data;
         if (notificationData?.type === "message") {
           router.push({
-            pathname: `../../messageRoom/${notificationData.senderId}`,
+            pathname: `/(root)/messageRoom/${notificationData.senderId}`,
             params: {
               conversationId: notificationData.conversationId,
 
@@ -127,10 +127,10 @@ export const usePushNotifications = (): PushNotificationState => {
             },
           });
         } else if (notificationData?.orderId) {
-          router.push(`/orders/${notificationData?.orderId}`);
+          router.push(`/(root)/orders/${notificationData?.orderId}`);
         } else if (notificationData?.streamId && notificationData?.streamType) {
           router.push({
-            pathname: `/livestream/feed`,
+            pathname: `/(root)/livestream/feed`,
             params: {
               id: notificationData?.streamId,
 

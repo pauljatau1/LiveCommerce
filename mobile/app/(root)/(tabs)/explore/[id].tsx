@@ -161,7 +161,7 @@ const SingleExplore = () => {
             }}
           >
             <CustomButton
-              title="Live Show"
+              title="Live & Videos"
               textStyle={`${mode == "liveshow" ? "!text-[#fff]" : "!text-[#141B34]"}`}
               className={`rounded-tr-none rounded-br-none !w-[130px] rounded-[40px]  ${mode == "liveshow" ? "    !bg-primary-200" : "!bg-[#F2F2F2]  "}`}
               onPress={() => {
@@ -169,7 +169,7 @@ const SingleExplore = () => {
               }}
             />
             <CustomButton
-              title="Markets"
+              title="Marketplace"
               textStyle={`${mode == "marketplace" ? "!text-[#fff]" : "!text-[#141B34]"}`}
               className={`!w-[130px]   rounded-tl-none rounded-bl-none rounded-[40px] ${mode == "marketplace" ? "!bg-primary-200" : "!bg-[#F2F2F2]   "}`}
               onPress={() => {

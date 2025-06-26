@@ -3,7 +3,6 @@ import {
   Text,
   Pressable,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   BackHandler,
 } from "react-native";
@@ -23,11 +22,12 @@ import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import {
   AntDesign,
+  FontAwesome5,
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 const mockDeliveryOtions = [
   {
@@ -119,6 +119,9 @@ const CheckoutNow = ({
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponInputFocused, setCouponInputFocused] = useState<boolean>(false);
+  const [walletCredit, setWalletCredit] = useState<number>(0);
+  const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
+  const [freeShipping, setFreeShipping] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return product?.seller?.shippingInfo?.offersStorePickup;
@@ -256,8 +259,6 @@ const CheckoutNow = ({
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -322,6 +323,7 @@ const CheckoutNow = ({
         {
           state: selectedAddress.recipientState,
           pickupLocations: payload,
+          fromCompatibleVersion: true,
         },
 
         {
@@ -332,6 +334,7 @@ const CheckoutNow = ({
       );
       setDeliveryFeeObject(response.data?.costs);
       setFetchedShippingFee(response.data?.totalCost);
+      setFreeShipping(response.data?.freeShipping);
       // setDeliveryFee(response.data?.totalCost);
     } catch (e) {
       console.log("error fetching delivery fee ", e);
@@ -348,6 +351,7 @@ const CheckoutNow = ({
       // setFetchedShippingFee(3225);
     } finally {
       setShippingFeeLoading(false);
+      setLoading(false);
     }
   };
 
@@ -365,7 +369,7 @@ const CheckoutNow = ({
       });
     }
 
-    if (!deliveryFee && selectedDeliveryOpt == 0) {
+    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
       return show({
         text2: "error getting delivery fee",
         type: "error",
@@ -431,6 +435,7 @@ const CheckoutNow = ({
       channel,
       streamId,
       isStorePickup: selectedDeliveryOpt == 1,
+      isWalletCredit: walletCredit > 0 ? true : false,
     };
     const token = await getToken();
     try {
@@ -658,6 +663,37 @@ const CheckoutNow = ({
     }
   }, [products]);
 
+  useEffect(() => {
+    if (selectedPayment == 1 || walletBalance == 0) {
+      setShowWalletCredit(false);
+      setWalletCredit(0);
+      return;
+    }
+
+    const orderTotal =
+      (deliveryFee && productTotal) ||
+      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+      (freeShipping && productTotal)
+        ? deliveryFee +
+          (couponApplied ? couponApplied?.couponSubTotal : productTotal)
+        : null;
+
+    if (!orderTotal) {
+      return;
+    }
+
+    if (walletBalance < orderTotal - 100) {
+      setShowWalletCredit(true);
+    }
+  }, [
+    productTotal,
+    deliveryFee,
+    couponApplied,
+    selectedDeliveryOpt,
+    selectedPayment,
+    freeShipping,
+  ]);
+
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
       if (selectedDeliveryOpt == 1 && index == 2) return null;
@@ -740,7 +776,7 @@ const CheckoutNow = ({
   );
   return (
     <View className="p-[8px] pb-[16px]">
-      <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
+      <BottomSheetScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator
             size={"small"}
@@ -768,6 +804,14 @@ const CheckoutNow = ({
               </View>
             ) : (
               <View className=" gap-[30px] pb-[20px]">
+                {freeShipping && (
+                  <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+                    <FontAwesome5 name="truck" size={14} color="white" />
+                    <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+                      Free Shipping on All Orders!
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   className="p-[20px] rounded-[16px] flex-row items-center justify-between"
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
@@ -910,6 +954,43 @@ const CheckoutNow = ({
                   </View>
                 </View>
 
+                {showWalletCredit && (
+                  <TouchableOpacity
+                    className="mb-[1px]"
+                    style={{
+                      marginBottom: 0,
+                    }}
+                    onPress={() =>
+                      walletCredit > 0
+                        ? setWalletCredit(0)
+                        : setWalletCredit(walletBalance)
+                    }
+                  >
+                    <View
+                      className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                    >
+                      <View className="flex-row items-center gap-[10px]">
+                        <View>
+                          <AntDesign
+                            name="checkcircle"
+                            size={20}
+                            color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                          />
+                        </View>
+                        <Text
+                          className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                          numberOfLines={1}
+                        >
+                          Apply Auqli Credit
+                        </Text>
+                      </View>
+                      <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                        ₦{walletBalance?.toLocaleString()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
                 <View className="mb-[10px]">
                   <View
                     className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
@@ -981,6 +1062,20 @@ const CheckoutNow = ({
                       </Text>
                     </View>
                   )}
+                  {walletCredit > 0 && (
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Auqli Credit Applied
+                      </Text>
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        - ₦
+                        {walletCredit?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between items-center">
                     <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Shipping Fee
@@ -995,7 +1090,9 @@ const CheckoutNow = ({
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })
-                          : "-"}
+                          : freeShipping
+                            ? "FREE"
+                            : "-"}
                       </Text>
                     )}
                   </View>
@@ -1008,13 +1105,15 @@ const CheckoutNow = ({
                     ) : (
                       <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
                         {(deliveryFee && productTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                        (freeShipping && productTotal)
                           ? "₦" +
                             (
                               deliveryFee +
                               (couponApplied
                                 ? couponApplied?.couponSubTotal
-                                : productTotal)
+                                : productTotal) -
+                              walletCredit
                             )?.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -1035,13 +1134,15 @@ const CheckoutNow = ({
                     <Text className="text-white text-[16px] font-LexendDecaMedium">
                       Pay (
                       {(deliveryFee && productTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                      (freeShipping && productTotal)
                         ? "₦" +
                           (
                             deliveryFee +
                             (couponApplied
                               ? couponApplied?.couponSubTotal
-                              : productTotal)
+                              : productTotal) -
+                            walletCredit
                           )?.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1055,7 +1156,7 @@ const CheckoutNow = ({
             )}
           </>
         )}
-      </ScrollView>
+      </BottomSheetScrollView>
       <LoadingModal isVisible={orderLoading} />
       {showPaystack && (
         <Paystack
@@ -1064,10 +1165,11 @@ const CheckoutNow = ({
           amount={
             selectedDeliveryOpt == 0
               ? deliveryFee! +
-                (couponApplied ? couponApplied?.couponSubTotal : productTotal)
+                (couponApplied ? couponApplied?.couponSubTotal : productTotal) -
+                walletCredit
               : couponApplied
-                ? couponApplied?.couponSubTotal
-                : productTotal
+                ? couponApplied?.couponSubTotal - walletCredit
+                : productTotal - walletCredit
           }
           channels={[
             "card",

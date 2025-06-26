@@ -23,17 +23,30 @@ import AuctionCard from "../global/auction-card";
 import LottieView from "lottie-react-native";
 import MainAuctionCard from "../global/auction-card/main";
 
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
+
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+
+  const [filter, setFilter] = useState<string>("None");
+  const [selectedFilters, setSelectedFilters] = useState<any>();
   const { data, isLoading, isFetching, isError, refetch } =
     useDeepSearchProductsQuery({
       query: searchQuery,
       page,
       limit: 10,
+      sortBy: filter,
+      minPrice: selectedFilters?.price?.min,
+      maxPrice: selectedFilters?.price?.max,
+      condition: selectedFilters?.condition?.toLowerCase()?.replace(" ", "-"),
     });
-  const [filter, setFilter] = useState<string>("None");
-  const [selectedFilters, setSelectedFilters] = useState<any>();
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
 
@@ -53,27 +66,35 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
-    setFilter(type);
-    const sortedProducts = catalogSort(products, type);
-    setFilteredProducts(sortedProducts);
+    console.log("catalog sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const handleFilter = (filters: any) => {
-    let appliedFilters = products?.slice();
-    if (filters.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters.price);
-    }
-    if (filters.condition) {
-      appliedFilters = appliedFilters.filter(
-        (product) =>
-          product?.condition ==
-          filters.condition.toLowerCase().replace(" ", "-"),
-      );
-    }
+    // let appliedFilters = products?.slice();
+    // if (filters.price) {
+    //   appliedFilters = catalogFilterPrice(appliedFilters, filters.price);
+    // }
+    // if (filters.condition) {
+    //   appliedFilters = appliedFilters.filter(
+    //     (product) =>
+    //       product?.condition ==
+    //       filters.condition.toLowerCase().replace(" ", "-"),
+    //   );
+    // }
 
-    setFilteredProducts(appliedFilters);
+    // setFilteredProducts(appliedFilters);
+    // setShowFilterSheet(false);
+    // setSelectedFilters(filters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   const renderProducts = (item: any) => {
@@ -314,7 +335,11 @@ const SortSheet = ({
                   width: 12,
                   height: 12,
                   borderRadius: 12,
-                  backgroundColor: selectedType == option ? "#fff" : "",
+                  backgroundColor:
+                    selectedType == option ||
+                    sortMap[options[index]] == selectedType
+                      ? "#fff"
+                      : "",
                 }}
               ></View>
             </View>

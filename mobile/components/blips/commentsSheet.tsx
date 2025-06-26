@@ -8,7 +8,10 @@ import {
   Platform,
 } from "react-native";
 import React, { useCallback, useEffect, useRef, useState, memo } from "react";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
 import { formatNumber } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
 import Comment from "./comment";
@@ -187,8 +190,8 @@ const CommentsSheet = ({
 
       if (response.status == 201) {
         try {
-          const userData = await AsyncStorage.getItem('user');
-          const user = JSON.parse(userData || '{}');
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
           trackEvent("blip_commented", {
             blipId: id,
             userId: user?._id,
@@ -271,7 +274,7 @@ const CommentsSheet = ({
             </Pressable>
           </View>
 
-          <FlatList
+          <BottomSheetFlatList
             ref={commentsListRef}
             data={comments}
             renderItem={renderComments}

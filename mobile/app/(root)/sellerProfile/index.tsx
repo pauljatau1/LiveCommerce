@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  ScrollView,
+  // ScrollView,
 } from "react-native";
 import React, {
   useState,
@@ -42,6 +42,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
+import { ScrollView } from "react-native-virtualized-view";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -662,7 +663,7 @@ const SellerProfile = () => {
         />
 
         <View
-          className="flex-row items-center justify-between px-[16px] gap-[40px] bg-[#121212]"
+          className="flex-row items-center justify-between px-[16px] gap-[40px] bg-[#121212] mb-[12px]"
           style={{
             borderBottomColor: "rgba(204, 204, 204, 0.25)",
             borderBottomWidth: 0.5,

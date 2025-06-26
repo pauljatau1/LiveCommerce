@@ -67,6 +67,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import StreamEndedAlert from './components/StreamEndedAlert';
+import RsvpSheet from "@/components/livestream/rsvpSheet";
+import AnnouncementView from '@/components/livestream/AnnouncementView';
 
 const { height } = Dimensions.get("window");
 
@@ -75,11 +77,13 @@ const LivestreamStudioFeed = ({
   isVisible,
   onInteractionStart,
   shared,
+  onRegisterCleanup,
 }: {
   id: any;
   isVisible: boolean;
   onInteractionStart?: () => void;
   shared: boolean;
+  onRegisterCleanup?: (cleanupFn: () => Promise<void>) => void;
 }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -93,7 +97,9 @@ const LivestreamStudioFeed = ({
     followSellerThroughStream,
     unfollowSellerThroughStream,
     checkIfSellerIsFollowedFromSellerProfile,
-    isStreamEnded
+    isStreamEnded,
+    isStreamScheduled,
+    scheduledStreamDetails
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -142,7 +148,8 @@ const LivestreamStudioFeed = ({
       | "hostLeft"
       | "hostRejoin"
       | "leave"
-      | "liveshow_order";
+      | "liveshow_order"
+      | "announcement";
       user: string;
       avatar?: any;
       content: string;
@@ -183,6 +190,7 @@ const LivestreamStudioFeed = ({
     type: "regular",
     sellerFollowers: 0,
   });
+  const [rsvpSheet, showRsvpSheet] = useState<boolean>(isStreamScheduled);
 
   // Add state for leave stream loading
   const [isLeavingStream, setIsLeavingStream] = useState(false);
@@ -194,8 +202,24 @@ const LivestreamStudioFeed = ({
   const [isHostPresent, setIsHostPresent] = useState(true);
   const [showNoHostAlert, setShowNoHostAlert] = useState(false);
   const [showNoHostAlert2, setShowNoHostAlert2] = useState(false);
+
   // Add state to manage heart animations
   const heartsRef = useRef<FloatingHeartsRef>(null);
+
+  // Add state for announcement bottom sheet
+  const [showAnnouncementSheet, setShowAnnouncementSheet] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
+
+  // State for announcements
+  const [liveAnnouncements, setLiveAnnouncements] = useState<Array<{
+    id: string;
+    type: "announcement";
+    user: string;
+    avatar?: any;
+    content: string;
+    timestamp: Date;
+    data?: any;
+  }>>([]);
 
   const { displayShareDialog } = useShareAppLinks();
 
@@ -227,20 +251,20 @@ const LivestreamStudioFeed = ({
         commentsListRef.current.scrollToEnd({ animated: true });
       }
 
-      // Cleanup function - will run when:
-      // 1. Component unmounts
-      // 2. isVisible changes from true to false
-      // 3. id changes (which should disconnect and reconnect)
+      // Cleanup will be handled proactively by the parent component
+      // when scrolling away, so we only need to handle unmounting here
       return () => {
-        // Since we only run the effect when isVisible is true,
-        // this cleanup will only run when we're either unmounting
-        // or isVisible is changing to false, both cases where we want to leave
-        handleAutoLeaveStream();
+        // Only cleanup if component is unmounting completely (not just scrolling away)
+        // The parent will handle scrolling cleanup proactively
+        console.log(`🔧 [Studio] Component unmounting cleanup for stream ${id}`);
       };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
 
+
+
+  // Separate useEffect for keyboard event listeners
   // Separate useEffect for keyboard event listeners
   useEffect(() => {
     // Enhanced keyboard listeners for zero-latency updates
@@ -249,6 +273,9 @@ const LivestreamStudioFeed = ({
       (e) => {
         keyboardVisibleRef.current = true;
         keyboardHeightRef.current = e.endCoordinates.height;
+        if (showShop || showCheckout) {
+          return;
+        }
         // Force immediate re-render
         forceUpdate({});
       },
@@ -259,6 +286,9 @@ const LivestreamStudioFeed = ({
       (e) => {
         keyboardVisibleRef.current = false;
         keyboardHeightRef.current = 0;
+        if (showShop || showCheckout) {
+          return;
+        }
         // Force immediate re-render
         forceUpdate({});
       },
@@ -269,7 +299,7 @@ const LivestreamStudioFeed = ({
       keyboardWillShow.remove();
       keyboardWillHide.remove();
     };
-  }, []); // Empty dependency array since we don't need any dependencies for keyboard events
+  }, [showShop, showCheckout]);
 
   console.log("keyboardHeightRef", keyboardHeightRef.current);
   console.log("keyboardVisibleRef", keyboardVisibleRef.current);
@@ -449,6 +479,15 @@ const LivestreamStudioFeed = ({
       const chatInteractions =
         (streamDetails.stream as any)?.chatInteractions || [];
 
+      // Check for announcements in stream data
+      const streamAnnouncements = (streamDetails.stream as any)?.liveAnnouncements || 
+                                 (streamDetails.stream as any)?.announcements || [];
+                              
+      if (Array.isArray(streamAnnouncements) && streamAnnouncements.length > 0) {
+        console.log("Found announcements in stream data:", streamAnnouncements);
+        setLiveAnnouncements(streamAnnouncements);
+      }
+
       // Get the current user's information
       const user = await getUser();
 
@@ -467,7 +506,11 @@ const LivestreamStudioFeed = ({
       };
 
       // Add the user's join event to the beginning of chat interactions
-      const updatedChatInteractions = [...chatInteractions, userJoinEvent];
+      // Filter out announcement types as they will be displayed separately
+      const filteredChatInteractions = chatInteractions.filter(
+        (interaction: any) => interaction.type !== 'announcement'
+      );
+      const updatedChatInteractions = [...filteredChatInteractions, userJoinEvent];
 
       // Set the live comments with the updated data
       setLiveComments(updatedChatInteractions);
@@ -589,7 +632,7 @@ const LivestreamStudioFeed = ({
           break;
 
         case "comment":
-          console.log("New comment received:", notification.content);
+          console.log("New comment received:", notification);
           // Update UI to show comment
           setLiveComments((prev) => [...prev, notification as any]);
           // Increment comment count
@@ -665,6 +708,12 @@ const LivestreamStudioFeed = ({
 
           // Update UI to show order event in chat
           setLiveComments((prev) => [...prev, notification as any]);
+          break;
+
+        case "announcement":
+          console.log("Announcement received:", notification.content);
+          // Add announcement to the announcements array instead of liveComments
+          setLiveAnnouncements((prev: Array<any>) => [...prev, notification as any]);
           break;
 
         default:
@@ -821,6 +870,28 @@ const LivestreamStudioFeed = ({
       message.startsWith("audio_unmuted:")
     ) {
       console.log(message);
+    } else if (message === "leaving_channel_start") {
+      console.log("Starting channel cleanup process");
+      setStatus("Leaving stream...");
+    } else if (message.startsWith("stopped_video_track:")) {
+      console.log("Stopped video track:", message);
+    } else if (message.startsWith("stopped_audio_track:")) {
+      console.log("Stopped audio track:", message);
+    } else if (message.startsWith("unsubscribed_video:")) {
+      console.log("Unsubscribed from video:", message);
+    } else if (message.startsWith("unsubscribed_audio:")) {
+      console.log("Unsubscribed from audio:", message);
+    } else if (message === "cleanup_complete") {
+      console.log("Channel cleanup completed successfully");
+      setStatus("Stream left successfully");
+    } else if (message.startsWith("debug:")) {
+      console.log("Debug:", message);
+    } else if (message.startsWith("force_stopped_")) {
+      console.log("Force stopped track:", message);
+    } else if (message === "js_injection_called_leaveChannel") {
+      console.log("🎯 JavaScript injection successfully called leaveChannel");
+    } else if (message === "js_injection_leaveChannel_not_found") {
+      console.log("❌ JavaScript injection: leaveChannel function not found!");
     } else {
       setStatus(message);
     }
@@ -1041,12 +1112,41 @@ const LivestreamStudioFeed = ({
           </View>
         </View>
       );
+    } else if (item.type === "announcement") {
+      return (
+        <View style={styles.announcementItem}>
+          {renderAvatar()}
+          <View style={styles.announcementContent}>
+            <View style={styles.announcementHeader}>
+              <Text style={styles.announcementUser}>{item.user}</Text>
+              <View style={styles.modTag}>
+                <Text style={styles.modTagText}>Host</Text>
+              </View>
+            </View>
+            <Text style={styles.announcementText}>{item.content}</Text>
+          </View>
+        </View>
+      );
     } else {
+      const isHost = item.data?.isHost === true;
       return (
         <View style={styles.regularCommentItem}>
           {renderAvatar()}
           <View style={styles.regularCommentContent}>
-            <Text style={styles.commentUser}>{item.user}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+              <Text style={styles.commentUser}>{item.user}</Text>
+              {isHost && (
+                <View style={{ 
+                  marginLeft: 8, 
+                  backgroundColor: '#16783A', 
+                  paddingHorizontal: 6, 
+                  paddingVertical: 2, 
+                  borderRadius: 4 
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>Host</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.regularCommentText}>{item.content}</Text>
           </View>
         </View>
@@ -1195,23 +1295,35 @@ const LivestreamStudioFeed = ({
   };
 
   // Optimize with useCallback
-  const handleAutoLeaveStream = useCallback(
-    async () => {
-      if (!id) return;
+      const handleAutoLeaveStream = useCallback(
+      async () => {
+        if (!id) return;
 
-      try {
+        try {
         setIsLeavingStream(true);
 
         // First tell the WebView to leave the Agora channel
+        console.log("🔄 About to call WebView leaveChannel...");
         if (webViewRef.current) {
+          console.log("✅ WebView ref exists, injecting JavaScript...");
           webViewRef.current.injectJavaScript(`
-        if (window.leaveChannel) {
-          window.leaveChannel();
-          true;
-        }
-      `);
+            console.log("📱 JavaScript injection received");
+            if (typeof window.leaveChannel === 'function') {
+              console.log("📱 leaveChannel function found, calling it...");
+              window.leaveChannel();
+              window.ReactNativeWebView.postMessage("js_injection_called_leaveChannel");
+            } else {
+              console.log("📱 leaveChannel function not found!");
+              window.ReactNativeWebView.postMessage("js_injection_leaveChannel_not_found");
+            }
+            true;
+          `);
+          console.log("⏱️ Waiting for WebView to process...");
           // Give a small delay to allow the WebView to process the leave command
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          console.log("✅ WebView processing delay completed");
+        } else {
+          console.log("❌ WebView ref is null!");
         }
 
         // Call the leaveStream API endpoint
@@ -1219,7 +1331,7 @@ const LivestreamStudioFeed = ({
 
         // Disconnect the socket
         disconnectSocket();
-    
+
       } catch (error) {
         console.error("Error leaving stream:", error);
         // Show error message to user if needed
@@ -1238,6 +1350,14 @@ const LivestreamStudioFeed = ({
       setShowMenuPopover,
     ],
   );
+
+  // Register cleanup function with parent when component is ready
+  useEffect(() => {
+    if (isVisible && streamConfig && onRegisterCleanup) {
+      console.log(`📋 [Studio] Registering cleanup function for stream ${id}`);
+      onRegisterCleanup(handleAutoLeaveStream);
+    }
+  }, [isVisible, streamConfig, onRegisterCleanup, handleAutoLeaveStream, id]);
 
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
@@ -1868,47 +1988,108 @@ const LivestreamStudioFeed = ({
 
                 {/* Live Comments Section */}
                 {shouldShowUI && (
-                  <ScrollView
-                    ref={commentsListRef}
-                    style={styles.commentsContainer}
-                    nestedScrollEnabled={true}
-                    onLayout={() => {
-                      // Scroll to end on initial layout
-                      if (commentsListRef.current && liveComments.length > 0) {
-                        setTimeout(() => {
-                          commentsListRef.current?.scrollToEnd({
-                            animated: false,
-                          });
-                        }, 100);
-                      }
-                    }}
-                    showsVerticalScrollIndicator={false}
-                    fadingEdgeLength={350}
-                    contentContainerStyle={styles.commentsList}
-                    onContentSizeChange={() => {
-                      // Scroll to end when content size changes
-                      if (commentsListRef.current && liveComments.length > 0) {
-                        setTimeout(() => {
-                          commentsListRef.current?.scrollToEnd({
-                            animated: false,
-                          });
-                        }, 100);
-                      }
-                    }}
-                    maintainVisibleContentPosition={{
-                      minIndexForVisible: 0,
-                      autoscrollToTopThreshold: 10,
-                    }}
-                    removeClippedSubviews={false}
-                  >
-                    {liveComments?.map((item: any, index: number) => (
-                      <View key={index}>{renderCommentItem({ item })}</View>
-                    ))}
-                  </ScrollView>
+                  <View className="absolute bottom-0 left-0 w-[70%] z-10  " >
+                    <ScrollView
+                      ref={commentsListRef}
+                      style={styles.commentsContainer}
+                      nestedScrollEnabled={true}
+                      onLayout={() => {
+                        // Scroll to end on initial layout
+                        if (commentsListRef.current && liveComments.length > 0) {
+                          setTimeout(() => {
+                            commentsListRef.current?.scrollToEnd({
+                              animated: false,
+                            });
+                          }, 100);
+                        }
+                      }}
+                      showsVerticalScrollIndicator={false}
+                      fadingEdgeLength={350}
+                      contentContainerStyle={styles.commentsList}
+                      onContentSizeChange={() => {
+                        // Scroll to end when content size changes
+                        if (commentsListRef.current && liveComments.length > 0) {
+                          setTimeout(() => {
+                            commentsListRef.current?.scrollToEnd({
+                              animated: false,
+                            });
+                          }, 100);
+                        }
+                      }}
+                      maintainVisibleContentPosition={{
+                        minIndexForVisible: 0,
+                        autoscrollToTopThreshold: 10,
+                      }}
+                      removeClippedSubviews={false}
+                    >
+                      {liveComments?.map((item: any, index: number) => (
+                        <View key={index}>{renderCommentItem({ item })}</View>
+                      ))}
+                    </ScrollView>
+                    {/* Announcements Section - Displayed prominently */}
+                    {shouldShowUI &&
+                      liveAnnouncements?.some((item: any) => item.type === 'announcement' && item.data?.current === true) && (
+                        <View style={styles.featuredAnnouncementContainer}>
+                          {liveAnnouncements
+                            .filter(item => item.type === 'announcement' && item.data?.current === true)
+                            .slice(-1)
+                            .map((announcement, index) => (
+                              <TouchableOpacity 
+                                key={index} 
+                                style={styles.featuredAnnouncement}
+                                onPress={() => {
+                                  setSelectedAnnouncement(announcement);
+                                  setShowAnnouncementSheet(true);
+                                }}
+                                activeOpacity={0.8}
+                              >
+                                <View style={styles.featuredAnnouncementLeft}>
+                                  {announcement.avatar ? (
+                                    <GlassImage
+                                      source={typeof announcement.avatar === 'string'
+                                        ? { uri: announcement.avatar }
+                                        : announcement.avatar}
+                                      containerClassName="w-10 h-10 rounded-full"
+                                      imageClassName="w-full h-full rounded-full"
+                                      glassClassName="w-full h-full rounded-full"
+                                      placeholderColor="rgba(255, 255, 255, 0.1)"
+                                      blurIntensity={20}
+                                      tint="dark"
+                                      showActivityIndicator={false}
+                                    />
+                                  ) : (
+                                    <View style={styles.announcementAvatarFallback}>
+                                      <Text style={styles.announcementAvatarText}>
+                                        {announcement.user?.charAt(0)?.toUpperCase() || '?'}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <View style={styles.featuredAnnouncementRight}>
+                                  <View style={styles.featuredAnnouncementHeader}>
+                                    <Text numberOfLines={1} style={styles.featuredAnnouncementUser}>{announcement.user}</Text>
+                                    <View style={styles.featuredModTag}>
+                                      <Text style={styles.featuredModTagText}>Host</Text>
+                                    </View>
+                                  </View>
+                     
+                                    <Text numberOfLines={2} style={[styles.featuredAnnouncementText, {flex: 1, marginRight: 8}]}>
+                                      {announcement.content}
+                                    </Text>
+                                  
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                        </View>
+                      )}
+                  </View>
                 )}
+
+
               </View>
 
               {/* Bottom Area */}
+
               <View style={styles.bottomArea}>
                 {/* Comment Input */}
                 {shouldShowUI && (
@@ -1987,12 +2168,36 @@ const LivestreamStudioFeed = ({
         bgColor="#121212"
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
+        show={rsvpSheet}
+        onRequestClose={() => showRsvpSheet(false)}
+        snapPoints={["45%"]}
+        enableDynamicSizing={false}
+        keyboardBehavior={"interactive"}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
+      >
+        {
+          scheduledStreamDetails && (
+            <RsvpSheet
+              streamDetails={scheduledStreamDetails}
+              closeSheet={() => showRsvpSheet(false)}
+            />
+          )
+        }
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
         title=""
         show={showProductPreview}
         snapPoints={["70%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowProductPreview(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         {selectedProduct && (
           <ProductPreview
@@ -2012,6 +2217,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowCheckout(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         {selectedProduct && (
           <CheckoutNow
@@ -2024,6 +2231,7 @@ const LivestreamStudioFeed = ({
             }
             streamId={activeStreamDetails?.stream?._id}
             channel="liveshow"
+            blipId=""
           />
         )}
       </BottomSheet>
@@ -2039,6 +2247,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowViewers(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamViewers
           viewers={detailedViewers}
@@ -2061,7 +2271,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-      //enableContentPanningGesture={true}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={{
@@ -2090,6 +2301,8 @@ const LivestreamStudioFeed = ({
         titleColor="!text-white"
         onRequestClose={() => setShowOrders(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
       </BottomSheet>
@@ -2101,15 +2314,36 @@ const LivestreamStudioFeed = ({
         showCloseIcon={false}
         title=""
         show={showShop}
-        snapPoints={["100%"]}
+        snapPoints={["90%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowShop(false)}
         keyboardBehavior="interactive"
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
       >
         <ShopBottomSheet
           sellerId={sellerId}
           streamId={id}
           closeSheet={() => setShowShop(false)}
+        />
+      </BottomSheet>
+
+      {/* Announcement Bottom Sheet */}
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAnnouncementSheet}
+        snapPoints={["55%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowAnnouncementSheet(false)}
+        enablePanDownToClose={true}
+        enableContentPanningGesture={true}
+      >
+        <AnnouncementView 
+          announcement={selectedAnnouncement} 
+          closeSheet={() => setShowAnnouncementSheet(false)} 
         />
       </BottomSheet>
     </GestureHandlerRootView>
@@ -2174,19 +2408,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 13,
     bottom: 0,
-    maxHeight: 300,
+    maxHeight: 310,
     zIndex: 10,
   },
   commentsContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: "70%",
     maxHeight: 250,
-    zIndex: 10,
   },
   commentsList: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 0,
     width: "100%",
@@ -2556,6 +2785,118 @@ const styles = StyleSheet.create({
     fontWeight: "semibold",
     flexWrap: "wrap",
   },
+  announcementItem: {
+    flexDirection: "row",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 0,
+    maxWidth: "100%",
+    alignSelf: "flex-start",
+    flex: 1,
+  },
+  announcementContent: {
+    flexDirection: "column",
+    flex: 1,
+  },
+  announcementHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  announcementUser: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  modTag: {
+    backgroundColor: "#16783A",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  modTagText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  announcementText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  featuredAnnouncementContainer: {
+    marginTop: 10,
+    marginBottom: 10,
+    marginLeft: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backdropFilter: "blur(10px)",
+    opacity: 0.6,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#16783A",
+  },
+  featuredAnnouncement: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  featuredAnnouncementLeft: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  announcementAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  announcementAvatarText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  featuredAnnouncementRight: {
+    flex: 1,
+  },
+  featuredAnnouncementHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+    width: 120,
+  },
+  featuredAnnouncementUser: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  featuredModTag: {
+    backgroundColor: "#16783A",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  featuredModTagText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  featuredAnnouncementText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
 });
+
 
 export default LivestreamStudioFeed;
