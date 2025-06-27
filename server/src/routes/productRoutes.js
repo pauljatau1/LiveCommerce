@@ -754,8 +754,7 @@ router.get('/all', productController.getAllProducts);
  * @swagger
  * /api/products/personalized:
  *   get:
- *     summary: Get personalized products based on buyer's selected categories or randomized products for non-authenticated users
- *     description: Returns personalized products for authenticated buyers based on their category preferences. For non-authenticated users, returns a randomized selection of products with good seller distribution.
+ *     summary: Get personalized products based on buyer's selected categories
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -784,32 +783,17 @@ router.get('/all', productController.getAllProducts);
  *           default: desc
  *     responses:
  *       200:
- *         description: List of products (personalized if authenticated)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 products:
- *                   type: array
- *                   items:
- *                     type: object
- *                 currentPage:
- *                   type: integer
- *                 totalPages:
- *                   type: integer
- *                 totalProducts:
- *                   type: integer
- *                 hasMore:
- *                   type: boolean
- *                 isPersonalized:
- *                   type: boolean
- *                   description: Indicates if results are personalized based on user preferences
+ *         description: List of personalized products
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Buyer not found
  *       500:
  *         description: Server error
  */
 router.get('/personalized',
-  optionalAuthMiddleware,
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
   productController.getPersonalizedProducts
 );
 
