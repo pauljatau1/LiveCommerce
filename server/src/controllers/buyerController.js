@@ -36,7 +36,7 @@ const paystack = axios.create({
 
 // Helper function to generate JWT
 const generateToken = (id) => {
-  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '300w' });
+  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 };
 
 // Helper function to generate OTP (4-digit)

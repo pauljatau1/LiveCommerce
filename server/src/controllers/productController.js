@@ -345,7 +345,7 @@ exports.getAllProducts = async (req, res) => {
       minPrice,
       maxPrice,
       condition,
-      sortBy,
+      sortBy = 'newest',
       status = 'active',
       visibility = 'visible'
     } = req.query;
@@ -380,36 +380,36 @@ exports.getAllProducts = async (req, res) => {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
 
-    // Build sort options - randomize when no sort is specified
+    // Build sort options with a default
     let sortOptions = {};
-    let useRandomSort = false;
-
-    if (!sortBy || sortBy === 'None') {
-      useRandomSort = true;
-    } else {
-      switch (sortBy) {
-        case 'price_asc':
-          sortOptions = { price: 1 };
-          break;
-        case 'price_desc':
-          sortOptions = { price: -1 };
-          break;
-        case 'oldest':
-          sortOptions = { createdAt: 1 };
-          break;
-        case 'popular':
-          sortOptions = { 'analytics.views': -1 };
-          break;
-        case 'best_selling':
-          sortOptions = { soldCount: -1 };
-          break;
-        case 'newest':
-          sortOptions = { createdAt: -1 };
-          break;
-        default:
-          useRandomSort = true;
-      }
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { soldCount: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: -1 };
     }
+
+    // Execute query with pagination and updated seller population
+    const products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
 
     // Get total count for pagination
     const totalProducts = await Product.countDocuments(query);
@@ -419,40 +419,9 @@ exports.getAllProducts = async (req, res) => {
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
-    // Execute query with pagination and updated seller population
-    let productsQuery = Product.find(query);
-    
-    if (useRandomSort) {
-      // Use MongoDB's $sample for random sorting when no specific sort is requested
-      productsQuery = Product.aggregate([
-        { $match: query },
-        { $sample: { size: Number(limit) } },
-        { $skip: (page - 1) * limit },
-        { $limit: Number(limit) }
-      ]);
-    } else {
-      productsQuery = Product.find(query)
-        .sort(sortOptions)
-        .skip((page - 1) * limit)
-        .limit(Number(limit))
-        .populate('seller', sellerPopulationFields)
-        .select('-__v');
-    }
-
-    const products = await productsQuery;
-
-    // For random sort, we need to populate after aggregation
-    let productsWithData = products;
-    if (useRandomSort) {
-      const productIds = products.map(p => p._id);
-      productsWithData = await Product.find({ _id: { $in: productIds } })
-        .populate('seller', sellerPopulationFields)
-        .select('-__v');
-    }
-
     // Make sure stats and review data are included in the response
-    const productsWithStats = productsWithData.map(product => {
-      const productObj = typeof product.toObject === 'function' ? product.toObject() : product;
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
       return {
         ...productObj,
         averageRating: productObj.stats?.averageRating || null,
@@ -3665,520 +3634,156 @@ exports.getProductSoldCount = async (req, res) => {
 
 exports.getPersonalizedProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const parsedLimit = parseInt(limit);
-    const minProductsToShow = Math.max(parsedLimit, 24); 
-    
-    // Base query for all products
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    const buyerId = req.user.id;
+
+    console.log('Buyer ID:', buyerId);
+
+    if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+      return res.status(400).json({ message: 'Invalid buyer ID format' });
+    }
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const categoryNames = buyer.selectedCategories.map(cat => cat.name);
+    const subcategoryNames = buyer.selectedCategories.flatMap(category =>
+      category.subCategories.map(sub => sub.name)
+    );
+
+    console.log('Category Names:', categoryNames);
+    console.log('Subcategory Names:', subcategoryNames);
+
     const baseQuery = {
       status: 'active',
       visibility: 'visible',
       stock: { $gt: 0 }
     };
-    
-    let categoryQuery = baseQuery;
-    let isPersonalized = false;
-    let categoryNames = [];
-    let subcategoryNames = [];
-    
-    // If user is authenticated, use their preferred categories
-    if (req.user && req.user.id) {
-      const buyerId = req.user.id;
-      
-      if (mongoose.Types.ObjectId.isValid(buyerId)) {
-        try {
-    const buyer = await Buyer.findById(buyerId);
 
-          if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-            categoryNames = buyer.selectedCategories.map(cat => cat.name);
-            subcategoryNames = buyer.selectedCategories.flatMap(category =>
-      category.subCategories.map(sub => sub.name)
-    );
-
-            if (categoryNames.length || subcategoryNames.length) {
-              categoryQuery = {
+    const categoryQuery = categoryNames.length || subcategoryNames.length ? {
       ...baseQuery,
       $or: [
         { category: { $in: categoryNames } },
         { subCategory: { $in: subcategoryNames } }
       ]
-              };
-              isPersonalized = true;
+    } : baseQuery;
+
+    const sortOptions = {
+      createdAt: order === 'desc' ? -1 : 1,
+      price: order === 'desc' ? -1 : 1,
+      'stats.averageRating': order === 'desc' ? -1 : 1
+    };
+
+    const categoryCount = await Product.countDocuments(categoryQuery);
+    const shouldRandomize = categoryCount > parseInt(limit);
+
+    let products;
+    if (shouldRandomize) {
+      const randomSkip = Math.floor(Math.random() * (categoryCount - parseInt(limit) + 1));
+      products = await Product.find(categoryQuery)
+        .skip(randomSkip)
+        .limit(parseInt(limit))
+        .populate('seller', sellerPopulationFields)
+        .populate('reviews.buyer', 'firstName lastName');
+    } else {
+      products = await Product.find(categoryQuery)
+        .sort({ [sortBy]: sortOptions[sortBy] })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .populate('seller', sellerPopulationFields)
+        .populate('reviews.buyer', 'firstName lastName');
+    }
+
+    if (products.length === 0) {
+      console.log('No products found in preferred categories, fetching regular products');
+      const baseCount = await Product.countDocuments(baseQuery);
+      const shouldRandomizeBase = baseCount > parseInt(limit);
+
+      if (shouldRandomizeBase) {
+        const randomSkip = Math.floor(Math.random() * (baseCount - parseInt(limit) + 1));
+        products = await Product.find(baseQuery)
+          .skip(randomSkip)
+          .limit(parseInt(limit))
+          .populate('seller', sellerPopulationFields)
+          .populate('reviews.buyer', 'firstName lastName');
+      } else {
+        products = await Product.find(baseQuery)
+          .sort({ [sortBy]: sortOptions[sortBy] })
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit))
+          .populate('seller', sellerPopulationFields)
+          .populate('reviews.buyer', 'firstName lastName');
+      }
+    }
+
+    const total = products.length > 0
+      ? await Product.countDocuments(categoryQuery)
+      : await Product.countDocuments(baseQuery);
+
+    // === Helper to avoid 5 consecutive products from the same seller ===
+    function reorderToAvoidSellerClusters(products, maxConsecutive = 4) {
+      const result = [];
+      const queue = [...products];
+      let lastSellerId = null;
+      let count = 0;
+
+      while (queue.length > 0) {
+        let found = false;
+
+        for (let i = 0; i < queue.length; i++) {
+          const product = queue[i];
+          const currentSellerId = product.seller?._id?.toString();
+
+          if (currentSellerId !== lastSellerId || count < maxConsecutive) {
+            result.push(product);
+            queue.splice(i, 1);
+
+            if (currentSellerId === lastSellerId) {
+              count++;
+            } else {
+              lastSellerId = currentSellerId;
+              count = 1;
             }
-          }
-        } catch (error) {
-          console.error('Error fetching buyer preferences:', error);
-          // Continue with non-personalized results
-        }
-      }
-    }
-    // If not authenticated or no preferences found, we'll use the baseQuery
 
-    // Get counts for both queries
-    const categoryCount = isPersonalized ? await Product.countDocuments(categoryQuery) : 0;
-    const totalCount = await Product.countDocuments(baseQuery);
-    
-    // Calculate how many products to fetch from each query
-    let categoryProductsToFetch = 0;
-    let generalProductsToFetch = 0;
-    
-    if (isPersonalized) {
-      // If we have enough category products to fill at least 60% of the display
-      if (categoryCount >= minProductsToShow * 0.6) {
-        categoryProductsToFetch = Math.ceil(minProductsToShow * 0.7); // 70% from preferred categories
-        generalProductsToFetch = Math.ceil(minProductsToShow * 0.5); // 50% from general (some overlap for better distribution)
-    } else {
-        // Not enough category products, so get what we can and fill the rest with general
-        categoryProductsToFetch = categoryCount;
-        generalProductsToFetch = minProductsToShow - categoryCount + Math.ceil(minProductsToShow * 0.3); // Add 30% extra for variety
-      }
-    } else {
-      // No personalization, just get general products
-      generalProductsToFetch = minProductsToShow;
-    }
-    
-    // Cap the fetch counts to available products
-    categoryProductsToFetch = Math.min(categoryProductsToFetch, categoryCount);
-    generalProductsToFetch = Math.min(generalProductsToFetch, totalCount);
-    
-    // Fetch category products if needed
-    let categoryProducts = [];
-    if (isPersonalized && categoryProductsToFetch > 0) {
-      categoryProducts = await Product.aggregate([
-        { $match: categoryQuery },
-        { $sample: { size: categoryProductsToFetch } },
-        { $lookup: {
-            from: 'sellers',
-            localField: 'seller',
-            foreignField: '_id',
-            as: 'seller'
-          }
-        },
-        { $unwind: '$seller' },
-        { $addFields: {
-            isPreferred: { $literal: true } // Mark as preferred category
+            found = true;
+            break;
           }
         }
-      ]);
-    }
-    
-    // Fetch general products, excluding those already in category products
-    let generalProducts = [];
-    if (generalProductsToFetch > 0) {
-      // Create a query that excludes products we already have
-      const excludeIds = categoryProducts.map(p => p._id);
-      const generalExcludeQuery = excludeIds.length > 0 
-        ? { ...baseQuery, _id: { $nin: excludeIds } }
-        : baseQuery;
-        
-      // For general products, also exclude the categories we already have
-      const generalWithCategoryExclusion = isPersonalized && categoryNames.length > 0
-        ? { 
-            ...generalExcludeQuery, 
-            $and: [
-              { category: { $nin: categoryNames } },
-              { subCategory: { $nin: subcategoryNames } }
-            ]
-          }
-        : generalExcludeQuery;
-      
-      generalProducts = await Product.aggregate([
-        { $match: generalWithCategoryExclusion },
-        { $sample: { size: generalProductsToFetch } },
-        { $lookup: {
-            from: 'sellers',
-            localField: 'seller',
-            foreignField: '_id',
-            as: 'seller'
-          }
-        },
-        { $unwind: '$seller' },
-        { $addFields: {
-            isPreferred: { $literal: false } // Mark as not preferred category
-          }
+
+        if (!found) {
+          const fallback = queue.shift();
+          result.push(fallback);
+          lastSellerId = fallback.seller?._id?.toString();
+          count = 1;
         }
-      ]);
-    }
-    
-    // Combine all products
-    const allProducts = [...categoryProducts, ...generalProducts];
-    
-    // Improved function to avoid consecutive products from the same seller
-    function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
-      if (!products.length) return [];
-      
-      // Group products by seller
-      const productsBySeller = {};
-      products.forEach(product => {
-        const sellerId = product.seller._id.toString();
-        if (!productsBySeller[sellerId]) {
-          productsBySeller[sellerId] = [];
-        }
-        productsBySeller[sellerId].push(product);
-      });
-      
-      const sellerIds = Object.keys(productsBySeller);
-      if (sellerIds.length <= 1) return products;
-      
-      const result = [];
-      let lastUsedSellerIndices = [];
-      
-      // Keep selecting products until we've used them all or reached the limit
-      while (result.length < minProductsToShow && sellerIds.some(id => productsBySeller[id].length > 0)) {
-        // Find sellers that still have products and weren't recently used
-        const availableSellers = sellerIds.filter((id, index) => 
-          productsBySeller[id].length > 0 && !lastUsedSellerIndices.includes(index)
-        );
-        
-        // If no available sellers that weren't recently used, reset the tracking
-        if (availableSellers.length === 0) {
-          lastUsedSellerIndices = [];
-          continue;
-        }
-        
-        // Pick a random available seller
-        const randomIndex = Math.floor(Math.random() * availableSellers.length);
-        const selectedSellerId = availableSellers[randomIndex];
-        const sellerIndex = sellerIds.indexOf(selectedSellerId);
-        
-        // Add the seller to recently used (keep track of last N sellers)
-        lastUsedSellerIndices.push(sellerIndex);
-        if (lastUsedSellerIndices.length > sellerIds.length / 2) {
-          lastUsedSellerIndices.shift();
-        }
-        
-        // Take a product from this seller
-        const product = productsBySeller[selectedSellerId].shift();
-        result.push(product);
-      }
-      
-      return result;
-    }
-    
-    // Apply the reordering algorithm
-    const reorderedProducts = reorderToAvoidSellerClusters(allProducts);
-    
-    // Ensure we have a good mix of preferred and non-preferred products
-    // by interspersing them if possible
-    function mixPreferredAndGeneral(products) {
-      if (products.length <= 1) return products;
-      
-      const preferred = products.filter(p => p.isPreferred);
-      const general = products.filter(p => !p.isPreferred);
-      
-      // If we don't have both types, just return the original array
-      if (preferred.length === 0 || general.length === 0) return products;
-      
-      const result = [];
-      let preferredIndex = 0;
-      let generalIndex = 0;
-      
-      // Start with preferred if available
-      let usePreferred = true;
-      
-      while (preferredIndex < preferred.length || generalIndex < general.length) {
-        if (usePreferred && preferredIndex < preferred.length) {
-          result.push(preferred[preferredIndex++]);
-        } else if (generalIndex < general.length) {
-          result.push(general[generalIndex++]);
-        } else if (preferredIndex < preferred.length) {
-          // If we've exhausted general products, add remaining preferred
-          result.push(preferred[preferredIndex++]);
-        }
-        
-        // Toggle between preferred and general
-        usePreferred = !usePreferred;
       }
 
       return result;
     }
 
-    // Mix preferred and general products
-    const mixedProducts = mixPreferredAndGeneral(reorderedProducts);
-    
-    // Limit to requested number of products
-    const finalProducts = mixedProducts.slice(0, parsedLimit);
-    
-    // Add stats to products and remove the isPreferred flag
-    const productsWithStats = finalProducts.map(product => {
-      // Create a new object without the isPreferred property
-      const { isPreferred, ...productWithoutFlag } = product;
-      
-      // Ensure the seller object has all necessary fields
-      const seller = {
-        _id: product.seller._id,
-        storeName: product.seller.storeName,
-        storeAvatar: product.seller.storeAvatar || {
-          url: "",
-          public_id: ""
-        },
-        storeBanner: product.seller.storeBanner || {
-          url: "",
-          public_id: ""
-        },
-        stats: product.seller.stats || {
-          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-          averageRating: 0,
-          totalReviews: 0
-        },
-        firstName: product.seller.firstName,
-        lastName: product.seller.lastName,
-        email: product.seller.email,
-        phoneNumber: product.seller.phoneNumber,
-        isVerified: product.seller.isVerified || false,
-        offersStorePickup: product.seller.offersStorePickup || false,
-        createdAt: product.seller.createdAt,
-        aboutStore: product.seller.aboutStore || ""
+    // Shuffle first, then reorder to avoid seller clusters
+    const shuffledProducts = reorderToAvoidSellerClusters(
+      [...products].sort(() => 0.5 - Math.random())
+    );
+
+    const productsWithStats = shuffledProducts.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
       };
-      
-      // Calculate discounted price if applicable
-      const discountedPrice = product.discount && product.discount.isActive && product.discount.value > 0
-        ? product.discount.type === 'percentage'
-          ? product.price * (1 - product.discount.value / 100)
-          : product.price - product.discount.value
-        : product.price;
-      
-      // Keep all original product fields in their original order
-      const result = {
-        _id: product._id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        discount: product.discount || {
-          isActive: false,
-          type: "percentage",
-          value: 0
-        },
-        category: product.category,
-        subCategory: product.subCategory,
-        brand: product.brand,
-        seller: seller,
-        images: product.images || [],
-        blips: product.blips || [],
-        stock: product.stock,
-        shippingInfo: product.shippingInfo || {
-          shippingMethods: []
-        },
-        returnPolicy: product.returnPolicy || {
-          allowed: true,
-          periodInDays: 30,
-          conditions: []
-        },
-        stats: product.stats || {
-          views: 0,
-          soldCount: 0
-        },
-        lowStockAlert: product.lowStockAlert || 5,
-        sku: product.sku || "",
-        upc: product.upc || "",
-        condition: product.condition || "New",
-        tags: product.tags || [],
-        colors: product.colors || [],
-        weight: product.weight || 0,
-        minimumPurchaseQuantity: product.minimumPurchaseQuantity || 1,
-        logistics: product.logistics || {
-          shippingOptions: []
-        },
-        status: product.status || "active",
-        inventory: product.inventory || {
-          quantity: product.stock,
-          lowStockThreshold: product.lowStockAlert || 5,
-          sku: product.sku || ""
-        },
-        variants: product.variants || [],
-        pricing: product.pricing || {
-          taxable: true,
-          taxRate: 0
-        },
-        shipping: product.shipping || {
-          freeShipping: false,
-          shippingClass: "standard",
-          restrictedLocations: []
-        },
-        seo: product.seo || {
-          metaKeywords: [],
-          slug: product.name ? product.name.toLowerCase().replace(/\s+/g, '-') : ""
-        },
-        visibility: product.visibility || "visible",
-        analytics: product.analytics || {
-          views: 0,
-          sales: 0,
-          conversionRate: 0
-        },
-        fashion_material: product.fashion_material || "",
-        fashion_sizes: product.fashion_sizes || [],
-        fashion_style: product.fashion_style || "",
-        fashion_length: product.fashion_length || "",
-        fashion_closure: product.fashion_closure || "",
-        fashion_occasion: product.fashion_occasion || "",
-        fashion_colors: product.fashion_colors || [],
-        fashion_fit: product.fashion_fit || "",
-        fashion_patterns: product.fashion_patterns || [],
-        fashion_pattern: product.fashion_pattern || "",
-        electronics_smartfeatures: product.electronics_smartfeatures || [],
-        electronics_connectivityoptions: product.electronics_connectivityoptions || [],
-        electronics_supportedresolutions: product.electronics_supportedresolutions || [],
-        electronics_appcompatibility: product.electronics_appcompatibility || [],
-        electronics_portabilityfeatures: product.electronics_portabilityfeatures || [],
-        travel_features: product.travel_features || [],
-        sports_features: product.sports_features || [],
-        toys_features: product.toys_features || [],
-        toys_topics: product.toys_topics || [],
-        toys_toolsincluded: product.toys_toolsincluded || [],
-        gaming_accessories: product.gaming_accessories || [],
-        gaming_features: product.gaming_features || [],
-        appliances_features: product.appliances_features || [],
-        kitchen_features: product.kitchen_features || [],
-        computing_features: product.computing_features || [],
-        computing_connectivity: product.computing_connectivity || [],
-        phones_connectivity: product.phones_connectivity || [],
-        fashion_accessoryType: product.fashion_accessoryType || "",
-        fashion_sleeveType: product.fashion_sleeveType || "",
-        fashion_heelType: product.fashion_heelType || "",
-        fashion_stoneType: product.fashion_stoneType || "",
-        fashion_bagType: product.fashion_bagType || "",
-        fashion_shoeType: product.fashion_shoeType || "",
-        fashion_traditionalType: product.fashion_traditionalType || "",
-        fashion_kidShoeType: product.fashion_kidShoeType || "",
-        baby_productType: product.baby_productType || [],
-        baby_size: product.baby_size || "",
-        baby_material: product.baby_material || [],
-        baby_pattern: product.baby_pattern || [],
-        baby_fit: product.baby_fit || "",
-        baby_features: product.baby_features || [],
-        baby_color: product.baby_color || "",
-        baby_closure: product.baby_closure || [],
-        baby_diaperType: product.baby_diaperType || [],
-        baby_absorption: product.baby_absorption || "",
-        baby_bagType: product.baby_bagType || [],
-        baby_wipeType: product.baby_wipeType || [],
-        baby_feedingType: product.baby_feedingType || [],
-        baby_feedingProductType: product.baby_feedingProductType || [],
-        baby_capacity: product.baby_capacity || "",
-        baby_bathingProductType: product.baby_bathingProductType || [],
-        baby_ingredients: product.baby_ingredients || [],
-        baby_toyType: product.baby_toyType || [],
-        baby_toyFeatures: product.baby_toyFeatures || [],
-        healthBeauty_makeupType: product.healthBeauty_makeupType || [],
-        healthBeauty_finish: product.healthBeauty_finish || [],
-        healthBeauty_skinType: product.healthBeauty_skinType || [],
-        healthBeauty_coverage: product.healthBeauty_coverage || "",
-        healthBeauty_applicator: product.healthBeauty_applicator || [],
-        healthBeauty_ingredients: product.healthBeauty_ingredients || [],
-        healthBeauty_crueltyFree: product.healthBeauty_crueltyFree || false,
-        healthBeauty_waterproof: product.healthBeauty_waterproof || false,
-        healthBeauty_longLasting: product.healthBeauty_longLasting || false,
-        healthBeauty_quickDry: product.healthBeauty_quickDry || false,
-        healthBeauty_skinCareType: product.healthBeauty_skinCareType || [],
-        healthBeauty_benefits: product.healthBeauty_benefits || [],
-        healthBeauty_usageTime: product.healthBeauty_usageTime || [],
-        healthBeauty_spfLevel: product.healthBeauty_spfLevel || "",
-        healthBeauty_spfType: product.healthBeauty_spfType || "",
-        healthBeauty_spf: product.healthBeauty_spf || false,
-        healthBeauty_waterResistant: product.healthBeauty_waterResistant || false,
-        healthBeauty_tinted: product.healthBeauty_tinted || false,
-        healthBeauty_hairProductType: product.healthBeauty_hairProductType || [],
-        healthBeauty_hairType: product.healthBeauty_hairType || [],
-        healthBeauty_holdLevel: product.healthBeauty_holdLevel || "",
-        healthBeauty_material: product.healthBeauty_material || [],
-        healthBeauty_heatSettings: product.healthBeauty_heatSettings || "",
-        healthBeauty_voltage: product.healthBeauty_voltage || "",
-        healthBeauty_scented: product.healthBeauty_scented || false,
-        healthBeauty_heatProtection: product.healthBeauty_heatProtection || false,
-        healthBeauty_fragranceType: product.healthBeauty_fragranceType || [],
-        healthBeauty_scentFamily: product.healthBeauty_scentFamily || [],
-        healthBeauty_longevity: product.healthBeauty_longevity || "",
-        healthBeauty_volume: product.healthBeauty_volume || "",
-        healthBeauty_personalCareType: product.healthBeauty_personalCareType || [],
-        healthBeauty_specialty: product.healthBeauty_specialty || [],
-        healthBeauty_size: product.healthBeauty_size || "",
-        healthBeauty_absorbencyLevel: product.healthBeauty_absorbencyLevel || "",
-        healthBeauty_fluoride: product.healthBeauty_fluoride || false,
-        healthBeauty_antiperspirant: product.healthBeauty_antiperspirant || false,
-        healthBeauty_scentFree: product.healthBeauty_scentFree || false,
-        healthBeauty_supplementType: product.healthBeauty_supplementType || [],
-        healthBeauty_supplementForm: product.healthBeauty_supplementForm || [],
-        healthBeauty_supplementBenefits: product.healthBeauty_supplementBenefits || [],
-        healthBeauty_supplementFlavor: product.healthBeauty_supplementFlavor || "",
-        healthBeauty_supplementIngredients: product.healthBeauty_supplementIngredients || [],
-        healthBeauty_bathType: product.healthBeauty_bathType || [],
-        healthBeauty_spaType: product.healthBeauty_spaType || [],
-        healthBeauty_features: product.healthBeauty_features || [],
-        healthBeauty_usage: product.healthBeauty_usage || "",
-        healthBeauty_footCareType: product.healthBeauty_footCareType || [],
-        gaming_consoleModel: product.gaming_consoleModel || "",
-        gaming_storageCapacity: product.gaming_storageCapacity || "",
-        gaming_edition: product.gaming_edition || "",
-        gaming_bundled: product.gaming_bundled || false,
-        gaming_title: product.gaming_title || "",
-        gaming_genre: product.gaming_genre || [],
-        gaming_rating: product.gaming_rating || "",
-        gaming_region: product.gaming_region || "",
-        gaming_compatibility: product.gaming_compatibility || [],
-        gaming_accessoryType: product.gaming_accessoryType || [],
-        gaming_resolution: product.gaming_resolution || "",
-        gaming_connectionType: product.gaming_connectionType || "",
-        gaming_vrModel: product.gaming_vrModel || "",
-        gaming_vrFeatures: product.gaming_vrFeatures || [],
-        gaming_vrGenres: product.gaming_vrGenres || [],
-        gaming_vrCompatibility: product.gaming_vrCompatibility || [],
-        gaming_furnitureType: product.gaming_furnitureType || [],
-        gaming_furnitureFeatures: product.gaming_furnitureFeatures || [],
-        gaming_furnitureMaterial: product.gaming_furnitureMaterial || [],
-        gaming_weightCapacity: product.gaming_weightCapacity || "",
-        auction: product.auction || {
-          currentHighestBid: {
-            amount: null,
-            buyer: null
-          },
-          winner: {
-            buyer: null,
-            bidAmount: null
-          },
-          endOnMaxBid: false,
-          status: "scheduled",
-          daysLeft: null,
-          bids: []
-        },
-        priceVariants: product.priceVariants || [],
-        reviews: product.reviews || [],
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-        discountedPrice: discountedPrice,
-        id: product._id,
-        averageRating: product.stats?.averageRating || null,
-        reviewCount: product.stats?.totalReviews || 0
-      };
-      
-      return result;
     });
 
-    // For pagination, we need to know the total count
-    // Use the combined count but cap it to avoid extremely large numbers
-    const effectiveTotal = Math.min(totalCount, 1000); 
-
     res.json({
-      success: true,
-      data: {
       products: productsWithStats,
-        pagination: {
       currentPage: parseInt(page),
-          totalPages: Math.ceil(effectiveTotal / parsedLimit),
-          totalProducts: effectiveTotal,
-          hasNextPage: page * parsedLimit < effectiveTotal,
-          hasPrevPage: parseInt(page) > 1,
-          limit: parsedLimit
-        },
-        filters: {
-          category: "",
-          priceRange: {
-            min: "0"
-          },
-          sortBy: "newest",
-          status: "active",
-          visibility: "visible"
-        }
-      }
+      totalPages: Math.ceil(total / limit),
+      totalProducts: total,
+      hasMore: page * limit < total,
+      isPersonalized: products.length > 0 && (categoryNames.length > 0 || subcategoryNames.length > 0)
     });
 
   } catch (error) {
@@ -7224,19 +6829,35 @@ exports.getPersonalizedBlips = async (req, res) => {
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
+    let buyerCategories = [];
     let followedSellers = [];
 
     if (isAuthenticated) {
-      const buyer = await Buyer.findById(buyerId).select('following');
+      const buyer = await Buyer.findById(buyerId).select('selectedCategories following');
+
+      if (buyer?.selectedCategories?.length > 0) {
+        buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
+          acc.push(cat.name);
+          if (cat.subCategories) {
+            acc.push(...cat.subCategories.map(sub => sub.name));
+          }
+          return acc;
+        }, []);
+
+        primaryMatchStage.$and.push({
+          $or: [
+            { category: { $in: buyerCategories } },
+            { subCategory: { $in: buyerCategories } }
+          ]
+        });
+      }
 
       if (buyer?.following?.length > 0) {
         followedSellers = buyer.following.map(f => f.sellerId.toString());
       }
     }
 
-    // Count all products that have at least one blip
-    let total = await Product.countDocuments({ 'blips.0': { $exists: true } });
-    
+    let total = await Product.countDocuments(primaryMatchStage);
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     const now = new Date();
 
@@ -7294,6 +6915,7 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     if (products.length === 0) {
       console.log('No primary blips, falling back to general pool');
+      total = await Product.countDocuments(fallbackMatchStage);
 
       const fallbackPipeline = [
         { $match: fallbackMatchStage },
@@ -7327,6 +6949,9 @@ exports.getPersonalizedBlips = async (req, res) => {
       const isLiked = isAuthenticated && product.blip.likes
         ? product.blip.likes.some(like => like.toString() === buyerId)
         : false;
+
+      const isInBuyerCategory = buyerCategories.length > 0 &&
+        (buyerCategories.includes(product.category) || buyerCategories.includes(product.subCategory));
 
       return {
         discount: {
@@ -7382,6 +7007,7 @@ exports.getPersonalizedBlips = async (req, res) => {
           isFeatured: product.seller.isFeatured
         },
         _metadata: {
+          isInBuyerCategory,
           isFollowingSeller: isFollowing || followedSellers.includes(product.seller._id.toString()),
           engagementScore: product.engagementScore,
           daysSinceCreation: product.daysSinceCreation,
@@ -7392,8 +7018,8 @@ exports.getPersonalizedBlips = async (req, res) => {
       };
     });
 
-    // Simple categorization without buyer categories
     const categorizedBlips = {
+      newInBuyerCategory: [],
       followedSellers: [],
       highEngagement: [],
       undiscovered: [],
@@ -7404,7 +7030,9 @@ exports.getPersonalizedBlips = async (req, res) => {
       const meta = blip._metadata;
       delete blip._metadata;
 
-      if (isAuthenticated && meta.isFollowingSeller) {
+      if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
+        categorizedBlips.newInBuyerCategory.push(blip);
+      } else if (isAuthenticated && meta.isFollowingSeller) {
         categorizedBlips.followedSellers.push(blip);
       } else if (meta.engagementScore > 100) {
         categorizedBlips.highEngagement.push(blip);
@@ -7415,7 +7043,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
-    // Shuffle each category
     Object.keys(categorizedBlips).forEach(category => {
       const array = categorizedBlips[category];
       for (let i = array.length - 1; i > 0; i--) {
@@ -7424,80 +7051,39 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
-    // Create a balanced distribution algorithm
-    function createBalancedBlipDistribution(categorizedBlips, totalNeeded) {
-      const allBlips = [
-        ...categorizedBlips.followedSellers,
-        ...categorizedBlips.highEngagement,
-        ...categorizedBlips.undiscovered,
-        ...categorizedBlips.random
-      ];
+    const totalNeeded = limit;
+    const prioritizedBlips = [
+      ...categorizedBlips.newInBuyerCategory,
+      ...categorizedBlips.highEngagement,
+      ...categorizedBlips.followedSellers,
+      ...categorizedBlips.undiscovered
+    ];
 
-      // Group blips by seller
-      const blipsBySeller = {};
-      allBlips.forEach(blip => {
-        const sellerId = blip.seller._id.toString();
-        if (!blipsBySeller[sellerId]) {
-          blipsBySeller[sellerId] = [];
-        }
-        blipsBySeller[sellerId].push(blip);
-      });
+    const seenProducts = new Set();
+    const finalBlips = [];
+    const combinedBlips = [...prioritizedBlips, ...categorizedBlips.random];
 
-      const sellerIds = Object.keys(blipsBySeller);
-      const result = [];
-      const seenProducts = new Set();
-      let lastUsedSellers = [];
-      const maxConsecutiveFromSameSeller = 1;
-      
-      // Algorithm: Round-robin through sellers to avoid clustering
-      while (result.length < totalNeeded && sellerIds.length > 0) {
-        // Find sellers that haven't been used recently and still have blips
-        let availableSellers = sellerIds.filter(sellerId => 
-          !lastUsedSellers.includes(sellerId) && 
-          blipsBySeller[sellerId].length > 0
-        );
+    let lastSellerId = null;
+    for (const blip of combinedBlips) {
+      const currentSellerId = blip.seller._id.toString();
+      const productId = blip.productId.toString();
 
-        // If no sellers available (all recently used), reset the restriction
-        if (availableSellers.length === 0) {
-          availableSellers = sellerIds.filter(sellerId => blipsBySeller[sellerId].length > 0);
-          lastUsedSellers = [];
-        }
-
-        // If still no sellers available, we've exhausted all blips
-        if (availableSellers.length === 0) break;
-
-        // Pick a random seller from available ones
-        const randomIndex = Math.floor(Math.random() * availableSellers.length);
-        const selectedSellerId = availableSellers[randomIndex];
-        
-        // Get the next blip from this seller
-        const blip = blipsBySeller[selectedSellerId].shift();
-        
-        // Only add if we haven't seen this product before
-        if (!seenProducts.has(blip.productId.toString())) {
-          result.push(blip);
-          seenProducts.add(blip.productId.toString());
-        }
-
-        // Track recently used sellers (keep last 3-5 sellers to avoid immediate repetition)
-        lastUsedSellers.push(selectedSellerId);
-        if (lastUsedSellers.length > Math.min(5, Math.ceil(sellerIds.length / 2))) {
-          lastUsedSellers.shift();
-        }
-
-        // Remove seller if they have no more blips
-        if (blipsBySeller[selectedSellerId].length === 0) {
-          const index = sellerIds.indexOf(selectedSellerId);
-          if (index > -1) {
-            sellerIds.splice(index, 1);
-          }
-        }
+      if (
+        !seenProducts.has(productId) &&
+        finalBlips.length < totalNeeded &&
+        currentSellerId !== lastSellerId
+      ) {
+        finalBlips.push(blip);
+        seenProducts.add(productId);
+        lastSellerId = currentSellerId;
       }
-
-      return result;
     }
 
-    const finalBlips = createBalancedBlipDistribution(categorizedBlips, limit);
+    if (finalBlips.length < totalNeeded) {
+      const remaining = totalNeeded - finalBlips.length;
+      const allUnseen = transformedBlips.filter(blip => !seenProducts.has(blip.productId.toString()));
+      finalBlips.push(...allUnseen.slice(0, remaining));
+    }
 
     res.json({
       blips: finalBlips,
