@@ -7224,35 +7224,19 @@ exports.getPersonalizedBlips = async (req, res) => {
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
-    let buyerCategories = [];
     let followedSellers = [];
 
     if (isAuthenticated) {
-      const buyer = await Buyer.findById(buyerId).select('selectedCategories following');
-
-      if (buyer?.selectedCategories?.length > 0) {
-        buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
-          acc.push(cat.name);
-          if (cat.subCategories) {
-            acc.push(...cat.subCategories.map(sub => sub.name));
-          }
-          return acc;
-        }, []);
-
-        primaryMatchStage.$and.push({
-          $or: [
-            { category: { $in: buyerCategories } },
-            { subCategory: { $in: buyerCategories } }
-          ]
-        });
-      }
+      const buyer = await Buyer.findById(buyerId).select('following');
 
       if (buyer?.following?.length > 0) {
         followedSellers = buyer.following.map(f => f.sellerId.toString());
       }
     }
 
-    let total = await Product.countDocuments(primaryMatchStage);
+    // Count all products that have at least one blip
+    let total = await Product.countDocuments({ 'blips.0': { $exists: true } });
+    
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     const now = new Date();
 
@@ -7310,7 +7294,6 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     if (products.length === 0) {
       console.log('No primary blips, falling back to general pool');
-      total = await Product.countDocuments(fallbackMatchStage);
 
       const fallbackPipeline = [
         { $match: fallbackMatchStage },
@@ -7344,9 +7327,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       const isLiked = isAuthenticated && product.blip.likes
         ? product.blip.likes.some(like => like.toString() === buyerId)
         : false;
-
-      const isInBuyerCategory = buyerCategories.length > 0 &&
-        (buyerCategories.includes(product.category) || buyerCategories.includes(product.subCategory));
 
       return {
         discount: {
@@ -7402,7 +7382,6 @@ exports.getPersonalizedBlips = async (req, res) => {
           isFeatured: product.seller.isFeatured
         },
         _metadata: {
-          isInBuyerCategory,
           isFollowingSeller: isFollowing || followedSellers.includes(product.seller._id.toString()),
           engagementScore: product.engagementScore,
           daysSinceCreation: product.daysSinceCreation,
@@ -7413,8 +7392,8 @@ exports.getPersonalizedBlips = async (req, res) => {
       };
     });
 
+    // Simple categorization without buyer categories
     const categorizedBlips = {
-      newInBuyerCategory: [],
       followedSellers: [],
       highEngagement: [],
       undiscovered: [],
@@ -7425,9 +7404,7 @@ exports.getPersonalizedBlips = async (req, res) => {
       const meta = blip._metadata;
       delete blip._metadata;
 
-      if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
-        categorizedBlips.newInBuyerCategory.push(blip);
-      } else if (isAuthenticated && meta.isFollowingSeller) {
+      if (isAuthenticated && meta.isFollowingSeller) {
         categorizedBlips.followedSellers.push(blip);
       } else if (meta.engagementScore > 100) {
         categorizedBlips.highEngagement.push(blip);
@@ -7438,6 +7415,7 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
+    // Shuffle each category
     Object.keys(categorizedBlips).forEach(category => {
       const array = categorizedBlips[category];
       for (let i = array.length - 1; i > 0; i--) {
@@ -7446,98 +7424,80 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     });
 
-    const totalNeeded = limit;
-    const prioritizedBlips = [
-      ...categorizedBlips.newInBuyerCategory,
-      ...categorizedBlips.highEngagement,
-      ...categorizedBlips.followedSellers,
-      ...categorizedBlips.undiscovered
-    ];
+    // Create a balanced distribution algorithm
+    function createBalancedBlipDistribution(categorizedBlips, totalNeeded) {
+      const allBlips = [
+        ...categorizedBlips.followedSellers,
+        ...categorizedBlips.highEngagement,
+        ...categorizedBlips.undiscovered,
+        ...categorizedBlips.random
+      ];
 
-    const seenProducts = new Set();
-    const combinedBlips = [...prioritizedBlips, ...categorizedBlips.random];
-    
-    // Group blips by seller for better distribution
-    const blipsBySeller = {};
-    const sellerIds = [];
-    
-    // Group blips by seller ID
-    combinedBlips.forEach(blip => {
-      const sellerId = blip.seller._id.toString();
-      const productId = blip.productId.toString();
-      
-      // Skip if we've already seen this product
-      if (seenProducts.has(productId)) return;
-      
-      if (!blipsBySeller[sellerId]) {
-        blipsBySeller[sellerId] = [];
-        sellerIds.push(sellerId);
-      }
-      
-      blipsBySeller[sellerId].push(blip);
-      seenProducts.add(productId);
-    });
-    
-    // Function to reorder blips to avoid seller clusters
-    function reorderToAvoidSellerClusters(blips, maxConsecutive = 1) {
-      if (blips.length <= 1) return blips;
-      
-      const result = [];
-      const lastUsedSellerIndices = [];
-      
-      // Get all available seller IDs that still have blips
-      const getAvailableSellers = () => {
-        return sellerIds.filter((id, index) => {
-          return blipsBySeller[id].length > 0 && 
-                 !lastUsedSellerIndices.includes(index);
-        });
-      };
-      
-      // While we still have blips to distribute
-      while (result.length < totalNeeded) {
-        let availableSellers = getAvailableSellers();
-        
-        // If no sellers are available without repeating, reset and use all sellers
-        if (availableSellers.length === 0) {
-          availableSellers = sellerIds.filter(id => blipsBySeller[id].length > 0);
-          
-          // If we've used all blips, break
-          if (availableSellers.length === 0) break;
+      // Group blips by seller
+      const blipsBySeller = {};
+      allBlips.forEach(blip => {
+        const sellerId = blip.seller._id.toString();
+        if (!blipsBySeller[sellerId]) {
+          blipsBySeller[sellerId] = [];
         }
-        
-        // Pick a random seller from available sellers
+        blipsBySeller[sellerId].push(blip);
+      });
+
+      const sellerIds = Object.keys(blipsBySeller);
+      const result = [];
+      const seenProducts = new Set();
+      let lastUsedSellers = [];
+      const maxConsecutiveFromSameSeller = 1;
+      
+      // Algorithm: Round-robin through sellers to avoid clustering
+      while (result.length < totalNeeded && sellerIds.length > 0) {
+        // Find sellers that haven't been used recently and still have blips
+        let availableSellers = sellerIds.filter(sellerId => 
+          !lastUsedSellers.includes(sellerId) && 
+          blipsBySeller[sellerId].length > 0
+        );
+
+        // If no sellers available (all recently used), reset the restriction
+        if (availableSellers.length === 0) {
+          availableSellers = sellerIds.filter(sellerId => blipsBySeller[sellerId].length > 0);
+          lastUsedSellers = [];
+        }
+
+        // If still no sellers available, we've exhausted all blips
+        if (availableSellers.length === 0) break;
+
+        // Pick a random seller from available ones
         const randomIndex = Math.floor(Math.random() * availableSellers.length);
         const selectedSellerId = availableSellers[randomIndex];
-        const sellerIndex = sellerIds.indexOf(selectedSellerId);
         
-        // Add the seller to recently used (keep track of last N sellers)
-        lastUsedSellerIndices.push(sellerIndex);
-        if (lastUsedSellerIndices.length > Math.ceil(sellerIds.length / 2)) {
-          lastUsedSellerIndices.shift();
-        }
-        
-        // Take a blip from this seller
+        // Get the next blip from this seller
         const blip = blipsBySeller[selectedSellerId].shift();
-        result.push(blip);
         
-        // Break if we have enough blips
-        if (result.length >= totalNeeded) break;
+        // Only add if we haven't seen this product before
+        if (!seenProducts.has(blip.productId.toString())) {
+          result.push(blip);
+          seenProducts.add(blip.productId.toString());
+        }
+
+        // Track recently used sellers (keep last 3-5 sellers to avoid immediate repetition)
+        lastUsedSellers.push(selectedSellerId);
+        if (lastUsedSellers.length > Math.min(5, Math.ceil(sellerIds.length / 2))) {
+          lastUsedSellers.shift();
+        }
+
+        // Remove seller if they have no more blips
+        if (blipsBySeller[selectedSellerId].length === 0) {
+          const index = sellerIds.indexOf(selectedSellerId);
+          if (index > -1) {
+            sellerIds.splice(index, 1);
+          }
+        }
       }
-      
+
       return result;
     }
-    
-    // Apply the reordering algorithm
-    const finalBlips = reorderToAvoidSellerClusters(combinedBlips);
-    
-    // If we still need more blips, add any remaining ones
-    if (finalBlips.length < totalNeeded) {
-      const remaining = totalNeeded - finalBlips.length;
-      const allUnseen = transformedBlips.filter(blip => 
-        !finalBlips.some(fb => fb.productId.toString() === blip.productId.toString())
-      );
-      finalBlips.push(...allUnseen.slice(0, remaining));
-    }
+
+    const finalBlips = createBalancedBlipDistribution(categorizedBlips, limit);
 
     res.json({
       blips: finalBlips,
