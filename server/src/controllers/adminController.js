@@ -1301,7 +1301,7 @@ const personalEmailMsg = {
         <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
         <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
       </ul>
-      <p>Let’s go live.</p>
+      <p>Let's go live.</p>
       <p>Best regards,<br>The Auqli Team</p>
     </div>
   `
@@ -1338,7 +1338,7 @@ if (seller.businessEmail) {
           <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
           <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
         </ul>
-        <p>Let’s go live.</p>
+        <p>Let's go live.</p>
         <p>Best regards,<br>Auqli Business Team</p>
       </div>
     `
@@ -2673,7 +2673,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       const transferResponse = await paystack.post('/transfer', transferPayload);
       console.log('Transfer initiated:', {
         reference: transferResponse.data.data.reference,
-        status: transferResponse.data.status,
+        status: transferResponse.data.data.status,
         amount: transferResponse.data.data.amount / 100
       });
 
@@ -4514,71 +4514,218 @@ exports.bulkUploadProducts = async (req, res) => {
       });
     }
 
-    // Process each product
-    const createdProducts = [];
+    // Group rows by product name to handle variants
+    const productGroups = {};
     
     for (const [index, productData] of results.entries()) {
+      const productName = productData['product name'];
+      
+      if (!productName) {
+        errors.push({
+          row: index + 1,
+          error: 'Product name is required'
+        });
+        continue;
+      }
+      
+      if (!productGroups[productName]) {
+        productGroups[productName] = {
+          baseProduct: productData,
+          variants: []
+        };
+      } else if (productData['is variant'] === 'true' || productData['is variant'] === 'yes' || productData['is variant'] === '1') {
+        productGroups[productName].variants.push({
+          data: productData,
+          rowIndex: index + 1
+        });
+      } else {
+        errors.push({
+          row: index + 1,
+          productName: productName,
+          error: 'Duplicate product name without variant flag'
+        });
+      }
+    }
+
+    // Process each product group
+    const createdProducts = [];
+    
+    for (const [productName, group] of Object.entries(productGroups)) {
       try {
+        const baseProductData = group.baseProduct;
+        
         // Skip rows with empty product name
-        if (!productData['product name']) {
+        if (!baseProductData['product name']) {
           errors.push({
-            row: index + 1,
+            row: results.indexOf(baseProductData) + 1,
             error: 'Product name is required'
           });
           continue;
         }
 
         // Map CSV fields to product model fields
-        const parsedWeight = productData['product weight'] ? parseFloat(productData['product weight']) : 0;
+        const parsedWeight = baseProductData['product weight'] ? parseFloat(baseProductData['product weight']) : 0;
         // Use default weight of 0.5 if weight is 0 or null
         const finalWeight = (!parsedWeight || parsedWeight === 0) ? 0.5 : parsedWeight;
         
-        const parsedInventory = productData['product inventory'] ? parseInt(productData['product inventory']) : 1;
-        const parsedPrice = productData['product main price'] ? parseFloat(productData['product main price']) : 0;
+        const parsedInventory = baseProductData['product inventory'] ? parseInt(baseProductData['product inventory']) : 1;
+        const parsedPrice = baseProductData['product main price'] ? parseFloat(baseProductData['product main price']) : 0;
         
         if (isNaN(parsedPrice) || parsedPrice <= 0) {
           errors.push({
-            row: index + 1,
-            productName: productData['product name'],
+            row: results.indexOf(baseProductData) + 1,
+            productName: baseProductData['product name'],
             error: 'Invalid price value'
           });
           continue;
         }
         
         // Check if upload status is 'active'
-        if (productData['upload status'] && 
-            productData['upload status'].toLowerCase() !== 'active') {
+        if (baseProductData['upload status'] && 
+            baseProductData['upload status'].toLowerCase() !== 'active') {
           errors.push({
-            row: index + 1,
-            productName: productData['product name'],
+            row: results.indexOf(baseProductData) + 1,
+            productName: baseProductData['product name'],
             error: 'Skipped product with non-active upload status'
           });
           continue;
         }
 
+        // Prepare variants array if any
+        const variants = [];
+        let totalStock = parsedInventory;
+        
+        // Process variants if they exist
+        if (group.variants && group.variants.length > 0) {
+          // Process main variants (e.g., Color)
+          const variantsByType = {};
+          
+          for (const variantItem of group.variants) {
+            const variantData = variantItem.data;
+            const variantName = variantData['variant name']; // e.g., "Color"
+            const variantValue = variantData['variant value']; // e.g., "Red"
+            
+            if (!variantName || !variantValue) {
+              errors.push({
+                row: variantItem.rowIndex,
+                productName: productName,
+                error: 'Variant name and value are required for variants'
+              });
+              continue;
+            }
+            
+            const variantPrice = variantData['variant price'] ? parseFloat(variantData['variant price']) : parsedPrice;
+            const variantStock = variantData['variant stock'] ? parseInt(variantData['variant stock']) : 1;
+            const variantImage = variantData['variant image'] || baseProductData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg';
+            
+            // Add to total stock
+            totalStock += variantStock;
+            
+            // Create or update variant
+            if (!variantsByType[variantName]) {
+              variantsByType[variantName] = [];
+            }
+            
+            // Check for sub-variants
+            const subVariants = [];
+            if (variantData['subvariant name'] && variantData['subvariant value']) {
+              const subVariantName = variantData['subvariant name']; // e.g., "Size"
+              const subVariantValue = variantData['subvariant value']; // e.g., "Small"
+              const subVariantPrice = variantData['subvariant price'] ? parseFloat(variantData['subvariant price']) : variantPrice;
+              const subVariantStock = variantData['subvariant stock'] ? parseInt(variantData['subvariant stock']) : variantStock;
+              const subVariantImage = variantData['subvariant image'] || variantImage;
+              
+              // Check for sub-sub-variants
+              const subSubVariants = [];
+              if (variantData['subsubvariant name'] && variantData['subsubvariant value']) {
+                const subSubVariantName = variantData['subsubvariant name']; // e.g., "Material"
+                const subSubVariantValue = variantData['subsubvariant value']; // e.g., "Cotton"
+                const subSubVariantPrice = variantData['subsubvariant price'] ? parseFloat(variantData['subsubvariant price']) : subVariantPrice;
+                const subSubVariantStock = variantData['subsubvariant stock'] ? parseInt(variantData['subsubvariant stock']) : subVariantStock;
+                const subSubVariantImage = variantData['subsubvariant image'] || subVariantImage;
+                
+                subSubVariants.push({
+                  name: subSubVariantName,
+                  value: subSubVariantValue,
+                  price: subSubVariantPrice,
+                  stock: subSubVariantStock,
+                  images: [{
+                    data: subSubVariantImage,
+                    contentType: 'image/jpeg',
+                    isDefault: true
+                  }]
+                });
+              }
+              
+              subVariants.push({
+                name: subVariantName,
+                value: subVariantValue,
+                price: subVariantPrice,
+                stock: subVariantStock,
+                images: [{
+                  data: subVariantImage,
+                  contentType: 'image/jpeg'
+                }],
+                subSubVariants: subSubVariants
+              });
+            }
+            
+            variantsByType[variantName].push({
+              value: variantValue,
+              price: variantPrice,
+              totalStock: variantStock,
+              images: [{
+                data: variantImage,
+                contentType: 'image/jpeg'
+              }],
+              subVariants: subVariants
+            });
+          }
+          
+          // Convert variantsByType to variants array
+          for (const [variantName, variantValues] of Object.entries(variantsByType)) {
+            for (const variantValue of variantValues) {
+              variants.push({
+                name: variantName,
+                value: variantValue.value,
+                price: variantValue.price,
+                totalStock: variantValue.totalStock,
+                images: variantValue.images,
+                subVariants: variantValue.subVariants
+              });
+            }
+          }
+        }
+
         // Create the product with validated data
         const product = new Product({
-          name: productData['product name'],
-          description: productData['product description'] || `Description for ${productData['product name']}`,
+          name: baseProductData['product name'],
+          description: baseProductData['product description'] || `Description for ${baseProductData['product name']}`,
           price: parsedPrice,
-          category: productData['product main category'] || 'Other',
-          subCategory: productData['product subcategory'] || '',
+          category: baseProductData['product main category'] || 'Other',
+          subCategory: baseProductData['product subcategory'] || '',
           status: 'active',
           seller: sellerId,
-          stock: parsedInventory,
-          condition: productData['product condition'] || 'New',
-          images: [{
-            url: productData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg'
-          }],
-          weight: finalWeight, // Save weight to top-level field
+          stock: totalStock,
+          condition: baseProductData['product condition'] || 'New',
+          images: [
+            {
+              url: baseProductData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg'
+            },
+            ...[1, 2, 3, 4, 5].map(index => {
+              const imageUrl = baseProductData[`product image ${index}`];
+              return imageUrl ? { url: imageUrl.trim() } : null;
+            }).filter(Boolean)
+          ],
+          weight: finalWeight,
           shipping: {
-            // Remove weight from shipping object
             freeShipping: false,
             shippingClass: 'standard'
           },
           inventory: {
-            quantity: parsedInventory
-          }
+            quantity: totalStock
+          },
+          variants: variants
         });
         
         await product.save();
@@ -4587,13 +4734,13 @@ exports.bulkUploadProducts = async (req, res) => {
           name: product.name,
           price: product.price,
           category: product.category,
-          image: product.images[0]?.url
+          image: product.images[0]?.url,
+          variantsCount: variants.length
         });
       } catch (error) {
         console.error('Error creating product:', error);
         errors.push({
-          row: index + 1,
-          productName: productData['product name'] || 'Unknown product',
+          productName: productName,
           error: error.message
         });
       }
@@ -4810,13 +4957,29 @@ exports.downloadProductCsvTemplate = async (req, res) => {
       'product name',
       'product main price',
       'product main image',
+      'product image 1',
+      'product image 2',
+      'product image 3',
+      'product image 4',
+      'product image 5',
       'product description',
       'product weight',
       'product inventory',
       'product condition',
       'product main category',
       'product subcategory',
-      'upload status'
+      'upload status',
+      'is variant',
+      'variant name',
+      'variant value',
+      'variant price',
+      'variant stock',
+      'variant image',
+      'subvariant name',
+      'subvariant value',
+      'subvariant price',
+      'subvariant stock',
+      'subvariant image'
     ].join(',');
     
     // Create sample data rows
@@ -4826,13 +4989,28 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         'Ocean Blue Shirt',
         '50',
         'https://burst.shopifycdn.com/photos/example1.jpg',
+        'https://burst.shopifycdn.com/photos/example1-back.jpg',
+        'https://burst.shopifycdn.com/photos/example1-detail.jpg',
+        'https://burst.shopifycdn.com/photos/example1-side.jpg',
+        'https://burst.shopifycdn.com/photos/example1-model.jpg',
+        'https://burst.shopifycdn.com/photos/example1-closeup.jpg',
         'Ocean blue cotton shirt for women',
         '0.5',
         '10',
         'New',
         'Fashion',
         'Women Fashion',
-        'active'
+        'active',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
       ].join(','),
       
       // Sample 2: Wearable Tech
@@ -4840,13 +5018,28 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         'Yellow Wool Jumper',
         '80',
         'https://burst.shopifycdn.com/photos/example2.jpg',
+        'https://burst.shopifycdn.com/photos/example2-side.jpg',
+        'https://burst.shopifycdn.com/photos/example2-back.jpg',
+        'https://burst.shopifycdn.com/photos/example2-detail.jpg',
+        'https://burst.shopifycdn.com/photos/example2-model.jpg',
+        '',
         'Knitted jumper in yellow color',
         '0.8',
         '5',
         'New',
         'Wearable Tech',
         'Smartwatches',
-        'active'
+        'active',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
       ].join(','),
       
       // Add an empty row for users to fill in
@@ -6944,7 +7137,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Hi ${seller.firstName},</p>
     
-          <p>We noticed you haven’t yet completed your Auqli seller setup — and we don’t want you to miss out!</p>
+          <p>We noticed you haven't yet completed your Auqli seller setup — and we don't want you to miss out!</p>
     
           <p>With your Auqli account, you can:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
@@ -6957,7 +7150,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Your shop is almost ready — all you need to do is log in, finish the setup, and start selling.</p>
     
-          <p>Here’s how to finish:</p>
+          <p>Here's how to finish:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
             <ol style="margin-top: 10px;">
               <li>Log in to the Auqli Seller Center</li>
@@ -7047,8 +7240,6 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
             <p>Dear ${seller.firstName},</p>
             
             <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
-            
-           
             
             <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
               <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
