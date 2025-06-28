@@ -4612,7 +4612,6 @@ exports.searchSellers = async (req, res) => {
     // Build search query
     const searchQuery = {
       isDisabled: false, // Only return active sellers
-      isVerified: true,  // Only return verified sellers
     };
 
     // Search by name (first name, last name), business name, or store name
