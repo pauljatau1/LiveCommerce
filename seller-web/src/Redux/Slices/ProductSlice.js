@@ -7,6 +7,7 @@ import axios from 'axios';
 const initialState = {
     products: [],
     product: {},
+    isProductDetailsFetched: false,
     isLoading: false,
     error: null,
     message: null,
@@ -385,9 +386,11 @@ const productSlice = createSlice({
         });
     }).addCase(getProductDetailsById.pending, (state) => {
         state.isLoading = true;
+        state.isProductDetailsFetched = false;
     }).addCase(getProductDetailsById.fulfilled, (state, action) => {
         state.isLoading = false;
         state.product = action.payload;
+        state.isProductDetailsFetched = true;
     }).addCase(getProductDetailsById.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;

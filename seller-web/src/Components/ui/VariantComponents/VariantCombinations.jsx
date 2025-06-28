@@ -1,46 +1,124 @@
-import { memo, useState, useCallback } from 'react';
-import { Icon } from "@iconify/react";
+import { memo, useState, useCallback, useEffect } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 
 const VariantCombinations = memo(() => {
-    const { variantStructure, updateVariantValue } = useVariants();
+    const { variantStructure, updateVariantValue, calculateMinimumStock } = useVariants();
     const [expandedVariants, setExpandedVariants] = useState(new Set());
+    const [stockWarnings, setStockWarnings] = useState(new Map());
+
+    // Monitor variantStructure changes for image debugging (throttled)
+    useEffect(() => {
+        const logTimeout = setTimeout(() => {
+            console.log('🔍 DESKTOP VariantCombinations - variantStructure changed, checking images:', 
+                variantStructure.map(v => ({ value: v.value, images: v.images, imageCount: v.images?.length || 0 }))
+            );
+        }, 100); // Throttle logging to reduce console spam
+
+        return () => clearTimeout(logTimeout);
+    }, [variantStructure]);
 
     const handleInputChange = useCallback((variantPath, field, value) => {
         updateVariantValue(variantPath, field, value);
     }, [updateVariantValue]);
 
+    const handleTotalStockChange = useCallback((variantPath, value, minStock) => {
+        // Allow empty string for full editability
+        if (value === '') {
+            updateVariantValue(variantPath, 'totalStock', '');
+            // Show warning even when empty
+            setStockWarnings(prev => new Map(prev.set(variantPath, `Total stock cannot be less than sub-variant total stock of ${minStock}`)));
+            return;
+        }
+        
+        // Only allow numeric values
+        const numericValue = value.replace(/[^0-9]/g, '');
+        if (numericValue !== value) {
+            return; // Don't update if non-numeric characters were entered
+        }
+        
+        const numValue = parseInt(numericValue) || 0;
+        
+        if (numValue < minStock) {
+            setStockWarnings(prev => new Map(prev.set(variantPath, `Total stock cannot be less than sub-variant total stock of ${minStock}`)));
+        } else {
+            setStockWarnings(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(variantPath);
+                return newMap;
+            });
+        }
+        
+        updateVariantValue(variantPath, 'totalStock', numericValue);
+    }, [updateVariantValue]);
+
+    // Monitor variant structure changes and update warnings accordingly
+    useEffect(() => {
+        variantStructure.forEach(mainVariant => {
+            const minStock = calculateMinimumStock(mainVariant);
+            const currentStock = parseInt(mainVariant.totalStock) || 0;
+            
+            if (mainVariant.totalStock !== undefined && 
+                (mainVariant.totalStock === '' || currentStock < minStock)) {
+                setStockWarnings(prev => new Map(prev.set(mainVariant.value, `Total stock cannot be less than sub-variant total stock of ${minStock}`)));
+            } else {
+                setStockWarnings(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(mainVariant.value);
+                    return newMap;
+                });
+            }
+        });
+    }, [variantStructure, calculateMinimumStock]);
+
     const handleImageUpload = useCallback(async (e, variantPath) => {
+        console.log('🔄 DESKTOP handleImageUpload called with variantPath:', variantPath);
         const file = e.target.files[0];
         if (file) {
+            console.log('📁 DESKTOP File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
             // Check file size (5MB = 5 * 1024 * 1024 bytes)
             const MAX_FILE_SIZE = 5 * 1024 * 1024;
             if (file.size > MAX_FILE_SIZE) {
+                console.log('❌ DESKTOP File too large:', file.size);
                 toast.error('Image size must be less than 5MB');
                 return;
             }
 
             const reader = new FileReader();
             reader.onloadend = () => {
+                console.log('📸 DESKTOP image reader.result length:', reader.result?.length);
+                console.log('📸 DESKTOP About to call updateVariantValue with variantPath:', variantPath);
+                console.log('📸 DESKTOP Image object being passed:', {
+                    url: reader.result?.substring(0, 50) + '...',
+                    contentType: file.type,
+                    isDefault: true
+                });
                 updateVariantValue(variantPath, 'images', [{
                     url: reader.result,
-                    type: file.type,
+                    contentType: file.type,
                     isDefault: true
                 }]);
+                console.log('✅ DESKTOP updateVariantValue called for images');
+                toast.success('Variant image uploaded successfully');
             };
             reader.readAsDataURL(file);
+        } else {
+            console.log('❌ DESKTOP No file selected');
         }
     }, [updateVariantValue]);
 
     const handleRemoveImage = useCallback((variantPath) => {
+        console.log('🗑️ DESKTOP handleRemoveImage called with variantPath:', variantPath);
         updateVariantValue(variantPath, 'images', []);
+        console.log('✅ DESKTOP Remove image updateVariantValue called');
     }, [updateVariantValue]);
 
-    const ImageUploadButton = ({ variantPath, images = [] }) => (
-        <div className="flex items-center gap-2">
-            {images && images.length > 0 ? (
+    const ImageUploadButton = ({ variantPath, images = [] }) => {
+        console.log('🎨 DESKTOP ImageUploadButton render - variantPath:', variantPath, 'images:', images, 'images.length:', images?.length);
+        return (
+            <div className="flex items-center gap-2">
+                {images && images.length > 0 ? (
                 <div className="relative">
                     <img
                         src={images[0].url}
@@ -95,7 +173,8 @@ const VariantCombinations = memo(() => {
                 </label>
             )}
         </div>
-    );
+        );
+    };
 
     ImageUploadButton.propTypes = {
         variantPath: PropTypes.string.isRequired,
@@ -122,7 +201,7 @@ const VariantCombinations = memo(() => {
             <div className="flex items-center gap-2">
                 <ImageUploadButton
                     variantPath={`${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`}
-                    images={subSubVariant.images}
+                    images={subSubVariant.images || []}
                 />
                 <span>{subSubVariant.value}</span>
             </div>
@@ -165,7 +244,7 @@ const VariantCombinations = memo(() => {
                 <div className="flex items-center gap-2">
                     <ImageUploadButton
                         variantPath={`${mainVariant.value}_${subVariant.value}`}
-                        images={subVariant.images}
+                        images={subVariant.images || []}
                     />
                     {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) ? (
                         <svg
@@ -246,7 +325,7 @@ const VariantCombinations = memo(() => {
                             <div className="flex items-center gap-2">
                                 <ImageUploadButton
                                     variantPath={mainVariant.value}
-                                    images={mainVariant.images}
+                                    images={mainVariant.images || []}
                                 />
                                 {expandedVariants.has(mainVariant.value) ? (
                                     <svg
@@ -286,15 +365,26 @@ const VariantCombinations = memo(() => {
                                     className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
                                     onClick={e => e.stopPropagation()}
                                 />
-                                <div className="w-24 px-3 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 md:text-base py-1.5">
-                                    {mainVariant.subVariants.reduce((total, subVar) => 
-                                        total + (parseInt(subVar.stock) || 0) +
-                                        subVar.subSubVariants.reduce((subTotal, subSubVar) => 
-                                            subTotal + (parseInt(subSubVar.stock) || 0), 0
-                                        ), 0) || 1}
-                                </div>
+                                <input
+                                    type="text"
+                                    value={mainVariant.totalStock !== undefined ? mainVariant.totalStock : calculateMinimumStock(mainVariant)}
+                                    onChange={(e) => handleTotalStockChange(
+                                        mainVariant.value,
+                                        e.target.value,
+                                        calculateMinimumStock(mainVariant)
+                                    )}
+                                    placeholder="Stock"
+                                    className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
+                                    onClick={e => e.stopPropagation()}
+                                />
                             </div>
                         </div>
+                        
+                        {stockWarnings.has(mainVariant.value) && (
+                            <div className="px-4 pb-2">
+                                <p className="text-red-500 text-xs lg:text-sm font-medium">{stockWarnings.get(mainVariant.value)}</p>
+                            </div>
+                        )}
 
                         {expandedVariants.has(mainVariant.value) &&
                             mainVariant.subVariants?.map(subVariant =>
