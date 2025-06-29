@@ -1250,175 +1250,197 @@ exports.deepSearchProducts = async (req, res) => {
     let total = 0;
 
     if (query.trim()) {
-      // Create search terms for more flexible matching
-      const searchTerms = query.trim().split(/\s+/).filter(term => term.length > 1);
+      // Memory-safe search approach
+      const searchTerms = query.trim().split(/\s+/).filter(term => term.length > 0);
       
-      // Handle common word variations (singular/plural)
+      // Handle common word variations (singular/plural) - but only for longer terms
       const expandedTerms = [...searchTerms];
       searchTerms.forEach(term => {
-        // Add singular form if the term might be plural
-        if (term.endsWith('s') && term.length > 3) {
-          expandedTerms.push(term.slice(0, -1));
-        }
-        // Add plural form
-        else if (!term.endsWith('s') && term.length > 2) {
-          expandedTerms.push(`${term}s`);
+        if (term.length > 2) { // Only expand terms longer than 2 characters
+          if (term.endsWith('s') && term.length > 3) {
+            expandedTerms.push(term.slice(0, -1));
+          } else if (!term.endsWith('s')) {
+            expandedTerms.push(`${term}s`);
+          }
         }
       });
       
       // Build MongoDB query with better field coverage
-      const orConditions = [
-        // Exact matches (higher priority in sorting)
-        { name: { $regex: query, $options: 'i' } },
-        { category: { $regex: `^${query}$`, $options: 'i' } },
-        { subCategory: { $regex: `^${query}$`, $options: 'i' } },
-        { subSubCategory: { $regex: `^${query}$`, $options: 'i' } },
-      ];
+      const orConditions = [];
       
-      // Add partial term matches for each search term (including variations)
-      expandedTerms.forEach(term => {
+      // For single character searches, use a simpler approach
+      if (query.trim().length === 1) {
+        const singleChar = query.trim();
         orConditions.push(
-          { name: { $regex: term, $options: 'i' } },
-          { description: { $regex: term, $options: 'i' } },
-          { category: { $regex: term, $options: 'i' } },
-          { subCategory: { $regex: term, $options: 'i' } },
-          { subSubCategory: { $regex: term, $options: 'i' } },
-          { brand: { $regex: term, $options: 'i' } },
-          { tags: { $regex: term, $options: 'i' } },
-          { sku: { $regex: term, $options: 'i' } }
+          // Simple contains search - most likely to find matches
+          { name: { $regex: singleChar, $options: 'i' } },
+          { category: { $regex: singleChar, $options: 'i' } },
+          { subCategory: { $regex: singleChar, $options: 'i' } },
+          { brand: { $regex: singleChar, $options: 'i' } }
         );
-      });
+      } else {
+        // For longer queries, use the full search
+        orConditions.push(
+          // Exact matches (higher priority)
+          { name: { $regex: query, $options: 'i' } },
+          { category: { $regex: `^${query}$`, $options: 'i' } },
+          { subCategory: { $regex: `^${query}$`, $options: 'i' } },
+          { subSubCategory: { $regex: `^${query}$`, $options: 'i' } }
+        );
+        
+        // Add partial term matches for each search term
+        expandedTerms.forEach(term => {
+          orConditions.push(
+            { name: { $regex: term, $options: 'i' } },
+            { description: { $regex: term, $options: 'i' } },
+            { category: { $regex: term, $options: 'i' } },
+            { subCategory: { $regex: term, $options: 'i' } },
+            { subSubCategory: { $regex: term, $options: 'i' } },
+            { brand: { $regex: term, $options: 'i' } },
+            { tags: { $regex: term, $options: 'i' } },
+            { sku: { $regex: term, $options: 'i' } }
+          );
+        });
+      }
       
-      // Enhanced MongoDB query
       const mongoSearchQuery = {
         ...filter,
         $or: orConditions,
       };
 
+      // DEBUG: Log the query for single character searches
+      if (query.trim().length === 1) {
+        console.log('Single char search query:', JSON.stringify(mongoSearchQuery, null, 2));
+      }
+
+      // MEMORY OPTIMIZATION: Limit initial DB query to prevent loading too many products
+      const MAX_SEARCH_RESULTS = 200; // Conservative limit to prevent memory issues
+      
+      // First, get count for pagination
+      total = await Product.countDocuments(mongoSearchQuery);
+      console.log(`Query "${query}" found ${total} total matches`);
+      
+      // Get limited results for fuzzy search - prioritize by relevance
       const dbResults = await Product.find(mongoSearchQuery)
         .populate('seller', 'name avatarUrl about')
-        .populate('reviews.buyer', 'firstName lastName');
-
-      // Use Fuse.js for more intelligent fuzzy matching
-      const fuse = new Fuse(dbResults, {
-        keys: [
-          // Weighted keys to prioritize certain fields
-          { name: 'name', weight: 2.0 },
-          { name: 'category', weight: 1.8 },
-          { name: 'subCategory', weight: 1.5 },
-          { name: 'subSubCategory', weight: 1.2 },
-          { name: 'description', weight: 1.0 },
-          { name: 'brand', weight: 0.8 },
-          { name: 'tags', weight: 0.7 },
-          { name: 'sku', weight: 0.5 }
-        ],
-        // More lenient threshold for better recall
-        threshold: 0.45,
-        // Use distance to improve matching of partial terms
-        distance: 200,
-        // Include score for ranking
-        includeScore: true,
-        // Enable finding all matches in the string, not just the first
-        findAllMatches: true,
-        // Match based on insensitive case
-        ignoreLocation: true,
-        // Use n-gram tokenization for better partial matching
-        minMatchCharLength: 2,
-        // Prioritize matches that occur earlier in the string
-        location: 0,
-        // Improve matching of transposed characters
-        shouldSort: true
-      });
-
-      const fuzzyResults = fuse.search(query);
+        .populate('reviews.buyer', 'firstName lastName')
+        .sort({ createdAt: -1 }) // Sort by newest first for relevance
+        .limit(MAX_SEARCH_RESULTS); // CRITICAL: Limit memory usage
       
-      // Boost matches based on multiple criteria
-      const boostedResults = fuzzyResults.map(result => {
-        const item = result.item;
-        let score = result.score;
-        let boostFactor = 1.0;
+      console.log(`Retrieved ${dbResults.length} products from DB`);
+
+      // Only use Fuse.js if we have a reasonable number of results
+      if (dbResults.length > 0) {
+        const fuse = new Fuse(dbResults, {
+          keys: [
+            { name: 'name', weight: 2.0 },
+            { name: 'category', weight: 1.8 },
+            { name: 'subCategory', weight: 1.5 },
+            { name: 'subSubCategory', weight: 1.2 },
+            { name: 'description', weight: 1.0 },
+            { name: 'brand', weight: 0.8 },
+            { name: 'tags', weight: 0.7 },
+            { name: 'sku', weight: 0.5 }
+          ],
+          threshold: 0.45,
+          distance: 200,
+          includeScore: true,
+          findAllMatches: true,
+          ignoreLocation: true,
+          minMatchCharLength: query.trim().length === 1 ? 1 : 2, // Allow single character matching
+          location: 0,
+          shouldSort: true
+        });
+
+        const fuzzyResults = fuse.search(query);
         
-        // Check for exact category match or word boundary match
-        if (item.category) {
-          const categoryLower = item.category.toLowerCase();
-          const queryLower = query.toLowerCase();
+        // Boost matches based on multiple criteria
+        const boostedResults = fuzzyResults.map(result => {
+          const item = result.item;
+          let score = result.score;
+          let boostFactor = 1.0;
           
-          if (categoryLower === queryLower) {
-            // Exact category match gets a strong boost
-            boostFactor *= 0.3; // Lower score is better in Fuse.js
-          } else if (new RegExp(`\\b${queryLower}\\b`).test(categoryLower)) {
-            // Word boundary match in category
-            boostFactor *= 0.4;
+          // Boost exact category matches
+          if (item.category) {
+            const categoryLower = item.category.toLowerCase();
+            const queryLower = query.toLowerCase();
+            
+            if (categoryLower === queryLower) {
+              boostFactor *= 0.3;
+            } else if (new RegExp(`\\b${queryLower}\\b`).test(categoryLower)) {
+              boostFactor *= 0.4;
+            }
           }
-        }
-        
-        // Check for subcategory matches
-        if (item.subCategory) {
-          const subCategoryLower = item.subCategory.toLowerCase();
-          const queryLower = query.toLowerCase();
           
-          if (subCategoryLower === queryLower) {
-            // Exact subcategory match
-            boostFactor *= 0.5;
-          } else if (new RegExp(`\\b${queryLower}\\b`).test(subCategoryLower)) {
-            // Word boundary match in subcategory
-            boostFactor *= 0.6;
+          // Boost subcategory matches
+          if (item.subCategory) {
+            const subCategoryLower = item.subCategory.toLowerCase();
+            const queryLower = query.toLowerCase();
+            
+            if (subCategoryLower === queryLower) {
+              boostFactor *= 0.5;
+            } else if (new RegExp(`\\b${queryLower}\\b`).test(subCategoryLower)) {
+              boostFactor *= 0.6;
+            }
           }
-        }
-        
-        // Check for name matches (product names containing the query get a boost)
-        if (item.name && item.name.toLowerCase().includes(query.toLowerCase())) {
-          boostFactor *= 0.7;
-        }
-        
-                  // Check for multiple term matches in the name
+          
+          // Boost name matches
+          if (item.name && item.name.toLowerCase().includes(query.toLowerCase())) {
+            boostFactor *= 0.7;
+          }
+          
+          // Boost multiple term matches
           if (item.name) {
             const nameLower = item.name.toLowerCase();
             const matchCount = expandedTerms.filter(term => 
               nameLower.includes(term.toLowerCase())
             ).length;
-          
-          // Boost products that match multiple search terms in the name
-          if (matchCount > 1) {
-            boostFactor *= (0.8 - (matchCount * 0.05)); // More matches = better boost
+            
+            if (matchCount > 1) {
+              boostFactor *= (0.8 - (matchCount * 0.05));
+            }
           }
+          
+          return { ...result, score: score * boostFactor };
+        });
+        
+        // Sort by boosted score
+        boostedResults.sort((a, b) => a.score - b.score);
+        
+        const mappedResults = boostedResults.map((result) => result.item);
+        
+        // Apply additional sorting
+        const sortOptions = getSortOptions(sortBy, order);
+        mappedResults.sort((a, b) => {
+          const sortKey = Object.keys(sortOptions)[0];
+          const sortDirection = sortOptions[sortKey];
+          
+          const getValue = (obj, path) => {
+            return path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
+          };
+          
+          const aValue = getValue(a, sortKey);
+          const bValue = getValue(b, sortKey);
+          
+          if (aValue === null && bValue === null) return 0;
+          if (aValue === null) return sortDirection > 0 ? -1 : 1;
+          if (bValue === null) return sortDirection > 0 ? 1 : -1;
+          
+          return sortDirection * (aValue > bValue ? 1 : aValue < bValue ? -1 : 0);
+        });
+        
+        // Apply pagination to fuzzy results
+        searchResults = mappedResults.slice(skip, skip + limit);
+        
+        // Update total to reflect actual fuzzy search results if less than DB total
+        if (fuzzyResults.length < total) {
+          total = fuzzyResults.length;
         }
-        
-        // Apply the calculated boost factor
-        return { ...result, score: score * boostFactor };
-      });
-      
-      // Sort by boosted score
-      boostedResults.sort((a, b) => a.score - b.score);
-      
-      const mappedResults = boostedResults.map((result) => result.item);
-      
-      // Apply sorting to the fuzzy search results
-      const sortOptions = getSortOptions(sortBy, order);
-      mappedResults.sort((a, b) => {
-        // Get the first sort key
-        const sortKey = Object.keys(sortOptions)[0];
-        const sortDirection = sortOptions[sortKey];
-        
-        // Handle nested properties (e.g. 'analytics.views')
-        const getValue = (obj, path) => {
-          return path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
-        };
-        
-        const aValue = getValue(a, sortKey);
-        const bValue = getValue(b, sortKey);
-        
-        // Handle null/undefined values
-        if (aValue === null && bValue === null) return 0;
-        if (aValue === null) return sortDirection > 0 ? -1 : 1;
-        if (bValue === null) return sortDirection > 0 ? 1 : -1;
-        
-        // Compare values based on sort direction
-        return sortDirection * (aValue > bValue ? 1 : aValue < bValue ? -1 : 0);
-      });
-      
-      searchResults = mappedResults.slice(skip, skip + limit);
-      total = fuzzyResults.length;
+      } else {
+        searchResults = [];
+        total = 0;
+      }
+
     } else {
       // No search query — regular listing with filters only
       total = await Product.countDocuments(filter);
