@@ -7013,11 +7013,93 @@ exports.getSellerSubcategoriesWithProducts = async (req, res) => {
   }
 };
 
+// In-memory store for seen blips per session (consider Redis for production)
+const sessionBlipStore = new Map();
+
+// Maximum number of sessions to prevent memory issues
+const MAX_SESSIONS = 1000;
+const MAX_SEEN_BLIPS_PER_SESSION = 100;
+
+// Clean up old sessions (run periodically)
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+  for (const [sessionId, data] of sessionBlipStore.entries()) {
+    if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+      sessionBlipStore.delete(sessionId);
+      cleanedCount++;
+    }
+  }
+  if (cleanedCount > 0) {
+    console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
+  }
+}, 30 * 1000); // Clean every 30 seconds
+
 exports.getPersonalizedBlips = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.max(1, parseInt(req.query.limit) || 10);
     const skip = (page - 1) * limit;
+
+    // Generate or get session ID (use existing session or create new one)
+    // For authenticated users, use a more stable session ID
+    const sessionId = req.query.sessionId || 
+                     (req.user?.id ? `user_${req.user.id}_blips` : `anon_${Math.random().toString(36).substr(2, 9)}`);
+
+    console.log(`🔍 [BLIPS DEBUG] Session ID: ${sessionId}, Page: ${page}, Limit: ${limit}`);
+
+    // Reset session if user goes back to page 1 (treat as fresh browsing session)
+    if (page === 1 && sessionBlipStore.has(sessionId)) {
+      console.log(`🔄 [BLIPS DEBUG] Page 1 requested - resetting session for fresh start`);
+      sessionBlipStore.delete(sessionId);
+    }
+
+    // Get or initialize seen blips for this session
+    if (!sessionBlipStore.has(sessionId)) {
+      // Check if we're at session limit to prevent memory issues
+      if (sessionBlipStore.size >= MAX_SESSIONS) {
+        console.log(`⚠️ [BLIPS DEBUG] Session limit reached (${MAX_SESSIONS}), forcing cleanup`);
+        // Remove oldest sessions
+        const sortedSessions = Array.from(sessionBlipStore.entries())
+          .sort((a, b) => a[1].lastAccess - b[1].lastAccess);
+        
+        const sessionsToRemove = sortedSessions.slice(0, Math.floor(MAX_SESSIONS * 0.2));
+        sessionsToRemove.forEach(([id]) => sessionBlipStore.delete(id));
+        console.log(`🧹 [BLIPS DEBUG] Removed ${sessionsToRemove.length} oldest sessions`);
+      }
+      
+      sessionBlipStore.set(sessionId, { seenBlipIds: [], lastAccess: Date.now(), lastPage: 0 });
+      console.log(`🆕 [BLIPS DEBUG] Created new session for: ${sessionId}`);
+    } else {
+      console.log(`♻️ [BLIPS DEBUG] Using existing session: ${sessionId}`);
+    }
+    
+    const sessionData = sessionBlipStore.get(sessionId);
+    sessionData.lastAccess = Date.now();
+    
+    // Check if user is going backwards (lower page than before) - reset session for better UX
+    if (sessionData.lastPage && page < sessionData.lastPage) {
+      console.log(`⬅️ [BLIPS DEBUG] Backward navigation detected: Page ${sessionData.lastPage} → Page ${page}. Resetting session.`);
+      sessionData.seenBlipIds = [];
+      sessionData.lastPage = page;
+    } else {
+      // Update last page for forward navigation
+      sessionData.lastPage = Math.max(sessionData.lastPage || 0, page);
+    }
+    let seenBlipIds = sessionData.seenBlipIds;
+    
+    // Limit seen blips per session to prevent performance issues
+    if (seenBlipIds.length > MAX_SEEN_BLIPS_PER_SESSION) {
+      seenBlipIds = seenBlipIds.slice(-MAX_SEEN_BLIPS_PER_SESSION);
+      sessionData.seenBlipIds = seenBlipIds;
+      console.log(`✂️ [BLIPS DEBUG] Trimmed session to last ${MAX_SEEN_BLIPS_PER_SESSION} seen blips`);
+    }
+    
+    console.log(`📝 [BLIPS DEBUG] Current seen blips count: ${seenBlipIds.length}`);
+    console.log(`📄 [BLIPS DEBUG] Last page visited: ${sessionData.lastPage}, Current page: ${page}`);
+    if (seenBlipIds.length > 0) {
+      console.log(`📝 [BLIPS DEBUG] First 5 seen blip IDs: ${seenBlipIds.slice(0, 5).join(', ')}`);
+    }
 
     const primaryMatchStage = {
       $and: [
@@ -7105,25 +7187,105 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     ];
 
+    // Convert seen blip IDs to ObjectIds for MongoDB comparison
+    const mongoose = require('mongoose');
+    const seenBlipObjectIds = seenBlipIds.length > 0 ? seenBlipIds.map(id => {
+      try {
+        return new mongoose.Types.ObjectId(id);
+      } catch (e) {
+        console.log(`⚠️ [BLIPS DEBUG] Invalid ObjectId: ${id} - removing from session`);
+        return null;
+      }
+    }).filter(id => id !== null) : [];
+
+    // If we had invalid ObjectIds, clean them from the session
+    if (seenBlipObjectIds.length < seenBlipIds.length) {
+      const validIds = seenBlipObjectIds.map(id => id.toString());
+      sessionData.seenBlipIds = validIds;
+      console.log(`🧹 [BLIPS DEBUG] Cleaned invalid ObjectIds from session`);
+    }
+
+    // Log exclusion match stage details
+    const exclusionMatchStage = seenBlipObjectIds.length > 0 ? { $match: { 'blips._id': { $nin: seenBlipObjectIds } } } : null;
+    if (exclusionMatchStage) {
+      console.log(`🚫 [BLIPS DEBUG] Excluding ${seenBlipObjectIds.length} blip ObjectIds from query`);
+      console.log(`🚫 [BLIPS DEBUG] String IDs: ${seenBlipIds.slice(0, 3).join(', ')}`);
+      console.log(`🚫 [BLIPS DEBUG] ObjectIds: ${seenBlipObjectIds.slice(0, 3).map(id => id.toString()).join(', ')}`);
+    }
+
     const primaryPipeline = [
       { $match: primaryMatchStage },
       { $unwind: "$blips" },
       { $match: { "blips.processed": true } },
+      ...(exclusionMatchStage ? [exclusionMatchStage] : []),
       ...commonPipeline
     ];
 
-    let products = await Product.aggregate(primaryPipeline).exec();
+    console.log(`🔎 [BLIPS DEBUG] Executing primary pipeline with ${seenBlipObjectIds.length} exclusions...`);
+    let products;
+    try {
+      products = await Product.aggregate(primaryPipeline).exec();
+    } catch (dbError) {
+      console.error(`❌ [BLIPS DEBUG] Database error in primary pipeline:`, dbError.message);
+      // Fallback to query without exclusions if there's a DB error
+      const simplePipeline = [
+        { $match: primaryMatchStage },
+        { $unwind: "$blips" },
+        { $match: { "blips.processed": true } },
+        ...commonPipeline
+      ];
+      products = await Product.aggregate(simplePipeline).exec();
+      console.log(`🔄 [BLIPS DEBUG] Used fallback pipeline without exclusions due to DB error`);
+    }
+    
+    console.log(`📊 [BLIPS DEBUG] Primary pipeline returned: ${products.length} products`);
+    if (products.length > 0) {
+      const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
+      console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from primary: ${blipIds.join(', ')}`);
+      
+      // Check if any returned blips were in the exclusion list (this shouldn't happen)
+      const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
+      if (duplicates.length > 0) {
+        console.log(`🚨 [BLIPS DEBUG] ERROR: Found duplicate blips in primary results: ${duplicates.join(', ')}`);
+      }
+    }
 
     if (products.length === 0) {
-      console.log('No primary blips, falling back to general pool');
+      console.log('❌ [BLIPS DEBUG] No primary blips, falling back to general pool');
 
       const fallbackPipeline = [
         { $match: fallbackMatchStage },
         { $unwind: "$blips" },
+        ...(exclusionMatchStage ? [exclusionMatchStage] : []),
         ...commonPipeline
       ];
 
-      products = await Product.aggregate(fallbackPipeline).exec();
+      console.log(`🔎 [BLIPS DEBUG] Executing fallback pipeline with ${seenBlipObjectIds.length} exclusions...`);
+      try {
+        products = await Product.aggregate(fallbackPipeline).exec();
+      } catch (dbError) {
+        console.error(`❌ [BLIPS DEBUG] Database error in fallback pipeline:`, dbError.message);
+        // Final fallback to simple query without exclusions
+        const simpleFallbackPipeline = [
+          { $match: fallbackMatchStage },
+          { $unwind: "$blips" },
+          ...commonPipeline
+        ];
+        products = await Product.aggregate(simpleFallbackPipeline).exec();
+        console.log(`🔄 [BLIPS DEBUG] Used simple fallback without exclusions due to DB error`);
+      }
+      console.log(`📊 [BLIPS DEBUG] Fallback pipeline returned: ${products.length} products`);
+      
+      if (products.length > 0) {
+        const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
+        console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from fallback: ${blipIds.join(', ')}`);
+        
+        // Check if any returned blips were in the exclusion list (this shouldn't happen)
+        const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
+        if (duplicates.length > 0) {
+          console.log(`🚨 [BLIPS DEBUG] ERROR: Found duplicate blips in fallback results: ${duplicates.join(', ')}`);
+        }
+      }
     }
 
     await Product.populate(products, {
@@ -7299,6 +7461,8 @@ exports.getPersonalizedBlips = async (req, res) => {
         if (!seenProducts.has(blip.productId.toString())) {
           result.push(blip);
           seenProducts.add(blip.productId.toString());
+        } else {
+          console.log(`🔄 [BLIPS DEBUG] Skipped duplicate product in distribution: ${blip.productName} (${blip.productId})`);
         }
 
         // Track recently used sellers (keep last 3-5 sellers to avoid immediate repetition)
@@ -7321,11 +7485,37 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     const finalBlips = createBalancedBlipDistribution(categorizedBlips, limit);
 
+    // Extract the blip IDs from the final result to add to seen blips
+    const newlySeenBlipIds = finalBlips.map(blip => blip.blipId.toString());
+    console.log(`➕ [BLIPS DEBUG] Adding ${newlySeenBlipIds.length} new blip IDs to session`);
+    console.log(`➕ [BLIPS DEBUG] New blip IDs: ${newlySeenBlipIds.slice(0, 3).join(', ')}${newlySeenBlipIds.length > 3 ? '...' : ''}`);
+
+    // Final check: ensure no duplicates in the final result
+    const duplicatesInResult = newlySeenBlipIds.filter(id => seenBlipIds.includes(id));
+    if (duplicatesInResult.length > 0) {
+      console.log(`🚨 [BLIPS DEBUG] CRITICAL ERROR: Found duplicates in final result: ${duplicatesInResult.join(', ')}`);
+      console.log(`🚨 [BLIPS DEBUG] This indicates the MongoDB exclusion is not working properly`);
+    } else {
+      console.log(`✅ [BLIPS DEBUG] No duplicates found in final result - exclusion working correctly`);
+    }
+
+    // Add the newly seen blip IDs to the session
+    sessionData.seenBlipIds = [...sessionData.seenBlipIds, ...newlySeenBlipIds];
+    sessionData.lastPage = page; // Update the last page accessed
+    console.log(`✅ [BLIPS DEBUG] Session now has ${sessionData.seenBlipIds.length} total seen blips`);
+
+    // Log some final stats
+    console.log(`📤 [BLIPS DEBUG] Returning ${finalBlips.length} blips for page ${page}`);
+    if (finalBlips.length > 0) {
+      console.log(`📤 [BLIPS DEBUG] First blip product: ${finalBlips[0].productName} (ID: ${finalBlips[0].blipId})`);
+    }
+
     res.json({
       blips: finalBlips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      totalBlips: total
+      totalBlips: total,
+      sessionId: sessionId // Return session ID so frontend can use it for subsequent requests
     });
 
   } catch (error) {
