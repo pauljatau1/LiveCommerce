@@ -65,7 +65,7 @@ const getSellerAnalytics = async () => {
   }
 };
 
-const HomePage = () => {
+function HomePage() {
   // Core hooks initialization
   const navigate = useNavigate();
   const { initUser } = useIntercomChat();
@@ -902,6 +902,6 @@ const HomePage = () => {
       />
     </div>
   )
-};
+}
 
 export default HomePage;
