@@ -8269,6 +8269,94 @@ exports.deleteProductBlip = async (req, res) => {
   }
 };
 
+/**
+ * Delete a comment from a blip (Admin)
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.deleteBlipComment = async (req, res) => {
+  try {
+    const { productId, blipId, commentId } = req.params;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(productId) || 
+        !mongoose.Types.ObjectId.isValid(blipId) || 
+        !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product, blip, or comment ID format' 
+      });
+    }
+
+    // Find product first to validate existence and get comment details
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    // Find the blip in the product
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Blip not found in the product' 
+      });
+    }
+
+    // Find the comment in the blip
+    const comment = blip.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Comment not found in the blip' 
+      });
+    }
+
+    // Store comment details for response
+    const deletedComment = {
+      _id: commentId,
+      comment: comment.comment,
+      createdAt: comment.createdAt,
+      buyer: comment.buyer
+    };
+
+    // Use atomic update to remove the comment and update the count
+    // This avoids validation issues with the entire document
+    await Product.findOneAndUpdate(
+      { 
+        _id: productId,
+        'blips._id': blipId 
+      },
+      { 
+        $pull: { 'blips.$.comments': { _id: commentId } },
+        $inc: { 'blips.$.commentsCount': -1 }
+      },
+      { 
+        new: true,
+        runValidators: false // Skip validation to avoid issues with missing required fields
+      }
+    );
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Comment deleted successfully',
+      deletedComment: deletedComment
+    });
+  } catch (error) {
+    console.error('Error in deleteBlipComment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete comment',
+      error: error.message
+    });
+  }
+};
+
 exports.getAllProductBlips = async (req, res) => {
   try {
     // Parse pagination parameters

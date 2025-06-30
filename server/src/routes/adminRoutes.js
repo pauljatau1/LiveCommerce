@@ -3743,6 +3743,75 @@ router.delete('/products/:productId/blips/:blipId',
 
 /**
  * @swagger
+ * /api/admin/products/{productId}/blips/{blipId}/comments/{commentId}:
+ *   delete:
+ *     summary: Delete a comment from a blip (Admin)
+ *     description: Allows an admin to delete a comment from any blip
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment to delete
+ *     responses:
+ *       200:
+ *         description: Comment deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Comment deleted successfully
+ *                 deletedComment:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     comment:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     buyer:
+ *                       type: string
+ *       400:
+ *         description: Invalid product, blip, or comment ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not an admin
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/products/:productId/blips/:blipId/comments/:commentId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deleteBlipComment
+);
+
+/**
+ * @swagger
  * /api/admin/buyers/{buyerId}/transactions:
  *   get:
  *     summary: Get transactions of a specific buyer
