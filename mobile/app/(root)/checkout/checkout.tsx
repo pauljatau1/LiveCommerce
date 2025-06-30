@@ -619,68 +619,118 @@ const Checkout = () => {
             console.log("order created", JSON.stringify(response.data));
             console.log("cart data", cartData);
             trackEventMixpanel("order_created", {
-              userId: user?._id,
-              email: user?.email,
-              firstName: user?.firstName,
-              lastName: user?.lastName,
-              username: user?.username,
-              orderId: response.data.orders.map((order: any) => order.orderId),
-              sellerId: response.data.orders[0]?.seller,
-              itemsTotal: itemsTotal,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal?.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
-              orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map(
-                (order: any) => order.fezOrderNo || "N/A",
-              ),
-              products: cartData?.map((item: any) => {
-                return {
-                  name: item.name,
-                  price: `₦${item.price.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
-                  productId: item._id,
-                };
-              }),
+              // Buyer Information
+              userId: response.data.complexOrderDetails?.buyer_id,
+              email: response.data.complexOrderDetails?.buyer_email,
+              firstName: response.data.complexOrderDetails?.buyer_first_name,
+              lastName: response.data.complexOrderDetails?.buyer_last_name,
+              username: response.data.complexOrderDetails?.buyer_username,
+              buyerPhone: response.data.complexOrderDetails?.buyer_phone,
+              
+              // Order Information
+              orderId: response.data.complexOrderDetails?.order_id,
+              orderItemsTotal: response.data.complexOrderDetails?.order_items_total,
+              shippingFee: response.data.complexOrderDetails?.shipping_fee,
+              orderGrandTotal: response.data.complexOrderDetails?.order_grand_total,
+              paymentMethod: response.data.complexOrderDetails?.payment_method,
+              paymentStatus: response.data.complexOrderDetails?.payment_status,
+              
+              // Order Details
+              isCashOnDelivery: response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit: response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed: response.data.complexOrderDetails?.wallet_amount_used,
+              isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
+              orderChannel: response.data.complexOrderDetails?.order_channel,
+              totalItemsInOrder: response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch: response.data.complexOrderDetails?.total_orders_in_batch,
+              
+              // Delivery Information
+              deliveryAddressLine1: response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryCity: response.data.complexOrderDetails?.delivery_city,
+              deliveryState: response.data.complexOrderDetails?.delivery_state,
+              deliveryCountry: response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName: response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone: response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail: response.data.complexOrderDetails?.delivery_recipient_email,
+              
+              // Shipping Information
+              fezOrderNumber: response.data.complexOrderDetails?.fez_order_number,
+              carrierName: response.data.complexOrderDetails?.carrier_name,
+              trackingNumber: response.data.complexOrderDetails?.tracking_number,
+              
+              // Product Information
+              orderProductId1: response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1: response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1: response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1: response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1: response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1: response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1: response.data.complexOrderDetails?.orderProductSpecifications1,
+              
+              // Campaign and Stream Information
+              campaignId: response.data.complexOrderDetails?.campaign_id,
+              streamId: response.data.complexOrderDetails?.stream_id,
+              
+              // Timestamp
+              orderCreatedAt: response.data.complexOrderDetails?.order_created_at,
               timestamp: new Date().toISOString(),
             });
 
             trackEventCustomerio("order_created", {
-              userId: user?._id,
-              email: user?.email,
-              firstName: user?.firstName,
-              lastName: user?.lastName,
-              username: user?.username,
-              orderId: response.data.orders.map((order: any) => order.orderId),
-              sellerId: response.data.orders[0]?.seller,
-              itemsTotal: itemsTotal,
-              shippingTotal: `₦${response.data?.totals?.shippingTotal.toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}`,
-              orderCount: response.data?.totals?.orderCount,
-              deliveryOrderNo: response.data?.orders.map(
-                (order: any) => order.fezOrderNo || "N/A",
-              ),
-              products: cartData?.map((item: any) => {
-                return {
-                  name: item.name,
-                  price: `₦${item.price.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
-                  productId: item._id,
-                };
-              }),
+              // Buyer Information
+              userId: response.data.complexOrderDetails?.buyer_id,
+              email: response.data.complexOrderDetails?.buyer_email,
+              firstName: response.data.complexOrderDetails?.buyer_first_name,
+              lastName: response.data.complexOrderDetails?.buyer_last_name,
+              username: response.data.complexOrderDetails?.buyer_username,
+              buyerPhone: response.data.complexOrderDetails?.buyer_phone,
+              
+              // Order Information
+              orderId: response.data.complexOrderDetails?.order_id,
+              orderItemsTotal: response.data.complexOrderDetails?.order_items_total,
+              shippingFee: response.data.complexOrderDetails?.shipping_fee,
+              orderGrandTotal: response.data.complexOrderDetails?.order_grand_total,
+              paymentMethod: response.data.complexOrderDetails?.payment_method,
+              paymentStatus: response.data.complexOrderDetails?.payment_status,
+              
+              // Order Details
+              isCashOnDelivery: response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit: response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed: response.data.complexOrderDetails?.wallet_amount_used,
+              isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
+              orderChannel: response.data.complexOrderDetails?.order_channel,
+              totalItemsInOrder: response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch: response.data.complexOrderDetails?.total_orders_in_batch,
+              
+              // Delivery Information
+              deliveryAddressLine1: response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryCity: response.data.complexOrderDetails?.delivery_city,
+              deliveryState: response.data.complexOrderDetails?.delivery_state,
+              deliveryCountry: response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName: response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone: response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail: response.data.complexOrderDetails?.delivery_recipient_email,
+              
+              // Shipping Information
+              fezOrderNumber: response.data.complexOrderDetails?.fez_order_number,
+              carrierName: response.data.complexOrderDetails?.carrier_name,
+              trackingNumber: response.data.complexOrderDetails?.tracking_number,
+              
+              // Product Information
+              orderProductId1: response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1: response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1: response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1: response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1: response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1: response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1: response.data.complexOrderDetails?.orderProductSpecifications1,
+              
+              // Campaign and Stream Information
+              campaignId: response.data.complexOrderDetails?.campaign_id,
+              streamId: response.data.complexOrderDetails?.stream_id,
+              
+              // Timestamp
+              orderCreatedAt: response.data.complexOrderDetails?.order_created_at,
               timestamp: new Date().toISOString(),
             });
 
