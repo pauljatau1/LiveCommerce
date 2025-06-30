@@ -8,9 +8,11 @@ import { toast } from 'sonner';
 import { useOutletContext } from 'react-router-dom';
 import LiveAuctionProductsCard from '../../Components/LiveAuctionProductsCard';
 import PropTypes from 'prop-types';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
 
 const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) => {
     const navigate = useNavigate();
+    const { activeStreams } = useLivestreamContext();
 
     if (!isOpen) return null;
 
@@ -28,6 +30,19 @@ const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) =
             )
         }
     }
+
+    const handleCopyLink = async () => {
+        try {
+            if (activeStreams?.streamLink) {
+                await navigator.clipboard.writeText(activeStreams.streamLink);
+                toast.success('Link copied to clipboard');
+            } else {
+                toast.error('No link found to copy');
+            }
+        } catch {
+            toast.error('Failed to copy link');
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-lg">
@@ -64,15 +79,22 @@ const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) =
                     {/* Buttons */}
                     <div className="flex flex-col md:flex-row gap-3 w-full pt-4">
                         {handleStartImmediately()}
-                        <button
-                            onClick={onClose}
-                            className="px-6 py-2.5 w-full text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 flex items-center justify-center gap-2"
-                        >
-                            SHARE
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8 12H16M16 12L12 8M16 12L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </button>
+                        <TooltipProvider>
+                            <Tooltip >
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={handleCopyLink}
+                                        className="px-6 py-2.5 w-full text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 flex items-center justify-center gap-2"
+                                    >
+                                        SHARE
+                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M8 12H16M16 12L12 8M16 12L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-gray-300">Click to copy to clipboard</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     {/* Footer Text */}
