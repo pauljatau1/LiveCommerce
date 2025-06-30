@@ -30,7 +30,7 @@ const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
 const crypto = require('crypto');
 const notificationController = require('../controllers/notificationController');
-const { mixpanel } = require('../app');
+const mixpanel = require('../config/mixpanel');
 const { trackPurchase } = require('../controllers/campaignController');
 
 // Initialize Paystack
@@ -1302,6 +1302,188 @@ exports.createOrder = async (req, res) => {
 
     console.log('Transaction committed successfully');
 
+    const trackingOrderData = {};
+
+    // Track order sales on Mixpanel - one event per order with all items as numbered properties
+    try {
+      console.log('Starting Mixpanel tracking for sale_made events...');
+      
+      for (const order of orders) {
+        // Get seller details for this order
+        const SellerModel = mongoose.model('Seller');
+        const orderSeller = await SellerModel.findById(order.seller);
+        
+        if (!orderSeller) {
+          console.warn(`Seller not found for order ${order.order_id}, skipping Mixpanel tracking`);
+          continue;
+        }
+
+        // Get buyer's main address for tracking
+        const buyerMainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
+          ? buyer.shippingAddresses[0] 
+          : null;
+
+        // Create base tracking data for the order
+        const trackingData = {
+          // Order details
+          order_id: order.order_id,
+          order_items_total: order.totalAmount,
+          shipping_fee: sellerItems[order.seller.toString()]?.shippingFee || 0,
+          order_grand_total: order.totalAmount + (sellerItems[order.seller.toString()]?.shippingFee || 0),
+          payment_method: order.paymentInfo.method,
+          payment_status: order.paymentInfo.status,
+          is_cash_on_delivery: order.paymentInfo.isCashOnDelivery || false,
+          is_wallet_credit: order.paymentInfo.isWalletCredit || false,
+          wallet_amount_used: order.paymentInfo.walletAmountUsed || 0,
+          is_store_pickup: order.isStorePickup || false,
+          order_channel: req.body.channel || 'marketplace',
+          total_items_in_order: order.items.length,
+          total_orders_in_batch: orders.length,
+          
+          // Seller details
+          seller_id: orderSeller._id.toString(),
+          seller_first_name: orderSeller.firstName,
+          seller_last_name: orderSeller.lastName,
+          seller_store_name: orderSeller.storeName || orderSeller.businessName,
+          seller_email: orderSeller.email,
+          seller_phone: orderSeller.phoneNumber,
+          seller_is_international: orderSeller.isInternational || false,
+          seller_address_line1: orderSeller.sellerAddress?.addressLine1 || 
+                               orderSeller.businessAddress?.addressLine1 || 
+                               orderSeller.warehouseDetails?.address?.addressLine1 || 
+                               orderSeller.address || 'Not provided',
+          seller_city: orderSeller.sellerAddress?.city || 
+                      orderSeller.businessAddress?.city || 
+                      orderSeller.warehouseDetails?.address?.city || '',
+          seller_state: orderSeller.sellerAddress?.state || 
+                       orderSeller.businessAddress?.state || 
+                       orderSeller.warehouseDetails?.address?.state || 
+                       orderSeller.state || '',
+          seller_country: orderSeller.sellerAddress?.country || 
+                         orderSeller.businessAddress?.country || 
+                         orderSeller.warehouseDetails?.address?.country || 'Nigeria',
+          
+          // Buyer details
+          buyer_id: buyer._id.toString(),
+          buyer_first_name: buyer.firstName,
+          buyer_last_name: buyer.lastName,
+          buyer_username: buyer.username,
+          buyer_email: buyer.email,
+          buyer_phone: buyer.phoneNumber,
+          buyer_address_line1: buyerMainAddress?.addressLine1 || '',
+          buyer_city: buyerMainAddress?.city || '',
+          buyer_state: buyerMainAddress?.state || '',
+          buyer_country: buyerMainAddress?.country || 'Nigeria',
+          buyer_zip_code: buyerMainAddress?.zipCode || '',
+          
+          // Delivery details (if not store pickup)
+          delivery_address_line1: order.delivery_address?.line1 || '',
+          delivery_city: order.delivery_address?.city || '',
+          delivery_state: order.delivery_address?.state || '',
+          delivery_country: order.delivery_address?.country || '',
+          delivery_recipient_name: order.delivery_address?.first_name && order.delivery_address?.last_name 
+            ? `${order.delivery_address.first_name} ${order.delivery_address.last_name}` 
+            : '',
+          delivery_recipient_phone: order.delivery_address?.phone || '',
+          delivery_recipient_email: order.delivery_address?.email || '',
+          
+          // Shipping details
+          fez_order_number: order.shipping?.fez_order_number || null,
+          carrier_name: order.shipping?.carrier?.name || null,
+          tracking_number: order.shipping?.tracking?.number || null,
+          
+          // Timestamps
+          order_created_at: order.createdAt || new Date(),
+          
+          // Campaign attribution (if applicable)
+          campaign_id: req.body.campaignId || null,
+          
+          // Live show details (if applicable)
+          stream_id: req.body.streamId || null
+        };
+
+        // Calculate payment breakdown (same logic as getOrderDetails)
+        const categoryNames = [...new Set(order.items.map(item => 
+          item.productName ? productMap[item.product.toString()]?.category || null : null
+        ).filter(Boolean))];
+        
+        const Category = mongoose.model('Category');
+        const categories = await Category.find({ name: { $in: categoryNames } });
+        const categoryFeeMap = new Map(categories.map(cat => [
+          cat.name,
+          cat.platformFee
+        ]));
+
+        // Calculate fees for each item and total platform fee
+        let totalPlatformFee = 0;
+        const itemizedFees = order.items.map(item => {
+          const itemTotal = item.price * item.quantity;
+          const product = productMap[item.product.toString()];
+          const categoryFee = categoryFeeMap.get(product?.category) || 0;
+          const itemPlatformFee = itemTotal * (categoryFee / 100);
+          totalPlatformFee += itemPlatformFee;
+
+          return {
+            productName: item.productName,
+            amount: itemTotal,
+            platformFeePercentage: categoryFee,
+            platformFeeAmount: itemPlatformFee
+          };
+        });
+
+        // Calculate processing fee (1.5%)
+        const processingFee = order.totalAmount * 0.015;
+        const processingFeePercentage = 1.5;
+        const totalDeductions = totalPlatformFee + processingFee;
+        const sellerPayout = order.totalAmount - totalDeductions;
+
+        // Add payment breakdown to tracking data
+        trackingData.totalPlatformFee = totalPlatformFee;
+        trackingData.processingFee = processingFee;
+        trackingData.processingFeePercentage = processingFeePercentage;
+        trackingData.totalDeductions = totalDeductions;
+        trackingData.sellerPayout = sellerPayout;
+
+        // Add all order items as numbered properties with profit calculations
+        let auqliTotalProfit = 0;
+        order.items.forEach((item, index) => {
+          const itemNumber = index + 1; // Start from 1 instead of 0
+          const itemTotal = item.price * item.quantity;
+          const itemPlatformFee = itemizedFees[index].platformFeeAmount;
+          const auqliItemProfit = itemPlatformFee; // Auqli's profit is the platform fee for that item
+          
+          auqliTotalProfit += auqliItemProfit;
+          
+          trackingData[`orderProductId${itemNumber}`] = item.product.toString();
+          trackingData[`orderProductName${itemNumber}`] = item.productName;
+          trackingData[`orderProductPrice${itemNumber}`] = item.price;
+          trackingData[`orderProductQuantity${itemNumber}`] = item.quantity;
+          trackingData[`orderProductWeight${itemNumber}`] = item.weight || 0;
+          trackingData[`orderProductTotal${itemNumber}`] = itemTotal;
+          trackingData[`orderProductSpecifications${itemNumber}`] = JSON.stringify(item.specifications || {});
+          trackingData[`auqliItem${itemNumber}Profit`] = auqliItemProfit;
+        });
+
+        // Add total Auqli profit
+        trackingData.auqliTotalProfit = auqliTotalProfit;
+
+        // Store tracking data in the response object (same structure as trackingData)
+        Object.assign(trackingOrderData, trackingData);
+
+        // Track single sale_made event for the entire order
+        mixpanel.track('sale_made', trackingData);
+        
+        
+        console.log(`Mixpanel sale_made event tracked for order ${order.order_id} with ${order.items.length} items`);
+      }
+      
+      console.log(`Successfully tracked ${orders.length} order events on Mixpanel`);
+      
+    } catch (mixpanelError) {
+      console.error('Error tracking sale_made events on Mixpanel:', mixpanelError);
+      // Continue processing even if Mixpanel tracking fails
+    }
+
     // Now schedule a single batch notification job instead of individual notifications
     if (orderNotifications.length > 0) {
       // Get the buyer ID from the first notification
@@ -1519,11 +1701,14 @@ exports.createOrder = async (req, res) => {
       paystackAmount: paystackAmount || 0,
       isWalletCredit: isWalletCredit && walletAmountToUse > 0
     };
+
+    console.log('normal orders', orderDetails);
     
     return res.status(201).json({
       message: 'Orders created successfully',
       orders: orderDetails,
       liveShowOrders,
+      complexOrderDetails: trackingOrderData,
       totals: responseTotals,
       fezResponse: fezResponse.data
     });
