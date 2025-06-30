@@ -1516,12 +1516,19 @@ function OrderDetail() {
           <div className="p-6">
             <div className="space-y-3">
             {orderData.notes?.map((note, index) => (
-                <div key={index} className="bg-gray-800 p-4 rounded-lg border-l-4 border-purple-500">
-                  <div className="flex items-center gap-2 mb-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Admin Note #{index + 1}</span>
+                <div key={note._id || index} className="bg-gray-800 p-4 rounded-lg border-l-4 border-purple-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground capitalize">{note.type || 'Admin'} Note</span>
+                    </div>
+                    {note.createdAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(note.createdAt)}
+                      </span>
+                    )}
                   </div>
-                <p className="text-white">{note}</p>
+                <p className="text-white">{note.content || note}</p>
               </div>
             ))}
             </div>

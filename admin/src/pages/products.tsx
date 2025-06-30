@@ -246,9 +246,9 @@ function Products() {
     fetchProductsWithParams(searchParams, isNewSearch)
   }
 
-  const fetchProductsWithParams = async (params: any, isNewSearch = false) => {
+  const fetchProductsWithParams = async (params: any, isNewSearch = false, specificPage?: number) => {
     try {
-      const currentPage = isNewSearch ? 1 : pagination.currentPage
+      const currentPage = specificPage || (isNewSearch ? 1 : pagination.currentPage)
       
       // Determine if we should use search or regular endpoint
       const endpoint = params.query || 
@@ -302,10 +302,16 @@ function Products() {
     }
   }
 
+  const fetchProductsWithPage = async (params: any, pageNumber: number) => {
+    setLoadingMore(true)
+    await fetchProductsWithParams(params, false, pageNumber)
+  }
+
   const handleLoadMore = () => {
     if (pagination.currentPage < pagination.totalPages) {
-      setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))
-      fetchProducts(false)
+      const nextPage = pagination.currentPage + 1
+      setPagination(prev => ({ ...prev, currentPage: nextPage }))
+      fetchProductsWithPage(searchParams, nextPage)
     }
   }
 
@@ -660,6 +666,35 @@ function Products() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
+  }
+
+  // Format date to readable format
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  }
+
+  // Get relative time (e.g., "2 days ago")
+  const getRelativeTime = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
   }
 
   // Function to get the product discount percentage
@@ -1075,18 +1110,18 @@ function Products() {
         )}
       </div>
 
-      <Card className="p-6">
+      <Card className="p-6 bg-gray-900 border-slate-700">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Image</TableHead>
-                <TableHead>Product Details</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Inventory</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Sales & Analytics</TableHead>
-                <TableHead>Actions</TableHead>
+              <TableRow className="border-slate-700 hover:bg-slate-800/50">
+                <TableHead className="text-slate-300 font-semibold">Image</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Product Details</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Price</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Inventory</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Status</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Sales & Analytics</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1107,49 +1142,75 @@ function Products() {
                 </TableRow>
               ) : (
                 products.map((product) => (
-                  <TableRow key={product._id || product.id} className="hover:bg-slate-50/5">
-                    <TableCell className="align-top">
-                      {product.images && product.images.length > 0 && (
+                  <TableRow key={product._id || product.id} className="border-slate-700 hover:bg-slate-800/30 transition-colors duration-200">
+                    <TableCell className="align-top py-4">
+                      {product.images && product.images.length > 0 ? (
                         <div className="relative group">
                           <div className="relative">
                             <img 
                               src={product.images[0].url} 
                               alt={product.name}
-                              className={`w-16 h-16 object-cover rounded-md ${product.images.length > 1 ? 'col-span-2 row-span-2' : ''}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-slate-600 shadow-sm group-hover:shadow-md transition-shadow duration-200"
                             />
                             {product.images.length > 1 && (
-                              <Badge className="absolute -top-2 -right-2 bg-slate-700 text-white text-xs">
+                              <Badge className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs px-1.5 py-0.5 rounded-full shadow-md">
                                 +{product.images.length - 1}
                               </Badge>
                             )}
+                            {/* Overlay on hover */}
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
+                              <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                            </div>
                           </div>
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 bg-slate-700 rounded-lg border border-slate-600 flex items-center justify-center">
+                          <Package2 className="h-8 w-8 text-slate-500" />
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-md align-top">
+                    <TableCell className="max-w-md align-top py-4">
                       <div className="flex flex-col">
-                        <span className="font-medium text-sm mb-1">{product.name}</span>
-                        <div className="flex flex-col text-xs text-muted-foreground">
-                          <span>ID: {product._id || product.id}</span>
-                          {product.sku && <span>SKU: {product.sku}</span>}
-                          <div className="flex items-center gap-1 mt-1">
-                            <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700">
+                        <span className="font-medium text-sm mb-2 text-white">{product.name}</span>
+                        <div className="flex flex-col text-xs text-slate-400 space-y-2">
+                          <span className="text-slate-500">ID: {product._id || product.id}</span>
+                          {/* {product.sku && <span className="text-slate-500">SKU: {product.sku}</span>} */}
+                          
+                          {/* Created Date */}
+                          <div className="  text-xs">
+                            <div className="flex items-center gap-1 text-slate-300">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <div className="">
+                              <div className="text-slate-200 font-medium">{getRelativeTime(product.createdAt)}</div>
+                              {/* <div className="text-slate-400 text-xs">{formatDate(product.createdAt)}</div> */}
+                            </div>
+                            </div>
+                            {/* <div className="mt-1">
+                              <div className="text-slate-200 font-medium">{getRelativeTime(product.createdAt)}</div>
+                              <div className="text-slate-400 text-xs">{formatDate(product.createdAt)}</div>
+                            </div> */}
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <Badge variant="outline" className="text-xs bg-indigo-900/50 text-indigo-300 border-indigo-700">
                               {product.category}
                             </Badge>
                             {product.subCategory && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs bg-purple-900/50 text-purple-300 border-purple-700">
                                 {product.subCategory}
                               </Badge>
                             )}
                           </div>
                           {product.brand && (
-                            <span className="mt-1 text-xs">Brand: {product.brand}</span>
+                            <span className="text-xs text-slate-400">Brand: <span className="text-slate-300">{product.brand}</span></span>
                           )}
                           {product.seller && (
-                            <div className="mt-1 flex items-center">
-                              <span className="text-xs inline-flex items-center gap-1">
+                            <div className="flex items-center">
+                              <span className="text-xs inline-flex items-center gap-1 text-slate-400">
                                 <Store className="h-3 w-3" />
-                                <Link to={`/dashboard/seller/${product.seller._id}`} className="hover:text-blue-400 hover:underline">
+                                <Link to={`/dashboard/seller/${product.seller._id}`} className="hover:text-indigo-400 hover:underline text-slate-300">
                                   {product.seller.storeName || product.seller.businessName || `${product.seller.firstName || ''} ${product.seller.lastName || ''}`.trim() || 'Unknown Seller'}
                                 </Link>
                               </span>
@@ -1158,44 +1219,44 @@ function Products() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex flex-col">
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">{formatPrice(product.price)}</span>
+                          <span className="font-semibold text-white">{formatPrice(product.price)}</span>
                           {product.discount?.isActive && (
-                            <Badge className="bg-red-100 text-red-800 text-xs">
+                            <Badge className="bg-red-900/50 text-red-300 text-xs border-red-700">
                               -{getDiscountPercentage(product)}%
                             </Badge>
                           )}
                         </div>
                         {product.discount?.isActive && product.discount.discountedPrice && (
-                          <span className="text-xs text-muted-foreground line-through">
+                          <span className="text-xs text-slate-400 line-through">
                             {formatPrice(product.price)}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex flex-col">
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{product.stock}</span>
-                          <span className="text-xs text-muted-foreground">units</span>
+                          <span className="font-medium text-white text-lg">{product.stock}</span>
+                          <span className="text-xs text-slate-400">units</span>
                         </div>
                         {product.inventory?.lowStockThreshold && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-amber-400 bg-amber-900/20 px-2 py-1 rounded">
                             Low stock alert: {product.inventory.lowStockThreshold}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="align-top py-4">
                       <div className="flex flex-col gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit ${
+                        <span className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center w-fit ${
                           product.stock > 20 
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-green-900/50 text-green-300 border border-green-700'
                             : product.stock > 0
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-yellow-900/50 text-yellow-300 border border-yellow-700'
+                            : 'bg-red-900/50 text-red-300 border border-red-700'
                         }`}>
                           {product.stock > 20 
                             ? 'In Stock' 
@@ -1204,45 +1265,45 @@ function Products() {
                             : 'Out of Stock'}
                         </span>
                         {product.status === 'active' && (
-                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800 w-fit">
+                          <Badge variant="outline" className="text-xs bg-green-900/50 text-green-300 border-green-700 w-fit">
                             Active
                           </Badge>
                         )}
                         {product.status === 'draft' && (
-                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 w-fit">
+                          <Badge variant="outline" className="text-xs bg-red-900/50 text-red-300 border-red-700 w-fit">
                             Draft
                           </Badge>
                         )}
                         {product.status === 'offline_auction' && (
-                          <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 w-fit">
+                          <Badge variant="outline" className="text-xs bg-amber-900/50 text-amber-300 border-amber-700 w-fit">
                             Offline Auction
                           </Badge>
                         )}
                         
                         {product.condition && (
-                          <Badge variant="outline" className="text-xs capitalize w-fit">
+                          <Badge variant="outline" className="text-xs capitalize w-fit bg-slate-700 text-slate-300 border-slate-600">
                             {product.condition}
                           </Badge>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex flex-col text-xs gap-1">
-                        <div className="flex items-center gap-1">
-                          <Package2 className="h-3 w-3 text-blue-500" />
-                          <span>{product.stats?.soldCount || 0} sold</span>
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col text-xs gap-2">
+                        <div className="flex items-center gap-2 bg-blue-900/30 px-2 py-1 rounded-md">
+                          <Package2 className="h-3 w-3 text-blue-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-blue-300">{product.stats?.soldCount || 0}</span> sold</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-3 w-3 text-purple-500" />
-                          <span>{product.stats?.views || 0} views</span>
+                        <div className="flex items-center gap-2 bg-purple-900/30 px-2 py-1 rounded-md">
+                          <Eye className="h-3 w-3 text-purple-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-purple-300">{product.stats?.views || 0}</span> views</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-amber-500" />
-                          <span>{product.stats?.averageRating || 0} rating ({product.stats?.reviewCount || 0})</span>
+                        <div className="flex items-center gap-2 bg-amber-900/30 px-2 py-1 rounded-md">
+                          <Star className="h-3 w-3 text-amber-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-amber-300">{product.stats?.averageRating || 0}</span> rating ({product.stats?.reviewCount || 0})</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="align-top py-4">
                       <div className="flex space-x-2">
                         <TooltipProvider>
                           <Tooltip>
@@ -1250,13 +1311,13 @@ function Products() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="text-blue-500 hover:text-blue-600"
+                                className="text-blue-400 hover:text-blue-300 border-blue-600 hover:border-blue-500 bg-blue-900/20 hover:bg-blue-900/40 transition-all duration-200"
                                 onClick={() => fetchProductDetails(product._id)}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
                               <p>View Product Details</p>
                             </TooltipContent>
                           </Tooltip>
@@ -1268,13 +1329,13 @@ function Products() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="text-red-500 hover:text-red-600"
+                                className="text-red-400 hover:text-red-300 border-red-600 hover:border-red-500 bg-red-900/20 hover:bg-red-900/40 transition-all duration-200"
                                 onClick={() => handleDeleteProduct(product._id, product.name)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
                               <p>Delete Product</p>
                             </TooltipContent>
                           </Tooltip>
@@ -1286,13 +1347,13 @@ function Products() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="text-amber-500 hover:text-amber-600"
+                                className="text-amber-400 hover:text-amber-300 border-amber-600 hover:border-amber-500 bg-amber-900/20 hover:bg-amber-900/40 transition-all duration-200"
                                 onClick={() => openDisableModal(product._id, product.name)}
                               >
                                 <MinusCircle className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
                               <p>Disable Product</p>
                             </TooltipContent>
                           </Tooltip>
@@ -1313,37 +1374,76 @@ function Products() {
             </div>
           )}
 
-          {/* Pagination controls */}
-          {!loading && products.length > 0 && pagination.currentPage < pagination.totalPages && (
-            <div className="mt-8 flex justify-center">
-              <Button 
-                onClick={handleLoadMore} 
-                disabled={loadingMore}
-                className="bg-indigo-600 text-white hover:bg-indigo-700"
-              >
-                {loadingMore ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    Load More Products
-                  </>
-                )}
-              </Button>
+          {/* Enhanced Pagination Section */}
+          <div className="mt-8 space-y-4">
+            {/* Pagination info */}
+            <div className="text-center">
+              {isSearching ? (
+                <div className="flex items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Searching products...</span>
+                </div>
+              ) : (
+                <div className="text-slate-400">
+                  <div className="text-sm">
+                    Showing <span className="font-semibold text-white">{products.length}</span> of <span className="font-semibold text-white">{pagination.totalProducts}</span> products
+                  </div>
+                  {pagination.totalPages > 1 && (
+                    <div className="text-xs mt-1">
+                      Page <span className="font-semibold text-white">{pagination.currentPage}</span> of <span className="font-semibold text-white">{pagination.totalPages}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Pagination info */}
-          <div className="mt-4 text-center text-sm text-gray-400">
-            {isSearching ? (
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Searching products...</span>
+            {/* Load More Button */}
+            {!loading && products.length > 0 && pagination.currentPage < pagination.totalPages && (
+              <div className="flex justify-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <Button 
+                    onClick={handleLoadMore} 
+                    disabled={loadingMore}
+                    className="bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:scale-100"
+                    size="lg"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Loading More Products...
+                      </>
+                    ) : (
+                      <>
+                        <Package2 className="h-5 w-5 mr-2" />
+                        Load More Products ({pagination.totalProducts - products.length} remaining)
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Progress bar */}
+                  <div className="w-64 bg-slate-700 rounded-full h-2">
+                    <div 
+                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(products.length / pagination.totalProducts) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {Math.round((products.length / pagination.totalProducts) * 100)}% loaded
+                  </div>
+                </div>
               </div>
-            ) : (
-              <span>Showing {products.length} of {pagination.totalProducts} products</span>
+            )}
+
+            {/* End of results message */}
+            {!loading && products.length > 0 && pagination.currentPage >= pagination.totalPages && (
+              <div className="text-center py-4">
+                <div className="inline-flex items-center gap-2 text-slate-400 bg-slate-800 px-4 py-2 rounded-lg">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>You've reached the end! All {pagination.totalProducts} products loaded.</span>
+                </div>
+              </div>
             )}
           </div>
         </div>

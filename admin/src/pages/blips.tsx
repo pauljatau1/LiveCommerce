@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Play, Pause, Volume2, VolumeX, Info, ArrowUpDown, Calendar, Grid3X3, List } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Play, Pause, Volume2, VolumeX, Info, ArrowUpDown, Calendar, Grid3X3, List, MessageCircle, User } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { format } from "date-fns"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import Hls from 'hls.js'
 
 interface Seller {
   _id: string;
@@ -37,6 +39,21 @@ interface BlipEngagement {
   likesCount: number;
   commentsCount: number;
   viewCount: number;
+}
+
+interface Comment {
+  _id: string;
+  comment: string;
+  createdAt: string;
+  buyer: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatar?: {
+      url: string;
+    };
+  };
 }
 
 interface ProductBlip {
@@ -87,14 +104,22 @@ function ProductBlips() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [currentBlipDetails, setCurrentBlipDetails] = useState<ProductBlip | null>(null)
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({})
+  const hlsRefs = useRef<{ [key: string]: Hls | null }>({})
   const [deletingBlip, setDeletingBlip] = useState<string | null>(null)
+  
+  // Comments state
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [deletingComment, setDeletingComment] = useState<string | null>(null)
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [hasMoreComments, setHasMoreComments] = useState(false)
   
   // Pagination and filtering state
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
     totalPages: 1,
     totalBlips: 0,
-    blipsPerPage: 20
+    blipsPerPage: 16
   })
   
   const [filters, setFilters] = useState({
@@ -110,6 +135,17 @@ function ProductBlips() {
 
   useEffect(() => {
     fetchBlips(true)
+  }, [])
+
+  // Cleanup HLS instances on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(hlsRefs.current).forEach(hls => {
+        if (hls) {
+          hls.destroy()
+        }
+      })
+    }
   }, [])
 
   const fetchBlips = async (isNewSearch = false, page?: number) => {
@@ -211,13 +247,64 @@ function ProductBlips() {
     fetchBlips(true)
   }
 
+  const initializeHLS = (videoElement: HTMLVideoElement, blipUrl: string, blipId: string) => {
+    if (blipUrl.endsWith('.m3u8')) {
+      if (Hls.isSupported()) {
+        // Clean up existing HLS instance if any
+        if (hlsRefs.current[blipId]) {
+          hlsRefs.current[blipId]?.destroy()
+        }
+
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90
+        })
+        
+        hls.loadSource(blipUrl)
+        hls.attachMedia(videoElement)
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoElement.muted = muted
+        })
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS Error:', data)
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.log('Network error, trying to recover...')
+                hls.startLoad()
+                break
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log('Media error, trying to recover...')
+                hls.recoverMediaError()
+                break
+              default:
+                hls.destroy()
+                break
+            }
+          }
+        })
+
+        hlsRefs.current[blipId] = hls
+      } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS support
+        videoElement.src = blipUrl
+      }
+    } else {
+      // Regular video file
+      videoElement.src = blipUrl
+    }
+  }
+
   const handlePlayVideo = (blipId: string) => {
     if (activeVideo === blipId) {
       // Pause the video if it's already playing
       const videoElement = videoRefs.current[blipId];
       if (videoElement) {
         if (videoElement.paused) {
-          videoElement.play()
+          videoElement.play().catch(console.error)
         } else {
           videoElement.pause()
         }
@@ -233,7 +320,7 @@ function ProductBlips() {
       const videoElement = videoRefs.current[blipId];
       if (videoElement) {
         videoElement.currentTime = 0
-        videoElement.play()
+        videoElement.play().catch(console.error)
       }
     }
   }
@@ -245,6 +332,13 @@ function ProductBlips() {
     Object.values(videoRefs.current).forEach(videoEl => {
       if (videoEl) {
         videoEl.muted = !muted
+      }
+    })
+    
+    // Apply to HLS instances
+    Object.values(hlsRefs.current).forEach(hls => {
+      if (hls && hls.media) {
+        hls.media.muted = !muted
       }
     })
   }
@@ -261,7 +355,8 @@ function ProductBlips() {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(price)
   }
 
@@ -269,8 +364,96 @@ function ProductBlips() {
     return num.toLocaleString()
   }
 
+  const fetchComments = async (productId: string, blipId: string, page = 1) => {
+    try {
+      setLoadingComments(true)
+      const response = await api.get(`/api/products/${productId}/blips/${blipId}/comments`, {
+        params: {
+          page,
+          limit: 20
+        }
+      })
+      
+      const newComments = response.data.comments || response.data.data || []
+      
+      if (page === 1) {
+        setComments(newComments)
+      } else {
+        setComments(prev => [...prev, ...newComments])
+      }
+      
+      // Check if there are more comments to load
+      const totalComments = response.data.totalComments || response.data.total || 0
+      const currentCount = page === 1 ? newComments.length : comments.length + newComments.length
+      setHasMoreComments(currentCount < totalComments)
+      
+    } catch (error: any) {
+      console.error('Error fetching comments:', error)
+      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch comments"
+      toast.error(errorMessage)
+      if (page === 1) {
+        setComments([])
+      }
+    } finally {
+      setLoadingComments(false)
+    }
+  }
+
+  const handleDeleteComment = async (productId: string, blipId: string, commentId: string) => {
+    try {
+      setDeletingComment(commentId)
+      await api.delete(`/api/admin/products/${productId}/blips/${blipId}/comments/${commentId}`)
+      
+      // Remove the comment from state
+      setComments(prev => prev.filter(comment => comment._id !== commentId))
+      
+      // Update the blip's comment count in the engagement metrics
+      if (currentBlipDetails) {
+        setCurrentBlipDetails(prev => prev ? {
+          ...prev,
+          engagement: {
+            ...prev.engagement,
+            commentsCount: prev.engagement.commentsCount - 1
+          }
+        } : null)
+      }
+      
+      // Update the blip in the main blips list
+      setBlips(prev => prev.map(blip => 
+        blip.blipId === blipId ? {
+          ...blip,
+          engagement: {
+            ...blip.engagement,
+            commentsCount: blip.engagement.commentsCount - 1
+          }
+        } : blip
+      ))
+
+      toast.success('Comment deleted successfully')
+    } catch (error: any) {
+      console.error('Error deleting comment:', error)
+      const errorMessage = error.response?.data?.message || error.message || "Failed to delete comment"
+      toast.error(errorMessage)
+    } finally {
+      setDeletingComment(null)
+    }
+  }
+
+  const loadMoreComments = () => {
+    if (currentBlipDetails && hasMoreComments && !loadingComments) {
+      const nextPage = commentsPage + 1
+      setCommentsPage(nextPage)
+      fetchComments(currentBlipDetails.productId, currentBlipDetails.blipId, nextPage)
+    }
+  }
+
   const openBlipDetails = (blip: ProductBlip) => {
     setCurrentBlipDetails(blip)
+    setComments([])
+    setCommentsPage(1)
+    setHasMoreComments(false)
+    // Fetch comments for this blip
+    fetchComments(blip.productId, blip.blipId)
   }
 
   const handleDeleteBlip = async (productId: string, blipId: string) => {
@@ -400,95 +583,107 @@ function ProductBlips() {
         </div>
 
         {viewMode === 'grid' ? (
-          // Grid View
+          // Grid View - Smaller cards to show more items
           <div className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
               {blips.map((blip) => (
-                <Card key={blip.blipId} className="overflow-hidden border-none bg-slate-800/50">
-                  <div className="p-3">
-                    <div className="relative aspect-[9/16] w-full group mb-3">
+                <Card key={blip.blipId} className="overflow-hidden border-none bg-slate-800/50 hover:bg-slate-800/70 transition-colors">
+                  <div className="p-2">
+                    <div className="relative aspect-[9/16] w-full group mb-2">
                       <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center group-hover:opacity-0 transition-opacity">
                         <img 
                           src={blip.thumbnail} 
                           alt={blip.productName}
-                          className="w-full h-full object-cover opacity-75"
+                          className="w-full h-full object-cover opacity-75 rounded-md"
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="rounded-full bg-black/50 hover:bg-primary/90"
+                            className="rounded-full bg-black/50 hover:bg-primary/90 h-10 w-10"
                             onClick={() => handlePlayVideo(blip.blipId)}
                           >
-                            <Play className="h-8 w-8" />
+                            <Play className="h-5 w-5" />
                           </Button>
                         </div>
                       </div>
                       
                       <video
-                        ref={el => videoRefs.current[blip.blipId] = el}
-                        src={blip.blipUrl}
-                        className="w-full h-full object-cover"
+                        ref={el => {
+                          if (el && videoRefs.current[blip.blipId] !== el) {
+                            videoRefs.current[blip.blipId] = el
+                            initializeHLS(el, blip.blipUrl, blip.blipId)
+                          }
+                        }}
+                        className="w-full h-full object-cover rounded-md"
                         loop
                         muted={muted}
                         playsInline
                         onClick={() => handlePlayVideo(blip.blipId)}
                       />
                       
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent z-20">
+                      <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent z-20 rounded-b-md">
                         <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center">
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              {formatNumber(blip.engagement.viewCount)}
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center text-white">
+                              <Eye className="h-3 w-3 mr-0.5" />
+                              <span className="text-xs">{formatNumber(blip.engagement.viewCount)}</span>
                             </div>
-                            <div className="flex items-center">
-                              <Tag className="h-3.5 w-3.5 mr-1" />
-                              {formatNumber(blip.engagement.likesCount)}
+                            <div className="flex items-center text-white">
+                              <Tag className="h-3 w-3 mr-0.5" />
+                              <span className="text-xs">{formatNumber(blip.engagement.likesCount)}</span>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-full hover:bg-gray-800/80"
-                            onClick={() => openBlipDetails(blip)}
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-full hover:bg-red-900/30"
-                            onClick={() => handleDeleteBlip(blip.productId, blip.blipId)}
-                            disabled={deletingBlip === blip.blipId}
-                          >
-                            {deletingBlip === blip.blipId ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                            )}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full hover:bg-gray-800/80"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openBlipDetails(blip)
+                              }}
+                            >
+                              <Info className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full hover:bg-red-900/30"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteBlip(blip.productId, blip.blipId)
+                              }}
+                              disabled={deletingBlip === blip.blipId}
+                            >
+                              {deletingBlip === blip.blipId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3 text-red-400" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
                     
                     <div>
-                      <h3 className="font-medium text-sm truncate" title={blip.productName}>
+                      <h3 className="font-medium text-xs truncate" title={blip.productName}>
                         {blip.productName}
                       </h3>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex-shrink-0 h-6 w-6 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex-shrink-0 h-4 w-4 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
                           {blip.seller.storeAvatar ? (
                             <img src={blip.seller.storeAvatar.url} alt={blip.seller.storeName} className="h-full w-full object-cover" />
                           ) : (
-                            <span className="text-xs font-medium">
+                            <span className="text-[10px] font-medium">
                               {(blip.seller.storeName || blip.seller.firstName).charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 truncate flex-1">{blip.seller.storeName || `${blip.seller.firstName} ${blip.seller.lastName}`}</p>
+                        <p className="text-[10px] text-gray-400 truncate flex-1">{blip.seller.storeName || `${blip.seller.firstName} ${blip.seller.lastName}`}</p>
                       </div>
-                      <p className="text-sm font-medium mt-2">{formatPrice(blip.price)}</p>
+                      <p className="text-xs font-medium mt-1 text-green-400">{formatPrice(blip.price)}</p>
                     </div>
                   </div>
                 </Card>
@@ -521,15 +716,31 @@ function ProductBlips() {
                     <TableRow key={blip.blipId} className="border-b border-gray-800 hover:bg-slate-800/50">
                       <TableCell>
                         <div className="flex items-center space-x-3">
-                          <div className="h-12 w-12 bg-slate-800 rounded-md overflow-hidden relative group">
+                          <div 
+                            className="h-12 w-12 bg-slate-800 rounded-md overflow-hidden relative group cursor-pointer"
+                            onClick={() => handlePlayVideo(blip.blipId)}
+                          >
                             <img 
                               src={blip.thumbnail} 
                               alt={blip.productName} 
                               className="h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <Play className="h-5 w-5" />
+                              <Play className="h-4 w-4 text-white" />
                             </div>
+                            {/* Hidden video element for HLS */}
+                            <video
+                              ref={el => {
+                                if (el && videoRefs.current[blip.blipId] !== el) {
+                                  videoRefs.current[blip.blipId] = el
+                                  initializeHLS(el, blip.blipUrl, blip.blipId)
+                                }
+                              }}
+                              className="hidden"
+                              loop
+                              muted={muted}
+                              playsInline
+                            />
                           </div>
                           <div>
                             <div className="font-medium text-white truncate max-w-[200px]" title={blip.productName}>
@@ -681,7 +892,7 @@ function ProductBlips() {
       {/* Blip Details Dialog */}
       {currentBlipDetails && (
         <Dialog open={!!currentBlipDetails} onOpenChange={(open) => !open && setCurrentBlipDetails(null)}>
-          <DialogContent className="max-w-3xl bg-slate-900 border border-slate-800 text-white">
+          <DialogContent className="max-w-5xl bg-slate-900 border border-slate-800 text-white max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Blip Details</DialogTitle>
               <DialogDescription className="text-gray-400">
@@ -689,92 +900,212 @@ function ProductBlips() {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="aspect-[9/16] bg-black rounded-md overflow-hidden">
-                <video
-                  src={currentBlipDetails.blipUrl}
-                  controls
-                  autoPlay
-                  className="w-full h-full object-contain"
-                />
-              </div>
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+                <TabsTrigger value="details" className="data-[state=active]:bg-slate-700">Details</TabsTrigger>
+                <TabsTrigger value="comments" className="data-[state=active]:bg-slate-700">
+                  Comments ({currentBlipDetails.engagement.commentsCount})
+                </TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">{currentBlipDetails.productName}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{currentBlipDetails.productDescription}</p>
-                  <p className="text-lg font-bold mt-2">{formatPrice(currentBlipDetails.price)}</p>
-                </div>
-                
-                <div className="pt-2">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Seller Information</h4>
-                  <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden">
-                      {currentBlipDetails.seller.storeAvatar ? (
-                        <img
-                          src={currentBlipDetails.seller.storeAvatar.url}
-                          alt={currentBlipDetails.seller.storeName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium">
-                          {(currentBlipDetails.seller.storeName || currentBlipDetails.seller.firstName).charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
+              <TabsContent value="details" className="mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="aspect-[9/16] bg-black rounded-md overflow-hidden">
+                    <video
+                      ref={el => {
+                        if (el && currentBlipDetails) {
+                          const dialogVideoId = `dialog-${currentBlipDetails.blipId}`
+                          if (videoRefs.current[dialogVideoId] !== el) {
+                            videoRefs.current[dialogVideoId] = el
+                            initializeHLS(el, currentBlipDetails.blipUrl, dialogVideoId)
+                          }
+                        }
+                      }}
+                      controls
+                      autoPlay
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
                     <div>
-                      <p className="font-medium">
-                        {currentBlipDetails.seller.storeName || `${currentBlipDetails.seller.firstName} ${currentBlipDetails.seller.lastName}`}
-                        {currentBlipDetails.seller.isVerified && (
-                          <Badge className="ml-2 text-xs py-0 px-1 h-5 bg-blue-500/20 text-blue-400">Verified</Badge>
+                      <h3 className="text-lg font-medium">{currentBlipDetails.productName}</h3>
+                      <p className="text-sm text-gray-400 mt-1">{currentBlipDetails.productDescription}</p>
+                      <p className="text-lg font-bold mt-2">{formatPrice(currentBlipDetails.price)}</p>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2">Seller Information</h4>
+                      <div className="flex items-center space-x-3">
+                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden">
+                          {currentBlipDetails.seller.storeAvatar ? (
+                            <img
+                              src={currentBlipDetails.seller.storeAvatar.url}
+                              alt={currentBlipDetails.seller.storeName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium">
+                              {(currentBlipDetails.seller.storeName || currentBlipDetails.seller.firstName).charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {currentBlipDetails.seller.storeName || `${currentBlipDetails.seller.firstName} ${currentBlipDetails.seller.lastName}`}
+                            {currentBlipDetails.seller.isVerified && (
+                              <Badge className="ml-2 text-xs py-0 px-1 h-5 bg-blue-500/20 text-blue-400">Verified</Badge>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-400">{currentBlipDetails.seller.email}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2">Engagement Metrics</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-slate-800/50 p-3 rounded-md">
+                          <p className="text-xs text-gray-400">Views</p>
+                          <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.viewCount)}</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded-md">
+                          <p className="text-xs text-gray-400">Likes</p>
+                          <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.likesCount)}</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded-md">
+                          <p className="text-xs text-gray-400">Comments</p>
+                          <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.commentsCount)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2">Additional Information</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-xs text-gray-400">Category</p>
+                          <p className="text-sm">{currentBlipDetails.category}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Subcategory</p>
+                          <p className="text-sm">{currentBlipDetails.subCategory || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Created</p>
+                          <p className="text-sm">{formatDate(currentBlipDetails.createdAt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Status</p>
+                          <p className="text-sm">{currentBlipDetails.status || "Active"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="comments" className="mt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-medium">Comments</h4>
+                    <Badge variant="outline" className="text-sm text-white">
+                      {currentBlipDetails.engagement.commentsCount} total
+                    </Badge>
+                  </div>
+                  
+                  {loadingComments && comments.length === 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <span className="ml-2 text-gray-400">Loading comments...</span>
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No comments yet</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[400px] pr-4">
+                      <div className="space-y-4">
+                        {comments.map((comment) => (
+                          <div key={comment._id} className="bg-slate-800/50 p-4 rounded-md">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start space-x-3 flex-1">
+                                <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
+                                  {comment.buyer.avatar ? (
+                                    <img
+                                      src={comment.buyer.avatar.url}
+                                      alt={`${comment.buyer.firstName} ${comment.buyer.lastName}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <User className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-medium">
+                                      {comment.buyer.firstName} {comment.buyer.lastName}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {formatDate(comment.createdAt)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-200">{comment.comment}</p>
+                                </div>
+                              </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-red-400 hover:bg-red-900/30 hover:text-red-300"
+                                      onClick={() => handleDeleteComment(
+                                        currentBlipDetails.productId,
+                                        currentBlipDetails.blipId,
+                                        comment._id
+                                      )}
+                                      disabled={deletingComment === comment._id}
+                                    >
+                                      {deletingComment === comment._id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Delete comment</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {hasMoreComments && (
+                          <div className="flex justify-center pt-4">
+                            <Button
+                              variant="outline"
+                              onClick={loadMoreComments}
+                              disabled={loadingComments}
+                              className="w-full"
+                            >
+                              {loadingComments ? (
+                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading more...</>
+                              ) : (
+                                "Load More Comments"
+                              )}
+                            </Button>
+                          </div>
                         )}
-                      </p>
-                      <p className="text-sm text-gray-400">{currentBlipDetails.seller.email}</p>
-                    </div>
-                  </div>
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
-                
-                <div className="pt-2">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Engagement Metrics</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-slate-800/50 p-3 rounded-md">
-                      <p className="text-xs text-gray-400">Views</p>
-                      <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.viewCount)}</p>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-md">
-                      <p className="text-xs text-gray-400">Likes</p>
-                      <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.likesCount)}</p>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-md">
-                      <p className="text-xs text-gray-400">Comments</p>
-                      <p className="text-lg font-medium">{formatNumber(currentBlipDetails.engagement.commentsCount)}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="pt-2">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Additional Information</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-xs text-gray-400">Category</p>
-                      <p className="text-sm">{currentBlipDetails.category}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Subcategory</p>
-                      <p className="text-sm">{currentBlipDetails.subCategory || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Created</p>
-                      <p className="text-sm">{formatDate(currentBlipDetails.createdAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Status</p>
-                      <p className="text-sm">{currentBlipDetails.status || "Active"}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
             
             <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-800">
               <Button
