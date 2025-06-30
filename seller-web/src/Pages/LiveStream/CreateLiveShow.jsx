@@ -454,27 +454,48 @@ const CreateLiveShow = () => {
 
     
     const handleContinue = () => {
-        if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
-            // Check for products with zero or negative quantity
-            // For live shows, we check all products since they're all included
-            if (livestream.products && livestream.products.length > 0) {
-                const invalidProducts = livestream.products.filter(product => 
-                    product.quantity <= 0 || !product.quantity
-                );
-    
-                if (invalidProducts.length > 0) {
-                    setZeroQuantityProducts(invalidProducts);
-                    setShowZeroQuantityModal(true);
-                    return;
-                }
-            }
+        // Check each required field individually
+        const missingFields = [];
+        
+        if (!livestream?.title) missingFields.push('Stream Title');
+        if (!livestream?.description) missingFields.push('Stream Description');
+        if (!livestream?.category) missingFields.push('Stream Category');
+        if (!livestream?.tags || livestream.tags.length === 0) missingFields.push('Livestream Tags');
+        if (!livestream?.coverPhoto) missingFields.push('Stream Cover Photo');
+        if (!livestream?.scheduledStartTime) missingFields.push('Schedule Time');
 
-            navigate('/dashboard/live-streams/submit-live-show');
-        } else {
-            toast.error('Please fill all fields', {
-                description: 'Please fill all fields to continue',
+        if (missingFields.length > 0) {
+            const fieldsList = missingFields.length === 1 
+                ? missingFields[0]
+                : missingFields.length === 2
+                ? `${missingFields[0]} and ${missingFields[1]}`
+                : `${missingFields.slice(0, -1).join(', ')}, and ${missingFields[missingFields.length - 1]}`;
+            
+            toast.error(`Missing required field${missingFields.length > 1 ? 's' : ''}`, {
+                description: `Please fill in: ${fieldsList}`,
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
             });
+            return;
         }
+
+        // Check for products with zero or negative quantity
+        // For live shows, we check all products since they're all included
+        if (livestream.products && livestream.products.length > 0) {
+            const invalidProducts = livestream.products.filter(product => 
+                product.quantity <= 0 || !product.quantity
+            );
+
+            if (invalidProducts.length > 0) {
+                setZeroQuantityProducts(invalidProducts);
+                setShowZeroQuantityModal(true);
+                return;
+            }
+        }
+
+        navigate('/dashboard/live-streams/submit-live-show');
     }
 
     // Add these new state variables for CategorySelectionModal
