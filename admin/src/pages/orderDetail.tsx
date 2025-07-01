@@ -237,6 +237,9 @@ function OrderDetail() {
   const [webhookFezOrderNo, setWebhookFezOrderNo] = useState("")
   const [webhookStatus, setWebhookStatus] = useState("")
   const [isSimulatingWebhook, setIsSimulatingWebhook] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState("")
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -327,6 +330,33 @@ function OrderDetail() {
       toast.error(error.response?.data?.message || "Failed to simulate webhook");
     } finally {
       setIsSimulatingWebhook(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    try {
+      setIsCancellingOrder(true);
+      const response = await api.post(`/api/admin/orders/${id}/cancel`, {
+        reason: cancelReason.trim() || undefined
+      });
+      
+      toast.success(response.data.message || "Order cancelled successfully");
+      
+      // Show additional info if wallet refund was processed
+      if (response.data.walletRefunded && response.data.walletRefundAmount) {
+        toast.success(`Wallet refund of ₦${response.data.walletRefundAmount.toLocaleString()} processed`);
+      }
+      
+      setCancelDialogOpen(false);
+      setCancelReason("");
+      
+      // Refresh order data
+      const updatedOrder = await api.get(`/api/order/${id}`);
+      setOrderData(updatedOrder.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to cancel order");
+    } finally {
+      setIsCancellingOrder(false);
     }
   };
 
@@ -532,6 +562,55 @@ function OrderDetail() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+              <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="destructive"
+                    className="ml-2"
+                    title="Cancel Order"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel Order
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+                  <DialogHeader>
+                    <DialogTitle>Cancel Order</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
+                      Cancel this order and process any necessary refunds. This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <label className="text-sm text-white">Cancellation Reason (Optional)</label>
+                      <Textarea
+                        placeholder="Enter reason for cancellation..."
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCancelDialogOpen(false)}
+                      className="bg-gray-800 text-white hover:bg-gray-700"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCancelOrder}
+                      disabled={isCancellingOrder}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {isCancellingOrder ? "Cancelling..." : "Cancel Order"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
