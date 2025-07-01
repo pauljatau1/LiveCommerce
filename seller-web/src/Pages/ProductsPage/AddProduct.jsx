@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from "@iconify/react";
 import {
     Collapsible,
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { useSelector, useDispatch } from 'react-redux';
 import { useOutletContext, useLocation, useNavigate } from 'react-router-dom'
 import { createProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
-import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
+import { VariantsProvider } from '../../Contexts/VariantContext'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
@@ -25,12 +25,7 @@ import ImageEditModal from '../../Components/ui/ImageEditModal';
 // Comment out ProductSpecifications import
 // import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
-import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
-import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
-import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
-
-import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
-import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
+import VariantSection from '../../Components/ui/VariantComponents/VariantSection';
 import { Checkbox } from "../../Components/ui/checkbox";
 import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
@@ -424,7 +419,7 @@ const AddProduct = () => {
                     name: mainVariant.name,
                     value: mainVariant.value,
                     price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                    totalStock: mainVariant.subVariants.reduce((total, subVar) =>
+                    totalStock: mainVariant.totalStock || mainVariant.subVariants.reduce((total, subVar) =>
                         total + (parseInt(subVar.stock) || 0) +
                         subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
@@ -731,151 +726,7 @@ const AddProduct = () => {
         children: PropTypes.node.isRequired
     };
 
-    // Modified VariantSection component
-    const VariantSection = memo(() => {
-        const variantContext = useVariants();
-
-        // Store the context in the ref whenever it changes
-        useEffect(() => {
-            variantContextRef.current = variantContext;
-        }, [variantContext]);
-
-        const [showAddOption, setShowAddOption] = useState(false);
-        const [editingVariantId, setEditingVariantId] = useState(null);
-        const {
-            options,
-            deleteOption,
-            setOptions,
-            updateVariantValue,
-        } = useVariants();
-
-        const handleDone = useCallback(() => {
-            setShowAddOption(false);
-            setEditingVariantId(null);
-        }, []);
-
-        const handleDeleteOption = useCallback((optionId) => {
-            const optionIndex = options.findIndex(opt => opt.id === optionId);
-
-            // If deleting a subvariant (size), remove both size and material cards
-            if (optionIndex === 1) {
-                // Remove both size and material options
-                setOptions(prev => prev.slice(0, 1)); // Keep only the first option (color)
-                deleteOption(optionId); // Also call deleteOption to update variant combinations
-            } else {
-                deleteOption(optionId);
-            }
-            updateVariantValue(optionId, null, null);
-        }, [deleteOption, updateVariantValue, options, setOptions]);
-
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Variants (Optional)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {options.length === 0 && !showAddOption ? (
-                        // Initial empty state
-                        <>
-                            <div className="text-center py-8">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="w-12 h-12 text-gray-400 mx-auto"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        fill="currentColor"
-                                        fillRule="evenodd"
-                                        d="M17.5 2.75a.75.75 0 0 1 .75.75v2.25h2.25a.75.75 0 0 1 0 1.5h-2.25V9.5a.75.75 0 0 1-1.5 0V7.25H14.5a.75.75 0 0 1 0-1.5h2.25V3.5a.75.75 0 0 1 .75-.75"
-                                    />
-                                    <path
-                                        fill="currentColor"
-                                        d="M2 6.5c0-2.121 0-3.182.659-3.841S4.379 2 6.5 2s3.182 0 3.841.659S11 4.379 11 6.5s0 3.182-.659 3.841S8.621 11 6.5 11s-3.182 0-3.841-.659S2 8.621 2 6.5m11 11c0-2.121 0-3.182.659-3.841S15.379 13 17.5 13s3.182 0 3.841.659S22 15.379 22 17.5s0 3.182-.659 3.841S19.621 22 17.5 22s-3.182 0-3.841-.659S13 19.621 13 17.5m-11 0c0-2.121 0-3.182.659-3.841S4.379 13 6.5 13s3.182 0 3.841.659S11 15.379 11 17.5s0 3.182-.659 3.841S8.621 22 6.5 22s-3.182 0-3.841-.659S2 19.621 2 17.5"
-                                    />
-                                </svg>
-                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
-                            </div>
-                            <Button
-                                onClick={() => setShowAddOption(true)}
-                                className="mt-4 lg:mt-12 bg-[#17171B]/90 flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#17171B]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 1024 1024"
-                                    className="w-4 h-4 mr-2"
-                                >
-                                    <path
-                                        fill="currentColor"
-                                        d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
-                                    />
-                                </svg>
-                                Add options like size or color
-                            </Button>
-                        </>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* Show existing variant cards */}
-                            {options.map(option => (
-                                editingVariantId === option.id ? (
-                                    <VariantOptions
-                                        key={option.id}
-                                        onDone={() => setEditingVariantId(null)}
-                                        editingVariant={option}
-                                    />
-                                ) : (
-                                    <VariantCard
-                                        key={option.id}
-                                        variant={option}
-                                        onEdit={() => setEditingVariantId(option.id)}
-                                        onDelete={() => handleDeleteOption(option.id)}
-                                    />
-                                )
-                            ))}
-
-                            {/* Show AddOptionCard when adding new option */}
-                            {showAddOption && (
-                                <AddOptionCard onDone={handleDone} />
-                            )}
-
-                            {/* Show add another option button if not currently adding */}
-                            {!showAddOption && options.length < 3 && (
-                                <button
-                                    onClick={() => setShowAddOption(true)}
-                                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 1024 1024"
-                                        className="w-4 h-4 mr-2"
-                                    >
-                                        <path
-                                            fill="currentColor"
-                                            d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
-                                        />
-                                    </svg>
-                                    Add another option
-                                </button>
-                            )}
-
-                            {/* Show combinations if options exist */}
-                            {options.length > 0 && (
-                                <>
-                                    <div className="hidden md:block mt-6">
-                                        <VariantCombinations />
-                                    </div>
-                                    <div className="md:hidden mt-6">
-                                        <VariantCombinationsMobile />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        );
-    });
-
-    VariantSection.displayName = 'VariantSection';
+    // VariantSection component moved to external file
 
     // Add handler for category selection from modal
     const handleCategorySelection = (category, subCategory) => {
@@ -1457,7 +1308,7 @@ const AddProduct = () => {
 
                                 {/* Variants Section */}
                                 <VariantsProvider>
-                                    <VariantSection />
+                                    <VariantSection variantContextRef={variantContextRef} />
                                 </VariantsProvider>
                             </div>
                         

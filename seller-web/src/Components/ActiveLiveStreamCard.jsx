@@ -3,7 +3,8 @@ import { NavLink } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import DraftThumbnail from '../assets/young-woman-organizing-live-shop 1.png'
 import { useState, useRef, useMemo } from 'react';
-import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
+import { toast } from 'sonner';
 
 const ActiveLiveStreamCard = ({
     streamerName,
@@ -15,7 +16,8 @@ const ActiveLiveStreamCard = ({
     startTime,
     isLiveStatus,
     category,
-    id
+    id,
+    streamLink
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const videoRef = useRef(null);
@@ -95,6 +97,20 @@ const ActiveLiveStreamCard = ({
             )
         }
     }
+
+    // Copy stream link to clipboard
+    const handleCopyLink = async () => {
+        try {
+            if (streamLink) {
+                await navigator.clipboard.writeText(streamLink);
+                toast.success('Link copied to clipboard');
+            } else {
+                toast.error('No link found to copy');
+            }
+        } catch {
+            toast.error('Failed to copy link');
+        }
+    };
 
     return (
         <div className="bg-[#000000] p-4 rounded-lg">
@@ -187,9 +203,28 @@ const ActiveLiveStreamCard = ({
                     ))}
                 </div>
             </div>
-            <p className="text-[#2F2E41] w-fit rounded-md px-2 py-1 bg-[#FFFFFF] capitalize font-inter text-xs mt-2">
-                {formatDateTime(startTime)}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-[#2F2E41] w-fit rounded-md px-2 py-1 bg-[#FFFFFF] capitalize font-inter text-xs mt-2">
+                    {formatDateTime(startTime)}
+                </p>
+                {/* Share Button */}
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                type="button"
+                                onClick={handleCopyLink}
+                                className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                            >
+                                <Icon icon="material-symbols:share" className="w-5 h-5 text-white" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-gray-300">
+                            Click to copy to clipboard
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
             <p className="text-[#425466] capitalize font-inter text-xs mt-2">lagos, Nigeria</p>
             {
                 isStreamAvailableToEnter ? (
@@ -238,7 +273,8 @@ ActiveLiveStreamCard.propTypes = {
     startTime: PropTypes.string.isRequired,
     isLiveStatus: PropTypes.string,
     category: PropTypes.string.isRequired,
-    id: PropTypes.string
+    id: PropTypes.string,
+    streamLink: PropTypes.string,
 };
 
 export default ActiveLiveStreamCard;

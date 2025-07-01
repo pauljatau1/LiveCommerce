@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 /**
  * Sets up global axios interceptors to handle authentication errors consistently
- * @param {function} navigate - React Router navigate function for redirection
+ * @param {NavigateFunction} navigate - React Router navigate function for redirection
  */
 export const setupAxiosInterceptors = (navigate) => {
   // Response interceptor to handle auth errors

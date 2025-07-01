@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { Icon } from "@iconify/react";
 import {
     Collapsible,
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 //import { useAuthContext } from '../../Hooks/useAuthContext';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
-import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
+import { VariantsProvider } from '../../Contexts/VariantContext'
 import { getProductDetailsById, updateProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
 import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
 import UploadImage from '../../assets/upload-image.png';
@@ -24,11 +24,7 @@ import NoCatImage from '../../assets/no-cat.png';
 // Comment out ProductSpecifications import
 // import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
-import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
-import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
-import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
-import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
-import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
+import VariantSection from '../../Components/ui/VariantComponents/VariantSection';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import SimpleEditor from '../../Components/ui/SimpleEditor';
 
@@ -39,12 +35,11 @@ const EditProduct = () => {
     const dispatch = useDispatch();
     const { id } = useParams();
     const navigate = useNavigate();
-    const { message, error, isLoading, response, product } = useSelector(state => state.product)
+    const { message, error, isLoading, response, product, isProductDetailsFetched } = useSelector(state => state.product)
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
     //const [isChatVisible, setIsChatVisible] = useState(true);
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [images, setImages] = useState([]);
     const [shippingDetails, setShippingDetails] = useState({
         pricing: null,
@@ -61,8 +56,6 @@ const EditProduct = () => {
     });
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
     const [productStatus, setProductStatus] = useState('active');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSubCategory, setSelectedSubCategory] = useState('');
@@ -80,18 +73,38 @@ const EditProduct = () => {
     const [hasLinksInDescription, setHasLinksInDescription] = useState(false);
     const [detectedLinksInDescription, setDetectedLinksInDescription] = useState([]);
     const [linksWereDetected, setLinksWereDetected] = useState(false); // Track if links were ever detected
-    // Comment out productSpecs state
-    // const [productSpecs, setProductSpecs] = useState({});
+
 
     useEffect(() => {
         setHeaderName('Products')
         setNavName('Edit Product')
     }, [])
 
-
-
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            setLoading(true);
+            try {
+                const response = await axios.get(`${BASE_URL}/public/categories`);
+                if (response.status === 200) {
+                    setCategories(response.data);
+                }
+            } catch (error) {
+                console.error(error);
+                toast.error('Failed to fetch categories');
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchCategories();
+        dispatch(getProductDetailsById(id));
+    }, []);
+
+
+
+
 
     // Category search functionality
     useEffect(() => {
@@ -138,12 +151,152 @@ const EditProduct = () => {
         return () => clearTimeout(delaySearch);
     }, [categorySearchQuery, categories]);
 
-    // Comment out handleSpecificationsChange function
-    // const handleSpecificationsChange = (specs) => {
-    //     setProductSpecs(specs);
-    // };
+    // Populate form with product data when it's fetched, the structure to be fetched is the same as the one in the create product page, 
+    // the only difference is that the product specs are not fetched, they are fetched in the product specifications component
+    // the product specs are fetched in the product specifications component because the structure is different for each category and subcategory
 
-    // console.log('productSpecs:', productSpecs)
+    useEffect(() => {
+        if (product && Object.keys(product).length > 0) {
+            startTransition(() => {
+                // Basic product info
+                setTitle(product.name || '');
+                setDescription((product.description || ''));
+                setSkuNumber(product.sku || '');
+                setUpcNumber(product.upc || '');
+                setBrand(product.brand || '');
+                setSelectedCategory(product.category || '');
+                setSelectedSubCategory(product.subCategory || '');
+                setProductStatus(product.status || 'active');
+
+                // Shipping details - batch update with functional setter
+                setShippingDetails({
+                    pricing: product.price || null,
+                    salePrice: product.salePrice || null,
+                    weight: product.shippingInfo?.weight?.value || null,
+                    weightUnit: product.shippingInfo?.weight?.unit || 'kg',
+                    inventory: product.stock || null,
+                    condition: product.condition || 'fairly-used',
+                    dimensions: {
+                        length: product.shippingInfo?.dimensions?.length || null,
+                        width: product.shippingInfo?.dimensions?.width || null,
+                        height: product.shippingInfo?.dimensions?.height || null
+                    }
+                });
+
+                // Product images (defer heavy updates)
+                if (product.images && product.images.length > 0) {
+                    const formattedImages = product.images.slice(0, 5).map((img, idx) => ({
+                        url: img.url,
+                        contentType: 'image/jpeg',
+                        isDefault: idx === 0
+                    }));
+                    setImages(formattedImages);
+                }
+            });
+        }
+    }, [isProductDetailsFetched]);
+
+    useEffect(() => {
+        if (product?.variants && product.variants.length > 0 && product._id && isProductDetailsFetched) {
+            console.log('Starting variant transformation for product:', product._id);
+            // Transform backend variants to match variantStructure format
+            const transformedVariants = product.variants.map(variant => ({
+                id: variant._id,
+                name: variant.name,
+                value: variant.value,
+                price: variant.price.toString(),
+                totalStock: variant.totalStock || variant.subVariants.reduce((total, subVar) => 
+                    total + (parseInt(subVar.stock) || 0) +
+                    subVar.subSubVariants.reduce((subTotal, subSubVar) => 
+                        subTotal + (parseInt(subSubVar.stock) || 0), 0
+                    ), 0) || 1, // Use API totalStock or calculate from subvariants
+                images: variant.images?.length > 0 ? variant.images.map(img => ({
+                    url: img.data || img.url,
+                    contentType: img.contentType,
+                    isDefault: img.isDefault || false
+                })) : [],
+                subVariants: variant.subVariants.map(subVar => ({
+                    id: subVar._id,
+                    name: subVar.name,
+                    value: subVar.value,
+                    price: subVar.price.toString(),
+                    stock: subVar.stock.toString(),
+                    images: subVar.images?.length > 0 ? subVar.images.map(img => ({
+                        url: img.data || img.url,
+                        contentType: img.contentType,
+                        isDefault: img.isDefault || false
+                    })) : [],
+                    subSubVariants: subVar.subSubVariants.map(subSubVar => ({
+                        id: subSubVar._id,
+                        name: subSubVar.name,
+                        value: subSubVar.value,
+                        price: subSubVar.price.toString(),
+                        stock: subSubVar.stock.toString(),
+                        sku: subSubVar.sku,
+                        images: subSubVar.images?.length > 0 ? subSubVar.images.map(img => ({
+                            url: img.data || img.url,
+                            contentType: img.contentType,
+                            isDefault: img.isDefault || false
+                        })) : []
+                    }))
+                }))
+            }));
+
+            // Extract unique options for variant cards
+            const options = [];
+            
+            // Add option-1 if main variant name exists
+            if (product?.variants[0]?.name) {
+                options.push({
+                    id: 'option-1',
+                    name: product?.variants[0]?.name,
+                    values: product?.variants?.map(v => v.value)
+                });
+            }
+            
+            // Add option-2 if subvariant name exists
+            if (product?.variants[0]?.subVariants?.length > 0 && product?.variants[0]?.subVariants[0]?.name) {
+                options.push({
+                    id: 'option-2',
+                    name: product?.variants[0]?.subVariants[0]?.name,
+                    values: [...new Set(product?.variants[0]?.subVariants?.map(sv => sv.value))]
+                });
+            }
+            
+            // Add option-3 if sub-subvariant name exists
+            if (product?.variants[0]?.subVariants?.length > 0 && 
+                product?.variants[0]?.subVariants[0]?.subSubVariants?.length > 0 && 
+                product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name) {
+                options.push({
+                    id: 'option-3',
+                    name: product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name,
+                    values: [...new Set(product?.variants[0]?.subVariants[0]?.subSubVariants?.map(ssv => ssv.value))]
+                });
+            }
+            console.log('transformedVariants', transformedVariants);
+            console.log('options', options);
+            console.log('variantContextRef.current', variantContextRef.current);
+            
+            // Update variant context with retry mechanism
+            const updateVariantContext = (retryCount = 0) => {
+                if (variantContextRef.current) {
+                    console.log('Setting variant context with data');
+                    variantContextRef.current.setVariantStructure(transformedVariants);
+                    variantContextRef.current.setOptions(options);
+                    console.log('Context updated successfully');
+                } else if (retryCount < 5) { // Limit retries to prevent infinite loop
+                    console.log('variantContextRef.current is null, retrying...', retryCount + 1);
+                    // Retry after a short delay if context is not ready
+                    setTimeout(() => updateVariantContext(retryCount + 1), 100);
+                } else {
+                    console.warn('Failed to update variant context after 5 retries');
+                }
+            };
+            
+            updateVariantContext();
+        }
+    }, [product?._id, isProductDetailsFetched]); // Run when product ID changes or details are first fetched
+
 
     useEffect(() => {
         if (message) {
@@ -153,27 +306,6 @@ const EditProduct = () => {
             toast.error(error);
         }
     }, [message, error]);
-
-    useEffect(() => {
-        const fetchCategories = async () => {
-            setLoading(true);
-            try {
-                const response = await axios.get(`${BASE_URL}/public/categories`);
-                if (response.status === 200) {
-                    setCategories(response.data);
-                }
-            } catch (error) {
-                console.error(error);
-                toast.error('Failed to fetch categories');
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchCategories();
-        dispatch(getProductDetailsById(id));
-    }, [response]);
-
-    console.log('cat:', categories);
 
     const handleShippingChange = (field, value) => {
         setShippingDetails(prev => {
@@ -354,7 +486,7 @@ const EditProduct = () => {
                     name: mainVariant.name,
                     value: mainVariant.value,
                     price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                    totalStock: mainVariant.subVariants.reduce((total, subVar) =>
+                    totalStock: mainVariant.totalStock || mainVariant.subVariants.reduce((total, subVar) =>
                         total + (parseInt(subVar.stock) || 0) +
                         subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
@@ -613,289 +745,9 @@ const EditProduct = () => {
         children: PropTypes.node.isRequired
     };
 
-    // Modified VariantSection component
-    const VariantSection = memo(() => {
-        const variantContext = useVariants();
 
-        // Store the context in the ref whenever it changes
-        useEffect(() => {
-            variantContextRef.current = variantContext;
-        }, [variantContext]);
 
-        const [showAddOption, setShowAddOption] = useState(false);
-        const [editingVariantId, setEditingVariantId] = useState(null);
-        const {
-            options,
-            deleteOption,
-            setOptions,
-            updateVariantValue,
-        } = useVariants();
-
-        const handleDone = useCallback(() => {
-            setShowAddOption(false);
-            setEditingVariantId(null);
-        }, []);
-
-        const handleDeleteOption = useCallback((optionId) => {
-            const optionIndex = options.findIndex(opt => opt.id === optionId);
-
-            // If deleting a subvariant (size), remove both size and material cards
-            if (optionIndex === 1) {
-                // Remove both size and material options
-                setOptions(prev => prev.slice(0, 1)); // Keep only the first option (color)
-                deleteOption(optionId); // Also call deleteOption to update variant combinations
-            } else {
-                deleteOption(optionId);
-            }
-            updateVariantValue(optionId, null, null);
-        }, [deleteOption, updateVariantValue, options, setOptions]);
-
-        return (
-            <Card className="relative">
-                <CardHeader>
-                    <CardTitle>Variants (Optional)</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col min-h-[400px]">
-                    {options.length === 0 && !showAddOption ? (
-                        // Initial empty state
-                        <>
-                            <div className="text-center py-8">
-                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
-                            </div>
-                            <Button
-                                onClick={() => setShowAddOption(true)}
-                                className="mt-4 lg:mt-12 bg-[#17171B]/90 flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#17171B]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 1024 1024"
-                                    className="w-4 h-4 mr-2"
-                                >
-                                    <path
-                                        fill="currentColor"
-                                        d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
-                                    />
-                                </svg>
-                                Add options like size or color
-                            </Button>
-                        </>
-                    ) : (
-                        <div className="space-y-4 h-full">
-                            {/* Show existing variant cards */}
-                            {options.map(option => (
-                                editingVariantId === option.id ? (
-                                    <VariantOptions
-                                        key={option.id}
-                                        onDone={() => setEditingVariantId(null)}
-                                        editingVariant={option}
-                                    />
-                                ) : (
-                                    <VariantCard
-                                        key={option.id}
-                                        variant={option}
-                                        onEdit={() => setEditingVariantId(option.id)}
-                                        onDelete={() => handleDeleteOption(option.id)}
-                                    />
-                                )
-                            ))}
-
-                            {/* Show AddOptionCard when adding new option */}
-                            {showAddOption && (
-                                <AddOptionCard onDone={handleDone} />
-                            )}
-
-                            {/* Show add another option button if not currently adding */}
-                            {!showAddOption && options.length < 3 && (
-                                <button
-                                    onClick={() => setShowAddOption(true)}
-                                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 1024 1024"
-                                        className="w-4 h-4 mr-2"
-                                    >
-                                        <path
-                                            fill="currentColor"
-                                            d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
-                                        />
-                                    </svg>
-                                    Add another option
-                                </button>
-                            )}
-
-                            {/* Wrap combinations in a div with fixed height */}
-                            {options.length > 0 && (
-                                <div className="h-full max-h-[600px]">
-                                    <div className="hidden md:block">
-                                        <VariantCombinations />
-                                    </div>
-                                    <div className="md:hidden">
-                                        <VariantCombinationsMobile />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        );
-    });
-
-    VariantSection.displayName = 'VariantSection';
-
-    // Populate form with product data when it's fetched, the structure to be fetched is the same as the one in the create product page, 
-    // the only difference is that the product specs are not fetched, they are fetched in the product specifications component
-    // the product specs are fetched in the product specifications component because the structure is different for each category and subcategory
-
-    useEffect(() => {
-        if (product && Object.keys(product).length > 0) {
-            // Basic product info
-            setTitle(product.name || '');
-            setDescription(product.description || '');
-            setSkuNumber(product.sku || '');
-            setUpcNumber(product.upc || '');
-            setBrand(product.brand || '');
-            setSelectedCategory(product.category || '');
-            setSelectedSubCategory(product.subCategory || '');
-            setProductStatus(product.status || 'active');
-
-            // Shipping details
-            setShippingDetails({
-                pricing: product.price || null,
-                salePrice: product.salePrice || null,
-                weight: product.shippingInfo?.weight?.value || null,
-                weightUnit: product.shippingInfo?.weight?.unit || 'kg',
-                inventory: product.stock || null,
-                condition: product.condition || 'fairly-used',
-                dimensions: {
-                    length: product.shippingInfo?.dimensions?.length || null,
-                    width: product.shippingInfo?.dimensions?.width || null,
-                    height: product.shippingInfo?.dimensions?.height || null
-                }
-            });
-
-            // Product images
-            if (product.images && product.images.length > 0) {
-                const formattedImages = product.images.map(img => ({
-                    url: img.url,
-                    contentType: 'image/jpeg',
-                    isDefault: false
-                }));
-                if (formattedImages.length > 0) {
-                    formattedImages[0].isDefault = true;
-                }
-                setImages(formattedImages);
-            }
-
-            // Comment out Product specifications based on category and subcategory
-            // if (product.category === 'Smartphones & Phones') {
-            //     switch (product.subCategory) {
-            //         case 'Smart Phones':
-            //             setProductSpecs({
-            //                 phones_operatingsystem: product.phones_operatingsystem || '',
-            //                 phones_screensize: product.phones_screensize || '',
-            //                 phones_storagecapacity: product.phones_storagecapacity || '',
-            //                 phones_camera: product.phones_camera || '',
-            //                 phones_batterylife: product.phones_batterylife || '',
-            //                 phones_connectivity: product.phones_connectivity || '',
-            //                 phones_simtype: product.phones_simtype || ''
-            //             });
-            //             break;
-            //         // ... rest of the switch cases for phones
-            //     }
-            // }
-            // else if (product.category === 'Computer Accessories') {
-            //     // ... computer accessories cases
-            // }
-            // else if (product.category === 'Data Storage') {
-            //     // ... data storage cases
-            // }
-            // else if (product.category === 'PC Components') {
-            //     // ... PC components cases
-            // }
-        }
-    }, [product]);
-
-    useEffect(() => {
-        if (product?.variants && product.variants.length > 0) {
-            // Transform backend variants to match variantStructure format
-            const transformedVariants = product.variants.map(variant => ({
-                id: variant._id,
-                name: variant.name,
-                value: variant.value,
-                price: variant.price.toString(),
-                images: variant.images.map(img => ({
-                    url: img.data,
-                    contentType: img.contentType,
-                    isDefault: false
-                })),
-                subVariants: variant.subVariants.map(subVar => ({
-                    id: subVar._id,
-                    name: subVar.name,
-                    value: subVar.value,
-                    price: subVar.price.toString(),
-                    stock: subVar.stock.toString(),
-                    images: subVar.images.map(img => ({
-                        url: img.data,
-                        contentType: img.contentType,
-                        isDefault: false
-                    })),
-                    subSubVariants: subVar.subSubVariants.map(subSubVar => ({
-                        id: subSubVar._id,
-                        name: subSubVar.name,
-                        value: subSubVar.value,
-                        price: subSubVar.price.toString(),
-                        stock: subSubVar.stock.toString(),
-                        sku: subSubVar.sku,
-                        images: subSubVar.images.map(img => ({
-                            url: img.data,
-                            contentType: img.contentType,
-                            isDefault: false
-                        }))
-                    }))
-                }))
-            }));
-
-            // Extract unique options for variant cards
-            const options = [];
-            
-            // Add option-1 if main variant name exists
-            if (product?.variants[0]?.name) {
-                options.push({
-                    id: 'option-1',
-                    name: product?.variants[0]?.name,
-                    values: product?.variants?.map(v => v.value)
-                });
-            }
-            
-            // Add option-2 if subvariant name exists
-            if (product?.variants[0]?.subVariants[0]?.name) {
-                options.push({
-                    id: 'option-2',
-                    name: product?.variants[0]?.subVariants[0]?.name,
-                    values: [...new Set(product?.variants[0]?.subVariants?.map(sv => sv.value))]
-                });
-            }
-            
-            // Add option-3 if sub-subvariant name exists
-            if (product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name) {
-                options.push({
-                    id: 'option-3',
-                    name: product?.variants[0]?.subVariants[0]?.subSubVariants[0]?.name,
-                    values: [...new Set(product?.variants[0]?.subVariants[0]?.subSubVariants?.map(ssv => ssv.value))]
-                });
-            }
-
-            // Update variant context
-            if (variantContextRef.current) {
-                variantContextRef.current.setVariantStructure(transformedVariants);
-                variantContextRef.current.setOptions(options);
-            }
-        }
-    }, [product]);
-
+    
     // Add effect to handle successful product update
     useEffect(() => {
         if (response === 'success') {
@@ -1246,7 +1098,7 @@ const EditProduct = () => {
 
                                             {/* Variants Section */}
                                             <VariantsProvider>
-                                                <VariantSection />
+                                                <VariantSection variantContextRef={variantContextRef} />
                                             </VariantsProvider>
                                         </>
                                     ) : (

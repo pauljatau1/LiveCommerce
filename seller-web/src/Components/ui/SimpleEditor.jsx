@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Typography from '@tiptap/extension-typography'
-import { memo, useEffect, useState, useCallback } from 'react'
+import { memo, useEffect, useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { 
   Bold, 
@@ -44,6 +44,19 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
   const [linkWarning, setLinkWarning] = useState(false)
   const [detectedLinks, setDetectedLinks] = useState([])
 
+  // Keep stable refs for callback props to avoid effect re-runs on every render
+  const onChangeRef = useRef(onChange)
+  const onLinkDetectedRef = useRef(onLinkDetected)
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    onLinkDetectedRef.current = onLinkDetected
+  }, [onLinkDetected])
+
   // Function to detect links in text
   const detectLinks = useCallback((text) => {
     if (!text) return { hasLinks: false, links: [] }
@@ -78,8 +91,6 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
     })
     return cleanContent
   }, []);
-
-
 
   const editor = useEditor({
     extensions: [
@@ -129,8 +140,8 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
         setDetectedLinks(linkCheck.links)
         
         // Call parent callback if provided
-        if (onLinkDetected) {
-          onLinkDetected(true, linkCheck.links)
+        if (onLinkDetectedRef.current) {
+          onLinkDetectedRef.current(true, linkCheck.links)
         }
         
         // Auto-remove links after a short delay to allow user to see the warning
@@ -142,7 +153,9 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
           
           if (cleanContent !== content) {
             editor.commands.setContent(cleanContent)
-            onChange(cleanContent)
+            if (onChangeRef.current) {
+              onChangeRef.current(cleanContent)
+            }
           }
         }, 2000) // 2 second delay to show warning
         
@@ -150,12 +163,14 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
         setLinkWarning(false)
         setDetectedLinks([])
         
-        if (onLinkDetected) {
-          onLinkDetected(false, [])
+        if (onLinkDetectedRef.current) {
+          onLinkDetectedRef.current(false, [])
         }
       }
       
-      onChange(content)
+      if (onChangeRef.current) {
+        onChangeRef.current(content)
+      }
     },
     editorProps: {
       attributes: {
@@ -199,8 +214,8 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
           setDetectedLinks(linkCheck.links)
           
           // Call parent callback immediately to prevent submission
-          if (onLinkDetected) {
-            onLinkDetected(true, linkCheck.links)
+          if (onLinkDetectedRef.current) {
+            onLinkDetectedRef.current(true, linkCheck.links)
           }
           
           // Auto-remove links after showing warning, but keep the parent notified
@@ -212,12 +227,14 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
             
             if (cleanContent !== value) {
               editor.commands.setContent(cleanContent)
-              onChange(cleanContent)
+              if (onChangeRef.current) {
+                onChangeRef.current(cleanContent)
+              }
               
               // Re-check for any remaining links after cleanup
               const recheckLinks = detectLinks(cleanContent)
-              if (onLinkDetected) {
-                onLinkDetected(recheckLinks.hasLinks, recheckLinks.links)
+              if (onLinkDetectedRef.current) {
+                onLinkDetectedRef.current(recheckLinks.hasLinks, recheckLinks.links)
               }
             }
           }, 5000) // 5 second delay for initial load to ensure user sees warning
@@ -226,13 +243,13 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
           setLinkWarning(false)
           setDetectedLinks([])
           
-          if (onLinkDetected) {
-            onLinkDetected(false, [])
+          if (onLinkDetectedRef.current) {
+            onLinkDetectedRef.current(false, [])
           }
         }
       }
     }
-  }, [editor, value, detectLinks, removeLinkFromContent, onLinkDetected, onChange])
+  }, [editor, value, detectLinks, removeLinkFromContent])
 
   // Auto-hide warning after 5 seconds
   useEffect(() => {

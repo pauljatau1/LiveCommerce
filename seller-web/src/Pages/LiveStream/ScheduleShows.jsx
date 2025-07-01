@@ -66,6 +66,7 @@ const ScheduleShows = () => {
                     isLiveStatus={item.status}
                     category={item?.category}
                     location={sellerInfo?.businessAddress}
+                    streamLink={item?.streamLink}
                     id={item?._id}
                   />
                 ))

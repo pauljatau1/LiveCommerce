@@ -8,6 +8,9 @@ import { NavLink } from 'react-router-dom';
 import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { useAuthContext } from "../../Hooks/useAuthContext";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
+import { toast } from 'sonner';
+import { Icon } from "@iconify/react";
 
 
 const LiveStream = () => {
@@ -113,6 +116,20 @@ const LiveStream = () => {
             window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
         };
     }, []);
+
+    // Copy stream link to clipboard
+    const handleCopyLink = async (streamLink) => {
+        try {
+            if (streamLink) {
+                await navigator.clipboard.writeText(streamLink);
+                toast.success('Stream link copied');
+            } else {
+                toast.error('No link found to copy');
+            }
+        } catch {
+            toast.error('Failed to copy link');
+        }
+    };
 
     return (
         <div className="flex flex-col mt-10 gap-8 ">
@@ -225,19 +242,38 @@ const LiveStream = () => {
                                             <h2 className="text-base font-inter font-semibold text-[#17171B] line-clamp-1">{stream.title}</h2>
                                             
                                             {/* Seller Info */}
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                                                    {stream.seller?.storeAvatar?.url ? (
-                                                        <img src={stream.seller.storeAvatar.url} alt={stream.seller?.storeName} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-[#16783A] flex items-center justify-center text-white text-xs">
-                                                            {stream.seller?.storeName?.charAt(0) || "S"}
-                                                        </div>
-                                                    )}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                                                        {stream.seller?.storeAvatar?.url ? (
+                                                            <img src={stream.seller.storeAvatar.url} alt={stream.seller?.storeName} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-[#16783A] flex items-center justify-center text-white text-xs">
+                                                                {stream.seller?.storeName?.charAt(0) || "S"}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-gray-600 truncate">{stream.seller?.storeName || "Seller"}</span>
                                                 </div>
-                                                <span className="text-xs text-gray-600 truncate">{stream.seller?.storeName || "Seller"}</span>
+                                                {/* Share Button */}
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyLink(stream.streamLink)}
+                                                                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                                            >
+                                                                <Icon icon="material-symbols:share" className="w-4 h-4 text-gray-600" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent className="bg-gray-300">
+                                                            Click to copy to clipboard
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
-                                            
+                                                    
                                             {/* Description */}
                                             <p className="text-xs text-[#425466] line-clamp-2 mt-1">
                                                 {stream.description}
