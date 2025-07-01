@@ -134,7 +134,8 @@ const blipSchema = new mongoose.Schema({
         createdAt: { type: Date, default: Date.now }
       }],
       likesCount: { type: Number, default: 0 }
-    }]
+    }],
+    repliesCount: { type: Number, default: 0 }
   }],
   commentsCount: { type: Number, default: 0 },
   processed: { type: Boolean, default: false },
@@ -1212,11 +1213,11 @@ productSchema.pre('save', async function (next) {
     if (this.isModified('blips')) {
       this.blips.forEach(blip => {
         blip.likesCount = blip.likes.length;
-        blip.commentsCount = blip.comments.length;
         
-        // Update comment likes count
+        // Update comment likes count and replies count
         blip.comments.forEach(comment => {
           comment.likesCount = comment.likes ? comment.likes.length : 0;
+          comment.repliesCount = comment.replies ? comment.replies.length : 0;
           
           // Update reply likes count
           if (comment.replies) {
@@ -1225,6 +1226,12 @@ productSchema.pre('save', async function (next) {
             });
           }
         });
+        
+        // Calculate total comments count (comments + all replies)
+        const totalReplies = blip.comments.reduce((total, comment) => {
+          return total + (comment.replies ? comment.replies.length : 0);
+        }, 0);
+        blip.commentsCount = blip.comments.length + totalReplies;
       });
     }
 

@@ -4335,9 +4335,15 @@ exports.addBlipComment = async (req, res) => {
       console.error('Error creating notification:', notificationError);
     }
 
+    // Calculate total comments count (comments + all replies) for the blip
+    const totalReplies = blip.comments.reduce((total, comment) => {
+      return total + (comment.replies ? comment.replies.length : 0);
+    }, 0);
+    blip.commentsCount = blip.comments.length + totalReplies;
+
     res.status(201).json({
       message: 'Comment added successfully',
-      commentsCount: blip.comments.length
+      commentsCount: blip.commentsCount
     });
 
   } catch (error) {
@@ -4416,8 +4422,12 @@ exports.getBlipComments = async (req, res) => {
       comments.map(async (comment) => {
         console.log('Processing comment ID:', comment._id);
         let populatedComment = comment.toObject();
+        
+        // Ensure repliesCount is included
+        populatedComment.repliesCount = comment.replies ? comment.replies.length : 0;
 
         console.log(`DEBUG: Raw comment structure for ${comment._id}:`, JSON.stringify(comment));
+        console.log(`DEBUG: Comment replies count for ${comment._id}:`, populatedComment.repliesCount);
         
         // Add isLiked field for authenticated users
         if (userId && userType) {
@@ -4825,7 +4835,19 @@ exports.addReplyToBlipComment = async (req, res) => {
     };
     
     blipComment.replies.push(newReply);
+    
+    // Update replies count immediately
+    blipComment.repliesCount = blipComment.replies.length;
+    
+    // Update total comments count (comments + all replies) for the blip
+    const totalReplies = blip.comments.reduce((total, comment) => {
+      return total + (comment.replies ? comment.replies.length : 0);
+    }, 0);
+    blip.commentsCount = blip.comments.length + totalReplies;
+    
     console.log('Added new reply:', newReply);
+    console.log('Updated replies count to:', blipComment.repliesCount);
+    console.log('Updated total comments count to:', blip.commentsCount);
 
     await product.save();
     console.log('Product saved with new reply');
@@ -5299,20 +5321,35 @@ exports.getBlipCommentReplies = async (req, res) => {
       return res.status(404).json({ message: 'Comment not found' });
     }
     
+    // Initialize replies array if it doesn't exist
     if (!comment.replies) {
-      return res.status(404).json({ message: 'No replies found' });
+      comment.replies = [];
     }
 
     // Get total replies count
-    const totalReplies = comment.replies ? comment.replies.length : 0;
+    const totalReplies = comment.replies.length;
     const totalPages = Math.ceil(totalReplies / limit);
+
+    console.log('DEBUG: Total replies found:', totalReplies);
+
+    // If no replies, return empty response
+    if (totalReplies === 0) {
+      return res.json({
+        replies: [],
+        pagination: {
+          currentPage: page,
+          totalPages: 0,
+          totalReplies: 0,
+          hasNextPage: false,
+          hasPrevPage: false
+        }
+      });
+    }
 
     // Get paginated replies
     const replies = comment.replies
-      ? comment.replies
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-          .slice(skip, skip + limit)
-      : [];
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(skip, skip + limit);
 
     console.log('DEBUG: Processing', replies.length, 'replies after pagination');
 
@@ -8314,7 +8351,9 @@ exports.getRelatedBlips = async (req, res) => {
             images: productImage,
             blipEngagement: {
               likesCount: blip.likesCount || blip.likes.length || 0,
-              commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+              commentsCount: blip.commentsCount || (blip.comments ? 
+                blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0) 
+                : 0),
               viewCount: blip.viewCount || 0,
               isLiked: isLiked
             },
@@ -8403,7 +8442,9 @@ exports.getRelatedBlips = async (req, res) => {
                 images: productImage,
                 blipEngagement: {
                   likesCount: blip.likesCount || blip.likes.length || 0,
-                  commentsCount: blip.commentsCount || (blip.comments ? blip.comments.length : 0),
+                  commentsCount: blip.commentsCount || (blip.comments ? 
+                    blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0) 
+                    : 0),
                   viewCount: blip.viewCount || 0,
                   isLiked: isLiked
                 },

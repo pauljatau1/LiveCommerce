@@ -1863,6 +1863,384 @@ exports.updateOrderManually = async (req, res) => {
   }
 };
 
+// Admin cancel order function
+exports.adminCancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body || {};
+    
+    // Find order and populate necessary fields
+    const order = await Order.findById(orderId)
+      .populate('seller', 'email firstName lastName storeName')
+      .populate('buyer', 'email firstName lastName');
+      
+    if (!order) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Order not found' 
+      });
+    }
+
+    // Check if the order is already cancelled
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.status === 'cancelled') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Order has already been cancelled' 
+      });
+    }
+
+    // Check if the order is from an auction
+    if (order.channel && (order.channel.toLowerCase() === 'auction')) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Orders created from auctions cannot be cancelled' 
+      });
+    }
+
+    // Only attempt to cancel with Fez if order has tracking number
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
+      try {
+        // Get a fresh authentication token for Fez Delivery
+        const getFezAuthToken = async () => {
+          try {
+            const FEZ_API_URL = process.env.FEZ_API_URL;
+            const authUrl = `${FEZ_API_URL}/user/authenticate`;
+            const authData = {
+              user_id: process.env.FEZ_USER_ID,
+              password: process.env.FEZ_PASSWORD
+            };
+            
+            const response = await axios.post(authUrl, authData);
+            
+            if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+              return response.data.authDetails.authToken;
+            } else {
+              throw new Error('Failed to authenticate with Fez Delivery');
+            }
+          } catch (error) {
+            console.error('Fez authentication error:', error.message);
+            throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+          }
+        };
+
+        const authToken = await getFezAuthToken();
+        console.log('Admin using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
+        
+        // Cancel shipment with Fez Delivery
+        const cancelResponse = await axios.delete(`${process.env.FEZ_API_URL}/order`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'secret-key': process.env.FEZ_SECRET_KEY,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            orderNo: order.shipping.tracking.number
+          }
+        });
+
+        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
+          console.log('Fez API cancellation successful:', cancelResponse.data.description);
+        } else {
+          console.log('Fez API cancellation failed:', cancelResponse.data);
+          // Continue with local cancellation despite Fez API error
+        }
+      } catch (fezError) {
+        console.log('Fez API error:', fezError.message);
+        if (fezError.response) {
+          console.log('Fez API error details:', fezError.response.data);
+        }
+        // Continue with local cancellation despite Fez API error
+      }
+    }
+
+    // Create new tracking entry
+    const newTrackingEntry = {
+      status: 'cancelled',
+      description: `Order cancelled by admin. Reason: ${reason || 'Admin cancellation'}`,
+      timestamp: new Date()
+    };
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.status': 'cancelled',
+        'shipping.tracking.lastUpdate': new Date()
+      },
+      $push: {
+        'shipping.tracking.history': newTrackingEntry
+      }
+    };
+
+    // Update all items status to cancelled
+    order.items.forEach(item => {
+      item.status = 'cancelled';
+      item.statusHistory.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        note: reason || 'Cancelled by admin'
+      });
+    });
+
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+    
+    // Process wallet refund for hybrid payments if applicable
+    if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
+      try {
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Refund the wallet amount that was used
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+          const walletTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for admin cancelled order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Add transaction to wallet
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(walletTransaction);
+          
+          // Save buyer with updated wallet
+          await buyer.save();
+          
+          walletRefunded = true;
+          console.log(`Refunded wallet amount for admin cancelled order: ${walletRefundAmount}`, {
+            orderId: order._id,
+            buyer: buyer._id,
+            newWalletBalance: buyer.wallet.balance
+          });
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for order ${order.order_id}:`, refundError);
+        // Continue with order cancellation even if refund fails
+      }
+    }
+
+    // Check if the order was paid and create a refund request if necessary
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      console.log('Creating refund request for admin cancelled paid order:', order.order_id);
+      
+      shippingUpdate.$set['refundRequest.requested'] = true;
+      shippingUpdate.$set['refundRequest.requestedAt'] = new Date();
+      shippingUpdate.$set['refundRequest.requestedBy'] = 'admin';
+      shippingUpdate.$set['refundRequest.reason'] = reason || 'Order cancelled by admin';
+      shippingUpdate.$set['refundRequest.status'] = 'pending';
+      shippingUpdate.$set['refundRequest.refundAmount'] = order.totalAmount;
+      
+      // Also update the order status to indicate it has a refund
+      shippingUpdate.$set['orderStatus.hasRefund'] = true;
+    }
+
+    // Add admin note
+    order.notes.push({
+      type: 'admin',
+      content: `Order cancelled by admin. Reason: ${reason || 'Admin cancellation'}`,
+      createdAt: new Date()
+    });
+
+    // Save the order with all updates
+    await order.save();
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      shippingUpdate,
+      { new: true }
+    ).populate('seller', 'email firstName lastName storeName')
+     .populate('buyer', 'email firstName lastName');
+
+    // Send cancellation emails
+    let buyerEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Order Cancellation Notice</h2>
+        <p>Dear ${updatedOrder.buyer.firstName},</p>
+        <p>Your order #${updatedOrder.order_id} has been cancelled by our admin team.</p>
+        <p><strong>Order Details:</strong></p>
+        <ul>
+          <li>Order ID: ${updatedOrder.order_id}</li>
+          <li>Seller: ${updatedOrder.seller.storeName}</li>
+          <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+          ${reason ? `<li>Reason: ${reason}</li>` : ''}
+        </ul>
+    `;
+    
+    // Add refund information if applicable
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      buyerEmailHtml += `
+        <p><strong>Refund Information:</strong></p>
+        <p>Since you've already paid for this order, a refund request has been automatically created. Our admin team will process your refund shortly.</p>
+        <p>Refund status: Pending</p>
+      `;
+    }
+    
+    // Add wallet refund info if applicable
+    if (walletRefunded) {
+      buyerEmailHtml += `
+        <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
+      `;
+    }
+    
+    buyerEmailHtml += `
+        <p>If you have any questions about this cancellation, please contact our support team.</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+
+    const buyerEmail = {
+      to: updatedOrder.buyer.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Order Cancellation Notice - Auqli',
+      html: buyerEmailHtml
+    };
+
+    const sellerEmail = {
+      to: updatedOrder.seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Order Cancellation Notification - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Cancellation Notification</h2>
+          <p>Dear ${updatedOrder.seller.firstName},</p>
+          <p>Order #${updatedOrder.order_id} from your store has been cancelled by our admin team.</p>
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${updatedOrder.order_id}</li>
+            <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+            <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+            ${reason ? `<li>Reason: ${reason}</li>` : ''}
+          </ul>
+          ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
+          ${walletRefunded ? `<p>The wallet amount used for this order (₦${walletRefundAmount.toLocaleString()}) has been refunded to the buyer's wallet.</p>` : ''}
+          <p>If you have any questions about this cancellation, please contact our admin team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send admin notification if refund is needed
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      const admins = await Admin.find({});
+      
+      if (admins && admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        
+        if (adminEmails.length > 0) {
+          const adminEmail = {
+            to: adminEmails,
+            from: 'Auqli Refunds <support@auqli.com>',
+            subject: `Refund Request Created - Admin Cancelled Order #${updatedOrder.order_id}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Refund Request Created</h2>
+                <p>A new refund request has been created for an admin cancelled order.</p>
+                <p><strong>Order Details:</strong></p>
+                <ul>
+                  <li>Order ID: ${updatedOrder.order_id}</li>
+                  <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+                  <li>Seller: ${updatedOrder.seller.storeName}</li>
+                  <li>Amount: ₦${updatedOrder.totalAmount.toLocaleString()}</li>
+                  <li>Payment Method: ${updatedOrder.paymentInfo?.method || 'Unknown'}</li>
+                  <li>Reason: ${reason || 'Admin cancellation'}</li>
+                  ${walletRefunded ? `<li>Note: Wallet payment of ₦${walletRefundAmount.toLocaleString()} was automatically refunded</li>` : ''}
+                </ul>
+                <p>Please process this refund request at your earliest convenience.</p>
+              </div>
+            `
+          };
+          
+          try {
+            await sgMail.send(adminEmail);
+          } catch (emailError) {
+            console.error('Error sending admin notification:', emailError);
+          }
+        }
+      }
+    }
+
+    // Send emails to buyer and seller
+    try {
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    } catch (emailError) {
+      console.error('Error sending cancellation emails:', emailError);
+      // Continue processing even if email sending fails
+    }
+
+    // Create notifications
+    const notificationController = require('./notificationController');
+    const { createNotification } = notificationController;
+
+    try {
+      await Promise.all([
+        createNotification(order.buyer._id, 'order_cancelled_admin', {
+          orderId: order._id,
+          order_id: order.order_id,
+          sellerName: order.seller.storeName,
+          reason: reason || 'Admin cancellation',
+          walletRefunded: walletRefunded,
+          walletRefundAmount: walletRefundAmount
+        }),
+        createNotification(order.seller._id, 'order_cancelled_admin', {
+          orderId: order._id,
+          order_id: order.order_id,
+          buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`,
+          reason: reason || 'Admin cancellation',
+          walletRefunded: walletRefunded
+        })
+      ]);
+    } catch (notificationError) {
+      console.error('Error creating notifications:', notificationError);
+      // Continue processing even if notification creation fails
+    }
+
+    // If order is paid, the refund request was already created above
+    // For unpaid orders, close the order immediately
+    if (!order.paid && !(order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      await Order.findByIdAndUpdate(order._id, {
+        isOpen: false,
+        closedAt: new Date(),
+        closedBy: 'admin',
+        closedReason: reason || 'Order cancelled by admin'
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Order cancelled successfully',
+      order: {
+        _id: updatedOrder._id,
+        order_id: updatedOrder.order_id,
+        status: 'cancelled',
+        isOpen: updatedOrder.isOpen,
+        shipping: {
+          tracking: updatedOrder.shipping?.tracking
+        },
+        refundRequest: updatedOrder.refundRequest,
+        closedAt: updatedOrder.closedAt,
+        closedBy: updatedOrder.closedBy,
+        closedReason: updatedOrder.closedReason
+      },
+      walletRefunded: walletRefunded,
+      walletRefundAmount: walletRefundAmount
+    });
+
+  } catch (error) {
+    console.error('Error in admin cancel order:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error cancelling order', 
+      error: error.message 
+    });
+  }
+};
+
 // Add method to verify Paystack transactions
 exports.verifyPaystackTransaction = async (req, res) => {
   try {
@@ -4948,8 +5326,6 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
   }
 }
 
-// ... existing code continues ...
-
 exports.downloadProductCsvTemplate = async (req, res) => {
   try {
     // Define the CSV header row with all the supported columns
@@ -5066,8 +5442,6 @@ exports.downloadProductCsvTemplate = async (req, res) => {
   }
 };
 
-// ... existing code continues ...
-
 exports.deleteBuyerAccount = async (req, res) => {
   const { buyerId } = req.params;
 
@@ -5129,8 +5503,6 @@ exports.deleteBuyerAccount = async (req, res) => {
     });
   }
 };
-
-// ... existing code ...
 
 exports.getAllBuyerTransactions = async (req, res) => {
   try {
