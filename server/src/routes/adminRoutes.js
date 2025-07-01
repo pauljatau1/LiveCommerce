@@ -737,6 +737,76 @@ router.put('/orders/:id', authMiddleware.verifyToken, adminController.updateOrde
 
 /**
  * @swagger
+ * /api/admin/orders/{orderId}/cancel:
+ *   post:
+ *     summary: Cancel an order (admin only)
+ *     description: Cancel an order, handle refunds, and notify all parties
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the order to cancel
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Optional reason for order cancellation
+ *     responses:
+ *       200:
+ *         description: Order cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     order_id:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     isOpen:
+ *                       type: boolean
+ *                     shipping:
+ *                       type: object
+ *                     refundRequest:
+ *                       type: object
+ *                 walletRefunded:
+ *                   type: boolean
+ *                 walletRefundAmount:
+ *                   type: number
+ *       400:
+ *         description: Bad request (order already cancelled, auction order, etc.)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User is not an admin
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/orders/:orderId/cancel', authMiddleware.verifyToken, adminController.adminCancelOrder);
+
+/**
+ * @swagger
  * /api/admin/announcements:
  *   post:
  *     summary: Create a new announcement
@@ -3739,6 +3809,75 @@ router.delete('/products/:productId/blips/:blipId',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.deleteProductBlip
+);
+
+/**
+ * @swagger
+ * /api/admin/products/{productId}/blips/{blipId}/comments/{commentId}:
+ *   delete:
+ *     summary: Delete a comment from a blip (Admin)
+ *     description: Allows an admin to delete a comment from any blip
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment to delete
+ *     responses:
+ *       200:
+ *         description: Comment deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Comment deleted successfully
+ *                 deletedComment:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     comment:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     buyer:
+ *                       type: string
+ *       400:
+ *         description: Invalid product, blip, or comment ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not an admin
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/products/:productId/blips/:blipId/comments/:commentId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.deleteBlipComment
 );
 
 /**

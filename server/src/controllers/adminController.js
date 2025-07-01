@@ -1301,7 +1301,7 @@ const personalEmailMsg = {
         <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
         <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
       </ul>
-      <p>Let’s go live.</p>
+      <p>Let's go live.</p>
       <p>Best regards,<br>The Auqli Team</p>
     </div>
   `
@@ -1338,7 +1338,7 @@ if (seller.businessEmail) {
           <li>💬 <a href="#" style="color: #4CAF50; text-decoration: none;">WhatsApp Channel</a></li>
           <li>📱 <a href="#" style="color: #4CAF50; text-decoration: none;">Instagram | Twitter | Facebook</a></li>
         </ul>
-        <p>Let’s go live.</p>
+        <p>Let's go live.</p>
         <p>Best regards,<br>Auqli Business Team</p>
       </div>
     `
@@ -1860,6 +1860,384 @@ exports.updateOrderManually = async (req, res) => {
     res.status(500).json({ message: 'Error updating order', error: error.message });
   } finally {
     session.endSession();
+  }
+};
+
+// Admin cancel order function
+exports.adminCancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body || {};
+    
+    // Find order and populate necessary fields
+    const order = await Order.findById(orderId)
+      .populate('seller', 'email firstName lastName storeName')
+      .populate('buyer', 'email firstName lastName');
+      
+    if (!order) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Order not found' 
+      });
+    }
+
+    // Check if the order is already cancelled
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.status === 'cancelled') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Order has already been cancelled' 
+      });
+    }
+
+    // Check if the order is from an auction
+    if (order.channel && (order.channel.toLowerCase() === 'auction')) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Orders created from auctions cannot be cancelled' 
+      });
+    }
+
+    // Only attempt to cancel with Fez if order has tracking number
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
+      try {
+        // Get a fresh authentication token for Fez Delivery
+        const getFezAuthToken = async () => {
+          try {
+            const FEZ_API_URL = process.env.FEZ_API_URL;
+            const authUrl = `${FEZ_API_URL}/user/authenticate`;
+            const authData = {
+              user_id: process.env.FEZ_USER_ID,
+              password: process.env.FEZ_PASSWORD
+            };
+            
+            const response = await axios.post(authUrl, authData);
+            
+            if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+              return response.data.authDetails.authToken;
+            } else {
+              throw new Error('Failed to authenticate with Fez Delivery');
+            }
+          } catch (error) {
+            console.error('Fez authentication error:', error.message);
+            throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+          }
+        };
+
+        const authToken = await getFezAuthToken();
+        console.log('Admin using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
+        
+        // Cancel shipment with Fez Delivery
+        const cancelResponse = await axios.delete(`${process.env.FEZ_API_URL}/order`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'secret-key': process.env.FEZ_SECRET_KEY,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            orderNo: order.shipping.tracking.number
+          }
+        });
+
+        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
+          console.log('Fez API cancellation successful:', cancelResponse.data.description);
+        } else {
+          console.log('Fez API cancellation failed:', cancelResponse.data);
+          // Continue with local cancellation despite Fez API error
+        }
+      } catch (fezError) {
+        console.log('Fez API error:', fezError.message);
+        if (fezError.response) {
+          console.log('Fez API error details:', fezError.response.data);
+        }
+        // Continue with local cancellation despite Fez API error
+      }
+    }
+
+    // Create new tracking entry
+    const newTrackingEntry = {
+      status: 'cancelled',
+      description: `Order cancelled by admin. Reason: ${reason || 'Admin cancellation'}`,
+      timestamp: new Date()
+    };
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.status': 'cancelled',
+        'shipping.tracking.lastUpdate': new Date()
+      },
+      $push: {
+        'shipping.tracking.history': newTrackingEntry
+      }
+    };
+
+    // Update all items status to cancelled
+    order.items.forEach(item => {
+      item.status = 'cancelled';
+      item.statusHistory.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        note: reason || 'Cancelled by admin'
+      });
+    });
+
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+    
+    // Process wallet refund for hybrid payments if applicable
+    if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
+      try {
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Refund the wallet amount that was used
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+          const walletTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for admin cancelled order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Add transaction to wallet
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(walletTransaction);
+          
+          // Save buyer with updated wallet
+          await buyer.save();
+          
+          walletRefunded = true;
+          console.log(`Refunded wallet amount for admin cancelled order: ${walletRefundAmount}`, {
+            orderId: order._id,
+            buyer: buyer._id,
+            newWalletBalance: buyer.wallet.balance
+          });
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for order ${order.order_id}:`, refundError);
+        // Continue with order cancellation even if refund fails
+      }
+    }
+
+    // Check if the order was paid and create a refund request if necessary
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      console.log('Creating refund request for admin cancelled paid order:', order.order_id);
+      
+      shippingUpdate.$set['refundRequest.requested'] = true;
+      shippingUpdate.$set['refundRequest.requestedAt'] = new Date();
+      shippingUpdate.$set['refundRequest.requestedBy'] = 'admin';
+      shippingUpdate.$set['refundRequest.reason'] = reason || 'Order cancelled by admin';
+      shippingUpdate.$set['refundRequest.status'] = 'pending';
+      shippingUpdate.$set['refundRequest.refundAmount'] = order.totalAmount;
+      
+      // Also update the order status to indicate it has a refund
+      shippingUpdate.$set['orderStatus.hasRefund'] = true;
+    }
+
+    // Add admin note
+    order.notes.push({
+      type: 'admin',
+      content: `Order cancelled by admin. Reason: ${reason || 'Admin cancellation'}`,
+      createdAt: new Date()
+    });
+
+    // Save the order with all updates
+    await order.save();
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      shippingUpdate,
+      { new: true }
+    ).populate('seller', 'email firstName lastName storeName')
+     .populate('buyer', 'email firstName lastName');
+
+    // Send cancellation emails
+    let buyerEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Order Cancellation Notice</h2>
+        <p>Dear ${updatedOrder.buyer.firstName},</p>
+        <p>Your order #${updatedOrder.order_id} has been cancelled by our admin team.</p>
+        <p><strong>Order Details:</strong></p>
+        <ul>
+          <li>Order ID: ${updatedOrder.order_id}</li>
+          <li>Seller: ${updatedOrder.seller.storeName}</li>
+          <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+          ${reason ? `<li>Reason: ${reason}</li>` : ''}
+        </ul>
+    `;
+    
+    // Add refund information if applicable
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      buyerEmailHtml += `
+        <p><strong>Refund Information:</strong></p>
+        <p>Since you've already paid for this order, a refund request has been automatically created. Our admin team will process your refund shortly.</p>
+        <p>Refund status: Pending</p>
+      `;
+    }
+    
+    // Add wallet refund info if applicable
+    if (walletRefunded) {
+      buyerEmailHtml += `
+        <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
+      `;
+    }
+    
+    buyerEmailHtml += `
+        <p>If you have any questions about this cancellation, please contact our support team.</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+
+    const buyerEmail = {
+      to: updatedOrder.buyer.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Order Cancellation Notice - Auqli',
+      html: buyerEmailHtml
+    };
+
+    const sellerEmail = {
+      to: updatedOrder.seller.email,
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'Order Cancellation Notification - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Cancellation Notification</h2>
+          <p>Dear ${updatedOrder.seller.firstName},</p>
+          <p>Order #${updatedOrder.order_id} from your store has been cancelled by our admin team.</p>
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${updatedOrder.order_id}</li>
+            <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+            <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+            ${reason ? `<li>Reason: ${reason}</li>` : ''}
+          </ul>
+          ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
+          ${walletRefunded ? `<p>The wallet amount used for this order (₦${walletRefundAmount.toLocaleString()}) has been refunded to the buyer's wallet.</p>` : ''}
+          <p>If you have any questions about this cancellation, please contact our admin team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send admin notification if refund is needed
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      const admins = await Admin.find({});
+      
+      if (admins && admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        
+        if (adminEmails.length > 0) {
+          const adminEmail = {
+            to: adminEmails,
+            from: 'Auqli Refunds <support@auqli.com>',
+            subject: `Refund Request Created - Admin Cancelled Order #${updatedOrder.order_id}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Refund Request Created</h2>
+                <p>A new refund request has been created for an admin cancelled order.</p>
+                <p><strong>Order Details:</strong></p>
+                <ul>
+                  <li>Order ID: ${updatedOrder.order_id}</li>
+                  <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+                  <li>Seller: ${updatedOrder.seller.storeName}</li>
+                  <li>Amount: ₦${updatedOrder.totalAmount.toLocaleString()}</li>
+                  <li>Payment Method: ${updatedOrder.paymentInfo?.method || 'Unknown'}</li>
+                  <li>Reason: ${reason || 'Admin cancellation'}</li>
+                  ${walletRefunded ? `<li>Note: Wallet payment of ₦${walletRefundAmount.toLocaleString()} was automatically refunded</li>` : ''}
+                </ul>
+                <p>Please process this refund request at your earliest convenience.</p>
+              </div>
+            `
+          };
+          
+          try {
+            await sgMail.send(adminEmail);
+          } catch (emailError) {
+            console.error('Error sending admin notification:', emailError);
+          }
+        }
+      }
+    }
+
+    // Send emails to buyer and seller
+    try {
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    } catch (emailError) {
+      console.error('Error sending cancellation emails:', emailError);
+      // Continue processing even if email sending fails
+    }
+
+    // Create notifications
+    const notificationController = require('./notificationController');
+    const { createNotification } = notificationController;
+
+    try {
+      await Promise.all([
+        createNotification(order.buyer._id, 'order_cancelled_admin', {
+          orderId: order._id,
+          order_id: order.order_id,
+          sellerName: order.seller.storeName,
+          reason: reason || 'Admin cancellation',
+          walletRefunded: walletRefunded,
+          walletRefundAmount: walletRefundAmount
+        }),
+        createNotification(order.seller._id, 'order_cancelled_admin', {
+          orderId: order._id,
+          order_id: order.order_id,
+          buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`,
+          reason: reason || 'Admin cancellation',
+          walletRefunded: walletRefunded
+        })
+      ]);
+    } catch (notificationError) {
+      console.error('Error creating notifications:', notificationError);
+      // Continue processing even if notification creation fails
+    }
+
+    // If order is paid, the refund request was already created above
+    // For unpaid orders, close the order immediately
+    if (!order.paid && !(order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      await Order.findByIdAndUpdate(order._id, {
+        isOpen: false,
+        closedAt: new Date(),
+        closedBy: 'admin',
+        closedReason: reason || 'Order cancelled by admin'
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Order cancelled successfully',
+      order: {
+        _id: updatedOrder._id,
+        order_id: updatedOrder.order_id,
+        status: 'cancelled',
+        isOpen: updatedOrder.isOpen,
+        shipping: {
+          tracking: updatedOrder.shipping?.tracking
+        },
+        refundRequest: updatedOrder.refundRequest,
+        closedAt: updatedOrder.closedAt,
+        closedBy: updatedOrder.closedBy,
+        closedReason: updatedOrder.closedReason
+      },
+      walletRefunded: walletRefunded,
+      walletRefundAmount: walletRefundAmount
+    });
+
+  } catch (error) {
+    console.error('Error in admin cancel order:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error cancelling order', 
+      error: error.message 
+    });
   }
 };
 
@@ -2673,7 +3051,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       const transferResponse = await paystack.post('/transfer', transferPayload);
       console.log('Transfer initiated:', {
         reference: transferResponse.data.data.reference,
-        status: transferResponse.data.status,
+        status: transferResponse.data.data.status,
         amount: transferResponse.data.data.amount / 100
       });
 
@@ -4514,71 +4892,218 @@ exports.bulkUploadProducts = async (req, res) => {
       });
     }
 
-    // Process each product
-    const createdProducts = [];
+    // Group rows by product name to handle variants
+    const productGroups = {};
     
     for (const [index, productData] of results.entries()) {
+      const productName = productData['product name'];
+      
+      if (!productName) {
+        errors.push({
+          row: index + 1,
+          error: 'Product name is required'
+        });
+        continue;
+      }
+      
+      if (!productGroups[productName]) {
+        productGroups[productName] = {
+          baseProduct: productData,
+          variants: []
+        };
+      } else if (productData['is variant'] === 'true' || productData['is variant'] === 'yes' || productData['is variant'] === '1') {
+        productGroups[productName].variants.push({
+          data: productData,
+          rowIndex: index + 1
+        });
+      } else {
+        errors.push({
+          row: index + 1,
+          productName: productName,
+          error: 'Duplicate product name without variant flag'
+        });
+      }
+    }
+
+    // Process each product group
+    const createdProducts = [];
+    
+    for (const [productName, group] of Object.entries(productGroups)) {
       try {
+        const baseProductData = group.baseProduct;
+        
         // Skip rows with empty product name
-        if (!productData['product name']) {
+        if (!baseProductData['product name']) {
           errors.push({
-            row: index + 1,
+            row: results.indexOf(baseProductData) + 1,
             error: 'Product name is required'
           });
           continue;
         }
 
         // Map CSV fields to product model fields
-        const parsedWeight = productData['product weight'] ? parseFloat(productData['product weight']) : 0;
+        const parsedWeight = baseProductData['product weight'] ? parseFloat(baseProductData['product weight']) : 0;
         // Use default weight of 0.5 if weight is 0 or null
         const finalWeight = (!parsedWeight || parsedWeight === 0) ? 0.5 : parsedWeight;
         
-        const parsedInventory = productData['product inventory'] ? parseInt(productData['product inventory']) : 1;
-        const parsedPrice = productData['product main price'] ? parseFloat(productData['product main price']) : 0;
+        const parsedInventory = baseProductData['product inventory'] ? parseInt(baseProductData['product inventory']) : 1;
+        const parsedPrice = baseProductData['product main price'] ? parseFloat(baseProductData['product main price']) : 0;
         
         if (isNaN(parsedPrice) || parsedPrice <= 0) {
           errors.push({
-            row: index + 1,
-            productName: productData['product name'],
+            row: results.indexOf(baseProductData) + 1,
+            productName: baseProductData['product name'],
             error: 'Invalid price value'
           });
           continue;
         }
         
         // Check if upload status is 'active'
-        if (productData['upload status'] && 
-            productData['upload status'].toLowerCase() !== 'active') {
+        if (baseProductData['upload status'] && 
+            baseProductData['upload status'].toLowerCase() !== 'active') {
           errors.push({
-            row: index + 1,
-            productName: productData['product name'],
+            row: results.indexOf(baseProductData) + 1,
+            productName: baseProductData['product name'],
             error: 'Skipped product with non-active upload status'
           });
           continue;
         }
 
+        // Prepare variants array if any
+        const variants = [];
+        let totalStock = parsedInventory;
+        
+        // Process variants if they exist
+        if (group.variants && group.variants.length > 0) {
+          // Process main variants (e.g., Color)
+          const variantsByType = {};
+          
+          for (const variantItem of group.variants) {
+            const variantData = variantItem.data;
+            const variantName = variantData['variant name']; // e.g., "Color"
+            const variantValue = variantData['variant value']; // e.g., "Red"
+            
+            if (!variantName || !variantValue) {
+              errors.push({
+                row: variantItem.rowIndex,
+                productName: productName,
+                error: 'Variant name and value are required for variants'
+              });
+              continue;
+            }
+            
+            const variantPrice = variantData['variant price'] ? parseFloat(variantData['variant price']) : parsedPrice;
+            const variantStock = variantData['variant stock'] ? parseInt(variantData['variant stock']) : 1;
+            const variantImage = variantData['variant image'] || baseProductData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg';
+            
+            // Add to total stock
+            totalStock += variantStock;
+            
+            // Create or update variant
+            if (!variantsByType[variantName]) {
+              variantsByType[variantName] = [];
+            }
+            
+            // Check for sub-variants
+            const subVariants = [];
+            if (variantData['subvariant name'] && variantData['subvariant value']) {
+              const subVariantName = variantData['subvariant name']; // e.g., "Size"
+              const subVariantValue = variantData['subvariant value']; // e.g., "Small"
+              const subVariantPrice = variantData['subvariant price'] ? parseFloat(variantData['subvariant price']) : variantPrice;
+              const subVariantStock = variantData['subvariant stock'] ? parseInt(variantData['subvariant stock']) : variantStock;
+              const subVariantImage = variantData['subvariant image'] || variantImage;
+              
+              // Check for sub-sub-variants
+              const subSubVariants = [];
+              if (variantData['subsubvariant name'] && variantData['subsubvariant value']) {
+                const subSubVariantName = variantData['subsubvariant name']; // e.g., "Material"
+                const subSubVariantValue = variantData['subsubvariant value']; // e.g., "Cotton"
+                const subSubVariantPrice = variantData['subsubvariant price'] ? parseFloat(variantData['subsubvariant price']) : subVariantPrice;
+                const subSubVariantStock = variantData['subsubvariant stock'] ? parseInt(variantData['subsubvariant stock']) : subVariantStock;
+                const subSubVariantImage = variantData['subsubvariant image'] || subVariantImage;
+                
+                subSubVariants.push({
+                  name: subSubVariantName,
+                  value: subSubVariantValue,
+                  price: subSubVariantPrice,
+                  stock: subSubVariantStock,
+                  images: [{
+                    data: subSubVariantImage,
+                    contentType: 'image/jpeg',
+                    isDefault: true
+                  }]
+                });
+              }
+              
+              subVariants.push({
+                name: subVariantName,
+                value: subVariantValue,
+                price: subVariantPrice,
+                stock: subVariantStock,
+                images: [{
+                  data: subVariantImage,
+                  contentType: 'image/jpeg'
+                }],
+                subSubVariants: subSubVariants
+              });
+            }
+            
+            variantsByType[variantName].push({
+              value: variantValue,
+              price: variantPrice,
+              totalStock: variantStock,
+              images: [{
+                data: variantImage,
+                contentType: 'image/jpeg'
+              }],
+              subVariants: subVariants
+            });
+          }
+          
+          // Convert variantsByType to variants array
+          for (const [variantName, variantValues] of Object.entries(variantsByType)) {
+            for (const variantValue of variantValues) {
+              variants.push({
+                name: variantName,
+                value: variantValue.value,
+                price: variantValue.price,
+                totalStock: variantValue.totalStock,
+                images: variantValue.images,
+                subVariants: variantValue.subVariants
+              });
+            }
+          }
+        }
+
         // Create the product with validated data
         const product = new Product({
-          name: productData['product name'],
-          description: productData['product description'] || `Description for ${productData['product name']}`,
+          name: baseProductData['product name'],
+          description: baseProductData['product description'] || `Description for ${baseProductData['product name']}`,
           price: parsedPrice,
-          category: productData['product main category'] || 'Other',
-          subCategory: productData['product subcategory'] || '',
+          category: baseProductData['product main category'] || 'Other',
+          subCategory: baseProductData['product subcategory'] || '',
           status: 'active',
           seller: sellerId,
-          stock: parsedInventory,
-          condition: productData['product condition'] || 'New',
-          images: [{
-            url: productData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg'
-          }],
-          weight: finalWeight, // Save weight to top-level field
+          stock: totalStock,
+          condition: baseProductData['product condition'] || 'New',
+          images: [
+            {
+              url: baseProductData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg'
+            },
+            ...[1, 2, 3, 4, 5].map(index => {
+              const imageUrl = baseProductData[`product image ${index}`];
+              return imageUrl ? { url: imageUrl.trim() } : null;
+            }).filter(Boolean)
+          ],
+          weight: finalWeight,
           shipping: {
-            // Remove weight from shipping object
             freeShipping: false,
             shippingClass: 'standard'
           },
           inventory: {
-            quantity: parsedInventory
-          }
+            quantity: totalStock
+          },
+          variants: variants
         });
         
         await product.save();
@@ -4587,13 +5112,13 @@ exports.bulkUploadProducts = async (req, res) => {
           name: product.name,
           price: product.price,
           category: product.category,
-          image: product.images[0]?.url
+          image: product.images[0]?.url,
+          variantsCount: variants.length
         });
       } catch (error) {
         console.error('Error creating product:', error);
         errors.push({
-          row: index + 1,
-          productName: productData['product name'] || 'Unknown product',
+          productName: productName,
           error: error.message
         });
       }
@@ -4801,8 +5326,6 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
   }
 }
 
-// ... existing code continues ...
-
 exports.downloadProductCsvTemplate = async (req, res) => {
   try {
     // Define the CSV header row with all the supported columns
@@ -4810,13 +5333,29 @@ exports.downloadProductCsvTemplate = async (req, res) => {
       'product name',
       'product main price',
       'product main image',
+      'product image 1',
+      'product image 2',
+      'product image 3',
+      'product image 4',
+      'product image 5',
       'product description',
       'product weight',
       'product inventory',
       'product condition',
       'product main category',
       'product subcategory',
-      'upload status'
+      'upload status',
+      'is variant',
+      'variant name',
+      'variant value',
+      'variant price',
+      'variant stock',
+      'variant image',
+      'subvariant name',
+      'subvariant value',
+      'subvariant price',
+      'subvariant stock',
+      'subvariant image'
     ].join(',');
     
     // Create sample data rows
@@ -4826,13 +5365,28 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         'Ocean Blue Shirt',
         '50',
         'https://burst.shopifycdn.com/photos/example1.jpg',
+        'https://burst.shopifycdn.com/photos/example1-back.jpg',
+        'https://burst.shopifycdn.com/photos/example1-detail.jpg',
+        'https://burst.shopifycdn.com/photos/example1-side.jpg',
+        'https://burst.shopifycdn.com/photos/example1-model.jpg',
+        'https://burst.shopifycdn.com/photos/example1-closeup.jpg',
         'Ocean blue cotton shirt for women',
         '0.5',
         '10',
         'New',
         'Fashion',
         'Women Fashion',
-        'active'
+        'active',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
       ].join(','),
       
       // Sample 2: Wearable Tech
@@ -4840,13 +5394,28 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         'Yellow Wool Jumper',
         '80',
         'https://burst.shopifycdn.com/photos/example2.jpg',
+        'https://burst.shopifycdn.com/photos/example2-side.jpg',
+        'https://burst.shopifycdn.com/photos/example2-back.jpg',
+        'https://burst.shopifycdn.com/photos/example2-detail.jpg',
+        'https://burst.shopifycdn.com/photos/example2-model.jpg',
+        '',
         'Knitted jumper in yellow color',
         '0.8',
         '5',
         'New',
         'Wearable Tech',
         'Smartwatches',
-        'active'
+        'active',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
       ].join(','),
       
       // Add an empty row for users to fill in
@@ -4872,8 +5441,6 @@ exports.downloadProductCsvTemplate = async (req, res) => {
     });
   }
 };
-
-// ... existing code continues ...
 
 exports.deleteBuyerAccount = async (req, res) => {
   const { buyerId } = req.params;
@@ -4936,8 +5503,6 @@ exports.deleteBuyerAccount = async (req, res) => {
     });
   }
 };
-
-// ... existing code ...
 
 exports.getAllBuyerTransactions = async (req, res) => {
   try {
@@ -6944,7 +7509,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Hi ${seller.firstName},</p>
     
-          <p>We noticed you haven’t yet completed your Auqli seller setup — and we don’t want you to miss out!</p>
+          <p>We noticed you haven't yet completed your Auqli seller setup — and we don't want you to miss out!</p>
     
           <p>With your Auqli account, you can:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
@@ -6957,7 +7522,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>Your shop is almost ready — all you need to do is log in, finish the setup, and start selling.</p>
     
-          <p>Here’s how to finish:</p>
+          <p>Here's how to finish:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
             <ol style="margin-top: 10px;">
               <li>Log in to the Auqli Seller Center</li>
@@ -7047,8 +7612,6 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
             <p>Dear ${seller.firstName},</p>
             
             <p>We noticed that you've started the seller onboarding process on Auqli but haven't completed all the required steps yet. To start selling your products and accessing all seller features, please complete the following steps:</p>
-            
-           
             
             <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
               <p style="margin: 0; color: #333;"><strong>Benefits of completing your onboarding:</strong></p>
@@ -8073,6 +8636,94 @@ exports.deleteProductBlip = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete blip',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Delete a comment from a blip (Admin)
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.deleteBlipComment = async (req, res) => {
+  try {
+    const { productId, blipId, commentId } = req.params;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(productId) || 
+        !mongoose.Types.ObjectId.isValid(blipId) || 
+        !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product, blip, or comment ID format' 
+      });
+    }
+
+    // Find product first to validate existence and get comment details
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    // Find the blip in the product
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Blip not found in the product' 
+      });
+    }
+
+    // Find the comment in the blip
+    const comment = blip.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Comment not found in the blip' 
+      });
+    }
+
+    // Store comment details for response
+    const deletedComment = {
+      _id: commentId,
+      comment: comment.comment,
+      createdAt: comment.createdAt,
+      buyer: comment.buyer
+    };
+
+    // Use atomic update to remove the comment and update the count
+    // This avoids validation issues with the entire document
+    await Product.findOneAndUpdate(
+      { 
+        _id: productId,
+        'blips._id': blipId 
+      },
+      { 
+        $pull: { 'blips.$.comments': { _id: commentId } },
+        $inc: { 'blips.$.commentsCount': -1 }
+      },
+      { 
+        new: true,
+        runValidators: false // Skip validation to avoid issues with missing required fields
+      }
+    );
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Comment deleted successfully',
+      deletedComment: deletedComment
+    });
+  } catch (error) {
+    console.error('Error in deleteBlipComment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete comment',
       error: error.message
     });
   }
