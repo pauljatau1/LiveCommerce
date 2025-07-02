@@ -2991,6 +2991,51 @@ exports.getSellerProducts = async (req, res) => {
     // Get total count for pagination
     const totalProducts = await Product.countDocuments(query);
 
+    // Calculate additional statistics based on base query (seller products excluding offline_auction)
+    const baseQuery = { 
+      seller: sellerId,
+      status: { $ne: 'offline_auction' }
+    };
+
+    // Get statistics
+    const [
+      totalSellerProducts,
+      productsWithBlips,
+      productsWithoutBlips,
+      activeProducts,
+      draftProducts
+    ] = await Promise.all([
+      // Total number of products (excluding offline_auction)
+      Product.countDocuments(baseQuery),
+      
+      // Number of products with blips
+      Product.countDocuments({
+        ...baseQuery,
+        blips: { $exists: true, $not: { $size: 0 } }
+      }),
+      
+      // Number of products without blips
+      Product.countDocuments({
+        ...baseQuery,
+        $or: [
+          { blips: { $exists: false } },
+          { blips: { $size: 0 } }
+        ]
+      }),
+      
+      // Number of active products
+      Product.countDocuments({
+        ...baseQuery,
+        status: 'active'
+      }),
+      
+      // Number of draft products
+      Product.countDocuments({
+        ...baseQuery,
+        status: 'draft'
+      })
+    ]);
+
     res.json({
       products: products.map(product => ({
         ...product.toObject(),
@@ -3016,6 +3061,14 @@ exports.getSellerProducts = async (req, res) => {
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: parseInt(page),
       totalProducts,
+      statistics: {
+        totalProducts: totalSellerProducts,
+        productsWithBlips,
+        productsWithoutBlips,
+        activeProducts,
+        draftProducts,
+        activeDraftProducts: activeProducts + draftProducts
+      },
       filters: {
         minPrice,
         maxPrice,
