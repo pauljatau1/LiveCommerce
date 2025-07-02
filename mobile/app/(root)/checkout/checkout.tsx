@@ -585,20 +585,6 @@ const Checkout = () => {
         try {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
-          const itemsTotal = (deliveryFee && cartTotal) ||
-            (selectedDeliveryOpt == 1 && deliveryFee?.toString())
-            ? "₦" +
-            (
-              deliveryFee +
-              (couponApplied
-                ? couponApplied?.couponSubTotal
-                : cartTotal) -
-              walletCredit
-            )?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })
-            : 0;
 
           const itemsTotal = (deliveryFee && cartTotal) ||
             (selectedDeliveryOpt == 1 && deliveryFee?.toString())
