@@ -44,6 +44,7 @@ const initialState = {
         totalPages: 1,
         totalProducts: 0
     },
+    productStatistics: {},
 };
 
 
@@ -350,6 +351,7 @@ const productSlice = createSlice({
             totalPages: action.payload?.totalPages || 1,
             totalProducts: action.payload?.totalProducts || 0
         };
+        state.productStatistics = action.payload?.statistics || {};
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
