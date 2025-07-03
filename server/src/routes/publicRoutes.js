@@ -10,7 +10,8 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const { Parser } = require('json2csv');
+const { Transform } = require('json2csv');
+const { once } = require('events');
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
@@ -1209,26 +1210,14 @@ const stripHtmlTags = (str) => {
 };
 
 // Generate Meta product feed CSV
-router.get('/meta-product-feed', async (req, res) => {
+router.get('/meta-product-feed', async (req, res, next) => {
   try {
-    // Get all active products
-    const products = await Product.find({ status: 'active' })
-      .populate('seller', 'storeName');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=meta-product-feed.csv'
+    );
 
-    // Transform products into Meta format
-    const metaProducts = products.map(product => ({
-      id: product._id.toString(),
-      title: product.name,
-      description: stripHtmlTags(product.description),
-      availability: product.stock > 0 ? 'in stock' : 'out of stock',
-      condition: product.condition || 'new',
-      price: `${product.price} NGN`,
-      link: `https://app.auqli.live/s/${product._id}A`,
-      image_link: product.images[0]?.url || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
-      brand: product.brand || product.seller.storeName || 'Auqli'
-    }));
-
-    // Define fields for CSV
     const fields = [
       'id',
       'title',
@@ -1241,25 +1230,54 @@ router.get('/meta-product-feed', async (req, res) => {
       'brand'
     ];
 
-    // Create CSV parser
-    const json2csvParser = new Parser({ fields });
-    const csv = json2csvParser.parse(metaProducts);
+    const csvTransform = new Transform(
+      { fields },
+      { objectMode: true }
+    );
+    csvTransform.pipe(res);
 
-    // Set headers for CSV download
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=meta-product-feed.csv');
+    const cursor = Product.find({ status: 'active' })
+      .select(
+        'name description stock condition price images brand seller' // fetch only needed fields
+      )
+      .populate('seller', 'storeName')
+      .lean()
+      .batchSize(50)
+      .cursor();
 
-    // Send CSV
-    res.send(csv);
+    for await (const doc of cursor) {
+      const ok = csvTransform.write(toMetaRow(doc));
+      if (!ok) await once(csvTransform, 'drain');
+    }
 
-  } catch (error) {
-    console.error('Error generating Meta product feed:', error);
-    res.status(500).json({
-      message: 'Failed to generate Meta product feed',
-      error: error.message
+    csvTransform.end();
+
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        cursor.close().catch(() => {});
+      }
     });
+  } catch (err) {
+    console.error('Error generating Meta product feed:', err);
+    next(err);
   }
 });
+
+function toMetaRow(p) {
+  return {
+    id:          p._id.toString(),
+    title:       p.name,
+    description: stripHtmlTags(p.description),
+    availability: p.stock > 0 ? 'in stock' : 'out of stock',
+    condition:    p.condition || 'new',
+    price:        `${p.price} NGN`,
+    link:         `https://app.auqli.live/s/${p._id}A`,
+    image_link:
+      p.images?.[0]?.url ??
+      'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
+    brand: p.brand || p.seller?.storeName || 'Auqli'
+  };
+}
 
 module.exports = router;
 
