@@ -141,7 +141,7 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
     // Populate sender information if not already populated
     let sender;
     if (message.sender.model === 'Buyer') {
-      const Buyer = require('../models/Buyer');
+      const Buyer = require('../modules/buyer/models/buyer.model');
       sender = await Buyer.findById(message.sender.id);
       senderName = sender ? `${sender.firstName} ${sender.lastName}` : 'Unknown User';
     } else {
@@ -249,7 +249,7 @@ exports.sendTextMessage = async (req, res) => {
             senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
           }
         } else if (senderModel === 'Buyer') {
-          const Buyer = require('../models/Buyer');
+          const Buyer = require('../modules/buyer/models/buyer.model');
           const buyer = await Buyer.findById(senderId);
           if (buyer) {
             senderName = `${buyer.firstName} ${buyer.lastName}`;
@@ -397,7 +397,7 @@ exports.sendMediaMessage = async (req, res) => {
             senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
           }
         } else if (senderModel === 'Buyer') {
-          const Buyer = require('../models/Buyer');
+          const Buyer = require('../modules/buyer/models/buyer.model');
           const buyer = await Buyer.findById(senderId);
           if (buyer) {
             senderName = `${buyer.firstName} ${buyer.lastName}`;
@@ -627,7 +627,7 @@ exports.sendProductMessage = async (req, res) => {
             senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
           }
         } else if (senderModel === 'Buyer') {
-          const Buyer = require('../models/Buyer');
+          const Buyer = require('../modules/buyer/models/buyer.model');
           const buyer = await Buyer.findById(senderId);
           if (buyer) {
             senderName = `${buyer.firstName} ${buyer.lastName}`;
@@ -778,7 +778,7 @@ exports.sendOrderMessage = async (req, res) => {
             senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
           }
         } else if (senderModel === 'Buyer') {
-          const Buyer = require('../models/Buyer');
+          const Buyer = require('../modules/buyer/models/buyer.model');
           const buyer = await Buyer.findById(senderId);
           if (buyer) {
             senderName = `${buyer.firstName} ${buyer.lastName}`;

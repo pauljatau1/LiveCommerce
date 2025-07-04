@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Buyer = require('../models/Buyer');
+const Buyer = require('../modules/buyer/models/buyer.model');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -4266,7 +4266,7 @@ exports.toggleBlipLike = async (req, res) => {
     // Create notification for the seller when a blip is liked
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../models/Buyer');
+      const Buyer = require('../modules/buyer/models/buyer.model');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -4344,7 +4344,7 @@ exports.addBlipComment = async (req, res) => {
     // Create notification for the seller when a comment is added
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../models/Buyer');
+      const Buyer = require('../modules/buyer/models/buyer.model');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -8030,7 +8030,7 @@ exports.getReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../models/Buyer');
+    const Buyer = require('../modules/buyer/models/buyer.model');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     
