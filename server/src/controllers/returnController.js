@@ -8,7 +8,7 @@ const axios = require('axios');
 const NotificationController = require('./notificationController');
 const Product = require('../models/Product');
 const { createBuyerNotification, createNotification } = require('./notificationController');
-const Buyer = require('../models/Buyer');
+const Buyer = require('../modules/buyer/models/buyer.model');
 
 // Initialize Fez API configuration
 const FEZ_API_URL = process.env.FEZ_API_URL;
