@@ -12,22 +12,6 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 
-// Add phone number validation utilities
-const isValidNigerianPhoneNumber = (phone) => {
-  if (!phone) return false;
-  // Remove any spaces, dashes, or other characters
-  const cleanPhone = phone.replace(/\D/g, '');
-
-  // Check if it starts with Nigeria country code (234) or 0
-  const hasValidPrefix = cleanPhone.startsWith('234') || cleanPhone.startsWith('0');
-
-  // Check if it has the correct length (13 with 234 prefix, or 11 with 0 prefix)
-  const hasValidLength = (cleanPhone.startsWith('234') && cleanPhone.length === 13) ||
-    (cleanPhone.startsWith('0') && cleanPhone.length === 11);
-
-  return hasValidPrefix && hasValidLength;
-};
-
 // Add a new function to format the phone number for backend
 const formatPhoneForBackend = (phone) => {
   if (!phone) return '';
@@ -79,20 +63,6 @@ const SignUpPage = () => {
   //function to submit the user data
   const submitUserData = async (event) => {
     event.preventDefault();
-
-    // Validate phone number first
-    if (!isValidNigerianPhoneNumber(formData.phoneNumber)) {
-      toast.error('Please enter a valid Nigerian phone number', {
-        style: {
-          backgroundColor: '#425466',
-          color: '#F7FAFC',
-          fontFamily: 'Inter',
-          fontSize: '14px',
-          fontWeight: '400',
-        }
-      });
-      return;
-    }
 
     // Format email - convert to lowercase and remove spaces
     const formattedEmail = formData.email.toLowerCase().replace(/\s+/g, '');
@@ -309,21 +279,7 @@ const SignUpPage = () => {
                       <PhoneInput
                         country={'ng'}
                         value={formData.phoneNumber}
-                        onChange={(phone) => {
-                          setFormData({ ...formData, phoneNumber: phone });
-                          // Only show validation message when input loses focus and is invalid
-                          if (phone && phone.length >= 13 && !isValidNigerianPhoneNumber(phone)) {
-                            toast.error('Please enter a valid Nigerian phone number', {
-                              style: {
-                                backgroundColor: '#425466',
-                                color: '#F7FAFC',
-                                fontFamily: 'Inter',
-                                fontSize: '14px',
-                                fontWeight: '400',
-                              }
-                            });
-                          }
-                        }}
+                        onChange={(phone) => setFormData({ ...formData, phoneNumber: phone })}
                         inputStyle={{
                           width: '100%',
                           height: '48px',
@@ -336,14 +292,11 @@ const SignUpPage = () => {
                           width: '100%'
                         }}
                         inputClass="focus:outline-none bg-[#FFFFFF] shadow-sm shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
-                        onlyCountries={['ng']}
-                        disableCountryCode={false}
-                        countryCodeEditable={false}
                       />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                    <p>Enter a valid Nigerian phone number</p>
+                    <p>Enter a valid country phone number</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
