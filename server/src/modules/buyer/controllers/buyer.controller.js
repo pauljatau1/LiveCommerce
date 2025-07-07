@@ -1,6 +1,7 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
 const profileService = require('../services/profile.service');
+const updateProfileService = require('../services/updateProfile.service');
 const checkTokenService = require('../services/checkToken.service');
 
 /**
@@ -93,9 +94,33 @@ async function checkToken(req, res, next) {
   }
 }
 
+/**
+ * Update buyer profile information.
+ *
+ * This controller handles the profile update HTTP request.
+ * It delegates the profile update logic to the service layer and returns the updated profile data.
+ *
+ * @param {Request} req - Express request object containing the profile update data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateProfile(req, res, next) {
+  try {
+    // Call the service layer to handle profile update logic
+    const response = await updateProfileService.updateProfile(req.user.id, req.body);
+
+    // Send success response with updated profile data
+    res.success(response, 'Profile updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   getProfile,
   checkToken,
+  updateProfile,
 };

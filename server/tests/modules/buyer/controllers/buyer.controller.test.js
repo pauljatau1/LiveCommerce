@@ -28,11 +28,16 @@ jest.mock('@modules/buyer/services/checkToken.service', () => ({
   checkToken: jest.fn()
 }));
 
+jest.mock('@modules/buyer/services/updateProfile.service', () => ({
+  updateProfile: jest.fn()
+}));
+
 // Import the mocked services
 const registerService = require('@modules/buyer/services/register.service');
 const loginService = require('@modules/buyer/services/login.service');
 const profileService = require('@modules/buyer/services/profile.service');
 const checkTokenService = require('@modules/buyer/services/checkToken.service');
+const updateProfileService = require('@modules/buyer/services/updateProfile.service');
 
 // Mock Firebase
 jest.mock('@firebase', () => ({
@@ -1775,6 +1780,98 @@ describe('Buyer Controller', () => {
           jest.clearAllMocks();
         }
       });
+    });
+  });
+
+  describe('updateProfile', () => {
+    let mockReq;
+    let mockRes;
+    let mockNext;
+
+    beforeEach(() => {
+      mockReq = {
+        user: { id: '507f1f77bcf86cd799439011' },
+        body: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          bio: 'Updated bio'
+        }
+      };
+
+      mockRes = {
+        success: jest.fn()
+      };
+
+      mockNext = jest.fn();
+    });
+
+    it('should update profile successfully', async () => {
+      const mockResponse = {
+        firstName: 'Jane',
+        lastName: 'Smith',
+        username: 'johndoe',
+        email: 'john@example.com',
+        bio: 'Updated bio'
+      };
+
+      updateProfileService.updateProfile.mockResolvedValue(mockResponse);
+
+      await buyerController.updateProfile(mockReq, mockRes, mockNext);
+
+      expect(updateProfileService.updateProfile).toHaveBeenCalledWith(
+        mockReq.user.id,
+        mockReq.body
+      );
+      expect(mockRes.success).toHaveBeenCalledWith(mockResponse, 'Profile updated successfully');
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should handle service errors and pass to next middleware', async () => {
+      const mockError = new Error('Service error');
+      updateProfileService.updateProfile.mockRejectedValue(mockError);
+
+      await buyerController.updateProfile(mockReq, mockRes, mockNext);
+
+      expect(updateProfileService.updateProfile).toHaveBeenCalledWith(
+        mockReq.user.id,
+        mockReq.body
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle validation errors', async () => {
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'username', message: 'Username already taken' }
+      ]);
+
+      updateProfileService.updateProfile.mockRejectedValue(mockError);
+
+      await buyerController.updateProfile(mockReq, mockRes, mockNext);
+
+      expect(updateProfileService.updateProfile).toHaveBeenCalledWith(
+        mockReq.user.id,
+        mockReq.body
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle not found errors', async () => {
+      const NotFoundException = require('@utils/errors/NotFoundException');
+      const mockError = new NotFoundException('Buyer not found');
+
+      updateProfileService.updateProfile.mockRejectedValue(mockError);
+
+      await buyerController.updateProfile(mockReq, mockRes, mockNext);
+
+      expect(updateProfileService.updateProfile).toHaveBeenCalledWith(
+        mockReq.user.id,
+        mockReq.body
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
     });
   });
 });

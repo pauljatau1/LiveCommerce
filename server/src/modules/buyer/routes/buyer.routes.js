@@ -8,7 +8,7 @@ const buyerController = require('../controllers/buyer.controller');
  * /api/v2/buyers/auth/register
  *   post:
  *     summary: Register a new buyer
- *     tags: [Buyer]
+ *     tags: [Buyer V2]
  *     requestBody:
  *       required: true
  *       content:
@@ -50,7 +50,7 @@ router.post('/auth/register', buyerController.register);
  * /api/v2/buyers/auth/login:
  *   post:
  *     summary: Login a buyer
- *     tags: [Buyer]
+ *     tags: [Buyer V2]
  *     requestBody:
  *       required: true
  *       content:
@@ -71,8 +71,8 @@ router.post('/auth/register', buyerController.register);
  *     responses:
  *       200:
  *         description: Successful login
- *       400:
- *         description: Missing required fields
+ *       422:
+ *         description: Validation error - Invalid input data
  *       401:
  *         description: Invalid credentials
  *       403:
@@ -87,7 +87,7 @@ router.post('/auth/login', buyerController.login);
  * /api/v2/buyers/profile:
  *   get:
  *     summary: Get buyer profile information
- *     tags: [Buyer]
+ *     tags: [Buyer V2]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -150,10 +150,91 @@ router.get('/profile', verifyToken, buyerController.getProfile);
 
 /**
  * @swagger
+ * /api/v2/buyers/profile:
+ *   put:
+ *     summary: Update buyer profile information
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               phoneNumber:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               notificationPreferences:
+ *                 type: object
+ *               preferredLanguage:
+ *                 type: string
+ *               preferredCurrency:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     country:
+ *                       type: string
+ *                     phoneNumber:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     notificationPreferences:
+ *                       type: object
+ *                     preferredLanguage:
+ *                       type: string
+ *                     preferredCurrency:
+ *                       type: string
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       409:
+ *         description: Username already taken
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/profile', verifyToken, buyerController.updateProfile);
+
+/**
+ * @swagger
  * /api/v2/buyers/auth/check-token:
  *   get:
  *     summary: Check and validate JWT token
- *     tags: [Buyer]
+ *     tags: [Buyer V2]
  *     security:
  *       - bearerAuth: []
  *     responses:
