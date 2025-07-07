@@ -18,6 +18,7 @@
     "quill": "^2.0.3"
   },
   "dependencies": {
+    "@bhavingajjar/country-state-city-data": "^1.0.2",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@emotion/react": "^11.14.0",
@@ -89,6 +90,7 @@
     "next-themes": "^0.4.4",
     "quill": "^2.0.3",
     "react": "^18.3.1",
+    "react-country-state-city": "^1.1.12",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-draggable": "^4.4.6",
