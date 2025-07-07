@@ -85,6 +85,29 @@ async function getPostsCount(buyerId) {
   });
 }
 
+/**
+ * Find a buyer by username.
+ * @param {string} username - The username to search for
+ * @returns {Promise<Buyer|null>}
+ */
+async function findByUsername(username) {
+  return Buyer.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+}
+
+/**
+ * Update a buyer by ID.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} updateData - The data to update
+ * @returns {Promise<Buyer>}
+ */
+async function updateById(buyerId, updateData) {
+  return Buyer.findByIdAndUpdate(
+    buyerId, 
+    updateData, 
+    { new: true, runValidators: true }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -93,5 +116,7 @@ module.exports = {
   findByIdWithFields,
   getFollowersCount,
   getFollowingCount,
-  getPostsCount
+  getPostsCount,
+  findByUsername,
+  updateById
 };
