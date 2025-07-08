@@ -5,7 +5,7 @@ parameters:
     default: "/tmp/project"
   build_path:
     type: string
-    default: "dist"
+    default: "node_modules"
   docker_base_image_version:
     type: string
     default: "node:20.19.1"
