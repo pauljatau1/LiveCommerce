@@ -197,7 +197,7 @@ workflows:
                 - main
 
       - build_android:
-          name: Build Internal Androi build
+          name: Build Internal Android build
           requires:
             - Approve Android build
           filters:
@@ -226,16 +226,16 @@ workflows:
                 - main
 
       - build_production_ios:
-          name: Build Internal iOS build
+          name: Build Production iOS build
           requires:
-            - Approve iOS build
+            - Approve Production iOS build
           filters:
             branches:
               only:
                 - main
 
       - build_production_android:
-          name: Build Internal Androi build
+          name: Build Production Android build
           requires:
             - Approve Production Android build
           filters:
