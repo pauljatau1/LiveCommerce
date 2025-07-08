@@ -6,6 +6,7 @@
     "scripts": {
         "start": "node server.js",
         "test": "jest --forceExit",
+        "test:ci": "jest --forceExit --ci --reporters=default --reporters=jest-junit --collectCoverage=true",
         "test:debug": "node --trace-warnings node_modules/.bin/jest --forceExit",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage --forceExit",

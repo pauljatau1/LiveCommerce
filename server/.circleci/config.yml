@@ -65,7 +65,7 @@ commands:
             echo "export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> "$BASH_ENV"
             source "$BASH_ENV"
   vendor_install_with_cache:
-    description: Install php vendor dependencies
+    description: Install npm vendor dependencies
     steps:
       - restore_cache:
           name: Restore existing vendor cache
@@ -114,14 +114,27 @@ commands:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  run_tests:
+    description: Run Unit tests
+    steps:
+      - run:
+          name: Run unit tests
+          command: |
+            npm install jest-junit
+            npm run test:ci
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: ./reports/    
+      - store_test_results:
+          path: ./reports/
 
 jobs:
-  build:
+  build-and-test:
     executor: build
     steps:
       - add_deploy_key
       - checkout
       - vendor_install_with_cache
+      - run_tests
 
   build-and-push-backend-image-staging:
     executor: docker-machine
@@ -144,12 +157,14 @@ jobs:
 workflows:
   build-test-and-approval-deploy:
     jobs:
-      - build
+      - build-and-test:
+          context:
+            - auqli_server_testing
 
       - approve-build-backend-image-staging:
           type: approval
           requires:
-            - build
+            - build-and-test
 
       - build-and-push-backend-image-staging:
           requires:
@@ -181,7 +196,7 @@ workflows:
       - approve-build-backend-image-production:
           type: approval
           requires:
-            - build
+            - build-and-test
           filters:
             branches:
               only:
