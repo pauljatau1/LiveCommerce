@@ -15,49 +15,17 @@ executors:
     working_directory: << pipeline.parameters.working_dir >>
     docker:
       - image: << pipeline.parameters.docker_base_image_version >>
-    resource_class: "medium"
+    resource_class: "small"
 
 orbs:
   aws-cli: circleci/aws-cli@5.1.1
 
 commands:
-  login_with_web_identity:
-    description: Login using AWS IAM Identity provider via CircleCI OIDC
-    parameters:
-      account_id:
-        type: string
-        default: "298884149618"
-    steps:
-      - run:
-          name: Login web identity
-          command: |
-            if ! dpkg -s jq &>/dev/null; then
-              if [[ $(whoami) == "root" ]]; then
-                apt-get update && apt-get install jq -y
-              else
-                sudo apt-get update && sudo apt-get install jq -y
-              fi
-            fi
-            AWS_STS_CREDENTIALS=$(aws sts assume-role-with-web-identity \
-                  --duration-seconds 3600 \
-                  --output "json" \
-                  --query "Credentials" \
-                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/circleci-oidc" \
-                  --role-session-name "<< parameters.account_id >>-oidc-credentials" \
-                  --web-identity-token "${CIRCLE_OIDC_TOKEN}")
-            export AWS_ACCESS_KEY_ID=$(echo $AWS_STS_CREDENTIALS | jq .AccessKeyId | xargs)
-            export AWS_SECRET_ACCESS_KEY=$(echo $AWS_STS_CREDENTIALS | jq .SecretAccessKey | xargs)
-            export AWS_SESSION_TOKEN=$(echo $AWS_STS_CREDENTIALS | jq .SessionToken | xargs)
-
-            echo "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$BASH_ENV"
-            echo "export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$BASH_ENV"
-            echo "export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> "$BASH_ENV"
-            source "$BASH_ENV"
-  android_install_with_cache:
-    description: Install npm android dependencies
+  expo_install_with_cache:
+    description: Install npm dependencies
     steps:
       - restore_cache:
-          name: Restore existing android cache
+          name: Restore existing cache
           key: v1-seller-{{ .Revision }}
       - run:
           name: Install dependencies
@@ -66,27 +34,29 @@ commands:
             npx expo install expo-dev-client
             npm install -g eas-cli
       - save_cache:
-          name: Save android cache
-          key: v1-android-{{ .Revision }}
+          name: Save  cache
+          key: v1-expo-{{ .Revision }}
           paths:
             - << pipeline.parameters.build_path >>
-  android_restore_cache:
-    description: Restore android cache
+  expo_restore_cache:
+    description: Restore expo cache
     steps:
       - restore_cache:
-          name: Restore android cache
+          name: Restore expo cache
           keys:
-            - v1-android-{{ .Revision }}
+            - v1-expo-{{ .Revision }}
   add_deploy_key:
     description: Add circleci ssh key
     steps:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
-  build_android_development:
-    description: Build Android package for internal preview
+  eas_profile_json:
+    description: Create eas.json
     steps:
-      - android_restore_cache
+      - run:
+          name: Create eas.json
+          command:
       - run:
           name: Create eas.json
           command: |
@@ -116,12 +86,21 @@ commands:
                 }
             }
             EOF
+  build_development_package:
+    description: Build Android package for internal preview
+    parameters:
+      build_type:
+        type: string
+        default: "android"
+    steps:
+      - expo_restore_cache
+      - eas_profile_json
       - run:
           name: Configure EAS
           command: eas whoami
       - run:
           name: Build internal package
-          command: eas build --platform android --profile preview --non-interactive
+          command: eas build --platform << parameters.build_type >> --profile preview --non-interactive --no-wait
 
 jobs:
   build_android:
@@ -129,18 +108,67 @@ jobs:
     steps:
       - add_deploy_key
       - checkout
-      - android_install_with_cache
-      - build_android_development
+      - build_development_package:
+          build_type: "android"
+
+  build_ios:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_development_package:
+          build_type: "ios"
+
+  build_cache:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - expo_install_with_cache
 
 
 workflows:
   build-test-and-deploy:
     jobs:
-      - build_android:
-          name: build_android
+      - build_cache:
+          name: Build EXPO cache
 
-      - approve-staging-backend-deploy:
+      - approve-internal-android-deploy:
+          name: Build Android build
           type: approval
           requires:
-            - build_android
+            - build_cache
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - approve-internal-ios-deploy:
+          name: Build iOS build
+          type: approval
+          requires:
+            - build_cache
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - build_ios:
+          name: Build Internal iOS build
+          requires:
+            - approve-internal-ios-deploy
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - build_android:
+          name: Build Internal iOS build
+          requires:
+            - approve-internal-android-deploy
+          filters:
+            branches:
+              ignore:
+                - main
+
 
