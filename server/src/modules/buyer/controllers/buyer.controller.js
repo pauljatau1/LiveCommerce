@@ -2,6 +2,7 @@ const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
+const uploadProfileImageService = require('../services/uploadProfileImage.service');
 const checkTokenService = require('../services/checkToken.service');
 
 /**
@@ -117,10 +118,34 @@ async function updateProfile(req, res, next) {
   }
 }
 
+/**
+ * Upload buyer profile image.
+ *
+ * This controller handles the profile image upload HTTP request.
+ * It delegates the upload logic to the service layer and returns the updated profile data.
+ *
+ * @param {Request} req - Express request object containing the uploaded file in `req.file`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadProfileImage(req, res, next) {
+  try {
+    // Call the service layer to handle profile image upload logic
+    const response = await uploadProfileImageService.uploadProfileImage(req.user.id, req.file);
+
+    // Send success response with updated profile data
+    res.success(response, 'Profile image uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   getProfile,
   checkToken,
   updateProfile,
+  uploadProfileImage,
 };

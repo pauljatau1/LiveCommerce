@@ -32,12 +32,17 @@ jest.mock('@modules/buyer/services/updateProfile.service', () => ({
   updateProfile: jest.fn()
 }));
 
+jest.mock('@modules/buyer/services/uploadProfileImage.service', () => ({
+  uploadProfileImage: jest.fn()
+}));
+
 // Import the mocked services
 const registerService = require('@modules/buyer/services/register.service');
 const loginService = require('@modules/buyer/services/login.service');
 const profileService = require('@modules/buyer/services/profile.service');
 const checkTokenService = require('@modules/buyer/services/checkToken.service');
 const updateProfileService = require('@modules/buyer/services/updateProfile.service');
+const uploadProfileImageService = require('@modules/buyer/services/uploadProfileImage.service');
 
 // Mock Firebase
 jest.mock('@firebase', () => ({
@@ -1872,6 +1877,57 @@ describe('Buyer Controller', () => {
       );
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+  });
+
+  describe('uploadProfileImage', () => {
+    let mockReq;
+    let mockRes;
+    let mockNext;
+
+    beforeEach(() => {
+      mockReq = {
+        body: {},
+        user: { id: '507f1f77bcf86cd799439011' },
+        file: null
+      };
+      mockRes = {
+        success: jest.fn(),
+        error: jest.fn()
+      };
+      mockNext = jest.fn();
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should call uploadProfileImage service and return success response', async () => {
+      const mockFile = { originalname: 'profile.jpg', mimetype: 'image/jpeg' };
+      mockReq.file = mockFile;
+      
+      const mockResponse = { 
+        firstName: 'John', 
+        lastName: 'Doe',
+        profileImage: { url: 'https://example.com/image.jpg' }
+      };
+      uploadProfileImageService.uploadProfileImage.mockResolvedValue(mockResponse);
+
+      await buyerController.uploadProfileImage(mockReq, mockRes, mockNext);
+
+      expect(uploadProfileImageService.uploadProfileImage).toHaveBeenCalledWith(mockReq.user.id, mockFile);
+      expect(mockRes.success).toHaveBeenCalledWith(mockResponse, 'Profile image uploaded successfully');
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should call next with error when service throws', async () => {
+      const error = new Error('Upload failed');
+      uploadProfileImageService.uploadProfileImage.mockRejectedValue(error);
+
+      await buyerController.uploadProfileImage(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalledWith(error);
+      expect(mockRes.success).not.toHaveBeenCalled();
     });
   });
 });
