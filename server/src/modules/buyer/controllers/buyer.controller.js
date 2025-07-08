@@ -3,6 +3,7 @@ const loginService = require('../services/login.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
+const verifyOTPService = require('../services/verifyOTP.service');
 const checkTokenService = require('../services/checkToken.service');
 
 /**
@@ -140,6 +141,28 @@ async function uploadProfileImage(req, res, next) {
     next(err);
   }
 }
+/**    
+ * Verify OTP for buyer email verification.
+ *
+ * This controller handles the OTP verification HTTP request.
+ * It delegates the verification logic to the service layer and returns the verification result.
+ *
+ * @param {Request} req - Express request object containing email and OTP in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyOTP(req, res, next) {
+  try {
+    // Call the service layer to handle OTP verification logic
+    const response = await verifyOTPService.verifyOTP(req.body.email, req.body.otp);
+
+    // Send success response with verification result
+    res.success(response, 'OTP verified successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
 
 module.exports = {
   register,
@@ -148,4 +171,5 @@ module.exports = {
   checkToken,
   updateProfile,
   uploadProfileImage,
+  verifyOTP,
 };

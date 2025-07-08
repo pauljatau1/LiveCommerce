@@ -497,4 +497,63 @@ router.put('/profile/avatar', verifyToken, upload.single('avatar'), buyerControl
  */
 router.get('/auth/check-token', buyerController.checkToken);
 
+/**
+ * @swagger
+ * /api/v2/buyers/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP for email verification
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Buyer's email address
+ *               otp:
+ *                 type: string
+ *                 description: 4-digit OTP code
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                     bonus:
+ *                       type: object
+ *                       properties:
+ *                         coming:
+ *                           type: boolean
+ *                         amount:
+ *                           type: number
+ *                         currency:
+ *                           type: string
+ *                         timeToCredit:
+ *                           type: string
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auth/verify-otp', buyerController.verifyOTP);
+
 module.exports = router;
