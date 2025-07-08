@@ -31,7 +31,6 @@ commands:
           name: Install dependencies
           command: |
             npm ci --cache node_modules --prefer-offline --no-audit
-            npx expo install expo-dev-client --prefer-offline --no-audit
             npm install -g eas-cli --prefer-offline --no-audit
       - save_cache:
           name: Save  cache
