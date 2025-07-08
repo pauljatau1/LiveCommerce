@@ -127,8 +127,7 @@ jobs:
 workflows:
   build-test-and-deploy:
     jobs:
-      - build_cache:
-          name: Build EXPO cache
+      - build_cache
 
       - approve-internal-android-deploy:
           name: Build Android build
