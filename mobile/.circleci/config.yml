@@ -127,23 +127,24 @@ jobs:
 workflows:
   build-test-and-deploy:
     jobs:
-      - build_cache
+      - build_cache:
+          name: Build EXPO cache
 
       - approve-internal-android-deploy:
-          name: Build Android build
+          name: Approve Android build
           type: approval
           requires:
-            - build_cache
+            - Build EXPO cache
           filters:
             branches:
               ignore:
                 - main
 
       - approve-internal-ios-deploy:
-          name: Build iOS build
+          name: Approve iOS build
           type: approval
           requires:
-            - build_cache
+            - Build EXPO cache
           filters:
             branches:
               ignore:
@@ -152,16 +153,16 @@ workflows:
       - build_ios:
           name: Build Internal iOS build
           requires:
-            - approve-internal-ios-deploy
+            - Approve iOS build
           filters:
             branches:
               ignore:
                 - main
 
       - build_android:
-          name: Build Internal iOS build
+          name: Build Internal Androi build
           requires:
-            - approve-internal-android-deploy
+            - Approve Android build
           filters:
             branches:
               ignore:
