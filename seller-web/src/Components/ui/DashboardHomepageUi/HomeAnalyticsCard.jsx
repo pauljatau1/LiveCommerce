@@ -3,10 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 
+function formatChangeFromLastWeek (value, type) {
+    if (type == 'number') {
+      return `+${value}`;
+    } else if (type == 'percentage') {
+      return `${value}%`;
+    } else {
+      return "";
+    }
+  };
+
 const HomeAnalyticsCard = ({ card }) => {
     const Icon = card.icon;
     const navigate = useNavigate();
     const [isPressed, setIsPressed] = useState(false);
+
+    const trend = card.value >= 0 ? 'up' : 'down';
+    const percentage = formatChangeFromLastWeek(card.value, card.type);
 
     return (
         <div 
@@ -39,8 +52,8 @@ const HomeAnalyticsCard = ({ card }) => {
             <p className="sm:hidden text-xl font-semibold font-inter text-[#16192C] mt-1">{card.current}</p>
             
             <div className="flex items-center gap-1 mt-2">
-                <span className={`text-xs xl:text-sm rounded-md font-inter px-2 py-1 font-medium ${card.trend === 'up' ? 'text-[#66CB9F] bg-[#DEFFEE] ' : 'text-[#F16063] bg-[#FFE6E4] '}`}>
-                    {card.percentage}
+                <span className={`text-xs xl:text-sm rounded-md font-inter px-2 py-1 font-medium ${trend === 'up' ? 'text-[#66CB9F] bg-[#DEFFEE] ' : 'text-[#F16063] bg-[#FFE6E4] '}`}>
+                    {percentage}
                 </span>
                 <span className="text-xs xl:text-sm font-inter text-[#718096]">vs last week</span>
             </div>
@@ -51,7 +64,7 @@ const HomeAnalyticsCard = ({ card }) => {
             </div>
 
             {/* Background decoration for visual interest */}
-            <div className={`absolute -bottom-6 -right-6 w-24 h-24 rounded-full opacity-5 ${card.trend === 'up' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className={`absolute -bottom-6 -right-6 w-24 h-24 rounded-full opacity-5 ${trend === 'up' ? 'bg-green-500' : 'bg-red-500'}`}></div>
         </div>
     )
 };
@@ -61,8 +74,8 @@ HomeAnalyticsCard.propTypes = {
         title: PropTypes.string.isRequired,
         icon: PropTypes.elementType.isRequired,
         current: PropTypes.string.isRequired,
-        percentage: PropTypes.string.isRequired,
-        trend: PropTypes.oneOf(['up', 'down']).isRequired,
+        value: PropTypes.string.isRequired,
+        type: PropTypes.string.isRequired,
         iconColor: PropTypes.string.isRequired,
         iconBackground: PropTypes.string.isRequired,
         link: PropTypes.string.isRequired
