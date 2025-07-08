@@ -64,25 +64,64 @@ commands:
           command: |
             npm install
             npx expo install expo-dev-client
+            npm install -g eas-cli
       - save_cache:
           name: Save android cache
           key: v1-android-{{ .Revision }}
           paths:
             - << pipeline.parameters.build_path >>
-  android__restore_cache:
+  android_restore_cache:
     description: Restore android cache
     steps:
       - restore_cache:
           name: Restore android cache
           keys:
             - v1-android-{{ .Revision }}
-
   add_deploy_key:
     description: Add circleci ssh key
     steps:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  build_android_development:
+    description: Build Android package for internal preview
+    steps:
+      - android_restore_cache
+      - run:
+          name: Create eas.json
+          command: |
+            cat <<EOF >eas.json
+            {
+                "cli": {
+                    "version": ">= 16.14.0",
+                    "appVersionSource": "remote"
+                },
+                "build": {
+                    "development": {
+                        "developmentClient": true,
+                        "distribution": "internal",
+                        "environment": "preview"
+                    },
+                    "preview": {
+                        "distribution": "internal",
+                        "environment": "preview"
+                    },
+                    "production": {
+                        "autoIncrement": true,
+                        "environment": "production"
+                    }
+                },
+                "submit": {
+                    "production": {}
+                }
+            }
+            EOF
+      - run:
+          name: Configure EAS
+          command: eas whoami
+      - run:
+          name: Build internal package
+          command: eas build --platform android --profile preview --non-interactive
 
 jobs:
   build_android:
@@ -91,10 +130,8 @@ jobs:
       - add_deploy_key
       - checkout
       - android_install_with_cache
-      - run:
-          command: |
-            eas login
-            EXPO_TOKEN=${EXPO_TOKEN} eas build —platform Android
+      - build_android_development
+
 
 workflows:
   build-test-and-deploy:
