@@ -30,9 +30,9 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            npm install
+            npm install --prefer-offline
             npx expo install expo-dev-client
-            npm install -g eas-cli
+            npm install -g eas-cli --prefer-offline
       - save_cache:
           name: Save  cache
           key: v1-expo-{{ checksum "package-lock.json" }}
