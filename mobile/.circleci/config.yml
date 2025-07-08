@@ -100,7 +100,33 @@ commands:
           name: Build internal package
           command: eas build --platform << parameters.build_type >> --profile preview --non-interactive --no-wait
 
+  build_production_package:
+    description: Build Android package for internal preview
+    parameters:
+      build_type:
+        type: string
+        default: "android"
+    steps:
+      - expo_restore_cache
+      - eas_profile_json
+      - run:
+          name: Install eas-cli
+          command: npm install -g eas-cli --prefer-offline --no-audit
+      - run:
+          name: Configure EAS
+          command: eas whoami
+      - run:
+          name: Build internal package
+          command: eas build --platform << parameters.build_type >> --profile production --non-interactive --no-wait
+
 jobs:
+  build_cache:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - expo_install_with_cache
+
   build_android:
     executor: build
     steps:
@@ -117,12 +143,22 @@ jobs:
       - build_development_package:
           build_type: "ios"
 
-  build_cache:
+  build_production_android:
     executor: build
     steps:
       - add_deploy_key
       - checkout
-      - expo_install_with_cache
+      - build_production_package:
+          build_type: "android"
+
+  build_production_ios:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_production_package:
+          build_type: "ios"
+
 
 
 workflows:
@@ -169,4 +205,41 @@ workflows:
               ignore:
                 - main
 
+      - approve-production-android-deploy:
+          name: Approve Production Android build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              only:
+                - main
+
+      - approve-production-ios-deploy:
+          name: Approve Production iOS build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              only:
+                - main
+
+      - build_production_ios:
+          name: Build Internal iOS build
+          requires:
+            - Approve iOS build
+          filters:
+            branches:
+              only:
+                - main
+
+      - build_production_android:
+          name: Build Internal Androi build
+          requires:
+            - Approve Production Android build
+          filters:
+            branches:
+              only:
+                - main
 
