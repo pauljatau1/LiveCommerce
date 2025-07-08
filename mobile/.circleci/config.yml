@@ -56,9 +56,6 @@ commands:
     steps:
       - run:
           name: Create eas.json
-          command:
-      - run:
-          name: Create eas.json
           command: |
             cat \<<EOF >eas.json
             {
