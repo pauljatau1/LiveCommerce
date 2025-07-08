@@ -22,7 +22,7 @@ orbs:
 
 commands:
   expo_install_with_cache:
-    description: Install npm dependencies
+    description: Install dependencies and save cache
     steps:
       - restore_cache:
           name: Restore existing cache
@@ -30,7 +30,8 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            npm install --prefer-offline
+            #npm install --prefer-offline
+            npm ci --cache node_modules --prefer-offline
             npx expo install expo-dev-client
             npm install -g eas-cli --prefer-offline
       - save_cache:
