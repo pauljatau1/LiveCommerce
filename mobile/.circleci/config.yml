@@ -31,7 +31,6 @@ commands:
           name: Install dependencies
           command: |
             npm ci --cache node_modules --prefer-offline --no-audit
-            npm install -g eas-cli --prefer-offline --no-audit
       - save_cache:
           name: Save  cache
           key: v1-expo-{{ checksum "package-lock.json" }}
@@ -91,6 +90,9 @@ commands:
     steps:
       - expo_restore_cache
       - eas_profile_json
+      - run:
+          name: Install eas-cli
+          command: npm install -g eas-cli --prefer-offline --no-audit
       - run:
           name: Configure EAS
           command: eas whoami
