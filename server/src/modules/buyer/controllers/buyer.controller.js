@@ -4,6 +4,7 @@ const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
 const verifyOTPService = require('../services/verifyOTP.service');
+const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
 
 /**
@@ -120,6 +121,7 @@ async function updateProfile(req, res, next) {
 }
 
 /**
+ *
  * Upload buyer profile image.
  *
  * This controller handles the profile image upload HTTP request.
@@ -164,6 +166,29 @@ async function verifyOTP(req, res, next) {
   }
 }
 
+/**
+ * Resend OTP to buyer's email.
+ *
+ * This controller handles the OTP resend HTTP request.
+ * It delegates the OTP resend logic to the service layer and returns a success message.
+ *
+ * @param {Request} req - Express request object containing the email in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function resendOTP(req, res, next) {
+  try {
+    // Call the service layer to handle OTP resend logic
+    const response = await resendOTPService.resendOTP(req.body.email);
+
+    // Send success response
+    res.success(response, 'OTP resent successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -172,4 +197,5 @@ module.exports = {
   updateProfile,
   uploadProfileImage,
   verifyOTP,
+  resendOTP,
 };

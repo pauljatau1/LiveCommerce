@@ -170,6 +170,50 @@ router.post('/auth/login', buyerController.login);
 
 /**
  * @swagger
+ * /api/v2/buyers/auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP to buyer's email
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Buyer's email address
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *       422:
+ *         description: Validation error - Invalid email
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auth/resend-otp', buyerController.resendOTP);
+
+/**
  * /api/v2/buyers/profile:
  *   get:
  *     summary: Get buyer profile information
