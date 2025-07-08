@@ -36,6 +36,10 @@ jest.mock('@modules/buyer/services/uploadProfileImage.service', () => ({
   uploadProfileImage: jest.fn()
 }));
 
+jest.mock('@modules/buyer/services/verifyOTP.service', () => ({
+  verifyOTP: jest.fn()
+}));
+
 // Import the mocked services
 const registerService = require('@modules/buyer/services/register.service');
 const loginService = require('@modules/buyer/services/login.service');
@@ -43,6 +47,7 @@ const profileService = require('@modules/buyer/services/profile.service');
 const checkTokenService = require('@modules/buyer/services/checkToken.service');
 const updateProfileService = require('@modules/buyer/services/updateProfile.service');
 const uploadProfileImageService = require('@modules/buyer/services/uploadProfileImage.service');
+const verifyOTPService = require('@modules/buyer/services/verifyOTP.service');
 
 // Mock Firebase
 jest.mock('@firebase', () => ({
@@ -1881,6 +1886,7 @@ describe('Buyer Controller', () => {
   });
 
   describe('uploadProfileImage', () => {
+
     let mockReq;
     let mockRes;
     let mockNext;
@@ -1930,5 +1936,162 @@ describe('Buyer Controller', () => {
       expect(mockRes.success).not.toHaveBeenCalled();
     });
   });
-});
+  });
+  describe('verifyOTP', () => {
+    let mockReq;
+    let mockRes;
+    let mockNext;
+
+    beforeEach(() => {
+      mockReq = {
+        body: {
+          email: 'test@example.com',
+          otp: '1234'
+        }
+      };
+
+      mockRes = {
+        success: jest.fn()
+      };
+
+      mockNext = jest.fn();
+    });
+
+    it('should verify OTP successfully', async () => {
+      const mockResponse = {
+        message: 'Email verified successfully',
+        bonus: {
+          coming: true,
+          amount: 2000,
+          currency: 'NGN',
+          timeToCredit: '10 seconds'
+        }
+      };
+
+      verifyOTPService.verifyOTP.mockResolvedValue(mockResponse);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        mockReq.body.email,
+        mockReq.body.otp
+      );
+      expect(mockRes.success).toHaveBeenCalledWith(mockResponse, 'OTP verified successfully');
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should handle service errors and pass to next middleware', async () => {
+      const mockError = new Error('Service error');
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        mockReq.body.email,
+        mockReq.body.otp
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle validation errors', async () => {
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'email', message: 'Email is required' },
+        { field: 'otp', message: 'OTP is required' }
+      ]);
+
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        mockReq.body.email,
+        mockReq.body.otp
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle not found errors', async () => {
+      const NotFoundException = require('@utils/errors/NotFoundException');
+      const mockError = new NotFoundException('Buyer not found');
+
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        mockReq.body.email,
+        mockReq.body.otp
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle missing email in request body', async () => {
+      mockReq.body = {
+        otp: '1234'
+      };
+
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'email', message: 'Email is required' }
+      ]);
+
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        undefined,
+        mockReq.body.otp
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle missing OTP in request body', async () => {
+      mockReq.body = {
+        email: 'test@example.com'
+      };
+
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'otp', message: 'OTP is required' }
+      ]);
+
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        mockReq.body.email,
+        undefined
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle empty request body', async () => {
+      mockReq.body = {};
+
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'email', message: 'Email is required' },
+        { field: 'otp', message: 'OTP is required' }
+      ]);
+
+      verifyOTPService.verifyOTP.mockRejectedValue(mockError);
+
+      await buyerController.verifyOTP(mockReq, mockRes, mockNext);
+
+      expect(verifyOTPService.verifyOTP).toHaveBeenCalledWith(
+        undefined,
+        undefined
+      );
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+  });
 });
