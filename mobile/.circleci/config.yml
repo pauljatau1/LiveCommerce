@@ -90,7 +90,7 @@ commands:
       - run:
           name: Create eas.json
           command: |
-            cat <<EOF >eas.json
+            cat \<<EOF >eas.json
             {
                 "cli": {
                     "version": ">= 16.14.0",
