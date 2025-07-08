@@ -26,7 +26,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing cache
-          key: v1-seller-{{ .Revision }}
+          key: v1-expo-{{ checksum "package-lock.json" }}
       - run:
           name: Install dependencies
           command: |
@@ -35,7 +35,7 @@ commands:
             npm install -g eas-cli
       - save_cache:
           name: Save  cache
-          key: v1-expo-{{ .Revision }}
+          key: v1-expo-{{ checksum "package-lock.json" }}
           paths:
             - << pipeline.parameters.build_path >>
   expo_restore_cache:
@@ -44,7 +44,7 @@ commands:
       - restore_cache:
           name: Restore expo cache
           keys:
-            - v1-expo-{{ .Revision }}
+            - v1-expo-{{ checksum "package-lock.json" }}
   add_deploy_key:
     description: Add circleci ssh key
     steps:
