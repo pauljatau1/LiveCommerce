@@ -10,20 +10,18 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Swiper from "react-native-swiper";
 import { icons, onboarding } from "@/constants";
 import CustomButton from "@/components/global/button/CustomButton";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { AntDesign } from "@expo/vector-icons";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
 const Home = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const swiperRef = useRef<Swiper>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -57,9 +55,9 @@ const Home = () => {
   };
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
+
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
         <TouchableOpacity
           onPress={() => router.replace("/(root)/(tabs)/blips")}
           style={{
@@ -120,6 +118,7 @@ const Home = () => {
               key={item.id}
               style={{
                 alignItems: "center",
+                position:'relative',
                 // padding: 20,
                 flex: 1,
                 // backgroundColor: "yellow",
@@ -143,7 +142,7 @@ const Home = () => {
           className="items-center"
           style={{
             position: "absolute",
-            bottom: 0,
+            bottom: insets.bottom,
             alignSelf: "center",
           }}
         >
@@ -237,7 +236,6 @@ const Home = () => {
           )}
         </View>
       </SafeAreaView>
-    </>
   );
 };
 

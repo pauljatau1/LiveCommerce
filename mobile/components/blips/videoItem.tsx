@@ -68,7 +68,7 @@ import { useEvent, useEventListener } from "expo";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { height, width } = Dimensions.get("window");
+const { height, width } = Dimensions.get("screen");
 const VideoItem = ({
   id,
   videoUrl,
@@ -93,7 +93,8 @@ const VideoItem = ({
   const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const statusBarHeight = insets.top;
+
+  const statusBarHeight = Platform.OS == "ios" ? insets.top : 0;
   const videoRef = useRef<any>(null);
   const [cachedUrl, setCachedUrl] = useState(videoUrl);
   const [loading, setLoading] = useState(true);
@@ -119,14 +120,11 @@ const VideoItem = ({
   const [liveAuctionData, setLiveAuctionData] = useState<any>();
   const [bidTime, setBidTime] = useState<any>();
 
-  const player = useVideoPlayer(
-    { uri: videoUrl, useCaching: true },
-    (player) => {
-      player.loop = true;
-      player.play();
-      // player.replay();
-    },
-  );
+  const player = useVideoPlayer({ uri: videoUrl }, (player) => {
+    player.loop = true;
+    player.play();
+    // player.replay();
+  });
   const { isPlaying } = useEvent(player, "playingChange", {
     isPlaying: player.playing,
   });
@@ -380,6 +378,7 @@ const VideoItem = ({
   }, [status]);
 
   const tabBarHeight = !singularBlip ? useBottomTabBarHeight() : 10;
+  // console.log({ tabBarHeight });
 
   const handleBuyNow = useCallback(async () => {
     const token = await getToken();
@@ -389,10 +388,11 @@ const VideoItem = ({
       blipId: id,
       productId: item?._id,
       productName: item?.name,
-      productPrice: `₦${item?.discount?.isActive
-        ? item?.discount?.discountedPrice?.toLocaleString() ||
-          0
-        : item?.price?.toLocaleString()}`,
+      productPrice: `₦${
+        item?.discount?.isActive
+          ? item?.discount?.discountedPrice?.toLocaleString() || 0
+          : item?.price?.toLocaleString()
+      }`,
       isDiscounted: item?.discount?.isActive,
       productStock: item?.stock,
       userId: user?._id,
@@ -401,7 +401,7 @@ const VideoItem = ({
       lastName: user?.lastName,
       username: user?.username,
       timestamp: new Date().toISOString(),
-    })
+    });
     if (!token) return setShowAuthSheet(true);
     setShowCheckout(true);
   }, []);
@@ -499,34 +499,16 @@ const VideoItem = ({
         style={[
           styles.container,
           {
-            height: height,
-
+            height:
+              Platform.OS == "ios"
+                ? height - insets.bottom
+                : height - insets.bottom - insets.top,
+            // backgroundColor: "red",
             paddingTop: Platform.OS == "ios" ? 0 : 0,
-            paddingBottom: tabBarHeight,
+            paddingBottom: singularBlip ? 0 : tabBarHeight - insets.bottom,
           },
         ]}
       >
-        {/* <Video
-          ref={videoRef}
-          source={{
-            uri: videoUrl,
-          }}
-          style={[
-            styles.video,
-            {
-              height: "100%",
-              position: "absolute",
-              top: Platform.OS == "ios" ? 0 : 0,
-              left: 0,
-            },
-          ]}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={isVisible}
-          isLooping
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          isMuted={false}
-        /> */}
-
         <VideoView
           ref={videoRef}
           style={[
@@ -964,7 +946,7 @@ const VideoItem = ({
           onRequestClose={() => setShowCheckout(false)}
           keyboardBehavior={"interactive"}
           enablePanDownToClose={true}
-          enableContentPanningGesture={true}
+          enableDynamicSizing={false}
         >
           <CheckoutNow
             productId={product.id}

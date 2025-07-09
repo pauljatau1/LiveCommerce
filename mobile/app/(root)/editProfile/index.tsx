@@ -1,12 +1,10 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
   ScrollView,
@@ -29,13 +27,15 @@ import LoadingModal from "@/components/global/loading-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setUserData } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
 
 const EditProfile = () => {
   const dispatch = useDispatch();
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
     useLocalSearchParams();
 
@@ -206,29 +206,9 @@ const EditProfile = () => {
     }
   };
 
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
-      setKeyboardOffset(offset);
-    });
-
-    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardOffset(0);
-    });
-  }, []);
-
   return (
-    <View
-      className="h-full flex-1 bg-[#121212] "
-      style={{ minHeight: height, paddingTop: insets.top }}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.select({
-          ios: 0,
-          android: keyboardOffset,
-        })}
-        style={{ flex: 1 }}
-      >
+    <SafeAreaView className="flex-1 bg-[#121212]">
+      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
         <FocusAwareStatusBar
           barStyle="light-content"
           backgroundColor="#121212"
@@ -364,9 +344,9 @@ const EditProfile = () => {
         >
           <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
         </BottomSheet>
+        <LoadingModal isVisible={loading} />
       </KeyboardAvoidingView>
-      <LoadingModal isVisible={loading} />
-    </View>
+    </SafeAreaView>
   );
 };
 

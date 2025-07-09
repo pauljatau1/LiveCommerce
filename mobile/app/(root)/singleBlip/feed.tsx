@@ -1,5 +1,4 @@
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
@@ -19,8 +18,9 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { getToken } from "@/store/features/auth/utils";
 import { useLocalSearchParams } from "expo-router";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
-const { height } = Dimensions.get("window");
+const { height } = Dimensions.get("screen");
 const BlipsFeed = () => {
   const { id, productId, itmSource } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -182,12 +182,16 @@ const BlipsFeed = () => {
   }, [refreshing]);
 
   return (
-    <>
+    <SafeAreaView
+      className="flex-1 bg-[#121212]"
+      edges={Platform.OS == "ios" ? ["bottom"] : ["top", "bottom"]}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <View
         className="w-full relative bg-[#000]"
         style={{
-          height: height,
+          flex: 1,
+          // height: height,
         }}
       >
         {videos?.length < 1 ? (
@@ -224,8 +228,14 @@ const BlipsFeed = () => {
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
-              length: height,
-              offset: height * index,
+              length:
+                Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.bottom - insets.top,
+              offset:
+                (Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.bottom - insets.top) * index,
               index,
             })}
             showsVerticalScrollIndicator={false}
@@ -237,7 +247,7 @@ const BlipsFeed = () => {
           />
         )}
       </View>
-    </>
+    </SafeAreaView>
   );
 };
 

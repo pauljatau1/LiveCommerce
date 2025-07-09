@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   Pressable,
@@ -33,6 +32,7 @@ import FilterSheet from "@/components/catalog/filterSheet";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
 import { sortBy } from "lodash";
 import LottieView from "lottie-react-native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const sortMap = {
   None: "",

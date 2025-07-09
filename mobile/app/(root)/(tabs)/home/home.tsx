@@ -1,4 +1,4 @@
-import { View, Text, Dimensions, SafeAreaView, Platform } from "react-native";
+import { View, Text, Dimensions, Platform } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import CustomButton from "@/components/global/button/CustomButton";
 import { signOut } from "@/store/features/auth/authSlice";
@@ -7,7 +7,10 @@ import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Home from "@/components/home";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootState } from "@/store";
 import CreateAccountModal from "@/components/global/create-account-prompt";
@@ -19,7 +22,7 @@ const { width, height } = Dimensions.get("window");
 
 const Homepage = () => {
   const { expoPushToken } = usePushNotifications();
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   // const [isVisible, setIsVisible] = useState<boolean>(false);
   // const tries = useRef<number>(0);
 

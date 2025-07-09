@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   StyleSheet,
@@ -24,6 +23,7 @@ import { ActivityIndicator } from "react-native-paper";
 import NotificationSheet from "@/components/notifications/notificationSheet";
 import LottieView from "lottie-react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 const tabs = ["All", "Orders", "Posts", "From Auqli"];

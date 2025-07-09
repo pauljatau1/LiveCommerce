@@ -20,10 +20,6 @@ import React, {
 } from "react";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
 import AllPostsList from "@/components/profile/myPostsList";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -41,6 +37,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import MyBids from "@/components/profile/myBids";
 import PostsComingSoon from "@/components/profile/postsComingSoon";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -151,7 +148,7 @@ const CollapsibleHeader = memo(
                 <Pressable
                   className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"
                   style={{ paddingVertical: 7.5, width: 100 }}
-                  // onPress={() => router.push(`/s/68239d726b46a600343c4eeeA`)}
+                  // onPress={() => router.push(`/welcome`)}
                 >
                   <Text className="text-white font-LexendDeca text-[10px]">
                     Share Profile
@@ -350,7 +347,10 @@ const Profile = () => {
   // };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#121212" }}
+      edges={["top"]}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       {user?._id && (
         <>

@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  KeyboardAvoidingView,
   Dimensions,
   Keyboard,
   Alert,
@@ -32,6 +31,8 @@ import ReturnReasonSheet from "./returnReasonSheet";
 import ResolutionOptionSheet from "./resolutionOptionSheet";
 import LoadingModal from "@/components/global/loading-modal";
 import { toast } from "@/core/toast";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
@@ -42,7 +43,7 @@ const resolutionEnum = {
 } as any;
 
 const Returns = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const { productList, orderId } = useLocalSearchParams();
 
   const [products, setProducts] = useState<any[]>([]);
@@ -240,15 +241,14 @@ const Returns = () => {
   }, []);
 
   return (
-    <View
+    <SafeAreaView
       style={{
-        paddingTop: insets.top,
         flex: 1,
         backgroundColor: "#121212",
       }}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={"padding"}
         keyboardVerticalOffset={Platform.select({
           ios: 0,
           android: keyboardOffset,
@@ -275,9 +275,6 @@ const Returns = () => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingBottom: 30,
-          }}
         >
           <Text className="text-white font-LexendDecaMedium text-[12px] mb-[15px] mx-[16px]">
             Selected Item
@@ -574,7 +571,7 @@ const Returns = () => {
         </BottomSheet>
         <LoadingModal isVisible={loading} />
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 };
 

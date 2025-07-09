@@ -6,14 +6,7 @@ import { format } from "date-fns";
 import { Link, router } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Input from "@/components/global/textInput";
 import PhoneNumberInput from "@/components/global/custom-input";
@@ -33,6 +26,8 @@ import { identifyUser, trackEvent } from "@/utils/analytics";
 import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
 import { trackEvent as trackCustomerioEvent } from "@/utils/customerio";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 const service = [
   {
@@ -114,61 +109,61 @@ const CreateAccount = () => {
 
       try {
         if (result) {
-             // Identify the user directly after signup
-             identifyUser(result?.user?._id, {
-              email: email,
-              firstName: result?.user?.firstName,
-              lastName: result?.user?.lastName,
-            });
-            
-            // Track event for buyer signup
-            trackMixpanelEvent('buyer_account_created', {
-              userId: result?.user?._id,
-              email: email,
-              firstName: result?.user?.firstName,
-              lastName: result?.user?.lastName,
-              username: result?.user?.username,
-              phoneNumber: result?.user?.phoneNumber,
-              userType: "buyer",
-              osType: Platform.OS,
-              timestamp: new Date().toISOString()
-            });
-            // Track event for buyer signup
-            trackCustomerioEvent('buyer_account_created', {
-              userId: result?.user?._id,
-              email: email,
-              firstName: result?.user?.firstName,
-              lastName: result?.user?.lastName,
-              username: result?.user?.username,
-              phoneNumber: result?.user?.phoneNumber,
-              userType: "buyer",
-              osType: Platform.OS,
-              timestamp: new Date().toISOString()
-            });
+          // Identify the user directly after signup
+          identifyUser(result?.user?._id, {
+            email: email,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+          });
 
-            trackFacebookEvent('CompleteRegistration', {
-              email: email,
-              firstName: result?.user?.firstName,
-              lastName: result?.user?.lastName,
-              username: result?.user?.username,
-              phoneNumber: result?.user?.phoneNumber,
-              userType: "buyer",
-              osType: Platform.OS,
-              timestamp: new Date().toISOString()
-            });
+          // Track event for buyer signup
+          trackMixpanelEvent("buyer_account_created", {
+            userId: result?.user?._id,
+            email: email,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            userType: "buyer",
+            osType: Platform.OS,
+            timestamp: new Date().toISOString(),
+          });
+          // Track event for buyer signup
+          trackCustomerioEvent("buyer_account_created", {
+            userId: result?.user?._id,
+            email: email,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            userType: "buyer",
+            osType: Platform.OS,
+            timestamp: new Date().toISOString(),
+          });
 
-            trackMixpanelEvent('signup_method', {
-              signup_method: email ? "email" : "not email",
-              userId: result?.user?._id,
-              email: email,
-              firstName: result?.user?.firstName,
-              lastName: result?.user?.lastName,
-              username: result?.user?.username,
-              phoneNumber: result?.user?.phoneNumber,
-              userType: "buyer",
-              osType: Platform.OS,
-              timestamp: new Date().toISOString()
-            });
+          trackFacebookEvent("CompleteRegistration", {
+            email: email,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            userType: "buyer",
+            osType: Platform.OS,
+            timestamp: new Date().toISOString(),
+          });
+
+          trackMixpanelEvent("signup_method", {
+            signup_method: email ? "email" : "not email",
+            userId: result?.user?._id,
+            email: email,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            userType: "buyer",
+            osType: Platform.OS,
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch (trackError) {
         console.log("Customer.io signup tracking error:", trackError);
@@ -197,10 +192,7 @@ const CreateAccount = () => {
     <SafeAreaView className="h-full flex-1 bg-black">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
         <ScrollView
           style={{
             backgroundColor: "black",

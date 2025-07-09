@@ -2,12 +2,10 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Dimensions,
   Pressable,
   Image,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
@@ -18,6 +16,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link, router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -49,6 +48,8 @@ import {
   trackFacebookPurchase,
   trackFacebookEvent,
 } from "@/utils/facebook-analytics";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
@@ -92,6 +93,7 @@ const paymentOptions = [
 
 const Checkout = () => {
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const token = useSelector((state: RootState) => state.authState.token);
   const [loading, setLoading] = useState<boolean>(true);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -140,7 +142,7 @@ const Checkout = () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-        `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -226,9 +228,9 @@ const Checkout = () => {
       recipientPhone:
         user.phoneNumber.replaceAll("-", "")?.length > 14
           ? user.phoneNumber
-            .replaceAll("-", "")
-            ?.replace("+234", "")
-            ?.replace("0", "")
+              .replaceAll("-", "")
+              ?.replace("+234", "")
+              ?.replace("0", "")
           : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
@@ -290,9 +292,9 @@ const Checkout = () => {
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
-                .replaceAll("-", "")
-                ?.replace("+234", "")
-                ?.replace("0", "")
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -586,20 +588,19 @@ const Checkout = () => {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
 
-          const itemsTotal = (deliveryFee && cartTotal) ||
+          const itemsTotal =
+            (deliveryFee && cartTotal) ||
             (selectedDeliveryOpt == 1 && deliveryFee?.toString())
-            ? "₦" +
-            (
-              deliveryFee +
-              (couponApplied
-                ? couponApplied?.couponSubTotal
-                : cartTotal) -
-              walletCredit
-            )?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })
-            : 0;
+              ? "₦" +
+                (
+                  deliveryFee +
+                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
+                  walletCredit
+                )?.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : 0;
 
           if (user) {
             console.log("order created", JSON.stringify(response.data));
@@ -612,53 +613,75 @@ const Checkout = () => {
               lastName: response.data.complexOrderDetails?.buyer_last_name,
               username: response.data.complexOrderDetails?.buyer_username,
               buyerPhone: response.data.complexOrderDetails?.buyer_phone,
-              
+
               // Order Information
               orderId: response.data.complexOrderDetails?.order_id,
-              orderItemsTotal: response.data.complexOrderDetails?.order_items_total,
+              orderItemsTotal:
+                response.data.complexOrderDetails?.order_items_total,
               shippingFee: response.data.complexOrderDetails?.shipping_fee,
-              orderGrandTotal: response.data.complexOrderDetails?.order_grand_total,
+              orderGrandTotal:
+                response.data.complexOrderDetails?.order_grand_total,
               paymentMethod: response.data.complexOrderDetails?.payment_method,
               paymentStatus: response.data.complexOrderDetails?.payment_status,
-              
+
               // Order Details
-              isCashOnDelivery: response.data.complexOrderDetails?.is_cash_on_delivery,
-              isWalletCredit: response.data.complexOrderDetails?.is_wallet_credit,
-              walletAmountUsed: response.data.complexOrderDetails?.wallet_amount_used,
+              isCashOnDelivery:
+                response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit:
+                response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed:
+                response.data.complexOrderDetails?.wallet_amount_used,
               isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
               orderChannel: response.data.complexOrderDetails?.order_channel,
-              totalItemsInOrder: response.data.complexOrderDetails?.total_items_in_order,
-              totalOrdersInBatch: response.data.complexOrderDetails?.total_orders_in_batch,
-              
+              totalItemsInOrder:
+                response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch:
+                response.data.complexOrderDetails?.total_orders_in_batch,
+
               // Delivery Information
-              deliveryAddressLine1: response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryAddressLine1:
+                response.data.complexOrderDetails?.delivery_address_line1,
               deliveryCity: response.data.complexOrderDetails?.delivery_city,
               deliveryState: response.data.complexOrderDetails?.delivery_state,
-              deliveryCountry: response.data.complexOrderDetails?.delivery_country,
-              deliveryRecipientName: response.data.complexOrderDetails?.delivery_recipient_name,
-              deliveryRecipientPhone: response.data.complexOrderDetails?.delivery_recipient_phone,
-              deliveryRecipientEmail: response.data.complexOrderDetails?.delivery_recipient_email,
-              
+              deliveryCountry:
+                response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName:
+                response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone:
+                response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail:
+                response.data.complexOrderDetails?.delivery_recipient_email,
+
               // Shipping Information
-              fezOrderNumber: response.data.complexOrderDetails?.fez_order_number,
+              fezOrderNumber:
+                response.data.complexOrderDetails?.fez_order_number,
               carrierName: response.data.complexOrderDetails?.carrier_name,
-              trackingNumber: response.data.complexOrderDetails?.tracking_number,
-              
+              trackingNumber:
+                response.data.complexOrderDetails?.tracking_number,
+
               // Product Information
-              orderProductId1: response.data.complexOrderDetails?.orderProductId1,
-              orderProductName1: response.data.complexOrderDetails?.orderProductName1,
-              orderProductPrice1: response.data.complexOrderDetails?.orderProductPrice1,
-              orderProductQuantity1: response.data.complexOrderDetails?.orderProductQuantity1,
-              orderProductWeight1: response.data.complexOrderDetails?.orderProductWeight1,
-              orderProductTotal1: response.data.complexOrderDetails?.orderProductTotal1,
-              orderProductSpecifications1: response.data.complexOrderDetails?.orderProductSpecifications1,
-              
+              orderProductId1:
+                response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1:
+                response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1:
+                response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1:
+                response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1:
+                response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1:
+                response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1:
+                response.data.complexOrderDetails?.orderProductSpecifications1,
+
               // Campaign and Stream Information
               campaignId: response.data.complexOrderDetails?.campaign_id,
               streamId: response.data.complexOrderDetails?.stream_id,
-              
+
               // Timestamp
-              orderCreatedAt: response.data.complexOrderDetails?.order_created_at,
+              orderCreatedAt:
+                response.data.complexOrderDetails?.order_created_at,
               timestamp: new Date().toISOString(),
             });
 
@@ -670,53 +693,75 @@ const Checkout = () => {
               lastName: response.data.complexOrderDetails?.buyer_last_name,
               username: response.data.complexOrderDetails?.buyer_username,
               buyerPhone: response.data.complexOrderDetails?.buyer_phone,
-              
+
               // Order Information
               orderId: response.data.complexOrderDetails?.order_id,
-              orderItemsTotal: response.data.complexOrderDetails?.order_items_total,
+              orderItemsTotal:
+                response.data.complexOrderDetails?.order_items_total,
               shippingFee: response.data.complexOrderDetails?.shipping_fee,
-              orderGrandTotal: response.data.complexOrderDetails?.order_grand_total,
+              orderGrandTotal:
+                response.data.complexOrderDetails?.order_grand_total,
               paymentMethod: response.data.complexOrderDetails?.payment_method,
               paymentStatus: response.data.complexOrderDetails?.payment_status,
-              
+
               // Order Details
-              isCashOnDelivery: response.data.complexOrderDetails?.is_cash_on_delivery,
-              isWalletCredit: response.data.complexOrderDetails?.is_wallet_credit,
-              walletAmountUsed: response.data.complexOrderDetails?.wallet_amount_used,
+              isCashOnDelivery:
+                response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit:
+                response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed:
+                response.data.complexOrderDetails?.wallet_amount_used,
               isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
               orderChannel: response.data.complexOrderDetails?.order_channel,
-              totalItemsInOrder: response.data.complexOrderDetails?.total_items_in_order,
-              totalOrdersInBatch: response.data.complexOrderDetails?.total_orders_in_batch,
-              
+              totalItemsInOrder:
+                response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch:
+                response.data.complexOrderDetails?.total_orders_in_batch,
+
               // Delivery Information
-              deliveryAddressLine1: response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryAddressLine1:
+                response.data.complexOrderDetails?.delivery_address_line1,
               deliveryCity: response.data.complexOrderDetails?.delivery_city,
               deliveryState: response.data.complexOrderDetails?.delivery_state,
-              deliveryCountry: response.data.complexOrderDetails?.delivery_country,
-              deliveryRecipientName: response.data.complexOrderDetails?.delivery_recipient_name,
-              deliveryRecipientPhone: response.data.complexOrderDetails?.delivery_recipient_phone,
-              deliveryRecipientEmail: response.data.complexOrderDetails?.delivery_recipient_email,
-              
+              deliveryCountry:
+                response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName:
+                response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone:
+                response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail:
+                response.data.complexOrderDetails?.delivery_recipient_email,
+
               // Shipping Information
-              fezOrderNumber: response.data.complexOrderDetails?.fez_order_number,
+              fezOrderNumber:
+                response.data.complexOrderDetails?.fez_order_number,
               carrierName: response.data.complexOrderDetails?.carrier_name,
-              trackingNumber: response.data.complexOrderDetails?.tracking_number,
-              
+              trackingNumber:
+                response.data.complexOrderDetails?.tracking_number,
+
               // Product Information
-              orderProductId1: response.data.complexOrderDetails?.orderProductId1,
-              orderProductName1: response.data.complexOrderDetails?.orderProductName1,
-              orderProductPrice1: response.data.complexOrderDetails?.orderProductPrice1,
-              orderProductQuantity1: response.data.complexOrderDetails?.orderProductQuantity1,
-              orderProductWeight1: response.data.complexOrderDetails?.orderProductWeight1,
-              orderProductTotal1: response.data.complexOrderDetails?.orderProductTotal1,
-              orderProductSpecifications1: response.data.complexOrderDetails?.orderProductSpecifications1,
-              
+              orderProductId1:
+                response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1:
+                response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1:
+                response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1:
+                response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1:
+                response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1:
+                response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1:
+                response.data.complexOrderDetails?.orderProductSpecifications1,
+
               // Campaign and Stream Information
               campaignId: response.data.complexOrderDetails?.campaign_id,
               streamId: response.data.complexOrderDetails?.stream_id,
-              
+
               // Timestamp
-              orderCreatedAt: response.data.complexOrderDetails?.order_created_at,
+              orderCreatedAt:
+                response.data.complexOrderDetails?.order_created_at,
               timestamp: new Date().toISOString(),
             });
 
@@ -724,27 +769,31 @@ const Checkout = () => {
             // Using liveShowOrders as it contains the actual item details
             response.data.liveShowOrders?.forEach((liveOrder: any) => {
               const orderDetails = liveOrder.orderDetails;
-              
+
               orderDetails?.items?.forEach((orderItem: any) => {
                 // Find the corresponding cart item to get product details
-                const cartItem = cartData?.find((cartProduct: any) => cartProduct._id === orderItem.product);
-                
+                const cartItem = cartData?.find(
+                  (cartProduct: any) => cartProduct._id === orderItem.product,
+                );
+
                 if (cartItem) {
                   // Calculate individual item total (price * quantity)
                   const itemTotal = orderItem.price * orderItem.quantity;
-                  
+
                   trackFacebookPurchase(itemTotal, "NGN", {
                     // Facebook Standard Commerce Properties
                     content_id: cartItem._id,
                     content_name: orderItem.productName || cartItem.name,
                     content_type: "product",
                     content_category: cartItem.category,
-                    content_brand: cartItem.seller?.storeInfo?.storeName || cartItem.seller?.businessInfo?.businessName,
+                    content_brand:
+                      cartItem.seller?.storeInfo?.storeName ||
+                      cartItem.seller?.businessInfo?.businessName,
                     currency: "NGN",
                     value: itemTotal,
                     num_items: orderItem.quantity,
                     description: cartItem.description,
-                    
+
                     // Facebook Additional Product Properties
                     fb_content_id: cartItem._id,
                     fb_content_type: "product",
@@ -752,46 +801,54 @@ const Checkout = () => {
                     fb_currency: "NGN",
                     fb_value: itemTotal,
                     fb_num_items: orderItem.quantity,
-                    
+
                     // User information
                     email: user?.email,
                     firstName: user?.firstName,
                     lastName: user?.lastName,
                     username: user?.username,
                     user_id: user?._id,
-                    
+
                     // Order-specific information
                     orderId: orderDetails._id,
                     order_id: orderDetails.order_id,
                     sellerId: orderItem.seller || orderDetails.seller,
                     orderNumber: orderDetails.fezOrderNo || "N/A",
                     order_value: itemTotal,
-                    
+
                     // Item specifications and details
                     specifications: orderItem.specifications,
                     price_per_unit: orderItem.price,
                     total_quantity: orderItem.quantity,
                     item_status: orderItem.status,
-                    
+
                     // Order totals and shipping
-                    shippingTotal: response.data?.totals?.shippingTotal || orderDetails.shippingFee || 0,
+                    shippingTotal:
+                      response.data?.totals?.shippingTotal ||
+                      orderDetails.shippingFee ||
+                      0,
                     orderCount: response.data?.totals?.orderCount || 1,
                     orderTotal: orderDetails.orderTotal,
                     itemsTotal: orderDetails.totalAmount,
-                    
+
                     // Timestamp and transaction info
                     timestamp: new Date().toISOString(),
                     transaction_id: orderDetails._id,
-                    payment_method: paymentOptions[selectedPayment]?.name?.toLowerCase(),
-                    
+                    payment_method:
+                      paymentOptions[selectedPayment]?.name?.toLowerCase(),
+
                     // SKU and product metadata
                     sku: cartItem.sku || cartItem.inventory?.sku,
-                    product_variant: orderItem.specifications ? JSON.stringify(orderItem.specifications) : undefined,
-                    
+                    product_variant: orderItem.specifications
+                      ? JSON.stringify(orderItem.specifications)
+                      : undefined,
+
                     // Additional product metadata from cart
                     brand: cartItem.brand,
                     condition: cartItem.condition,
-                    weight: cartItem.weight || cartItem.shippingDetails?.weight?.value,
+                    weight:
+                      cartItem.weight ||
+                      cartItem.shippingDetails?.weight?.value,
                   });
                 }
               });
@@ -997,7 +1054,7 @@ const Checkout = () => {
       (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
       (freeShipping && cartTotal)
         ? deliveryFee +
-        (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
+          (couponApplied ? couponApplied?.couponSubTotal : cartTotal)
         : null;
 
     if (!orderTotal) {
@@ -1065,10 +1122,10 @@ const Checkout = () => {
               >
                 {index == 1
                   ? "₦" +
-                  walletBalance?.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                   : item.description}
               </Text>
             </View>
@@ -1094,388 +1151,419 @@ const Checkout = () => {
     [selectedPayment, walletBalance, selectedDeliveryOpt],
   );
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      // keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
-      style={{ flex: 1, backgroundColor: "#121212" }}
-    >
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView
-        className="flex-1 bg-[#121212] "
-      // style={{ minHeight: height }}
+    <SafeAreaView className="flex-1 bg-[#121212]">
+      <KeyboardAvoidingView
+        behavior={"padding"}
+        style={{ flex: 1, backgroundColor: "#121212" }}
       >
-        <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
-          <TouchableOpacity
-            className="absolute left-[12px]"
-            onPress={async () => {
-              try {
-                const userData = await AsyncStorage.getItem("user");
-                const user = JSON.parse(userData || "{}");
-                const cart = await AsyncStorage.getItem("cart");
-                const cartData = JSON.parse(cart || "{}");
+        <FocusAwareStatusBar
+          barStyle="light-content"
+          backgroundColor="#121212"
+        />
+        <View className="flex-1 bg-[#121212] ">
+          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
+            <TouchableOpacity
+              className="absolute left-[12px]"
+              onPress={async () => {
+                try {
+                  const userData = await AsyncStorage.getItem("user");
+                  const user = JSON.parse(userData || "{}");
+                  const cart = await AsyncStorage.getItem("cart");
+                  const cartData = JSON.parse(cart || "{}");
 
-                trackEvent("checkout_abandoned", {
-                  userId: user?._id,
-                  email: user?.email,
-                  firstName: user?.firstName,
-                  lastName: user?.lastName,
-                  username: user?.username,
-                  cartItems: cart?.length,
-                  products: cartData?.map((item: any) => {
-                    return {
-                      name: item.name,
-                      price: `₦${item.price.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}`,
-                      productId: item._id,
-                    };
-                  }),
-                  totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
-                  timestamp: new Date().toISOString(),
-                });
-              } catch (error) {
-                console.log(error);
-              }
-              router.back();
-            }}
-          >
-            <Entypo
-              name="chevron-left"
-              size={24}
-              color="rgba(204, 204, 204, 0.8)"
-            />
-          </TouchableOpacity>
-
-          <Text className="text-white font-LexendDecaMedium text-[24px]">
-            Checkout
-          </Text>
-        </View>
-        {freeShipping && (
-          <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
-            <FontAwesome5 name="truck" size={14} color="white" />
-            <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
-              Free Shipping on All Orders!
-            </Text>
-          </View>
-        )}
-
-        <ScrollView className="bg-[#121212]">
-          {loading ? (
-            <ActivityIndicator
-              size={"small"}
-              color={"#fff"}
-              style={{ marginTop: 30 }}
-            />
-          ) : (
-            <View className="px-[20px] gap-[30px] pb-[20px]">
-              <TouchableOpacity
-                className="p-[20px] rounded-[16px] flex-row items-center justify-between"
-                style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                onPress={() => setShowAddressSheet(true)}
-              >
-                <View className="flex-row gap-[16px] shrink">
-                  <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center overflow-hidden">
-                    {user?.profileImage?.url ? (
-                      <Image
-                        source={{ uri: user?.profileImage?.url }}
-                        resizeMode="cover"
-                        style={{ width: "100%", height: "100%" }}
-                      />
-                    ) : (
-                      <>
-                        <Text className="text-white text-[9px]">
-                          {user?.firstName?.split("")[0]}
-                        </Text>
-                        <Text className="text-white text-[9px]">
-                          {user?.lastName?.split("")[0]}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                  <View className="gap-[18px] shrink">
-                    <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
-                      {user?.firstName + " " + user?.lastName}
-                    </Text>
-                    {selectedAddress ? (
-                      <View>
-                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                          {selectedAddress && selectedAddress?.recipientAddress}
-                        </Text>
-                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                          Phone: {selectedAddress?.recipientPhone}
-                        </Text>
-                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                          Country: Nigeria
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                        Click to add address
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <View>
-                  <Entypo
-                    name="chevron-right"
-                    size={16}
-                    color="rgba(204, 204, 204, 0.8)"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {cart?.length > 0
-                ? cart.map((cartItem, index) => (
-                  <CartItem cartItem={cartItem} key={index} />
-                ))
-                : null}
-
-              <View className="gap-[8px] mb-[10px]">
-                <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
-                  Auqli Buyer Protection
-                </Text>
-                <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
-                  Protect your orders from theft, damages up to 30 days after
-                  receiving it{" "}
-                  {/* <Link href={"/"} className="text-[#49A3F6]">
-                    Learn More
-                  </Link> */}
-                </Text>
-              </View>
-
-              <View className="gap-[20px] mb-[10px]">
-                <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
-                  Delivery Options
-                </Text>
-                {mockDeliveryOtions?.map((item: any, index: number) => (
-                  <View key={index}>
-                    <Pressable
-                      className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                      style={{
-                        backgroundColor: "rgba(41, 41, 41, 0.81)",
-                        opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
-                      }}
-                      onPress={() => {
-                        if (!eligibleForPickup && index == 1) {
-                          return;
-                        }
-                        setSelectedDeliveryOpt(index);
-                      }}
-                    >
-                      <View className="flex-row gap-[16px] shrink items-center">
-                        {item?.icon}
-                        <View className="gap-[4px] shrink">
-                          <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                            {item.name}
-                          </Text>
-                          <View className="gap-[2px]">
-                            <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                              {item?.description}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <View
-                        className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
-                        style={{
-                          borderColor:
-                            selectedDeliveryOpt == index
-                              ? "#16783A"
-                              : "#f2f2f2",
-                          borderWidth: 2,
-                        }}
-                      >
-                        <View
-                          className="w-[12px] h-[12px] rounded-[12px]"
-                          style={{
-                            backgroundColor:
-                              selectedDeliveryOpt == index ? "#16783A" : "",
-                          }}
-                        ></View>
-                      </View>
-                    </Pressable>
-                    {!eligibleForPickup && index == 1 && (
-                      <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
-                        * One or more items are not eligible for store pickup
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-
-              <View
-                className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
-                style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[16px] text-white font-LexendDecaMedium">
-                    Select Payment Method
-                  </Text>
-                  {/* <Pressable>
-                    <Text className="text-[#16783A] text-[12px]">Edit</Text>
-                  </Pressable> */}
-                </View>
-                <View className="gap-[16px] mt-[10px]">
-                  {paymentOptions.map((option: any, index: number) =>
-                    renderPaymentOptions(option, index),
-                  )}
-                </View>
-              </View>
-
-              {showWalletCredit && (
-                <TouchableOpacity
-                  className="mb-[1px]"
-                  style={{
-                    marginBottom: 0,
-                  }}
-                  onPress={() =>
-                    walletCredit > 0
-                      ? setWalletCredit(0)
-                      : setWalletCredit(walletBalance)
-                  }
-                >
-                  <View
-                    className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
-                  >
-                    <View className="flex-row items-center gap-[10px]">
-                      <View>
-                        <AntDesign
-                          name="checkcircle"
-                          size={20}
-                          color={walletCredit > 0 ? "#16783A" : "#cccccc"}
-                        />
-                      </View>
-                      <Text
-                        className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
-                        numberOfLines={1}
-                      >
-                        Apply Auqli Credit
-                      </Text>
-                    </View>
-                    <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
-                      ₦{walletBalance?.toLocaleString()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              <View className="mb-[10px]">
-                <View
-                  className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
-                >
-                  <TextInput
-                    placeholder="Enter Promo Code"
-                    placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
-                    className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
-                    onChangeText={(text) => setCouponCode(text)}
-                    value={couponCode}
-                    onFocus={() => setCouponInputFocused(true)}
-                    onBlur={() => setCouponInputFocused(false)}
-                    readOnly={couponApplied !== null}
-                  />
-                  {couponLoading ? (
-                    <ActivityIndicator size={16} color="#fff" />
-                  ) : (
-                    <Pressable onPress={handleApplyCoupon}>
-                      {couponApplied ? (
-                        <AntDesign name="closecircle" size={18} color="#fff" />
-                      ) : (
-                        <Text
-                          className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
-                        >
-                          APPLY
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
-                </View>
-                {couponMessage && (
-                  <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
-                    {couponMessage}
-                  </Text>
-                )}
-              </View>
-
-              <View
-                className="p-[20px] rounded-[10px] gap-[10px]"
-                style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-              >
-                <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                    Merchandise Subtotal
-                  </Text>
-                  <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                    ₦
-                    {cartTotal?.toLocaleString(undefined, {
+                  trackEvent("checkout_abandoned", {
+                    userId: user?._id,
+                    email: user?.email,
+                    firstName: user?.firstName,
+                    lastName: user?.lastName,
+                    username: user?.username,
+                    cartItems: cart?.length,
+                    products: cartData?.map((item: any) => {
+                      return {
+                        name: item.name,
+                        price: `₦${item.price.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`,
+                        productId: item._id,
+                      };
+                    }),
+                    totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}
+                    })}`,
+                    timestamp: new Date().toISOString(),
+                  });
+                } catch (error) {
+                  console.log(error);
+                }
+                router.back();
+              }}
+            >
+              <Entypo
+                name="chevron-left"
+                size={24}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
+
+            <Text className="text-white font-LexendDecaMedium text-[24px]">
+              Checkout
+            </Text>
+          </View>
+          {freeShipping && (
+            <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+              <FontAwesome5 name="truck" size={14} color="white" />
+              <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+                Free Shipping on All Orders!
+              </Text>
+            </View>
+          )}
+
+          <ScrollView className="bg-[#121212]">
+            {loading ? (
+              <ActivityIndicator
+                size={"small"}
+                color={"#fff"}
+                style={{ marginTop: 30 }}
+              />
+            ) : (
+              <View className="px-[20px] gap-[30px] pb-[20px]">
+                <TouchableOpacity
+                  className="p-[20px] rounded-[16px] flex-row items-center justify-between"
+                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                  onPress={() => setShowAddressSheet(true)}
+                >
+                  <View className="flex-row gap-[16px] shrink">
+                    <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center overflow-hidden">
+                      {user?.profileImage?.url ? (
+                        <Image
+                          source={{ uri: user?.profileImage?.url }}
+                          resizeMode="cover"
+                          style={{ width: "100%", height: "100%" }}
+                        />
+                      ) : (
+                        <>
+                          <Text className="text-white text-[9px]">
+                            {user?.firstName?.split("")[0]}
+                          </Text>
+                          <Text className="text-white text-[9px]">
+                            {user?.lastName?.split("")[0]}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                    <View className="gap-[18px] shrink">
+                      <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
+                        {user?.firstName + " " + user?.lastName}
+                      </Text>
+                      {selectedAddress ? (
+                        <View>
+                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
+                            {selectedAddress &&
+                              selectedAddress?.recipientAddress}
+                          </Text>
+                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
+                            Phone: {selectedAddress?.recipientPhone}
+                          </Text>
+                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
+                            Country: Nigeria
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
+                          Click to add address
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View>
+                    <Entypo
+                      name="chevron-right"
+                      size={16}
+                      color="rgba(204, 204, 204, 0.8)"
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {cart?.length > 0
+                  ? cart.map((cartItem, index) => (
+                      <CartItem cartItem={cartItem} key={index} />
+                    ))
+                  : null}
+
+                <View className="gap-[8px] mb-[10px]">
+                  <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
+                    Auqli Buyer Protection
+                  </Text>
+                  <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
+                    Protect your orders from theft, damages up to 30 days after
+                    receiving it{" "}
+                    {/* <Link href={"/"} className="text-[#49A3F6]">
+                    Learn More
+                  </Link> */}
                   </Text>
                 </View>
-                {couponApplied && (
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Coupon Code Applied
-                    </Text>
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                      - ₦
-                      {couponApplied?.amountSaved?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </View>
-                )}
-                {walletCredit > 0 && (
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Auqli Credit Applied
-                    </Text>
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                      - ₦
-                      {walletCredit?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </View>
-                )}
-                <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                    Shipping Fee
+
+                <View className="gap-[20px] mb-[10px]">
+                  <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
+                    Delivery Options
                   </Text>
-                  {shippingFeeLoading ? (
-                    <ActivityIndicator size={10} color="white" />
-                  ) : (
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                      {deliveryFee
-                        ? "₦" +
-                          deliveryFee?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        : freeShipping
-                          ? "FREE"
-                          : "-"}
+                  {mockDeliveryOtions?.map((item: any, index: number) => (
+                    <View key={index}>
+                      <Pressable
+                        className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
+                        style={{
+                          backgroundColor: "rgba(41, 41, 41, 0.81)",
+                          opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
+                        }}
+                        onPress={() => {
+                          if (!eligibleForPickup && index == 1) {
+                            return;
+                          }
+                          setSelectedDeliveryOpt(index);
+                        }}
+                      >
+                        <View className="flex-row gap-[16px] shrink items-center">
+                          {item?.icon}
+                          <View className="gap-[4px] shrink">
+                            <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                              {item.name}
+                            </Text>
+                            <View className="gap-[2px]">
+                              <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                                {item?.description}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View
+                          className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                          style={{
+                            borderColor:
+                              selectedDeliveryOpt == index
+                                ? "#16783A"
+                                : "#f2f2f2",
+                            borderWidth: 2,
+                          }}
+                        >
+                          <View
+                            className="w-[12px] h-[12px] rounded-[12px]"
+                            style={{
+                              backgroundColor:
+                                selectedDeliveryOpt == index ? "#16783A" : "",
+                            }}
+                          ></View>
+                        </View>
+                      </Pressable>
+                      {!eligibleForPickup && index == 1 && (
+                        <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
+                          * One or more items are not eligible for store pickup
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+
+                <View
+                  className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
+                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-[16px] text-white font-LexendDecaMedium">
+                      Select Payment Method
+                    </Text>
+                    {/* <Pressable>
+                    <Text className="text-[#16783A] text-[12px]">Edit</Text>
+                  </Pressable> */}
+                  </View>
+                  <View className="gap-[16px] mt-[10px]">
+                    {paymentOptions.map((option: any, index: number) =>
+                      renderPaymentOptions(option, index),
+                    )}
+                  </View>
+                </View>
+
+                {showWalletCredit && (
+                  <TouchableOpacity
+                    className="mb-[1px]"
+                    style={{
+                      marginBottom: 0,
+                    }}
+                    onPress={() =>
+                      walletCredit > 0
+                        ? setWalletCredit(0)
+                        : setWalletCredit(walletBalance)
+                    }
+                  >
+                    <View
+                      className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                    >
+                      <View className="flex-row items-center gap-[10px]">
+                        <View>
+                          <AntDesign
+                            name="checkcircle"
+                            size={20}
+                            color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                          />
+                        </View>
+                        <Text
+                          className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                          numberOfLines={1}
+                        >
+                          Apply Auqli Credit
+                        </Text>
+                      </View>
+                      <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                        ₦{walletBalance?.toLocaleString()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                <View className="mb-[10px]">
+                  <View
+                    className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
+                  >
+                    <TextInput
+                      placeholder="Enter Promo Code"
+                      placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+                      className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
+                      onChangeText={(text) => setCouponCode(text)}
+                      value={couponCode}
+                      onFocus={() => setCouponInputFocused(true)}
+                      onBlur={() => setCouponInputFocused(false)}
+                      readOnly={couponApplied !== null}
+                    />
+                    {couponLoading ? (
+                      <ActivityIndicator size={16} color="#fff" />
+                    ) : (
+                      <Pressable onPress={handleApplyCoupon}>
+                        {couponApplied ? (
+                          <AntDesign
+                            name="closecircle"
+                            size={18}
+                            color="#fff"
+                          />
+                        ) : (
+                          <Text
+                            className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
+                          >
+                            APPLY
+                          </Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                  {couponMessage && (
+                    <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
+                      {couponMessage}
                     </Text>
                   )}
                 </View>
-                <View className="flex-row justify-between items-center">
-                  <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                    Net Total
-                  </Text>
-                  {shippingFeeLoading ? (
-                    <ActivityIndicator size={10} color="white" />
-                  ) : (
+
+                <View
+                  className="p-[20px] rounded-[10px] gap-[10px]"
+                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                >
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Merchandise Subtotal
+                    </Text>
                     <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                      {(deliveryFee && cartTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                      (freeShipping && cartTotal)
-                        ? "₦" +
+                      ₦
+                      {cartTotal?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                  {couponApplied && (
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Coupon Code Applied
+                      </Text>
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        - ₦
+                        {couponApplied?.amountSaved?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                  {walletCredit > 0 && (
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Auqli Credit Applied
+                      </Text>
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        - ₦
+                        {walletCredit?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Shipping Fee
+                    </Text>
+                    {shippingFeeLoading ? (
+                      <ActivityIndicator size={10} color="white" />
+                    ) : (
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        {deliveryFee
+                          ? "₦" +
+                            deliveryFee?.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : freeShipping
+                            ? "FREE"
+                            : "-"}
+                      </Text>
+                    )}
+                  </View>
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      Net Total
+                    </Text>
+                    {shippingFeeLoading ? (
+                      <ActivityIndicator size={10} color="white" />
+                    ) : (
+                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                        {(deliveryFee && cartTotal) ||
+                        (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                        (freeShipping && cartTotal)
+                          ? "₦" +
+                            (
+                              deliveryFee +
+                              (couponApplied
+                                ? couponApplied?.couponSubTotal
+                                : cartTotal) -
+                              walletCredit
+                            )?.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : "-"}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
+                  onPress={handleCompleteOrder}
+                >
+                  <Text className="text-white text-[16px] font-LexendDecaMedium">
+                    Pay (
+                    {(deliveryFee && cartTotal) ||
+                    (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
+                    (freeShipping && cartTotal)
+                      ? "₦" +
                         (
                           deliveryFee +
                           (couponApplied
@@ -1486,98 +1574,93 @@ const Checkout = () => {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })
-                        : "-"}
-                    </Text>
-                  )}
-                </View>
+                      : "-"}
+                    )
+                  </Text>
+                </TouchableOpacity>
               </View>
+            )}
+          </ScrollView>
 
-              <TouchableOpacity
-                className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
-                onPress={handleCompleteOrder}
-              >
-                <Text className="text-white text-[16px] font-LexendDecaMedium">
-                  Pay (
-                  {(deliveryFee && cartTotal) ||
-                  (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                  (freeShipping && cartTotal)
-                    ? "₦" +
-                    (
-                      deliveryFee +
-                      (couponApplied
-                        ? couponApplied?.couponSubTotal
-                        : cartTotal) -
-                      walletCredit
-                    )?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
-                    : "-"}
-                  )
-                </Text>
-              </TouchableOpacity>
-            </View>
+          {showPaystack && (
+            <Paystack
+              refNumber={generateReference()}
+              paystackKey={paystackKey?.publicKey}
+              amount={
+                selectedDeliveryOpt == 0
+                  ? deliveryFee! +
+                    (couponApplied
+                      ? couponApplied?.couponSubTotal
+                      : cartTotal) -
+                    walletCredit
+                  : couponApplied
+                    ? couponApplied?.couponSubTotal - walletCredit
+                    : cartTotal - walletCredit
+              }
+              channels={[
+                "card",
+                "bank",
+                "ussd",
+                "qr",
+                "mobile_money",
+                "bank_transfer",
+                "apple_pay",
+              ]}
+              billingEmail={user?.email}
+              billingName={`${user?.firstName + " " + user?.lastName}`}
+              onSuccess={onPaystackSuccess}
+              onCancel={onPaystackClose}
+              activityIndicatorColor="#16783A"
+              autoStart={true}
+              metadata={JSON.stringify({
+                orderId: orderId,
+                buyerId: user?._id,
+                transactionType: "order_payment",
+                custom_fields: [
+                  {
+                    display_name: "Order ID",
+                    variable_name: "order_id",
+                    value: orderId,
+                  },
+                  {
+                    display_name: "Buyer ID",
+                    variable_name: "buyer_id",
+                    value: user?._id,
+                  },
+                  {
+                    display_name: "Transaction Type",
+                    variable_name: "transaction_type",
+                    value: "order_payment",
+                  },
+                ],
+              })}
+            />
           )}
-        </ScrollView>
 
-        {showPaystack && (
-          <Paystack
-            refNumber={generateReference()}
-            paystackKey={paystackKey?.publicKey}
-            amount={
-              selectedDeliveryOpt == 0
-                ? deliveryFee! +
-                (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
-                walletCredit
-                : couponApplied
-                  ? couponApplied?.couponSubTotal - walletCredit
-                  : cartTotal - walletCredit
-            }
-            channels={[
-              "card",
-              "bank",
-              "ussd",
-              "qr",
-              "mobile_money",
-              "bank_transfer",
-              "apple_pay",
-            ]}
-            billingEmail={user?.email}
-            billingName={`${user?.firstName + " " + user?.lastName}`}
-            onSuccess={onPaystackSuccess}
-            onCancel={onPaystackClose}
-            activityIndicatorColor="#16783A"
-            autoStart={true}
-            metadata={{
-              orderId: orderId,
-              buyerId: user?._id,
-            }}
+          <LoadingModal isVisible={orderLoading} />
+          <OrderPopup
+            isVisible={isSuccessVisible}
+            closePopup={closeSuccessPopup}
           />
-        )}
-
-        <LoadingModal isVisible={orderLoading} />
-        <OrderPopup
-          isVisible={isSuccessVisible}
-          closePopup={closeSuccessPopup}
-        />
-        <BottomSheet
-          bgColor="#3A3A3A"
-          childrenStyle="!px-[11px]"
-          showCloseIcon={false}
-          title=""
-          show={showAddressSheet}
-          titleColor="!text-white"
-          onRequestClose={() => setShowAddressSheet(false)}
-          keyboardBehavior="interactive"
-        >
-          <AddressSheet
-            addresses={addresses}
-            closeSheet={() => setShowAddressSheet(false)}
-            selectAddress={handleSelectAddress}
-          />
-        </BottomSheet>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+          <BottomSheet
+            bgColor="#3A3A3A"
+            childrenStyle="!px-[11px]"
+            showCloseIcon={false}
+            title=""
+            show={showAddressSheet}
+            titleColor="!text-white"
+            onRequestClose={() => setShowAddressSheet(false)}
+            keyboardBehavior="interactive"
+          >
+            <AddressSheet
+              addresses={addresses}
+              closeSheet={() => setShowAddressSheet(false)}
+              selectAddress={handleSelectAddress}
+            />
+          </BottomSheet>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -1633,10 +1716,10 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             </Text>
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-                <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                  Store Pickup Available
-                </Text>
-              )}
+              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+                Store Pickup Available
+              </Text>
+            )}
             <View
               className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{

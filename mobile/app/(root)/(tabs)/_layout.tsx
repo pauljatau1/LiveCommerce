@@ -19,10 +19,6 @@ const TabsLayout = () => {
   const status = useSelector((state: RootState) => state.authState.status);
   const { user, token } = useSelector((state: RootState) => state.authState);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  // const socket = initializeSocket(token);
-  // socket.connect();
-
-  // const [user,setUser] = useState<any>()
 
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();
@@ -64,25 +60,7 @@ const TabsLayout = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // console.log("focused tab bar");
       handleGetConversations();
-      // socket.on("connect", () => {
-      //   console.log("Connected to backend from tabbar");
-      // });
-      // socket.emit("join", user?._id);
-
-      // const messageHandler = (newMessage: any) => {
-      //   const messageData = newMessage.message || newMessage;
-      //   console.log("message recieved =>", messageData);
-      //   setTimeout(() => setUnreadCount((prev) => prev + 1), 1000);
-      // };
-
-      // socket.on("receive_message", messageHandler);
-
-      return () => {
-        // socket.off("receive_message", messageHandler);
-        // socket.disconnect();
-      };
     }, []),
   );
 
@@ -95,20 +73,19 @@ const TabsLayout = () => {
       //     backgroundColor: colors.background,
       // }}
       screenOptions={{
+        // tabBarHideOnKeyboard: true,
         tabBarShowLabel: true,
         tabBarActiveTintColor: "#16783A",
         tabBarInactiveTintColor: "#94A3B1",
         tabBarLabelStyle: {
           fontFamily: "LexendDeca",
-          marginTop: 2,
           fontSize: 9,
         },
         tabBarStyle: {
-          height: Platform.OS == "android" ? 60 : 80,
+          // height: Platform.OS == "android" ? 60 : 80,
           backgroundColor: "#000",
           alignItems: "center",
           borderTopWidth: 0,
-          paddingVertical: 20,
         },
       }}
       // tabBar={(props) => <TabBar {...props} />}
@@ -116,7 +93,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="blips"
         options={{
-          // tabBarLabel: "Blips",
+          tabBarLabel: "Blips",
 
           title: "Blips",
           headerShown: false,
@@ -156,38 +133,18 @@ const TabsLayout = () => {
                 color="#16783A"
               />
             ) : (
-              // <Ionicons name="videocam-outline" size={26} color="#16783A" />
-              // <Image
-              //   source={require("../../../assets/icons/home-icon-fill.png")}
-              //   resizeMode="cover"
-              //   style={{
-              //     width: 22,
-              //     height: 22,
-              //   }}
-              // />
-              // <Image
-              //   source={require("../../../assets/icons/home.png")}
-              //   resizeMode="cover"
-              //   style={{
-              //     width: 26,
-              //     height: 26,
-              //   }}
-              // />
               <MaterialCommunityIcons
                 name="shopping-outline"
                 size={21}
                 color="#94A3B1"
               />
-              // <Ionicons name="videocam-outline" size={26} color="#94A3B1" />
             ),
-          // <AntDesign name="home" size={18} color={color} />
-          // header() { return <HomeHeader />; }
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          // tabBarLabel: "Explore",
+          tabBarLabel: "Explore",
 
           title: "Explore",
           headerShown: false,
@@ -217,7 +174,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="connect"
         options={{
-          // tabBarLabel: "Connect",
+          tabBarLabel: "Connect",
 
           title: "Connect",
           headerShown: false,
@@ -246,7 +203,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="messages"
         options={{
-          // tabBarLabel: "Messages",
+          tabBarLabel: "Messages",
 
           title: "Messages",
           headerShown: false,
@@ -317,7 +274,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="profile"
         options={{
-          // tabBarLabel: "Profile",
+          tabBarLabel: "Profile",
 
           title: "Profile",
           headerShown: false,

@@ -8,7 +8,6 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "../ui/focus-aware-status-bar";
 import { useForm } from "react-hook-form";
 import CustomButton from "../global/button/CustomButton";
@@ -26,6 +25,7 @@ import { signIn } from "@/store/features/auth/authSlice";
 import { Skeleton } from "@rneui/themed";
 import { AntDesign } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
+import SafeAreaView from "../global/safeareaview/SafeAreaView";
 
 type FormData = {
   selectedCategories: {

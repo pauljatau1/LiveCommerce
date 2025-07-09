@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   Pressable,
@@ -26,6 +25,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken } from "@/store/features/auth/utils";
 import FilterSheet from "@/components/catalog/filterSheet";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const MoreProducts = () => {
   const { name } = useGlobalSearchParams();

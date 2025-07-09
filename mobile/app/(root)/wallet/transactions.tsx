@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -23,6 +22,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
 import IOSDatePicker from "@/components/wallet/IOSDatePicker";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const Transactions = () => {
   const [page, setPage] = useState<number>(1);

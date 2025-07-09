@@ -1,10 +1,4 @@
-import {
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import React, { useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -12,6 +6,7 @@ import { Link, router } from "expo-router";
 import { ScrollView } from "react-native-gesture-handler";
 import { signOut } from "@/store/features/auth/authSlice";
 import { Switch } from "react-native-paper";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const CommunityActivity = () => {
   const [isEnabled, setIsEnabled] = useState<boolean>(false);

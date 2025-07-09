@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TextInput,
   Pressable,
   Platform,
@@ -29,6 +28,7 @@ import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const Search = () => {
   const token = useSelector((state: RootState) => state.authState.token);
@@ -40,7 +40,6 @@ const Search = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [sellers, setSellers] = useState<any[]>([]);
   const [keyboardFocused, setKeyboardFocused] = useState<boolean>(false);
-  
 
   const fetchSellers = async () => {
     if (!searchQuery) {
@@ -84,7 +83,7 @@ const Search = () => {
       });
       try {
         const userData = await AsyncStorage.getItem("user");
-        const user = JSON.parse(userData || '{}');
+        const user = JSON.parse(userData || "{}");
         trackEventMixpanel("search_product", {
           searchQuery,
           userId: user?._id,

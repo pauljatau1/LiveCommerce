@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   Image,
@@ -22,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import OrderItem from "@/components/orders/mainOrderItem";
 import { ActivityIndicator } from "react-native-paper";
 import LottieView from "lottie-react-native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
@@ -54,6 +54,7 @@ const Orders = () => {
   const [token, setToken] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const handleTabSelection = (selection: string) => {
     const actualSelection = {
@@ -122,6 +123,7 @@ const Orders = () => {
     } finally {
       setOrdersLoading(false);
       setOrdersFetching(false);
+      setRefreshing(false);
     }
   };
 
@@ -149,6 +151,15 @@ const Orders = () => {
     } catch (e) {
       console.log("unable to get conversations in product details page", e);
     }
+  };
+
+  const refreshOrders = () => {
+    setRefreshing(true);
+    if (page == 1) {
+      return handleGetOrders();
+    }
+    setPage(1);
+    setHasReachedEnd(false);
   };
 
   useEffect(() => {
@@ -244,77 +255,71 @@ const Orders = () => {
   }, [ordersFetching, hasReachedEnd]);
 
   return (
-    <View>
+    <SafeAreaView className="flex-1 bg-[#121212] ">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView
-        className="h-full flex-1 bg-[#121212] "
-        style={{ minHeight: height }}
-      >
-        <View>
-          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
-            <TouchableOpacity
-              className="absolute left-[12px]"
-              onPress={() => router.back()}
-            >
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
 
-            <Text className="text-white font-LexendDecaMedium text-[24px]">
-              My Orders
-            </Text>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="flex-row items-center justify-between px-[16px]"
-            style={{
-              borderBottomColor: "rgba(204, 204, 204, 0.25)",
-              borderBottomWidth: 0.5,
-            }}
+      <View>
+        <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
+          <TouchableOpacity
+            className="absolute left-[12px]"
+            onPress={() => router.back()}
           >
-            {tabs.map((tab, index) => (
-              <TouchableOpacity
-                onPress={() => handleTabSelection(tab)}
-                className={`py-[4px] pb-[16px] mr-[16px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
-                key={index}
-              >
-                <Text
-                  className={` font-LexendDecaMedium text-[12px] ${selectedTab == tab ? "text-white" : "text-[#94A3B1]"}`}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+
+          <Text className="text-white font-LexendDecaMedium text-[24px]">
+            My Orders
+          </Text>
         </View>
-        {ordersLoading ? (
-          <ActivityIndicator
-            size={"small"}
-            color={"#fff"}
-            className="m-[20px]"
-          />
-        ) : (
-          <FlatList
-            data={orders}
-            renderItem={renderOrderItems}
-            // nestedScrollEnabled={true}
-            keyExtractor={(item, index) => item?._id || index?.toString()}
-            contentContainerStyle={{
-              paddingVertical: 20,
-              gap: 20,
-            }}
-            onEndReached={fetchMoreOrders}
-            onEndReachedThreshold={0.5}
-            ListEmptyComponent={EmptyOrders}
-            ListFooterComponent={renderListFooter}
-          />
-        )}
-      </SafeAreaView>
-    </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerClassName="flex-row items-center justify-between px-[16px]"
+          style={{
+            borderBottomColor: "rgba(204, 204, 204, 0.25)",
+            borderBottomWidth: 0.5,
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <TouchableOpacity
+              onPress={() => handleTabSelection(tab)}
+              className={`py-[4px] pb-[16px] mr-[16px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
+              key={index}
+            >
+              <Text
+                className={` font-LexendDecaMedium text-[12px] ${selectedTab == tab ? "text-white" : "text-[#94A3B1]"}`}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+      {ordersLoading ? (
+        <ActivityIndicator size={"small"} color={"#fff"} className="m-[20px]" />
+      ) : (
+        <FlatList
+          data={orders}
+          renderItem={renderOrderItems}
+          // nestedScrollEnabled={true}
+          keyExtractor={(item, index) => item?._id || index?.toString()}
+          contentContainerStyle={{
+            paddingVertical: 20,
+            gap: 20,
+          }}
+          onEndReached={fetchMoreOrders}
+          onEndReachedThreshold={0.5}
+          ListEmptyComponent={EmptyOrders}
+          ListFooterComponent={renderListFooter}
+          refreshing={refreshing}
+          onRefresh={refreshOrders}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 

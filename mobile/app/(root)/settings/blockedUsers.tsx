@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
   Pressable,
@@ -16,6 +15,7 @@ import { RootState } from "@/store";
 import { Image } from "expo-image";
 import { ActivityIndicator } from "react-native-paper";
 import { icons } from "@/constants";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const BlockedUsers = () => {
   const token = useSelector((state: RootState) => state.authState.token);

@@ -8,7 +8,6 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useForm } from "react-hook-form";
 
@@ -30,6 +29,7 @@ import { AntDesign, Entypo } from "@expo/vector-icons";
 import { setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import { RootState } from "@/store";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 type FormData = {
   selectedCategories: {
@@ -253,7 +253,7 @@ const Categories = () => {
 
   const renderListHeader = useCallback(() => {
     return (
-      <View className="flex-row items-center justify-between mb-[36px] mt-[20px]">
+      <View className="flex-row items-center justify-between mb-[36px] mt-[20px] px-[16px]">
         <TouchableOpacity className="" onPress={() => router.back()}>
           <Entypo
             name="chevron-left"

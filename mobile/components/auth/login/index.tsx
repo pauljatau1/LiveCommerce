@@ -10,14 +10,12 @@ import { FormProvider, useForm } from "react-hook-form";
 import {
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useDispatch } from "react-redux";
 import { useLoginMutation } from "@/services/auth";
@@ -38,6 +36,8 @@ import { identifyUser, trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // For development debugging
 import { debugAnalytics } from "@/utils/analytics";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -232,7 +232,7 @@ const Login = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="bg-black h-full">
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={"padding"}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
           <ScrollView showsVerticalScrollIndicator={false}>

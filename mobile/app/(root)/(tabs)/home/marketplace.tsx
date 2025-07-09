@@ -10,7 +10,7 @@ import Marketplace from "@/components/marketplace";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const MarketplacePage = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />

@@ -2,7 +2,6 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   Pressable,
@@ -26,10 +25,13 @@ import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
 const CartScreen = () => {
+  const insets = useSafeAreaInsets();
   const [cart, setCart] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const isFocused = useIsFocused();
@@ -153,7 +155,7 @@ const CartScreen = () => {
           case "moveToWishList":
             try {
               const userData = await AsyncStorage.getItem("user");
-              const user = JSON.parse(userData || '{}');
+              const user = JSON.parse(userData || "{}");
               trackEventMixpanel("product_added_to_wishlist", {
                 productId: data._id,
                 productName: data?.name,
@@ -166,7 +168,7 @@ const CartScreen = () => {
                 username: user?.username,
                 timestamp: new Date().toISOString(),
               });
-              
+
               trackEventCustomerio("product_added_to_wishlist", {
                 productId: data._id,
                 productName: data?.name,
@@ -372,7 +374,14 @@ const CartScreen = () => {
         )}
 
         {tab == "cart" && cart?.length > 0 && (
-          <View className="px-[20px] py-[10px] flex-row items-center justify-between gap-[20px] w-full flex-wrap absolute bottom-0 left-0 bg-[#121212]">
+          <View
+            className="px-[20px] py-[10px] flex-row items-center justify-between gap-[20px] w-full flex-wrap absolute bottom-0 left-0 bg-[#121212]"
+            style={
+              {
+                // bottom: insets.bottom,
+              }
+            }
+          >
             <View className="flex-row items-center">
               <View>
                 <BouncyCheckbox

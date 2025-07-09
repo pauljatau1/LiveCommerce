@@ -1,10 +1,4 @@
-import {
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  Pressable,
-} from "react-native";
+import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { AntDesign, Entypo } from "@expo/vector-icons";
@@ -13,6 +7,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const Addresses = () => {
   const isFocused = useIsFocused();

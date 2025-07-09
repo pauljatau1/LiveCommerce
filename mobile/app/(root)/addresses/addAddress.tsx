@@ -1,9 +1,7 @@
 import {
   View,
   Text,
-  KeyboardAvoidingView,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Platform,
   Dimensions,
@@ -28,11 +26,15 @@ import {
   validateZipCode,
   validateEmail,
 } from "../../../helpers/helpers";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 const { width, height } = Dimensions.get("window");
 const addressTypes = [{ name: "home" }, { name: "work" }, { name: "other" }];
 const AddAddress = () => {
   const { prevRoute } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const states = useMemo(() => getStates("nigeria"), []);
   const [cities, setCities] = useState<any>(null);
   const [state, setState] = useState<string>("");
@@ -143,9 +145,9 @@ const AddAddress = () => {
   };
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={"padding"}
         // keyboardVerticalOffset={Platform.select({ ios: 0, android: 60 })}
         style={{ flex: 1, backgroundColor: "#121212" }}
       >
@@ -154,56 +156,55 @@ const AddAddress = () => {
           backgroundColor="#121212"
         />
 
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
-          {/* Header */}
-          <View
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 20,
+            marginBottom: 8,
+            marginTop: 4,
+            position: "relative",
+          }}
+        >
+          <TouchableOpacity
+            style={{ position: "absolute", left: 12 }}
+            onPress={() => {
+              router.back();
+            }}
+          >
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+          <Text
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 20,
-              marginBottom: 8,
-              marginTop: 4,
-              position: "relative",
+              color: "white",
+              fontFamily: "LexendDeca-Medium",
+              fontSize: 20,
             }}
           >
-            <TouchableOpacity
-              style={{ position: "absolute", left: 12 }}
-              onPress={() => {
-                router.back();
-              }}
-            >
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
-            <Text
-              style={{
-                color: "white",
-                fontFamily: "LexendDeca-Medium",
-                fontSize: 20,
-              }}
-            >
-              Add Address
-            </Text>
-          </View>
+            Add Address
+          </Text>
+        </View>
 
-          {/* Form */}
-          <ScrollView
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingBottom: 100,
-            }}
-            showsVerticalScrollIndicator={false}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={{ gap: 20 }}>
-                {/* Name Fields */}
-                {/* <View
+        {/* Form */}
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={{ gap: 20 }}>
+              {/* Name Fields */}
+              {/* <View
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
@@ -235,110 +236,110 @@ const AddAddress = () => {
                   </View>
                 </View> */}
 
-                {/* State Dropdown */}
+              {/* State Dropdown */}
+              <View style={styles.inputSection}>
+                <Text style={styles.textLabel}>State</Text>
+                <Dropdown
+                  style={styles.dropdown}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  inputSearchStyle={styles.inputSearchStyle}
+                  itemTextStyle={styles.itemTextStyle}
+                  data={states}
+                  search
+                  labelField="name"
+                  valueField="name"
+                  placeholder="Select State"
+                  searchPlaceholder="Search..."
+                  onChange={(item) => {
+                    setState(item.slug);
+                    setCities(getCities(item.slug));
+                  }}
+                />
+              </View>
+
+              {/* City Dropdown */}
+              {cities && (
                 <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>State</Text>
+                  <Text style={styles.textLabel}>City</Text>
                   <Dropdown
                     style={styles.dropdown}
                     placeholderStyle={styles.placeholderStyle}
                     selectedTextStyle={styles.selectedTextStyle}
                     inputSearchStyle={styles.inputSearchStyle}
                     itemTextStyle={styles.itemTextStyle}
-                    data={states}
+                    data={cities}
                     search
                     labelField="name"
                     valueField="name"
-                    placeholder="Select State"
+                    placeholder="Select City"
                     searchPlaceholder="Search..."
-                    onChange={(item) => {
-                      setState(item.slug);
-                      setCities(getCities(item.slug));
-                    }}
+                    onChange={(item) => setCity(item.name)}
                   />
                 </View>
+              )}
 
-                {/* City Dropdown */}
-                {cities && (
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>City</Text>
-                    <Dropdown
-                      style={styles.dropdown}
-                      placeholderStyle={styles.placeholderStyle}
-                      selectedTextStyle={styles.selectedTextStyle}
-                      inputSearchStyle={styles.inputSearchStyle}
-                      itemTextStyle={styles.itemTextStyle}
-                      data={cities}
-                      search
-                      labelField="name"
-                      valueField="name"
-                      placeholder="Select City"
-                      searchPlaceholder="Search..."
-                      onChange={(item) => setCity(item.name)}
-                    />
-                  </View>
-                )}
-
-                {/* Address Fields */}
-                <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Street Address</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      placeholder="Street Address"
-                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                      style={styles.textInput}
-                      onChangeText={setAddress1}
-                    />
-                  </View>
+              {/* Address Fields */}
+              <View style={styles.inputSection}>
+                <Text style={styles.textLabel}>Street Address</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    placeholder="Street Address"
+                    placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
+                    style={styles.textInput}
+                    onChangeText={setAddress1}
+                  />
                 </View>
+              </View>
 
-                <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Address Line 2</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      placeholder="Address 2"
-                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                      style={styles.textInput}
-                      onChangeText={setAddress2}
-                    />
-                  </View>
+              <View style={styles.inputSection}>
+                <Text style={styles.textLabel}>Address Line 2</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    placeholder="Address 2"
+                    placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
+                    style={styles.textInput}
+                    onChangeText={setAddress2}
+                  />
                 </View>
+              </View>
 
-                <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Zip Code</Text>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      {
-                        borderWidth: 1,
-                        borderColor: zipCodeError ? "#ff0a0a" : "#2e2e2e",
-                      },
-                    ]}
-                  >
-                    <TextInput
-                      placeholder="Zip Code"
-                      placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                      style={styles.textInput}
-                      maxLength={6}
-                      inputMode="numeric"
-                      onChangeText={handleZipCodeChange}
-                    />
-                    {zipCodeError && (
-                      <Text
-                        className="text-[10px] font-LexendDecaLight "
-                        style={{
-                          color: "#ff0a0a",
-                          position: "absolute",
-                          bottom: -14,
-                          left: 8,
-                        }}
-                      >
-                        *{zipCodeError}
-                      </Text>
-                    )}
-                  </View>
+              <View style={styles.inputSection}>
+                <Text style={styles.textLabel}>Zip Code</Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      borderWidth: 1,
+                      borderColor: zipCodeError ? "#ff0a0a" : "#2e2e2e",
+                    },
+                  ]}
+                >
+                  <TextInput
+                    placeholder="Zip Code"
+                    placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
+                    style={styles.textInput}
+                    maxLength={6}
+                    inputMode="numeric"
+                    onChangeText={handleZipCodeChange}
+                  />
+                  {zipCodeError && (
+                    <Text
+                      className="text-[10px] font-LexendDecaLight "
+                      style={{
+                        color: "#ff0a0a",
+                        position: "absolute",
+                        bottom: -14,
+                        left: 8,
+                      }}
+                    >
+                      *{zipCodeError}
+                    </Text>
+                  )}
                 </View>
+              </View>
 
-                {/* <View style={styles.inputSection}>
+              {/* <View style={styles.inputSection}>
                   <Text style={styles.textLabel}>Phone Number</Text>
 
                   <View
@@ -407,51 +408,47 @@ const AddAddress = () => {
                   </View>
                 </View> */}
 
-                <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Address Type</Text>
-                  <Dropdown
-                    search={false}
-                    style={styles.dropdown}
-                    placeholderStyle={styles.placeholderStyle}
-                    selectedTextStyle={styles.selectedTextStyle}
-                    inputSearchStyle={styles.inputSearchStyle}
-                    itemTextStyle={styles.itemTextStyle}
-                    data={addressTypes}
-                    labelField="name"
-                    valueField="name"
-                    placeholder="Select Type"
-                    searchPlaceholder="Search..."
-                    onChange={(item) => setAddressType(item.name)}
-                  />
-                </View>
+              <View style={styles.inputSection}>
+                <Text style={styles.textLabel}>Address Type</Text>
+                <Dropdown
+                  search={false}
+                  style={styles.dropdown}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  inputSearchStyle={styles.inputSearchStyle}
+                  itemTextStyle={styles.itemTextStyle}
+                  data={addressTypes}
+                  labelField="name"
+                  valueField="name"
+                  placeholder="Select Type"
+                  searchPlaceholder="Search..."
+                  onChange={(item) => setAddressType(item.name)}
+                />
               </View>
-            </TouchableWithoutFeedback>
-          </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
+        </ScrollView>
 
-          <View
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              padding: 16,
-              paddingBottom: 24,
-              width: "100%",
-              backgroundColor: "#121212",
-            }}
-          >
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleAddAddress}
-            >
-              <Text style={styles.addButtonText}>Add Address</Text>
-            </TouchableOpacity>
-          </View>
-          <LoadingModal isVisible={loading} />
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            padding: 16,
+            paddingBottom: 24,
+            width: "100%",
+            backgroundColor: "#121212",
+          }}
+        >
+          <TouchableOpacity style={styles.addButton} onPress={handleAddAddress}>
+            <Text style={styles.addButtonText}>Add Address</Text>
+          </TouchableOpacity>
+        </View>
+        <LoadingModal isVisible={loading} />
 
-          {/* Add Address Button */}
-        </SafeAreaView>
+        {/* Add Address Button */}
       </KeyboardAvoidingView>
-    </>
+    </SafeAreaView>
   );
 };
 

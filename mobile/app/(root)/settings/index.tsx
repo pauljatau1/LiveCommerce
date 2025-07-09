@@ -1,12 +1,11 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Link, router } from "expo-router";
@@ -19,6 +18,7 @@ import LoadingModal from "@/components/global/loading-modal";
 import { useRequestDeleteMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
 import DeviceInfo from "react-native-device-info";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 // import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const { width, height } = Dimensions.get("window");
@@ -30,6 +30,7 @@ const Settings = () => {
     useRequestDeleteMutation();
   const [showDeleteSheet, setShowDeleteSheet] = useState<boolean>(false);
   // const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [apiLevel, setApiLevel] = useState<number>();
 
   const handleDeleteRequest = async () => {
     try {
@@ -40,6 +41,15 @@ const Settings = () => {
       toast.error("Could not delete account");
     }
   };
+
+  const getApiLevel = useCallback(async () => {
+    const level = await DeviceInfo.getApiLevel();
+    setApiLevel(level);
+  }, []);
+
+  useEffect(() => {
+    getApiLevel();
+  }, []);
 
   const handleDelete = () => {
     setShowDeleteSheet(false);
@@ -249,6 +259,9 @@ const Settings = () => {
             <Text className="text-[#ccc] font-LexendDecaLight text-center opacity-50">
               App Version {DeviceInfo?.getVersion()}
             </Text>
+            {/* <Text className="text-[#ccc] font-LexendDecaLight text-center opacity-50">
+              App Version {apiLevel}
+            </Text> */}
           </View>
         </View>
       </ScrollView>

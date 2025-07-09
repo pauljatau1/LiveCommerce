@@ -4,7 +4,6 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StyleSheet,
   TextInput,
   Platform,
@@ -66,11 +65,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import StreamEndedAlert from './components/StreamEndedAlert';
+import StreamEndedAlert from "./components/StreamEndedAlert";
 import RsvpSheet from "@/components/livestream/rsvpSheet";
-import AnnouncementView from '@/components/livestream/AnnouncementView';
+import AnnouncementView from "@/components/livestream/AnnouncementView";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
-const { height } = Dimensions.get("window");
+const { height } = Dimensions.get("screen");
 
 const LivestreamStudioFeed = ({
   id,
@@ -99,7 +99,7 @@ const LivestreamStudioFeed = ({
     checkIfSellerIsFollowedFromSellerProfile,
     isStreamEnded,
     isStreamScheduled,
-    scheduledStreamDetails
+    scheduledStreamDetails,
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -142,14 +142,14 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-      | "comment"
-      | "join"
-      | "purchase"
-      | "hostLeft"
-      | "hostRejoin"
-      | "leave"
-      | "liveshow_order"
-      | "announcement";
+        | "comment"
+        | "join"
+        | "purchase"
+        | "hostLeft"
+        | "hostRejoin"
+        | "leave"
+        | "liveshow_order"
+        | "announcement";
       user: string;
       avatar?: any;
       content: string;
@@ -211,15 +211,17 @@ const LivestreamStudioFeed = ({
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
 
   // State for announcements
-  const [liveAnnouncements, setLiveAnnouncements] = useState<Array<{
-    id: string;
-    type: "announcement";
-    user: string;
-    avatar?: any;
-    content: string;
-    timestamp: Date;
-    data?: any;
-  }>>([]);
+  const [liveAnnouncements, setLiveAnnouncements] = useState<
+    Array<{
+      id: string;
+      type: "announcement";
+      user: string;
+      avatar?: any;
+      content: string;
+      timestamp: Date;
+      data?: any;
+    }>
+  >([]);
 
   const { displayShareDialog } = useShareAppLinks();
 
@@ -256,13 +258,13 @@ const LivestreamStudioFeed = ({
       return () => {
         // Only cleanup if component is unmounting completely (not just scrolling away)
         // The parent will handle scrolling cleanup proactively
-        console.log(`🔧 [Studio] Component unmounting cleanup for stream ${id}`);
+        console.log(
+          `🔧 [Studio] Component unmounting cleanup for stream ${id}`,
+        );
       };
     }
     // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
-
-
 
   // Separate useEffect for keyboard event listeners
   // Separate useEffect for keyboard event listeners
@@ -324,7 +326,12 @@ const LivestreamStudioFeed = ({
   const setupLivestream = async () => {
     if (!id) return;
     try {
-      console.log("Setting up livestream with ID:", id, "Current isStreamEnded state:", isStreamEnded);
+      console.log(
+        "Setting up livestream with ID:",
+        id,
+        "Current isStreamEnded state:",
+        isStreamEnded,
+      );
       setStatus("Joining stream...");
 
       // Join the stream using the stream ID from route parameters
@@ -480,10 +487,15 @@ const LivestreamStudioFeed = ({
         (streamDetails.stream as any)?.chatInteractions || [];
 
       // Check for announcements in stream data
-      const streamAnnouncements = (streamDetails.stream as any)?.liveAnnouncements || 
-                                 (streamDetails.stream as any)?.announcements || [];
-                              
-      if (Array.isArray(streamAnnouncements) && streamAnnouncements.length > 0) {
+      const streamAnnouncements =
+        (streamDetails.stream as any)?.liveAnnouncements ||
+        (streamDetails.stream as any)?.announcements ||
+        [];
+
+      if (
+        Array.isArray(streamAnnouncements) &&
+        streamAnnouncements.length > 0
+      ) {
         console.log("Found announcements in stream data:", streamAnnouncements);
         setLiveAnnouncements(streamAnnouncements);
       }
@@ -508,9 +520,12 @@ const LivestreamStudioFeed = ({
       // Add the user's join event to the beginning of chat interactions
       // Filter out announcement types as they will be displayed separately
       const filteredChatInteractions = chatInteractions.filter(
-        (interaction: any) => interaction.type !== 'announcement'
+        (interaction: any) => interaction.type !== "announcement",
       );
-      const updatedChatInteractions = [...filteredChatInteractions, userJoinEvent];
+      const updatedChatInteractions = [
+        ...filteredChatInteractions,
+        userJoinEvent,
+      ];
 
       // Set the live comments with the updated data
       setLiveComments(updatedChatInteractions);
@@ -587,9 +602,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] &&
+                      notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -713,7 +728,10 @@ const LivestreamStudioFeed = ({
         case "announcement":
           console.log("Announcement received:", notification.content);
           // Add announcement to the announcements array instead of liveComments
-          setLiveAnnouncements((prev: Array<any>) => [...prev, notification as any]);
+          setLiveAnnouncements((prev: Array<any>) => [
+            ...prev,
+            notification as any,
+          ]);
           break;
 
         default:
@@ -1133,17 +1151,33 @@ const LivestreamStudioFeed = ({
         <View style={styles.regularCommentItem}>
           {renderAvatar()}
           <View style={styles.regularCommentContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 2,
+              }}
+            >
               <Text style={styles.commentUser}>{item.user}</Text>
               {isHost && (
-                <View style={{ 
-                  marginLeft: 8, 
-                  backgroundColor: '#16783A', 
-                  paddingHorizontal: 6, 
-                  paddingVertical: 2, 
-                  borderRadius: 4 
-                }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>Host</Text>
+                <View
+                  style={{
+                    marginLeft: 8,
+                    backgroundColor: "#16783A",
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 10,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Host
+                  </Text>
                 </View>
               )}
             </View>
@@ -1278,14 +1312,14 @@ const LivestreamStudioFeed = ({
 
       // Navigate back to previous screen
       if (leaveButton) {
-        router.push("/(root)/(tabs)/home/home")
+        router.push("/(root)/(tabs)/home/home");
       }
     } catch (error) {
       console.error("Error leaving stream:", error);
       // Show error message to user if needed
       disconnectSocket();
       if (leaveButton) {
-        router.push("/(root)/(tabs)/home/home")
+        router.push("/(root)/(tabs)/home/home");
       }
     } finally {
       disconnectSocket();
@@ -1295,18 +1329,17 @@ const LivestreamStudioFeed = ({
   };
 
   // Optimize with useCallback
-      const handleAutoLeaveStream = useCallback(
-      async () => {
-        if (!id) return;
+  const handleAutoLeaveStream = useCallback(async () => {
+    if (!id) return;
 
-        try {
-        setIsLeavingStream(true);
+    try {
+      setIsLeavingStream(true);
 
-        // First tell the WebView to leave the Agora channel
-        console.log("🔄 About to call WebView leaveChannel...");
-        if (webViewRef.current) {
-          console.log("✅ WebView ref exists, injecting JavaScript...");
-          webViewRef.current.injectJavaScript(`
+      // First tell the WebView to leave the Agora channel
+      console.log("🔄 About to call WebView leaveChannel...");
+      if (webViewRef.current) {
+        console.log("✅ WebView ref exists, injecting JavaScript...");
+        webViewRef.current.injectJavaScript(`
             console.log("📱 JavaScript injection received");
             if (typeof window.leaveChannel === 'function') {
               console.log("📱 leaveChannel function found, calling it...");
@@ -1318,38 +1351,29 @@ const LivestreamStudioFeed = ({
             }
             true;
           `);
-          console.log("⏱️ Waiting for WebView to process...");
-          // Give a small delay to allow the WebView to process the leave command
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          console.log("✅ WebView processing delay completed");
-        } else {
-          console.log("❌ WebView ref is null!");
-        }
-
-        // Call the leaveStream API endpoint
-        const result = await leaveStream(id as string);
-
-        // Disconnect the socket
-        disconnectSocket();
-
-      } catch (error) {
-        console.error("Error leaving stream:", error);
-        // Show error message to user if needed
-        disconnectSocket();
-      } finally {
-        disconnectSocket();
-        setIsLeavingStream(false);
-        setShowMenuPopover(false);
+        console.log("⏱️ Waiting for WebView to process...");
+        // Give a small delay to allow the WebView to process the leave command
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log("✅ WebView processing delay completed");
+      } else {
+        console.log("❌ WebView ref is null!");
       }
-    },
-    [
-      id,
-      webViewRef,
-      leaveStream,
-      setIsLeavingStream,
-      setShowMenuPopover,
-    ],
-  );
+
+      // Call the leaveStream API endpoint
+      const result = await leaveStream(id as string);
+
+      // Disconnect the socket
+      disconnectSocket();
+    } catch (error) {
+      console.error("Error leaving stream:", error);
+      // Show error message to user if needed
+      disconnectSocket();
+    } finally {
+      disconnectSocket();
+      setIsLeavingStream(false);
+      setShowMenuPopover(false);
+    }
+  }, [id, webViewRef, leaveStream, setIsLeavingStream, setShowMenuPopover]);
 
   // Register cleanup function with parent when component is ready
   useEffect(() => {
@@ -1548,9 +1572,9 @@ const LivestreamStudioFeed = ({
   // track event for product card click
   const handleProductCardClick = useCallback(async (product: any) => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      const user = JSON.parse(userData || '{}');
-      trackEvent('liveshow_product_card_clicked', {
+      const userData = await AsyncStorage.getItem("user");
+      const user = JSON.parse(userData || "{}");
+      trackEvent("liveshow_product_card_clicked", {
         userId: user?._id,
         email: user?.email,
         firstName: user?.firstName,
@@ -1589,576 +1613,611 @@ const LivestreamStudioFeed = ({
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ height }}>
+    <View
+      style={{
+        height:
+          Platform.OS == "ios"
+            ? height - insets.bottom
+            : height - insets.bottom - insets.top,
+        backgroundColor: "blue",
+        position: "relative",
+        // paddingBottom: insets.bottom,
+      }}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <View style={{ height }}>
-        <View className="h-full bg-black">
-          {/* Agora Video Container */}
-          <View className="absolute w-full h-full">
-            {streamConfig && isVisible ? (
-              <>
-                <WebView
-                  ref={webViewRef}
-                  source={{
-                    html: streamEngine(
-                      streamConfig?.appId || "",
-                      streamConfig?.channel || "",
-                      streamConfig?.token || "",
-                      streamConfig?.uid || "",
-                    ),
+
+      {/* Agora Video Container */}
+      <View className="absolute w-full h-full">
+        {streamConfig && isVisible ? (
+          <>
+            <WebView
+              ref={webViewRef}
+              source={{
+                html: streamEngine(
+                  streamConfig?.appId || "",
+                  streamConfig?.channel || "",
+                  streamConfig?.token || "",
+                  streamConfig?.uid || "",
+                ),
+              }}
+              style={styles.fullScreen}
+              onMessage={handleWebViewMessage}
+              javaScriptEnabled={true}
+              allowsInlineMediaPlayback={true}
+              mediaPlaybackRequiresUserAction={false}
+              originWhitelist={["*"]}
+            />
+
+            {/* Gradient Overlay for better contrast */}
+            <LinearGradient
+              colors={[
+                "rgba(0,0,0,0.1)", // Slight darkening at top
+                "rgba(0,0,0,0.45)", // Medium darkening in middle
+                "rgba(0,0,0,0.65)", // Darker toward bottom
+                "rgba(0,0,0,0.75)", // Darkest at bottom
+              ]}
+              locations={[0, 0.5, 0.85, 1]}
+              style={styles.gradientOverlay}
+              pointerEvents="none"
+            />
+
+            {/* Show play loader while video is loading, but not if we know there's no host */}
+            {(isLoading ||
+              showNoHostAlert2 ||
+              (!isVideoPlaying && isHostPresent)) && (
+              <SkeletonLoader type="loading" />
+            )}
+
+            {/* No Host Alert */}
+            {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
+              <View style={styles.noHostOverlay}>
+                <View style={styles.noHostAlertContainer}>
+                  <View style={styles.noHostIconContainer}>
+                    <MaterialIcons
+                      name="videocam-off"
+                      size={36}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                  <Text style={styles.noHostMessage}>
+                    The host is not in the room at the moment. Please wait or
+                    check back later.
+                  </Text>
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                      style={styles.waitButton}
+                      onPress={() => setShowNoHostAlert(false)}
+                    >
+                      <Text style={styles.waitButtonText}>Wait</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.leaveButton}
+                      onPress={() => {
+                        const leaveButton = true;
+                        handleLeaveStream(leaveButton);
+                      }}
+                    >
+                      <Text style={styles.leaveButtonText}>Leave</Text>
+                      {isLeavingStream && (
+                        <ActivityIndicator
+                          size={12}
+                          color="white"
+                          style={{ marginLeft: 5 }}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
+        ) : isStreamEnded ? (
+          <StreamEndedAlert
+            onLeave={handleLeaveStream}
+            isLeavingStream={isLeavingStream}
+          />
+        ) : (
+          <SkeletonLoader type="loading" />
+        )}
+      </View>
+
+      {/* Content Container */}
+      <View style={styles.contentContainer}>
+        {/* Top Actions */}
+        {shouldShowUI && !keyboardVisibleRef.current && (
+          <View
+            style={{
+              paddingTop: (Platform.OS == "ios" ? insets.top : 0) + 15,
+            }}
+          >
+            <View className={`flex-row justify-between items-center px-4`}>
+              <View className="flex-row items-center gap-4 ">
+                <TouchableOpacity
+                  className="flex-row items-center gap-2"
+                  onPress={() => {
+                    router.push({
+                      pathname: "/sellerProfile",
+                      params: {
+                        sellerId: sellerId,
+                        sellerAvatar: storeInfo?.avatar,
+                      },
+                    });
                   }}
-                  style={styles.fullScreen}
-                  onMessage={handleWebViewMessage}
-                  javaScriptEnabled={true}
-                  allowsInlineMediaPlayback={true}
-                  mediaPlaybackRequiresUserAction={false}
-                  originWhitelist={["*"]}
-                />
+                >
+                  <GlassImage
+                    source={storeInfo?.avatar}
+                    containerClassName="w-10 h-10 rounded-full"
+                    imageClassName="w-full h-full rounded-full"
+                    glassClassName="w-full h-full rounded-full"
+                    placeholderColor="rgba(255, 255, 255, 0.1)"
+                    blurIntensity={20}
+                    tint="dark"
+                    showActivityIndicator={false}
+                  />
+                  <View>
+                    <Text
+                      numberOfLines={1}
+                      className="text-white max-w-[100px] font-LexendDecaMedium text-base"
+                    >
+                      {storeInfo.name}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      className="text-gray-300 max-w-[100px] text-xs"
+                    >
+                      {storeInfo.username}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                {isFollowingLoading ? (
+                  <TouchableOpacity
+                    className="bg-[#16783A] h-full px-4 py-1 rounded-full"
+                    disabled
+                  >
+                    <ActivityIndicator size={17} color="#FFFFFF" />
+                  </TouchableOpacity>
+                ) : isFollowing ? (
+                  <TouchableOpacity
+                    className="bg-[#444444] h-full px-4 py-1 rounded-full"
+                    onPress={() => handleUnfollowSeller(false)}
+                  >
+                    <Text className="text-white text-sm">Unfollow</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    className="bg-[#16783A] h-full px-4 py-1 rounded-full"
+                    onPress={() => handleFollowSeller(false)}
+                  >
+                    <Text className="text-white text-sm">Follow</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View className="flex-row items-center gap-2">
+                <TouchableOpacity
+                  className="flex-row items-center px-3 py-2 rounded-full"
+                  onPress={handleShowViewers}
+                >
+                  <Octicons name="people" size={22} color="#FFF" />
+                  <Text className="text-white ml-1 font-LexendDecaMedium ">
+                    {viewerCount > 999
+                      ? `${(viewerCount / 1000).toFixed(1)}K`
+                      : viewerCount}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowMenuPopover(!showMenuPopover)}
+                  className="p-2 rounded-full relative"
+                >
+                  <Entypo name="dots-three-horizontal" size={22} color="#FFF" />
+                </TouchableOpacity>
+                {showMenuPopover && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: 40,
+                      backgroundColor: "rgba(0,0,0,0.2)",
+                      borderRadius: 8,
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      width: 160,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3.84,
+                      zIndex: 50,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        toggleMute();
+                        setShowMenuPopover(false);
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 10,
+                      }}
+                    >
+                      {isMuted ? (
+                        <Ionicons
+                          name="volume-mute-outline"
+                          size={20}
+                          color="#FFF"
+                          style={{ marginRight: 10 }}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="volume-medium-outline"
+                          size={20}
+                          color="#FFF"
+                          style={{ marginRight: 10 }}
+                        />
+                      )}
+                      <Text style={{ color: "#FFF", fontSize: 14 }}>
+                        {isMuted ? "Unmute" : "Mute"}
+                      </Text>
+                    </TouchableOpacity>
 
-                {/* Gradient Overlay for better contrast */}
-                <LinearGradient
-                  colors={[
-                    "rgba(0,0,0,0.1)", // Slight darkening at top
-                    "rgba(0,0,0,0.45)", // Medium darkening in middle
-                    "rgba(0,0,0,0.65)", // Darker toward bottom
-                    "rgba(0,0,0,1)", // Darkest at bottom
-                  ]}
-                  locations={[0, 0.5, 0.85, 1]}
-                  style={styles.gradientOverlay}
-                  pointerEvents="none"
-                />
+                    <View
+                      style={{
+                        height: 1,
+                        backgroundColor: "rgba(255,255,255,0.1)",
+                        marginVertical: 5,
+                      }}
+                    />
 
-                {/* Show play loader while video is loading, but not if we know there's no host */}
-                {(isLoading ||
-                  showNoHostAlert2 ||
-                  (!isVideoPlaying && isHostPresent)) && (
-                    <SkeletonLoader type="loading" />
-                  )}
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (!isLeavingStream) {
+                          const leaveButton = true;
+                          handleLeaveStream(leaveButton);
+                        }
+                      }}
+                      disabled={isLeavingStream}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 10,
+                      }}
+                    >
+                      {isLeavingStream ? (
+                        <ActivityIndicator
+                          size="small"
+                          color="#FF5555"
+                          style={{ marginRight: 10 }}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="exit-outline"
+                          size={20}
+                          color="#FF5555"
+                          style={{ marginRight: 10 }}
+                        />
+                      )}
+                      <Text style={{ color: "#FF5555", fontSize: 14 }}>
+                        {isLeavingStream ? "Leaving..." : "Leave"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
 
-                {/* No Host Alert */}
-                {showNoHostAlert &&
-                  !isLoading &&
-                  !keyboardVisibleRef.current && (
-                    <View style={styles.noHostOverlay}>
-                      <View style={styles.noHostAlertContainer}>
-                        <View style={styles.noHostIconContainer}>
-                          <MaterialIcons
-                            name="videocam-off"
-                            size={36}
-                            color="#FFFFFF"
-                          />
-                        </View>
-                        <Text style={styles.noHostTitle}>Host Unavailable</Text>
-                        <Text style={styles.noHostMessage}>
-                          The host is not in the room at the moment. Please wait
-                          or check back later.
-                        </Text>
-                        <View style={styles.buttonContainer}>
+        {/* Add the FloatingHeartsAnimation component */}
+        <FloatingHeartsAnimation ref={heartsRef} count={15} color="#16783A" />
+
+        <View
+          style={{
+            height: keyboardVisibleRef.current
+              ? height -
+                keyboardHeightRef?.current -
+                insets.bottom -
+                (Platform.OS == "android" ? insets.top : 0)
+              : undefined,
+            justifyContent: "flex-end",
+          }}
+        >
+          {/* Main Content Area */}
+
+          <View
+            style={[
+              styles.mainContentArea,
+              //{ height: keyboardVisibleRef.current ? "53%" : "69%"},
+            ]}
+          >
+            {/* Right Side Actions */}
+            {shouldShowUI && !keyboardVisibleRef.current && (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.rightActionsContainer}
+                nestedScrollEnabled={true}
+                onTouchStart={(e) => {
+                  // Prevent event from propagating to parent
+                  e.stopPropagation();
+                  // Notify parent to temporarily disable scrolling
+                  onInteractionStart?.();
+                }}
+                onScrollBeginDrag={(e) => {
+                  // Prevent scroll event from propagating to parent
+                  e.stopPropagation();
+                  // Notify parent to temporarily disable scrolling
+                  onInteractionStart?.();
+                }}
+                scrollEventThrottle={16}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
+                <View style={styles.actionItem}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleShare}
+                  >
+                    <SimpleLineIcons name="share-alt" size={22} color="white" />
+                  </TouchableOpacity>
+                  <Text style={styles.actionText}>Share</Text>
+                </View>
+
+                <View style={styles.actionItem}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleShowStreamInfo}
+                  >
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={24}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.actionText}>Info</Text>
+                </View>
+
+                <View style={styles.actionItem}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleShowOrders}
+                  >
+                    <MaterialCommunityIcons
+                      name="package-variant-closed"
+                      size={24}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.actionText}>Orders</Text>
+                </View>
+
+                <View style={styles.actionItem}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleShowShop}
+                  >
+                    <MaterialCommunityIcons
+                      name="storefront-outline"
+                      size={24}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.actionText}>Shop</Text>
+                </View>
+
+                {
+                  <View style={styles.actionItem}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={handleHeartPress}
+                    >
+                      <AntDesign name="hearto" size={24} color="#16783A" />
+                    </TouchableOpacity>
+                    <Text style={styles.actionText2}>Like</Text>
+                  </View>
+                }
+              </ScrollView>
+            )}
+
+            {/* Live Comments Section */}
+            {shouldShowUI && (
+              <View className="absolute bottom-0 left-0 w-[70%] z-10  ">
+                <ScrollView
+                  ref={commentsListRef}
+                  style={styles.commentsContainer}
+                  nestedScrollEnabled={true}
+                  onLayout={() => {
+                    // Scroll to end on initial layout
+                    if (commentsListRef.current && liveComments.length > 0) {
+                      setTimeout(() => {
+                        commentsListRef.current?.scrollToEnd({
+                          animated: false,
+                        });
+                      }, 100);
+                    }
+                  }}
+                  showsVerticalScrollIndicator={false}
+                  fadingEdgeLength={350}
+                  contentContainerStyle={styles.commentsList}
+                  onContentSizeChange={() => {
+                    // Scroll to end when content size changes
+                    if (commentsListRef.current && liveComments.length > 0) {
+                      setTimeout(() => {
+                        commentsListRef.current?.scrollToEnd({
+                          animated: false,
+                        });
+                      }, 100);
+                    }
+                  }}
+                  maintainVisibleContentPosition={{
+                    minIndexForVisible: 0,
+                    autoscrollToTopThreshold: 10,
+                  }}
+                  removeClippedSubviews={false}
+                >
+                  {liveComments?.map((item: any, index: number) => (
+                    <View key={index}>{renderCommentItem({ item })}</View>
+                  ))}
+                </ScrollView>
+                {/* Announcements Section - Displayed prominently */}
+                {shouldShowUI &&
+                  liveAnnouncements?.some(
+                    (item: any) =>
+                      item.type === "announcement" &&
+                      item.data?.current === true,
+                  ) && (
+                    <View style={styles.featuredAnnouncementContainer}>
+                      {liveAnnouncements
+                        .filter(
+                          (item) =>
+                            item.type === "announcement" &&
+                            item.data?.current === true,
+                        )
+                        .slice(-1)
+                        .map((announcement, index) => (
                           <TouchableOpacity
-                            style={styles.waitButton}
-                            onPress={() => setShowNoHostAlert(false)}
-                          >
-                            <Text style={styles.waitButtonText}>Wait</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.leaveButton}
+                            key={index}
+                            style={styles.featuredAnnouncement}
                             onPress={() => {
-                              const leaveButton = true;
-                              handleLeaveStream(leaveButton);
+                              setSelectedAnnouncement(announcement);
+                              setShowAnnouncementSheet(true);
                             }}
+                            activeOpacity={0.8}
                           >
-                            <Text style={styles.leaveButtonText}>Leave</Text>
-                            {isLeavingStream && (
-                              <ActivityIndicator
-                                size={12}
-                                color="white"
-                                style={{ marginLeft: 5 }}
-                              />
-                            )}
+                            <View style={styles.featuredAnnouncementLeft}>
+                              {announcement.avatar ? (
+                                <GlassImage
+                                  source={
+                                    typeof announcement.avatar === "string"
+                                      ? { uri: announcement.avatar }
+                                      : announcement.avatar
+                                  }
+                                  containerClassName="w-10 h-10 rounded-full"
+                                  imageClassName="w-full h-full rounded-full"
+                                  glassClassName="w-full h-full rounded-full"
+                                  placeholderColor="rgba(255, 255, 255, 0.1)"
+                                  blurIntensity={20}
+                                  tint="dark"
+                                  showActivityIndicator={false}
+                                />
+                              ) : (
+                                <View style={styles.announcementAvatarFallback}>
+                                  <Text style={styles.announcementAvatarText}>
+                                    {announcement.user
+                                      ?.charAt(0)
+                                      ?.toUpperCase() || "?"}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            <View style={styles.featuredAnnouncementRight}>
+                              <View style={styles.featuredAnnouncementHeader}>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.featuredAnnouncementUser}
+                                >
+                                  {announcement.user}
+                                </Text>
+                                <View style={styles.featuredModTag}>
+                                  <Text style={styles.featuredModTagText}>
+                                    Host
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <Text
+                                numberOfLines={2}
+                                style={[
+                                  styles.featuredAnnouncementText,
+                                  { flex: 1, marginRight: 8 },
+                                ]}
+                              >
+                                {announcement.content}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
-                        </View>
-                      </View>
+                        ))}
                     </View>
                   )}
-              </>
-            ) : (
-              isStreamEnded ? (
-                <StreamEndedAlert
-                  onLeave={handleLeaveStream}
-                  isLeavingStream={isLeavingStream}
-                />
-              ) : (
-                <SkeletonLoader type="loading" />
-              )
+              </View>
             )}
           </View>
 
-          {/* Content Container */}
-          <View style={styles.contentContainer}>
-            {/* Top Actions */}
-            {shouldShowUI && !keyboardVisibleRef.current && (
-              <SafeAreaView style={{ marginTop: insets.top + 15 }}>
-                <View className={`flex-row justify-between items-center px-4`}>
-                  <View className="flex-row items-center gap-4 ">
-                    <TouchableOpacity
-                      className="flex-row items-center gap-2"
-                      onPress={() => {
-                        router.push({
-                          pathname: "/sellerProfile",
-                          params: {
-                            sellerId: sellerId,
-                            sellerAvatar: storeInfo?.avatar,
-                          },
-                        });
-                      }}
-                    >
-                      <GlassImage
-                        source={storeInfo?.avatar}
-                        containerClassName="w-10 h-10 rounded-full"
-                        imageClassName="w-full h-full rounded-full"
-                        glassClassName="w-full h-full rounded-full"
-                        placeholderColor="rgba(255, 255, 255, 0.1)"
-                        blurIntensity={20}
-                        tint="dark"
-                        showActivityIndicator={false}
-                      />
-                      <View>
-                        <Text numberOfLines={1} className="text-white max-w-[100px] font-LexendDecaMedium text-base">
-                          {storeInfo.name}
-                        </Text>
-                        <Text numberOfLines={1} className="text-gray-300 max-w-[100px] text-xs">
-                          {storeInfo.username}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                    {isFollowingLoading ? (
-                      <TouchableOpacity
-                        className="bg-[#16783A] h-full px-4 py-1 rounded-full"
-                        disabled
-                      >
-                        <ActivityIndicator size={17} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    ) : isFollowing ? (
-                      <TouchableOpacity
-                        className="bg-[#444444] h-full px-4 py-1 rounded-full"
-                        onPress={() => handleUnfollowSeller(false)}
-                      >
-                        <Text className="text-white text-sm">Unfollow</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        className="bg-[#16783A] h-full px-4 py-1 rounded-full"
-                        onPress={() => handleFollowSeller(false)}
-                      >
-                        <Text className="text-white text-sm">Follow</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <View className="flex-row items-center gap-2">
-                    <TouchableOpacity
-                      className="flex-row items-center px-3 py-2 rounded-full"
-                      onPress={handleShowViewers}
-                    >
-                      <Octicons name="people" size={22} color="#FFF" />
-                      <Text className="text-white ml-1 font-LexendDecaMedium ">
-                        {viewerCount > 999
-                          ? `${(viewerCount / 1000).toFixed(1)}K`
-                          : viewerCount}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setShowMenuPopover(!showMenuPopover)}
-                      className="p-2 rounded-full relative"
-                    >
-                      <Entypo
-                        name="dots-three-horizontal"
-                        size={22}
-                        color="#FFF"
-                      />
-                    </TouchableOpacity>
-                    {showMenuPopover && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: 40,
-                          backgroundColor: "rgba(0,0,0,0.2)",
-                          borderRadius: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          width: 160,
-                          shadowColor: "#000",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.25,
-                          shadowRadius: 3.84,
-                          zIndex: 50,
-                        }}
-                      >
-                        <TouchableOpacity
-                          onPress={() => {
-                            toggleMute();
-                            setShowMenuPopover(false);
-                          }}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            paddingVertical: 10,
-                          }}
-                        >
-                          {isMuted ? (
-                            <Ionicons
-                              name="volume-mute-outline"
-                              size={20}
-                              color="#FFF"
-                              style={{ marginRight: 10 }}
-                            />
-                          ) : (
-                            <Ionicons
-                              name="volume-medium-outline"
-                              size={20}
-                              color="#FFF"
-                              style={{ marginRight: 10 }}
-                            />
-                          )}
-                          <Text style={{ color: "#FFF", fontSize: 14 }}>
-                            {isMuted ? "Unmute" : "Mute"}
-                          </Text>
-                        </TouchableOpacity>
+          {/* Bottom Area */}
 
-                        <View
-                          style={{
-                            height: 1,
-                            backgroundColor: "rgba(255,255,255,0.1)",
-                            marginVertical: 5,
-                          }}
-                        />
-
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (!isLeavingStream) {
-                              const leaveButton = true;
-                              handleLeaveStream(leaveButton);
-                            }
-                          }}
-                          disabled={isLeavingStream}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            paddingVertical: 10,
-                          }}
-                        >
-                          {isLeavingStream ? (
-                            <ActivityIndicator
-                              size="small"
-                              color="#FF5555"
-                              style={{ marginRight: 10 }}
-                            />
-                          ) : (
-                            <Ionicons
-                              name="exit-outline"
-                              size={20}
-                              color="#FF5555"
-                              style={{ marginRight: 10 }}
-                            />
-                          )}
-                          <Text style={{ color: "#FF5555", fontSize: 14 }}>
-                            {isLeavingStream ? "Leaving..." : "Leave"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
+          <View style={styles.bottomArea}>
+            {/* Comment Input */}
+            {shouldShowUI && (
+              <View style={styles.commentInputContainer}>
+                <View style={styles.inputWithButtonContainer}>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Say something..."
+                    placeholderTextColor="#999"
+                    value={commentInput}
+                    onChangeText={setCommentInput}
+                    returnKeyType="send"
+                    onSubmitEditing={handleSendComment}
+                  />
+                  <TouchableOpacity
+                    style={styles.sendButton}
+                    onPress={handleSendComment}
+                    disabled={!commentInput.trim()}
+                  >
+                    <Ionicons
+                      name="send"
+                      size={22}
+                      color={commentInput.trim() ? "#16783A" : "#666"}
+                    />
+                  </TouchableOpacity>
                 </View>
-              </SafeAreaView>
+              </View>
             )}
 
-            {/* Add the FloatingHeartsAnimation component */}
-            <FloatingHeartsAnimation
-              ref={heartsRef}
-              count={15}
-              color="#16783A"
-            />
-
-            <View
-              style={{
-                height: keyboardVisibleRef.current
-                  ? height - keyboardHeightRef?.current + 15
-                  : height - (Platform.OS === "ios" ? insets.top + 25 : 25),
-                justifyContent: "flex-end",
-              }}
-            >
-              {/* Main Content Area */}
-
-              <View
-                style={[
-                  styles.mainContentArea,
-                  //{ height: keyboardVisibleRef.current ? "53%" : "69%"},
-                ]}
-              >
-                {/* Right Side Actions */}
-                {shouldShowUI && !keyboardVisibleRef.current && (
-                  <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    style={styles.rightActionsContainer}
-                    nestedScrollEnabled={true}
-                    onTouchStart={(e) => {
-                      // Prevent event from propagating to parent
-                      e.stopPropagation();
-                      // Notify parent to temporarily disable scrolling
-                      onInteractionStart?.();
+            {/* Bottom Product Card */}
+            {shouldShowUI &&
+              streamProducts.length > 0 &&
+              !keyboardVisibleRef.current && (
+                <View style={styles.bottomProductCardContainer}>
+                  <CustomCarousel
+                    loop={false}
+                    autoPlay={false}
+                    width={screenWidth - 32}
+                    height={110}
+                    data={streamProducts}
+                    scrollAnimationDuration={500}
+                    showPagination={false}
+                    onSnapToItem={(index) => setCurrentProductIndex(index)}
+                    viewabilityConfig={{
+                      itemVisiblePercentThreshold: 80,
+                      minimumViewTime: 200,
                     }}
-                    onScrollBeginDrag={(e) => {
-                      // Prevent scroll event from propagating to parent
-                      e.stopPropagation();
-                      // Notify parent to temporarily disable scrolling
-                      onInteractionStart?.();
+                    onViewableItemsChanged={({
+                      viewableItems,
+                    }: {
+                      viewableItems: Array<{
+                        index: number;
+                        item: any;
+                        isViewable: boolean;
+                        key: string;
+                      }>;
+                    }) => {
+                      if (viewableItems && viewableItems.length > 0) {
+                        const newIndex = viewableItems[0].index;
+                        if (typeof newIndex === "number") {
+                          setCurrentProductIndex(newIndex);
+                        }
+                      }
                     }}
-                    scrollEventThrottle={16}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                  >
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShare}
-                      >
-                        <SimpleLineIcons
-                          name="share-alt"
-                          size={22}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Share</Text>
-                    </View>
-
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowStreamInfo}
-                      >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Info</Text>
-                    </View>
-
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowOrders}
-                      >
-                        <MaterialCommunityIcons
-                          name="package-variant-closed"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Orders</Text>
-                    </View>
-
-                    <View style={styles.actionItem}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleShowShop}
-                      >
-                        <MaterialCommunityIcons
-                          name="storefront-outline"
-                          size={24}
-                          color="white"
-                        />
-                      </TouchableOpacity>
-                      <Text style={styles.actionText}>Shop</Text>
-                    </View>
-
-                    {
-                      <View style={styles.actionItem}>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={handleHeartPress}
-                        >
-                          <AntDesign name="hearto" size={24} color="#16783A" />
-                        </TouchableOpacity>
-                        <Text style={styles.actionText2}>Like</Text>
-                      </View>
-                    }
-                  </ScrollView>
-                )}
-
-                {/* Live Comments Section */}
-                {shouldShowUI && (
-                  <View className="absolute bottom-0 left-0 w-[70%] z-10  " >
-                    <ScrollView
-                      ref={commentsListRef}
-                      style={styles.commentsContainer}
-                      nestedScrollEnabled={true}
-                      onLayout={() => {
-                        // Scroll to end on initial layout
-                        if (commentsListRef.current && liveComments.length > 0) {
-                          setTimeout(() => {
-                            commentsListRef.current?.scrollToEnd({
-                              animated: false,
-                            });
-                          }, 100);
-                        }
-                      }}
-                      showsVerticalScrollIndicator={false}
-                      fadingEdgeLength={350}
-                      contentContainerStyle={styles.commentsList}
-                      onContentSizeChange={() => {
-                        // Scroll to end when content size changes
-                        if (commentsListRef.current && liveComments.length > 0) {
-                          setTimeout(() => {
-                            commentsListRef.current?.scrollToEnd({
-                              animated: false,
-                            });
-                          }, 100);
-                        }
-                      }}
-                      maintainVisibleContentPosition={{
-                        minIndexForVisible: 0,
-                        autoscrollToTopThreshold: 10,
-                      }}
-                      removeClippedSubviews={false}
-                    >
-                      {liveComments?.map((item: any, index: number) => (
-                        <View key={index}>{renderCommentItem({ item })}</View>
-                      ))}
-                    </ScrollView>
-                    {/* Announcements Section - Displayed prominently */}
-                    {shouldShowUI &&
-                      liveAnnouncements?.some((item: any) => item.type === 'announcement' && item.data?.current === true) && (
-                        <View style={styles.featuredAnnouncementContainer}>
-                          {liveAnnouncements
-                            .filter(item => item.type === 'announcement' && item.data?.current === true)
-                            .slice(-1)
-                            .map((announcement, index) => (
-                              <TouchableOpacity 
-                                key={index} 
-                                style={styles.featuredAnnouncement}
-                                onPress={() => {
-                                  setSelectedAnnouncement(announcement);
-                                  setShowAnnouncementSheet(true);
-                                }}
-                                activeOpacity={0.8}
-                              >
-                                <View style={styles.featuredAnnouncementLeft}>
-                                  {announcement.avatar ? (
-                                    <GlassImage
-                                      source={typeof announcement.avatar === 'string'
-                                        ? { uri: announcement.avatar }
-                                        : announcement.avatar}
-                                      containerClassName="w-10 h-10 rounded-full"
-                                      imageClassName="w-full h-full rounded-full"
-                                      glassClassName="w-full h-full rounded-full"
-                                      placeholderColor="rgba(255, 255, 255, 0.1)"
-                                      blurIntensity={20}
-                                      tint="dark"
-                                      showActivityIndicator={false}
-                                    />
-                                  ) : (
-                                    <View style={styles.announcementAvatarFallback}>
-                                      <Text style={styles.announcementAvatarText}>
-                                        {announcement.user?.charAt(0)?.toUpperCase() || '?'}
-                                      </Text>
-                                    </View>
-                                  )}
-                                </View>
-                                <View style={styles.featuredAnnouncementRight}>
-                                  <View style={styles.featuredAnnouncementHeader}>
-                                    <Text numberOfLines={1} style={styles.featuredAnnouncementUser}>{announcement.user}</Text>
-                                    <View style={styles.featuredModTag}>
-                                      <Text style={styles.featuredModTagText}>Host</Text>
-                                    </View>
-                                  </View>
-                     
-                                    <Text numberOfLines={2} style={[styles.featuredAnnouncementText, {flex: 1, marginRight: 8}]}>
-                                      {announcement.content}
-                                    </Text>
-                                  
-                                </View>
-                              </TouchableOpacity>
-                            ))}
-                        </View>
-                      )}
-                  </View>
-                )}
-
-
-              </View>
-
-              {/* Bottom Area */}
-
-              <View style={styles.bottomArea}>
-                {/* Comment Input */}
-                {shouldShowUI && (
-                  <View style={styles.commentInputContainer}>
-                    <View style={styles.inputWithButtonContainer}>
-                      <TextInput
-                        style={styles.commentInput}
-                        placeholder="Say something..."
-                        placeholderTextColor="#999"
-                        value={commentInput}
-                        onChangeText={setCommentInput}
-                        returnKeyType="send"
-                        onSubmitEditing={handleSendComment}
+                    renderItem={({ item, index }) => (
+                      <LiveShowProductCard
+                        item={item}
+                        index={index}
+                        onBuyNow={handleBuyNow}
+                        onPreview={handleProductPreview}
                       />
-                      <TouchableOpacity
-                        style={styles.sendButton}
-                        onPress={handleSendComment}
-                        disabled={!commentInput.trim()}
-                      >
-                        <Ionicons
-                          name="send"
-                          size={22}
-                          color={commentInput.trim() ? "#16783A" : "#666"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                {/* Bottom Product Card */}
-                {shouldShowUI &&
-                  streamProducts.length > 0 &&
-                  !keyboardVisibleRef.current && (
-                    <View style={styles.bottomProductCardContainer}>
-                      <CustomCarousel
-                        loop={false}
-                        autoPlay={false}
-                        width={screenWidth - 32}
-                        height={110}
-                        data={streamProducts}
-                        scrollAnimationDuration={500}
-                        showPagination={false}
-                        onSnapToItem={(index) => setCurrentProductIndex(index)}
-                        viewabilityConfig={{
-                          itemVisiblePercentThreshold: 80,
-                          minimumViewTime: 200,
-                        }}
-                        onViewableItemsChanged={({ viewableItems }: { viewableItems: Array<{ index: number, item: any, isViewable: boolean, key: string }> }) => {
-                          if (viewableItems && viewableItems.length > 0) {
-                            const newIndex = viewableItems[0].index;
-                            if (typeof newIndex === 'number') {
-                              setCurrentProductIndex(newIndex);
-                            }
-                          }
-                        }}
-                        renderItem={({ item, index }) => (
-                          <LiveShowProductCard
-                            item={item}
-                            index={index}
-                            onBuyNow={handleBuyNow}
-                            onPreview={handleProductPreview}
-                          />
-                        )}
-                        defaultIndex={currentProductIndex}
-                      />
-                    </View>
-                  )}
-              </View>
-            </View>
+                    )}
+                    defaultIndex={currentProductIndex}
+                  />
+                </View>
+              )}
           </View>
         </View>
       </View>
@@ -2176,14 +2235,12 @@ const LivestreamStudioFeed = ({
         enablePanDownToClose={true}
         enableContentPanningGesture={true}
       >
-        {
-          scheduledStreamDetails && (
-            <RsvpSheet
-              streamDetails={scheduledStreamDetails}
-              closeSheet={() => showRsvpSheet(false)}
-            />
-          )
-        }
+        {scheduledStreamDetails && (
+          <RsvpSheet
+            streamDetails={scheduledStreamDetails}
+            closeSheet={() => showRsvpSheet(false)}
+          />
+        )}
       </BottomSheet>
 
       <BottomSheet
@@ -2213,12 +2270,12 @@ const LivestreamStudioFeed = ({
         showCloseIcon={false}
         title=""
         show={showCheckout}
-        snapPoints={["70%"]}
+        snapPoints={["85%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowCheckout(false)}
         keyboardBehavior="interactive"
         enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        enableDynamicSizing={false}
       >
         {selectedProduct && (
           <CheckoutNow
@@ -2341,12 +2398,12 @@ const LivestreamStudioFeed = ({
         enablePanDownToClose={true}
         enableContentPanningGesture={true}
       >
-        <AnnouncementView 
-          announcement={selectedAnnouncement} 
-          closeSheet={() => setShowAnnouncementSheet(false)} 
+        <AnnouncementView
+          announcement={selectedAnnouncement}
+          closeSheet={() => setShowAnnouncementSheet(false)}
         />
       </BottomSheet>
-    </GestureHandlerRootView>
+    </View>
   );
 };
 
@@ -2383,8 +2440,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   contentContainer: {
-    height: height,
+    // height: "100%",
     position: "relative",
+    justifyContent: "space-between",
+    flex: 1,
   },
   mainContentArea: {
     position: "relative",
@@ -2897,6 +2956,5 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
 });
-
 
 export default LivestreamStudioFeed;

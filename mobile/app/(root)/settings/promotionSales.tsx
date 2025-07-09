@@ -1,10 +1,4 @@
-import {
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -16,6 +10,7 @@ import { RootState } from "@/store";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "@/core/toast";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const PromotionSales = () => {
   const token = useSelector((state: RootState) => state.authState.token);
