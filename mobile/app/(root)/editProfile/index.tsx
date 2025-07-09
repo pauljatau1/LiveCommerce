@@ -137,7 +137,7 @@ const EditProfile = () => {
       };
 
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/avatar",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile/avatar",
         formData,
         config,
       );
@@ -145,7 +145,7 @@ const EditProfile = () => {
       dispatch(
         setUserData({
           ...user,
-          profileImage: { url: response.data.buyer?.profileImage?.url },
+          profileImage: { url: response.data?.data?.profileImage?.url },
         }),
       );
       updateProfile();
@@ -169,7 +169,7 @@ const EditProfile = () => {
         lastName: editLastNameVal,
       };
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/update",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile",
         payload,
         {
           headers: {

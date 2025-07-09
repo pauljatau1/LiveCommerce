@@ -39,9 +39,15 @@ export interface LoginRequest {
   username: string;
 }
 
-export type LoginResponse = {
+export type LoginResponseData = {
   token: string;
-  user: User | null;
+  user: User;
+}
+
+export type LoginResponse = {
+  success:boolean,
+  message:string,
+  data:LoginResponseData
 };
 
 export type SignUpRequest = {
@@ -55,9 +61,15 @@ export type SignUpRequest = {
   expoPushToken?: string;
 };
 
-export type SignUpResponse = {
+type signUpResponseData = {
   token: string;
   user: User;
+}
+
+export type SignUpResponse = {
+  success:boolean,
+  message:string,
+  data:signUpResponseData
 };
 
 export type ResendEmailOTPRequest = {
