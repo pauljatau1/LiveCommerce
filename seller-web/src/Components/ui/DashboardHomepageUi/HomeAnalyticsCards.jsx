@@ -111,11 +111,11 @@ export default function HomeAnalyticsCards() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 mt-6 xl:mt-9">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8">
         {[...Array(5)].map((_, index) => (
           <div
             key={index}
-            className="bg-white p-6 rounded-xl border border-gray-200"
+            className="bg-white px-6 py-4 rounded-xl border border-gray-200"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
