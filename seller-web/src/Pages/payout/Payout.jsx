@@ -232,7 +232,7 @@ export default function Payout() {
                 
                 window.cioanalytics.track('withdrawal_requested', {
                   seller_id: seller._id,
-                  amount: `₦${withdrawalAmount.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}`,
+                  amount: withdrawalAmount,
                   payout_method: 'bank_transfer',
                   bank_name: bankDetails.bankName,
                   account_name: bankDetails.accountName,

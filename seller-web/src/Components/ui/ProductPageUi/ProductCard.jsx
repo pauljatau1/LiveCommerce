@@ -1224,7 +1224,7 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                     sellerCountry: sellerDetails?.sellerAddress?.country,
                     productId: productId,
                     productName: product?.name,
-                    productPrice: `₦${product?.price.toLocaleString('en-NG')}`,
+                    productPrice: product?.price,
                     blipCount: blipVideos.length
                 });
 

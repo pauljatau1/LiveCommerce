@@ -633,7 +633,7 @@ function AuthProvider({ children }) {
                         "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
                         "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
                         "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                        "Total Wallet Balance": `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                        "Total Wallet Balance": response?.data?.user?.walletBalance,
                         "IP Address": clientIP,
                     };
 
