@@ -17,7 +17,6 @@ const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const { agenda } = require('../config/agenda');
-const Session = require('../models/Session');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // Load environment variables from a .env file
 require('dotenv').config();
@@ -384,20 +383,6 @@ exports.getProfile = async (req, res) => {
 
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
-    }
-
-    // Log daily session for this buyer
-    try {
-      const today = new Date();
-      const sessionDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const city = (buyer.shippingAddresses && buyer.shippingAddresses.length > 0 && buyer.shippingAddresses[0].city) ? buyer.shippingAddresses[0].city : 'Unknown';
-      await Session.findOneAndUpdate(
-        { user: req.user.id, userType: 'buyer', date: sessionDate },
-        { $setOnInsert: { city } },
-        { upsert: true, new: false }
-      );
-    } catch (sessionErr) {
-      console.error('Error logging buyer session:', sessionErr);
     }
 
     // Get counts in parallel using the activityFeed to count following

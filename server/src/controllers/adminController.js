@@ -20,7 +20,6 @@ const Conversation = require('../models/Conversation');
 const PlatformNotification = require('../models/PlatformNotification');
 const { Expo } = require('expo-server-sdk');
 const axios = require('axios');
-const Session = require('../models/Session');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -1763,33 +1762,6 @@ exports.getPlatformAnalytics = async (req, res) => {
       if (stat._id === 'resolved') analytics.disputes.resolved = stat.count;
       analytics.disputes.total += stat.count;
     });
-
-    // Session metrics for today (unique sessions per city)
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
-
-    const sessionAgg = await Session.aggregate([
-      { $match: { date: { $gte: startOfToday, $lt: endOfToday } } },
-      { $group: { _id: { userType: '$userType', city: '$city' }, count: { $sum: 1 } } }
-    ]);
-
-    const buyerSessions = {};
-    const sellerSessions = {};
-    sessionAgg.forEach(item => {
-      const city = item._id.city || 'Unknown';
-      if (item._id.userType === 'buyer') {
-        buyerSessions[city] = (buyerSessions[city] || 0) + item.count;
-      } else if (item._id.userType === 'seller') {
-        sellerSessions[city] = (sellerSessions[city] || 0) + item.count;
-      }
-    });
-
-    analytics.sessionMetrics = {
-      buyerSessions,
-      sellerSessions
-    };
 
     res.json(analytics);
   } catch (error) {
@@ -4030,7 +4002,7 @@ exports.getFinancialTransactions = async (req, res) => {
     // Get transactions with pagination and populate seller
     const transactions = await Transaction.find(query)
       .populate('seller', 'firstName lastName email storeName')
-      .populate('orderId', 'order_id buyer items totalAmount shipping paymentInfo')
+      .populate('orderId', 'order_id buyer')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -6696,7 +6668,7 @@ exports.getPlatformMetrics = async (req, res) => {
       Buyer.countDocuments(),
       Seller.countDocuments(),
       Product.countDocuments(),
-      Order.countDocuments({ isStale: { $ne: true } }),
+      Order.countDocuments(),
       Stream.countDocuments(),
       Transaction.countDocuments(),
       Withdrawal.countDocuments(),
@@ -6807,28 +6779,6 @@ exports.getPlatformMetrics = async (req, res) => {
       Stream.find().sort({ createdAt: -1 }).limit(5).select('seller title status scheduledStartTime actualStartTime')
     ]);
 
-    // Session metrics for today (unique sessions per city)
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
-
-    const sessionAgg = await Session.aggregate([
-      { $match: { date: { $gte: startOfToday, $lt: endOfToday } } },
-      { $group: { _id: { userType: '$userType', city: '$city' }, count: { $sum: 1 } } }
-    ]);
-
-    const buyerSessions = {};
-    const sellerSessions = {};
-    sessionAgg.forEach(item => {
-      const city = item._id.city || 'Unknown';
-      if (item._id.userType === 'buyer') {
-        buyerSessions[city] = (buyerSessions[city] || 0) + item.count;
-      } else if (item._id.userType === 'seller') {
-        sellerSessions[city] = (sellerSessions[city] || 0) + item.count;
-      }
-    });
-
     const metrics = {
       counts: {
         buyers: totalBuyers,
@@ -6889,10 +6839,6 @@ exports.getPlatformMetrics = async (req, res) => {
         withdrawals: recentWithdrawals,
         bankChangeRequests: recentBankChangeRequests,
         streams: recentStreams
-      },
-      sessionMetrics: {
-        buyers: buyerSessions,
-        sellers: sellerSessions
       }
     };
 

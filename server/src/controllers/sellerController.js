@@ -360,20 +360,6 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Log daily session for this seller
-    try {
-      const today = new Date();
-      const sessionDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()); // midnight
-      const city = seller.sellerAddress?.city || seller.businessAddress?.city || 'Unknown';
-      await Session.findOneAndUpdate(
-        { user: req.user.id, userType: 'seller', date: sessionDate },
-        { $setOnInsert: { city } },
-        { upsert: true, new: false }
-      );
-    } catch (sessionErr) {
-      console.error('Error logging seller session:', sessionErr);
-    }
-
     // Get counts and product-related data
     const [orderCount, streamCount, categoriesCount, followingCount, products] = await Promise.all([
       Order.countDocuments({ seller: req.user.id }),
@@ -4937,6 +4923,4 @@ exports.checkVerificationStatus = async (req, res) => {
     });
   }
 };
-
-const Session = require('../models/Session');
 
