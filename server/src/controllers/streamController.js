@@ -1082,27 +1082,6 @@ exports.joinStream = async (req, res) => {
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
-
-    // track event in mixpanel
-    if (res.statusCode === 200) {
-      if (stream.type === 'open_show') {
-        mixpanel.track('open_show_stream_joined', {
-          streamId: stream._id,
-          buyerId: req.user.id,
-          buyerName: buyer.firstName + " " + buyer.lastName,
-          buyerUsername: buyer.username,
-          joinTime: new Date().toISOString()
-        });
-      } else {
-        mixpanel.track('live_auction_stream_joined', {
-          streamId: stream._id,
-          buyerId: req.user.id,
-          buyerName: buyer.firstName + " " + buyer.lastName,
-          buyerUsername: buyer.username,
-          joinTime: new Date().toISOString()
-        });
-      }
-    }
     
     // Get total product count before limiting
     const totalProductCount = stream.products.length;
