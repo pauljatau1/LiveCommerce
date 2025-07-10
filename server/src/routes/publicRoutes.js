@@ -12,6 +12,9 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { Transform } = require('json2csv');
 const { once } = require('events');
+const { getPlatformMetricsHelper } = require('../config/agenda');
+const mixpanel = require('../config/mixpanel');
+
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
@@ -1278,6 +1281,46 @@ function toMetaRow(p) {
     brand: p.brand || p.seller?.storeName || 'Auqli'
   };
 }
+
+router.get('/test-mixpanel-tracking', async (req, res) => {
+  try {
+    const metrics = await getPlatformMetricsHelper();
+    // Total Orders event
+    const orderMetrics = metrics.orderMetrics;
+    const totalOrders = orderMetrics.pendingOrders + orderMetrics.processingOrders + orderMetrics.shippedOrders + orderMetrics.deliveredOrders + orderMetrics.ordersWithReturns + orderMetrics.ordersWithDisputes;
+    mixpanel.track('total_orders', { ...orderMetrics, totalOrders });
+
+    // Total revenue event
+    mixpanel.track('total_revenue', { transactions: metrics.financialMetrics.totalOrderAmount });
+
+    // Total users event
+    const userMetrics = metrics.userMetrics;
+    const totalUsers = userMetrics.activeBuyers + userMetrics.inactiveBuyers + userMetrics.activeSellers + userMetrics.inactiveSellers;
+    mixpanel.track('total_users', { ...userMetrics, totalUsers });
+
+    // Total products event
+    mixpanel.track('total_products', { products: metrics.counts.products });
+
+    // Sessions per day event
+    mixpanel.track('sessions_per_day', { buyers: metrics.sessionMetrics.buyers, sellers: metrics.sessionMetrics.sellers });
+
+    // Sessions from each city event
+    mixpanel.track('sessions_from_each_city', { buyers: metrics.sessionMetrics.buyers, sellers: metrics.sessionMetrics.sellers });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Mixpanel tracking events sent successfully',
+      data: metrics
+    });
+  } catch (error) {
+    console.error('Error testing Mixpanel tracking:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to test Mixpanel tracking',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;
 
