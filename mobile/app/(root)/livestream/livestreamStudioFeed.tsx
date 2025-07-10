@@ -1582,7 +1582,7 @@ const LivestreamStudioFeed = ({
         username: user?.username,
         productId: product?.productId,
         productName: product?.name,
-        productPrice: `₦${product?.price?.toLocaleString()}`,
+        productPrice: product?.price,
         productCategory: product?.category,
         productSubCategory: product?.subCategory,
         productStock: product?.stock,

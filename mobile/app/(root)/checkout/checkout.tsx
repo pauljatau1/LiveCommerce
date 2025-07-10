@@ -882,17 +882,11 @@ const Checkout = () => {
             products: cartData?.map((item: any) => {
               return {
                 name: item.name,
-                price: `₦${item.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                price: item.price,
                 productId: item._id,
               };
             }),
-            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
+            totalAmount: cartTotal,
             paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
             timestamp: new Date().toISOString(),
           });
@@ -967,17 +961,11 @@ const Checkout = () => {
             products: cartData?.map((item: any) => {
               return {
                 name: item.name,
-                price: `₦${item.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                price: item.price,
                 productId: item._id,
               };
             }),
-            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
+            totalAmount: cartTotal,
             timestamp: new Date().toISOString(),
           });
 
@@ -991,17 +979,11 @@ const Checkout = () => {
             products: cartData?.map((item: any) => {
               return {
                 name: item.name,
-                price: `₦${item.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                price: item.price,
                 productId: item._id,
               };
             }),
-            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
+            totalAmount: cartTotal,
             timestamp: new Date().toISOString(),
           });
 
@@ -1020,17 +1002,11 @@ const Checkout = () => {
             products: cartData?.map((item: any) => {
               return {
                 name: item.name,
-                price: `₦${item.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                price: item.price,
                 productId: item._id,
               };
             }),
-            totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
+            totalAmount: cartTotal,
             timestamp: new Date().toISOString(),
           });
         }
@@ -1181,17 +1157,11 @@ const Checkout = () => {
                     products: cartData?.map((item: any) => {
                       return {
                         name: item.name,
-                        price: `₦${item.price.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`,
+                        price: item.price,
                         productId: item._id,
                       };
                     }),
-                    totalAmount: `₦${cartTotal?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}`,
+                    totalAmount: cartTotal,
                     timestamp: new Date().toISOString(),
                   });
                 } catch (error) {

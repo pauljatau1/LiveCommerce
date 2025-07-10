@@ -159,7 +159,7 @@ const CartScreen = () => {
               trackEventMixpanel("product_added_to_wishlist", {
                 productId: data._id,
                 productName: data?.name,
-                productPrice: `₦${data?.price?.toLocaleString()}`,
+                productPrice: data?.price,
                 productImage: data?.images[0]?.url,
                 userId: user?._id,
                 email: user?.email,
@@ -172,7 +172,7 @@ const CartScreen = () => {
               trackEventCustomerio("product_added_to_wishlist", {
                 productId: data._id,
                 productName: data?.name,
-                productPrice: `₦${data?.price?.toLocaleString()}`,
+                productPrice: data?.price,
                 productImage: data?.images[0]?.url,
                 userId: user?._id,
                 email: user?.email,

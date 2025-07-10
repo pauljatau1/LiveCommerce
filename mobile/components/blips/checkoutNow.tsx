@@ -465,7 +465,7 @@ const CheckoutNow = ({
             trackEvent("blip_product_purchased", {
               productId: product._id,
               productName: product?.name,
-              productPrice: `₦${product?.price?.toLocaleString()}`,
+              productPrice: product?.price,
               productImage: product?.images[0]?.url,
               blipId: blipId,
               userId: user?._id,

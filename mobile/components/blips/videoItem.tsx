@@ -388,11 +388,9 @@ const VideoItem = ({
       blipId: id,
       productId: item?._id,
       productName: item?.name,
-      productPrice: `₦${
-        item?.discount?.isActive
-          ? item?.discount?.discountedPrice?.toLocaleString() || 0
-          : item?.price?.toLocaleString()
-      }`,
+      productPrice: item?.discount?.isActive
+        ? item?.discount?.discountedPrice || 0
+        : item?.price,
       isDiscounted: item?.discount?.isActive,
       productStock: item?.stock,
       userId: user?._id,

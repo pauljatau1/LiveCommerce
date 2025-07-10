@@ -122,8 +122,8 @@ const Login = () => {
             shippingAddress: result?.user?.shippingAddresses[0],
             country: result?.user?.country,
             emailVerified: result?.user?.emailVerified,
-            walletBalance: `₦${result?.user?.wallet?.balance?.toLocaleString()}`,
-            onHoldAmount: `₦${result?.user?.wallet?.onHoldAmount?.toLocaleString()}`,
+            walletBalance: result?.user?.wallet?.balance,
+            onHoldAmount: result?.user?.wallet?.onHoldAmount,
             onHoldItems: result?.user?.wallet?.onHoldAmount
               ? result?.user?.wallet?.onHoldItems[0]
               : "none",

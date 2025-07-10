@@ -66,10 +66,7 @@ const CancelSheet = ({
               return {
                 productId: item.product?._id,
                 productName: item.product?.name,
-                productPrice: `₦${item.product?.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                productPrice: item.product?.price,
                 productImage: item.product?.images?.[0]?.url,
                 sellerId: item.seller._id,
               };
