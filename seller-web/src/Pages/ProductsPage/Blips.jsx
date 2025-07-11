@@ -309,7 +309,7 @@ const Blips = () => {
           sellerCountry: sellerDetails?.sellerAddress?.country,
           productId: selectedProduct?._id,
           productName: selectedProduct?.name,
-          productPrice: `₦${selectedProduct?.price.toLocaleString('en-NG')}`,
+          productPrice: selectedProduct?.price,
           blipCount: blipVideos.length
         });
 

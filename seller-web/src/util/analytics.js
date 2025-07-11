@@ -120,6 +120,12 @@ export const initCustomerIO = async () => {
  * @param {Object} properties - Event properties
  */
 export const trackEvent = async (eventName, properties = {}) => {
+  const APP_STATE = import.meta.env.VITE_APP_STATE || 'development';
+  if (APP_STATE !== 'production') {
+    console.log(`Tracking event: ${eventName}`, properties);
+    return;
+  }
+
   // Don't proceed without an event name
   if (!eventName) {
     console.warn('trackEvent called without an event name');

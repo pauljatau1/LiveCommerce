@@ -39,6 +39,7 @@ const PastShows = lazy(() => import('../Pages/LiveStream/PastShows'));
 const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
 const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
+const BusinessInformationOnboarding = lazy(() => import('../Components/ui/BusinessInformationOnboarding'));
 
 export const dashboardRoutes = [
     {
