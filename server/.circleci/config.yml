@@ -53,7 +53,7 @@ commands:
                   --duration-seconds 3600 \
                   --output "json" \
                   --query "Credentials" \
-                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/circleci-oidc" \
+                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/auqli-inc-oidc-role" \
                   --role-session-name "<< parameters.account_id >>-oidc-credentials" \
                   --web-identity-token "${CIRCLE_OIDC_TOKEN}")
             export AWS_ACCESS_KEY_ID=$(echo $AWS_STS_CREDENTIALS | jq .AccessKeyId | xargs)
