@@ -2053,11 +2053,9 @@ describe('Buyer Controller', () => {
         undefined,
         mockReq.body.otp
       );
-
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(mockError);
     });
-
 
     it('should handle missing OTP in request body', async () => {
       mockReq.body = {
@@ -2077,7 +2075,6 @@ describe('Buyer Controller', () => {
         mockReq.body.email,
         undefined
       );
-
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(mockError);
     });
