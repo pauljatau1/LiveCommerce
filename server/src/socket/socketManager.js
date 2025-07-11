@@ -2066,7 +2066,7 @@ async function scheduleStreamEndTimeout(sellerId) {
     // Get the agenda instance
     const { agenda } = require('../config/agenda');
     
-    // Schedule a job to end each active stream after 1 minute
+    // Schedule a job to end each active stream after 10 minutes
     for (const stream of activeStreams) {
       // Check if there's already a pending job for this stream
       const existingJobs = await agenda.jobs({
@@ -2084,8 +2084,8 @@ async function scheduleStreamEndTimeout(sellerId) {
       // Create a unique job ID for this stream timeout
       const jobId = `stream_end_${stream._id}_${Date.now()}`;
       
-      // Schedule the job to run one minute from now
-      await agenda.schedule('in 1 minute', 'stream_auto_end', {
+      // Schedule the job to run ten minutes from now
+      await agenda.schedule('in 10 minutes', 'stream_auto_end', {
         streamId: stream._id.toString(),
         sellerId: sellerId,
         jobId,
