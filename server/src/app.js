@@ -38,6 +38,7 @@ const campaignRoutes = require('./routes/campaignRoutes');
 // Example routes for refactoring
 const userRoutes = require('./modules/user/routes/user.routes');
 const listingRoutes = require('./modules/listing/routes/listing.route');
+const buyerRoutesV2 = require('./modules/buyer/routes/buyer.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
@@ -154,6 +155,7 @@ app.use('/api/pickup', pickupRoutes);
 // example routes for refactoring
 app.use('/api/users', userRoutes);
 app.use('/api/users/:userId/listings', listingRoutes);
+app.use('/api/v2/buyers', buyerRoutesV2);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

@@ -78,7 +78,12 @@ const options = {
       }
     },
   },
-  apis: ['./src/routes/*.js', './src/modules/user/routes/*.js', './src/modules/listing/routes/*.js'], 
+  apis: [
+    './src/routes/*.js', 
+    './src/modules/user/routes/*.js', 
+    './src/modules/listing/routes/*.js', 
+    './src/modules/buyer/routes/*.js'
+  ], 
 };
 
 // Generate the spec

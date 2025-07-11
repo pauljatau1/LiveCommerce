@@ -1,4 +1,4 @@
-const Buyer = require('../models/Buyer');
+const Buyer = require('../modules/buyer/models/buyer.model');
 const jwt = require('jsonwebtoken');
 const sgMail = require('@sendgrid/mail');
 const { v4: uuidv4 } = require('uuid');

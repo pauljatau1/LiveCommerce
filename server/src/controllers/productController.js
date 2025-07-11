@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Buyer = require('../models/Buyer');
+const Buyer = require('../modules/buyer/models/buyer.model');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -2991,6 +2991,51 @@ exports.getSellerProducts = async (req, res) => {
     // Get total count for pagination
     const totalProducts = await Product.countDocuments(query);
 
+    // Calculate additional statistics based on base query (seller products excluding offline_auction)
+    const baseQuery = { 
+      seller: sellerId,
+      status: { $ne: 'offline_auction' }
+    };
+
+    // Get statistics
+    const [
+      totalSellerProducts,
+      productsWithBlips,
+      productsWithoutBlips,
+      activeProducts,
+      draftProducts
+    ] = await Promise.all([
+      // Total number of products (excluding offline_auction)
+      Product.countDocuments(baseQuery),
+      
+      // Number of products with blips
+      Product.countDocuments({
+        ...baseQuery,
+        blips: { $exists: true, $not: { $size: 0 } }
+      }),
+      
+      // Number of products without blips
+      Product.countDocuments({
+        ...baseQuery,
+        $or: [
+          { blips: { $exists: false } },
+          { blips: { $size: 0 } }
+        ]
+      }),
+      
+      // Number of active products
+      Product.countDocuments({
+        ...baseQuery,
+        status: 'active'
+      }),
+      
+      // Number of draft products
+      Product.countDocuments({
+        ...baseQuery,
+        status: 'draft'
+      })
+    ]);
+
     res.json({
       products: products.map(product => ({
         ...product.toObject(),
@@ -3016,6 +3061,14 @@ exports.getSellerProducts = async (req, res) => {
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: parseInt(page),
       totalProducts,
+      statistics: {
+        totalProducts: totalSellerProducts,
+        productsWithBlips,
+        productsWithoutBlips,
+        activeProducts,
+        draftProducts,
+        activeDraftProducts: activeProducts + draftProducts
+      },
       filters: {
         minPrice,
         maxPrice,
@@ -4213,7 +4266,7 @@ exports.toggleBlipLike = async (req, res) => {
     // Create notification for the seller when a blip is liked
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../models/Buyer');
+      const Buyer = require('../modules/buyer/models/buyer.model');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -4291,7 +4344,7 @@ exports.addBlipComment = async (req, res) => {
     // Create notification for the seller when a comment is added
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../models/Buyer');
+      const Buyer = require('../modules/buyer/models/buyer.model');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -7977,7 +8030,7 @@ exports.getReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../models/Buyer');
+    const Buyer = require('../modules/buyer/models/buyer.model');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     
