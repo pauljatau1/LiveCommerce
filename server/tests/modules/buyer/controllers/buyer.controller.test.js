@@ -32,6 +32,10 @@ jest.mock('@modules/buyer/services/updateProfile.service', () => ({
   updateProfile: jest.fn()
 }));
 
+jest.mock('@modules/buyer/services/resendOTP.service', () => ({
+  resendOTP: jest.fn()
+}));
+
 jest.mock('@modules/buyer/services/uploadProfileImage.service', () => ({
   uploadProfileImage: jest.fn()
 }));
@@ -48,6 +52,8 @@ const checkTokenService = require('@modules/buyer/services/checkToken.service');
 const updateProfileService = require('@modules/buyer/services/updateProfile.service');
 const uploadProfileImageService = require('@modules/buyer/services/uploadProfileImage.service');
 const verifyOTPService = require('@modules/buyer/services/verifyOTP.service');
+const resendOTPService = require('@modules/buyer/services/resendOTP.service');
+
 
 // Mock Firebase
 jest.mock('@firebase', () => ({
@@ -2090,6 +2096,190 @@ describe('Buyer Controller', () => {
         undefined,
         undefined
       );
+
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+  });
+
+  describe('resendOTP', () => {
+    let mockReq;
+    let mockRes;
+    let mockNext;
+
+    beforeEach(() => {
+      mockReq = {
+        body: {
+          email: 'test@example.com'
+        }
+      };
+
+      mockRes = {
+        success: jest.fn()
+      };
+
+      mockNext = jest.fn();
+    });
+
+    it('should resend OTP successfully', async () => {
+      // Arrange
+      const mockResponse = {
+        message: 'OTP resent successfully'
+      };
+
+      resendOTPService.resendOTP.mockResolvedValue(mockResponse);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
+      expect(mockRes.success).toHaveBeenCalledWith(mockResponse, 'OTP resent successfully');
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should handle service errors and pass to next middleware', async () => {
+      // Arrange
+      const mockError = new Error('Service error');
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle validation errors', async () => {
+      // Arrange
+      const ValidationError = require('@utils/errors/ValidationError');
+      const mockError = new ValidationError([
+        { field: 'email', message: 'Email is required' }
+      ]);
+
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle not found errors', async () => {
+      // Arrange
+      const NotFoundException = require('@utils/errors/NotFoundException');
+      const mockError = new NotFoundException('Buyer not found');
+
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle missing email in request body', async () => {
+      // Arrange
+      mockReq.body = {};
+      const mockError = new Error('Email is required');
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith(undefined);
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle null request body', async () => {
+      // Arrange
+      mockReq.body = null;
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).not.toHaveBeenCalled();
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(TypeError));
+    });
+
+    it('should handle undefined request body', async () => {
+      // Arrange
+      mockReq.body = undefined;
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).not.toHaveBeenCalled();
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(TypeError));
+    });
+
+    it('should handle different email formats', async () => {
+      // Arrange
+      const testEmails = [
+        'user@example.com',
+        'test.user@domain.co.uk',
+        'user+tag@example.org'
+      ];
+
+      for (const email of testEmails) {
+        mockReq.body.email = email;
+        const mockResponse = {
+          message: 'OTP resent successfully'
+        };
+
+        resendOTPService.resendOTP.mockResolvedValue(mockResponse);
+
+        // Act
+        await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+        // Assert
+        expect(resendOTPService.resendOTP).toHaveBeenCalledWith(email);
+        expect(mockRes.success).toHaveBeenCalledWith(mockResponse, 'OTP resent successfully');
+        expect(mockNext).not.toHaveBeenCalled();
+
+        // Clear mocks for next iteration
+        jest.clearAllMocks();
+      }
+    });
+
+    it('should handle SendGrid errors', async () => {
+      // Arrange
+      const mockError = new Error('SendGrid API error');
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
+      expect(mockRes.success).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(mockError);
+    });
+
+    it('should handle database errors', async () => {
+      // Arrange
+      const mockError = new Error('Database connection error');
+      resendOTPService.resendOTP.mockRejectedValue(mockError);
+
+      // Act
+      await buyerController.resendOTP(mockReq, mockRes, mockNext);
+
+      // Assert
+      expect(resendOTPService.resendOTP).toHaveBeenCalledWith('test@example.com');
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(mockError);
     });

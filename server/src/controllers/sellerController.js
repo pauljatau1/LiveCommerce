@@ -210,13 +210,6 @@ exports.login = async (req, res) => {
     }
 
     const token = generateToken(seller._id);
-
-    // track seller login event on mixpanel
-    mixpanel.track('seller_login', {
-      sellerId: seller._id,
-      sellerName: seller.firstName + " " + seller.lastName,
-      email: seller.email
-    });
     
     res.json({ user: seller, token });
   } catch (error) {
