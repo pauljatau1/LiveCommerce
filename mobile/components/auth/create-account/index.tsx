@@ -192,13 +192,16 @@ const CreateAccount = () => {
     <SafeAreaView className="h-full flex-1 bg-black">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
 
-      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS == "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <ScrollView
           style={{
             backgroundColor: "black",
-            flex: 1,
           }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View className=" justify-between px-[21px] pb-3">
             <View>

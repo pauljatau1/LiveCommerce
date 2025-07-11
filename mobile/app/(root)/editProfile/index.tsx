@@ -27,7 +27,10 @@ import LoadingModal from "@/components/global/loading-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setUserData } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView,
+} from "react-native-keyboard-controller";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
@@ -208,144 +211,142 @@ const EditProfile = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-[#121212]">
-      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
-        <FocusAwareStatusBar
-          barStyle="light-content"
-          backgroundColor="#121212"
-        />
 
-        <View
-          style={{
-            // height: 0,
-            paddingVertical: 20,
-            paddingHorizontal: 16,
-            backgroundColor: "#121212",
-            zIndex: 3,
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <View className="flex-row items-center gap-[18px]">
-            <TouchableOpacity className="" onPress={() => router.back()}>
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Edit Profile</Text>
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+
+
+      <View
+        style={{
+          // height: 0,
+          paddingVertical: 20,
+          paddingHorizontal: 16,
+          backgroundColor: "#121212",
+          zIndex: 3,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View className="flex-row items-center gap-[18px]">
+          <TouchableOpacity className="" onPress={() => router.back()}>
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
+        </View>
+      </View>
+
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.mainSection}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable style={{ marginBottom: 40 }} onPress={pickImage}>
+          <Image
+            source={
+              selectedMedia?.length > 0
+                ? { uri: selectedMedia?.[0]?.uri }
+                : require("../../../assets/icons/profile.jpg")
+            }
+            style={styles.avatar}
+            contentFit="cover"
+          />
+
+          <View style={styles.editBtn}>
+            <FontAwesome6 name="edit" size={14} color="#ccc" />
+          </View>
+          <Pressable onPress={() => setSelectedMedia([])}>
+            <Text style={styles.removeImageBtn}>Remove</Text>
+          </Pressable>
+        </Pressable>
+
+        <View style={{ width: "100%" }}>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              value={editUsernameVal}
+              onChangeText={(text) => setEditUsernameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>FirstName</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="FirstName"
+              value={editFirstNameVal}
+              onChangeText={(text) => setEditFirstNameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>LastName</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="LastName"
+              value={editLastNameVal}
+              onChangeText={(text) => setEditLastNameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Bio</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Bio"
+              value={editBioVal}
+              onChangeText={(text) => setEditBioVal(text)}
+              multiline
+              maxLength={150}
+              numberOfLines={4}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, { opacity: 0.3 }]}
+              placeholder="Email"
+              value={editEmailVal}
+              onChangeText={(text) => setEditEmailVal(text)}
+              readOnly
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={[styles.input]}
+              placeholder="Phone Number"
+              value={editPhoneVal}
+              onChangeText={(text) => {
+                setEditPhoneVal(text);
+              }}
+              maxLength={11}
+              keyboardType="numeric"
+            />
           </View>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.mainSection}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Pressable style={{ marginBottom: 40 }} onPress={pickImage}>
-            <Image
-              source={
-                selectedMedia?.length > 0
-                  ? { uri: selectedMedia?.[0]?.uri }
-                  : require("../../../assets/icons/profile.jpg")
-              }
-              style={styles.avatar}
-              contentFit="cover"
-            />
+        <Pressable style={styles.updateBtn} onPress={handleUpdateProfile}>
+          <Text style={styles.updateBtnText}>Update</Text>
+        </Pressable>
+      </KeyboardAwareScrollView>
 
-            <View style={styles.editBtn}>
-              <FontAwesome6 name="edit" size={14} color="#ccc" />
-            </View>
-            <Pressable onPress={() => setSelectedMedia([])}>
-              <Text style={styles.removeImageBtn}>Remove</Text>
-            </Pressable>
-          </Pressable>
 
-          <View style={{ width: "100%" }}>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Username"
-                value={editUsernameVal}
-                onChangeText={(text) => setEditUsernameVal(text)}
-              />
-            </View>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>FirstName</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="FirstName"
-                value={editFirstNameVal}
-                onChangeText={(text) => setEditFirstNameVal(text)}
-              />
-            </View>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>LastName</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="LastName"
-                value={editLastNameVal}
-                onChangeText={(text) => setEditLastNameVal(text)}
-              />
-            </View>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>Bio</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Bio"
-                value={editBioVal}
-                onChangeText={(text) => setEditBioVal(text)}
-                multiline
-                maxLength={150}
-                numberOfLines={4}
-              />
-            </View>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={[styles.input, { opacity: 0.3 }]}
-                placeholder="Email"
-                value={editEmailVal}
-                onChangeText={(text) => setEditEmailVal(text)}
-                readOnly
-              />
-            </View>
-            <View style={styles.editSingleSection}>
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput
-                style={[styles.input]}
-                placeholder="Phone Number"
-                value={editPhoneVal}
-                onChangeText={(text) => {
-                  setEditPhoneVal(text);
-                }}
-                maxLength={11}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <Pressable style={styles.updateBtn} onPress={handleUpdateProfile}>
-            <Text style={styles.updateBtnText}>Update</Text>
-          </Pressable>
-        </ScrollView>
-
-        <BottomSheet
-          bgColor="#121212"
-          childrenStyle="!px-[11px]"
-          showCloseIcon={false}
-          show={showPasswordValidation}
-          // snapPoints={["40%"]}
-          enableDynamicSizing={true}
-          onRequestClose={() => setShowPasswordValidation(false)}
-          keyboardBehavior="interactive"
-        >
-          <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
-        </BottomSheet>
-        <LoadingModal isVisible={loading} />
-      </KeyboardAvoidingView>
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showPasswordValidation}
+        // snapPoints={["40%"]}
+        enableDynamicSizing={true}
+        onRequestClose={() => setShowPasswordValidation(false)}
+        keyboardBehavior="interactive"
+      >
+        <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
+      </BottomSheet>
+      <LoadingModal isVisible={loading} />
     </SafeAreaView>
   );
 };

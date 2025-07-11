@@ -228,18 +228,6 @@ const Returns = () => {
     }
   };
 
-  useEffect(() => {
-    getAddresses();
-
-    const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
-      setKeyboardOffset(offset);
-    });
-
-    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardOffset(0);
-    });
-  }, []);
-
   return (
     <SafeAreaView
       style={{
@@ -247,14 +235,9 @@ const Returns = () => {
         backgroundColor: "#121212",
       }}
     >
-      <KeyboardAvoidingView
-        behavior={"padding"}
-        keyboardVerticalOffset={Platform.select({
-          ios: 0,
-          android: keyboardOffset,
-        })}
-        style={{ flex: 1 }}
-      >
+
+      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
+
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
             className="absolute left-[18px]"
