@@ -31,14 +31,17 @@ import { Label } from "@/Components/ui/label";
 import { Input } from "@/Components/ui/input";
 import { toast } from "sonner";
 import {
-  CountrySelect,
-  StateSelect,
-  CitySelect,
-} from "react-country-state-city";
-import "react-country-state-city/dist/react-country-state-city.css";
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../Components/ui/select";
 import VerificationService from '@/services/VerificationService';
 import { Icon } from '@iconify/react';
 import { trackEvent } from '@/util/analytics';
+import { Country, State, City } from 'country-state-city';
 
 // Extract YouTube video ID from URL
 const getYoutubeVideoId = (url) => {
@@ -65,7 +68,7 @@ const PickupAddressVerificationModal = ({
   const [accountType, setAccountType] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    country: '',
+    country: 'Nigeria',
     state: '',
     city: '',
     streetAddress1: '',
@@ -73,9 +76,49 @@ const PickupAddressVerificationModal = ({
     zipCode: ''
   });
   
-  // Country-state-city data
-  const [countryId, setCountryId] = useState(0);
-  const [stateId, setStateId] = useState(0);
+  // Country-state-city functionality
+  const [selectedCountryCode, setSelectedCountryCode] = useState("NG");
+  const [selectedStateCode, setSelectedStateCode] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stateSearchQuery, setStateSearchQuery] = useState('');
+  const [citySearchQuery, setCitySearchQuery] = useState('');
+  const [visibleCountries, setVisibleCountries] = useState([]);
+  const [visibleStates, setVisibleStates] = useState([]);
+  const [visibleCities, setVisibleCities] = useState([]);
+
+  const CHUNK_SIZE = 50;
+
+  const countries = useMemo(() => {
+    return Country.getAllCountries();
+  }, []);
+  
+  const states = useMemo(() => {
+    return selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [];
+  }, [selectedCountryCode]);
+  
+  const cities = useMemo(() => {
+    return selectedCountryCode && selectedStateCode 
+      ? City.getCitiesOfState(selectedCountryCode, selectedStateCode) 
+      : [];
+  }, [selectedCountryCode, selectedStateCode]);
+
+  const filteredCountries = useMemo(() =>
+    countries.filter(country =>
+      country.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    , [countries, searchQuery]);
+
+  const filteredStates = useMemo(() =>
+    states.filter(state =>
+      state.name.toLowerCase().includes(stateSearchQuery.toLowerCase())
+    )
+    , [states, stateSearchQuery]);
+
+  const filteredCities = useMemo(() =>
+    cities.filter(city =>
+      city.name.toLowerCase().includes(citySearchQuery.toLowerCase())
+    )
+    , [cities, citySearchQuery]);
 
   // Onboarding video details
   const onboardingVideoUrl = "https://www.youtube.com/watch?v=nAMdwpL_u90";
@@ -98,32 +141,79 @@ const PickupAddressVerificationModal = ({
     });
   };
 
-  // Handler functions for new package
-  const handleCountrySelect = (selectedCountry) => {
-    setCountryId(selectedCountry.id);
-    setStateId(0); // Reset state when country changes
-    setFormData({
-      ...formData,
-      country: selectedCountry.name,
-      state: '',
-      city: ''
-    });
+  // useEffect hooks - copied exactly from IndividualOnboarding
+  useEffect(() => {
+    setVisibleCountries(countries.slice(0, CHUNK_SIZE));
+  }, [countries]);
+
+  useEffect(() => {
+    setVisibleStates(states.slice(0, CHUNK_SIZE));
+  }, [states]);
+
+  useEffect(() => {
+    setVisibleCities(cities.slice(0, CHUNK_SIZE));
+  }, [cities]);
+
+  // Load more functions - copied exactly from IndividualOnboarding
+  const loadMoreCountries = () => {
+    setVisibleCountries(prev => [
+      ...prev,
+      ...countries.slice(prev.length, prev.length + CHUNK_SIZE)
+    ]);
   };
 
-  const handleStateSelect = (selectedState) => {
-    setStateId(selectedState.id);
-    setFormData({
-      ...formData,
-      state: selectedState.name,
-      city: ''
-    });
+  const loadMoreStates = () => {
+    setVisibleStates(prev => [
+      ...prev,
+      ...states.slice(prev.length, prev.length + CHUNK_SIZE)
+    ]);
   };
 
-  const handleCitySelect = (selectedCity) => {
-    setFormData({
-      ...formData,
-      city: selectedCity.name
-    });
+  const loadMoreCities = () => {
+    setVisibleCities(prev => [
+      ...prev,
+      ...cities.slice(prev.length, prev.length + CHUNK_SIZE)
+    ]);
+  };
+
+  // Handler functions - updated for country-state-city package
+  const handleCountrySelect = (countryName) => {
+    const country = countries.find(c => c.name === countryName);
+    if (country) {
+      setSelectedCountryCode(country.isoCode);
+      setSelectedStateCode("");
+      // Also update formData for compatibility
+      setFormData({
+        ...formData,
+        country: country.name,
+        state: "",
+        city: ""
+      });
+    }
+  };
+
+  const handleStateSelect = (stateName) => {
+    const state = states.find(s => s.name === stateName);
+    if (state) {
+      setSelectedStateCode(state.isoCode);
+      // Also update formData for compatibility
+      setFormData({
+        ...formData,
+        state: state.name,
+        city: ""
+      });
+    }
+  };
+
+  const handleCitySelect = (cityName) => {
+    const city = cities.find(c => c.name === cityName);
+    if (city) {
+      // Also update formData for compatibility
+      setFormData({
+        ...formData,
+        city: city.name
+      });
+    }
   };
 
   const handleStartVerification = () => {
@@ -155,18 +245,6 @@ const PickupAddressVerificationModal = ({
       }
     };
   }, []);
-
-  // Initialize with default country (Nigeria)
-  useEffect(() => {
-    if (countryId === 0) {
-      // Set Nigeria as default (ID: 161 in the new package)
-      setCountryId(161);
-      setFormData(prev => ({
-        ...prev,
-        country: 'Nigeria'
-      }));
-    }
-  }, [countryId]);
 
   // Verification steps
   const verificationSteps = [
@@ -271,14 +349,36 @@ const PickupAddressVerificationModal = ({
               <Label htmlFor="country" className="flex items-center gap-1.5 text-sm font-medium">
                 <Globe className="h-4 w-4 text-gray-500" /> Country <span className="text-red-500">*</span>
               </Label>
-              <div className="w-full">
-                <CountrySelect
-                  onChange={handleCountrySelect}
-                  placeHolder="Select Country"
-                  defaultValue={countryId}
-                  containerClassName="w-full"
-                  inputClassName="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10 rounded-md"
-                />
+              <div className="flex flex-col w-full">
+                <Select onValueChange={handleCountrySelect} >
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10">
+                    <SelectValue placeholder={formData.country} />
+                  </SelectTrigger>
+                  <SelectContent className="w-full max-h-[300px]">
+                    <SelectGroup>
+                      {searchQuery
+                        ? filteredCountries.map((country) => (
+                          <SelectItem key={country.name} value={country.name}>
+                            {country.name}
+                          </SelectItem>
+                        ))
+                        : visibleCountries.map((country) => (
+                          <SelectItem key={country.name} value={country.name}>
+                            {country.name}
+                          </SelectItem>
+                        ))
+                      }
+                      {!searchQuery && visibleCountries.length < countries.length && (
+                        <div
+                          className="px-2 py-2 text-center text-sm text-gray-600 hover:bg-gray-100 cursor-pointer"
+                          onClick={loadMoreCountries}
+                        >
+                          Load more countries...
+                        </div>
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
@@ -286,15 +386,36 @@ const PickupAddressVerificationModal = ({
               <Label htmlFor="state" className="flex items-center gap-1.5 text-sm font-medium">
                 <MapPin className="h-4 w-4 text-gray-500" /> State/Province <span className="text-red-500">*</span>
               </Label>
-              <div className="w-full">
-                <StateSelect
-                  countryid={countryId}
-                  onChange={handleStateSelect}
-                  placeHolder="Select State"
-                  defaultValue={stateId}
-                  containerClassName="w-full"
-                  inputClassName="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10 rounded-md"
-                />
+              <div className="flex flex-col w-full">
+                <Select onValueChange={handleStateSelect} disabled={!selectedCountryCode} value={formData.state}>
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent className="w-full max-h-[300px]">
+                    <SelectGroup>
+                      {stateSearchQuery
+                        ? filteredStates.map((state) => (
+                          <SelectItem key={state.name} value={state.name}>
+                            {state.name}
+                          </SelectItem>
+                        ))
+                        : visibleStates.map((state) => (
+                          <SelectItem key={state.name} value={state.name}>
+                            {state.name}
+                          </SelectItem>
+                        ))
+                      }
+                      {!stateSearchQuery && visibleStates.length < states.length && (
+                        <div
+                          className="px-2 py-2 text-center text-sm text-gray-600 hover:bg-gray-100 cursor-pointer"
+                          onClick={loadMoreStates}
+                        >
+                          Load more states...
+                        </div>
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -304,15 +425,36 @@ const PickupAddressVerificationModal = ({
               <Label htmlFor="city" className="flex items-center gap-1.5 text-sm font-medium">
                 <Home className="h-4 w-4 text-gray-500" /> City <span className="text-red-500">*</span>
               </Label>
-              <div className="w-full">
-                <CitySelect
-                  countryid={countryId}
-                  stateid={stateId}
-                  onChange={handleCitySelect}
-                  placeHolder="Select City"
-                  containerClassName="w-full"
-                  inputClassName="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10 rounded-md"
-                />
+              <div className="flex flex-col w-full">
+                <Select onValueChange={handleCitySelect} disabled={!selectedStateCode} value={formData.city}>
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10">
+                    <SelectValue placeholder="City" />
+                  </SelectTrigger>
+                  <SelectContent className="w-full max-h-[300px]">
+                    <SelectGroup>
+                      {citySearchQuery
+                        ? filteredCities.map((city) => (
+                          <SelectItem key={city.name} value={city.name}>
+                            {city.name}
+                          </SelectItem>
+                        ))
+                        : visibleCities.map((city) => (
+                          <SelectItem key={city.name} value={city.name}>
+                            {city.name}
+                          </SelectItem>
+                        ))
+                      }
+                      {!citySearchQuery && visibleCities.length < cities.length && (
+                        <div
+                          className="px-2 py-2 text-center text-sm text-gray-600 hover:bg-gray-100 cursor-pointer"
+                          onClick={loadMoreCities}
+                        >
+                          Load more cities...
+                        </div>
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
