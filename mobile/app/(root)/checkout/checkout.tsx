@@ -7,6 +7,7 @@ import {
   Pressable,
   Image,
   Platform,
+  FlatList,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
@@ -1256,11 +1257,29 @@ const Checkout = () => {
                   </View>
                 </TouchableOpacity>
 
-                {cart?.length > 0
-                  ? cart.map((cartItem, index) => (
-                      <CartItem cartItem={cartItem} key={index} />
-                    ))
-                  : null}
+                {/* <FlatList
+                  data={cart}
+                  renderItem={({ item, index }) => (
+                    <CartItem cartItem={item} index={index} />
+                  )}
+                  keyExtractor={(item) => item._id}
+                  showsVerticalScrollIndicator={false}
+                  ItemSeparatorComponent={() => (
+                    <View className="h-[1px] bg-white opacity-20 w-full"></View>
+                  )}
+                /> */}
+                <View>
+                  {cart?.length > 0
+                    ? cart.map((cartItem, index) => (
+                        <CartItem
+                          cartItem={cartItem}
+                          key={index}
+                          index={index}
+                          isLastItem={index == cart?.length - 1}
+                        />
+                      ))
+                    : null}
+                </View>
 
                 <View className="gap-[8px] mb-[10px]">
                   <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
@@ -1397,10 +1416,10 @@ const Checkout = () => {
                   >
                     <TextInput
                       placeholder="Enter Promo Code"
-                      placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+                      placeholderTextColor={"rgb(204, 204, 204)"}
                       className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
                       onChangeText={(text) => setCouponCode(text)}
-                      value={couponCode}
+                      value={couponCode?.toUpperCase()}
                       onFocus={() => setCouponInputFocused(true)}
                       onBlur={() => setCouponInputFocused(false)}
                       readOnly={couponApplied !== null}
@@ -1417,7 +1436,7 @@ const Checkout = () => {
                           />
                         ) : (
                           <Text
-                            className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
+                            className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc80]"} text-[14px] font-LexendDecaMedium`}
                           >
                             APPLY
                           </Text>
@@ -1634,7 +1653,15 @@ const Checkout = () => {
   );
 };
 
-const CartItem = ({ cartItem }: { cartItem: any }) => {
+const CartItem = ({
+  cartItem,
+  index,
+  isLastItem,
+}: {
+  cartItem: any;
+  index: number;
+  isLastItem: boolean;
+}) => {
   const [quantity, setQuantity] = useState<number>(cartItem?.quantity);
 
   const totalPrice = useMemo(() => {
@@ -1645,7 +1672,14 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
   }, [quantity]);
 
   return (
-    <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row">
+    <View
+      className=" py-[30px] px-[8px]"
+      style={{
+        paddingTop: index == 0 ? 10 : 20,
+        borderBottomColor: "#ffffff33",
+        borderBottomWidth: isLastItem ? 0 : 1,
+      }}
+    >
       <View className="gap-[16px] shrink">
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
@@ -1659,16 +1693,18 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
             <Image
               source={{ uri: cartItem?.images[0].url }}
               resizeMode="cover"
-              className="w-[115px] h-[136px]"
+              resizeMethod="resize"
+              className="w-[100px] h-[100px] rounded-[12px]"
             />
           </View>
           <View className="gap-[6px] relative shrink">
-            <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {cartItem?.name.length > 50
-                ? cartItem?.name.slice(0, 50) + "..."
-                : cartItem?.name}
+            <Text
+              className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca leading-[20px]"
+              numberOfLines={2}
+            >
+              {cartItem?.name}
             </Text>
-            <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
+            <Text className="text-white opacity-80 font-LexendDecaMedium tracking-wide  text-[16px]">
               ₦
               {cartItem?.discount?.isActive
                 ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
@@ -1681,24 +1717,26 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
                 </Text>
               )}
             </Text>
-            <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
+            {/* <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {cartItem._id}
-            </Text>
+            </Text> */}
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                Store Pickup Available
-              </Text>
+              <View className=" p-[4px] px-[8px] bg-[#1683da33] items-center justify-center self-start rounded-[10px]">
+                <Text className="text-[8px] text-[#1683da] font-LexendDeca">
+                  Store Pickup Available
+                </Text>
+              </View>
             )}
             <View
-              className="flex-row items-center justify-between gap-[8px] flex-wrap"
+              className="flex-row w-full items-center justify-between gap-[8px] flex-wrap"
               style={{
                 marginTop: "auto",
               }}
             >
               <Text className="text-white text-[12px] font-LexendDecaMedium">
                 Total:{" "}
-                <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
+                <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
                   ₦{totalPrice.toLocaleString()}
                 </Text>
               </Text>

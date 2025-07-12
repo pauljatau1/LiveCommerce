@@ -745,7 +745,7 @@ const ProductDescription = () => {
             ref={scrollViewRef}
             style={{ flex: 1 }}
             contentContainerStyle={{
-              paddingBottom: Platform.OS == "android" ? 120 : 80,
+              paddingBottom: 140,
             }}
           >
             {isLoading || isFetching ? (

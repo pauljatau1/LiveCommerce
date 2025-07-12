@@ -17,6 +17,7 @@ import CartList from "@/components/cart/cart-list";
 import { useIsFocused } from "@react-navigation/native";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { toast } from "@/core/toast";
+import { toast as sonnerToast } from "sonner-native";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
@@ -27,6 +28,8 @@ import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import CartEmptyIcon from "@/components/global/empty-states/cartEmptyIcon";
 
 const { width, height } = Dimensions.get("window");
 
@@ -220,6 +223,10 @@ const CartScreen = () => {
           },
         },
       );
+      sonnerToast("Moved To Wishlist", {
+        icon: <AntDesign name="heart" size={24} color="black" />,
+        position: "bottom-center",
+      });
     } catch (e) {
       console.log(e);
     }
@@ -308,7 +315,7 @@ const CartScreen = () => {
           </TouchableOpacity>
         </View>
         <View className="px-[20px]">
-          <View className="border-white border-[2px] flex-row mb-[30px]">
+          <View className="border-white border-[2px] flex-row mb-[10px]">
             <Pressable
               className={`basis-1/2 py-[18px] ${tab == "cart" ? "bg-white" : null} items-center justify-center relative`}
               onPress={() => setTab("cart")}
@@ -343,7 +350,7 @@ const CartScreen = () => {
         </View>
 
         {tab == "cart" && (
-          <View className=" pb-[80px] relative">
+          <View className=" relative flex-1">
             {cart?.length > 0 ? (
               <CartList
                 cart={cart}
@@ -351,7 +358,11 @@ const CartScreen = () => {
                 conversations={conversations}
               />
             ) : loading ? (
-              <ActivityIndicator size="small" color={"#16783A"} />
+              <ActivityIndicator
+                size="small"
+                color={"#fff"}
+                style={{ marginTop: 30 }}
+              />
             ) : (
               <EmptyCart />
             )}
@@ -375,7 +386,7 @@ const CartScreen = () => {
 
         {tab == "cart" && cart?.length > 0 && (
           <View
-            className="px-[20px] py-[10px] flex-row items-center justify-between gap-[20px] w-full flex-wrap absolute bottom-0 left-0 bg-[#121212]"
+            className="px-[20px] py-[10px] flex-row items-center justify-between gap-[20px] w-full flex-wrap justify-end bg-[#121212]"
             style={
               {
                 // bottom: insets.bottom,
@@ -408,11 +419,11 @@ const CartScreen = () => {
               </View>
             </View>
             <TouchableOpacity
-              className={`py-[8px] w-[140px] px-[16px] ${cartTotal < 1 ? "bg-[#C6C6C6]" : "bg-[#16783A]"} rounded-[4px] items-center justify-center`}
+              className={`py-[8px] w-[140px] px-[16px] ${cartTotal < 1 ? "bg-[#C6C6C6]" : "bg-[#16783A]"} rounded-[10px] items-center justify-center`}
               onPress={handleCheckout}
             >
               <Text className="text-white text-[14px] font-LexendDecaMedium ">
-                Check Out ({cartLength})
+                Checkout ({cartLength})
               </Text>
             </TouchableOpacity>
           </View>
@@ -424,59 +435,55 @@ const CartScreen = () => {
 
 const EmptyCart = () => {
   return (
-    <View className=" items-center gap-[28px] p-[50px] mt-[-30px] justify-center">
-      <Image
-        source={require("../../../assets/images/emptyCart.png")}
-        resizeMode="contain"
-        style={{
-          width: 250,
-          height: 250,
-        }}
-      />
-      <Text className="text-[25px] text-[#cccccc] font-LexendDecaBold">
-        Your Cart is Empty
-      </Text>
-      <Text className="text-[15px] text-[#cccccc] font-LexendDecaLight text-center">
-        Preview some of the available products and add them to cart.
-      </Text>
-      <Pressable
-        className="bg-[#16783A] rounded-[31px] items-center justify-center py-[12px] w-[200px]"
-        onPress={() => router.replace("/home/marketplace")}
-      >
-        <Text className="text-[14px] text-[#ffffff] font-LexendDecaLight text-center">
-          Find Products
+    <View className=" flex-1 items-center p-[50px] justify-center mb-[80px]">
+      <View className="mb-[16px]">
+        <CartEmptyIcon />
+      </View>
+
+      <View className="items-center gap-[8px] justify-center">
+        <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
+          Your Cart is Empty
         </Text>
-      </Pressable>
+        <Text className="text-[15px] text-[#cccccc] font-LexendDeca text-center mb-[6px]">
+          Preview some of the available products and add them to cart.
+        </Text>
+        <Pressable
+          className="bg-[#16783A] rounded-[18px] items-center justify-center h-[36px] px-[24px]"
+          onPress={() => router.replace("/home/marketplace")}
+        >
+          <Text className="text-[14px] text-[#ffffff] font-LexendDecaMedium text-center">
+            Continue Shopping
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
 
 const EmptyWishList = () => {
   return (
-    <View className=" items-center gap-[28px] p-[50px] mt-[-30px] justify-center">
-      <Image
-        source={require("../../../assets/images/emptyCart.png")}
-        resizeMode="contain"
-        style={{
-          width: 250,
-          height: 250,
-        }}
-      />
-      <Text className="text-[22px] text-[#cccccc] font-LexendDecaBold text-center">
-        Your WishList is Empty
-      </Text>
-      <Text className="text-[15px] text-[#cccccc] font-LexendDecaLight text-center">
-        Tap the heart button on an item to start saving your favorite products
-        here
-      </Text>
-      <Pressable
-        className="bg-[#16783A] rounded-[31px] items-center justify-center py-[12px] w-[200px]"
-        onPress={() => router.replace("/home/marketplace")}
-      >
-        <Text className="text-[14px] text-[#ffffff] font-LexendDecaLight text-center">
-          Add Now
+    <View className=" flex-1 items-center p-[50px] justify-center mb-[80px]">
+      <View className="mb-[16px]">
+        <CartEmptyIcon />
+      </View>
+
+      <View className="items-center gap-[8px] justify-center">
+        <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
+          Your Wishlist is Empty
         </Text>
-      </Pressable>
+        <Text className="text-[15px] text-[#cccccc] font-LexendDeca text-center mb-[6px]">
+          Tap the heart button on an item to start saving your favorite
+          products.
+        </Text>
+        <Pressable
+          className="bg-[#16783A] rounded-[18px] items-center justify-center h-[36px] px-[24px]"
+          onPress={() => router.replace("/home/marketplace")}
+        >
+          <Text className="text-[14px] text-[#ffffff] font-LexendDecaMedium text-center">
+            Continue Shopping
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 };

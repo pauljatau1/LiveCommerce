@@ -13,6 +13,17 @@ import BouncyCheckbox from "react-native-bouncy-checkbox";
 import { router } from "expo-router";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import { toast } from "@/core/toast";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const CartList = ({
   cart,
@@ -39,7 +50,7 @@ const CartList = ({
   }, []);
 
   return (
-    <View className="px-[20px] h-[90%]">
+    <View className="px-[20px] h-[100%]">
       {/* <ScrollView className="w-full" showsVerticalScrollIndicator={false}> */}
       <FlatList
         data={cart}
@@ -54,6 +65,9 @@ const CartList = ({
         )}
         keyExtractor={(item) => item._id}
         showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => (
+          <View className="h-[1px] bg-white opacity-20 w-full"></View>
+        )}
       />
     </View>
   );
@@ -75,6 +89,11 @@ const CartItem = memo(
     const [includeInOrder, setIncludeInOrder] = useState<boolean>(
       cartItem?.includeInOrder,
     );
+    const wishlistBtnScale = useSharedValue(1);
+
+    const wishlistBtnStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: wishlistBtnScale.value }],
+    }));
 
     useEffect(() => {
       handleModifyCart("includeInOrder", { ...cartItem, includeInOrder });
@@ -88,34 +107,42 @@ const CartItem = memo(
       handleModifyCart("changeQuantity", { ...cartItem, quantity });
     }, [quantity]);
 
+    const modifyCart = () => {
+      handleModifyCart("moveToWishList", cartItem);
+    };
+
     return (
-      <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row mb-[20px]">
+      <TouchableOpacity
+        className=" rounded-[16px] py-[30px] px-[8px] flex-row "
+        activeOpacity={0.8}
+        onPress={() => router.push(`/product/${cartItem?._id}`)}
+      >
         <View className="gap-[16px] shrink">
-          <View className=" flex-row items-center justify-between w-full">
-            <View className=" flex-row items-center justify-between shrink">
-              <View className="">
-                <BouncyCheckbox
-                  isChecked={includeInOrder}
-                  size={18}
-                  fillColor="#16783A"
-                  iconStyle={{ borderColor: "red" }}
-                  innerIconStyle={{ borderWidth: 1 }}
-                  onPress={(isChecked: boolean) => {
-                    setIncludeInOrder(isChecked);
-                  }}
-                />
-              </View>
-              <Text
-                className="text-[16px] text-white font-LexendDecaSemiBold shrink"
-                numberOfLines={1}
-              >
-                {cartItem?.seller?.storeInfo?.storeName ||
-                  cartItem?.seller?.storeName}
-              </Text>
+          <View className=" flex-row items-center justify-between w-full gap-[8px]">
+            <View className="shrink">
+              <BouncyCheckbox
+                isChecked={includeInOrder}
+                size={18}
+                fillColor="#16783A"
+                iconStyle={{ borderColor: "red" }}
+                innerIconStyle={{ borderWidth: 1 }}
+                onPress={(isChecked: boolean) => {
+                  setIncludeInOrder(isChecked);
+                }}
+                textComponent={
+                  <Text
+                    className="text-[16px] ml-[8px] text-white font-LexendDeca shrink"
+                    numberOfLines={1}
+                  >
+                    {cartItem?.seller?.storeInfo?.storeName ||
+                      cartItem?.seller?.storeName}
+                  </Text>
+                }
+              />
             </View>
 
             <TouchableOpacity
-              className="rounded-[8px] px-[8px] py-[6px] bg-white flex-row items-center gap-2"
+              className="rounded-[12px] px-[8px] py-[6px] bg-white flex-row items-center gap-2"
               onPress={() =>
                 router.push({
                   pathname: `/(root)/messageRoom/${cartItem.seller._id}`,
@@ -143,7 +170,7 @@ const CartItem = memo(
               <Text className="text-[#16783A] text-[10px] font-LexendDecaMedium">
                 Message Seller
               </Text>
-              <AntDesign name="arrowright" size={12} color="#16783A" />
+              {/* <AntDesign name="arrowright" size={12} color="#16783A" /> */}
             </TouchableOpacity>
           </View>
           <View className="flex-row gap-[16px]">
@@ -151,7 +178,7 @@ const CartItem = memo(
               <Image
                 source={{ uri: cartItem?.images[0].url }}
                 resizeMode="cover"
-                className="w-[115px] h-[136px] rounded-[5px]"
+                className="w-[100px] h-[100px] rounded-[12px]"
                 style={
                   {
                     // backgroundColor: "white",
@@ -159,14 +186,15 @@ const CartItem = memo(
                 }
               />
             </View>
-            <View className="gap-[6px] relative shrink">
+            <View className="relative shrink">
               {/* <Text className="text-[14px] text-white font-LexendDecaLight">
                 {cartItem?.seller?.storeInfo?.storeName}
               </Text> */}
-              <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-                {cartItem.name.length > 45
-                  ? cartItem.name.slice(0, 45) + "..."
-                  : cartItem.name}
+              <Text
+                className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca mb-[4px] leading-[20px]"
+                numberOfLines={2}
+              >
+                {cartItem.name}
               </Text>
               {/* <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
                 ₦
@@ -176,7 +204,7 @@ const CartItem = memo(
               </Text> */}
               {cartItem?.discount?.isActive ? (
                 <View className="flex-row items-end gap-[4px] flex-wrap">
-                  <Text className="text-white text-[16px] font-LexendDecaMedium">
+                  <Text className="text-white text-[16px] font-LexendDecaMedium tracking-wide">
                     ₦
                     {cartItem?.discount?.isActive
                       ? cartItem?.discount?.discountedPrice?.toLocaleString()
@@ -187,47 +215,84 @@ const CartItem = memo(
                     {cartItem?.discount?.isActive &&
                       cartItem?.price.toLocaleString()}
                   </Text>
-                  <Text className="text-[10px] text-[#16783A] font-LexendDecaBold">
+                  <Text className="text-[10px] text-[#16783A] font-LexendDecaMedium">
                     {cartItem?.discount?.value?.toFixed(0)}
                     {cartItem?.discount?.type == "percentage" && "%"} off
                   </Text>
                 </View>
               ) : (
-                <Text className="text-white font-LexendDecaBold  text-[16px]">
+                <Text className="text-white font-LexendDecaMedium tracking-wide  text-[16px]">
                   ₦{cartItem?.price?.toLocaleString()}
                 </Text>
               )}
-              <View className="flex-row items-center gap-[11px]">
-                <TouchableOpacity
-                  className="w-[24px] h-[24px] border-white border-[1px] rounded-[24px] items-center justify-center"
-                  onPress={() => setQuantity(quantity === 1 ? 1 : quantity - 1)}
-                >
-                  <AntDesign name="minus" size={14} color="white" />
-                </TouchableOpacity>
-                <Text className="text-white text-[11px] font-LexendDecaMedium">
-                  {quantity}
-                </Text>
-                <TouchableOpacity
-                  className="w-[24px] h-[24px] bg-white rounded-[24px] items-center justify-center"
-                  onPress={() => {
-                    if (quantity >= cartItem?.stock) {
-                      return toast.error("max stock reached");
-                    }
-                    setQuantity(quantity + 1);
-                  }}
-                >
-                  <AntDesign name="plus" size={14} color="black" />
-                </TouchableOpacity>
-              </View>
-              <View>
-                {(cartItem?.seller?.offersStorePickup ||
-                  cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-                  <Text className="text-[10px] text-[#1683da] font-LexendDeca">
+              {(cartItem?.seller?.offersStorePickup ||
+                cartItem?.seller?.shippingInfo?.offersStorePickup) && (
+                <View className="mt-[6px] p-[4px] px-[8px] bg-[#1683da33] items-center justify-center self-start rounded-[10px]">
+                  <Text className="text-[8px] text-[#1683da] font-LexendDeca">
                     Store Pickup Available
                   </Text>
-                )}
+                </View>
+              )}
+              <View className="flex-row justify-between items-center gap-8 mt-auto w-full">
+                <View className="flex-row items-center gap-[11px]">
+                  <TouchableOpacity
+                    className="w-[24px] h-[24px] border-white border-[1px] rounded-[24px] items-center justify-center"
+                    onPress={() =>
+                      setQuantity(quantity === 1 ? 1 : quantity - 1)
+                    }
+                  >
+                    <AntDesign name="minus" size={14} color="white" />
+                  </TouchableOpacity>
+                  <Text className="text-white text-[11px] font-LexendDecaMedium">
+                    {quantity}
+                  </Text>
+                  <TouchableOpacity
+                    className="w-[24px] h-[24px] bg-white rounded-[24px] items-center justify-center"
+                    onPress={() => {
+                      if (quantity >= cartItem?.stock) {
+                        return toast.error("max stock reached");
+                      }
+                      setQuantity(quantity + 1);
+                    }}
+                  >
+                    <AntDesign name="plus" size={14} color="black" />
+                  </TouchableOpacity>
+                </View>
+                <View className="flex-row items-center gap-[12px]">
+                  <AnimatedPressable
+                    onPressIn={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+                      wishlistBtnScale.value = withTiming(0.95, {
+                        duration: 100,
+                        easing: Easing.out(Easing.ease),
+                      });
+                    }}
+                    onPressOut={() => {
+                      wishlistBtnScale.value = withTiming(
+                        1,
+                        {
+                          duration: 100,
+                        },
+
+                        () => runOnJS(modifyCart)(),
+                      );
+                    }}
+                    style={[wishlistBtnStyle]}
+                    className="h-[24px] w-[24px] rounded-[24px] bg-[#ffffff33] items-center justify-center"
+                    // onPress={() => handleModifyCart("moveToWishList", cartItem)}
+                  >
+                    <AntDesign name="hearto" size={14} color="white" />
+                  </AnimatedPressable>
+                  <TouchableOpacity
+                    className=""
+                    onPress={() => handleModifyCart("remove", cartItem)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View
+
+              {/* <View
                 className="flex-row justify-between items-center gap-8 mt-[4px] w-full"
                 style={{
                   marginTop: "auto",
@@ -247,11 +312,11 @@ const CartItem = memo(
                 >
                   <Ionicons name="trash-outline" size={20} color="white" />
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   },
 );

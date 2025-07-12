@@ -90,8 +90,11 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
               resizeMode="cover"
             />
           </View>
-          <View>
-            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+          <View className="shrink">
+            <Text
+              className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold"
+              numberOfLines={1}
+            >
               {item?.seller?.storeName}
             </Text>
             <View className="flex-row items-center gap-x-1">
