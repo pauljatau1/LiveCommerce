@@ -191,6 +191,8 @@ workflows:
           name: Build Internal iOS build
           requires:
             - Approve iOS build
+          context:
+            - auqli_mobile_staging
           filters:
             branches:
               ignore:
@@ -200,6 +202,8 @@ workflows:
           name: Build Internal Android build
           requires:
             - Approve Android build
+          context:
+            - auqli_mobile_staging
           filters:
             branches:
               ignore:
@@ -229,6 +233,8 @@ workflows:
           name: Build Production iOS build
           requires:
             - Approve Production iOS build
+          context:
+            - auqli_mobile_production
           filters:
             branches:
               only:
@@ -238,6 +244,8 @@ workflows:
           name: Build Production Android build
           requires:
             - Approve Production Android build
+          context:
+            - auqli_mobile_production
           filters:
             branches:
               only:
