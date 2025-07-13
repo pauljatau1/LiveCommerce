@@ -473,6 +473,7 @@ const VideoItem = ({
             firstName: user?.firstName,
             lastName: user?.lastName,
             username: user?.username,
+            isGuest: !user?._id,
           });
         } catch (error) {
           console.error("Error tracking blip viewed:", error);
