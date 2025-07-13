@@ -160,6 +160,7 @@ module.exports = ({ config }) => {
               buildToolsVersion: "35.0.0",
             },
             ios: {
+              deploymentTarget: "15.1",
               useFrameworks: "static",
             },
           },

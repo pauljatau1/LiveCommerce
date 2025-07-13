@@ -33,17 +33,26 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 const { width, height } = Dimensions.get("window");
 const addressTypes = [{ name: "home" }, { name: "work" }, { name: "other" }];
 const AddAddress = () => {
-  const { prevRoute } = useLocalSearchParams();
+  const { prevRoute, address } = useLocalSearchParams();
+  const parsedAddress = useMemo(() => {
+    if (address) return JSON.parse(address?.toString());
+    return null;
+  }, [address]);
+
   const insets = useSafeAreaInsets();
   const states = useMemo(() => getStates("nigeria"), []);
   const [cities, setCities] = useState<any>(null);
-  const [state, setState] = useState<string>("");
-  const [city, setCity] = useState<string>("");
+  const [state, setState] = useState<string>(parsedAddress?.state ?? "");
+  const [city, setCity] = useState<string>(parsedAddress?.city ?? "");
   const [firstname, setFirstname] = useState<string>("");
   const [lastname, setLastname] = useState<string>("");
-  const [address1, setAddress1] = useState<string>("");
-  const [address2, setAddress2] = useState<string>("");
-  const [zipCode, setzipCode] = useState<string>("");
+  const [address1, setAddress1] = useState<string>(
+    parsedAddress?.addressLine1 ?? "",
+  );
+  const [address2, setAddress2] = useState<string>(
+    parsedAddress?.addressLine2 ?? "",
+  );
+  const [zipCode, setzipCode] = useState<string>(parsedAddress?.zipCode ?? "");
   const [zipCodeError, setzipCodeError] = useState<string>("");
 
   const [phone, setPhone] = useState<string>("");
@@ -52,7 +61,9 @@ const AddAddress = () => {
   const [email, setEmail] = useState<string>("");
   const [emailError, setEmailError] = useState<string>("");
 
-  const [addressType, setAddressType] = useState<string>("");
+  const [addressType, setAddressType] = useState<string>(
+    parsedAddress?.addressType ?? "",
+  );
   const [loading, setLoading] = useState<boolean>(false);
 
   const handlePhoneChange = (value: string) => {
@@ -111,11 +122,13 @@ const AddAddress = () => {
         addressLine1: address1,
         addressLine2: address2,
         zipCode,
-        state: state.split("_")[1],
+        state: state?.includes("_") ? state.split("_")[1] : state,
       };
       const config = {
-        method: "POST",
-        url: process.env.EXPO_PUBLIC_API_URL + `api/buyer/addresses`,
+        method: address ? "PUT" : "POST",
+        url:
+          process.env.EXPO_PUBLIC_API_URL +
+          `api/buyer/addresses${address ? "/" + parsedAddress._id : ""}`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -125,7 +138,7 @@ const AddAddress = () => {
 
       const response = await axios(config);
       console.log("address creation Response ==> ", response.data);
-      if (response.status == 201) {
+      if (response.status == 201 || response.status == 200) {
         setLoading(false);
 
         toast.success("Address added successfully");
@@ -143,6 +156,10 @@ const AddAddress = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (parsedAddress) setCities(getCities(`nigeria_${parsedAddress.state}`));
+  }, [parsedAddress]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
@@ -248,18 +265,21 @@ const AddAddress = () => {
                   data={states}
                   search
                   labelField="name"
-                  valueField="name"
+                  valueField="stateSlug"
                   placeholder="Select State"
                   searchPlaceholder="Search..."
                   onChange={(item) => {
-                    setState(item.slug);
+                    console.log(item);
+
+                    setState(item.stateSlug);
                     setCities(getCities(item.slug));
                   }}
+                  value={state}
                 />
               </View>
 
               {/* City Dropdown */}
-              {cities && (
+              {cities?.length > 0 && (
                 <View style={styles.inputSection}>
                   <Text style={styles.textLabel}>City</Text>
                   <Dropdown
@@ -275,6 +295,7 @@ const AddAddress = () => {
                     placeholder="Select City"
                     searchPlaceholder="Search..."
                     onChange={(item) => setCity(item.name)}
+                    value={city}
                   />
                 </View>
               )}
@@ -288,6 +309,7 @@ const AddAddress = () => {
                     placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
                     style={styles.textInput}
                     onChangeText={setAddress1}
+                    value={address1}
                   />
                 </View>
               </View>
@@ -300,6 +322,7 @@ const AddAddress = () => {
                     placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
                     style={styles.textInput}
                     onChangeText={setAddress2}
+                    value={address2}
                   />
                 </View>
               </View>
@@ -322,6 +345,7 @@ const AddAddress = () => {
                     maxLength={6}
                     inputMode="numeric"
                     onChangeText={handleZipCodeChange}
+                    value={zipCode}
                   />
                   {zipCodeError && (
                     <Text
@@ -423,6 +447,7 @@ const AddAddress = () => {
                   placeholder="Select Type"
                   searchPlaceholder="Search..."
                   onChange={(item) => setAddressType(item.name)}
+                  value={addressType}
                 />
               </View>
             </View>
@@ -441,7 +466,7 @@ const AddAddress = () => {
           }}
         >
           <TouchableOpacity style={styles.addButton} onPress={handleAddAddress}>
-            <Text style={styles.addButtonText}>Add Address</Text>
+            <Text style={styles.addButtonText}>Save</Text>
           </TouchableOpacity>
         </View>
         <LoadingModal isVisible={loading} />

@@ -1060,10 +1060,10 @@ const CheckoutNow = ({
                     >
                       <BottomSheetTextInput
                         placeholder="Enter Promo Code"
-                        placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+                        placeholderTextColor={"rgb(204, 204, 204)"}
                         className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
                         onChangeText={(text) => setCouponCode(text)}
-                        value={couponCode}
+                        value={couponCode?.toUpperCase()}
                         onFocus={() => setCouponInputFocused(true)}
                         onBlur={() => setCouponInputFocused(false)}
                         readOnly={couponApplied !== null}
@@ -1080,7 +1080,7 @@ const CheckoutNow = ({
                             />
                           ) : (
                             <Text
-                              className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
+                              className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc80]"} text-[14px] font-LexendDecaMedium`}
                             >
                               APPLY
                             </Text>
@@ -1293,7 +1293,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
   }, [cartItem]);
 
   return (
-    <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row">
+    <View className="rounded-[16px] p-[14px]">
       <View className="gap-[16px] shrink">
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
@@ -1306,18 +1306,19 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
             source={{ uri: cartItem?.images?.[0]?.url }}
             contentFit="cover"
             style={{
-              width: 115,
-              height: 136,
-              borderRadius: 8,
+              width: 100,
+              height: 100,
+              borderRadius: 12,
             }}
           />
           <View className="gap-[6px] relative shrink">
-            <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {cartItem?.name.length > 50
-                ? cartItem?.name.slice(0, 50) + "..."
-                : cartItem?.name}
+            <Text
+              className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca  leading-[20px]"
+              numberOfLines={2}
+            >
+              {cartItem?.name}
             </Text>
-            <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
+            <Text className="text-white opacity-80 font-LexendDecaMedium tracking-wide  text-[16px]">
               ₦
               {cartItem?.discount?.isActive
                 ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
@@ -1330,24 +1331,26 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
                 </Text>
               )}
             </Text>
-            <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
+            {/* <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {cartItem?._id?.toLocaleString()}
-            </Text>
+            </Text> */}
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                Store Pickup Available
-              </Text>
+              <View className=" p-[4px] px-[8px] bg-[#1683da33] items-center justify-center self-start rounded-[10px]">
+                <Text className="text-[8px] text-[#1683da] font-LexendDeca">
+                  Store Pickup Available
+                </Text>
+              </View>
             )}
             <View
-              className="flex-row items-center justify-between gap-[8px] flex-wrap"
+              className="flex-row items-center justify-between gap-[8px] flex-wrap w-full"
               style={{
                 marginTop: "auto",
               }}
             >
               <Text className="text-white text-[12px] font-LexendDecaMedium">
                 Total:{" "}
-                <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
+                <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
                   ₦{totalPrice.toLocaleString()}
                 </Text>
               </Text>

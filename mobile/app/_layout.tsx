@@ -11,6 +11,7 @@ import { Provider } from "react-redux";
 import { store } from "@/store";
 import { Linking, StyleSheet } from "react-native";
 import FlashMessage from "react-native-flash-message";
+import { Toaster } from "sonner-native";
 import Constants from "expo-constants";
 import * as SystemUI from "expo-system-ui";
 import { LivestreamProvider } from "@/contexts/livestreamContext";
@@ -84,6 +85,7 @@ function RootLayoutNav() {
 
                     <Stack.Screen name="+not-found" />
                   </Stack>
+                  <Toaster />
                   <FlashMessage floating style={styles.flashMessage} />
                 </LivestreamProvider>
               </BottomSheetModalProvider>
