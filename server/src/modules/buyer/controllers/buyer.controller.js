@@ -6,6 +6,7 @@ const uploadProfileImageService = require('../services/uploadProfileImage.servic
 const verifyOTPService = require('../services/verifyOTP.service');
 const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
+const updateSelectedCategoriesService = require('../services/updateSelectedCategories.service');
 
 /**
  * Register a buyer user.
@@ -189,6 +190,29 @@ async function resendOTP(req, res, next) {
   }
 }
 
+/**
+ * Update selected categories for a buyer.
+ *
+ * This controller handles the selected categories update HTTP request.
+ * It delegates the update logic to the service layer and returns the updated buyer data.
+ *
+ * @param {Request} req - Express request object containing the selectedCategories in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateSelectedCategories(req, res, next) {
+  try {
+    // Call the service layer to handle selected categories update logic
+    const response = await updateSelectedCategoriesService.updateSelectedCategories(req.user.id, req.body.selectedCategories);
+
+    // Send success response with updated buyer data
+    res.success(response, 'Selected categories updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -198,4 +222,5 @@ module.exports = {
   uploadProfileImage,
   verifyOTP,
   resendOTP,
+  updateSelectedCategories,
 };

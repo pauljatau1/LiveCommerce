@@ -187,6 +187,7 @@ router.post('/auth/login', buyerController.login);
  *                 type: string
  *                 format: email
  *                 description: Buyer's email address
+ *                 example: "john.doe@example.com"
  *     responses:
  *       200:
  *         description: OTP resent successfully
@@ -204,6 +205,7 @@ router.post('/auth/login', buyerController.login);
  *                   properties:
  *                     message:
  *                       type: string
+ *                       example: "OTP resent successfully"
  *       422:
  *         description: Validation error - Invalid email
  *       404:
@@ -230,8 +232,10 @@ router.post('/auth/resend-otp', buyerController.resendOTP);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Profile retrieved successfully"
  *                 data:
  *                   type: object
  *                   properties:
@@ -374,8 +378,10 @@ router.get('/profile', verifyToken, buyerController.getProfile);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Profile updated successfully"
  *                 data:
  *                   type: object
  *                   properties:
@@ -521,8 +527,10 @@ router.put('/profile/avatar', verifyToken, upload.single('avatar'), buyerControl
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Token validated successfully"
  *                 data:
  *                   type: object
  *                   properties:
@@ -560,9 +568,11 @@ router.get('/auth/check-token', buyerController.checkToken);
  *               email:
  *                 type: string
  *                 description: Buyer's email address
+ *                 example: "john.doe@example.com"
  *               otp:
  *                 type: string
  *                 description: 4-digit OTP code
+ *                 example: "1234"
  *     responses:
  *       200:
  *         description: OTP verified successfully
@@ -573,24 +583,31 @@ router.get('/auth/check-token', buyerController.checkToken);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "OTP verified successfully"
  *                 data:
  *                   type: object
  *                   properties:
  *                     message:
  *                       type: string
+ *                       example: "Email verified successfully"
  *                     bonus:
  *                       type: object
  *                       properties:
  *                         coming:
  *                           type: boolean
+ *                           example: true
  *                         amount:
  *                           type: number
+ *                           example: 2000
  *                         currency:
  *                           type: string
+ *                           example: "NGN"
  *                         timeToCredit:
  *                           type: string
+ *                           example: "10 seconds"
  *       422:
  *         description: Validation error - Invalid input data
  *       404:
@@ -599,5 +616,101 @@ router.get('/auth/check-token', buyerController.checkToken);
  *         description: Internal server error
  */
 router.post('/auth/verify-otp', buyerController.verifyOTP);
+
+/**
+ * @swagger
+ * /api/v2/buyers/selected-categories:
+ *   put:
+ *     summary: Update selected categories for a buyer
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - selectedCategories
+ *             properties:
+ *               selectedCategories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - name
+ *                     - subCategories
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                       example: "Electronics"
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - name
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Subcategory name
+ *                             example: "Smartphones"
+ *     responses:
+ *       200:
+ *         description: Selected categories updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Selected categories updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     selectedCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/selected-categories', verifyToken, buyerController.updateSelectedCategories);
 
 module.exports = router;
