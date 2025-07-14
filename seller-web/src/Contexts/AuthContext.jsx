@@ -293,6 +293,8 @@ function AuthProvider({ children }) {
                             email: email,
                             first_name: firstName,
                             last_name: lastName,
+                            phone: phoneNumber,
+                            store_name: storeName,
                             created_at: Math.floor(new Date().getTime() / 1000),
                             user_type: 'seller'
                         });
@@ -304,6 +306,8 @@ function AuthProvider({ children }) {
                                 email: email,
                                 first_name: firstName,
                                 last_name: lastName,
+                                phone: phoneNumber,
+                                store_name: storeName,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
                             });
@@ -689,6 +693,7 @@ function AuthProvider({ children }) {
                             onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
                             first_name: response?.data?.user?.firstName,
                             last_name: response?.data?.user?.lastName,
+                            phone: response?.data?.user?.phoneNumber,
                             created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
                             user_type: 'seller',
                             account_type: response?.data?.user?.accountType,
@@ -707,6 +712,7 @@ function AuthProvider({ children }) {
                                 email: response?.data?.user?.email,
                                 first_name: response?.data?.user?.firstName,
                                 last_name: response?.data?.user?.lastName,
+                                phone: response?.data?.user?.phoneNumber,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
                             });
