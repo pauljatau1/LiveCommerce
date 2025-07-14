@@ -7,7 +7,7 @@ import {
   Pressable,
   Image,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import CartEmptyIcon from "@/components/global/empty-states/cartEmptyIcon";
+import { FlatList } from "react-native-gesture-handler";
 
 const { width, height } = Dimensions.get("window");
 
@@ -46,6 +47,8 @@ const CartScreen = () => {
   const [wishList, setWishList] = useState<any[]>([]);
   const [wishListLoading, setWishListLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [segmentedCartGroup, setSegmentedCartGroup] = useState<any>();
+  const [uniqueSellersGroup, setUniqueSellersGroup] = useState<any>();
 
   const handleIncludeAllinCart = (isChecked: boolean) => {
     handleModifyCart("includeAll", {
@@ -70,10 +73,15 @@ const CartScreen = () => {
     setCartLength(cartLength);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async (sellerId: string) => {
     if (cartTotal < 1) {
       return toast.info("Select Items to Checkout");
     }
+
+    const segmentedCart = cart?.filter(
+      (item: any) => item?.seller?._id == sellerId,
+    );
+    await AsyncStorage.setItem("segmentedCart", JSON.stringify(segmentedCart));
     return router.push("/checkout/checkout");
   };
   useEffect(() => {
@@ -97,11 +105,39 @@ const CartScreen = () => {
     }
   };
 
+  const segmentCartBySeller = useCallback(() => {
+    if (cart?.length > 0) {
+      const segmentedCart = {} as any;
+      const uniqueSellers = new Set() as Set<string>;
+
+      cart?.forEach((item: any) => {
+        const sellerId = item?.seller?._id;
+        if (segmentedCart[sellerId]) {
+          segmentedCart[sellerId].push(item);
+        } else {
+          segmentedCart[sellerId] = [item];
+        }
+        uniqueSellers.add(sellerId);
+      });
+
+      setSegmentedCartGroup(segmentedCart);
+      setUniqueSellersGroup(Array.from(uniqueSellers));
+      setLoading(false);
+    }
+
+    // console.log(uniqueSellers);
+
+    // console.log({ segmentedCart, uniqueSellers });
+  }, [cart]);
+
   const handleGetCart = async () => {
     setLoading(true);
     try {
       const cartData = await AsyncStorage.getItem("cart");
       setCart(JSON.parse(cartData!));
+      if (!cartData) {
+        setLoading(false);
+      }
     } catch (e) {
       console.log(e);
     } finally {
@@ -275,7 +311,7 @@ const CartScreen = () => {
           handleCreateWishList(data);
           break;
         case "delete":
-          setWishList(wishList.filter((item) => item.product._id !== data));
+          setWishList(wishList.filter((item) => item?.product?._id !== data));
           handleRemoveWishtList(data);
           break;
         default:
@@ -283,6 +319,20 @@ const CartScreen = () => {
       }
     },
     [wishList],
+  );
+
+  const renderCartGroups = useCallback(
+    ({ item, index }: any) => {
+      return (
+        <CartSegment
+          item={segmentedCartGroup[item]}
+          handleModifyCart={handleModifyCart}
+          conversations={conversations}
+          handleCheckout={handleCheckout}
+        />
+      );
+    },
+    [uniqueSellersGroup, segmentedCartGroup],
   );
 
   // useEffect(() => {},[wishList])
@@ -300,6 +350,10 @@ const CartScreen = () => {
       handleGetWishList();
     }
   }, [tab]);
+
+  useEffect(() => {
+    if (cart) segmentCartBySeller();
+  }, [cart]);
   return (
     <SafeAreaView className={`flex-1 bg-[#121212] relative`}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -352,12 +406,21 @@ const CartScreen = () => {
         {tab == "cart" && (
           <View className=" relative flex-1">
             {cart?.length > 0 ? (
-              <CartList
-                cart={cart}
-                handleModifyCart={handleModifyCart}
-                conversations={conversations}
+              <FlatList
+                data={uniqueSellersGroup}
+                renderItem={renderCartGroups}
+                keyExtractor={(item, index) => item?.toString() || index}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  gap: 20,
+                }}
               />
-            ) : loading ? (
+            ) : // <CartList
+            //   cart={cart}
+            //   handleModifyCart={handleModifyCart}
+            //   conversations={conversations}
+            // />
+            loading ? (
               <ActivityIndicator
                 size="small"
                 color={"#fff"}
@@ -384,14 +447,10 @@ const CartScreen = () => {
           </View>
         )}
 
-        {tab == "cart" && cart?.length > 0 && (
+        {/* {tab == "cart" && cart?.length > 0 && (
           <View
             className="px-[20px] py-[10px] flex-row items-center justify-between gap-[20px] w-full flex-wrap justify-end bg-[#121212]"
-            style={
-              {
-                // bottom: insets.bottom,
-              }
-            }
+            
           >
             <View className="flex-row items-center">
               <View>
@@ -427,11 +486,22 @@ const CartScreen = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
       </View>
     </SafeAreaView>
   );
 };
+
+const CartSegment = memo((props: any) => {
+  return (
+    <CartList
+      cart={props?.item}
+      handleModifyCart={props?.handleModifyCart}
+      conversations={props?.conversations}
+      handleCheckout={props?.handleCheckout}
+    />
+  );
+});
 
 const EmptyCart = () => {
   return (
