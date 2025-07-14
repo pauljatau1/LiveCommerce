@@ -908,22 +908,21 @@ agenda.define('create-auction-winner-order', async (job) => {
       // Get fresh auth token for Fez
       const getFezAuthToken = async () => {
         try {
-          console.log('🔑 Attempting to authenticate with Fez Delivery API...');
-          
+        
           const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
           const authData = {
             user_id: process.env.FEZ_USER_ID,
             password: process.env.FEZ_PASSWORD
           };
           
-          console.log(`📤 Auth request to: ${authUrl}`);
-          console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
+          // console.log(`📤 Auth request to: ${authUrl}`);
+          // console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
           
           const response = await axios.post(authUrl, authData);
           
-          console.log(`📥 Auth response status: ${response.status}`);
-          console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
-          console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
+          // console.log(`📥 Auth response status: ${response.status}`);
+          // console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
+          // console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
           
           if (response.data && response.data.status === 'Success' && response.data.authDetails) {
             console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
@@ -1791,7 +1790,10 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         
         console.log(`Sent stale notification emails for unpaid order ${order.order_id}`);
       } catch (emailError) {
-        console.error(`Error sending stale notification emails for order ${order.order_id}:`, emailError);
+        console.error(`Error sending stale notification emails for order ${order.order_id}:`, {
+          message: emailError.message,
+          response: emailError.response?.body?.errors
+        });
         // Continue with marking order as stale even if email sending fails
       }
       
@@ -1803,6 +1805,249 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
     }
   } catch (error) {
     console.error('Error in mark_unpaid_orders_stale job:', error);
+  }
+});
+
+// Define job to mark Terminal Africa orders as stale after 30 minutes
+agenda.define('mark_terminal_orders_stale', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Checking if Terminal Africa order ${orderId} should be marked as stale`);
+    
+    const Order = mongoose.model('Order');
+    const Product = mongoose.model('Product');
+    const Buyer = mongoose.model('Buyer');
+    const terminalAPI = require('../config/terminalAPI');
+    
+    // Find the order with populated buyer and seller
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName storeName');
+    
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+    
+    // Check if order is already stale, cancelled, or closed
+    if (order.isStale) {
+      console.log(`Terminal Africa order ${order.order_id} is already marked as stale, skipping`);
+      return;
+    }
+    
+    if (!order.isOpen) {
+      console.log(`Terminal Africa order ${order.order_id} is already closed, skipping`);
+      return;
+    }
+    
+    // Check if any items are already cancelled
+    if (order.items.some(item => item.status === 'cancelled')) {
+      console.log(`Terminal Africa order ${order.order_id} has cancelled items, skipping stale marking`);
+      return;
+    }
+    
+    // Check if order should be marked as stale based on different criteria
+    let shouldMarkStale = false;
+    let staleReason = '';
+    
+    // New criteria: Check if the order is still in 'draft' or 'pending_payment' status.
+    if ((order.status === 'draft' || order.status === 'pending_payment') && !order.isStorePickup && !order.isInternational) {
+      shouldMarkStale = true;
+      staleReason = `Order was not completed and has been marked as stale (status: ${order.status}).`;
+      console.log(`Terminal Africa order ${order.order_id} is being marked as stale with status: ${order.status}`);
+    }
+    
+    if (!shouldMarkStale) {
+      console.log(`Terminal Africa order ${order.order_id} doesn't meet stale criteria (status: ${order.status}), skipping`);
+      return;
+    }
+    
+    console.log(`Marking Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
+    
+    // Cancel shipment with Terminal Africa if shipment exists
+    const shipmentId = order.shipping?.shipment_id;
+    
+    if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-') && !order.isStorePickup) {
+      try {
+        console.log(`Attempting to cancel Terminal Africa shipment: ${shipmentId} for order ${order.order_id}`);
+        
+        const cancelResponse = await terminalAPI.post('/shipments/cancel', {
+          shipment_id: shipmentId
+        });
+        
+        console.log('Terminal Africa cancellation response:', {
+          status: cancelResponse.data.status,
+          message: cancelResponse.data.message,
+          orderId: order.order_id
+        });
+        
+        if (cancelResponse.data.status) {
+          console.log(`Successfully cancelled Terminal Africa shipment ${shipmentId}`);
+        } else {
+          console.log(`Terminal Africa cancellation failed: ${cancelResponse.data.message}`);
+        }
+      } catch (terminalError) {
+        console.error(`Error cancelling Terminal Africa shipment for order ${order.order_id}:`, terminalError.message);
+        if (terminalError.response) {
+          console.error('Terminal API error response:', terminalError.response.data);
+        }
+        // Continue with order stale update even if Terminal cancellation fails
+      }
+    }
+    
+    // Handle wallet refund for hybrid payments
+    const isHybridPayment = order.paymentInfo?.isWalletCredit && order.paymentInfo?.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+    
+    if (isHybridPayment) {
+      try {
+        console.log(`Terminal Africa order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
+        
+        const buyer = await Buyer.findById(order.buyer);
+        
+        if (buyer) {
+          // Log wallet balance before refund
+          console.log(`TERMINAL WALLET REFUND - BEFORE: Buyer ${buyer._id} current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+          
+          // Get the wallet amount to refund
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+          
+          // Create refund transaction
+          const refundTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for stale Terminal Africa order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+          
+          // Update buyer's wallet
+          const previousBalance = buyer.wallet.balance;
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(refundTransaction);
+          
+          await buyer.save();
+          
+          // Mark this order as having refunded its wallet amount
+          await Order.findByIdAndUpdate(order._id, {
+            'paymentInfo.refundedWalletAmount': walletRefundAmount,
+            'paymentInfo.walletRefundedAt': new Date()
+          });
+          
+          walletRefunded = true;
+          
+          console.log(`TERMINAL WALLET REFUND - SUCCESS: Refunded ₦${walletRefundAmount.toLocaleString()} to buyer ${buyer._id}`);
+          console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
+          console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+        } else {
+          console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale Terminal Africa order ${order.order_id}`);
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for stale Terminal Africa order ${order.order_id}:`, refundError);
+        // Continue with order stale update even if refund fails
+      }
+    }
+    
+    // Do NOT restore stock for draft/pending_payment orders, as it was never deducted.
+    
+    // Send notification emails to buyer and seller
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      // Format item list for email
+      const itemsList = order.items.map(item => 
+        `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
+      ).join('<br>');
+      
+      // Add wallet refund info if applicable
+      const walletRefundInfo = walletRefunded ? 
+        `<p><strong>Note:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded to your wallet.</p>` : '';
+      
+      // Buyer notification email
+      const buyerEmail = {
+        to: order.buyer.email,
+        from: 'Auqli Orders <support@auqli.com>',
+        subject: 'Order Expired - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Expired</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Your order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Seller: ${order.seller.storeName || order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+              <li>Reason for expiry: ${staleReason}</li>
+            </ul>
+            
+            ${walletRefundInfo}
+            
+            <p>If you still wish to purchase these items, please place a new order.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+      
+      // Seller notification email
+      const sellerEmail = {
+        to: order.seller.email,
+        from: 'Auqli Orders <support@auqli.com>',
+        subject: 'Order Expired - Stock Restored - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Expired - Stock Restored</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>Order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+              <li>Reason for expiry: ${staleReason}</li>
+            </ul>
+            
+            <p>The items have been returned to your inventory automatically.</p>
+            ${walletRefunded ? `<p>The buyer's wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded.</p>` : ''}
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+      
+      // Send both emails
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+      
+      console.log(`Sent stale notification emails for Terminal Africa order ${order.order_id}`);
+    } catch (emailError) {
+      console.error(`Error sending stale notification emails for Terminal Africa order ${order.order_id}:`, {
+        message: emailError.message,
+        response: emailError.response?.body?.errors
+      });
+      // Continue with marking order as stale even if email sending fails
+    }
+    
+    // Mark the order as stale with additional metadata
+    await Order.findByIdAndUpdate(order._id, { 
+      isStale: true,
+      staleReason: staleReason,
+      staleAt: new Date()
+    });
+    
+    console.log(`Successfully marked Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
+    
+  } catch (error) {
+    console.error('Error in mark_terminal_orders_stale job:', error);
   }
 });
 
@@ -2237,6 +2482,77 @@ agenda.define('send_unpaid_order_warning', async (job) => {
     }
   } catch (error) {
     console.error('Error in send_unpaid_order_warning job:', error);
+  }
+});
+
+// Define job to send a warning notification for Terminal Africa orders before they're marked as stale
+agenda.define('send_terminal_order_warning', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Sending warning notification for Terminal Africa order ${orderId} before it's marked as stale`);
+    
+    const Order = mongoose.model('Order');
+    const { getToken } = require('../../Firebase');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    
+    // Find the order with populated buyer
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName storeName');
+    
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+    
+    // Check if order will be marked as stale based on different criteria
+    let shouldWarn = false;
+    let warningMessage = '';
+    
+    // Check for unpaid Paystack orders
+    if (!order.paid && order.paymentInfo?.method === 'paystack') {
+      shouldWarn = true;
+      warningMessage = `Your order #${order.order_id} will expire in 10 minutes if payment is not completed.`;
+      console.log(`Terminal Africa order ${order.order_id} is unpaid - sending payment warning`);
+    }
+    
+    // Check for orders that haven't selected a carrier (only for non-store pickup)
+    else if (!order.shipping?.rate_id && !order.isStorePickup) {
+      shouldWarn = true;
+      warningMessage = `Your order #${order.order_id} will expire in 10 minutes if you don't select a shipping carrier.`;
+      console.log(`Terminal Africa order ${order.order_id} has no carrier selected - sending carrier warning`);
+    }
+    
+    if (shouldWarn) {
+      try {
+        // Get the buyer's Expo push token
+        const userToken = await getToken(order.buyer._id);
+        
+        if (userToken && userToken.token) {
+          // Send push notification to buyer
+          await expo.sendPushNotificationsAsync([{
+            to: userToken.token,
+            title: `Your Order Will Expire Soon`,
+            body: warningMessage,
+            data: {
+              orderId: order.order_id,
+              type: 'terminal_order_expiring_soon'
+            }
+          }]);
+          
+          console.log(`Successfully sent Terminal Africa warning notification for order ${order.order_id}`);
+        } else {
+          console.log(`No push token found for buyer of Terminal Africa order ${order.order_id}`);
+        }
+      } catch (notificationError) {
+        console.error(`Error sending Terminal Africa warning notification for order ${order.order_id}:`, notificationError);
+      }
+    } else {
+      console.log(`Terminal Africa order ${order.order_id} doesn't need warning - either paid with carrier selected or is store pickup`);
+    }
+  } catch (error) {
+    console.error('Error in send_terminal_order_warning job:', error);
   }
 });
 

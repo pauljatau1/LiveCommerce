@@ -93,70 +93,7 @@ const initializeFezWebhook = async () => {
   }
 };
 
-// At the top with other initializations
-const initializeTerminalWebhook = async () => {
-  try {
-    const webhookUrl = process.env.NODE_ENV === 'production' 
-      ? `${process.env.BASE_URL}/webhooks/terminal`
-      : `${process.env.WEBHOOK_URL}`;
 
-    // Define the events we want to track
-    const events = [
-      'shipment.created',
-      'shipment.in-transit',
-      'shipment.updated',
-      'shipment.delivered'
-    ];
-
-    // Create a webhook for each event
-    for (const event of events) {
-      const webhookData = {
-        name: `Shipment ${event.split('.').join(' ')}`,
-        url: webhookUrl,
-        description: `Webhook for tracking ${event} events`,
-        events: [event],
-        live: process.env.NODE_ENV === 'production',
-        active: true
-      };
-
-      // console.log(`Creating webhook for event: ${event}`);
-
-      try {
-        const response = await terminalAPI.post('/webhooks', webhookData);
-        
-        if (response.data && response.data.status) {
-          // console.log(`Successfully created webhook for ${event}:`, {
-          //   webhookId: response.data.data?.id,
-          //   event: event
-          // });
-        } else {
-          console.error(`Failed to create webhook for ${event}:`, response.data);
-        }
-      } catch (eventError) {
-        console.error(`Error creating webhook for ${event}:`, {
-          error: eventError.message,
-          response: eventError.response?.data
-        });
-        // Continue with other events even if one fails
-        continue;
-      }
-
-      // Add a small delay between webhook creations to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    // console.log('Completed webhook initialization process');
-  } catch (error) {
-    console.error('Failed to initialize Terminal webhooks:', {
-      error: error.message,
-      response: error.response?.data,
-      config: error.config
-    });
-  }
-};
-
-// Call this when your app starts
-initializeTerminalWebhook();
 initializeFezWebhook();
 
 
@@ -2628,8 +2565,10 @@ exports.getOrderDetails = async (req, res) => {
       ]));
       // Calculate fees for each item
       let totalPlatformFee = 0;
+      let itemsSubtotal = 0;
       const itemizedFees = order.items.map(item => {
         const itemTotal = item.price * item.quantity;
+        itemsSubtotal += itemTotal;
         const categoryFee = categoryFeeMap.get(item.product?.category) || 0;
         const itemPlatformFee = itemTotal * (categoryFee / 100);
         totalPlatformFee += itemPlatformFee;
@@ -2642,18 +2581,23 @@ exports.getOrderDetails = async (req, res) => {
         };
       });
 
-      // Calculate processing fee (1.5%)
-      const processingFee = order.totalAmount * 0.015;
+      // Calculate processing fee (1.5%) on the items subtotal
+      const processingFee = itemsSubtotal * 0.015;
+      const shippingFeeAmount = order.shipping?.fee?.amount || 0;
+      
+      // Deductions from seller's earnings from items
       const totalDeductions = totalPlatformFee + processingFee;
-      const sellerAmount = order.totalAmount - totalDeductions;
+      const sellerAmount = itemsSubtotal - totalDeductions;
 
       paymentBreakdown = {
         orderTotal: order.totalAmount,
+        itemsSubtotal,
         items: itemizedFees,
         fees: {
           totalPlatformFee,
           processingFee,
           processingFeePercentage: 1.5,
+          shippingFee: shippingFeeAmount,
           totalDeductions
         },
         sellerPayout: sellerAmount
@@ -3567,7 +3511,7 @@ exports.cancelShipment = async (req, res) => {
  */
 const getFezAuthToken = async () => {
   try {
-    console.log('🔑 Attempting to authenticate with Fez Delivery API...');
+   
     
     const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
@@ -3575,14 +3519,14 @@ const getFezAuthToken = async () => {
       password: process.env.FEZ_PASSWORD
     };
     
-    console.log(`📤 Auth request to: ${authUrl}`);
-    console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
+    // console.log(`📤 Auth request to: ${authUrl}`);
+    // console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
     
     const response = await axios.post(authUrl, authData);
     
-    console.log(`📥 Auth response status: ${response.status}`);
-    console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
-    console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
+    // console.log(`📥 Auth response status: ${response.status}`);
+    // console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
+    // console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
     
     if (response.data && response.data.status === 'Success' && response.data.authDetails) {
       console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);

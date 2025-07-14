@@ -953,6 +953,147 @@ exports.simulateFezWebhook = async (req, res) => {
   }
 };
 
+// Add a new function to simulate Terminal Africa webhook events
+exports.simulateTerminalWebhook = async (req, res) => {
+  try {
+    const { event, shipment_id, tracking_number, carrier, delivery_date } = req.body;
+
+    console.log('🚚 Simulating Terminal webhook:', {
+      event,
+      shipment_id,
+      tracking_number,
+      carrier
+    });
+
+    // Validate required fields
+    if (!event || !shipment_id) {
+      return res.status(400).json({
+        message: 'Missing required fields: event and shipment_id are required'
+      });
+    }
+
+    // Validate event type
+    const validEvents = [
+      'packaging.created',
+      'packaging.updated', 
+      'shipment.cancelled',
+      'shipment.created',
+      'shipment.in_transit',
+      'shipment.updated',
+      'shipment.delivered'
+    ];
+    
+    if (!validEvents.includes(event)) {
+      return res.status(400).json({
+        message: `Invalid event type. Must be one of: ${validEvents.join(', ')}`
+      });
+    }
+
+    // Find the order by Terminal shipment ID
+    const Order = mongoose.model('Order');
+    const order = await Order.findOne({ 'shipping.shipment_id': shipment_id });
+    
+    if (!order) {
+      return res.status(404).json({
+        message: `Order with Terminal shipment ID ${shipment_id} not found`
+      });
+    }
+
+    // Always use current timestamp for webhook simulation
+    const simulatedTimestamp = new Date();
+    
+    console.log(`Simulating ${event} with current timestamp: ${simulatedTimestamp.toISOString()}`);
+
+    // Create mock webhook data following Terminal Africa's webhook format
+    const mockWebhookData = {
+      event,
+      data: {
+        shipment_id,
+        tracking_number: tracking_number || order.shipping?.tracking?.number || 'TN-' + Math.random().toString(36).substr(2, 9),
+        carrier: carrier || order.shipping?.carrier?.name || 'DHL',
+        status: getTerminalStatus(event),
+        delivery_date: delivery_date || (event === 'shipment.delivered' ? simulatedTimestamp.toISOString() : null),
+        pickup_date: event === 'shipment.updated' ? simulatedTimestamp.toISOString() : null,
+        recipient: {
+          name: `${order.delivery_address?.first_name || ''} ${order.delivery_address?.last_name || ''}`.trim(),
+          address: order.delivery_address?.line1 || 'Delivery Address',
+          city: order.delivery_address?.city || 'Lagos',
+          state: order.delivery_address?.state || 'Lagos',
+          phone: order.delivery_address?.phone || ''
+        },
+        sender: {
+          name: order.seller?.businessName || 'Seller',
+          address: order.seller?.address || 'Seller Address'
+        },
+        description: getTerminalEventDescription(event),
+        timestamp: simulatedTimestamp.toISOString()
+      }
+    };
+
+    // Helper function to get Terminal status
+    function getTerminalStatus(event) {
+      switch(event) {
+        case 'packaging.created':
+          return 'packaging';
+        case 'packaging.updated':
+          return 'packaging';
+        case 'shipment.created':
+          return 'pending';
+        case 'shipment.updated':
+          return 'picked-up';
+        case 'shipment.in_transit':
+          return 'in-transit';
+        case 'shipment.delivered':
+          return 'delivered';
+        case 'shipment.cancelled':
+          return 'cancelled';
+        default:
+          return 'unknown';
+      }
+    }
+
+    // Helper function to get descriptive event message
+    function getTerminalEventDescription(event) {
+      switch(event) {
+        case 'packaging.created':
+          return 'Package has been created and is being prepared for shipment';
+        case 'packaging.updated':
+          return 'Package information has been updated';
+        case 'shipment.created':
+          return 'Shipment has been created and is awaiting pickup';
+        case 'shipment.updated':
+          return 'Shipment has been picked up and is being processed';
+        case 'shipment.in_transit':
+          return 'Shipment is in transit to the destination';
+        case 'shipment.delivered':
+          return 'Shipment has been successfully delivered';
+        case 'shipment.cancelled':
+          return 'Shipment has been cancelled';
+        default:
+          return 'Shipment status updated';
+      }
+    }
+
+    // Import the handler dynamically to avoid circular dependencies
+    const { handleTerminalWebhook } = require('../webhooks/terminalWebhook');
+    
+    // Process the webhook
+    await handleTerminalWebhook(mockWebhookData);
+
+    res.json({
+      message: `Terminal webhook event '${event}' simulated successfully`,
+      data: mockWebhookData
+    });
+
+  } catch (error) {
+    console.error('Error in simulateTerminalWebhook:', error);
+    res.status(500).json({ 
+      message: 'Failed to simulate Terminal webhook event',
+      error: error.message 
+    });
+  }
+};
+
 // Helper function to send push notification
 exports.sendPushNotification = async (expoPushToken, title, body, data = {}) => {
   try {

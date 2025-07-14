@@ -1,0 +1,285 @@
+paths:
+  /api/v2/admin/shipments:
+    get:
+      summary: Get Shipments v2
+      description: Fetch a list of all shipments available for a user.
+      tags:
+        - Admin V2
+      parameters:
+        - in: query
+          name: perPage
+          schema:
+            type: string
+          description: Specify how many results will be returned in a single request. Defaults to 50.
+        - in: query
+          name: page
+          schema:
+            type: string
+          description: Specify what page of records will be sent in response. Defaults to 1.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [cancelled, confirmed, delivered, draft, in-transit, pending]
+          description: Status of shipment.
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search for shipments using text string (tracking_number, shipment_id, shipment_reference).
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+          description: "Order shipments. Default to DESC created_at (-created_at). Ordering fields: created_at, updated_at, pickup_date, delivery_date, amount."
+        - in: query
+          name: pickup_country
+          schema:
+            type: string
+          description: Filter shipment by pickup country (e.g., NG).
+        - in: query
+          name: delivery_country
+          schema:
+            type: string
+          description: Filter shipment by delivery country (e.g., NG).
+        - in: query
+          name: pickup_state
+          schema:
+            type: string
+          description: Filter shipment by pickup state (e.g., Lagos).
+        - in: query
+          name: delivery_state
+          schema:
+            type: string
+          description: Filter shipment by delivery state (e.g., Lagos).
+        - in: query
+          name: pickup_city
+          schema:
+            type: string
+          description: Filter shipment by pickup city (e.g., Apapa).
+        - in: query
+          name: delivery_city
+          schema:
+            type: string
+          description: Filter shipment by delivery city (e.g., Apapa).
+        - in: query
+          name: carrier_slug
+          schema:
+            type: string
+          description: Filter shipments by carrier_slug.
+        - in: query
+          name: carrier_id
+          schema:
+            type: string
+          description: Filter shipments by carrier_id.
+        - in: query
+          name: start_date
+          schema:
+            type: string
+          description: "Filter from shipment creation start date. Format: YYYY-MM-DD."
+        - in: query
+          name: end_date
+          schema:
+            type: string
+          description: "Filter from shipment creation end date. Format: YYYY-MM-DD."
+      responses:
+        '200':
+          description: Shipments retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+    delete:
+      summary: Delete Shipment
+      description: Delete a shipment.
+      tags:
+        - Admin V2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shipment_id:
+                  type: string
+                  description: Unique id of shipment.
+              required:
+                - shipment_id
+      responses:
+        '200':
+          description: Shipment deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: 'null'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Shipment not found
+        '500':
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+  /api/v2/admin/shipments/cancel:
+    post:
+      summary: Cancel Shipment
+      description: Cancel pickup for a shipment.
+      tags:
+        - Admin V2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shipment_id:
+                  type: string
+                  description: Unique reference for shipment.
+              required:
+                - shipment_id
+      responses:
+        '200':
+          description: Shipment canceled successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Shipment not found
+        '500':
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+  /api/v2/admin/shipments/{shipmentId}:
+    get:
+      summary: Get Shipment
+      description: Fetch details of a specific shipment.
+      tags:
+        - Admin V2
+      parameters:
+        - in: path
+          name: shipmentId
+          schema:
+            type: string
+          required: true
+          description: ID of the shipment.
+      responses:
+        '200':
+          description: Shipment retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Shipment not found
+        '500':
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+    put:
+      summary: Update Shipment
+      description: Update information for an existing draft shipment.
+      tags:
+        - Admin V2
+      parameters:
+        - in: path
+          name: shipmentId
+          schema:
+            type: string
+          required: true
+          description: Unique reference for the shipment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address_to:
+                  type: string
+                  description: Unique id of delivery address.
+                address_from:
+                  type: string
+                  description: Pickup address for shipment.
+                address_return:
+                  type: string
+                  description: Return address for shipment.
+                metadata:
+                  type: object
+                  description: Provides additional information for a shipment.
+                parcel:
+                  type: string
+                  description: Unique identifier of parcel to be shipped.
+                shipment_purpose:
+                  type: string
+                  enum: [commercial, personal, sample, return-after-repair, return-for-repair]
+                  description: Purpose of shipment.
+                parcels:
+                  type: array
+                  items:
+                    type: string
+                  description: List of parcel ids for creating a multi-parcel shipment.
+      responses:
+        '200':
+          description: OK Shipment updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Shipment not found
+        '500':
+          description: Internal Server Error
+      security:
+        - bearerAuth: [] 

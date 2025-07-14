@@ -18,7 +18,7 @@ const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 // Function to get Fez authentication token
 const getFezAuthToken = async () => {
   try {
-    console.log('🔑 Attempting to authenticate with Fez Delivery API...');
+    
     
     const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
@@ -26,7 +26,7 @@ const getFezAuthToken = async () => {
       password: process.env.FEZ_PASSWORD
     };
     
-    console.log(`📤 Auth request to: ${authUrl}`);
+    // console.log(`📤 Auth request to: ${authUrl}`);
     
     const response = await axios.post(authUrl, authData);
     

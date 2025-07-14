@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
-const notificationController = require('../controllers/notificationController');
-const Transaction = require('./Transaction');
-const Seller = require('./Seller');
+
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
@@ -79,6 +77,10 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isInternational: {
+    type: Boolean,
+    default: false
+  },
   storePickupStatus: {
     state: {
       type: String,
@@ -129,6 +131,11 @@ const orderSchema = new mongoose.Schema({
     type: String,
     // enum: ['marketplace', 'liveshow', 'other'],
     default: 'marketplace'
+  },
+  status: {
+    type: String,
+    enum: ['draft', 'pending_payment', 'processing', 'shipped', 'delivered', 'cancelled', 'failed'],
+    default: 'draft'
   },
   items: [orderItemSchema],
   totalAmount: {
@@ -675,4 +682,4 @@ orderSchema.pre('save', async function(next) {
 // Add a compound index to prevent duplicate orders
 orderSchema.index({ order_id: 1, buyer: 1 }, { unique: true });
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = mongoose.models.Order || mongoose.model('Order', orderSchema);
