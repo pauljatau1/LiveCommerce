@@ -104,17 +104,8 @@ const Login = () => {
         if (result) {
           // Identify the user directly
           identifyUser(result?.user?._id, {
-            $email: email,
-            $name: result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-          });
-
-          trackEvent("buyer_login", {
-            userId: result?.user?._id,
-            $email: email,
-            $name: result?.user?.firstName + " " + result?.user?.lastName,
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,
             username: result?.user?.username,
@@ -127,7 +118,27 @@ const Login = () => {
             onHoldItems: result?.user?.wallet?.onHoldAmount
               ? result?.user?.wallet?.onHoldItems[0]
               : "none",
-            userType: "buyer",
+            "User Type": "Buyer",
+            timestamp: new Date().toISOString(),
+          });
+
+          trackEvent("buyer_login", {
+            userId: result?.user?._id,
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            shippingAddress: result?.user?.shippingAddresses[0],
+            country: result?.user?.country,
+            emailVerified: result?.user?.emailVerified,
+            walletBalance: result?.user?.wallet?.balance,
+            onHoldAmount: result?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.user?.wallet?.onHoldAmount
+              ? result?.user?.wallet?.onHoldItems[0]
+              : "none",
+            "User Type": "Buyer",
             timestamp: new Date().toISOString(),
           });
         }
