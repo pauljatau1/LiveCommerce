@@ -613,6 +613,7 @@ exports.resendOTP = async (req, res) => {
   }
 };
 
+
 exports.updateSelectedCategories = async (req, res) => {
   const { selectedCategories } = req.body;
 
@@ -635,6 +636,8 @@ exports.updateSelectedCategories = async (req, res) => {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
   }
 };
+
+
 
 // Get buyer's orders with filtering
 exports.getOrders = async (req, res) => {
