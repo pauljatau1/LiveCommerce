@@ -1207,7 +1207,6 @@ router.post('/',
       { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
       { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
     ]);
-
     uploadFields(req, res, (err) => {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -1236,6 +1235,50 @@ router.post('/',
   },
   productController.createProduct
 );
+
+/**
+ * @swagger
+ * /api/products/bulk-update-price:
+ *   post:
+ *     summary: Bulk update product prices by percentage
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               percentage:
+ *                 type: number
+ *                 description: The percentage to increase or decrease prices. Use a negative value for a decrease.
+ *                 example: 10
+ *     responses:
+ *       200:
+ *         description: Product prices updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 updatedCount:
+ *                   type: integer
+ *       400:
+ *         description: Bad request, e.g., missing percentage or invalid value.
+ *       401:
+ *         description: Unauthorized, token is missing or invalid.
+ *       403:
+ *         description: Forbidden, user is not a seller.
+ *       404:
+ *         description: No products found for this seller.
+ *       500:
+ *         description: Failed to update product prices
+ */
+router.post('/bulk-update-price', authMiddleware.verifyToken, authMiddleware.isSeller, productController.bulkUpdatePrices);
 
 /**
  * @swagger

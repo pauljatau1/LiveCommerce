@@ -8621,3 +8621,44 @@ exports.deleteBlipFromProduct = async (req, res) => {
     });
   }
 };
+
+exports.bulkUpdatePrices = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { percentage } = req.body;
+
+    if (percentage === undefined || typeof percentage !== 'number') {
+      return res.status(400).json({ message: 'Percentage is required and must be a number.' });
+    }
+
+    const multiplier = 1 + (percentage / 100);
+
+    if (multiplier < 0) {
+        return res.status(400).json({ message: 'Percentage decrease cannot be more than 100%.' });
+    }
+
+    // Using updateMany with aggregation pipeline for update
+    const result = await Product.updateMany(
+        { seller: sellerId },
+        [{ $set: { price: { $multiply: ['$price', multiplier] } } }]
+    );
+
+    if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'No products found for this seller.' });
+    }
+
+    res.json({
+      message: `Product prices updated successfully for ${result.modifiedCount} of ${result.matchedCount} products.`,
+      updatedCount: result.modifiedCount,
+      matchedCount: result.matchedCount
+    });
+
+  } catch (error) {
+    console.error('Bulk price update error:', error);
+    res.status(500).json({
+      message: 'Failed to update product prices',
+      error: error.message
+    });
+  }
+};
+
