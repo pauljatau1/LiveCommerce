@@ -173,6 +173,15 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use((err, req, res, next) => {
    console.error(err);
 
+   // Handle JSON parsing errors
+   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid JSON in request body',
+      error: 'Bad Request'
+    });
+  }
+
    if (err instanceof ValidationError) {
     return res.status(err.status).json({
       success: false,

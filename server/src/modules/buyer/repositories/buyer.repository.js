@@ -41,6 +41,15 @@ async function saveBuyer(buyerInstance) {
 }
 
 /**
+ * Find a buyer by ID.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>}
+ */
+async function findById(buyerId) {
+  return Buyer.findById(buyerId);
+}
+
+/**
  * Find a buyer by ID with specific fields selected.
  * @param {string} buyerId - The buyer's ID
  * @param {Object} fields - Object specifying which fields to include/exclude
@@ -113,6 +122,7 @@ module.exports = {
   save,
   findByEmail,
   saveBuyer,
+  findById,
   findByIdWithFields,
   getFollowersCount,
   getFollowingCount,
