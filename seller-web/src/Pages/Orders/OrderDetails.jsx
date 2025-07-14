@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle, Loader2 } from 'lucide-react'
 import { Badge } from "@/Components/ui/badge"
+import { Hash } from 'lucide-react'
 import { Button } from "@/Components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Separator } from "@/Components/ui/separator"
@@ -428,7 +429,7 @@ export default function OrderDetails() {
     setCancelLoading(true);
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/order/${id}/cancel`, {
+      const response = await fetch(`${BASE_URL}/v2/order/${id}/cancel-by-seller`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${sellerToken}`,
@@ -624,7 +625,7 @@ export default function OrderDetails() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                {!order?.isStale && !order?.isStorePickup && order?.paymentInfo?.status === 'paid' && (
+                {/* {!order?.isStale && !order?.isStorePickup && order?.paymentInfo?.status === 'paid' && (
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-blue-700"
@@ -648,7 +649,7 @@ export default function OrderDetails() {
                     </svg>
                     Print Shipping Label
                   </Button>
-                )}
+                )} */}
                 {!order?.isStale && order?.isStorePickup && (
                   <Button
                     variant="outline"
@@ -692,52 +693,7 @@ export default function OrderDetails() {
                   </Button>
                 )}
 
-                {/* Cancel Order Button - Show for paid orders with pending shipping */}
-                {!order?.isStale && order?.paymentInfo?.status === 'paid' && 
-                 (shipping?.tracking?.status === 'pending' || 
-                  shipping?.tracking?.status?.toLowerCase()?.includes('pending')) && 
-                 items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) && 
-                 !items?.some(item => item.status?.toLowerCase() === 'cancelled') && (
-                  <Button
-                    onClick={() => setConfirmCancelDialogOpen(true)}
-                    variant="destructive"
-                    size="lg"
-                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
-                  >
-                    <XCircle className="mr-2 h-3 w-3" />
-                    Cancel Order
-                  </Button>
-                )}
-                
-                {/* Message for paid orders that can't be cancelled due to processing */}
-                {!order?.isStale && order?.paymentInfo?.status === 'paid' && 
-                 ((shipping?.tracking?.status !== 'pending' && 
-                   !shipping?.tracking?.status?.toLowerCase()?.includes('pending')) ||
-                  !items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) ||
-                  items?.some(item => item.status?.toLowerCase() === 'cancelled')) && (
-                  <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-600">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium">Order In Progress</p>
-                        <p>This order is already being processed and cannot be cancelled. Please contact support if you need assistance.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Message for unpaid orders */}
-                {!order?.isStale && !order?.isStorePickup && shipping?.tracking?.status === 'pending' && order?.paymentInfo?.status !== 'paid' && (
-                  <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-600">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium">Order Actions Limited</p>
-                        <p>You cannot cancel or print shipping labels for unpaid orders. These options will become available once payment is received.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
 
@@ -1105,6 +1061,183 @@ export default function OrderDetails() {
             </CardContent>
           </Card>
 
+          {/* Enhanced Shipping Details - Moved here for better layout */}
+          {!order?.isStorePickup && !order?.isStale && (
+            <Card className="border border-gray-100 shadow-sm bg-white">
+              <CardHeader className="border-b border-gray-100 p-4">
+                <CardTitle className="flex items-center font-inter gap-2 text-sm xl:text-base text-gray-700">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  Shipping Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-6">
+                {/* Carrier Information */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <Truck className="h-4 w-4 text-blue-600" />
+                    </div>
+                    Carrier Information
+                  </h4>
+                  <div className="space-y-4">
+                  
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Truck className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Carrier</p>
+                          <p className="text-xs text-gray-500">Shipping provider</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">{shipping?.carrier?.name || "Standard Shipping"}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-50 rounded-lg">
+                          <Tag className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Reference</p>
+                          <p className="text-xs text-gray-500">Carrier reference number</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">{shipping?.carrier?.reference || "N/A"}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-50 rounded-lg">
+                          <Hash className="h-4 w-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Shipment ID</p>
+                          <p className="text-xs text-gray-500">Unique shipment identifier</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-mono bg-gray-100 px-3 py-1 rounded-full text-gray-800">
+                        {shipping?.shipment_id || "N/A"}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-50 rounded-lg">
+                          <Package className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Tracking Number</p>
+                          <p className="text-xs text-gray-500">Track your shipment</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-mono bg-gray-100 px-3 py-1 rounded-full text-gray-800">
+                        {shipping?.tracking?.number || "Generating..."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Information */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 rounded-lg">
+                      <Calendar className="h-4 w-4 text-green-600" />
+                    </div>
+                    Delivery Information
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Clock className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Estimated Pickup</p>
+                          <p className="text-xs text-gray-500">When carrier picks up</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">
+                        {shipping?.estimatedPickupDate || 'Processing...'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-50 rounded-lg">
+                          <Calendar className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Estimated Delivery</p>
+                          <p className="text-xs text-gray-500">When buyer receives</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">
+                        {deliveryEstimate ? 
+                          `${deliveryEstimate}` : 
+                          shipping?.estimatedDeliveryDate || 
+                          'Calculating...'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-50 rounded-lg">
+                          <DollarSign className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Shipping Fee</p>
+                          <p className="text-xs text-gray-500">Delivery cost</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-green-600">
+                        ₦{shipping?.fee?.amount?.toLocaleString() || "0"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enhanced Discount Information */}
+                {items[0]?.product?.discount?.isActive && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-l-4 border-green-500">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Tag className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-green-800">Applied Discount</h4>
+                        <p className="text-sm text-green-700">Special savings applied to this order</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {items[0].product.discount.couponName && (
+                        <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
+                          <span className="text-sm font-medium text-green-700">Coupon Code</span>
+                          <span className="text-sm font-semibold text-green-800 bg-green-200 px-3 py-1 rounded-full">
+                            {items[0].product.discount.couponName}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
+                        <span className="text-sm font-medium text-green-700">Discount Rate</span>
+                        <span className="text-sm font-semibold text-green-800">
+                          {items[0].product.discount.value}% off
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
+                        <span className="text-sm font-medium text-green-700">You Saved</span>
+                        <span className="text-sm font-semibold text-green-800">
+                          ₦{(items[0].price / (1 - items[0].product.discount.value / 100) - items[0].price).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Price Breakdown */}
           <Card className="border border-gray-100 -sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
@@ -1243,71 +1376,124 @@ export default function OrderDetails() {
 
         {/* Sidebar */}
         <div className="space-y-6 w-full">
-        {isInternationalSeller && order?.paymentInfo?.status === 'paid' && !order?.isStale && (
-                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">
-                      <h4 className="font-medium flex items-center gap-2 text-blue-800 mb-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-blue-600"
-                        >
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="2" y1="12" x2="22" y2="12"></line>
-                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                        </svg>
-                        International Seller Controls
-                      </h4>
-                      <p className="text-sm text-blue-700 mb-3">
-                        As an international seller, you can update tracking information and shipping status for this order.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2">
+          {/* Order Actions */}
+          {!order?.isStale && (
+            <Card className="border w-full border-gray-100 shadow-sm bg-white">
+              <CardHeader className="border-b border-gray-100 p-4">
+                <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
+                  <div className="p-1.5 bg-orange-100 rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-orange-600"
+                    >
+                      <polyline points="3,6 5,6 21,6"></polyline>
+                      <path d="M19,6V20a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6M8,6V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2V6"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </div>
+                  Order Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                {/* Cancel Order Section */}
+                {order?.paymentInfo?.status === 'paid' && 
+                 (shipping?.tracking?.status === 'pending' || 
+                  shipping?.tracking?.status?.toLowerCase()?.includes('pending')) && 
+                 items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) && 
+                 !items?.some(item => item.status?.toLowerCase() === 'cancelled') ? (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-red-100 rounded-lg flex-shrink-0">
+                        <XCircle className="h-5 w-5 text-red-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-red-800 mb-2">Cancel Order</h4>
+                        <p className="text-sm text-red-700 mb-3">
+                          Cancel this order and refund the customer. This action cannot be undone.
+                        </p>
                         <Button
-                          className="flex-1 flex items-center font-inter bg-blue-600 hover:bg-blue-700 transition-all duration-300 justify-center gap-2"
-                          onClick={() => {
-                            // Initialize tracking form with current values if available
-                            setTrackingNumber(shipping?.tracking?.number || '');
-                            setTrackingUrl(shipping?.tracking?.url || '');
-                            setEstimatedDeliveryDate(shipping?.estimatedDeliveryDate ? 
-                              new Date(shipping.estimatedDeliveryDate).toISOString().split('T')[0] : '');
-                            setTrackingDialogOpen(true);
-                          }}
+                          onClick={() => setConfirmCancelDialogOpen(true)}
+                          variant="destructive"
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-medium"
                         >
-                          <Package className="h-4 w-4" />
-                          Update Tracking Info
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 flex items-center font-inter justify-center gap-2 border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700"
-                          onClick={() => {
-                            // Initialize status form with current status if available
-                            const currentStatus = shipping?.tracking?.status || '';
-                            // Map API status to form status options
-                            let formStatus = '';
-                            if (currentStatus.toLowerCase().includes('pick')) formStatus = 'Picked-Up';
-                            else if (currentStatus.toLowerCase().includes('dispatch') || currentStatus.toLowerCase().includes('transit')) formStatus = 'Dispatched';
-                            else if (currentStatus.toLowerCase().includes('deliver')) formStatus = 'Delivered';
-                            else if (currentStatus.toLowerCase().includes('cancel')) formStatus = 'Cancelled';
-                            
-                            setShippingStatus(formStatus);
-                            setStatusDialogOpen(true);
-                          }}
-                        >
-                          <Truck className="h-4 w-4" />
-                          Update Shipping Status
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Cancel Order
                         </Button>
                       </div>
                     </div>
                   </div>
-                )}
-
+                ) : order?.paymentInfo?.status === 'paid' && 
+                   ((shipping?.tracking?.status !== 'pending' && 
+                     !shipping?.tracking?.status?.toLowerCase()?.includes('pending')) ||
+                    !items?.every(item => item.status?.toLowerCase() === 'pending' || !item.status) ||
+                    items?.some(item => item.status?.toLowerCase() === 'cancelled')) ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-gray-100 rounded-lg flex-shrink-0">
+                        <AlertCircle className="h-5 w-5 text-gray-500" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-1">Order In Progress</h4>
+                        <p className="text-sm text-gray-600">
+                          This order is already being processed and cannot be cancelled. Please contact support if you need assistance.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : order?.paymentInfo?.status !== 'paid' ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                        <AlertCircle className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-blue-700 mb-1">Payment Pending</h4>
+                        <p className="text-sm text-blue-600">
+                          Order actions will be available once payment is confirmed.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* International Seller Controls */}
+          {isInternationalSeller && (
+            <Card className="border w-full border-blue-200 shadow-sm bg-white">
+              <CardHeader className="border-b border-blue-100 p-4">
+                <CardTitle className="flex items-center gap-2 font-inter text-sm text-blue-700">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  International Order Controls
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => setTrackingDialogOpen(true)}
+                >
+                  Update Tracking Information
+                </Button>
+                <Button
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => setStatusDialogOpen(true)}
+                >
+                  Update Order Status
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Addresses */}
           <Card className="border w-full border-gray-100 -sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
@@ -1408,160 +1594,110 @@ export default function OrderDetails() {
           </Card>
 
          
-          {/* Shipping Status - Hide if orde is stale/abandoned */}
-          {!order?.isStorePickup && !order?.isStale && (
-            <Card className="border border-gray-100 -sm bg-white">
-              <CardHeader className="border-b border-gray-100 p-4">
-                <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
-                  <Truck className="h-4 w-4 text-blue-500" />
-                  Shipping Information
-                </CardTitle>
+          {/* Shipping Documents and Actions - Only show if documents exist */}
+          {!order?.isStorePickup && !order?.isStale && (shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && order?.paymentInfo?.status === 'paid' && (
+            <Card className="border border-gray-100 shadow-sm bg-white">
+              <CardHeader className="border-b border-gray-100 p-0">
+                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4">
+                  <CardTitle className="flex items-center font-inter gap-2 text-base text-gray-800">
+                    <div className="p-2 bg-purple-500 rounded-full">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-white"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                      </svg>
+                    </div>
+                    Shipping Documents
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">Download and print your shipping documents</p>
+                </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-6">
-                {/* Shipping Status Banner */}
-                <div className={`p-4 rounded-lg flex items-center gap-3 ${
-                  shipping?.tracking?.status === 'delivered' 
-                    ? 'bg-green-50 border border-green-100' 
-                    : shipping?.tracking?.status === 'in_transit'
-                    ? 'bg-blue-50 border border-blue-100'
-                    : 'bg-yellow-50 border border-yellow-100'
-                }`}>
-                  <div className={`p-2 rounded-full ${
-                    shipping?.tracking?.status === 'delivered' 
-                      ? 'bg-green-100' 
-                      : shipping?.tracking?.status === 'in_transit'
-                      ? 'bg-blue-100'
-                      : 'bg-yellow-100'
-                  }`}>
-                    {shipping?.tracking?.status === 'delivered' ? (
-                      <Check className={`h-5 w-5 text-green-600`} />
-                    ) : shipping?.tracking?.status === 'in_transit' ? (
-                      <Truck className={`h-5 w-5 text-blue-600`} />
-                    ) : (
-                      <Clock className={`h-5 w-5 text-yellow-600`} />
-                    )}
-                  </div>
-                  <div>
-                    <p className={`font-medium capitalize ${
-                      shipping?.tracking?.status === 'delivered' 
-                        ? 'text-green-700' 
-                        : shipping?.tracking?.status === 'in_transit'
-                        ? 'text-blue-700'
-                        : 'text-yellow-700'
-                    }`}>
-                      {shipping?.tracking?.status?.replace(/_/g, ' ')}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Last updated: {shipping?.tracking?.history?.length > 0 
-                        ? new Date(shipping.tracking.history[shipping.tracking.history.length - 1].timestamp).toLocaleString() 
-                        : new Date().toLocaleString()}
-                    </p>
-                  </div>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {shipping.documents.shippingLabel && (
+                    <div className="group">
+                      <Button
+                        className="w-full h-auto p-4 bg-white border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 flex flex-col items-center gap-3 text-gray-700 hover:text-blue-700"
+                        variant="outline"
+                        onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
+                      >
+                        <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-blue-600"
+                          >
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                          </svg>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium text-sm">Shipping Label</p>
+                          <p className="text-xs text-gray-500">Print and attach to package</p>
+                        </div>
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {shipping.documents.commercialInvoice && (
+                    <div className="group">
+                      <Button
+                        className="w-full h-auto p-4 bg-white border-2 border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all duration-200 flex flex-col items-center gap-3 text-gray-700 hover:text-green-700"
+                        variant="outline"
+                        onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
+                      >
+                        <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-green-600"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                          </svg>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium text-sm">Commercial Invoice</p>
+                          <p className="text-xs text-gray-500">Required for customs</p>
+                        </div>
+                      </Button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Add discount information if available */}
-                {items[0]?.product?.discount?.isActive && (
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                    <h4 className="font-medium text-green-800 flex items-center gap-2 mb-2">
-                      <Tag className="h-4 w-4" />
-                      Applied Discount
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <p className="text-green-700">
-                        {items[0].product.discount.couponName && (
-                          <span className="font-medium">Coupon: {items[0].product.discount.couponName}</span>
-                        )}
-                      </p>
-                      <p className="text-green-700">
-                        Discount: {items[0].product.discount.value}% off
-                      </p>
-                      <p className="text-green-700 font-medium">
-                        Discounted Price: ₦{items[0].price.toLocaleString()}
-                      </p>
-                      {items[0].product.discount.startDate && (
-                        <p className="text-green-700">
-                          Valid from: {new Date(items[0].product.discount.startDate).toLocaleDateString()}
-                        </p>
-                      )}
-                      {items[0].product.discount.endDate && (
-                        <p className="text-green-700">
-                          Valid until: {new Date(items[0].product.discount.endDate).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Shipping Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Carrier Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-2">
-                        <Truck className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Carrier</p>
-                          <p className="text-sm font-medium">{shipping?.carrier?.name || "Standard Shipping"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Tag className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Carrier Reference</p>
-                          <p className="text-sm font-medium">{shipping?.carrier?.reference || "N/A"}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Box className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Shipment ID</p>
-                          <p className="text-sm font-medium">{shipping?.shipment_id || "N/A"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Tracking Details</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-2">
-                        <Package className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Tracking Number</p>
-                          <p className="text-sm font-medium">{shipping?.tracking?.number || "Not available yet"}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Estimated Delivery</p>
-                          <p className="text-sm font-medium">
-                            {deliveryEstimate ? 
-                              `${deliveryEstimate}` : 
-                              shipping?.estimatedDeliveryDate ? 
-                                new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 
-                                'Not available yet'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <DollarSign className="h-4 w-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-500">Shipping Fee</p>
-                          <p className="text-sm font-medium">
-                            ₦{shipping?.fee?.amount?.toLocaleString() || "0"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Shipping Documents */}
-                {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && order?.paymentInfo?.status === 'paid' && (
-                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                    <h4 className="font-medium flex items-center gap-2 text-gray-800">
+                
+                {/* Quick Action Section */}
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
@@ -1572,75 +1708,22 @@ export default function OrderDetails() {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="text-blue-500"
+                        className="text-blue-600"
                       >
-                        <path
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
                       </svg>
-                      Shipping Documents
-                    </h4>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      {shipping.documents.shippingLabel && (
-                        <Button
-                          className="flex-1 flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
-                          onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                            <rect x="6" y="14" width="12" height="8"></rect>
-                          </svg>
-                          Track Shipment
-                        </Button>
-                      )}
-                      {shipping.documents.commercialInvoice && (
-                        <Button
-                          variant="outline"
-                          className="flex-1 flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
-                          onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-gray-600"
-                          >
-                            <path
-                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          Print Shipping Label
-                        </Button>
-                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-800">Next Steps</p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        {shipping?.tracking?.status === 'confirmed' 
+                          ? 'Your shipment is ready for pickup. The carrier will collect the package according to the schedule.'
+                          : 'Package your items securely and attach the shipping label. The carrier will pickup according to schedule.'}
+                      </p>
                     </div>
                   </div>
-                )}
-
-                {/* International Seller Controls */}
-                
+                </div>
               </CardContent>
             </Card>
           )}
