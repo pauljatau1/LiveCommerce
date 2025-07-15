@@ -35,7 +35,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
   ...props
 }) => {
   const firstImage =
-    imageUrl && imageUrl.length > 0 ? imageUrl[0] : images.diamondsImage;
+    imageUrl && imageUrl?.length > 0 ? imageUrl[0] : images.diamondsImage;
 
   const router = useRouter();
 
@@ -90,9 +90,9 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {firstImage && (
         <Image
-          source={{ uri: imageUrl[0]?.url, width: 300, height: 300 }}
+          source={{ uri: imageUrl?.[0]?.url, width: 300, height: 300 }}
           contentFit="cover"
-          recyclingKey={`image-${imageUrl[0]?.url}`}
+          recyclingKey={`image-${imageUrl?.[0]?.url}`}
           // className="w-[100%] h-[157px]"
           style={{
             width: "100%",

@@ -249,7 +249,7 @@ const OrderItem = ({
             </Link>
           )}
 
-          {!orderItem.paid &&
+          {/* {!orderItem.paid &&
           orderItem.shipping.tracking.status !== "cancelled" &&
           orderItem?.paymentInfo?.method == "paystack" ? (
             <Pressable
@@ -266,7 +266,7 @@ const OrderItem = ({
             >
               <Text className="text-white text-[10px]">Pay</Text>
             </Pressable>
-          ) : null}
+          ) : null} */}
         </View>
       </View>
 

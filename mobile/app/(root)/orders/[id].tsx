@@ -358,7 +358,7 @@ const SingleOrder = () => {
                         Chat Seller
                       </Text>
                     </Pressable>
-                    {order.shipping.tracking.status == "delivered" &&
+                    {/* {order.shipping.tracking.status == "delivered" &&
                     order?.order?.orderStatus?.isOpen ? (
                       <Pressable
                         className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
@@ -389,7 +389,7 @@ const SingleOrder = () => {
                           Return/Refund
                         </Text>
                       </Pressable>
-                    ) : null}
+                    ) : null} */}
 
                     {["pickup_arranged"].includes(
                       order.shipping.tracking.status,

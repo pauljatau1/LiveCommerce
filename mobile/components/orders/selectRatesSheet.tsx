@@ -218,10 +218,10 @@ const SelectRatesSheet = (props: any) => {
           dismissAll();
         } else {
           router?.replace("/orders/orders");
+          updateCart();
         }
 
         // props?.closeSheet();
-        updateCart();
       } catch (e: any) {
         setLoading(false);
         console.log("error paying for order ", e?.response?.data?.error);
@@ -371,7 +371,7 @@ const SelectRatesSheet = (props: any) => {
         {props?.rates?.length > 0 &&
           props?.rates
             ?.sort((a: any, b: any) => a?.amount - b?.amount)
-            ?.slice(0, 5)
+            ?.slice(0, 7)
             .map((rate: any, index: number) => renderRateCard({ rate, index }))}
       </View>
       {(selectedRate || props?.isInternational) && (
