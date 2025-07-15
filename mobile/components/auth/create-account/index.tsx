@@ -114,20 +114,23 @@ const CreateAccount = () => {
         if (result) {
           // Identify the user directly after signup
           identifyUser(result?.user?._id, {
-            email: email,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
+            "$email": email,
+            "$name": `${result?.user?.firstName} ${result?.user?.lastName}`,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            "User Type": "Buyer",
+            osType: Platform.OS,
+            timestamp: new Date().toISOString(),
           });
 
           // Track event for buyer signup
           trackMixpanelEvent("buyer_account_created", {
             userId: result?.user?._id,
-            email: email,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
+            "$email": email,
+            "$name": `${result?.user?.firstName} ${result?.user?.lastName}`,
             username: result?.user?.username,
             phoneNumber: result?.user?.phoneNumber,
-            userType: "buyer",
+            "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
           });
@@ -139,7 +142,7 @@ const CreateAccount = () => {
             lastName: result?.user?.lastName,
             username: result?.user?.username,
             phoneNumber: result?.user?.phoneNumber,
-            userType: "buyer",
+            "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
           });
@@ -150,7 +153,7 @@ const CreateAccount = () => {
             lastName: result?.user?.lastName,
             username: result?.user?.username,
             phoneNumber: result?.user?.phoneNumber,
-            userType: "buyer",
+            "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
           });
@@ -163,7 +166,7 @@ const CreateAccount = () => {
             lastName: result?.user?.lastName,
             username: result?.user?.username,
             phoneNumber: result?.user?.phoneNumber,
-            userType: "buyer",
+            "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
           });

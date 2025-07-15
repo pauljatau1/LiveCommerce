@@ -824,79 +824,22 @@ const Checkout = () => {
                   (cartProduct: any) => cartProduct._id === orderItem.product,
                 );
 
+                console.log("cartItem check", cartItem);
+
                 if (cartItem) {
                   // Calculate individual item total (price * quantity)
                   const itemTotal = orderItem.price * orderItem.quantity;
 
-                  trackFacebookPurchase(itemTotal, "NGN", {
+                  trackFacebookEvent("Purchase", {
                     // Facebook Standard Commerce Properties
                     content_id: cartItem._id,
                     content_name: orderItem.productName || cartItem.name,
                     content_type: "product",
                     content_category: cartItem.category,
-                    content_brand:
-                      cartItem.seller?.storeInfo?.storeName ||
-                      cartItem.seller?.businessInfo?.businessName,
-                    currency: "NGN",
-                    value: itemTotal,
+                    _valueToSum: itemTotal,
                     num_items: orderItem.quantity,
-                    description: cartItem.description,
-
-                    // Facebook Additional Product Properties
-                    fb_content_id: cartItem._id,
-                    fb_content_type: "product",
-                    fb_content_category: cartItem.category,
                     fb_currency: "NGN",
-                    fb_value: itemTotal,
-                    fb_num_items: orderItem.quantity,
 
-                    // User information
-                    email: user?.email,
-                    firstName: user?.firstName,
-                    lastName: user?.lastName,
-                    username: user?.username,
-                    user_id: user?._id,
-
-                    // Order-specific information
-                    orderId: orderDetails._id,
-                    order_id: orderDetails.order_id,
-                    sellerId: orderItem.seller || orderDetails.seller,
-                    orderNumber: orderDetails.fezOrderNo || "N/A",
-                    order_value: itemTotal,
-
-                    // Item specifications and details
-                    specifications: orderItem.specifications,
-                    price_per_unit: orderItem.price,
-                    total_quantity: orderItem.quantity,
-                    item_status: orderItem.status,
-
-                    // Order totals and shipping
-                    shippingTotal:
-                      response.data?.totals?.shippingTotal ||
-                      orderDetails.shippingFee ||
-                      0,
-                    orderCount: response.data?.totals?.orderCount || 1,
-                    orderTotal: orderDetails.orderTotal,
-                    itemsTotal: orderDetails.totalAmount,
-
-                    // Timestamp and transaction info
-                    timestamp: new Date().toISOString(),
-                    transaction_id: orderDetails._id,
-                    payment_method:
-                      paymentOptions[selectedPayment]?.name?.toLowerCase(),
-
-                    // SKU and product metadata
-                    sku: cartItem.sku || cartItem.inventory?.sku,
-                    product_variant: orderItem.specifications
-                      ? JSON.stringify(orderItem.specifications)
-                      : undefined,
-
-                    // Additional product metadata from cart
-                    brand: cartItem.brand,
-                    condition: cartItem.condition,
-                    weight:
-                      cartItem.weight ||
-                      cartItem.shippingDetails?.weight?.value,
                   });
                 }
               });
