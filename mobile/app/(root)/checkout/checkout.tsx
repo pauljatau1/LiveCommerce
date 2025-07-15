@@ -34,7 +34,6 @@ import { toast } from "@/core/toast";
 import LoadingModal from "@/components/global/loading-modal";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { useIsFocused } from "@react-navigation/native";
-import { usePaystack } from "react-native-paystack-webview";
 import OrderPopup from "@/components/global/orders/order-popup";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -54,7 +53,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import CartItem from "@/components/orders/cartItem";
 import AddressSheet from "@/components/orders/addressSheet";
-import CallPaystack from "./callPaystack";
+// import CallPaystack from "./callPaystack";
 import SelectRatesSheet from "@/components/orders/selectRatesSheet";
 
 const { width, height } = Dimensions.get("window");
@@ -101,7 +100,7 @@ const Checkout = () => {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const token = useSelector((state: RootState) => state.authState.token);
-  const { openPaystackPopup } = CallPaystack();
+  // const { openPaystackPopup } = CallPaystack();
   const [loading, setLoading] = useState<boolean>(true);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -126,7 +125,7 @@ const Checkout = () => {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [totalWalletBalance, setTotalWalletBalance] = useState<number>(0);
   const [isSuccessVisible, setIsSuccessVisible] = useState<boolean>(false);
-  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(false);
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
   const [paystackKey, setPaystackKey] = useState<any>();
   const [couponCode, setCouponCode] = useState<string>("");
@@ -137,6 +136,7 @@ const Checkout = () => {
   const [walletCredit, setWalletCredit] = useState<number>(0);
   const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
   const [freeShipping, setFreeShipping] = useState<boolean>(false);
+  const [isInternational, setIsInternational] = useState<boolean>(false);
   const [showRatesSheet, setShowRatesSheet] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
@@ -328,6 +328,8 @@ const Checkout = () => {
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -513,46 +515,46 @@ const Checkout = () => {
     }
   }, [fetchedShippingFee, selectedDeliveryOpt]);
 
-  useEffect(() => {
-    if (selectedAddress?.state) {
-      getShippingFee();
-    }
-  }, [selectedAddress]);
+  // useEffect(() => {
+  //   if (selectedAddress?.state) {
+  //     getShippingFee();
+  //   }
+  // }, [selectedAddress]);
 
-  const payNow = () => {
-    openPaystackPopup({
-      email: "jane.doe@example.com",
-      amount: 5000,
-      reference: "TXN_123451",
-      metadata: {
-        custom_fields: [
-          {
-            display_name: "Order ID",
-            variable_name: "order_id",
-            value: "OID1234",
-          },
-        ],
-      },
-      onSuccess: (res: any) => console.log("Success:", res),
-      onCancel: () => console.log("User cancelled"),
-      onLoad: (res: any) => console.log("WebView Loaded:", res),
-      onError: (err: any) => console.log("WebView Error:", err),
-    });
-  };
+  // const payNow = () => {
+  //   openPaystackPopup({
+  //     email: "jane.doe@example.com",
+  //     amount: 5000,
+  //     reference: "TXN_123451",
+  //     metadata: {
+  //       custom_fields: [
+  //         {
+  //           display_name: "Order ID",
+  //           variable_name: "order_id",
+  //           value: "OID1234",
+  //         },
+  //       ],
+  //     },
+  //     onSuccess: (res: any) => console.log("Success:", res),
+  //     onCancel: () => console.log("User cancelled"),
+  //     onLoad: (res: any) => console.log("WebView Loaded:", res),
+  //     onError: (err: any) => console.log("WebView Error:", err),
+  //   });
+  // };
 
   const handleCompleteOrder = useCallback(async () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
-    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
-      return toast.error("error getting delivery fee");
-    }
+    // if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
+    //   return toast.error("error getting delivery fee");
+    // }
 
-    if (selectedPayment == 1) {
-      if (walletBalance < deliveryFee! + cartTotal) {
-        return toast.error("Insufficient Wallet Balance");
-      }
-    }
+    // if (selectedPayment == 1) {
+    //   if (walletBalance < deliveryFee! + cartTotal) {
+    //     return toast.error("Insufficient Wallet Balance");
+    //   }
+    // }
 
     if (deliveryFee! + cartTotal > 50000 && selectedPayment == 2) {
       return toast.info(
@@ -624,284 +626,286 @@ const Checkout = () => {
       };
 
       const response = await axios(config);
+      setFreeShipping(response.data?.orders[0]?.isFreeShipping);
+      setIsInternational(response.data?.orders[0]?.isInternational);
       const cart = await AsyncStorage.getItem("segmentedCart");
       const cartData = JSON.parse(cart || "{}");
 
-      // if (response.status == 201) {
-      //   try {
-      //     const userData = await AsyncStorage.getItem("user");
-      //     const user = JSON.parse(userData || "{}");
+      if (response.status == 201) {
+        try {
+          const userData = await AsyncStorage.getItem("user");
+          const user = JSON.parse(userData || "{}");
 
-      //     const itemsTotal =
-      //       (deliveryFee && cartTotal) ||
-      //       (selectedDeliveryOpt == 1 && deliveryFee?.toString())
-      //         ? "₦" +
-      //           (
-      //             deliveryFee +
-      //             (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
-      //             walletCredit
-      //           )?.toLocaleString(undefined, {
-      //             minimumFractionDigits: 2,
-      //             maximumFractionDigits: 2,
-      //           })
-      //         : 0;
+          const itemsTotal =
+            (deliveryFee && cartTotal) ||
+            (selectedDeliveryOpt == 1 && deliveryFee?.toString())
+              ? "₦" +
+                (
+                  deliveryFee +
+                  (couponApplied ? couponApplied?.couponSubTotal : cartTotal) -
+                  walletCredit
+                )?.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : 0;
 
-      //     if (user) {
-      //       console.log("order created", JSON.stringify(response.data));
-      //       console.log("cart data", cartData);
-      //       trackEventMixpanel("order_created", {
-      //         // Buyer Information
-      //         userId: response.data.complexOrderDetails?.buyer_id,
-      //         email: response.data.complexOrderDetails?.buyer_email,
-      //         firstName: response.data.complexOrderDetails?.buyer_first_name,
-      //         lastName: response.data.complexOrderDetails?.buyer_last_name,
-      //         username: response.data.complexOrderDetails?.buyer_username,
-      //         buyerPhone: response.data.complexOrderDetails?.buyer_phone,
+          if (user) {
+            console.log("order created", JSON.stringify(response.data));
+            console.log("cart data", cartData);
+            trackEventMixpanel("order_created", {
+              // Buyer Information
+              userId: response.data.complexOrderDetails?.buyer_id,
+              email: response.data.complexOrderDetails?.buyer_email,
+              firstName: response.data.complexOrderDetails?.buyer_first_name,
+              lastName: response.data.complexOrderDetails?.buyer_last_name,
+              username: response.data.complexOrderDetails?.buyer_username,
+              buyerPhone: response.data.complexOrderDetails?.buyer_phone,
 
-      //         // Order Information
-      //         orderId: response.data.complexOrderDetails?.order_id,
-      //         orderItemsTotal:
-      //           response.data.complexOrderDetails?.order_items_total,
-      //         shippingFee: response.data.complexOrderDetails?.shipping_fee,
-      //         orderGrandTotal:
-      //           response.data.complexOrderDetails?.order_grand_total,
-      //         paymentMethod: response.data.complexOrderDetails?.payment_method,
-      //         paymentStatus: response.data.complexOrderDetails?.payment_status,
+              // Order Information
+              orderId: response.data.complexOrderDetails?.order_id,
+              orderItemsTotal:
+                response.data.complexOrderDetails?.order_items_total,
+              shippingFee: response.data.complexOrderDetails?.shipping_fee,
+              orderGrandTotal:
+                response.data.complexOrderDetails?.order_grand_total,
+              paymentMethod: response.data.complexOrderDetails?.payment_method,
+              paymentStatus: response.data.complexOrderDetails?.payment_status,
 
-      //         // Order Details
-      //         isCashOnDelivery:
-      //           response.data.complexOrderDetails?.is_cash_on_delivery,
-      //         isWalletCredit:
-      //           response.data.complexOrderDetails?.is_wallet_credit,
-      //         walletAmountUsed:
-      //           response.data.complexOrderDetails?.wallet_amount_used,
-      //         isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
-      //         orderChannel: response.data.complexOrderDetails?.order_channel,
-      //         totalItemsInOrder:
-      //           response.data.complexOrderDetails?.total_items_in_order,
-      //         totalOrdersInBatch:
-      //           response.data.complexOrderDetails?.total_orders_in_batch,
+              // Order Details
+              isCashOnDelivery:
+                response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit:
+                response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed:
+                response.data.complexOrderDetails?.wallet_amount_used,
+              isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
+              orderChannel: response.data.complexOrderDetails?.order_channel,
+              totalItemsInOrder:
+                response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch:
+                response.data.complexOrderDetails?.total_orders_in_batch,
 
-      //         // Delivery Information
-      //         deliveryAddressLine1:
-      //           response.data.complexOrderDetails?.delivery_address_line1,
-      //         deliveryCity: response.data.complexOrderDetails?.delivery_city,
-      //         deliveryState: response.data.complexOrderDetails?.delivery_state,
-      //         deliveryCountry:
-      //           response.data.complexOrderDetails?.delivery_country,
-      //         deliveryRecipientName:
-      //           response.data.complexOrderDetails?.delivery_recipient_name,
-      //         deliveryRecipientPhone:
-      //           response.data.complexOrderDetails?.delivery_recipient_phone,
-      //         deliveryRecipientEmail:
-      //           response.data.complexOrderDetails?.delivery_recipient_email,
+              // Delivery Information
+              deliveryAddressLine1:
+                response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryCity: response.data.complexOrderDetails?.delivery_city,
+              deliveryState: response.data.complexOrderDetails?.delivery_state,
+              deliveryCountry:
+                response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName:
+                response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone:
+                response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail:
+                response.data.complexOrderDetails?.delivery_recipient_email,
 
-      //         // Shipping Information
-      //         fezOrderNumber:
-      //           response.data.complexOrderDetails?.fez_order_number,
-      //         carrierName: response.data.complexOrderDetails?.carrier_name,
-      //         trackingNumber:
-      //           response.data.complexOrderDetails?.tracking_number,
+              // Shipping Information
+              fezOrderNumber:
+                response.data.complexOrderDetails?.fez_order_number,
+              carrierName: response.data.complexOrderDetails?.carrier_name,
+              trackingNumber:
+                response.data.complexOrderDetails?.tracking_number,
 
-      //         // Product Information
-      //         orderProductId1:
-      //           response.data.complexOrderDetails?.orderProductId1,
-      //         orderProductName1:
-      //           response.data.complexOrderDetails?.orderProductName1,
-      //         orderProductPrice1:
-      //           response.data.complexOrderDetails?.orderProductPrice1,
-      //         orderProductQuantity1:
-      //           response.data.complexOrderDetails?.orderProductQuantity1,
-      //         orderProductWeight1:
-      //           response.data.complexOrderDetails?.orderProductWeight1,
-      //         orderProductTotal1:
-      //           response.data.complexOrderDetails?.orderProductTotal1,
-      //         orderProductSpecifications1:
-      //           response.data.complexOrderDetails?.orderProductSpecifications1,
+              // Product Information
+              orderProductId1:
+                response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1:
+                response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1:
+                response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1:
+                response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1:
+                response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1:
+                response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1:
+                response.data.complexOrderDetails?.orderProductSpecifications1,
 
-      //         // Campaign and Stream Information
-      //         campaignId: response.data.complexOrderDetails?.campaign_id,
-      //         streamId: response.data.complexOrderDetails?.stream_id,
+              // Campaign and Stream Information
+              campaignId: response.data.complexOrderDetails?.campaign_id,
+              streamId: response.data.complexOrderDetails?.stream_id,
 
-      //         // Timestamp
-      //         orderCreatedAt:
-      //           response.data.complexOrderDetails?.order_created_at,
-      //         timestamp: new Date().toISOString(),
-      //       });
+              // Timestamp
+              orderCreatedAt:
+                response.data.complexOrderDetails?.order_created_at,
+              timestamp: new Date().toISOString(),
+            });
 
-      //       trackEventCustomerio("order_created", {
-      //         // Buyer Information
-      //         userId: response.data.complexOrderDetails?.buyer_id,
-      //         email: response.data.complexOrderDetails?.buyer_email,
-      //         firstName: response.data.complexOrderDetails?.buyer_first_name,
-      //         lastName: response.data.complexOrderDetails?.buyer_last_name,
-      //         username: response.data.complexOrderDetails?.buyer_username,
-      //         buyerPhone: response.data.complexOrderDetails?.buyer_phone,
+            trackEventCustomerio("order_created", {
+              // Buyer Information
+              userId: response.data.complexOrderDetails?.buyer_id,
+              email: response.data.complexOrderDetails?.buyer_email,
+              firstName: response.data.complexOrderDetails?.buyer_first_name,
+              lastName: response.data.complexOrderDetails?.buyer_last_name,
+              username: response.data.complexOrderDetails?.buyer_username,
+              buyerPhone: response.data.complexOrderDetails?.buyer_phone,
 
-      //         // Order Information
-      //         orderId: response.data.complexOrderDetails?.order_id,
-      //         orderItemsTotal:
-      //           response.data.complexOrderDetails?.order_items_total,
-      //         shippingFee: response.data.complexOrderDetails?.shipping_fee,
-      //         orderGrandTotal:
-      //           response.data.complexOrderDetails?.order_grand_total,
-      //         paymentMethod: response.data.complexOrderDetails?.payment_method,
-      //         paymentStatus: response.data.complexOrderDetails?.payment_status,
+              // Order Information
+              orderId: response.data.complexOrderDetails?.order_id,
+              orderItemsTotal:
+                response.data.complexOrderDetails?.order_items_total,
+              shippingFee: response.data.complexOrderDetails?.shipping_fee,
+              orderGrandTotal:
+                response.data.complexOrderDetails?.order_grand_total,
+              paymentMethod: response.data.complexOrderDetails?.payment_method,
+              paymentStatus: response.data.complexOrderDetails?.payment_status,
 
-      //         // Order Details
-      //         isCashOnDelivery:
-      //           response.data.complexOrderDetails?.is_cash_on_delivery,
-      //         isWalletCredit:
-      //           response.data.complexOrderDetails?.is_wallet_credit,
-      //         walletAmountUsed:
-      //           response.data.complexOrderDetails?.wallet_amount_used,
-      //         isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
-      //         orderChannel: response.data.complexOrderDetails?.order_channel,
-      //         totalItemsInOrder:
-      //           response.data.complexOrderDetails?.total_items_in_order,
-      //         totalOrdersInBatch:
-      //           response.data.complexOrderDetails?.total_orders_in_batch,
+              // Order Details
+              isCashOnDelivery:
+                response.data.complexOrderDetails?.is_cash_on_delivery,
+              isWalletCredit:
+                response.data.complexOrderDetails?.is_wallet_credit,
+              walletAmountUsed:
+                response.data.complexOrderDetails?.wallet_amount_used,
+              isStorePickup: response.data.complexOrderDetails?.is_store_pickup,
+              orderChannel: response.data.complexOrderDetails?.order_channel,
+              totalItemsInOrder:
+                response.data.complexOrderDetails?.total_items_in_order,
+              totalOrdersInBatch:
+                response.data.complexOrderDetails?.total_orders_in_batch,
 
-      //         // Delivery Information
-      //         deliveryAddressLine1:
-      //           response.data.complexOrderDetails?.delivery_address_line1,
-      //         deliveryCity: response.data.complexOrderDetails?.delivery_city,
-      //         deliveryState: response.data.complexOrderDetails?.delivery_state,
-      //         deliveryCountry:
-      //           response.data.complexOrderDetails?.delivery_country,
-      //         deliveryRecipientName:
-      //           response.data.complexOrderDetails?.delivery_recipient_name,
-      //         deliveryRecipientPhone:
-      //           response.data.complexOrderDetails?.delivery_recipient_phone,
-      //         deliveryRecipientEmail:
-      //           response.data.complexOrderDetails?.delivery_recipient_email,
+              // Delivery Information
+              deliveryAddressLine1:
+                response.data.complexOrderDetails?.delivery_address_line1,
+              deliveryCity: response.data.complexOrderDetails?.delivery_city,
+              deliveryState: response.data.complexOrderDetails?.delivery_state,
+              deliveryCountry:
+                response.data.complexOrderDetails?.delivery_country,
+              deliveryRecipientName:
+                response.data.complexOrderDetails?.delivery_recipient_name,
+              deliveryRecipientPhone:
+                response.data.complexOrderDetails?.delivery_recipient_phone,
+              deliveryRecipientEmail:
+                response.data.complexOrderDetails?.delivery_recipient_email,
 
-      //         // Shipping Information
-      //         fezOrderNumber:
-      //           response.data.complexOrderDetails?.fez_order_number,
-      //         carrierName: response.data.complexOrderDetails?.carrier_name,
-      //         trackingNumber:
-      //           response.data.complexOrderDetails?.tracking_number,
+              // Shipping Information
+              fezOrderNumber:
+                response.data.complexOrderDetails?.fez_order_number,
+              carrierName: response.data.complexOrderDetails?.carrier_name,
+              trackingNumber:
+                response.data.complexOrderDetails?.tracking_number,
 
-      //         // Product Information
-      //         orderProductId1:
-      //           response.data.complexOrderDetails?.orderProductId1,
-      //         orderProductName1:
-      //           response.data.complexOrderDetails?.orderProductName1,
-      //         orderProductPrice1:
-      //           response.data.complexOrderDetails?.orderProductPrice1,
-      //         orderProductQuantity1:
-      //           response.data.complexOrderDetails?.orderProductQuantity1,
-      //         orderProductWeight1:
-      //           response.data.complexOrderDetails?.orderProductWeight1,
-      //         orderProductTotal1:
-      //           response.data.complexOrderDetails?.orderProductTotal1,
-      //         orderProductSpecifications1:
-      //           response.data.complexOrderDetails?.orderProductSpecifications1,
+              // Product Information
+              orderProductId1:
+                response.data.complexOrderDetails?.orderProductId1,
+              orderProductName1:
+                response.data.complexOrderDetails?.orderProductName1,
+              orderProductPrice1:
+                response.data.complexOrderDetails?.orderProductPrice1,
+              orderProductQuantity1:
+                response.data.complexOrderDetails?.orderProductQuantity1,
+              orderProductWeight1:
+                response.data.complexOrderDetails?.orderProductWeight1,
+              orderProductTotal1:
+                response.data.complexOrderDetails?.orderProductTotal1,
+              orderProductSpecifications1:
+                response.data.complexOrderDetails?.orderProductSpecifications1,
 
-      //         // Campaign and Stream Information
-      //         campaignId: response.data.complexOrderDetails?.campaign_id,
-      //         streamId: response.data.complexOrderDetails?.stream_id,
+              // Campaign and Stream Information
+              campaignId: response.data.complexOrderDetails?.campaign_id,
+              streamId: response.data.complexOrderDetails?.stream_id,
 
-      //         // Timestamp
-      //         orderCreatedAt:
-      //           response.data.complexOrderDetails?.order_created_at,
-      //         timestamp: new Date().toISOString(),
-      //       });
+              // Timestamp
+              orderCreatedAt:
+                response.data.complexOrderDetails?.order_created_at,
+              timestamp: new Date().toISOString(),
+            });
 
-      //       // Track Facebook purchase for each item in the order
-      //       // Using liveShowOrders as it contains the actual item details
-      //       response.data.liveShowOrders?.forEach((liveOrder: any) => {
-      //         const orderDetails = liveOrder.orderDetails;
+            // Track Facebook purchase for each item in the order
+            // Using liveShowOrders as it contains the actual item details
+            response.data.liveShowOrders?.forEach((liveOrder: any) => {
+              const orderDetails = liveOrder.orderDetails;
 
-      //         orderDetails?.items?.forEach((orderItem: any) => {
-      //           // Find the corresponding cart item to get product details
-      //           const cartItem = cartData?.find(
-      //             (cartProduct: any) => cartProduct._id === orderItem.product,
-      //           );
+              orderDetails?.items?.forEach((orderItem: any) => {
+                // Find the corresponding cart item to get product details
+                const cartItem = cartData?.find(
+                  (cartProduct: any) => cartProduct._id === orderItem.product,
+                );
 
-      //           if (cartItem) {
-      //             // Calculate individual item total (price * quantity)
-      //             const itemTotal = orderItem.price * orderItem.quantity;
+                if (cartItem) {
+                  // Calculate individual item total (price * quantity)
+                  const itemTotal = orderItem.price * orderItem.quantity;
 
-      //             trackFacebookPurchase(itemTotal, "NGN", {
-      //               // Facebook Standard Commerce Properties
-      //               content_id: cartItem._id,
-      //               content_name: orderItem.productName || cartItem.name,
-      //               content_type: "product",
-      //               content_category: cartItem.category,
-      //               content_brand:
-      //                 cartItem.seller?.storeInfo?.storeName ||
-      //                 cartItem.seller?.businessInfo?.businessName,
-      //               currency: "NGN",
-      //               value: itemTotal,
-      //               num_items: orderItem.quantity,
-      //               description: cartItem.description,
+                  trackFacebookPurchase(itemTotal, "NGN", {
+                    // Facebook Standard Commerce Properties
+                    content_id: cartItem._id,
+                    content_name: orderItem.productName || cartItem.name,
+                    content_type: "product",
+                    content_category: cartItem.category,
+                    content_brand:
+                      cartItem.seller?.storeInfo?.storeName ||
+                      cartItem.seller?.businessInfo?.businessName,
+                    currency: "NGN",
+                    value: itemTotal,
+                    num_items: orderItem.quantity,
+                    description: cartItem.description,
 
-      //               // Facebook Additional Product Properties
-      //               fb_content_id: cartItem._id,
-      //               fb_content_type: "product",
-      //               fb_content_category: cartItem.category,
-      //               fb_currency: "NGN",
-      //               fb_value: itemTotal,
-      //               fb_num_items: orderItem.quantity,
+                    // Facebook Additional Product Properties
+                    fb_content_id: cartItem._id,
+                    fb_content_type: "product",
+                    fb_content_category: cartItem.category,
+                    fb_currency: "NGN",
+                    fb_value: itemTotal,
+                    fb_num_items: orderItem.quantity,
 
-      //               // User information
-      //               email: user?.email,
-      //               firstName: user?.firstName,
-      //               lastName: user?.lastName,
-      //               username: user?.username,
-      //               user_id: user?._id,
+                    // User information
+                    email: user?.email,
+                    firstName: user?.firstName,
+                    lastName: user?.lastName,
+                    username: user?.username,
+                    user_id: user?._id,
 
-      //               // Order-specific information
-      //               orderId: orderDetails._id,
-      //               order_id: orderDetails.order_id,
-      //               sellerId: orderItem.seller || orderDetails.seller,
-      //               orderNumber: orderDetails.fezOrderNo || "N/A",
-      //               order_value: itemTotal,
+                    // Order-specific information
+                    orderId: orderDetails._id,
+                    order_id: orderDetails.order_id,
+                    sellerId: orderItem.seller || orderDetails.seller,
+                    orderNumber: orderDetails.fezOrderNo || "N/A",
+                    order_value: itemTotal,
 
-      //               // Item specifications and details
-      //               specifications: orderItem.specifications,
-      //               price_per_unit: orderItem.price,
-      //               total_quantity: orderItem.quantity,
-      //               item_status: orderItem.status,
+                    // Item specifications and details
+                    specifications: orderItem.specifications,
+                    price_per_unit: orderItem.price,
+                    total_quantity: orderItem.quantity,
+                    item_status: orderItem.status,
 
-      //               // Order totals and shipping
-      //               shippingTotal:
-      //                 response.data?.totals?.shippingTotal ||
-      //                 orderDetails.shippingFee ||
-      //                 0,
-      //               orderCount: response.data?.totals?.orderCount || 1,
-      //               orderTotal: orderDetails.orderTotal,
-      //               itemsTotal: orderDetails.totalAmount,
+                    // Order totals and shipping
+                    shippingTotal:
+                      response.data?.totals?.shippingTotal ||
+                      orderDetails.shippingFee ||
+                      0,
+                    orderCount: response.data?.totals?.orderCount || 1,
+                    orderTotal: orderDetails.orderTotal,
+                    itemsTotal: orderDetails.totalAmount,
 
-      //               // Timestamp and transaction info
-      //               timestamp: new Date().toISOString(),
-      //               transaction_id: orderDetails._id,
-      //               payment_method:
-      //                 paymentOptions[selectedPayment]?.name?.toLowerCase(),
+                    // Timestamp and transaction info
+                    timestamp: new Date().toISOString(),
+                    transaction_id: orderDetails._id,
+                    payment_method:
+                      paymentOptions[selectedPayment]?.name?.toLowerCase(),
 
-      //               // SKU and product metadata
-      //               sku: cartItem.sku || cartItem.inventory?.sku,
-      //               product_variant: orderItem.specifications
-      //                 ? JSON.stringify(orderItem.specifications)
-      //                 : undefined,
+                    // SKU and product metadata
+                    sku: cartItem.sku || cartItem.inventory?.sku,
+                    product_variant: orderItem.specifications
+                      ? JSON.stringify(orderItem.specifications)
+                      : undefined,
 
-      //               // Additional product metadata from cart
-      //               brand: cartItem.brand,
-      //               condition: cartItem.condition,
-      //               weight:
-      //                 cartItem.weight ||
-      //                 cartItem.shippingDetails?.weight?.value,
-      //             });
-      //           }
-      //         });
-      //       });
-      //     }
-      //   } catch (trackError) {
-      //     console.log("error tracking order created", trackError);
-      //   }
-      // }
+                    // Additional product metadata from cart
+                    brand: cartItem.brand,
+                    condition: cartItem.condition,
+                    weight:
+                      cartItem.weight ||
+                      cartItem.shippingDetails?.weight?.value,
+                  });
+                }
+              });
+            });
+          }
+        } catch (trackError) {
+          console.log("error tracking order created", trackError);
+        }
+      }
 
       // if (selectedPayment == 0) {
       //   setOrderId(response.data.orders[0]?.orderId);
@@ -945,20 +949,20 @@ const Checkout = () => {
         console.log("error tracking payment initiated", trackError);
       }
 
-      const generalCart = await AsyncStorage.getItem("cart");
-      if (cart && generalCart) {
-        const segmentedCartData = JSON.parse(cart!);
-        const newCart = JSON.parse(generalCart!)?.filter(
-          (item: any) =>
-            !item.includeInOrder ||
-            !segmentedCartData?.find((sg: any) => sg?._id == item?._id),
-        );
-        if (newCart?.length < 1) {
-          await AsyncStorage.removeItem("cart");
-        } else {
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart));
-        }
-      }
+      // const generalCart = await AsyncStorage.getItem("cart");
+      // if (cart && generalCart) {
+      //   const segmentedCartData = JSON.parse(cart!);
+      //   const newCart = JSON.parse(generalCart!)?.filter(
+      //     (item: any) =>
+      //       !item.includeInOrder ||
+      //       !segmentedCartData?.find((sg: any) => sg?._id == item?._id),
+      //   );
+      //   if (newCart?.length < 1) {
+      //     await AsyncStorage.removeItem("cart");
+      //   } else {
+      //     await AsyncStorage.setItem("cart", JSON.stringify(newCart));
+      //   }
+      // }
     } catch (e: any) {
       setOrderloading(false);
       console.log("could not create order", e?.response?.data?.message);
@@ -1235,14 +1239,14 @@ const Checkout = () => {
               Checkout
             </Text>
           </View>
-          {freeShipping && (
+          {/* {freeShipping && (
             <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
               <FontAwesome5 name="truck" size={14} color="white" />
               <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
                 Free Shipping on All Orders!
               </Text>
             </View>
-          )}
+          )} */}
 
           <ScrollView className="bg-[#121212]">
             {loading ? (
@@ -1425,7 +1429,7 @@ const Checkout = () => {
                   </View>
                 </View>
 
-                {showWalletCredit && (
+                {/* {showWalletCredit && (
                   <TouchableOpacity
                     className="mb-[1px]"
                     style={{
@@ -1460,7 +1464,7 @@ const Checkout = () => {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                )}
+                )} */}
 
                 <View className="mb-[10px]">
                   <View
@@ -1508,10 +1512,10 @@ const Checkout = () => {
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
                 >
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                    <Text className="text-white text-[14px] font-LexendDeca shrink">
                       Merchandise Subtotal
                     </Text>
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                    <Text className="text-[#fff] text-[14px] font-LexendDecaSemiBold">
                       ₦
                       {cartTotal?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -1521,7 +1525,7 @@ const Checkout = () => {
                   </View>
                   {couponApplied && (
                     <View className="flex-row justify-between items-center">
-                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      <Text className="text-white text-[14px] font-LexendDeca shrink">
                         Coupon Code Applied
                       </Text>
                       <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
@@ -1547,7 +1551,7 @@ const Checkout = () => {
                       </Text>
                     </View>
                   )}
-                  <View className="flex-row justify-between items-center">
+                  {/* <View className="flex-row justify-between items-center">
                     <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Shipping Fee
                     </Text>
@@ -1566,25 +1570,21 @@ const Checkout = () => {
                             : "-"}
                       </Text>
                     )}
-                  </View>
+                  </View> */}
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Net Total
+                    <Text className="text-white text-[14px] font-LexendDeca shrink">
+                      Total
                     </Text>
                     {shippingFeeLoading ? (
                       <ActivityIndicator size={10} color="white" />
                     ) : (
-                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                        {(deliveryFee && cartTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                        (freeShipping && cartTotal)
+                      <Text className="text-[#fff] text-[14px] font-LexendDecaSemiBold">
+                        {cartTotal
                           ? "₦" +
                             (
-                              deliveryFee +
                               (couponApplied
                                 ? couponApplied?.couponSubTotal
-                                : cartTotal) -
-                              walletCredit
+                                : cartTotal) - walletCredit
                             )?.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -1724,8 +1724,9 @@ const Checkout = () => {
                 selectedPayment
               ]?.name?.toLowerCase()}
               closeSheet={handleCloseRatesSheet}
-              isInternational={false}
-              isFreeShipping={false}
+              isInternational={isInternational}
+              isFreeShipping={freeShipping}
+              isStorePickup={selectedDeliveryOpt == 1}
             />
           </BottomSheet>
         </View>

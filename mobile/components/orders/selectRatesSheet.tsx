@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import { toast as sonnerToast } from "sonner-native";
 import Animated, {
   Easing,
@@ -14,11 +14,15 @@ import * as Haptics from "expo-haptics";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { router } from "expo-router";
-import CallPaystack from "@/app/(root)/checkout/callPaystack";
+// import CallPaystack from "@/app/(root)/checkout/callPaystack";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import LoadingModal from "../global/loading-modal";
 import { Image } from "expo-image";
+import { Paystack } from "react-native-paystack-webview";
+import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useBottomSheetModal } from "@gorhom/bottom-sheet";
 
 const rates = [
   {
@@ -87,12 +91,13 @@ const rates = [
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const SelectRatesSheet = (props: any) => {
+  const { dismissAll } = useBottomSheetModal();
   const { user } = useSelector((state: RootState) => state?.authState);
-  const { openPaystackPopup } = CallPaystack();
-  const [selectedRate, setSelectedRate] = useState<any>(
-    props?.rates[0] || rates[0],
-  );
+  // const { openPaystackPopup } = CallPaystack();
+  const { paystackPublicKey } = useGetPaystackKeys();
+  const [selectedRate, setSelectedRate] = useState<any>(props?.rates[0]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showPaystack, setShowPaystack] = useState<boolean>(false);
 
   const payBtnScale = useSharedValue(1);
 
@@ -109,51 +114,55 @@ const SelectRatesSheet = (props: any) => {
   const handlePay = () => {
     if (props?.paymentMethod == "paystack") {
       try {
-        openPaystackPopup({
-          email: props?.userEmail,
-          amount: props?.orderTotal + selectedRate?.amount,
-          reference: generateReference(),
-          metadata: {
-            orderId: props?.orderId,
-            buyerId: user?._id,
-            transactionType: "order_payment",
-            custom_fields: [
-              {
-                display_name: "Order ID",
-                variable_name: "order_id",
-                value: props?.orderId,
-              },
-              {
-                display_name: "Buyer ID",
-                variable_name: "buyer_id",
-                value: user?._id,
-              },
-              {
-                display_name: "Transaction Type",
-                variable_name: "transaction_type",
-                value: "order_payment",
-              },
-            ],
-          },
-          onSuccess: onPaystackSuccess,
-          onCancel: onPaystackClose,
-          onLoad: (res: any) => console.log("Paystack WebView Loaded:", res),
-          onError: (err: any) =>
-            sonnerToast.info(
-              "We had a problem initiating payment. Please Try Again.",
-            ),
-        });
+        setShowPaystack(true);
+        // openPaystackPopup({
+        //   email: props?.userEmail,
+        //   amount: props?.orderTotal + selectedRate?.amount,
+        //   reference: generateReference(),
+        //   metadata: {
+        //     orderId: props?.orderId,
+        //     buyerId: user?._id,
+        //     transactionType: "order_payment",
+        //     custom_fields: [
+        //       {
+        //         display_name: "Order ID",
+        //         variable_name: "order_id",
+        //         value: props?.orderId,
+        //       },
+        //       {
+        //         display_name: "Buyer ID",
+        //         variable_name: "buyer_id",
+        //         value: user?._id,
+        //       },
+        //       {
+        //         display_name: "Transaction Type",
+        //         variable_name: "transaction_type",
+        //         value: "order_payment",
+        //       },
+        //     ],
+        //   },
+        //   onSuccess: onPaystackSuccess,
+        //   onCancel: onPaystackClose,
+        //   onLoad: (res: any) => console.log("Paystack WebView Loaded:", res),
+        //   onError: (err: any) =>
+        //     sonnerToast.info(
+        //       "We had a problem initiating payment. Please Try Again.",
+        //     ),
+        // });
       } catch (e) {
         console.log("Paystack error ", e);
         sonnerToast.info(
           "We had a problem initiating payment. Please Try Again.",
         );
       }
+    } else {
+      payForOrder("");
     }
   };
 
   const onPaystackSuccess = (paystackResponse: any) => {
-    const paystackReference = paystackResponse?.reference;
+    setShowPaystack(false);
+    const paystackReference = paystackResponse?.data?.transactionRef?.reference;
 
     console.log("Paystack payment succesful ", paystackReference);
 
@@ -161,62 +170,120 @@ const SelectRatesSheet = (props: any) => {
   };
 
   const onPaystackClose = () => {
+    setShowPaystack(false);
+
     sonnerToast.info("Payment Cancelled");
   };
 
-  const payForOrder = useCallback(async (reference: string) => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const data = {
-        carrier: selectedRate,
-        paymentDetails: {
-          method: props?.paymentMethod,
-          reference: props?.paymentMethod == "paystack" ? reference : null,
-        },
-      };
-      const config = {
-        method: "POST",
-        url:
-          process.env.EXPO_PUBLIC_API_URL +
-          `api/v2/orders/${props?.orderId}/pay`,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        data,
-      };
+  const payForOrder = useCallback(
+    async (reference: string) => {
+      setLoading(true);
+      try {
+        const token = await getToken();
+        const data = {
+          carrier: selectedRate,
+          paymentDetails: {
+            method: props?.paymentMethod?.replace("auqli ", ""),
+            reference: props?.paymentMethod == "paystack" ? reference : null,
+          },
+        };
+        const config = {
+          method: "POST",
+          url:
+            process.env.EXPO_PUBLIC_API_URL +
+            `api/v2/orders/${props?.orderId}/pay`,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          data,
+        };
 
-      const response = await axios(config);
+        const response = await axios(config);
+        setLoading(false);
 
-      if (response?.data?.paid) {
-        sonnerToast.success("Order Placed Successfully", {
-          position: "top-center",
-          richColors: true,
-        });
+        if (response?.data?.paid) {
+          console.log("rendering toast 👀👀✅", response?.data?.order_id);
+
+          setTimeout(
+            () =>
+              sonnerToast.success("Order Placed Successfully", {
+                richColors: true,
+              }),
+            500,
+          );
+        }
+
+        if (props?.fromSheet) {
+          dismissAll();
+        } else {
+          router?.replace("/orders/orders");
+        }
+
+        // props?.closeSheet();
+        updateCart();
+      } catch (e: any) {
+        setLoading(false);
+        console.log("error paying for order ", e?.response?.data?.error);
+        setTimeout(
+          () =>
+            sonnerToast.error(
+              e?.response?.data?.error || "Failed to Create Order",
+              {
+                richColors: true,
+              },
+            ),
+          500,
+        );
       }
+    },
+    [selectedRate, props],
+  );
 
-      setLoading(false);
-      props?.fromSheet
-        ? router?.push("/orders/orders")
-        : router?.replace("/orders/orders");
-      props?.closeSheet();
+  const updateCart = async () => {
+    try {
+      const cart = await AsyncStorage.getItem("segmentedCart");
+      const generalCart = await AsyncStorage.getItem("cart");
+      if (cart && generalCart) {
+        const segmentedCartData = JSON.parse(cart!);
+        const newCart = JSON.parse(generalCart!)?.filter(
+          (item: any) =>
+            !item.includeInOrder ||
+            !segmentedCartData?.find((sg: any) => sg?._id == item?._id),
+        );
+        if (newCart?.length < 1) {
+          await AsyncStorage.removeItem("cart");
+        } else {
+          await AsyncStorage.setItem("cart", JSON.stringify(newCart));
+        }
+      }
     } catch (e) {
-      setLoading(false);
-      console.log("error paying for order ", e);
-      sonnerToast.error("Failed to Create Order", {
-        position: "top-center",
-        richColors: true,
-      });
-    } finally {
-      setLoading(false);
+      console.log("error updating cart", e);
     }
-  }, []);
+  };
+
+  const totalOrderAmount = useMemo(() => {
+    let total = props?.orderTotal;
+    if (props?.isInternational || props?.isStorePickup) {
+      return total;
+    }
+
+    if (!props?.isFreeShipping) {
+      total += selectedRate?.amount;
+    }
+    return total;
+  }, [
+    selectedRate,
+    props?.orderTotal,
+    props?.isFreeShipping,
+    props?.isStorePickup,
+    props?.isInternational,
+  ]);
 
   const renderRateCard = useCallback(
     ({ rate, index }: any) => {
       return (
-        <AnimatedPressable
+        <Pressable
           key={rate?.carrier_id || rate?._id || index}
           style={[
             {
@@ -245,9 +312,26 @@ const SelectRatesSheet = (props: any) => {
               <Text className="font-LexendDeca text-[12px] text-white">
                 {rate?.carrier_name}
               </Text>
-              <Text className="font-LexendDecaMedium text-[16px] text-white">
-                ₦{rate?.amount?.toLocaleString()}
-              </Text>
+              <View className="flex-row items-center gap-[4px]">
+                {props?.isFreeShipping && (
+                  <Text className="font-LexendDecaMedium text-[16px] text-[#16783A]">
+                    FREE
+                  </Text>
+                )}
+
+                <Text
+                  className="font-LexendDecaMedium text-[16px] text-white"
+                  style={{
+                    textDecorationLine: props?.isFreeShipping
+                      ? "line-through"
+                      : "none",
+                    fontSize: props?.isFreeShipping ? 12 : 16,
+                    color: props?.isFreeShipping ? "#ccc" : "white",
+                  }}
+                >
+                  ₦{rate?.amount?.toLocaleString()}
+                </Text>
+              </View>
             </View>
           </View>
           <View
@@ -262,20 +346,20 @@ const SelectRatesSheet = (props: any) => {
             }}
           >
             {selectedRate?.id == rate?.id && (
-              <Animated.View
-                entering={FadeIn.duration(300).easing(
-                  Easing.inOut(Easing.quad),
-                )}
+              <View
+                // entering={FadeIn.duration(300).easing(
+                //   Easing.inOut(Easing.quad),
+                // )}
                 style={{
                   backgroundColor: "#16783A",
                   width: 15,
                   height: 15,
                   borderRadius: 15,
                 }}
-              ></Animated.View>
+              ></View>
             )}
           </View>
-        </AnimatedPressable>
+        </Pressable>
       );
     },
     [props?.rates, selectedRate],
@@ -284,32 +368,41 @@ const SelectRatesSheet = (props: any) => {
   return (
     <View className="p-[12px]">
       <View className="gap-[10px] mb-[30px]">
-        {props?.rates?.length > 0
-          ? props?.rates?.map((rate: any, index: number) =>
-              renderRateCard({ rate, index }),
-            )
-          : rates?.map((rate: any, index: number) =>
-              renderRateCard({ rate, index }),
-            )}
+        {props?.rates?.length > 0 &&
+          props?.rates
+            ?.sort((a: any, b: any) => a?.amount - b?.amount)
+            ?.slice(0, 5)
+            .map((rate: any, index: number) => renderRateCard({ rate, index }))}
       </View>
-      {selectedRate && (
-        <View className="flex-row items-center justify-between mb-[10] mx-[6]">
-          <Text className="text-white text-[14px] font-LexendDeca">Total</Text>
-          <Text className="text-white text-[14px] font-LexendDeca">
-            ₦
-            {(props?.orderTotal + selectedRate?.amount)?.toLocaleString(
-              undefined,
-              {
+      {(selectedRate || props?.isInternational) && (
+        <View className="">
+          <View className="flex-row items-center justify-between mb-[10] mx-[6]">
+            <Text className="text-white text-[14px] font-LexendDecaLight">
+              Total
+            </Text>
+            <Text className="text-white text-[14px] font-LexendDeca">
+              ₦
+              {totalOrderAmount?.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
-              },
-            )}
-          </Text>
+              })}
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between mb-[10] mx-[6]">
+            <Text className="text-white text-[14px] font-LexendDecaLight">
+              Estiamted Delivery
+            </Text>
+            <Text className="text-white text-[14px] font-LexendDeca">
+              {selectedRate ? selectedRate?.delivery_time : "International"}
+            </Text>
+          </View>
         </View>
       )}
 
       <AnimatedPressable
-        disabled={!selectedRate}
+        disabled={
+          !selectedRate && !props?.isInternational && !props?.isStorePickup
+        }
         onPressIn={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           payBtnScale.value = withTiming(0.98, {
@@ -334,7 +427,10 @@ const SelectRatesSheet = (props: any) => {
             borderRadius: 14,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: selectedRate ? "#16783A" : "#C6C6C6",
+            backgroundColor:
+              selectedRate || props?.isInternational || props?.isStorePickup
+                ? "#16783A"
+                : "#C6C6C6",
             opacity: selectedRate ? 1 : 0.8,
             marginHorizontal: 6,
           },
@@ -344,6 +440,53 @@ const SelectRatesSheet = (props: any) => {
           Pay
         </Text>
       </AnimatedPressable>
+
+      {showPaystack && (
+        <View className="absolute top-0 left-0 w-full h-full z-10">
+          <Paystack
+            refNumber={generateReference()}
+            paystackKey={paystackPublicKey!}
+            amount={totalOrderAmount}
+            channels={[
+              "card",
+              "bank",
+              "ussd",
+              "qr",
+              "mobile_money",
+              "bank_transfer",
+              "apple_pay",
+            ]}
+            billingEmail={props?.userEmail}
+            billingName={`${user?.firstName + " " + user?.lastName}`}
+            onSuccess={onPaystackSuccess}
+            onCancel={onPaystackClose}
+            activityIndicatorColor="#16783A"
+            autoStart={true}
+            metadata={JSON.stringify({
+              orderId: props?.orderId,
+              buyerId: user?._id,
+              transactionType: "order_payment",
+              custom_fields: [
+                {
+                  display_name: "Order ID",
+                  variable_name: "order_id",
+                  value: props?.orderId,
+                },
+                {
+                  display_name: "Buyer ID",
+                  variable_name: "buyer_id",
+                  value: user?._id,
+                },
+                {
+                  display_name: "Transaction Type",
+                  variable_name: "transaction_type",
+                  value: "order_payment",
+                },
+              ],
+            })}
+          />
+        </View>
+      )}
       <LoadingModal isVisible={loading} />
     </View>
   );

@@ -413,6 +413,7 @@ const CartScreen = () => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   gap: 20,
+                  paddingBottom: 20,
                 }}
               />
             ) : // <CartList

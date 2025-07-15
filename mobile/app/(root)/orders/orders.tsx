@@ -34,6 +34,16 @@ const tabs = [
   "Cancelled",
   "My Returns",
 ];
+
+// const tabs = [
+//   "All",
+//   "Processing",
+//   "Shipped",
+//   "Delivered",
+//   "Cancelled",
+//   "Failed",
+//   "My Returns",
+// ];
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
   pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },

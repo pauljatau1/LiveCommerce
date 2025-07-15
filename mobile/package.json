@@ -90,7 +90,7 @@
     "react-native-otp-entry": "^1.8.1",
     "react-native-pager-view": "6.5.1",
     "react-native-paper": "^5.13.1",
-    "react-native-paystack-webview": "^5.0.1",
+    "react-native-paystack-webview": "^4.6.6",
     "react-native-phone-number-input": "^2.1.0",
     "react-native-reanimated": "3.16.6",
     "react-native-reanimated-carousel": "^3.5.1",

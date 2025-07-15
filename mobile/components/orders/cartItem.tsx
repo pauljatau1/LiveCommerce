@@ -21,7 +21,7 @@ const CartItem = ({
 
   return (
     <View
-      className=" py-[30px] px-[8px]"
+      className=" py-[30px]"
       style={{
         paddingTop: index == 0 ? 10 : 20,
         borderBottomColor: "#ffffff33",

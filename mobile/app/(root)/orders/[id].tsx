@@ -666,9 +666,9 @@ const OrderItem = ({
         });
         return variant.images[0]?.data;
       }
-      return orderItem?.product?.images[0].url;
+      return orderItem?.product?.images[0]?.url;
     } else {
-      return orderItem?.product?.images[0].url;
+      return orderItem?.product?.images[0]?.url;
     }
   }, [orderItem]);
   return (

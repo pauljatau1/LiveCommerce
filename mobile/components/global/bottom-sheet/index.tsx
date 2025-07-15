@@ -200,6 +200,7 @@ const BottomSheetComponent = ({
       enableContentPanningGesture={enableContentPanningGesture}
       animateOnMount
       overDragResistanceFactor={8}
+      stackBehavior="push"
       // android_keyboardInputMode="adjustResize"
       style={styles.modal}
       {...rest}

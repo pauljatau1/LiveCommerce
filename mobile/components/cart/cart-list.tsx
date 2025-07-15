@@ -197,7 +197,7 @@ const CartItem = memo(
 
     return (
       <TouchableOpacity
-        className=" rounded-[16px] py-[30px] flex-row "
+        className=" py-[30px]"
         activeOpacity={0.8}
         style={{
           paddingTop: 20,

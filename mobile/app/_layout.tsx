@@ -22,7 +22,6 @@ import {
 import { ToastProvider } from "@/contexts/ToastContext";
 import useInitializeAuthState from "@/hooks/useInitializeAuthState";
 import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
-import { PaystackProvider } from "react-native-paystack-webview";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -67,48 +66,34 @@ function RootLayoutNav() {
             statusBarTranslucent={true}
             navigationBarTranslucent={true}
           >
-            <PaystackProvider
-              publicKey={paystackPublicKey!}
-              debug={__DEV__ ? true : false}
-              defaultChannels={[
-                "card",
-                "bank",
-                "ussd",
-                "qr",
-                "mobile_money",
-                "bank_transfer",
-                "apple_pay",
-              ]}
-            >
-              <ToastProvider>
-                <BottomSheetModalProvider>
-                  <LivestreamProvider>
-                    <Stack>
-                      <Stack.Screen
-                        name="index"
-                        options={{ headerShown: false }}
-                      />
-                      <Stack.Screen
-                        name="(auth)"
-                        options={{ headerShown: false }}
-                      />
-                      <Stack.Screen
-                        name="(categories)"
-                        options={{ headerShown: false }}
-                      />
-                      <Stack.Screen
-                        name="(root)"
-                        options={{ headerShown: false }}
-                      />
+            <ToastProvider>
+              <BottomSheetModalProvider>
+                <LivestreamProvider>
+                  <Stack>
+                    <Stack.Screen
+                      name="index"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(auth)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(categories)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(root)"
+                      options={{ headerShown: false }}
+                    />
 
-                      <Stack.Screen name="+not-found" />
-                    </Stack>
-                    <Toaster />
-                    <FlashMessage floating style={styles.flashMessage} />
-                  </LivestreamProvider>
-                </BottomSheetModalProvider>
-              </ToastProvider>
-            </PaystackProvider>
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                  <FlashMessage floating style={styles.flashMessage} />
+                </LivestreamProvider>
+              </BottomSheetModalProvider>
+              <Toaster />
+            </ToastProvider>
           </KeyboardProvider>
         </SafeAreaProvider>
       </Provider>
