@@ -6,6 +6,9 @@ const Product = require('../../../models/Product');
 const Buyer = require('../../buyer/models/buyer.model');
 const Seller = require('../../../models/Seller');
 
+// Set this to true to enable free shipping promo, false to disable
+const FREE_SHIPPING_PROMO = true;
+
 exports.payForOrder = async (orderId, paymentDetails) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -35,22 +38,21 @@ exports.payForOrder = async (orderId, paymentDetails) => {
 
         if (paymentMethod === 'wallet') {
             const buyer = await Buyer.findById(order.buyer).session(session);
-            if (!buyer || buyer.wallet.balance < order.totalAmount) {
+            const debitAmount = calculateRefundAmount(order);
+            if (!buyer || buyer.wallet.balance < debitAmount) {
                 throw new Error('Insufficient wallet balance.');
             }
-            buyer.wallet.balance -= order.totalAmount;
-            
+            buyer.wallet.balance -= debitAmount;
             buyer.wallet.transactions.push({
                 type: 'debit',
-                amount: order.totalAmount,
+                amount: debitAmount,
                 description: `Payment for order ${order.order_id}`,
                 status: 'completed',
                 paymentReference: `wallet-${order.order_id}`
             });
-
             await buyer.save({ session });
             paymentVerified = true;
-            amountPaid = order.totalAmount;
+            amountPaid = debitAmount;
         } else if (paymentMethod === 'paystack') {
             if (!reference) {
                 throw new Error('Paystack reference is required for payment.');
@@ -157,6 +159,16 @@ exports.payForOrder = async (orderId, paymentDetails) => {
     }
 };
 
+// Helper to calculate refund amount (items total + shipping if paid)
+function calculateRefundAmount(order) {
+    const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    if (FREE_SHIPPING_PROMO) {
+        return itemsTotal;
+    }
+    const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
+    return itemsTotal + shippingFee;
+}
+
 async function refundOrder(order, session) {
     const buyer = await Buyer.findById(order.buyer).session(session);
     if (!buyer) {
@@ -166,10 +178,13 @@ async function refundOrder(order, session) {
     // Revert stock before refunding
     await revertProductStock(order.items, session);
 
-    buyer.wallet.balance += order.totalAmount;
+    // Calculate correct refund amount (exclude shipping if free)
+    const refundAmount = calculateRefundAmount(order);
+
+    buyer.wallet.balance += refundAmount;
     buyer.wallet.transactions.push({
         type: 'credit',
-        amount: order.totalAmount,
+        amount: refundAmount,
         description: `Refund for failed order ${order.order_id}`,
         status: 'completed',
         paymentReference: `refund-${order.order_id}`

@@ -225,6 +225,13 @@ async function restoreProductStock(order, session) {
   }
 }
 
+// Helper to calculate refund amount (items total + shipping if paid)
+function calculateRefundAmount(order) {
+  const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
+  return itemsTotal + shippingFee;
+}
+
 function handleRefundRequest(order, reason) {
   // Handle refund request for paid orders
   if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
@@ -236,7 +243,7 @@ function handleRefundRequest(order, reason) {
       requestedBy: 'seller',
       reason: reason || 'Order cancelled by seller',
       status: 'pending',
-      refundAmount: order.totalAmount
+      refundAmount: calculateRefundAmount(order)
     };
   } else {
     // For unpaid orders, close the order immediately

@@ -547,7 +547,7 @@ exports.verifyOTP = async (req, res) => {
         message: 'Email verified successfully.',
         bonus: {
           coming: true,
-          amount: 2000,
+          amount: 500,
           currency: 'NGN',
           timeToCredit: '10 seconds'
         }

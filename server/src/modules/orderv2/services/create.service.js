@@ -267,6 +267,8 @@ async function updateSellerFollowers(uniqueSellers, buyerId, session) {
   }
 }
 
+// Set this to true to enable free shipping promo, false to disable
+const FREE_SHIPPING_PROMO = true;
 async function createDraftOrderForSeller(sellerData, buyer, orderId, req, session) {
   const { items: sellerItemsList, seller, senderInfo } = sellerData;
   const sellerId = seller._id.toString();
@@ -287,6 +289,18 @@ async function createDraftOrderForSeller(sellerData, buyer, orderId, req, sessio
       : formatAddressForTerminal({ ...req.body.shippingAddress, country: 'NG' });
   const pickupAddress = determinePickupAddress(fullSellerData, senderInfo || req.body.senderInfo || {});
 
+  // Determine shipping fee
+  let shippingFeeAmount = 0;
+  let isFreeShipping = false;
+  if (FREE_SHIPPING_PROMO) {
+    shippingFeeAmount = 0;
+    isFreeShipping = true;
+  } else {
+    // Use carrier amount from payload if available, else 0
+    shippingFeeAmount = req.body.carrier && req.body.carrier.amount ? req.body.carrier.amount : 0;
+    isFreeShipping = false;
+  }
+
   const order = await orderRepository.createOrder({
     order_id: orderId,
     buyer: buyer._id,
@@ -296,14 +310,14 @@ async function createDraftOrderForSeller(sellerData, buyer, orderId, req, sessio
     status: 'draft',
     items: sellerItemsList,
     itemsTotal: sellerTotal,
-    totalAmount: sellerTotal,
-    isFreeShipping: true, // Temporarily enabling free shipping for all orders
+    totalAmount: sellerTotal + shippingFeeAmount,
+    isFreeShipping: isFreeShipping,
     isStorePickup: req.body.isStorePickup,
     isInternational,
     delivery_address: deliveryAddress,
     pickup_address: pickupAddress,
     shipping: {
-        fee: { amount: 0, currency: 'NGN' }
+        fee: { amount: shippingFeeAmount, currency: 'NGN' }
     },
     paid: false,
     paymentInfo: {

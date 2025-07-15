@@ -2296,7 +2296,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
     }
     
     // Add the welcome bonus transaction
-    const bonusAmount = 2000; // 2000 NGN
+    const bonusAmount = 500; // 500 NGN
     const transaction = {
       type: 'credit',
       amount: bonusAmount,
