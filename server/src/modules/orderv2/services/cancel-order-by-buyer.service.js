@@ -85,13 +85,17 @@ function validateOrderForBuyerCancellation(order) {
     };
   }
 
-  // Check if order is in cancellable status (buyers can only cancel pending orders)
-  if (!order.items.every(item => (item.status || 'pending') === 'pending')) {
-    return { 
-      canCancel: false, 
-      message: 'Order cannot be cancelled. Only pending orders can be cancelled by buyers.' 
-    };
-  }
+  
+const nonCancellableStatuses = ['shipped', 'delivered', 'in-transit', 'in_transit', 'cancelled'];
+
+if (order.items.some(item => nonCancellableStatuses.includes(item.status))) {
+  return {
+    canCancel: false,
+    message: 'Order cannot be cancelled. Orders with shipped, delivered, in-transit, or cancelled statuses cannot be cancelled by buyers.'
+  };
+}
+
+  
 
   return { canCancel: true };
 }
@@ -107,30 +111,36 @@ async function handleTerminalAfricaCancellation(order) {
   const shipmentId = order.shipping?.shipment_id;
   
   if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-')) {
+    const requestBody = { shipment_id: shipmentId };
+    console.log(`Attempting to cancel Terminal Africa shipment for order ${order.order_id}`);
+    console.log('Using shipmentId:', shipmentId);
+    console.log('Terminal Africa API Request Body:', JSON.stringify(requestBody, null, 2));
+
     try {
-      console.log(`Cancelling Terminal Africa shipment: ${shipmentId}`);
+      const cancelResponse = await terminalAPI.post('/shipments/cancel', requestBody);
       
-      const cancelResponse = await terminalAPI.post('/shipments/cancel', {
-        shipment_id: shipmentId
-      });
-      
-      console.log('Terminal Africa cancellation response:', {
-        status: cancelResponse.data.status,
-        message: cancelResponse.data.message
-      });
+      console.log('Terminal Africa cancellation successful response:', JSON.stringify(cancelResponse.data, null, 2));
       
       if (cancelResponse.data.status) {
         console.log('Terminal Africa shipment cancelled successfully');
       } else {
         console.log('Terminal Africa cancellation failed:', cancelResponse.data.message);
-        // Continue with local cancellation despite Terminal API error
+        if (cancelResponse.data.message !== 'Shipment transaction could not be found for shipment') {
+          throw new Error(`Error cancelling Terminal Africa shipment for order ${order.order_id}: ${cancelResponse.data.message}`);
+        }
       }
-    } catch (terminalError) {
-      console.error('Terminal Africa API error:', {
-        message: terminalError.message,
-        response: terminalError.response?.data
-      });
-      // Continue with local cancellation despite Terminal API error
+    } catch (error) {
+      console.error(`Error cancelling Terminal Africa shipment for order ${order.order_id}:`, error.message);
+      if (error.response) {
+        console.error('Terminal API error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      // Decide if we should re-throw or just log
+      if (error.response && error.response.data && error.response.data.message === 'Shipment transaction could not be found for shipment') {
+        console.warn(`Shipment for order ${order.order_id} not found on Terminal Africa. Proceeding with cancellation in our system.`);
+      } else {
+        throw new Error(`Error cancelling Terminal Africa shipment for order ${order.order_id}`);
+      }
     }
   }
 }

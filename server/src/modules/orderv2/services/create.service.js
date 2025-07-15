@@ -295,7 +295,9 @@ async function createDraftOrderForSeller(sellerData, buyer, orderId, req, sessio
     channel: req.body.channel || 'marketplace',
     status: 'draft',
     items: sellerItemsList,
+    itemsTotal: sellerTotal,
     totalAmount: sellerTotal,
+    isFreeShipping: true, // Temporarily enabling free shipping for all orders
     isStorePickup: req.body.isStorePickup,
     isInternational,
     delivery_address: deliveryAddress,

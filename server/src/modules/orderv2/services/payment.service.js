@@ -56,12 +56,18 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                 throw new Error('Paystack reference is required for payment.');
             }
             const verification = await arrangeShipmentHelper.verifyPaystackTransaction(reference);
-            if (verification.success && verification.data.amount / 100 >= order.totalAmount) {
+
+            const amountPaidByCustomer = verification.data.amount / 100;
+
+            // TEMPORARY: Bypassing amount check for free shipping promotion as requested.
+            if (verification.success) {
+                console.log(`TEMPORARY: Bypassing amount verification for order ${order.order_id}.`);
                 paymentVerified = true;
-                amountPaid = verification.data.amount / 100;
+                amountPaid = amountPaidByCustomer;
                 order.paymentInfo.paymentReference = reference;
             } else {
-                throw new Error('Paystack payment verification failed or amount is incorrect.');
+                console.error('Paystack payment verification failed. Details:', { orderId: order.order_id });
+                throw new Error('Paystack payment verification failed.');
             }
         } else {
             throw new Error('Invalid payment method.');
