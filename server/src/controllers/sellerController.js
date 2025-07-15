@@ -1932,10 +1932,11 @@ exports.getStatistics = async (req, res) => {
     const lastWeekVisits = seller.lastWeekStats?.storeVisits || 0;
     const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
 
-    // Get total orders from Order model
-    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id });
+    // Get total orders from Order model (exclude stale orders)
+    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id, isStale: { $ne: true } });
     const currentWeekOrders = await Order.countDocuments({
       'items.seller': seller._id,
+      isStale: { $ne: true },
       createdAt: {
         $gte: currentWeekStart,
         $lt: currentDate
@@ -1943,14 +1944,15 @@ exports.getStatistics = async (req, res) => {
     });
     const lastWeekOrders = await Order.countDocuments({
       'items.seller': seller._id,
+      isStale: { $ne: true },
       createdAt: {
         $gte: lastWeekStart,
         $lt: currentWeekStart
       }
     });
 
-    // Find all unique buyers who have placed orders with this seller
-    const buyersWithOrders = await Order.distinct('buyer', { 'items.seller': seller._id });
+    // Find all unique buyers who have placed orders with this seller (exclude stale orders)
+    const buyersWithOrders = await Order.distinct('buyer', { 'items.seller': seller._id, isStale: { $ne: true } });
     
     // Count only customers/followers who have at least one order
     const totalCustomers = seller.followers.filter(follower => 
@@ -2849,7 +2851,34 @@ exports.createWithdrawalRequest = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    // Send email notification to Slack payout channel
+    const slackPayoutMsg = {
+      to: 'seller-payouts-aaaaqyrdz6flakixbbdhmldhjm@auqli.slack.com',
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'New Seller Withdrawal Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>New Seller Withdrawal Request</h2>
+          <p><strong>Seller:</strong> ${seller.firstName} ${seller.lastName} (${seller.email})</p>
+          <p><strong>Store Name:</strong> ${seller.storeName || 'N/A'}</p>
+          <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
+          <p><strong>Bank Details:</strong></p>
+          <ul>
+            <li><strong>Bank Name:</strong> ${bankDetails.bankName}</li>
+            <li><strong>Account Name:</strong> ${bankDetails.accountName}</li>
+            <li><strong>Account Number:</strong> ${bankDetails.accountNumber}</li>
+            <li><strong>Bank Identifier Code:</strong> ${bankDetails.bankIdentifierCode}</li>
+          </ul>
+          <p><strong>Reference:</strong> ${withdrawal.reference}</p>
+          <p><strong>Request Date:</strong> ${withdrawal.requestDate ? withdrawal.requestDate.toLocaleString() : new Date().toLocaleString()}</p>
+        </div>
+      `
+    };
+
+    await Promise.all([
+      sgMail.send(emailMsg),
+      sgMail.send(slackPayoutMsg)
+    ]);
 
     res.json({ 
       message: 'Withdrawal request created successfully', 
@@ -3001,10 +3030,11 @@ exports.getSellerAnalytics = async (req, res) => {
       dateFilter = { $gte: oneYearAgo };
     }
     
-    // Get orders data
+    // Get orders data (exclude stale orders)
     const Order = mongoose.model('Order');
     const orders = await Order.find({ 
       seller: sellerId,
+      isStale: { $ne: true },
       createdAt: dateFilter
     }).populate('buyer', 'firstName lastName email');
     

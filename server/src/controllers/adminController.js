@@ -1678,7 +1678,7 @@ exports.getPlatformAnalytics = async (req, res) => {
 
     // Aggregate order data
     const orderStats = await Order.aggregate([
-      { $match: dateQuery },
+      { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $group: {
           _id: null,
           totalOrders: { $sum: 1 },
@@ -1696,7 +1696,7 @@ exports.getPlatformAnalytics = async (req, res) => {
 
     // Get order status distribution
     const statusStats = await Order.aggregate([
-      { $match: dateQuery },
+      { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
       { $group: {
           _id: '$items.status',
@@ -1711,7 +1711,7 @@ exports.getPlatformAnalytics = async (req, res) => {
 
     // Get top performing sellers
     analytics.sellers.topPerformers = await Order.aggregate([
-      { $match: dateQuery },
+      { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
       { $group: {
           _id: '$items.seller',
@@ -1730,7 +1730,7 @@ exports.getPlatformAnalytics = async (req, res) => {
 
     // Get top selling products
     analytics.products.topSelling = await Order.aggregate([
-      { $match: dateQuery },
+      { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
       { $group: {
           _id: '$items.product',
@@ -5780,7 +5780,7 @@ exports.getSellerDetails = async (req, res) => {
 
     // Calculate total revenue and sales
     const revenue = await Order.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(sellerId), paid: true } },
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), paid: true, isStale: { $ne: true } } },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
 
@@ -5793,6 +5793,7 @@ exports.getSellerDetails = async (req, res) => {
         $match: { 
           seller: new mongoose.Types.ObjectId(sellerId), 
           paid: true,
+          isStale: { $ne: true },
           createdAt: { $gte: sixMonthsAgo } 
         } 
       },
@@ -6750,7 +6751,7 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Get financial metrics
     const totalOrderAmount = await Order.aggregate([
-      { $match: { paid: true } },
+      { $match: { paid: true, isStale: { $ne: true } } },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
 
@@ -6777,6 +6778,78 @@ exports.getPlatformMetrics = async (req, res) => {
       Withdrawal.find().sort({ requestDate: -1 }).limit(5).select('seller amount status requestDate reference'),
       BankChangeRequest.find().sort({ requestDate: -1 }).limit(5).select('seller status requestDate newBankDetails.bankName'),
       Stream.find().sort({ createdAt: -1 }).limit(5).select('seller title status scheduledStartTime actualStartTime')
+    ]);
+
+    // --- EXTRA METRICS ---
+    // Top performing sellers by revenue (exclude stale orders)
+    const topPerformers = await Order.aggregate([
+      { $match: { paid: true, isStale: { $ne: true } } },
+      { $unwind: '$items' },
+      { $group: {
+        _id: '$seller',
+        totalRevenue: { $sum: '$totalAmount' },
+        totalOrders: { $sum: 1 }
+      }},
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 10 }
+    ]);
+    await Seller.populate(topPerformers, { path: '_id', select: 'firstName lastName businessName email storeName storeAvatar' });
+
+    // Top products by sales and revenue (exclude stale orders)
+    const topProducts = await Order.aggregate([
+      { $match: { paid: true, isStale: { $ne: true } } },
+      { $unwind: '$items' },
+      { $group: {
+        _id: '$items.product',
+        totalSold: { $sum: '$items.quantity' },
+        totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+      }},
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 }
+    ]);
+    await Product.populate(topProducts, { path: '_id', select: 'name price images category brand' });
+
+    // Top buyers by spend (exclude stale orders)
+    const topBuyers = await Order.aggregate([
+      { $match: { paid: true, isStale: { $ne: true } } },
+      { $group: {
+        _id: '$buyer',
+        totalSpent: { $sum: '$totalAmount' },
+        orderCount: { $sum: 1 }
+      }},
+      { $sort: { totalSpent: -1 } },
+      { $limit: 10 }
+    ]);
+    await Buyer.populate(topBuyers, { path: '_id', select: 'firstName lastName email profileImage' });
+
+    // Top live streams by viewers
+    const topLiveStreams = await Stream.find({ status: 'live' })
+      .sort({ 'viewers.length': -1 })
+      .limit(10)
+      .select('seller title viewers scheduledStartTime actualStartTime endTime');
+    await Seller.populate(topLiveStreams, { path: 'seller', select: 'firstName lastName businessName storeName storeAvatar' });
+
+    // Top categories by order count (exclude stale orders)
+    const topCategories = await Order.aggregate([
+      { $match: { paid: true, isStale: { $ne: true } } },
+      { $unwind: '$items' },
+      { $group: {
+        _id: '$items.product',
+        count: { $sum: 1 }
+      }},
+      { $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'productInfo'
+      }},
+      { $unwind: '$productInfo' },
+      { $group: {
+        _id: '$productInfo.category',
+        orderCount: { $sum: '$count' }
+      }},
+      { $sort: { orderCount: -1 } },
+      { $limit: 10 }
     ]);
 
     const metrics = {
@@ -6839,6 +6912,13 @@ exports.getPlatformMetrics = async (req, res) => {
         withdrawals: recentWithdrawals,
         bankChangeRequests: recentBankChangeRequests,
         streams: recentStreams
+      },
+      extra: {
+        topPerformers,
+        topProducts,
+        topBuyers,
+        topLiveStreams,
+        topCategories
       }
     };
 
