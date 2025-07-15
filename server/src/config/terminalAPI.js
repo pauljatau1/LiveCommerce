@@ -1,7 +1,7 @@
 const axios = require('axios');
 require('dotenv').config();
 
-const base = process.env.TERMINAL_API_URL || 'https://sandbox.terminal.africa/v1';
+const base = process.env.TERMINAL_API_URL + '/v1';
 
 // Terminal Africa axios client
 const terminalAPI = axios.create({

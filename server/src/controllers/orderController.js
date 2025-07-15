@@ -5,13 +5,8 @@ const Notification = require('../models/Notification');
 const Buyer = require('../modules/buyer/models/buyer.model');
 const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
-const terminalAPI = axios.create({
-  baseURL: 'https://sandbox.terminal.africa/v1',
-  headers: {
-    Authorization: `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
-    'Content-Type': 'application/json'
-  }
-});
+const terminalAPI = require('../config/terminalAPI');
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const mongoose = require('mongoose');
 const WebhookService = require('../services/WebhookService');
