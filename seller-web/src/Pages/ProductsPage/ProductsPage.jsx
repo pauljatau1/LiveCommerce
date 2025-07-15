@@ -17,7 +17,7 @@ import {
 //import { productPageCardData } from "../../Utilities/data";
 import { NavLink, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";
-import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct } from "../../Redux/Slices/ProductSlice";
+import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import { BlipUploadModal } from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
@@ -36,6 +36,7 @@ import { BASE_URL } from "../../Constants/Server";
 import axios from 'axios';
 import { toast } from "sonner";
 import EmailVerificationModal from "../../Components/EmailVerificationModal";
+import { Switch } from "../../Components/ui/switch";
 
 
 // Import all icons directly
@@ -51,7 +52,7 @@ import graphBoldIcon from '@iconify-icons/solar/graph-bold';
 import restartBoldIcon from '@iconify-icons/solar/restart-bold';
 import eyeBoldIcon from '@iconify-icons/solar/eye-bold';
 import boxEdit24FilledIcon from '@iconify-icons/fluent/box-edit-24-filled';
-import videoFrameBoldIcon from '@iconify-icons/solar/video-frame-bold';
+
 import penBoldIcon from '@iconify-icons/solar/pen-bold';
 import trashBinTrashBoldIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 import arrowLongLeftIcon from '@iconify-icons/gg/arrow-long-left';
@@ -59,11 +60,12 @@ import arrowLongRightIcon from '@iconify-icons/gg/arrow-long-right';
 import arrowDownIcon from '@iconify-icons/simple-line-icons/arrow-down';
 import checkIcon from '@iconify-icons/lucide/check';
 import { BiPlayCircle } from 'react-icons/bi';
+import { Loader2 } from 'lucide-react';
 
 const ProductsPage = () => {
     const { setHeaderName, setNavName } = useOutletContext()
     const dispatch = useDispatch();
-    const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics } = useSelector((state) => state.product);
+    const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products');
     const [sortType, setSortType] = useState('newest-to-oldest');
@@ -247,9 +249,9 @@ const ProductsPage = () => {
     };
 
     // Get pagination data
-    const paginationData = activeTab === 'products'
-        ? useSelector(state => state.product.pagination)
-        : useSelector(state => state.product.auctionPagination);
+    const productsPagination = useSelector(state => state.product.pagination);
+    const auctionPagination = useSelector(state => state.product.auctionPagination);
+    const paginationData = activeTab === 'products' ? productsPagination : auctionPagination;
 
     // Sort function
     const getSortedProducts = (products) => {
@@ -562,6 +564,15 @@ const ProductsPage = () => {
             });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    // Handle vacation mode toggle
+    const handleVacationModeToggle = async (isOn) => {
+        try {
+            await dispatch(toggleVacationMode(isOn)).unwrap();
+        } catch (error) {
+            console.error('Error toggling vacation mode:', error);
         }
     };
 
@@ -1007,6 +1018,28 @@ const ProductsPage = () => {
                                                     <span className="font-medium text-[#17171B]">{productStatistics.productsWithoutBlips || 0}</span>
                                                 </div>
                                             </div>
+                                            
+                                            {/* Vacation Mode Switch */}
+                                            <div className="mt-3 pt-3 border-t border-gray-100">
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-[#17171B]">Vacation Mode</span>
+                                                        <span className="text-xs text-gray-500">Temporarily close your store</span>
+                                                    </div>
+                                                    {vacationRequestPending ? (
+                                                        <div className="flex items-center justify-center w-11 h-6">
+                                                            <Loader2 className="w-4 h-4 animate-spin text-[#0BB248]" />
+                                                        </div>
+                                                    ) : (
+                                                        <Switch
+                                                            checked={vacationMode}
+                                                            onCheckedChange={handleVacationModeToggle}
+                                                            className="data-[state=checked]:bg-[#0BB248] data-[state=unchecked]:bg-gray-200"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
                                         </div>
                                     </div>
                                 )}
@@ -1736,7 +1769,7 @@ const ProductsPage = () => {
                         <DialogHeader className="space-y-3">
                             <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
                             <DialogDescription className="text-sm sm:text-base">
-                                Detailed information about this auction's performance
+                                Detailed information about this auction&apos;s performance
                             </DialogDescription>
                         </DialogHeader>
 

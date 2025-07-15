@@ -45,6 +45,8 @@ const initialState = {
         totalProducts: 0
     },
     productStatistics: {},
+    vacationMode: false,
+    vacationRequestPending: false,
 };
 
 
@@ -268,6 +270,34 @@ export const addReplyToBlipComment = createAsyncThunk(
     }
 );
 
+export const toggleVacationMode = createAsyncThunk(
+    'product/toggleVacationMode',
+    async (isOn, { rejectWithValue }) => {
+        try {
+            const storedToken = localStorage.getItem('sellerToken');
+            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+
+            const response = await axios.put(
+                `${BASE_URL}/seller/vacation-mode`,
+                { isOn },
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            if (response.status === 200) {
+                return response.data;
+            }
+        } catch (error) {
+            console.error('Error toggling vacation mode:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to toggle vacation mode');
+        }
+    }
+);
+
 const productSlice = createSlice({
     name: "product",
     initialState,
@@ -352,6 +382,7 @@ const productSlice = createSlice({
             totalProducts: action.payload?.totalProducts || 0
         };
         state.productStatistics = action.payload?.statistics || {};
+        state.vacationMode = action.payload?.sellerVacationMode || false;
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
@@ -582,7 +613,7 @@ const productSlice = createSlice({
                 }
             });
         })
-        .addCase(addReplyToBlipComment.pending, (state) => {
+        .addCase(addReplyToBlipComment.pending, () => {
             // Optionally add a loading state for replies
         })
         .addCase(addReplyToBlipComment.fulfilled, (state, action) => {
@@ -620,6 +651,31 @@ const productSlice = createSlice({
         .addCase(addReplyToBlipComment.rejected, (state, action) => {
             state.error = action.error.message;
             toast.error('Failed to add reply', {
+                description: action.error.message || "Please try again",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(toggleVacationMode.pending, (state) => {
+            state.vacationRequestPending = true;
+        })
+        .addCase(toggleVacationMode.fulfilled, (state, action) => {
+            state.isLoading = false;
+            state.vacationMode = action.payload.vacationMode.isOn;
+            state.vacationRequestPending = false;
+            toast.success(`Vacation mode ${action.payload.vacationMode.isOn ? 'enabled' : 'disabled'} successfully`, {
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        })
+        .addCase(toggleVacationMode.rejected, (state, action) => {
+            state.vacationRequestPending = false;
+            state.error = action.error.message;
+            toast.error('Failed to toggle vacation mode', {
                 description: action.error.message || "Please try again",
                 style: {
                     background: '#17171B',
