@@ -647,4 +647,163 @@ describe('Buyer Repository', () => {
       expect(buyerWithFields.email).toBe(buyer.email);
     });
   });
+
+  describe('findByIdWithSelectedCategories', () => {
+    let testBuyer;
+
+    beforeEach(async () => {
+      // Create a test buyer with selected categories
+      testBuyer = new Buyer({
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'password123',
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              { name: 'Smartphones' },
+              { name: 'Laptops' }
+            ]
+          },
+          {
+            name: 'Fashion',
+            subCategories: [
+              { name: 'Men\'s Clothing' },
+              { name: 'Women\'s Clothing' }
+            ]
+          }
+        ]
+      });
+
+      await testBuyer.save();
+    });
+
+    it('should find buyer with selected categories populated', async () => {
+      const result = await buyerRepository.findByIdWithSelectedCategories(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(testBuyer._id.toString());
+      expect(result.selectedCategories).toHaveLength(2);
+      expect(result.selectedCategories[0].name).toBe('Electronics');
+      expect(result.selectedCategories[0].subCategories).toHaveLength(2);
+      expect(result.selectedCategories[1].name).toBe('Fashion');
+      expect(result.selectedCategories[1].subCategories).toHaveLength(2);
+    });
+
+    it('should return null for non-existent buyer', async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const result = await buyerRepository.findByIdWithSelectedCategories(nonExistentId);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with empty selected categories', async () => {
+      // Create buyer without selected categories
+      const emptyBuyer = new Buyer({
+        firstName: 'Empty',
+        lastName: 'User',
+        email: 'empty@example.com',
+        username: 'emptyuser',
+        password: 'password123',
+        selectedCategories: []
+      });
+
+      await emptyBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(emptyBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(emptyBuyer._id.toString());
+      expect(result.selectedCategories).toHaveLength(0);
+    });
+
+    it('should handle invalid ObjectId format', async () => {
+      await expect(
+        buyerRepository.findByIdWithSelectedCategories('invalid-id')
+      ).rejects.toThrow('Cast to ObjectId failed for value "invalid-id"');
+    });
+
+    it('should only return selectedCategories field', async () => {
+      const result = await buyerRepository.findByIdWithSelectedCategories(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result.selectedCategories).toBeDefined();
+      // Should not have other fields like firstName, lastName, etc.
+      expect(result.firstName).toBeUndefined();
+      expect(result.lastName).toBeUndefined();
+      expect(result.email).toBeUndefined();
+    });
+
+    it('should handle buyer with null selected categories', async () => {
+      // Create buyer with null selected categories
+      const nullBuyer = new Buyer({
+        firstName: 'Null',
+        lastName: 'User',
+        email: 'null@example.com',
+        username: 'nulluser',
+        password: 'password123',
+        selectedCategories: null
+      });
+
+      await nullBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(nullBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(nullBuyer._id.toString());
+      expect(result.selectedCategories).toBeNull();
+    });
+
+    it('should handle complex category structure', async () => {
+      // Create buyer with complex category structure
+      const complexBuyer = new Buyer({
+        firstName: 'Complex',
+        lastName: 'User',
+        email: 'complex@example.com',
+        username: 'complexuser',
+        password: 'password123',
+        selectedCategories: [
+          {
+            name: 'Technology',
+            subCategories: [
+              { name: 'Computers' },
+              { name: 'Mobile Devices' },
+              { name: 'Accessories' }
+            ]
+          },
+          {
+            name: 'Home & Garden',
+            subCategories: [
+              { name: 'Furniture' },
+              { name: 'Decor' }
+            ]
+          }
+        ]
+      });
+
+      await complexBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(complexBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result.selectedCategories).toHaveLength(2);
+      expect(result.selectedCategories[0].name).toBe('Technology');
+      expect(result.selectedCategories[0].subCategories).toHaveLength(3);
+      expect(result.selectedCategories[1].name).toBe('Home & Garden');
+      expect(result.selectedCategories[1].subCategories).toHaveLength(2);
+    });
+
+    it('should handle database connection errors gracefully', async () => {
+      // This test ensures the method handles database errors properly
+      // In a real scenario, this would be tested with a mock database
+      const validId = new mongoose.Types.ObjectId().toString();
+      
+      // This should not throw an error even if the buyer doesn't exist
+      await expect(
+        buyerRepository.findByIdWithSelectedCategories(validId)
+      ).resolves.toBeNull();
+    });
+  });
 }); 

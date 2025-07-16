@@ -7,6 +7,7 @@ const verifyOTPService = require('../services/verifyOTP.service');
 const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
 const updateSelectedCategoriesService = require('../services/updateSelectedCategories.service');
+const getSelectedCategoriesService = require('../services/getSelectedCategories.service');
 
 /**
  * Register a buyer user.
@@ -213,6 +214,29 @@ async function updateSelectedCategories(req, res, next) {
   }
 }
 
+/**
+ * Get selected categories for a buyer.
+ *
+ * This controller handles the selected categories retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted categories data.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSelectedCategories(req, res, next) {
+  try {
+    // Call the service layer to handle selected categories retrieval logic
+    const response = await getSelectedCategoriesService.getSelectedCategories(req.user.id);
+
+    // Send success response with categories data
+    res.success(response, 'Selected categories retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -223,4 +247,5 @@ module.exports = {
   verifyOTP,
   resendOTP,
   updateSelectedCategories,
+  getSelectedCategories,
 };

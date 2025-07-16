@@ -620,6 +620,56 @@ router.post('/auth/verify-otp', buyerController.verifyOTP);
 /**
  * @swagger
  * /api/v2/buyers/selected-categories:
+ *   get:
+ *     summary: Get selected categories for a buyer
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Selected categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Selected categories retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     categories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/selected-categories', verifyToken, buyerController.getSelectedCategories);
+
+/**
+ * @swagger
+ * /api/v2/buyers/selected-categories:
  *   put:
  *     summary: Update selected categories for a buyer
  *     tags: [Buyer V2]

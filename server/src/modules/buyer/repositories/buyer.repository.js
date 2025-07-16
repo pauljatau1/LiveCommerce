@@ -117,6 +117,20 @@ async function updateById(buyerId, updateData) {
   );
 }
 
+/**
+ * Find a buyer by ID with selected categories populated.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>}
+ */
+async function findByIdWithSelectedCategories(buyerId) {
+  return Buyer.findById(buyerId)
+    .select('selectedCategories')
+    .populate({
+      path: 'selectedCategories',
+      select: 'name subCategories'
+    });
+}
+
 module.exports = {
   findAll,
   save,
@@ -128,5 +142,6 @@ module.exports = {
   getFollowingCount,
   getPostsCount,
   findByUsername,
-  updateById
+  updateById,
+  findByIdWithSelectedCategories
 };
