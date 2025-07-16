@@ -743,7 +743,7 @@ export default function StoreSettings() {
   return (
     <div className="space-y-8">
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Left Column */}
         <div className="space-y-8">
           {/* Store Info Card */}
@@ -945,7 +945,7 @@ export default function StoreSettings() {
             </CardHeader>
             <CardContent className="space-y-4">
               {Object.entries(formData.operatingHours).map(([day, hours]) => (
-                <div key={day} className="mb-4 grid grid-cols-4 gap-4 items-center">
+                <div key={day} className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-4 items-center">
                   <div className="capitalize">{day}</div>
                   <div className="flex items-center gap-2">
                     <Switch

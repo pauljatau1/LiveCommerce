@@ -194,10 +194,10 @@ export default function OrdersDashboard() {
         },
       });
       const data = await response.json();
-      
+
       // Store all orders
       setAllOrders(data.orders || []);
-      
+
       // Apply filters based on active tab
       applyFilters(data.orders || []);
     } catch (error) {
@@ -210,7 +210,7 @@ export default function OrdersDashboard() {
   // Apply filters based on active tab and other filter criteria
   const applyFilters = (orders) => {
     let filtered = [...orders];
-    
+
     // Apply tab-specific filters
     if (activeTab === "abandoned") {
       // Only show abandoned orders (isStale=true)
@@ -218,7 +218,7 @@ export default function OrdersDashboard() {
     } else {
       // For all other tabs, exclude abandoned orders
       filtered = filtered.filter(order => !order.isStale);
-      
+
       // Further filter based on shipping status for specific tabs
       if (activeTab === "process") {
         filtered = filtered.filter(order => order.shipping.tracking.status === "pending");
@@ -231,17 +231,17 @@ export default function OrdersDashboard() {
       }
       // "all" tab shows all non-abandoned orders, no additional filtering needed
     }
-    
+
     // Store filtered orders
     setFilteredOrders(filtered);
-    
+
     // Calculate total pages
     const pages = Math.max(1, Math.ceil(filtered.length / ordersPerPage));
     setTotalPages(pages);
-    
+
     // Reset to page 1 when filters change
     setCurrentPage(1);
-    
+
     // Update displayed orders for page 1
     updateDisplayedOrders(filtered, 1);
   };
@@ -398,7 +398,7 @@ export default function OrdersDashboard() {
                 </PopoverContent>
               </Popover>
             </div>
-            
+
             <div>
               <p className="text-sm font-medium mb-2">Search</p>
               <Input
@@ -408,7 +408,7 @@ export default function OrdersDashboard() {
                 className="w-full"
               />
             </div>
-            
+
             <div>
               <p className="text-sm font-medium mb-2">Payment Status</p>
               <Select value={paymentFilter} onValueChange={setPaymentFilter}>
@@ -422,7 +422,7 @@ export default function OrdersDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <p className="text-sm font-medium mb-2">Channel</p>
               <Select value={channelFilter} onValueChange={setChannelFilter}>
@@ -440,8 +440,8 @@ export default function OrdersDashboard() {
             </div>
           </div>
           <DrawerFooter className="pt-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full border-slate-300 hover:bg-slate-100"
               onClick={() => {
                 setDate(null);
@@ -476,76 +476,79 @@ export default function OrdersDashboard() {
             </Button>
           </Link>
         </div>
-        
-        <Link to="/dashboard/returns" className="hidden sm:block">
-          <Button
-            variant="outline"
-            className="absolute top-4 right-4 border-green-600 text-green-600 font-inter px-2 lg:px-3 hover:bg-green-600 hover:text-white"
-          >
-            Returns Center
-          </Button>
-        </Link>
-        
+
+
+
         <div className="py-3 sm:py-6">
           {/* Mobile Tabs */}
           <MobileTabs />
-          
-          {/* Desktop Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8 hidden sm:block">
-            <TabsList className="border-b gap-6 h-auto p-0 bg-transparent">
-              <TabsTrigger
-                value="all"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="All active orders (excludes abandoned orders)"
+          <div className="hidden sm:flex gap-4 justify-between">
+
+            {/* Desktop Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8 hidden sm:block">
+              <TabsList className="border-b gap-x-6 flex-wrap items-center justify-start h-auto p-0 bg-transparent">
+                <TabsTrigger
+                  value="all"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="All active orders (excludes abandoned orders)"
+                >
+                  All Orders
+                </TabsTrigger>
+                <TabsTrigger
+                  value="process"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="Orders with pending shipping status (excludes abandoned orders)"
+                >
+                  To Process
+                </TabsTrigger>
+                <TabsTrigger
+                  value="transit"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="Orders that have been picked up (excludes abandoned orders)"
+                >
+                  In Transit
+                </TabsTrigger>
+                <TabsTrigger
+                  value="delivered"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="Orders with delivered shipping status (excludes abandoned orders)"
+                >
+                  Delivered
+                </TabsTrigger>
+                <TabsTrigger
+                  value="cancelled"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="Orders with cancelled shipping status (excludes abandoned orders)"
+                >
+                  Cancelled
+                </TabsTrigger>
+                <TabsTrigger
+                  value="abandoned"
+                  className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+                  title="Stale orders that were abandoned (isStale=true)"
+                >
+                  Abandoned
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Link to="/dashboard/returns" className="hidden sm:block">
+              <Button
+                variant="outline"
+                className="border-green-600 text-green-600 font-inter px-2 lg:px-3 hover:bg-green-600 hover:text-white"
               >
-                All Orders
-              </TabsTrigger>
-              <TabsTrigger
-                value="process"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="Orders with pending shipping status (excludes abandoned orders)"
-              >
-                To Process
-              </TabsTrigger>
-              <TabsTrigger
-                value="transit"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="Orders that have been picked up (excludes abandoned orders)"
-              >
-                In Transit
-              </TabsTrigger>
-              <TabsTrigger
-                value="delivered"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="Orders with delivered shipping status (excludes abandoned orders)"
-              >
-                Delivered
-              </TabsTrigger>
-              <TabsTrigger
-                value="cancelled"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="Orders with cancelled shipping status (excludes abandoned orders)"
-              >
-                Cancelled
-              </TabsTrigger>
-              <TabsTrigger
-                value="abandoned"
-                className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
-                title="Stale orders that were abandoned (isStale=true)"
-              >
-                Abandoned
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+                Returns Center
+              </Button>
+            </Link>
+          </div>
 
           <div className="bg-[#F8FAF9] rounded-lg sm:p-6 shadow-sm">
             <div className="flex flex-col xl:flex-row justify-between gap-4 xl:items-center mb-6">
               <div className="flex justify-between items-center w-full xl:w-auto">
                 <h2 className="text-xl lg:text-2xl font-semibold font-inter">Latest Orders</h2>
-                
+
                 {/* Mobile Filter Button */}
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="sm:hidden border-green-600 text-green-600"
                   onClick={() => setIsFilterOpen(true)}
                 >
@@ -553,10 +556,10 @@ export default function OrdersDashboard() {
                   Filters
                 </Button>
               </div>
-              
+
               {/* Mobile Filters Drawer */}
               <MobileFilters />
-              
+
               {/* Desktop Filters */}
               <div className="hidden sm:flex flex-wrap gap-4">
                 <Popover>
@@ -626,7 +629,7 @@ export default function OrdersDashboard() {
                 </Select>
               </div>
             </div>
-          
+
             {/* Desktop Table */}
             <div className="hidden sm:block bg-white rounded-lg overflow-hidden border border-gray-100">
               <Table>
@@ -776,8 +779,8 @@ export default function OrdersDashboard() {
                             There are no orders matching your current filters. Try adjusting your search criteria, date range, or payment status.
                           </p>
                           <div className="flex gap-3">
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               className="border-slate-300 hover:bg-slate-100"
                               onClick={() => {
                                 setDate(null);
@@ -790,8 +793,8 @@ export default function OrdersDashboard() {
                               <FilterX className="w-4 h-4 mr-2" />
                               Clear All Filters
                             </Button>
-                            <Button 
-                              variant="default" 
+                            <Button
+                              variant="default"
                               className="bg-green-600 hover:bg-green-700 text-white"
                               onClick={() => navigate("/dashboard/products")}
                             >
@@ -837,7 +840,7 @@ export default function OrdersDashboard() {
                             {order.isStale ? "abandoned" : order.isOpen ? "Open" : "Closed"}
                           </Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
                           <div>
                             <p className="text-xs text-gray-500">Customer</p>
@@ -858,23 +861,22 @@ export default function OrdersDashboard() {
                           <div>
                             <p className="text-xs text-gray-500">Payment</p>
                             <Badge
-                              className={`text-xs px-2 py-0.5 ${
-                                order.isStale
-                                  ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md text-orange-800"
-                                  : order.paymentInfo.status === "paid"
-                                    ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
-                                    : order.paymentInfo.status === "pending"
-                                      ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
-                                      : order.paymentInfo.status === "awaiting_cod"
-                                        ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
-                                        : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
-                              }`}
+                              className={`text-xs px-2 py-0.5 ${order.isStale
+                                ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md text-orange-800"
+                                : order.paymentInfo.status === "paid"
+                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
+                                  : order.paymentInfo.status === "pending"
+                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
+                                    : order.paymentInfo.status === "awaiting_cod"
+                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
+                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
+                                }`}
                             >
                               {order.isStale ? "abandoned" : order.paymentInfo.status === "awaiting_cod" ? "COD" : order.paymentInfo.status}
                             </Badge>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 mb-3">
                           <p className="text-xs text-gray-500">Channel:</p>
                           <div className="flex items-center gap-1 text-xs">
@@ -908,7 +910,7 @@ export default function OrdersDashboard() {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">Items</p>
                           <div className="space-y-1">
@@ -924,7 +926,7 @@ export default function OrdersDashboard() {
                             )}
                           </div>
                         </div>
-                        
+
                         <Link to={`/dashboard/order/${order._id}`} className="block w-full">
                           <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700 w-full text-xs py-1">
                             View Order Details
@@ -944,8 +946,8 @@ export default function OrdersDashboard() {
                     <p className="text-slate-500 text-xs mb-4">
                       There are no orders matching your filters. Try adjusting your search criteria.
                     </p>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="border-slate-300 hover:bg-slate-100 text-xs"
                       onClick={() => {
                         setDate(null);
@@ -979,10 +981,10 @@ export default function OrdersDashboard() {
                   Page {currentPage} of {totalPages}
                 </span>
                 <div className="flex gap-2 sm:gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="bg-white text-xs sm:text-sm px-2 sm:px-3 py-1 h-8 sm:h-10" 
-                    onClick={handlePrevPage} 
+                  <Button
+                    variant="outline"
+                    className="bg-white text-xs sm:text-sm px-2 sm:px-3 py-1 h-8 sm:h-10"
+                    onClick={handlePrevPage}
                     disabled={currentPage === 1}
                   >
                     ← Back

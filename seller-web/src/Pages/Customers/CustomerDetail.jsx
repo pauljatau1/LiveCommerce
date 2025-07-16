@@ -187,7 +187,7 @@ function CustomerDetail() {
   return (
     <>
       {/* Main Content */}
-      <div className="max-w-[1600px] pt-4 mx-auto sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] pt-4 pb-14 mx-auto sm:px-6 lg:px-8">
        
         {/* Customer Header - Enhanced with more details */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
@@ -368,7 +368,7 @@ function CustomerDetail() {
             </Card>
 
             {/* Recent Orders - Enhanced with images */}
-            <Card className="border border-slate-200">
+            <Card className="border border-slate-200 max-h-[860px] overflow-y-auto scroll-smooth">
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold font-inter text-slate-900">Recent Orders</h2>
@@ -381,7 +381,7 @@ function CustomerDetail() {
                     View All
                   </Button>
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-300">
                   {customerData.recentOrders.map((order) => (
                     <div key={order._id} className="py-4">
                       <div className="flex justify-between items-start mb-2">

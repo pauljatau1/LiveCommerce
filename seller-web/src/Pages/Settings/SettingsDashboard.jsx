@@ -69,7 +69,7 @@ export default function SettingsDashboard() {
 
         <div className="mt-4 sm:mt-6">
           <TabsContent value="store">
-            <Card className="border-none sm:border">
+            <Card className="border-none sm:border pl-8 ">
               <CardHeader className="px-0 sm:px-6">
                 <CardTitle>Store Settings</CardTitle>
                 <CardDescription>Manage your store preferences</CardDescription>

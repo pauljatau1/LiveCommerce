@@ -291,7 +291,7 @@ export default function Coupons() {
   return (
     <div className=" mx-auto p-6">
       {/* Header Section with improved spacing and styling */}
-      <div className="flex justify-between items-center mb-8 border-b pb-4">
+      <div className="flex flex-wrap gap-4 justify-between items-center mb-8 border-b pb-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Create New Coupon</h1>
           <p className="text-gray-500 mt-1">Set up discounts for your products</p>
@@ -308,11 +308,11 @@ export default function Coupons() {
 
       {/* Coupon Type Selector */}
       <div className="bg-white rounded-lg border p-6 shadow-sm mb-8">
-        <h2 className="text-xl font-semibold mb-4">Select Coupon Type</h2>
+        <h2 className="text-lg xl:text-xl font-semibold mb-4">Select Coupon Type</h2>
         <RadioGroup
           value={couponType}
           onValueChange={setCouponType}
-          className="flex space-x-8"
+          className="flex flex-wrap gap-4"
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="product" id="product" />
@@ -329,12 +329,12 @@ export default function Coupons() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Organize form into card-like sections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column */}
           <div className="space-y-6">
             {/* Coupon Details Card */}
             <div className="bg-white rounded-lg border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <h2 className="text-lg xl:text-xl font-semibold mb-4 flex items-center gap-2">
                 <span className="bg-primary/10 p-2 rounded-lg">
                   <CheckCircle className="h-5 w-5 text-primary" />
                 </span>
@@ -390,7 +390,7 @@ export default function Coupons() {
             {/* Purchase Restrictions Card */}
             {couponType === 'product' && (
               <div className="bg-white rounded-lg border p-6 shadow-sm">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <h2 className="text-lg xl:text-xl font-semibold mb-4 flex items-center gap-2">
                   <span className="bg-primary/10 p-2 rounded-lg">
                     <AlertCircle className="h-5 w-5 text-primary" />
                   </span>
@@ -432,7 +432,7 @@ export default function Coupons() {
           <div className="space-y-6">
             {/* Duration Card */}
             <div className="bg-white rounded-lg border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <h2 className="text-lg xl:text-xl font-semibold mb-4 flex items-center gap-2">
                 <span className="bg-primary/10 p-2 rounded-lg">
                   <CalendarIcon className="h-5 w-5 text-primary" />
                 </span>
@@ -525,7 +525,7 @@ export default function Coupons() {
 
             {/* Customer Eligibility Card */}
             <div className="bg-white rounded-lg border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <h2 className="text-lg xl:text-xl font-semibold mb-4 flex items-center gap-2">
                 <span className="bg-primary/10 p-2 rounded-lg">
                   <AlertCircle className="h-5 w-5 text-primary" />
                 </span>
@@ -554,7 +554,7 @@ export default function Coupons() {
 
         {/* Products Selection Section - Full Width */}
         <div className="bg-white rounded-lg border p-6 shadow-sm mt-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <h2 className="text-lg xl:text-xl font-semibold mb-4 flex items-center gap-2">
             <span className="bg-primary/10 p-2 rounded-lg">
               <Search className="h-5 w-5 text-primary" />
             </span>
@@ -743,7 +743,7 @@ export default function Coupons() {
                     </button>
                     
                     <div className="flex items-center gap-1">
-                      <span className="px-3 py-2 rounded-md bg-[#0BB248] text-white">
+                      <span className="px-3 py-2 rounded-md bg-[#17171B] text-white">
                         {currentPage}
                       </span>
                       <span className="text-gray-600">of</span>
@@ -804,6 +804,7 @@ export default function Coupons() {
             type="button" 
             variant="outline" 
             disabled={isSubmitting}
+            onClick={() => navigate(-1)}
           >
             Cancel
           </Button>

@@ -4,7 +4,7 @@ import { fetchSellerBlips, fetchSellerProducts } from '../../Redux/Slices/Produc
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../Components/ui/pagination';
 import Loader from '../../Components/Loader';
 import { formatDistanceToNow } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import BlipDetails from './BlipDetails';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../Components/ui/dialog';
 import { Icon } from '@iconify/react';
@@ -16,6 +16,7 @@ import { BASE_URL } from '../../Constants/Server';
 import { trackEvent } from '@/util/analytics';
 
 const Blips = () => {
+  const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const { blips, isLoadingBlips, blipsPagination, products } = useSelector((state) => state.product);
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,6 +39,11 @@ const Blips = () => {
   const [productFilter, setProductFilter] = useState('all'); // 'all', 'with-blips', 'without-blips'
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTimeout, setSearchTimeout] = useState(null);
+
+  useEffect(() => {
+    setHeaderName('Products');
+    setNavName('Product Blips');
+  }, [setHeaderName, setNavName]);
 
   // Function to safely format dates
   const safeFormatDate = (dateString) => {

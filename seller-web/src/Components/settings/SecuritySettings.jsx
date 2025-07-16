@@ -106,7 +106,7 @@ export default function SecuritySettings() {
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       {/* Left Column - Authentication Settings */}
       <div className="space-y-6">
         {/* Two-factor Authentication - Coming Soon */}

@@ -315,8 +315,8 @@ const AnalyticsAndInsights = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="sm:p-6 pt-3 md:p-8 max-w-[1920px] mx-auto">
         {/* Header with Date Range Selector */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-4 rounded-xl -sm border border-gray-100/60">
-          <h1 className="text-xl font-bold text-gray-800 mb-4 md:mb-0 tracking-tight">Seller Analytics</h1>
+        <div className="flex flex-wrap gap-4 justify-between items-start md:items-center mb-6 bg-white p-4 rounded-xl -sm border border-gray-100/60">
+          <h1 className="text-xl font-bold text-gray-800 tracking-tight">Seller Analytics</h1>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={period} onValueChange={(value) => setPeriod(value)}>
               <SelectTrigger className="w-full md:w-[180px] bg-white border border-gray-200">

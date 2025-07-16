@@ -362,10 +362,10 @@ export default function Payout() {
       <div className="min-h-screen bg-gray-50/30">
         <div className="container mx-auto sm:px-4 py-4 sm:py-6 space-y-4">
           {/* Financial Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
             
             {/* Available Balance Card - Now first and full-width on smaller screens */}
-            <Card className="relative p-5 sm:p-6 overflow-hidden rounded-xl border border-green-200 col-span-1 sm:col-span-3 lg:col-span-1 order-first">
+            <Card className="relative p-5 sm:p-6 overflow-hidden rounded-xl border border-green-200 col-span-1  order-first">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500 via-green-600 to-green-700"></div>
               <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJwYXR0ZXJuIiB4PSIwIiB5PSIwIiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHBhdHRlcm5UcmFuc2Zvcm09InJvdGF0ZSgxMCkiPjxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjEuNSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNwYXR0ZXJuKSIvPjwvc3ZnPg==')]"></div>
               <div className="absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl from-white/10 to-transparent rounded-tl-full"></div>

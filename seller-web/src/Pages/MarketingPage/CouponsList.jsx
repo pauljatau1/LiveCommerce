@@ -199,7 +199,7 @@ export default function CouponsList() {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Active Coupons</h1>
           <p className="text-gray-500 mt-1">Manage and track your discount coupons</p>

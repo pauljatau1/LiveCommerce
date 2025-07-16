@@ -25,6 +25,7 @@ import {
   FiFilter
 } from "react-icons/fi";
 import { BiSortAlt2 } from "react-icons/bi";
+import PropTypes from 'prop-types';
 import { motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import { Icon } from "@iconify/react";
@@ -43,6 +44,12 @@ function Customers() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const { setHeaderName, setNavName } = useOutletContext();
+
+  // NEW: apply sort handler for mobile filters
+  const handleApplySort = (newConfig) => {
+    setSortConfig(newConfig);
+    setIsFilterOpen(false); // close drawer after applying
+  };
 
   useEffect(() => {
     setHeaderName('Customers');
@@ -166,10 +173,17 @@ function Customers() {
     doc.save('customers-report.pdf');
   };
 
-  // Mobile filter drawer component
-  const MobileFilters = () => {
+  // Refactored MobileFilters component – receives props & applies sort on button click
+  const MobileFilters = ({ open, onOpenChange, currentSortConfig, onApplySort }) => {
+    const [localSortConfig, setLocalSortConfig] = useState(currentSortConfig);
+
+    // keep local state in sync when parent sortConfig changes
+    useEffect(() => {
+      setLocalSortConfig(currentSortConfig);
+    }, [currentSortConfig]);
+
     return (
-      <Drawer open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+      <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="px-4 pb-6">
           <DrawerHeader>
             <DrawerTitle>Sort Customers</DrawerTitle>
@@ -178,8 +192,8 @@ function Customers() {
             <div>
               <p className="text-sm font-medium mb-2">Sort by</p>
               <Select
-                value={sortConfig.key}
-                onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}
+                value={localSortConfig.key}
+                onValueChange={(value) => setLocalSortConfig(prev => ({ ...prev, key: value }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sort by..." />
@@ -195,8 +209,8 @@ function Customers() {
             <div>
               <p className="text-sm font-medium mb-2">Direction</p>
               <Select
-                value={sortConfig.direction}
-                onValueChange={(value) => setSortConfig(prev => ({ ...prev, direction: value }))}
+                value={localSortConfig.direction}
+                onValueChange={(value) => setLocalSortConfig(prev => ({ ...prev, direction: value }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Direction..." />
@@ -208,14 +222,30 @@ function Customers() {
               </Select>
             </div>
           </div>
-          <DrawerFooter className="pt-2">
+          <DrawerFooter className="px-1 py-2">
             <DrawerClose asChild>
-              <Button className="w-full bg-green-600 hover:bg-green-700">Apply Sort</Button>
+              <Button
+                onClick={() => onApplySort(localSortConfig)}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Apply Sort
+              </Button>
             </DrawerClose>
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
     );
+  };
+
+  // PropTypes for MobileFilters component
+  MobileFilters.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onOpenChange: PropTypes.func.isRequired,
+    currentSortConfig: PropTypes.shape({
+      key: PropTypes.string,
+      direction: PropTypes.string,
+    }).isRequired,
+    onApplySort: PropTypes.func.isRequired,
   };
 
   return (
@@ -241,7 +271,7 @@ function Customers() {
 
             {/* Search and Filter Section */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
                 <div className="relative flex-1">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -254,7 +284,7 @@ function Customers() {
                 </div>
 
                 {/* Desktop Filter/Sort Buttons */}
-                <div className="hidden md:flex flex-wrap items-center gap-4">
+                <div className="hidden lg:flex flex-wrap items-center gap-4">
                   <div className="flex gap-2">
                     <Button
                       onClick={() => handleSort('name')}
@@ -290,7 +320,7 @@ function Customers() {
                 </div>
 
                 {/* Mobile Filter/Sort Buttons */}
-                <div className="flex md:hidden gap-2 w-full">
+                <div className="flex lg:hidden gap-2 w-full">
                   <Button
                     onClick={() => setIsFilterOpen(true)}
                     className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
@@ -302,14 +332,19 @@ function Customers() {
                     onClick={exportToPDF}
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                   >
-                    Export
+                    Export Data
                   </Button>
                 </div>
               </div>
             </div>
 
             {/* Mobile Filters Drawer */}
-            <MobileFilters />
+            <MobileFilters
+              open={isFilterOpen}
+              onOpenChange={setIsFilterOpen}
+              currentSortConfig={sortConfig}
+              onApplySort={handleApplySort}
+            />
 
             {filteredFollowers.length === 0 ? (
               <motion.div

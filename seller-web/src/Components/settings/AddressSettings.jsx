@@ -376,12 +376,12 @@ export default function AddressSettings() {
 
   const AddressCard = ({ type, icon: Icon, address, hasVerified, name, contact }) => (
     <Card>
-      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2">
+      <CardHeader className="flex flex-col lg:flex-row items-center justify-between space-y-2 lg:space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-muted-foreground" />
           <CardTitle>{type} Address</CardTitle>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col lg:flex-row items-center gap-2 w-full sm:w-auto">
           {hasVerified && (
             <Badge variant="outline" className="text-green-500">Verified</Badge>
           )}
