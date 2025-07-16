@@ -25,6 +25,10 @@ exports.payForOrder = async (orderId, paymentDetails) => {
             throw new Error('Order not found');
         }
 
+        if (order.isStale) {
+            throw new Error('This order has expired and can no longer be paid for. Please create a new order.');
+        }
+
         if (order.status !== 'pending_payment') {
             throw new Error(`Order cannot be paid for in its current status: ${order.status}`);
         }
@@ -94,6 +98,19 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                     
                     // Update order status to reflect failure
                     order.status = 'failed';
+                    // Also set shipping tracking status to failed if tracking exists
+                    if (order.shipping && order.shipping.tracking) {
+                        order.shipping.tracking.status = 'failed';
+                        // Optionally, add to tracking history
+                        if (!order.shipping.tracking.history) {
+                            order.shipping.tracking.history = [];
+                        }
+                        order.shipping.tracking.history.push({
+                            status: 'failed',
+                            timestamp: new Date(),
+                            description: `Shipment arrangement failed after payment. Reason: ${arrangementResult.error}`
+                        });
+                    }
                     if (!order.statusHistory) {
                         order.statusHistory = [];
                     }
