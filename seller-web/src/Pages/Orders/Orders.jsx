@@ -318,6 +318,7 @@ export default function OrdersDashboard() {
   const getStatusColor = (status) => {
     const statusColors = {
       pending: "bg-yellow-100 px-3 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md py-1 text-yellow-700",
+      confirmed: "bg-cyan-100 px-3 hover:bg-cyan-200 capitalize transition-all duration-300 rounded-md py-1 text-cyan-700",
       pickup_arranged: "bg-blue-100 px-3 hover:bg-blue-200 capitalize transition-all duration-300 rounded-md py-1 text-blue-700",
       picked_up: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
       "in-transit": "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
@@ -685,21 +686,27 @@ export default function OrdersDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            className={
-                              order.isStale
-                                ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
-                                : order.paymentInfo.status === "paid"
-                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
-                                  : order.paymentInfo.status === "pending"
-                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
-                                    : order.paymentInfo.status === "awaiting_cod"
-                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
-                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
-                            }
-                          >
-                            {order.isStale ? "abandoned" : order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
-                          </Badge>
+                          {['failed', 'cancelled'].includes(order.shipping.tracking.status) ? (
+                            <Badge className="bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700">
+                              refunded
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className={
+                                order.isStale
+                                  ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
+                                  : order.paymentInfo.status === "paid"
+                                    ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
+                                    : order.paymentInfo.status === "pending"
+                                      ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                                      : order.paymentInfo.status === "awaiting_cod"
+                                        ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                        : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                              }
+                            >
+                              {order.isStale ? "abandoned" : order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
                         <TableCell>
