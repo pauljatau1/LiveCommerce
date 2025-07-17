@@ -768,6 +768,85 @@ router.get('/orders', verifyToken, isBuyer, buyerController.getOrders);
 
 /**
  * @swagger
+ * /api/v2/buyers/orders/{id}:
+ *   get:
+ *     summary: Get detailed information about a specific order
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Order details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Order details retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     order_id:
+ *                       type: string
+ *                       example: "OR12345"
+ *                     totalAmount:
+ *                       type: number
+ *                       example: 1500
+ *                     status:
+ *                       type: string
+ *                       example: "delivered"
+ *                     items:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               images:
+ *                                 type: array
+ *                                 items:
+ *                                   type: string
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               storeName:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                               phoneNumber:
+ *                                 type: string
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/orders/:id', verifyToken, isBuyer, buyerController.getOrderDetails);
+
+/**
+ * @swagger
  * /api/v2/buyers/selected-categories:
  *   put:
  *     summary: Update selected categories for a buyer

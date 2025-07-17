@@ -169,6 +169,29 @@ async function findReturnRequests(orderIds) {
   }, '_id order status');
 }
 
+/**
+ * Find a specific order by ID that belongs to a buyer.
+ * @param {string} orderId - The order's ID
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} Order with populated data or null if not found
+ */
+async function findOrderByIdAndBuyer(orderId, buyerId) {
+  const Order = require('../../../models/Order');
+  const mongoose = require('mongoose');
+  
+  // Check if orderId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return null;
+  }
+  
+  return Order.findOne({
+    _id: orderId,
+    buyer: buyerId
+  })
+    .populate('items.product')
+    .populate('items.seller', 'storeName email phoneNumber');
+}
+
 module.exports = {
   findAll,
   save,
@@ -184,5 +207,6 @@ module.exports = {
   findByIdWithSelectedCategories,
   countOrders,
   findOrders,
-  findReturnRequests
+  findReturnRequests,
+  findOrderByIdAndBuyer
 };

@@ -9,6 +9,9 @@ const checkTokenService = require('../services/checkToken.service');
 const updateSelectedCategoriesService = require('../services/updateSelectedCategories.service');
 const getSelectedCategoriesService = require('../services/getSelectedCategories.service');
 const getOrdersService = require('../services/getOrders.service');
+const getOrderDetailsService = require('../services/getOrderDetails.service');
+const mongoose = require('mongoose');
+const InvalidObjectIdException = require('../../../utils/errors/InvalidObjectIdException');
 
 /**
  * Register a buyer user.
@@ -269,6 +272,29 @@ async function getOrders(req, res, next) {
   }
 }
 
+/**
+ * Get detailed information about a specific order for a buyer.
+ *
+ * This controller handles the order details retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted order data.
+ *
+ * @param {Request} req - Express request object containing the order ID in `req.params.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getOrderDetails(req, res, next) {
+  try {
+    // Call the service layer to handle order details retrieval logic
+    const response = await getOrderDetailsService.getOrderDetails(req.user.id, req.params.id);
+
+    // Send success response with order details
+    res.success(response, 'Order details retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -281,4 +307,5 @@ module.exports = {
   updateSelectedCategories,
   getSelectedCategories,
   getOrders,
+  getOrderDetails,
 };

@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const mixpanelClient = require('./config/mixpanel');
 const responseFormatter = require('./middlewares/response.middleware');
 const ValidationError = require('./utils/errors/ValidationError');
+const InvalidObjectIdException = require('./utils/errors/InvalidObjectIdException');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -192,6 +193,22 @@ app.use((err, req, res, next) => {
 
   if (err instanceof NotFoundException) {
     return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  // Handle CastError (invalid ObjectId format)
+  if (err instanceof mongoose.Error.CastError) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid ID format',
+      error: 'Bad Request'
+    });
+  }
+
+  if (err instanceof InvalidObjectIdException) {
+    return res.status(err.statusCode).json({
       success: false,
       message: err.message,
     });

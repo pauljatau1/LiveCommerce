@@ -1089,4 +1089,137 @@ describe('Buyer Repository', () => {
       expect(result).toHaveLength(0);
     });
   });
+
+  describe('findOrderByIdAndBuyer', () => {
+    let testBuyer;
+    let testOrder;
+    let testProduct;
+    let testSeller;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test seller
+      testSeller = new Seller({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'seller@test.com',
+        password: 'password123',
+        phoneNumber: '+1234567890',
+        storeName: 'Test Store'
+      });
+      await testSeller.save();
+
+      // Create a test product
+      testProduct = new Product({
+        name: 'Test Product',
+        description: 'A test product for testing',
+        price: 1000,
+        category: 'Electronics',
+        stock: 10,
+        seller: testSeller._id,
+        images: [
+          { url: 'image1.jpg' },
+          { url: 'image2.jpg' }
+        ]
+      });
+      await testProduct.save();
+
+      // Create a test order
+      testOrder = new Order({
+        buyer: testBuyer._id,
+        seller: testSeller._id,
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: testProduct._id,
+            productName: 'Test Product',
+            seller: testSeller._id,
+            quantity: 1,
+            price: 1000
+          }
+        ],
+        shipping: {
+          tracking: {
+            status: 'delivered'
+          }
+        }
+      });
+
+      await testOrder.save();
+    });
+
+    it('should find order by ID and buyer', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(testOrder._id.toString());
+      expect(result.buyer.toString()).toBe(testBuyer._id.toString());
+      expect(result.totalAmount).toBe(1000);
+      expect(result.status).toBe('delivered');
+    });
+
+    it('should populate product and seller information', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        testBuyer._id.toString()
+      );
+
+      expect(result.items[0].product).toBeDefined();
+      expect(result.items[0].product.name).toBe('Test Product');
+      expect(result.items[0].product.images).toHaveLength(2);
+      expect(result.items[0].product.images[0].url).toBe('image1.jpg');
+      expect(result.items[0].product.images[1].url).toBe('image2.jpg');
+      expect(result.items[0].seller).toBeDefined();
+      expect(result.items[0].seller.storeName).toBe('Test Store');
+      expect(result.items[0].seller.email).toBe('seller@test.com');
+      expect(result.items[0].seller.phoneNumber).toBe('+1234567890');
+    });
+
+    it('should return null when order not found', async () => {
+      const nonExistentOrderId = new mongoose.Types.ObjectId().toString();
+      
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        nonExistentOrderId,
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when order does not belong to buyer', async () => {
+      // Create another buyer
+      const anotherBuyer = new Buyer({
+        ...mockBuyerData,
+        email: 'another@example.com',
+        username: 'anotheruser'
+      });
+      await anotherBuyer.save();
+
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        anotherBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle invalid ObjectId format', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        'invalid-id',
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+  });
 }); 
