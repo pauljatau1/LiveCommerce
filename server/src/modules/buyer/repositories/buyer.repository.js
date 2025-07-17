@@ -131,6 +131,44 @@ async function findByIdWithSelectedCategories(buyerId) {
     });
 }
 
+/**
+ * Count orders for a buyer with optional filters.
+ * @param {Object} query - Query object with filters
+ * @returns {Promise<number>}
+ */
+async function countOrders(query) {
+  const Order = require('../../../models/Order');
+  return Order.countDocuments(query);
+}
+
+/**
+ * Find orders for a buyer with pagination and filters.
+ * @param {Object} query - Query object with filters
+ * @param {Object} options - Pagination and sorting options
+ * @returns {Promise<Array>}
+ */
+async function findOrders(query, options) {
+  const Order = require('../../../models/Order');
+  return Order.find(query)
+    .sort(options.sort)
+    .skip(options.skip)
+    .limit(options.limit)
+    .populate('items.product', 'name images price')
+    .populate('items.seller', 'storeName');
+}
+
+/**
+ * Find return requests for orders.
+ * @param {Array} orderIds - Array of order IDs
+ * @returns {Promise<Array>}
+ */
+async function findReturnRequests(orderIds) {
+  const Return = require('../../../models/Return');
+  return Return.find({
+    order: { $in: orderIds }
+  }, '_id order status');
+}
+
 module.exports = {
   findAll,
   save,
@@ -143,5 +181,8 @@ module.exports = {
   getPostsCount,
   findByUsername,
   updateById,
-  findByIdWithSelectedCategories
+  findByIdWithSelectedCategories,
+  countOrders,
+  findOrders,
+  findReturnRequests
 };

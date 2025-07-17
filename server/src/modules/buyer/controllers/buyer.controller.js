@@ -8,6 +8,7 @@ const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
 const updateSelectedCategoriesService = require('../services/updateSelectedCategories.service');
 const getSelectedCategoriesService = require('../services/getSelectedCategories.service');
+const getOrdersService = require('../services/getOrders.service');
 
 /**
  * Register a buyer user.
@@ -237,6 +238,37 @@ async function getSelectedCategories(req, res, next) {
   }
 }
 
+/**
+ * Get orders for a buyer with filtering and pagination.
+ *
+ * This controller handles the orders retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted orders data.
+ *
+ * @param {Request} req - Express request object containing query parameters and buyer's ID
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getOrders(req, res, next) {
+  try {
+    const pagination = getOrdersService.getPaginationOptions(req);
+    const filters = getOrdersService.getFilters(req);
+
+    let response = {};
+    if (pagination.enabled) {
+      const params = { ...pagination, filters: filters };
+      response = await getOrdersService.getPaginatedOrders(req.user.id, params);
+    } else {
+      response = await getOrdersService.getOrders(req.user.id, filters);
+    }
+
+    // Send success response with orders data
+    res.success(response, 'Orders retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -248,4 +280,5 @@ module.exports = {
   resendOTP,
   updateSelectedCategories,
   getSelectedCategories,
+  getOrders,
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../../../middlewares/authMiddleware');
+const { verifyToken, isBuyer } = require('../../../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const buyerController = require('../controllers/buyer.controller');
@@ -665,7 +665,106 @@ router.post('/auth/verify-otp', buyerController.verifyOTP);
  *       500:
  *         description: Internal server error
  */
-router.get('/selected-categories', verifyToken, buyerController.getSelectedCategories);
+router.get('/selected-categories', verifyToken, isBuyer, buyerController.getSelectedCategories);
+
+/**
+ * @swagger
+ * /api/v2/buyers/orders:
+ *   get:
+ *     summary: Get orders for a buyer with filtering and pagination
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: trackingStatus
+ *         schema:
+ *           type: string
+ *         description: Filter by tracking status (pending, picked_up, in_transit, delivered, cancelled, refunded)
+ *         example: "delivered"
+ *       - in: query
+ *         name: hasReturn
+ *         schema:
+ *           type: string
+ *         description: Filter by return status (true, false)
+ *         example: "false"
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in order ID or product name
+ *         example: "OR12345"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of orders per page
+ *         example: 10
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *         description: Sort field and direction
+ *         example: "-createdAt"
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Orders retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           order_id:
+ *                             type: string
+ *                           totalAmount:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           returnRequestId:
+ *                             type: string
+ *                           returnStatus:
+ *                             type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *                         totalOrders:
+ *                           type: integer
+ *                         hasMore:
+ *                           type: boolean
+ *                         hasPrevious:
+ *                           type: boolean
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/orders', verifyToken, isBuyer, buyerController.getOrders);
 
 /**
  * @swagger
