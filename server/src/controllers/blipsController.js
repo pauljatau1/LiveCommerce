@@ -28,16 +28,19 @@ exports.getAllBlips = async (req, res) => {
     console.log('Starting getAllBlips aggregation...');
     
     const blips = await Product.aggregate([
-      // Match products that have blips and exclude offline_auction products with ended status
-      { $match: { 
-        blips: { $exists: true, $ne: [] },
-        $nor: [
-          { 
-            status: 'offline_auction', 
-            'auction.status': 'ended' 
-          }
-        ]
-      }},
+      // Match products that have blips, are not draft, and exclude offline_auction products with ended status
+      { 
+        $match: { 
+          blips: { $exists: true, $ne: [] },
+          status: { $ne: 'draft' }, // Exclude draft products
+          $nor: [
+            { 
+              status: 'offline_auction', 
+              'auction.status': 'ended' 
+            }
+          ]
+        }
+      },
       // Unwind the blips array
       { $unwind: '$blips' },
       // Lookup seller information
@@ -228,8 +231,10 @@ exports.getAllBlips = async (req, res) => {
       };
     });
 
+    // Also exclude draft products from the count
     const total = await Product.countDocuments({
       blips: { $exists: true, $ne: [] },
+      status: { $ne: 'draft' },
       $nor: [
         {
           status: 'offline_auction', 
@@ -581,6 +586,7 @@ exports.getSuggestedBlips = async (req, res) => {
     const primaryMatchStage = {
       blips: { $exists: true, $ne: [] },
       blips: { $elemMatch: { processed: true } },
+      status: { $ne: 'draft' }, // Exclude draft products
       $nor: [
         {
           status: 'offline_auction',
@@ -590,7 +596,8 @@ exports.getSuggestedBlips = async (req, res) => {
     };
     
     const fallbackMatchStage = {
-      blips: { $exists: true, $ne: [] }
+      blips: { $exists: true, $ne: [] },
+      status: { $ne: 'draft' } // Exclude draft products in fallback as well
     };
     
     // Get buyer's preferred categories and followed sellers if authenticated
@@ -685,7 +692,7 @@ exports.getSuggestedBlips = async (req, res) => {
           status: '$status',
           auctionInfo: {
             $cond: {
-              if: { $eq: ['$status', 'offline_auction'] },
+              if: { $eq: ['$status', 'offline_auction',] },
               then: {
                 minBid: '$auction.minBid',
                 maxBid: '$auction.maxBid',
@@ -2703,10 +2710,12 @@ exports.getPersonalizedBlips = async (req, res) => {
       console.log(`📝 [BLIPS DEBUG] First 5 seen blip IDs: ${seenBlipIds.slice(0, 5).join(', ')}`);
     }
 
+    // Exclude products with status 'draft' in all match stages
     const primaryMatchStage = {
       $and: [
         { 'blips.0': { $exists: true } },
         { blips: { $elemMatch: { processed: true } } },
+        { status: { $ne: 'draft' } }, // Exclude draft products
         {
           $or: [
             { status: { $ne: 'offline_auction' } },
@@ -2724,7 +2733,11 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     const fallbackMatchStage = {
       'blips.0': { $exists: true },
-      status: 'active'
+      status: 'active',
+      // Exclude draft products (redundant since status: 'active', but for clarity)
+      $and: [
+        { status: { $ne: 'draft' } }
+      ]
     };
 
     const buyerId = req.user?.id;
@@ -2740,8 +2753,8 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     }
 
-    // Count all products that have at least one blip
-    let total = await Product.countDocuments({ 'blips.0': { $exists: true } });
+    // Count all products that have at least one blip and are not draft
+    let total = await Product.countDocuments({ 'blips.0': { $exists: true }, status: { $ne: 'draft' } });
     
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     const now = new Date();
