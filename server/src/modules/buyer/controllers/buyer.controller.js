@@ -10,8 +10,7 @@ const updateSelectedCategoriesService = require('../services/updateSelectedCateg
 const getSelectedCategoriesService = require('../services/getSelectedCategories.service');
 const getOrdersService = require('../services/getOrders.service');
 const getOrderDetailsService = require('../services/getOrderDetails.service');
-const mongoose = require('mongoose');
-const InvalidObjectIdException = require('../../../utils/errors/InvalidObjectIdException');
+const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 
 /**
  * Register a buyer user.
@@ -295,6 +294,29 @@ async function getOrderDetails(req, res, next) {
   }
 }
 
+/**
+ * Get purchase analytics for a buyer.
+ *
+ * This controller handles the purchase analytics retrieval HTTP request.
+ * It delegates the analytics logic to the service layer and returns comprehensive purchase insights.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getPurchaseAnalytics(req, res, next) {
+  try {
+    // Call the service layer to handle purchase analytics logic
+    const response = await getPurchaseAnalyticsService.getPurchaseAnalytics(req.user.id);
+
+    // Send success response with analytics data
+    res.success(response, 'Purchase analytics retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -308,4 +330,5 @@ module.exports = {
   getSelectedCategories,
   getOrders,
   getOrderDetails,
+  getPurchaseAnalytics,
 };

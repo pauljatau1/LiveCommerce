@@ -75,10 +75,10 @@ describe('Buyer Controller - OTP', () => {
       const mockNext = jest.fn();
 
       const mockServiceResponse = {
-        message: 'Email verified successfully',
+        message: 'Email verified successfully.',
         bonus: {
           coming: true,
-          amount: 2000,
+          amount: 500,
           currency: 'NGN',
           timeToCredit: '10 seconds'
         }
@@ -190,10 +190,10 @@ describe('Buyer Controller - OTP', () => {
     describe('POST /api/v2/buyers/auth/verify-otp', () => {
       it('should verify OTP successfully via HTTP', async () => {
         const mockResponse = {
-          message: 'Email verified successfully',
+          message: 'Email verified successfully.',
           bonus: {
             coming: true,
-            amount: 2000,
+            amount: 500,
             currency: 'NGN',
             timeToCredit: '10 seconds'
           }

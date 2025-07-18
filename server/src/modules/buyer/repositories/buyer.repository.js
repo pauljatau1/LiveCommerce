@@ -192,6 +192,30 @@ async function findOrderByIdAndBuyer(orderId, buyerId) {
     .populate('items.seller', 'storeName email phoneNumber');
 }
 
+/**
+ * Find all orders for a buyer.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of orders
+ */
+async function findBuyerOrders(buyerId) {
+  const Order = require('../../../models/Order');
+  return Order.find({ buyer: buyerId });
+}
+
+/**
+ * Find recent orders for a buyer with populated data.
+ * @param {string} buyerId - The buyer's ID
+ * @param {number} limit - Number of recent orders to retrieve
+ * @returns {Promise<Array>} Array of recent orders with populated data
+ */
+async function findRecentOrders(buyerId, limit = 5) {
+  const Order = require('../../../models/Order');
+  return Order.find({ buyer: buyerId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate('items.product', 'name images price');
+}
+
 module.exports = {
   findAll,
   save,
@@ -208,5 +232,7 @@ module.exports = {
   countOrders,
   findOrders,
   findReturnRequests,
-  findOrderByIdAndBuyer
+  findOrderByIdAndBuyer,
+  findBuyerOrders,
+  findRecentOrders
 };
