@@ -142,9 +142,14 @@ export const SellerService = {
     return await api.put(`/api/admin/sellers/${sellerId}/feature`);
   },
   
-  // Toggle a seller's international status
-  toggleInternational: async (sellerId: string) => {
+  // Mark a seller as international
+  markInternational: async (sellerId: string) => {
     return await api.put(`/api/admin/sellers/${sellerId}/international`);
+  },
+
+  // Revoke a seller's international status
+  revokeInternational: async (sellerId: string) => {
+    return await api.put(`/api/admin/sellers/${sellerId}/revoke-international`);
   },
   
   // Reject a seller's verification
@@ -190,5 +195,15 @@ export const SellerService = {
   // Bulk update product condition for all seller products
   bulkUpdateProductCondition: async (sellerId: string, condition: string) => {
     return await api.put(`/api/admin/sellers/${sellerId}/products/bulk-update-condition`, { condition });
+  },
+  
+  // Set all products of a seller to draft or active
+  setAllProductsDraftStatus: async (sellerId: string, isDraft: boolean) => {
+    return await api.patch(`/api/v2/admin/sellers/${sellerId}/products/draft-status`, { isDraft });
+  },
+  
+  // Set or unset seller vacation mode
+  setVacationMode: async (sellerId: string, isOn: boolean) => {
+    return await api.patch(`/api/v2/admin/sellers/${sellerId}/vacation-mode`, { isOn });
   }
 }; 

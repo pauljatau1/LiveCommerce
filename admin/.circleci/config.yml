@@ -51,7 +51,7 @@ commands:
                   --duration-seconds 3600 \
                   --output "json" \
                   --query "Credentials" \
-                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/circleci-oidc" \
+                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/auqli-inc-oidc-role" \
                   --role-session-name "<< parameters.account_id >>-oidc-credentials" \
                   --web-identity-token "${CIRCLE_OIDC_TOKEN}")
             export AWS_ACCESS_KEY_ID=$(echo $AWS_STS_CREDENTIALS | jq .AccessKeyId | xargs)
@@ -67,7 +67,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing vendor cache
-          key: v1-seller-{{ .Revision }}
+          key: v1-admin-{{ .Environment.CIRCLE_WORKFLOW_ID }}
       - run:
           name: Install dependencies
           command: |
@@ -77,7 +77,7 @@ commands:
           path: package-lock.json
       - save_cache:
           name: Save vendor cache
-          key: v1-seller-{{ .Revision }}
+          key: v1-admin-{{ .Environment.CIRCLE_WORKFLOW_ID }}
           paths:
             - << pipeline.parameters.vendor_path >>
   vendor_restore_cache:
@@ -86,7 +86,7 @@ commands:
       - restore_cache:
           name: Restore vendor cache
           keys:
-            - v1-seller-{{ .Revision }}
+            - v1-admin-{{ .Environment.CIRCLE_WORKFLOW_ID }}
   build_backend_image:
     description: Build backend image (nodejs)
     parameters:
@@ -203,6 +203,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - build-and-push-backend-image-production:
           requires:
@@ -213,6 +215,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - approve-production-backend-deploy:
           type: approval
@@ -224,6 +228,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - aws-ecs/deploy-service-update:
           name: deploy-to-production-backend
@@ -231,6 +237,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
           context:
             - foundations_auqli_production
           requires:

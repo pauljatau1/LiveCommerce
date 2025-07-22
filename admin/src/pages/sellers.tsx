@@ -1406,7 +1406,7 @@ function Sellers() {
                     {seller.sellerAddress && (
                       <p className="text-zinc-500 text-[10px] mt-0.5">
                         <MapPin className="h-3 w-3 inline mr-0.5" /> 
-                        {seller.sellerAddress.city}, {seller.sellerAddress.country}
+                        {seller.sellerAddress.city}
                       </p>
                     )}
                   </div>
@@ -1600,11 +1600,11 @@ function Sellers() {
                       {seller.storeName ? (
                         <div>
                           <div className="font-medium truncate text-xs sm:text-sm">{seller.storeName?.slice(0, 10)}{seller.storeName?.length > 10 ? '...' : ''}</div>
-                         
-                          {seller.sellerAddress && (
+                          {(seller.sellerAddress || seller.businessAddress) && (
                             <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" /> 
-                              {seller.sellerAddress.city}, {seller.sellerAddress.country}
+                              <MapPin className="h-3 w-3" />
+                              {seller.sellerAddress?.city || seller.businessAddress?.city}
+                              {((seller.sellerAddress?.state || seller.businessAddress?.state) ? `, ${seller.sellerAddress?.state || seller.businessAddress?.state}` : "")}
                             </div>
                           )}
                         </div>

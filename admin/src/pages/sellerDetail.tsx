@@ -72,7 +72,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CreditCard,
-  Globe
+  Globe,
+  Image
 } from "lucide-react";
 import EditSellerForm from "@/components/sellers/EditSellerForm";
 import { toast } from "sonner";
@@ -290,6 +291,11 @@ interface Seller {
     exchangePolicy?: string;
     allowsCod?: boolean;
   };
+  vacationMode?: {
+    isOn: boolean;
+    startDate?: string;
+    endDate?: string;
+  };
 }
 
 function SellerDetail() {
@@ -342,6 +348,13 @@ function SellerDetail() {
   const [showBulkUpdateConditionModal, setShowBulkUpdateConditionModal] = useState(false);
   const [selectedCondition, setSelectedCondition] = useState('New');
   const [isUpdatingCondition, setIsUpdatingCondition] = useState(false);
+
+  // State for set all products draft/active
+  const [showSetAllDraftModal, setShowSetAllDraftModal] = useState(false);
+  const [setAllDraftLoading, setSetAllDraftLoading] = useState(false);
+  const [setAllDraftValue, setSetAllDraftValue] = useState<'draft' | 'active'>('draft');
+
+  const [setVacationLoading, setSetVacationLoading] = useState(false);
 
   useEffect(() => {
     // Set loading state
@@ -456,9 +469,15 @@ function SellerDetail() {
     
     setActionLoading('international');
     try {
-      await SellerService.toggleInternational(seller._id);
-      setSeller({ ...seller, isInternational: !seller.isInternational });
-      toast.success(`Seller ${seller.isInternational ? 'removed from' : 'marked as'} international successfully`);
+      if (seller.isInternational) {
+        await SellerService.revokeInternational(seller._id);
+        setSeller({ ...seller, isInternational: false });
+        toast.success('Seller removed from international successfully');
+      } else {
+        await SellerService.markInternational(seller._id);
+        setSeller({ ...seller, isInternational: true });
+        toast.success('Seller marked as international successfully');
+      }
     } catch (error) {
       console.error("Error toggling international status:", error);
       toast.error("Failed to update international status");
@@ -779,6 +798,25 @@ function SellerDetail() {
     }
   };
 
+  // Add this function to handle vacation mode toggle
+  const handleToggleVacationMode = async () => {
+    if (!seller) return;
+    setSetVacationLoading(true);
+    try {
+      const res = await SellerService.setVacationMode(seller._id, !(seller.vacationMode?.isOn));
+      if (res.data && res.data.seller) {
+        setSeller({ ...seller, vacationMode: res.data.seller.vacationMode });
+        toast.success(`Vacation mode ${res.data.seller.vacationMode.isOn ? 'enabled' : 'disabled'}`);
+      } else {
+        throw new Error('No seller data returned');
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update vacation mode');
+    } finally {
+      setSetVacationLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -917,6 +955,23 @@ function SellerDetail() {
                 )}
                 {seller?.isInternational ? "Remove International Status" : "Mark as International"}
               </DropdownMenuItem>
+              
+              {/* Vacation Mode */}
+              <DropdownMenuLabel>Vacation Mode</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={handleToggleVacationMode}
+                disabled={setVacationLoading}
+                className="flex items-center cursor-pointer"
+              >
+                {setVacationLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : seller?.vacationMode?.isOn ? (
+                  <CheckCircle2 className="h-4 w-4 mr-2 text-yellow-400" />
+                ) : (
+                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                )}
+                {seller?.vacationMode?.isOn ? 'Disable Vacation Mode' : 'Enable Vacation Mode'}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -935,7 +990,7 @@ function SellerDetail() {
 
       {/* Banner Section */}
       <div className="relative rounded-lg overflow-hidden bg-gradient-to-b from-zinc-800 to-zinc-900">
-        {seller.storeBanner?.url && (
+        {seller.storeBanner?.url ? (
           <div className="h-48 w-full">
             <img 
               src={seller.storeBanner.url} 
@@ -943,17 +998,24 @@ function SellerDetail() {
               className="w-full h-full object-cover opacity-40"
             />
           </div>
+        ) : (
+          <div className="h-48 w-full flex items-center justify-center bg-zinc-800">
+            <Image className="h-16 w-16 text-zinc-700" />
+          </div>
         )}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950/90 to-transparent">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <Avatar className="h-24 w-24 border-4 border-zinc-950">
-              <AvatarImage src={seller.storeAvatar?.url} />
-              <AvatarFallback className="bg-zinc-800">
-                {seller.accountType === "business" ? 
-                  <Building className="h-12 w-12" /> : 
-                  <User className="h-12 w-12" />
-                }
-              </AvatarFallback>
+              {seller.storeAvatar?.url ? (
+                <AvatarImage src={seller.storeAvatar.url} />
+              ) : (
+                <AvatarFallback className="bg-zinc-800">
+                  {seller.accountType === "business" ? 
+                    <Building className="h-12 w-12 text-zinc-700" /> : 
+                    <User className="h-12 w-12 text-zinc-700" />
+                  }
+                </AvatarFallback>
+              )}
             </Avatar>
             <div className="text-center md:text-left">
               <h2 className="text-3xl font-bold text-white">{getDisplayName(seller)}</h2>
@@ -994,6 +1056,12 @@ function SellerDetail() {
                   <Badge variant="outline" className="bg-blue-500/10 text-blue-400 px-2 py-1">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Profile Complete
+                  </Badge>
+                )}
+                {seller.vacationMode?.isOn && (
+                  <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 px-2 py-1">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Vacation Mode
                   </Badge>
                 )}
               </div>
@@ -1123,22 +1191,30 @@ function SellerDetail() {
                 </h3>
                 <div className="space-y-4">
                   <div>
+                    <label className="text-sm text-zinc-400">First Name</label>
+                    <p className="text-zinc-100">{seller.firstName || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-400">Last Name</label>
+                    <p className="text-zinc-100">{seller.lastName || "Not provided"}</p>
+                  </div>
+                  <div>
                     <label className="text-sm text-zinc-400">Email</label>
-                    <p className="text-zinc-100 break-words">{seller.email}</p>
+                    <p className="text-zinc-100">{seller.email || "Not provided"}</p>
                   </div>
                   <div>
                     <label className="text-sm text-zinc-400">Phone</label>
-                    <p className="text-zinc-100">{seller.phoneNumber}</p>
+                    <p className="text-zinc-100">{seller.phoneNumber || "Not provided"}</p>
                   </div>
                   {seller.accountType === "business" && (
                     <>
                       <div>
                         <label className="text-sm text-zinc-400">Business Email</label>
-                        <p className="text-zinc-100 break-words">{seller.businessEmail}</p>
+                        <p className="text-zinc-100">{seller.businessEmail || "Not provided"}</p>
                       </div>
                       <div>
                         <label className="text-sm text-zinc-400">Business Phone</label>
-                        <p className="text-zinc-100">{seller.businessNumber}</p>
+                        <p className="text-zinc-100">{seller.businessNumber || "Not provided"}</p>
                       </div>
                     </>
                   )}
@@ -1146,43 +1222,39 @@ function SellerDetail() {
               </Card>
               
               {/* Business Address */}
-              {seller.accountType === "business" && seller.businessAddress ? (
+              {seller.accountType === "business" ? (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
                   <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-zinc-400" />
                     Business Address
                   </h3>
                   <div className="space-y-2 text-zinc-100">
-                    <p>{seller.businessAddress.addressLine1}</p>
-                    {seller.businessAddress.addressLine2 && (
-                      <p>{seller.businessAddress.addressLine2}</p>
-                    )}
+                    <p>{seller.businessAddress?.addressLine1 || "Not provided"}</p>
+                    <p>{seller.businessAddress?.addressLine2 || "Not provided"}</p>
                     <p>
-                      {seller.businessAddress.city}, {seller.businessAddress.state}
+                      {seller.businessAddress?.city || "Not provided"}, {seller.businessAddress?.state || "Not provided"}
                     </p>
-                    <p>{seller.businessAddress.zipCode}</p>
-                    <p>{seller.businessAddress.country}</p>
+                    <p>{seller.businessAddress?.zipCode || "Not provided"}</p>
+                    <p>{seller.businessAddress?.country || "Not provided"}</p>
                   </div>
                 </Card>
-              ) : seller.accountType === "individual" && seller.sellerAddress ? (
+              ) : (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
                   <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-zinc-400" />
                     Address
                   </h3>
                   <div className="space-y-2 text-zinc-100">
-                    <p>{seller.sellerAddress.addressLine1}</p>
-                    {seller.sellerAddress.addressLine2 && (
-                      <p>{seller.sellerAddress.addressLine2}</p>
-                    )}
+                    <p>{seller.sellerAddress?.addressLine1 || "Not provided"}</p>
+                    <p>{seller.sellerAddress?.addressLine2 || "Not provided"}</p>
                     <p>
-                      {seller.sellerAddress.city}, {seller.sellerAddress.state}
+                      {seller.sellerAddress?.city || "Not provided"}, {seller.sellerAddress?.state || "Not provided"}
                     </p>
-                    <p>{seller.sellerAddress.zipCode}</p>
-                    <p>{seller.sellerAddress.country}</p>
+                    <p>{seller.sellerAddress?.zipCode || "Not provided"}</p>
+                    <p>{seller.sellerAddress?.country || "Not provided"}</p>
                   </div>
                 </Card>
-              ) : null}
+              )}
             </div>
             
             {/* Middle/Right Column */}
@@ -1309,7 +1381,7 @@ function SellerDetail() {
              
               
               {/* Bank Details */}
-              {seller.bankDetails && (
+              {seller.bankDetails ? (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
                   <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                     <Building className="h-5 w-5 text-zinc-400" />
@@ -1318,31 +1390,37 @@ function SellerDetail() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm text-zinc-400">Bank Name</label>
-                      <p className="text-zinc-100">{seller.bankDetails.bankName}</p>
+                      <p className="text-zinc-100">{seller.bankDetails.bankName || "Not provided"}</p>
                     </div>
                     <div>
                       <label className="text-sm text-zinc-400">Account Type</label>
-                      <p className="text-zinc-100">{seller.bankDetails.bankAccountType}</p>
+                      <p className="text-zinc-100">{seller.bankDetails.bankAccountType || "Not provided"}</p>
                     </div>
                     <div>
                       <label className="text-sm text-zinc-400">Account Name</label>
-                      <p className="text-zinc-100">{seller.bankDetails.accountName}</p>
+                      <p className="text-zinc-100">{seller.bankDetails.accountName || "Not provided"}</p>
                     </div>
                     <div>
                       <label className="text-sm text-zinc-400">Account Number</label>
-                      <p className="text-zinc-100">{seller.bankDetails.accountNumber}</p>
+                      <p className="text-zinc-100">{seller.bankDetails.accountNumber || "Not provided"}</p>
                     </div>
                     <div>
                       <label className="text-sm text-zinc-400">Currency</label>
-                      <p className="text-zinc-100">{seller.bankDetails.accountCurrency}</p>
+                      <p className="text-zinc-100">{seller.bankDetails.accountCurrency || "Not provided"}</p>
                     </div>
-                    {seller.bankDetails.swiftCode && (
-                      <div>
-                        <label className="text-sm text-zinc-400">SWIFT Code</label>
-                        <p className="text-zinc-100">{seller.bankDetails.swiftCode}</p>
-                      </div>
-                    )}
+                    <div>
+                      <label className="text-sm text-zinc-400">SWIFT Code</label>
+                      <p className="text-zinc-100">{seller.bankDetails.swiftCode || "Not provided"}</p>
+                    </div>
                   </div>
+                </Card>
+              ) : (
+                <Card className="p-5 bg-zinc-900 border-zinc-800">
+                  <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
+                    <Building className="h-5 w-5 text-zinc-400" />
+                    Bank Details
+                  </h3>
+                  <div className="text-zinc-400">Not provided</div>
                 </Card>
               )}
               
@@ -1353,24 +1431,32 @@ function SellerDetail() {
                     <Tags className="h-5 w-5 text-zinc-400" />
                     Store Categories
                   </h3>
-                  <div className="space-y-4">
-                    {seller.categories.map((category) => (
-                      <div key={category._id} className="bg-zinc-800 p-3 rounded-lg">
-                        <div className="font-medium text-white">{category.name}</div>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {category.subCategories.map((sub) => (
-                            <Badge 
-                              key={sub._id} 
-                              variant="outline"
-                              className="bg-zinc-700/50 text-zinc-300"
-                            >
-                              {sub.name}
-                            </Badge>
-                          ))}
+                  {seller.categories && seller.categories.length > 0 ? (
+                    <div className="space-y-4">
+                      {seller.categories.map((category) => (
+                        <div key={category._id} className="bg-zinc-800 p-3 rounded-lg">
+                          <div className="font-medium text-white">{category.name || "Not provided"}</div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {category.subCategories && category.subCategories.length > 0 ? (
+                              category.subCategories.map((sub) => (
+                                <Badge 
+                                  key={sub._id} 
+                                  variant="outline"
+                                  className="bg-zinc-700/50 text-zinc-300"
+                                >
+                                  {sub.name || "Not provided"}
+                                </Badge>
+                              ))
+                            ) : (
+                              <Badge variant="outline" className="bg-zinc-700/50 text-zinc-300">None</Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-zinc-400">None</div>
+                  )}
                 </Card>
               )}
             </div>
@@ -1480,6 +1566,32 @@ function SellerDetail() {
                 Products ({productsPagination.totalProducts || 0})
               </h3>
               <div className="flex items-center gap-3">
+                {/* Toggle Draft/Active Button */}
+                {sellerProducts.length > 0 && (
+                  (() => {
+                    const allDraft = sellerProducts.every(p => p.status === 'draft');
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSetAllDraftValue(allDraft ? 'active' : 'draft');
+                          setShowSetAllDraftModal(true);
+                        }}
+                        className={allDraft
+                          ? 'bg-green-600/20 border-green-600/40 text-green-400 hover:bg-green-600/30 mr-2'
+                          : 'bg-yellow-600/20 border-yellow-600/40 text-yellow-400 hover:bg-yellow-600/30 mr-2'}
+                      >
+                        {allDraft ? (
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                        ) : (
+                          <MinusCircle className="h-4 w-4 mr-2" />
+                        )}
+                        {allDraft ? 'Set All as Active' : 'Set All as Draft'}
+                      </Button>
+                    );
+                  })()
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -2661,6 +2773,74 @@ function SellerDetail() {
                 <Tag className="h-4 w-4 mr-2" />
               )}
               Update All Products
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set All Products Draft/Active Modal */}
+      <Dialog open={showSetAllDraftModal} onOpenChange={setShowSetAllDraftModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              {setAllDraftValue === 'draft' ? (
+                <MinusCircle className="h-5 w-5 text-yellow-400" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-green-400" />
+              )}
+              {setAllDraftValue === 'draft' ? 'Set All Products to Draft' : 'Set All Products to Active'}
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Are you sure you want to set all products for this seller to <span className={setAllDraftValue === 'draft' ? 'text-yellow-400' : 'text-green-400'}>{setAllDraftValue === 'draft' ? 'Draft' : 'Active'}</span>? This will update the status for all products and may affect their visibility to customers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 text-amber-400 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Important Note</p>
+                  <p className="mt-1">This action will update the status for all products of this seller. This may affect how products are displayed and filtered in search results.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSetAllDraftModal(false)}
+              className="border-zinc-700 text-zinc-400"
+              disabled={setAllDraftLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!id) return;
+                setSetAllDraftLoading(true);
+                try {
+                  await SellerService.setAllProductsDraftStatus(id, setAllDraftValue === 'draft');
+                  toast.success(`All products set to ${setAllDraftValue === 'draft' ? 'Draft' : 'Active'}`);
+                  setShowSetAllDraftModal(false);
+                  fetchSellerProducts(true);
+                } catch (error: any) {
+                  console.error('Error updating all products draft status:', error);
+                  toast.error(error?.response?.data?.message || 'Failed to update all products status');
+                } finally {
+                  setSetAllDraftLoading(false);
+                }
+              }}
+              disabled={setAllDraftLoading}
+              className={setAllDraftValue === 'draft' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'}
+            >
+              {setAllDraftLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : setAllDraftValue === 'draft' ? (
+                <MinusCircle className="h-4 w-4 mr-2" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              {setAllDraftValue === 'draft' ? 'Set All to Draft' : 'Set All to Active'}
             </Button>
           </DialogFooter>
         </DialogContent>

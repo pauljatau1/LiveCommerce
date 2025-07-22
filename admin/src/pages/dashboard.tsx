@@ -20,13 +20,16 @@ import {
     Mail,
     Shield,
     LayoutDashboard,
-    BarChart,
+
     Banknote
   } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/context/authContext";
+
 import { useEffect, useState } from "react";
 import { api } from "@/api/axios";
 
@@ -119,10 +122,57 @@ interface PlatformMetrics {
       actualStartTime: string;
     }>;
   };
+  extra: {
+    topPerformers: Array<{
+      _id: {
+        storeAvatar?: {
+          url: string;
+        };
+        _id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        storeName?: string;
+        businessName?: string;
+      };
+      totalRevenue: number;
+      totalOrders: number;
+    }>;
+    topProducts: Array<{
+      _id: {
+        _id: string;
+        name: string;
+        price: number;
+        category: string;
+        seller: {
+          storeName: string;
+        };
+        images: Array<{ url: string }>;
+      };
+      totalSold: number;
+      totalRevenue: number;
+    }>;
+    topBuyers: Array<{
+      _id: {
+        avatar?: { url: string };
+        _id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+      };
+      totalSpent: number;
+      orderCount: number;
+    }>;
+    topCategories: Array<{
+      _id: string;
+      count: number;
+    }>;
+  };
 }
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
+
 function Dashboard() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
 
@@ -550,6 +600,199 @@ function Dashboard() {
               </div>
             </div>
           </Card>
+
+          {/* Top Performers, Products, Buyers, Categories */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* Top Performing Sellers */}
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Top Performing Sellers</h3>
+              <div className="space-y-4">
+                <div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Seller</TableHead>
+                        <TableHead>Revenue</TableHead>
+                        <TableHead>Orders</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {metrics?.extra.topPerformers.slice(0, 5).map((seller) => (
+                        <TableRow key={seller._id._id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={seller._id.storeAvatar?.url} />
+                                <AvatarFallback>{seller._id.firstName.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">{seller._id.storeName || `${seller._id.firstName} ${seller._id.lastName}`}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">{formatCurrency(seller.totalRevenue)}</TableCell>
+                          <TableCell className="text-xs">{seller.totalOrders}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={metrics?.extra.topPerformers.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="_id.storeName" fontSize={10} interval={0} />
+                      <YAxis fontSize={10} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="totalRevenue" fill="#8884d8" name="Revenue" />
+                      <Bar dataKey="totalOrders" fill="#82ca9d" name="Orders" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </Card>
+
+            {/* Top Products */}
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Top Products</h3>
+              <div className="space-y-4">
+                <div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Units Sold</TableHead>
+                        <TableHead>Revenue</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {metrics?.extra.topProducts.slice(0, 5).map((product) => (
+                        <TableRow key={product._id._id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8 rounded-none">
+                                <AvatarImage src={product._id.images[0]?.url} />
+                                <AvatarFallback>P</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">{product._id.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">{product.totalSold}</TableCell>
+                          <TableCell className="text-xs">{formatCurrency(product.totalRevenue)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={metrics?.extra.topProducts.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="_id.name" fontSize={10} interval={0} />
+                      <YAxis fontSize={10} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="totalSold" fill="#8884d8" name="Units Sold" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </Card>
+
+            {/* Top Buyers */}
+            <Card className="p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Top Buyers</h3>
+                <div className="space-y-4">
+                    <div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Buyer</TableHead>
+                                    <TableHead>Total Spent</TableHead>
+                                    <TableHead>Orders</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {metrics?.extra?.topBuyers?.slice(0, 5).map((buyer) => (
+                                    <TableRow key={buyer?._id?._id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarImage src={buyer?._id?.avatar?.url} />
+                                                    <AvatarFallback>{buyer?._id?.firstName?.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-xs">{`${buyer?._id?.firstName} ${buyer?._id?.lastName}`}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-xs">{formatCurrency(buyer.totalSpent)}</TableCell>
+                                        <TableCell className="text-xs">{buyer.orderCount}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <div>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={metrics?.extra?.topBuyers?.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="_id.firstName" fontSize={10} interval={0} />
+                                <YAxis fontSize={10}/>
+                                <Tooltip />
+                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                <Bar dataKey="totalSpent" fill="#8884d8" name="Total Spent" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Top Categories */}
+            <Card className="p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Top Categories</h3>
+                <div className="space-y-4">
+                    <div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Orders</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {metrics?.extra?.topCategories?.slice(0, 5).map((category) => (
+                                    <TableRow key={category._id}>
+                                        <TableCell className="text-xs">{category._id}</TableCell>
+                                        <TableCell className="text-xs">{category.count}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <div>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                    data={metrics?.extra?.topCategories?.slice(0, 5)}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey="count"
+                                    nameKey="_id"
+                                    label={(entry) => entry._id}
+                                >
+                                    {metrics?.extra?.topCategories?.slice(0, 5).map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend wrapperStyle={{ fontSize: '12px' }}/>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </Card>
+          </div>
         </>
       )}
     </div>

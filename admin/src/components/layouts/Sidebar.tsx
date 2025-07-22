@@ -30,7 +30,8 @@ import {
   MessageSquare,
   BoltIcon,
   Zap,
-  FolderTree
+  FolderTree,
+  Terminal
 } from 'lucide-react';
 
 // Interface for simplified seller data
@@ -69,6 +70,7 @@ const mainLinks = [
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: RotateCcw, label: 'Refund Req', path: '/dashboard/refund-requests', showPendingCount: true },
   { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },
+  { icon: Terminal, label: 'Terminal Shipments', path: '/dashboard/terminal-shipments' },
   { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals', showPendingCount: true },
   { icon: DollarSign, label: 'Payments', path: '/dashboard/payments' },
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
@@ -89,6 +91,7 @@ function Sidebar() {
   const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
   const [pendingBankRequestsCount, setPendingBankRequestsCount] = useState(0);
+  const [pendingPickupRequestsCount, setPendingPickupRequestsCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -101,7 +104,12 @@ function Sidebar() {
       
       // Fetch pending sellers
       const sellersResponse = await api.get("/api/admin/sellers");
-      const sellers = sellersResponse.data as SimpleSeller[];
+      let sellers: SimpleSeller[] = [];
+      if (Array.isArray(sellersResponse.data.sellers)) {
+        sellers = sellersResponse.data.sellers;
+      } else if (Array.isArray(sellersResponse.data)) {
+        sellers = sellersResponse.data;
+      }
       const pendingSellers = sellers.filter(seller => !seller.isVerified).length;
       setPendingSellersCount(pendingSellers);
       
@@ -121,6 +129,12 @@ function Sidebar() {
       const bankRequestsResponse = await api.get("/api/admin/bank-requests/stats");
       const bankRequestStats = bankRequestsResponse.data.data as BankRequestStats;
       setPendingBankRequestsCount(bankRequestStats.pending);
+
+      // Fetch pending pickup requests
+      const pickupRequestsResponse = await api.get("/api/pickup");
+      const pickupRequests = pickupRequestsResponse.data.data.pickupRequests || [];
+      const pendingPickup = pickupRequests.filter((req: any) => req.status === "pending").length;
+      setPendingPickupRequestsCount(pendingPickup);
       
     } catch (err) {
       console.error("Error fetching pending counts:", err);
@@ -134,7 +148,17 @@ function Sidebar() {
     if (path === '/dashboard/refund-requests') return pendingRefundsCount;
     if (path === '/dashboard/withdrawals') return pendingWithdrawalsCount;
     if (path === '/dashboard/bankrequests') return pendingBankRequestsCount;
+    if (path === '/dashboard/pickup-requests') return pendingPickupRequestsCount;
     return 0;
+  };
+
+  const getPendingDot = (path: string) => {
+    if (path === '/dashboard/sellers') return pendingSellersCount > 0;
+    if (path === '/dashboard/refund-requests') return pendingRefundsCount > 0;
+    if (path === '/dashboard/withdrawals') return pendingWithdrawalsCount > 0;
+    if (path === '/dashboard/bankrequests') return pendingBankRequestsCount > 0;
+    if (path === '/dashboard/pickup-requests') return pendingPickupRequestsCount > 0;
+    return false;
   };
 
   const handleLogout = (e: React.MouseEvent, path: string) => {
@@ -176,7 +200,8 @@ function Sidebar() {
         <nav className="p-4 pt-6 md:pt-10 space-y-2 flex-grow overflow-y-auto">
           {mainLinks.map((link) => {
             const Icon = link.icon;
-            const pendingCount = link.showPendingCount ? getPendingCount(link.path) : 0;
+            // const pendingCount = link.showPendingCount ? getPendingCount(link.path) : 0;
+            const showPendingDot = getPendingDot(link.path);
             
             return (
               <Link
@@ -199,19 +224,12 @@ function Sidebar() {
                   <Icon className="h-5 w-5" />
                   <span>{link.label}</span>
                 </div>
-                {link.showPendingCount && pendingCount > 0 && (
-                  <Badge 
-                    variant="secondary" 
-                    className={cn(
-                      "ml-2",
-                      link.path === '/dashboard/sellers' && "bg-yellow-500/20 hover:bg-yellow-500/20 text-yellow-400",
-                      link.path === '/dashboard/refund-requests' && "bg-orange-500/20 hover:bg-orange-500/20 text-orange-400",
-                      link.path === '/dashboard/withdrawals' && "bg-blue-500/20 hover:bg-blue-500/20 text-blue-400",
-                      link.path === '/dashboard/bankrequests' && "bg-purple-500/20 hover:bg-purple-500/20 text-purple-400"
-                    )}
-                  >
-                    {pendingCount}
-                  </Badge>
+                {/* Pending Dot */}
+                {showPendingDot && (
+                  <span className="ml-2 relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-400"></span>
+                  </span>
                 )}
               </Link>
             );

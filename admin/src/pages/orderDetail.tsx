@@ -240,6 +240,10 @@ function OrderDetail() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
+  const [terminalDialogOpen, setTerminalDialogOpen] = useState(false)
+  const [terminalShipmentId, setTerminalShipmentId] = useState("")
+  const [terminalEvent, setTerminalEvent] = useState("")
+  const [isSimulatingTerminalWebhook, setIsSimulatingTerminalWebhook] = useState(false)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -360,6 +364,41 @@ function OrderDetail() {
     }
   };
 
+  const handleSimulateTerminalWebhook = async () => {
+    if (!terminalShipmentId.trim()) {
+      toast.error("Please enter a valid shipment ID");
+      return;
+    }
+    
+    if (!terminalEvent) {
+      toast.error("Please select an event type");
+      return;
+    }
+    
+    try {
+      setIsSimulatingTerminalWebhook(true);
+      const response = await api.post('/api/notifications/simulate-terminal-webhook', {
+        event: terminalEvent,
+        shipment_id: terminalShipmentId.trim(),
+        tracking_number: orderData?.shipping?.tracking?.number || undefined,
+        carrier: orderData?.shipping?.carrier?.name || undefined
+      });
+      
+      toast.success(response.data.message || "Terminal webhook simulated successfully");
+      setTerminalDialogOpen(false);
+      setTerminalShipmentId("");
+      setTerminalEvent("");
+      
+      // Refresh order data
+      const updatedOrder = await api.get(`/api/order/${id}`);
+      setOrderData(updatedOrder.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to simulate Terminal webhook");
+    } finally {
+      setIsSimulatingTerminalWebhook(false);
+    }
+  };
+
   if (loading) return <div>Loading...</div>
   if (!orderData) return <div>Order not found</div>
 
@@ -463,7 +502,7 @@ function OrderDetail() {
                 title="Simulate Fez Webhook"
               >
                 <Bell className="h-4 w-4 mr-2" />
-                Simulate Webhook
+                Simulate Fez Webhook
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
@@ -513,6 +552,71 @@ function OrderDetail() {
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {isSimulatingWebhook ? "Simulating..." : "Simulate Webhook"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={terminalDialogOpen} onOpenChange={setTerminalDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline"
+                className="text-white"
+                title="Simulate Terminal Webhook"
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Simulate Terminal Webhook
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+              <DialogHeader>
+                <DialogTitle>Simulate Terminal Webhook</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Simulate a webhook event from Terminal Africa to update shipment status.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-white">Terminal Shipment ID</label>
+                  <Input
+                    placeholder="Enter Shipment ID"
+                    value={terminalShipmentId}
+                    onChange={(e) => setTerminalShipmentId(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-white">Event</label>
+                  <Select onValueChange={setTerminalEvent} value={terminalEvent}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Select event" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                      <SelectItem value="packaging.created">Packaging Created</SelectItem>
+                      <SelectItem value="packaging.updated">Packaging Updated</SelectItem>
+                      <SelectItem value="shipment.cancelled">Shipment Cancelled</SelectItem>
+                      <SelectItem value="shipment.created">Shipment Created</SelectItem>
+                      <SelectItem value="shipment.in_transit">Shipment In-Transit</SelectItem>
+                      <SelectItem value="shipment.updated">Shipment Updated</SelectItem>
+                      <SelectItem value="shipment.delivered">Shipment Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setTerminalDialogOpen(false)}
+                  className="bg-gray-800 text-white hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSimulateTerminalWebhook}
+                  disabled={!terminalShipmentId.trim() || !terminalEvent || isSimulatingTerminalWebhook}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSimulatingTerminalWebhook ? "Simulating..." : "Simulate Webhook"}
                 </Button>
               </DialogFooter>
             </DialogContent>

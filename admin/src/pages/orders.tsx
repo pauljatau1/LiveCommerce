@@ -235,7 +235,12 @@ function Orders() {
   const fetchFilterOptions = async () => {
     try {
       const response = await api.get('/api/admin/orders/status-options')
-      setFilterOptions(response.data)
+      // Normalize API response keys to expected state structure
+      setFilterOptions({
+        itemStatuses: (response.data.itemStatuses || response.data.status || []).filter(Boolean),
+        shipmentStatuses: (response.data.shipmentStatuses || response.data.shipmentStatus || []).filter(Boolean),
+        paymentMethods: (response.data.paymentMethods || response.data.paymentMethod || []).filter(Boolean)
+      })
     } catch (error) {
       console.error('Error fetching filter options:', error)
     }
@@ -407,7 +412,7 @@ function Orders() {
       </div>
 
       {/* Order Stats */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      {/* <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <Card className="p-6">
           <div className="flex items-center gap-4">
             <div className="bg-primary/10 p-3 rounded-lg">
@@ -481,7 +486,7 @@ function Orders() {
             </div>
           </div>
         </Card>
-      </div>
+      </div> */}
 
       {/* Order Filters */}
       <Card className="p-4">
@@ -531,7 +536,7 @@ function Orders() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                {filterOptions.itemStatuses?.map((status) => (
+                {filterOptions.itemStatuses?.filter(Boolean).map((status) => (
                   <SelectItem key={status} value={status}>{status}</SelectItem>
                 ))}
               </SelectContent>
@@ -586,8 +591,8 @@ function Orders() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Methods</SelectItem>
-                {filterOptions.paymentMethods?.map((method) => (
-                  <SelectItem key={method} value={method}>{method}</SelectItem>
+                {filterOptions.paymentMethods?.filter(Boolean).map((method) => (
+                  <SelectItem key={method} value={method}>{method || 'Unknown'}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -605,7 +610,7 @@ function Orders() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Shipments</SelectItem>
-                {filterOptions.shipmentStatuses?.map((status) => (
+                {filterOptions.shipmentStatuses?.filter(Boolean).map((status) => (
                   <SelectItem key={status} value={status}>{status}</SelectItem>
                 ))}
               </SelectContent>

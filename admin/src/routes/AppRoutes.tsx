@@ -29,6 +29,7 @@ import RefundRequests from '@/pages/refund-requests';
 import ReturnRequests from '@/pages/ReturnRequests';
 import PickupRequests from '@/pages/pickupRequests';
 import BuyerNotifications from '@/pages/buyerNotifications';
+import TerminalShipments from '@/pages/terminalShipments';
 import { useAuth } from '@/context/authContext';
 
 // Logout component that will clear localStorage and redirect to login
@@ -83,6 +84,7 @@ function App() {
             <Route path="/dashboard/return-requests" element={<ReturnRequests />} />
             <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
             <Route path="/dashboard/buyer-notifications" element={<BuyerNotifications />} />
+            <Route path="/dashboard/terminal-shipments" element={<TerminalShipments />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

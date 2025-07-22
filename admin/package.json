@@ -41,7 +41,7 @@
     "react-hook-form": "^7.53.2",
     "react-paystack": "^6.0.0",
     "react-router-dom": "^7.0.2",
-    "recharts": "^2.15.1",
+    "recharts": "^2.15.4",
     "sonner": "^1.7.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
