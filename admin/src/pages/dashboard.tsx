@@ -601,23 +601,23 @@ function Dashboard() {
             </div>
           </Card>
 
-          {/* Top Performers, Products, Buyers, Categories */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Top Performers, Products, Buyers */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {/* Top Performing Sellers */}
-            <Card className="p-4 md:p-6">
+            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
               <h3 className="text-lg font-semibold text-white mb-4">Top Performing Sellers</h3>
-              <div className="space-y-4">
-                <div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Seller</TableHead>
-                        <TableHead>Revenue</TableHead>
-                        <TableHead>Orders</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {metrics?.extra.topPerformers.slice(0, 5).map((seller) => (
+              <div className="flex-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Seller</TableHead>
+                      <TableHead>Revenue</TableHead>
+                      <TableHead>Orders</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics?.extra.topPerformers?.slice(0, 5)
+                      .map((seller) => (
                         <TableRow key={seller._id._id}>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -632,165 +632,77 @@ function Dashboard() {
                           <TableCell className="text-xs">{seller.totalOrders}</TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={metrics?.extra.topPerformers.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="_id.storeName" fontSize={10} interval={0} />
-                      <YAxis fontSize={10} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="totalRevenue" fill="#8884d8" name="Revenue" />
-                      <Bar dataKey="totalOrders" fill="#82ca9d" name="Orders" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                  </TableBody>
+                </Table>
               </div>
             </Card>
 
             {/* Top Products */}
-            <Card className="p-4 md:p-6">
+            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
               <h3 className="text-lg font-semibold text-white mb-4">Top Products</h3>
-              <div className="space-y-4">
-                <div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Units Sold</TableHead>
-                        <TableHead>Revenue</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {metrics?.extra.topProducts.slice(0, 5).map((product) => (
+              <div className="flex-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Units Sold</TableHead>
+                      <TableHead>Revenue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics?.extra.topProducts?.slice(0, 5)
+                      ?.filter(product => product && product._id && Array.isArray(product._id.images))
+                      .map((product) => (
                         <TableRow key={product._id._id}>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8 rounded-none">
-                                <AvatarImage src={product._id.images[0]?.url} />
+                                <AvatarImage src={product._id?.images?.[0]?.url || undefined} />
                                 <AvatarFallback>P</AvatarFallback>
                               </Avatar>
-                              <span className="text-xs">{product._id.name}</span>
+                              <span className="text-xs">{product._id?.name || "Unknown"}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-xs">{product.totalSold}</TableCell>
                           <TableCell className="text-xs">{formatCurrency(product.totalRevenue)}</TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={metrics?.extra.topProducts.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="_id.name" fontSize={10} interval={0} />
-                      <YAxis fontSize={10} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="totalSold" fill="#8884d8" name="Units Sold" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                  </TableBody>
+                </Table>
               </div>
             </Card>
 
             {/* Top Buyers */}
-            <Card className="p-4 md:p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Top Buyers</h3>
-                <div className="space-y-4">
-                    <div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Buyer</TableHead>
-                                    <TableHead>Total Spent</TableHead>
-                                    <TableHead>Orders</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {metrics?.extra?.topBuyers?.slice(0, 5).map((buyer) => (
-                                    <TableRow key={buyer?._id?._id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarImage src={buyer?._id?.avatar?.url} />
-                                                    <AvatarFallback>{buyer?._id?.firstName?.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-xs">{`${buyer?._id?.firstName} ${buyer?._id?.lastName}`}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-xs">{formatCurrency(buyer.totalSpent)}</TableCell>
-                                        <TableCell className="text-xs">{buyer.orderCount}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <div>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={metrics?.extra?.topBuyers?.slice(0, 5)} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="_id.firstName" fontSize={10} interval={0} />
-                                <YAxis fontSize={10}/>
-                                <Tooltip />
-                                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                <Bar dataKey="totalSpent" fill="#8884d8" name="Total Spent" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Top Categories */}
-            <Card className="p-4 md:p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Top Categories</h3>
-                <div className="space-y-4">
-                    <div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>Orders</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {metrics?.extra?.topCategories?.slice(0, 5).map((category) => (
-                                    <TableRow key={category._id}>
-                                        <TableCell className="text-xs">{category._id}</TableCell>
-                                        <TableCell className="text-xs">{category.count}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <div>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={metrics?.extra?.topCategories?.slice(0, 5)}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    dataKey="count"
-                                    nameKey="_id"
-                                    label={(entry) => entry._id}
-                                >
-                                    {metrics?.extra?.topCategories?.slice(0, 5).map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend wrapperStyle={{ fontSize: '12px' }}/>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
+              <h3 className="text-lg font-semibold text-white mb-4">Top Buyers</h3>
+              <div className="flex-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Total Spent</TableHead>
+                      <TableHead>Orders</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics?.extra?.topBuyers?.slice(0, 5).map((buyer) => (
+                      <TableRow key={buyer?._id?._id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={buyer?._id?.avatar?.url} />
+                              <AvatarFallback>{buyer?._id?.firstName?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs">{`${buyer?._id?.firstName} ${buyer?._id?.lastName}`}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">{formatCurrency(buyer.totalSpent)}</TableCell>
+                        <TableCell className="text-xs">{buyer.orderCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           </div>
         </>
