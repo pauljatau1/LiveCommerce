@@ -1418,10 +1418,11 @@ const Checkout = () => {
                       placeholderTextColor={"rgb(204, 204, 204)"}
                       className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
                       onChangeText={(text) => setCouponCode(text)}
-                      value={couponCode?.toUpperCase()}
+                      value={couponCode}
                       onFocus={() => setCouponInputFocused(true)}
                       onBlur={() => setCouponInputFocused(false)}
                       readOnly={couponApplied !== null}
+                      autoCapitalize="characters"
                     />
                     {couponLoading ? (
                       <ActivityIndicator size={16} color="#fff" />
