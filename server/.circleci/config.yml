@@ -23,8 +23,6 @@ executors:
     working_directory: << pipeline.parameters.working_dir >>
     docker:
       - image: << pipeline.parameters.docker_base_image_version >>
-        # aws_auth:
-          # oidc_role_arn: arn:aws:iam::298884149618:role/circleci-oidc
     resource_class: "medium"
 
 orbs:
@@ -69,14 +67,14 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing vendor cache
-          key: v1-vendor-{{ .Revision }}-{{ checksum "package-lock.json" }}
+          key: v1-vendor-{{ .Environment.CIRCLE_WORKFLOW_ID }}-{{ checksum "package-lock.json" }}
       - run:
           name: Install dependencies
           command: |
             npm install
       - save_cache:
           name: Save vendor cache
-          key: v1-vendor-{{ .Revision }}-{{ checksum "package-lock.json" }}
+          key: v1-vendor-{{ .Environment.CIRCLE_WORKFLOW_ID }}-{{ checksum "package-lock.json" }}
           paths:
             - << pipeline.parameters.vendor_path >>
   vendor_restore_cache:
@@ -85,7 +83,7 @@ commands:
       - restore_cache:
           name: Restore vendor cache
           keys:
-            - v1-vendor-{{ .Revision }}-{{ checksum "package-lock.json" }}
+            - v1-vendor-{{ .Environment.CIRCLE_WORKFLOW_ID }}-{{ checksum "package-lock.json" }}
   build_backend_image:
     description: Build backend image (nodejs)
     parameters:
@@ -107,7 +105,7 @@ commands:
           region: eu-central-1
           tag: 'latest,$CIRCLE_SHA1'
           extra_build_args: >
-            --build-arg ACCOUNT_ID=<< parameters.account_id >> 
+            --build-arg ACCOUNT_ID=<< parameters.account_id >>
   add_deploy_key:
     description: Add circleci ssh key
     steps:
@@ -123,7 +121,7 @@ commands:
             npm install jest-junit
             npm run test:ci
           environment:
-            JEST_JUNIT_OUTPUT_DIR: ./reports/    
+            JEST_JUNIT_OUTPUT_DIR: ./reports/
       - store_test_results:
           path: ./reports/
 
@@ -201,6 +199,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - build-and-push-backend-image-production:
           requires:
@@ -211,6 +211,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - approve-production-backend-deploy:
           type: approval
@@ -222,6 +224,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - aws-ecs/deploy-service-update:
           name: deploy-to-production-backend
@@ -240,3 +244,6 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
+

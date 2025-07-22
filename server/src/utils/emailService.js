@@ -182,8 +182,42 @@ const sendInternationalSellerEmail = async (seller) => {
   }
 };
 
+const sendShipmentFailureEmail = async (buyer, order, errorMessage) => {
+  const buyerName = buyer.firstName || 'Valued Customer';
+  const msg = {
+    to: buyer.email,
+    from: VERIFIED_SENDER,
+    subject: `Important: Shipment Arrangement Failed for Order #${order.order_id}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #d9534f;">Shipment Arrangement Failed</h2>
+        <p>Dear ${buyerName},</p>
+        <p>We're sorry, but we encountered an issue while arranging the shipment for your order <strong>#${order.order_id}</strong>.</p>
+        <p><strong>Reason:</strong> ${errorMessage}</p>
+        <p>The amount paid for this order has been refunded to your Auqli wallet. You should see the credit reflected in your wallet balance shortly.</p>
+        <p>We apologize for any inconvenience this may have caused. Please try placing your order again. If the problem persists, contact our support team.</p>
+        <p>Thank you for your understanding.</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Shipment failure email sent to ${buyer.email} for order ${order.order_id}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send shipment failure email to ${buyer.email}:`, error);
+    if (error.response) {
+      console.error('SendGrid error response body:', error.response.body);
+    }
+    return false;
+  }
+};
+
 module.exports = { 
   sendPasswordResetEmail,
   sendAdminLoginNotificationEmail,
-  sendInternationalSellerEmail
+  sendInternationalSellerEmail,
+  sendShipmentFailureEmail
 };

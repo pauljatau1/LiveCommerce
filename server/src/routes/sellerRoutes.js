@@ -3711,6 +3711,39 @@ router.post('/mark-verified', authMiddleware.verifyToken, authMiddleware.isSelle
  */
 router.get('/verification-status', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.checkVerificationStatus);
 
+
+/**
+ * @swagger
+ * /api/seller/vacation-mode:
+ *   put:
+ *     summary: Toggle vacation mode for a seller
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isOn:
+ *                 type: boolean
+ *                 description: Set to true to enable vacation mode, false to disable.
+ *             example:
+ *               isOn: true
+ *     responses:
+ *       200:
+ *         description: Vacation mode status updated successfully.
+ *       400:
+ *         description: Invalid request body.
+ *       404:
+ *         description: Seller not found.
+ *       500:
+ *         description: Failed to toggle vacation mode.
+ */
+router.put('/vacation-mode', authMiddleware.verifyToken, sellerController.toggleVacationMode);
+
 /**
  * @swagger
  * /api/seller/international/orders/{orderId}/tracking:

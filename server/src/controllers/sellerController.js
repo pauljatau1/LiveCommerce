@@ -1932,10 +1932,11 @@ exports.getStatistics = async (req, res) => {
     const lastWeekVisits = seller.lastWeekStats?.storeVisits || 0;
     const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
 
-    // Get total orders from Order model
-    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id });
+    // Get total orders from Order model (exclude stale orders)
+    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id, isStale: { $ne: true } });
     const currentWeekOrders = await Order.countDocuments({
       'items.seller': seller._id,
+      isStale: { $ne: true },
       createdAt: {
         $gte: currentWeekStart,
         $lt: currentDate
@@ -1943,14 +1944,15 @@ exports.getStatistics = async (req, res) => {
     });
     const lastWeekOrders = await Order.countDocuments({
       'items.seller': seller._id,
+      isStale: { $ne: true },
       createdAt: {
         $gte: lastWeekStart,
         $lt: currentWeekStart
       }
     });
 
-    // Find all unique buyers who have placed orders with this seller
-    const buyersWithOrders = await Order.distinct('buyer', { 'items.seller': seller._id });
+    // Find all unique buyers who have placed orders with this seller (exclude stale orders)
+    const buyersWithOrders = await Order.distinct('buyer', { 'items.seller': seller._id, isStale: { $ne: true } });
     
     // Count only customers/followers who have at least one order
     const totalCustomers = seller.followers.filter(follower => 
@@ -2849,7 +2851,34 @@ exports.createWithdrawalRequest = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    // Send email notification to Slack payout channel
+    const slackPayoutMsg = {
+      to: 'seller-payouts-aaaaqyrdz6flakixbbdhmldhjm@auqli.slack.com',
+      from: 'Auqli Admin <support@auqli.com>',
+      subject: 'New Seller Withdrawal Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>New Seller Withdrawal Request</h2>
+          <p><strong>Seller:</strong> ${seller.firstName} ${seller.lastName} (${seller.email})</p>
+          <p><strong>Store Name:</strong> ${seller.storeName || 'N/A'}</p>
+          <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
+          <p><strong>Bank Details:</strong></p>
+          <ul>
+            <li><strong>Bank Name:</strong> ${bankDetails.bankName}</li>
+            <li><strong>Account Name:</strong> ${bankDetails.accountName}</li>
+            <li><strong>Account Number:</strong> ${bankDetails.accountNumber}</li>
+            <li><strong>Bank Identifier Code:</strong> ${bankDetails.bankIdentifierCode}</li>
+          </ul>
+          <p><strong>Reference:</strong> ${withdrawal.reference}</p>
+          <p><strong>Request Date:</strong> ${withdrawal.requestDate ? withdrawal.requestDate.toLocaleString() : new Date().toLocaleString()}</p>
+        </div>
+      `
+    };
+
+    await Promise.all([
+      sgMail.send(emailMsg),
+      sgMail.send(slackPayoutMsg)
+    ]);
 
     res.json({ 
       message: 'Withdrawal request created successfully', 
@@ -2904,6 +2933,68 @@ exports.updateStoreProfile = async (req, res) => {
   }
 };
 
+// Toggle vacation mode
+exports.toggleVacationMode = async (req, res) => {
+  try {
+    const { isOn } = req.body;
+    const sellerId = req.user.id;
+
+    if (typeof isOn !== 'boolean') {
+      return res.status(400).json({ message: 'isOn must be a boolean value.' });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found.' });
+    }
+
+    // Update seller's vacation mode status
+    seller.vacationMode.isOn = isOn;
+    if (isOn) {
+      seller.vacationMode.enabledAt = new Date();
+      // Set all products to draft
+      await Product.updateMany({ seller: sellerId }, { $set: { status: 'draft' } });
+    } else {
+      seller.vacationMode.disabledAt = new Date();
+      // Set all products back to active
+      await Product.updateMany({ seller: sellerId, status: 'draft' }, { $set: { status: 'active' } });
+    }
+
+    await seller.save();
+
+    // Send email notification
+    const msg = {
+      to: seller.email,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: `Vacation Mode ${isOn ? 'Enabled' : 'Disabled'}`,
+      html: `
+        <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 20px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Vacation Mode Status Update</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              Your vacation mode has been successfully ${isOn ? 'enabled' : 'disabled'}.
+            </p>
+            ${isOn ? '<p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">All of your products are now set to draft and will not be visible to buyers.</p>' : '<p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your products are now active and visible in the marketplace again.</p>'}
+            <hr style="border: 1px solid #eeeeee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli Nigeria. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({
+      message: `Vacation mode successfully ${isOn ? 'enabled' : 'disabled'}.`,
+      vacationMode: seller.vacationMode
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to toggle vacation mode.', error: error.message });
+  }
+};
+
 // Get seller analytics
 exports.getSellerAnalytics = async (req, res) => {
   try {
@@ -2939,10 +3030,11 @@ exports.getSellerAnalytics = async (req, res) => {
       dateFilter = { $gte: oneYearAgo };
     }
     
-    // Get orders data
+    // Get orders data (exclude stale orders)
     const Order = mongoose.model('Order');
     const orders = await Order.find({ 
       seller: sellerId,
+      isStale: { $ne: true },
       createdAt: dateFilter
     }).populate('buyer', 'firstName lastName email');
     
@@ -4605,6 +4697,7 @@ exports.searchSellers = async (req, res) => {
     // Build search query
     const searchQuery = {
       isDisabled: false, // Only return active sellers
+      'vacationMode.isOn': { $ne: true } // Exclude sellers with vacation mode ON
     };
 
     // Search by name (first name, last name), business name, or store name

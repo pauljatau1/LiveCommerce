@@ -48,10 +48,10 @@ describe('verifyOTP Service', () => {
       expect(mockAgenda.schedule).toHaveBeenCalledWith('in 10 seconds', 'credit_welcome_bonus', { buyerId: 'buyer123' });
       
       expect(result).toEqual({
-        message: 'Email verified successfully',
+        message: 'Email verified successfully.',
         bonus: {
           coming: true,
-          amount: 2000,
+          amount: 500,
           currency: 'NGN',
           timeToCredit: '10 seconds'
         }

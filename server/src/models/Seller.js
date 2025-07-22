@@ -131,6 +131,11 @@ const sellerSchema = new mongoose.Schema({
     facebook: { type: String },
     tiktok: { type: String }
   },
+  vacationMode: {
+    isOn: { type: Boolean, default: false },
+    enabledAt: { type: Date },
+    disabledAt: { type: Date }
+  },
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
   otp: { type: String },

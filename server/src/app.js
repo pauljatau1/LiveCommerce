@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const mixpanelClient = require('./config/mixpanel');
 const responseFormatter = require('./middlewares/response.middleware');
 const ValidationError = require('./utils/errors/ValidationError');
+const InvalidObjectIdException = require('./utils/errors/InvalidObjectIdException');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -19,10 +20,12 @@ const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+// const orderRoutesv2 = require('./routes/orderRoutesv2');
 const messageRoutes = require('./routes/messageRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const postRoutes = require('./routes/postRoutes');
 const returnRoutes = require('./routes/returnRoutes');
+const returnRoutesv2 = require('./routes/returnRoutesv2');
 const pickupRoutes = require('./routes/pickupRoutes');
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -39,6 +42,8 @@ const campaignRoutes = require('./routes/campaignRoutes');
 const userRoutes = require('./modules/user/routes/user.routes');
 const listingRoutes = require('./modules/listing/routes/listing.route');
 const buyerRoutesV2 = require('./modules/buyer/routes/buyer.routes');
+const orderRoutesV2 = require('./modules/orderv2/routes/order.routes');
+const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
@@ -136,6 +141,7 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/order', orderRoutes);
+// app.use('/api/v2/order', orderRoutesv2);
 app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/posts', postRoutes);
@@ -150,19 +156,32 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/flash-sales', flashSaleRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/returns', returnRoutes);
+app.use('/api/v2/returns', returnRoutesv2);
 app.use('/api/pickup', pickupRoutes);
 
 // example routes for refactoring
 app.use('/api/users', userRoutes);
 app.use('/api/users/:userId/listings', listingRoutes);
 app.use('/api/v2/buyers', buyerRoutesV2);
+app.use('/api/v2/orders', orderRoutesV2);
+app.use('/api/v2/admin', adminRoutesV2);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
+
 // Basic error handling
 app.use((err, req, res, next) => {
    console.error(err);
+
+   // Handle JSON parsing errors
+   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid JSON in request body',
+      error: 'Bad Request'
+    });
+  }
 
    if (err instanceof ValidationError) {
     return res.status(err.status).json({
@@ -174,6 +193,22 @@ app.use((err, req, res, next) => {
 
   if (err instanceof NotFoundException) {
     return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  // Handle CastError (invalid ObjectId format)
+  if (err instanceof mongoose.Error.CastError) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid ID format',
+      error: 'Bad Request'
+    });
+  }
+
+  if (err instanceof InvalidObjectIdException) {
+    return res.status(err.statusCode).json({
       success: false,
       message: err.message,
     });

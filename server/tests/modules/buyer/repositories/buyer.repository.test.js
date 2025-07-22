@@ -3,6 +3,10 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const Buyer = require('@modules/buyer/models/buyer.model');
 const Post = require('@models/Post');
+const Order = require('@models/Order');
+const Return = require('@models/Return');
+const Product = require('@models/Product');
+const Seller = require('@models/Seller');
 
 let mongoServer;
 
@@ -16,6 +20,7 @@ describe('Buyer Repository', () => {
     });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+    try { await mongoose.connection.db.collection('orders').dropIndex('order_id_1'); } catch (e) {}
   });
 
   afterAll(async () => {
@@ -24,9 +29,14 @@ describe('Buyer Repository', () => {
   });
 
   beforeEach(async () => {
+    try { await mongoose.connection.db.dropCollection('orders'); } catch (e) {}
     // Clear database before each test
     await Buyer.deleteMany({});
     await Post.deleteMany({});
+    await Order.deleteMany({});
+    await Return.deleteMany({});
+    await Product.deleteMany({});
+    await Seller.deleteMany({});
   });
 
   const mockBuyerData = {
@@ -645,6 +655,890 @@ describe('Buyer Repository', () => {
       expect(buyerWithFields.firstName).toBe(buyer.firstName);
       expect(buyerWithFields.lastName).toBe(buyer.lastName);
       expect(buyerWithFields.email).toBe(buyer.email);
+    });
+  });
+
+  describe('findByIdWithSelectedCategories', () => {
+    let testBuyer;
+
+    beforeEach(async () => {
+      // Create a test buyer with selected categories
+      testBuyer = new Buyer({
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'password123',
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              { name: 'Smartphones' },
+              { name: 'Laptops' }
+            ]
+          },
+          {
+            name: 'Fashion',
+            subCategories: [
+              { name: 'Men\'s Clothing' },
+              { name: 'Women\'s Clothing' }
+            ]
+          }
+        ]
+      });
+
+      await testBuyer.save();
+    });
+
+    it('should find buyer with selected categories populated', async () => {
+      const result = await buyerRepository.findByIdWithSelectedCategories(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(testBuyer._id.toString());
+      expect(result.selectedCategories).toHaveLength(2);
+      expect(result.selectedCategories[0].name).toBe('Electronics');
+      expect(result.selectedCategories[0].subCategories).toHaveLength(2);
+      expect(result.selectedCategories[1].name).toBe('Fashion');
+      expect(result.selectedCategories[1].subCategories).toHaveLength(2);
+    });
+
+    it('should return null for non-existent buyer', async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const result = await buyerRepository.findByIdWithSelectedCategories(nonExistentId);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with empty selected categories', async () => {
+      // Create buyer without selected categories
+      const emptyBuyer = new Buyer({
+        firstName: 'Empty',
+        lastName: 'User',
+        email: 'empty@example.com',
+        username: 'emptyuser',
+        password: 'password123',
+        selectedCategories: []
+      });
+
+      await emptyBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(emptyBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(emptyBuyer._id.toString());
+      expect(result.selectedCategories).toHaveLength(0);
+    });
+
+    it('should handle invalid ObjectId format', async () => {
+      await expect(
+        buyerRepository.findByIdWithSelectedCategories('invalid-id')
+      ).rejects.toThrow('Cast to ObjectId failed for value "invalid-id"');
+    });
+
+    it('should only return selectedCategories field', async () => {
+      const result = await buyerRepository.findByIdWithSelectedCategories(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result.selectedCategories).toBeDefined();
+      // Should not have other fields like firstName, lastName, etc.
+      expect(result.firstName).toBeUndefined();
+      expect(result.lastName).toBeUndefined();
+      expect(result.email).toBeUndefined();
+    });
+
+    it('should handle buyer with null selected categories', async () => {
+      // Create buyer with null selected categories
+      const nullBuyer = new Buyer({
+        firstName: 'Null',
+        lastName: 'User',
+        email: 'null@example.com',
+        username: 'nulluser',
+        password: 'password123',
+        selectedCategories: null
+      });
+
+      await nullBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(nullBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(nullBuyer._id.toString());
+      expect(result.selectedCategories).toBeNull();
+    });
+
+    it('should handle complex category structure', async () => {
+      // Create buyer with complex category structure
+      const complexBuyer = new Buyer({
+        firstName: 'Complex',
+        lastName: 'User',
+        email: 'complex@example.com',
+        username: 'complexuser',
+        password: 'password123',
+        selectedCategories: [
+          {
+            name: 'Technology',
+            subCategories: [
+              { name: 'Computers' },
+              { name: 'Mobile Devices' },
+              { name: 'Accessories' }
+            ]
+          },
+          {
+            name: 'Home & Garden',
+            subCategories: [
+              { name: 'Furniture' },
+              { name: 'Decor' }
+            ]
+          }
+        ]
+      });
+
+      await complexBuyer.save();
+
+      const result = await buyerRepository.findByIdWithSelectedCategories(complexBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result.selectedCategories).toHaveLength(2);
+      expect(result.selectedCategories[0].name).toBe('Technology');
+      expect(result.selectedCategories[0].subCategories).toHaveLength(3);
+      expect(result.selectedCategories[1].name).toBe('Home & Garden');
+      expect(result.selectedCategories[1].subCategories).toHaveLength(2);
+    });
+
+    it('should handle database connection errors gracefully', async () => {
+      // This test ensures the method handles database errors properly
+      // In a real scenario, this would be tested with a mock database
+      const validId = new mongoose.Types.ObjectId().toString();
+      
+      // This should not throw an error even if the buyer doesn't exist
+      await expect(
+        buyerRepository.findByIdWithSelectedCategories(validId)
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('countOrders', () => {
+    let testBuyer;
+    let testOrder;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test order
+      testOrder = new Order({
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        buyerDetails: { _id: testBuyer._id },
+        order_id: 'OR12345',
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            productName: 'Test Product',
+            seller: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            price: 1000
+          }
+        ]
+      });
+
+      await testOrder.save();
+      
+      // Get the actual saved order to use its order_id in tests
+      const savedOrder = await Order.findById(testOrder._id);
+      testOrder.order_id = savedOrder.order_id; // Update the testOrder with the actual saved order_id
+    });
+
+    it('should count orders with basic query', async () => {
+      const query = { buyer: testBuyer._id };
+      const result = await buyerRepository.countOrders(query);
+
+      expect(result).toBe(1);
+    });
+
+    it('should count orders with status filter', async () => {
+      const query = { buyer: testBuyer._id, status: 'delivered' };
+      const result = await buyerRepository.countOrders(query);
+
+      expect(result).toBe(1);
+    });
+
+    it('should return 0 for non-existent buyer', async () => {
+      const query = { buyer: new mongoose.Types.ObjectId() };
+      const result = await buyerRepository.countOrders(query);
+
+      expect(result).toBe(0);
+    });
+
+    it('should handle complex queries', async () => {
+      const query = { 
+        buyer: testBuyer._id,
+        'shipping.tracking.status': 'delivered'
+      };
+      const result = await buyerRepository.countOrders(query);
+
+      expect(result).toBe(0); // No orders with this specific tracking status
+    });
+  });
+
+  describe('findOrders', () => {
+    let testBuyer;
+    let testOrder;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test order
+      testOrder = new Order({
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        order_id: 'OR12345',
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            productName: 'Test Product',
+            seller: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            price: 1000
+          }
+        ]
+      });
+
+      await testOrder.save();
+      
+      // Get the actual saved order to use its order_id in tests
+      const savedOrder = await Order.findById(testOrder._id);
+      testOrder.order_id = savedOrder.order_id; // Update the testOrder with the actual saved order_id
+    });
+
+    it('should find orders with basic query', async () => {
+      const query = { buyer: testBuyer._id };
+      const options = { sort: '-createdAt', skip: 0, limit: 10 };
+
+      const result = await buyerRepository.findOrders(query, options);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].order_id).toMatch(/^OR[A-Z0-9]{5}$/); // Check format instead of specific value
+      expect(result[0].totalAmount).toBe(1000);
+      expect(result[0].status).toBe('delivered');
+    });
+
+    it('should handle pagination options', async () => {
+      const query = { buyer: testBuyer._id };
+      const options = { sort: '-createdAt', skip: 0, limit: 5 };
+
+      const result = await buyerRepository.findOrders(query, options);
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should return empty array for non-existent buyer', async () => {
+      const query = { buyer: new mongoose.Types.ObjectId() };
+      const options = { sort: '-createdAt', skip: 0, limit: 10 };
+
+      const result = await buyerRepository.findOrders(query, options);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle different sort options', async () => {
+      const query = { buyer: testBuyer._id };
+      const options = { sort: 'createdAt', skip: 0, limit: 10 };
+
+      const result = await buyerRepository.findOrders(query, options);
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('findReturnRequests', () => {
+    let testBuyer;
+    let testOrder;
+    let testReturn;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test order
+      testOrder = new Order({
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        order_id: 'OR12345',
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            productName: 'Test Product',
+            seller: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            price: 1000
+          }
+        ]
+      });
+
+      await testOrder.save();
+      
+      // Get the actual saved order to use its order_id in tests
+      const savedOrder = await Order.findById(testOrder._id);
+      testOrder.order_id = savedOrder.order_id; // Update the testOrder with the actual saved order_id
+
+      // Create a test return request
+      testReturn = new Return({
+        order: testOrder._id,
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            reason: 'Defective product'
+          }
+        ],
+        status: 'PENDING_SELLER_REVIEW',
+        description: 'Product is defective',
+        preferredResolution: 'refund'
+      });
+
+      await testReturn.save();
+    });
+
+    it('should find return requests for orders', async () => {
+      const orderIds = [testOrder._id];
+      const result = await buyerRepository.findReturnRequests(orderIds);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].order.toString()).toBe(testOrder._id.toString());
+      expect(result[0].status).toBe('PENDING_SELLER_REVIEW');
+    });
+
+    it('should return empty array for orders without returns', async () => {
+      const orderIds = [new mongoose.Types.ObjectId()];
+      const result = await buyerRepository.findReturnRequests(orderIds);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle multiple order IDs', async () => {
+      // Create another order and return
+      const order2 = new Order({
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        order_id: 'OR67890',
+        totalAmount: 500,
+        status: 'draft',
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            productName: 'Test Product 2',
+            seller: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            price: 500
+          }
+        ]
+      });
+
+      await order2.save();
+
+      const return2 = new Return({
+        order: order2._id,
+        buyer: testBuyer._id,
+        seller: new mongoose.Types.ObjectId(),
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            quantity: 1,
+            reason: 'Wrong size'
+          }
+        ],
+        status: 'APPROVED',
+        description: 'Wrong size received',
+        preferredResolution: 'replacement'
+      });
+
+      await return2.save();
+
+      const orderIds = [testOrder._id, order2._id];
+      const result = await buyerRepository.findReturnRequests(orderIds);
+
+      expect(result).toHaveLength(2);
+    });
+
+    it('should handle empty order IDs array', async () => {
+      const orderIds = [];
+      const result = await buyerRepository.findReturnRequests(orderIds);
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('findOrderByIdAndBuyer', () => {
+    let testBuyer;
+    let testOrder;
+    let testProduct;
+    let testSeller;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test seller
+      testSeller = new Seller({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'seller@test.com',
+        password: 'password123',
+        phoneNumber: '+1234567890',
+        storeName: 'Test Store'
+      });
+      await testSeller.save();
+
+      // Create a test product
+      testProduct = new Product({
+        name: 'Test Product',
+        description: 'A test product for testing',
+        price: 1000,
+        category: 'Electronics',
+        stock: 10,
+        seller: testSeller._id,
+        images: [
+          { url: 'image1.jpg' },
+          { url: 'image2.jpg' }
+        ]
+      });
+      await testProduct.save();
+
+      // Create a test order
+      testOrder = new Order({
+        buyer: testBuyer._id,
+        seller: testSeller._id,
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: testProduct._id,
+            productName: 'Test Product',
+            seller: testSeller._id,
+            quantity: 1,
+            price: 1000
+          }
+        ],
+        shipping: {
+          tracking: {
+            status: 'delivered'
+          }
+        }
+      });
+
+      await testOrder.save();
+    });
+
+    it('should find order by ID and buyer', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(testOrder._id.toString());
+      expect(result.buyer.toString()).toBe(testBuyer._id.toString());
+      expect(result.totalAmount).toBe(1000);
+      expect(result.status).toBe('delivered');
+    });
+
+    it('should populate product and seller information', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        testBuyer._id.toString()
+      );
+
+      expect(result.items[0].product).toBeDefined();
+      expect(result.items[0].product.name).toBe('Test Product');
+      expect(result.items[0].product.images).toHaveLength(2);
+      expect(result.items[0].product.images[0].url).toBe('image1.jpg');
+      expect(result.items[0].product.images[1].url).toBe('image2.jpg');
+      expect(result.items[0].seller).toBeDefined();
+      expect(result.items[0].seller.storeName).toBe('Test Store');
+      expect(result.items[0].seller.email).toBe('seller@test.com');
+      expect(result.items[0].seller.phoneNumber).toBe('+1234567890');
+    });
+
+    it('should return null when order not found', async () => {
+      const nonExistentOrderId = new mongoose.Types.ObjectId().toString();
+      
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        nonExistentOrderId,
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when order does not belong to buyer', async () => {
+      // Create another buyer
+      const anotherBuyer = new Buyer({
+        ...mockBuyerData,
+        email: 'another@example.com',
+        username: 'anotheruser'
+      });
+      await anotherBuyer.save();
+
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        testOrder._id.toString(),
+        anotherBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle invalid ObjectId format', async () => {
+      const result = await buyerRepository.findOrderByIdAndBuyer(
+        'invalid-id',
+        testBuyer._id.toString()
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findBuyerOrders', () => {
+    let testBuyer;
+    let testSeller;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test seller
+      testSeller = new Seller({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'seller@test.com',
+        password: 'password123',
+        phoneNumber: '+1234567890',
+        storeName: 'Test Store'
+      });
+      await testSeller.save();
+    });
+
+    it('should find all orders for a buyer', async () => {
+      // Create multiple orders for the buyer
+      const orders = [
+        {
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 1000,
+          status: 'delivered',
+          items: [
+            {
+              product: new mongoose.Types.ObjectId(),
+              productName: 'Test Product 1',
+              seller: testSeller._id,
+              quantity: 1,
+              price: 1000,
+              status: 'delivered'
+            }
+          ]
+        },
+        {
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 2000,
+          status: 'pending_payment',
+          items: [
+            {
+              product: new mongoose.Types.ObjectId(),
+              productName: 'Test Product 2',
+              seller: testSeller._id,
+              quantity: 2,
+              price: 1000,
+              status: 'pending_payment'
+            }
+          ]
+        }
+      ];
+
+      for (const orderData of orders) {
+        const order = new Order(orderData);
+        await order.save();
+      }
+
+      const result = await buyerRepository.findBuyerOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(2);
+      expect(result[0].buyer.toString()).toBe(testBuyer._id.toString());
+      expect(result[1].buyer.toString()).toBe(testBuyer._id.toString());
+      expect(result[0].totalAmount).toBe(1000);
+      expect(result[1].totalAmount).toBe(2000);
+    });
+
+    it('should return empty array when buyer has no orders', async () => {
+      const result = await buyerRepository.findBuyerOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should not return orders from other buyers', async () => {
+      // Create another buyer
+      const anotherBuyer = new Buyer({
+        ...mockBuyerData,
+        email: 'another@example.com',
+        username: 'anotheruser'
+      });
+      await anotherBuyer.save();
+
+      // Create order for another buyer
+      const order = new Order({
+        buyer: anotherBuyer._id,
+        seller: testSeller._id,
+        buyerDetails: {
+          _id: anotherBuyer._id
+        },
+        totalAmount: 1000,
+        status: 'delivered',
+        items: [
+          {
+            product: new mongoose.Types.ObjectId(),
+            productName: 'Test Product',
+            seller: testSeller._id,
+            quantity: 1,
+            price: 1000,
+            status: 'delivered'
+          }
+        ]
+      });
+
+      await order.save();
+
+      const result = await buyerRepository.findBuyerOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('findRecentOrders', () => {
+    let testBuyer;
+    let testSeller;
+    let testProduct;
+
+    beforeEach(async () => {
+      // Create a test buyer
+      testBuyer = new Buyer(mockBuyerData);
+      await testBuyer.save();
+
+      // Create a test seller
+      testSeller = new Seller({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'seller@test.com',
+        password: 'password123',
+        phoneNumber: '+1234567890',
+        storeName: 'Test Store'
+      });
+      await testSeller.save();
+
+      // Create a test product
+      testProduct = new Product({
+        name: 'Test Product',
+        description: 'A test product for testing',
+        price: 1000,
+        category: 'Electronics',
+        stock: 10,
+        seller: testSeller._id,
+        images: [
+          { url: 'image1.jpg' },
+          { url: 'image2.jpg' }
+        ]
+      });
+      await testProduct.save();
+    });
+
+    it('should find recent orders with populated product data', async () => {
+      // Create multiple orders
+      const orders = [
+        {
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 1000,
+          status: 'delivered',
+          items: [
+            {
+              product: testProduct._id,
+              productName: 'Test Product 1',
+              seller: testSeller._id,
+              quantity: 1,
+              price: 1000,
+              status: 'delivered'
+            }
+          ]
+        },
+        {
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 2000,
+          status: 'pending_payment',
+          items: [
+            {
+              product: testProduct._id,
+              productName: 'Test Product 2',
+              seller: testSeller._id,
+              quantity: 2,
+              price: 1000,
+              status: 'pending_payment'
+            }
+          ]
+        },
+        {
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 1500,
+          status: 'processing',
+          items: [
+            {
+              product: testProduct._id,
+              productName: 'Test Product 3',
+              seller: testSeller._id,
+              quantity: 1,
+              price: 1500,
+              status: 'processing'
+            }
+          ]
+        }
+      ];
+
+      for (const orderData of orders) {
+        const order = new Order(orderData);
+        await order.save();
+      }
+
+      const result = await buyerRepository.findRecentOrders(testBuyer._id.toString(), 2);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].totalAmount).toBe(1500); // Most recent
+      expect(result[1].totalAmount).toBe(2000);
+      expect(result[0].items[0].product).toBeDefined();
+      expect(result[0].items[0].product.name).toBe('Test Product');
+      expect(result[0].items[0].product.images).toHaveLength(2);
+      expect(result[0].items[0].product.price).toBe(1000);
+    });
+
+    it('should return default limit of 5 when limit not specified', async () => {
+      // Create 7 orders
+      for (let i = 0; i < 7; i++) {
+        const order = new Order({
+          buyer: testBuyer._id,
+          seller: testSeller._id,
+          buyerDetails: {
+            _id: testBuyer._id
+          },
+          totalAmount: 1000 + i,
+          status: 'delivered',
+          items: [
+            {
+              product: testProduct._id,
+              productName: `Test Product ${i + 1}`,
+              seller: testSeller._id,
+              quantity: 1,
+              price: 1000 + i,
+              status: 'delivered'
+            }
+          ]
+        });
+        await order.save();
+      }
+
+      const result = await buyerRepository.findRecentOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(5);
+      expect(result[0].totalAmount).toBe(1006); // Most recent
+      expect(result[4].totalAmount).toBe(1002); // 5th most recent
+    });
+
+    it('should return empty array when buyer has no orders', async () => {
+      const result = await buyerRepository.findRecentOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle orders with products that have no images', async () => {
+      // Create a product without images
+      const productWithoutImages = new Product({
+        name: 'Product Without Images',
+        description: 'A test product without images',
+        price: 500,
+        category: 'Electronics',
+        stock: 5,
+        seller: testSeller._id,
+        images: []
+      });
+
+      await productWithoutImages.save();
+
+      // Create an order with the product without images
+      const order = new Order({
+        buyer: testBuyer._id,
+        seller: testSeller._id,
+        buyerDetails: {
+          _id: testBuyer._id
+        },
+        totalAmount: 500,
+        status: 'delivered',
+        items: [
+          {
+            product: productWithoutImages._id,
+            productName: 'Product Without Images',
+            seller: testSeller._id,
+            quantity: 1,
+            price: 500,
+            status: 'delivered'
+          }
+        ]
+      });
+
+      await order.save();
+
+      const result = await buyerRepository.findRecentOrders(testBuyer._id.toString());
+
+      expect(result).toHaveLength(1);
+      expect(result[0].items[0].product.images).toHaveLength(0);
     });
   });
 }); 

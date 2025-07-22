@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const blipsController = require('../controllers/blipsController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 
@@ -156,9 +157,9 @@ const optionalAuth = (req, res, next) => {
 */
 
 // Use the proper optionalAuthMiddleware
-router.get('/blips', optionalAuthMiddleware, productController.getAllBlips);
-router.get('/seller/:sellerId/blips', optionalAuthMiddleware, productController.getSellerBlips);
-router.get('/blips/suggested', optionalAuthMiddleware, productController.getSuggestedBlips);
+router.get('/blips', optionalAuthMiddleware, blipsController.getAllBlips);
+router.get('/seller/:sellerId/blips', optionalAuthMiddleware, blipsController.getSellerBlips);
+router.get('/blips/suggested', optionalAuthMiddleware, blipsController.getSuggestedBlips);
 
 /**
  * @swagger
@@ -1207,7 +1208,6 @@ router.post('/',
       { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
       { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
     ]);
-
     uploadFields(req, res, (err) => {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -1236,6 +1236,50 @@ router.post('/',
   },
   productController.createProduct
 );
+
+/**
+ * @swagger
+ * /api/products/bulk-update-price:
+ *   post:
+ *     summary: Bulk update product prices by percentage
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               percentage:
+ *                 type: number
+ *                 description: The percentage to increase or decrease prices. Use a negative value for a decrease.
+ *                 example: 10
+ *     responses:
+ *       200:
+ *         description: Product prices updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 updatedCount:
+ *                   type: integer
+ *       400:
+ *         description: Bad request, e.g., missing percentage or invalid value.
+ *       401:
+ *         description: Unauthorized, token is missing or invalid.
+ *       403:
+ *         description: Forbidden, user is not a seller.
+ *       404:
+ *         description: No products found for this seller.
+ *       500:
+ *         description: Failed to update product prices
+ */
+router.post('/bulk-update-price', authMiddleware.verifyToken, authMiddleware.isSeller, productController.bulkUpdatePrices);
 
 /**
  * @swagger
@@ -1785,7 +1829,7 @@ router.delete('/bulk-delete',
  */
 router.post('/:id/reviews',
   authMiddleware.verifyToken,
-  upload.array('images', 5), // Allow up to 5 images
+  upload.array('images', 5), 
   productController.addReview
 );
 
@@ -2299,7 +2343,7 @@ router.put('/:id/discount',
  *       500:
  *         description: Server error
  */
-router.get('/:id/blips/:blipId', optionalAuthMiddleware, productController.getBlipDetails);
+router.get('/:id/blips/:blipId', optionalAuthMiddleware, blipsController.getBlipDetails);
 
 /**
  * @swagger
@@ -2331,7 +2375,7 @@ router.get('/:id/blips/:blipId', optionalAuthMiddleware, productController.getBl
 router.post('/:id/blips/:blipId/like',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
-  productController.toggleBlipLike
+  blipsController.toggleBlipLike
 );
 
 /**
@@ -2374,7 +2418,7 @@ router.post('/:id/blips/:blipId/like',
 router.post('/:id/blips/:blipId/comments',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
-  productController.addBlipComment
+  blipsController.addBlipComment
 );
 
 /**
@@ -2410,7 +2454,7 @@ router.post('/:id/blips/:blipId/comments',
  *       404:
  *         description: Product or blip not found
  */
-router.get('/:id/blips/:blipId/comments', optionalAuthMiddleware, productController.getBlipComments);
+router.get('/:id/blips/:blipId/comments', optionalAuthMiddleware, blipsController.getBlipComments);
 
 /**
  * @swagger
@@ -2441,7 +2485,7 @@ router.get('/:id/blips/:blipId/comments', optionalAuthMiddleware, productControl
  */
 router.post('/:id/blips/:blipId/view',
   authMiddleware.verifyToken,
-  productController.recordBlipView
+  blipsController.recordBlipView
 );
 
 /**
@@ -2500,7 +2544,7 @@ router.post('/:id/blips/:blipId/view',
  */
 router.post('/:productId/blips/:blipId/comments/:commentId/replies', 
   authMiddleware.verifyToken,
-  productController.addReplyToBlipComment
+  blipsController.addReplyToBlipComment
 );
 
 /**
@@ -2551,7 +2595,7 @@ router.post('/:productId/blips/:blipId/comments/:commentId/replies',
  *       500:
  *         description: Server error
  */
-router.post('/:productId/blips/:blipId/comments/:commentId/like', authMiddleware.verifyToken, productController.likeBlipComment);
+router.post('/:productId/blips/:blipId/comments/:commentId/like', authMiddleware.verifyToken, blipsController.likeBlipComment);
 
 /**
  * @swagger
@@ -2607,7 +2651,7 @@ router.post('/:productId/blips/:blipId/comments/:commentId/like', authMiddleware
  *       500:
  *         description: Server error
  */
-router.post('/:productId/blips/:blipId/comments/:commentId/replies/:replyId/like', authMiddleware.verifyToken, productController.likeBlipCommentReply);
+router.post('/:productId/blips/:blipId/comments/:commentId/replies/:replyId/like', authMiddleware.verifyToken, blipsController.likeBlipCommentReply);
 
 /**
  * @swagger
@@ -2732,7 +2776,7 @@ router.get('/seller/:sellerId/categories', productController.getSellerProductCat
  *       500:
  *         description: Server error
  */
-router.get('/:productId/blips/:blipId/comments/:commentId/replies', optionalAuthMiddleware, productController.getBlipCommentReplies);
+router.get('/:productId/blips/:blipId/comments/:commentId/replies', optionalAuthMiddleware, blipsController.getBlipCommentReplies);
 
 /**
  * @swagger
@@ -3415,7 +3459,7 @@ router.get('/seller/:sellerId/category/:category/subcategories', productControll
  *                 error:
  *                   type: string
  */
-router.get('/blips/personalized', optionalAuthMiddleware, productController.getPersonalizedBlips);
+router.get('/blips/personalized', optionalAuthMiddleware, blipsController.getPersonalizedBlips);
 
 /**
  * @swagger
@@ -3653,7 +3697,7 @@ router.post('/:productId/blips',
       next();
     });
   },
-  productController.addBlipToProduct
+  blipsController.addBlipToProduct
 );
 
 /**
@@ -3866,7 +3910,7 @@ router.get('/seller/:sellerId/search', productController.searchSellerProducts);
  *       500:
  *         description: Server error
  */
-router.get('/blips/:blipId/related', optionalAuthMiddleware, productController.getRelatedBlips);
+router.get('/blips/:blipId/related', optionalAuthMiddleware, blipsController.getRelatedBlips);
 
 /**
  * @swagger
@@ -3930,7 +3974,7 @@ router.get('/blips/:blipId/related', optionalAuthMiddleware, productController.g
 router.delete('/:productId/blips/:blipId',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  productController.deleteBlipFromProduct
+  blipsController.deleteBlipFromProduct
 );
 
 module.exports = router;

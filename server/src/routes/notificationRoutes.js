@@ -134,6 +134,56 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
 
 /**
  * @swagger
+ * /api/notifications/simulate-terminal-webhook:
+ *   post:
+ *     summary: Simulate Terminal Africa webhook events
+ *     description: Test endpoint to simulate different Terminal Africa webhook events for shipments
+ *     tags: [Notifications]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - event
+ *               - shipment_id
+ *             properties:
+ *               event:
+ *                 type: string
+ *                 enum: [packaging.created, packaging.updated, shipment.cancelled, shipment.created, shipment.in-transit, shipment.updated, shipment.delivered]
+ *                 description: Terminal Africa webhook event type
+ *                 example: "shipment.delivered"
+ *               shipment_id:
+ *                 type: string
+ *                 description: Terminal Africa shipment ID
+ *                 example: "TS-123456789"
+ *               tracking_number:
+ *                 type: string
+ *                 description: Optional tracking number
+ *                 example: "TN-987654321"
+ *               carrier:
+ *                 type: string
+ *                 description: Optional carrier name
+ *                 example: "DHL"
+ *               delivery_date:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional delivery date for delivered events
+ *     responses:
+ *       200:
+ *         description: Terminal webhook event simulated successfully
+ *       400:
+ *         description: Invalid request parameters
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook);
+
+/**
+ * @swagger
  * /api/notifications/buyer:
  *   get:
  *     summary: Get all notifications for a buyer

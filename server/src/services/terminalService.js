@@ -3,7 +3,7 @@ const axios = require('axios');
 class TerminalService {
   constructor() {
     this.api = axios.create({
-      baseURL: 'https://api.terminal.africa/v1',
+      baseURL: process.env.TERMINAL_API_URL + '/v1',
       headers: {
         'Authorization': `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
         'Content-Type': 'application/json'

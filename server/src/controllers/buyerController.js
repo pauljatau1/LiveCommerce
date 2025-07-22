@@ -547,7 +547,7 @@ exports.verifyOTP = async (req, res) => {
         message: 'Email verified successfully.',
         bonus: {
           coming: true,
-          amount: 2000,
+          amount: 500,
           currency: 'NGN',
           timeToCredit: '10 seconds'
         }
@@ -613,7 +613,6 @@ exports.resendOTP = async (req, res) => {
   }
 };
 
-
 exports.updateSelectedCategories = async (req, res) => {
   const { selectedCategories } = req.body;
 
@@ -636,8 +635,6 @@ exports.updateSelectedCategories = async (req, res) => {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
   }
 };
-
-
 
 // Get buyer's orders with filtering
 exports.getOrders = async (req, res) => {
