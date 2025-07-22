@@ -17,7 +17,7 @@ import {
 //import { productPageCardData } from "../../Utilities/data";
 import { NavLink, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";
-import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct } from "../../Redux/Slices/ProductSlice";
+import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import { BlipUploadModal } from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
@@ -36,6 +36,7 @@ import { BASE_URL } from "../../Constants/Server";
 import axios from 'axios';
 import { toast } from "sonner";
 import EmailVerificationModal from "../../Components/EmailVerificationModal";
+import { Switch } from "../../Components/ui/switch";
 
 
 // Import all icons directly
@@ -51,7 +52,7 @@ import graphBoldIcon from '@iconify-icons/solar/graph-bold';
 import restartBoldIcon from '@iconify-icons/solar/restart-bold';
 import eyeBoldIcon from '@iconify-icons/solar/eye-bold';
 import boxEdit24FilledIcon from '@iconify-icons/fluent/box-edit-24-filled';
-import videoFrameBoldIcon from '@iconify-icons/solar/video-frame-bold';
+
 import penBoldIcon from '@iconify-icons/solar/pen-bold';
 import trashBinTrashBoldIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 import arrowLongLeftIcon from '@iconify-icons/gg/arrow-long-left';
@@ -59,11 +60,14 @@ import arrowLongRightIcon from '@iconify-icons/gg/arrow-long-right';
 import arrowDownIcon from '@iconify-icons/simple-line-icons/arrow-down';
 import checkIcon from '@iconify-icons/lucide/check';
 import { BiPlayCircle } from 'react-icons/bi';
+import { Loader2 } from 'lucide-react';
+// Add Drawer imports
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "../../Components/ui/drawer";
 
 const ProductsPage = () => {
     const { setHeaderName, setNavName } = useOutletContext()
     const dispatch = useDispatch();
-    const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics } = useSelector((state) => state.product);
+    const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products');
     const [sortType, setSortType] = useState('newest-to-oldest');
@@ -81,10 +85,12 @@ const ProductsPage = () => {
     const [showFilterMenu, setShowFilterMenu] = useState(false);
 
     // New filter states
-    const [blipsFilter, setBlipsFilter] = useState('all'); // 'all', '1', '2', '3', '4', '5+'
+    const [blipsFilter, setBlipsFilter] = useState('all'); // 'all', '0', '1', '2', '3', '4', '5+', 'custom'
     const [stockFilter, setStockFilter] = useState('all'); // 'all', 'out-of-stock', 'low-stock', 'custom'
     const [customStockThreshold, setCustomStockThreshold] = useState(10);
     const [customStockInput, setCustomStockInput] = useState('10'); // String for input display
+    const [customBlipsThreshold, setCustomBlipsThreshold] = useState(1);
+    const [customBlipsInput, setCustomBlipsInput] = useState('1'); // String for input display
 
     // Modal states for card interactions
     const [openProductDetails, setOpenProductDetails] = useState(false);
@@ -106,6 +112,10 @@ const ProductsPage = () => {
     // Pickup Address Verification Modal state
     const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
+    // Add state for mobile drawers
+    const [showBlipsDrawer, setShowBlipsDrawer] = useState(false);
+    const [showStockDrawer, setShowStockDrawer] = useState(false);
+
     useEffect(() => {
         setHeaderName('Products')
         setNavName('')
@@ -126,7 +136,7 @@ const ProductsPage = () => {
     // Reset page when sort type, tab, or filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [sortType, activeTab, blipsFilter, stockFilter, customStockThreshold]);
+    }, [sortType, activeTab, blipsFilter, stockFilter, customStockThreshold, customBlipsThreshold]);
 
     // Fetch products when pagination, sort type, or tab changes (but not when search query changes)
     useEffect(() => {
@@ -247,9 +257,9 @@ const ProductsPage = () => {
     };
 
     // Get pagination data
-    const paginationData = activeTab === 'products'
-        ? useSelector(state => state.product.pagination)
-        : useSelector(state => state.product.auctionPagination);
+    const productsPagination = useSelector(state => state.product.pagination);
+    const auctionPagination = useSelector(state => state.product.auctionPagination);
+    const paginationData = activeTab === 'products' ? productsPagination : auctionPagination;
 
     // Sort function
     const getSortedProducts = (products) => {
@@ -266,9 +276,18 @@ const ProductsPage = () => {
 
         // Apply blips filter
         if (blipsFilter !== 'all') {
-            if (blipsFilter === '5+') {
+            if (blipsFilter === '0') {
+                filteredProducts = filteredProducts.filter(product =>
+                    !product.blips || product.blips.length === 0
+                );
+            } else if (blipsFilter === '5+') {
                 filteredProducts = filteredProducts.filter(product =>
                     product.blips && product.blips.length >= 5
+                );
+            } else if (blipsFilter === 'custom') {
+                const blipsCount = parseInt(customBlipsInput);
+                filteredProducts = filteredProducts.filter(product =>
+                    product.blips && product.blips.length === blipsCount
                 );
             } else {
                 const blipsCount = parseInt(blipsFilter);
@@ -289,7 +308,7 @@ const ProductsPage = () => {
                     product.stock > 0 && product.stock < 10
                 );
             } else if (stockFilter === 'custom') {
-                const threshold = parseInt(customStockInput) || 1;
+                const threshold = parseInt(customStockInput);
                 filteredProducts = filteredProducts.filter(product =>
                     product.stock === threshold
                 );
@@ -478,8 +497,13 @@ const ProductsPage = () => {
 
         // Add blips filter
         if (blipsFilter !== 'all') {
-            if (blipsFilter === '5+') {
+            if (blipsFilter === '0') {
+                activeFilters.push('0 Blips');
+            } else if (blipsFilter === '5+') {
                 activeFilters.push('5+ Blips');
+            } else if (blipsFilter === 'custom') {
+                const displayValue = customBlipsInput || customBlipsThreshold;
+                activeFilters.push(`${displayValue} Blip${displayValue === '1' ? '' : 's'}`);
             } else {
                 activeFilters.push(`${blipsFilter} Blip${blipsFilter === '1' ? '' : 's'}`);
             }
@@ -565,6 +589,15 @@ const ProductsPage = () => {
         }
     };
 
+    // Handle vacation mode toggle
+    const handleVacationModeToggle = async (isOn) => {
+        try {
+            await dispatch(toggleVacationMode(isOn)).unwrap();
+        } catch (error) {
+            console.error('Error toggling vacation mode:', error);
+        }
+    };
+
     // Listen for verification completed event
     useEffect(() => {
         const handleVerificationCompleted = () => {
@@ -615,8 +648,8 @@ const ProductsPage = () => {
                                     <button
                                         onClick={() => setActiveTab('products')}
                                         className={`px-2 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-base transition-all duration-300 ${activeTab === 'products'
-                                                ? 'bg-[#0BB248] text-white'
-                                                : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
+                                            ? 'bg-[#0BB248] text-white'
+                                            : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
                                             }`}
                                     >
                                         Products
@@ -624,8 +657,8 @@ const ProductsPage = () => {
                                     <button
                                         onClick={() => setActiveTab('auctions')}
                                         className={`px-2 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-base transition-all duration-300 ${activeTab === 'auctions'
-                                                ? 'bg-[#0BB248] text-white'
-                                                : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
+                                            ? 'bg-[#0BB248] text-white'
+                                            : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
                                             }`}
                                     >
                                         Offline Auctions
@@ -663,229 +696,240 @@ const ProductsPage = () => {
                             </div>
 
                             {/* Search and filter row */}
-                            <div className="flex flex-wrap justify-between gap-4">
+                            <div className="flex flex-col xl:flex-row justify-between gap-4">
                                 <div className="flex flex-col gap-4">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
-                                    {/* Search Form */}
-                                    <form onSubmit={handleSearch} className="relative w-full sm:w-auto max-w-full sm:max-w-[400px] flex">
-                                        <div className="flex items-center relative flex-grow">
-                                            <Icon
-                                                icon={magnifyingGlassIcon}
-                                                className="absolute left-3 text-gray-400"
-                                                width="18"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={searchQuery}
-                                                onChange={handleSearchChange}
-                                                placeholder="Search products..."
-                                                className="pl-9 pr-3 py-2 w-full text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent"
-                                            />
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            className="bg-[#0BB248] text-white px-3 py-2 rounded-r-lg hover:bg-[#0BB248]/90 transition-all duration-300"
-                                        >
-                                            <Icon icon={magnifyingGlassIcon} width="18" />
-                                        </button>
-
-                                        {isSearchMode && (
-                                            <button
-                                                type="button"
-                                                onClick={handleClearSearch}
-                                                className="ml-2 bg-gray-200 text-gray-600 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300 flex items-center gap-1"
-                                            >
-                                                <Icon icon={xMarkIcon} width="16" />
-                                                <span className="hidden sm:inline">Clear</span>
-                                            </button>
-                                        )}
-
-                                        {isSearching && (
-                                            <div className="absolute w-full h-1 bottom-0 left-0">
-                                                <LinearProgress color="success" sx={{ height: 2 }} />
+                                    <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 w-full">
+                                        {/* Search Form */}
+                                        <form onSubmit={handleSearch} className="relative w-full lg:w-auto max-w-full lg:max-w-[400px] flex">
+                                            <div className="flex items-center relative flex-grow">
+                                                <Icon
+                                                    icon={magnifyingGlassIcon}
+                                                    className="absolute left-3 text-gray-400"
+                                                    width="18"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={searchQuery}
+                                                    onChange={handleSearchChange}
+                                                    placeholder="Search products..."
+                                                    className="pl-9 pr-3 py-2 w-full text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent"
+                                                />
                                             </div>
-                                        )}
-                                    </form>
+                                            <button
+                                                type="submit"
+                                                className="bg-[#0BB248] text-white px-3 py-2 rounded-r-lg hover:bg-[#0BB248]/90 transition-all duration-300"
+                                            >
+                                                <Icon icon={magnifyingGlassIcon} width="18" />
+                                            </button>
 
-                                    {/* Mobile filter button */}
-                                    <div className="sm:hidden flex items-center w-full mt-2">
-                                        <button
-                                            onClick={toggleFilterMenu}
-                                            className="flex items-center justify-between w-full gap-2 text-xs font-cabin font-normal bg-[#0BB24817] text-[#0BB248] rounded-lg py-2 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out"
-                                        >
-                                            <span className="flex items-center gap-2">
-                                                <Icon icon={adjustmentsHorizontalIcon} width="16" height="16" />
-                                                Filter Products
-                                            </span>
-                                            <span className="text-[#0BB248] font-medium">
-                                                {getActiveFilterLabel()}
-                                            </span>
-                                        </button>
-                                    </div>
+                                            {isSearchMode && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearSearch}
+                                                    className="ml-2 bg-gray-200 text-gray-600 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300 flex items-center gap-1"
+                                                >
+                                                    <Icon icon={xMarkIcon} width="16" />
+                                                    <span className="hidden sm:inline">Clear</span>
+                                                </button>
+                                            )}
 
-                                    {/* Mobile filter menu */}
-                                    {showFilterMenu && (
-                                        <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-                                            <div className="bg-white rounded-t-xl p-4 w-full max-h-[80vh] overflow-y-auto animate-slide-up">
-                                                <div className="flex justify-between items-center mb-4">
-                                                    <h3 className="text-base font-semibold">Filter Options</h3>
-                                                    <button onClick={toggleFilterMenu} className="p-1">
-                                                        <Icon icon={xMarkIcon} width="20" />
-                                                    </button>
+                                            {isSearching && (
+                                                <div className="absolute w-full h-1 bottom-0 left-0">
+                                                    <LinearProgress color="success" sx={{ height: 2 }} />
                                                 </div>
+                                            )}
+                                        </form>
 
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <h4 className="text-sm font-medium mb-2">Date</h4>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('newest-to-oldest');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'newest-to-oldest' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Newest First
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('oldest-to-newest');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'oldest-to-newest' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Oldest First
-                                                            </button>
-                                                        </div>
+                                        {/* Mobile filter button */}
+                                        <div className="lg:hidden flex flex-col items-center gap-3 w-full mt-2">
+                                            <button
+                                                onClick={toggleFilterMenu}
+                                                className="flex items-center justify-between w-full gap-2 text-xs font-cabin font-normal bg-[#0BB24817] text-[#0BB248] rounded-lg py-2 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <Icon icon={adjustmentsHorizontalIcon} width="16" height="16" />
+                                                    Filter Products
+                                                </span>
+                                                <span className="text-[#0BB248] font-medium">
+                                                    {getActiveFilterLabel()}
+                                                </span>
+                                            </button>
+                                            {/* New mobile filter buttons */}
+                                            <button
+                                                className="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-[#0BB24817] text-[#0BB248] font-medium text-sm"
+                                                onClick={() => setShowBlipsDrawer(true)}
+                                            >
+                                                Filter by Blips
+                                            </button>
+                                            <button
+                                                className="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-[#0BB24817] text-[#0BB248] font-medium text-sm"
+                                                onClick={() => setShowStockDrawer(true)}
+                                            >
+                                                Filter by Stock
+                                            </button>
+                                        </div>
+
+                                        {/* Mobile filter menu */}
+                                        {showFilterMenu && (
+                                            <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+                                                <div className="bg-white rounded-t-xl p-4 w-full max-h-[80vh] overflow-y-auto animate-slide-up">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <h3 className="text-base font-semibold">Filter Options</h3>
+                                                        <button onClick={toggleFilterMenu} className="p-1">
+                                                            <Icon icon={xMarkIcon} width="20" />
+                                                        </button>
                                                     </div>
-
-                                                    <div>
-                                                        <h4 className="text-sm font-medium mb-2">Status</h4>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('active-only');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'active-only' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Active Only
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('draft-only');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'draft-only' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Draft Only
-                                                            </button>
-                                                            {(sortType === 'active-only' || sortType === 'draft-only') && (
+                                                    <div className="space-y-4">
+                                                        {/* Existing filter options (date, status, price) remain here */}
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-2">Date</h4>
+                                                            <div className="grid grid-cols-2 gap-2">
                                                                 <button
                                                                     onClick={() => {
                                                                         setSortType('newest-to-oldest');
                                                                         toggleFilterMenu();
                                                                     }}
-                                                                    className="text-left px-3 py-2 rounded-lg text-sm bg-gray-100"
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'newest-to-oldest' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
                                                                 >
-                                                                    Show All
+                                                                    Newest First
                                                                 </button>
-                                                            )}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSortType('oldest-to-newest');
+                                                                        toggleFilterMenu();
+                                                                    }}
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'oldest-to-newest' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
+                                                                >
+                                                                    Oldest First
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-
-                                                    <div>
-                                                        <h4 className="text-sm font-medium mb-2">Price</h4>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('price-high-to-low');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'price-high-to-low' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Highest to Lowest
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSortType('price-low-to-high');
-                                                                    toggleFilterMenu();
-                                                                }}
-                                                                className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'price-low-to-high' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'
-                                                                    }`}
-                                                            >
-                                                                Lowest to Highest
-                                                            </button>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-2">Status</h4>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSortType('active-only');
+                                                                        toggleFilterMenu();
+                                                                    }}
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'active-only' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
+                                                                >
+                                                                    Active Only
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSortType('draft-only');
+                                                                        toggleFilterMenu();
+                                                                    }}
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'draft-only' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
+                                                                >
+                                                                    Draft Only
+                                                                </button>
+                                                                {(sortType === 'active-only' || sortType === 'draft-only') && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSortType('newest-to-oldest');
+                                                                            toggleFilterMenu();
+                                                                        }}
+                                                                        className="text-left px-3 py-2 rounded-lg text-sm bg-gray-100"
+                                                                    >
+                                                                        Show All
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium mb-2">Price</h4>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSortType('price-high-to-low');
+                                                                        toggleFilterMenu();
+                                                                    }}
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'price-high-to-low' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
+                                                                >
+                                                                    Highest to Lowest
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSortType('price-low-to-high');
+                                                                        toggleFilterMenu();
+                                                                    }}
+                                                                    className={`text-left px-3 py-2 rounded-lg text-sm ${sortType === 'price-low-to-high' ? 'bg-[#0BB248] text-white' : 'bg-gray-100'}`}
+                                                                >
+                                                                    Lowest to Highest
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {/* Desktop filters - only visible on larger screens */}
-                                    {displayedProducts.length > 0 && (
-                                        <div className="hidden sm:flex w-full sm:w-auto flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
-                                            <p className="text-base font-cabin font-normal text-[#0BB248] mb-2 sm:mb-0">Sort By:</p>
-                                            <div className="flex items-center flex-wrap gap-2">
-                                                {/* Date Sort Button */}
-                                                <button
-                                                    onClick={() => setShowDateDialog(true)}
-                                                    className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                >
-                                                    <Icon icon={calendarOutlineIcon} width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#0BB248"} />
-                                                    <p className={`text-xs sm:text-sm font-cabin font-normal`}>Date</p>
-                                                </button>
-
-                                                {/* Status Sort Button */}
-                                                <button
-                                                    onClick={() => setShowStatusDialog(true)}
-                                                    className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                >
-                                                    <Icon icon={clockThinIcon} width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#0BB248"} />
-                                                    <p className={`text-xs sm:text-sm font-cabin font-normal`}>Status</p>
-                                                </button>
-
-                                                {/* Price Sort Button */}
-                                                <button
-                                                    onClick={() => setShowPriceDialog(true)}
-                                                    className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                >
-                                                    <Icon icon={sortByTimeLinearIcon} width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#0BB248"} />
-                                                    <p className={`text-xs sm:text-sm font-cabin font-normal`}>Price</p>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Additional Desktop Filters and Statistics (Only for products tab) */}
-                                {activeTab === 'products' && (
-                                    <div className="hidden sm:flex flex-row gap-6 w-full mt-4">
-                                        {/* Left Section: Filters */}
-                                        <div className="flex flex-col gap-3 flex-1">
-                                            {/* Blips Filter */}
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-sm font-cabin font-medium text-[#17171B] min-w-[100px]">Filter by Blips:</p>
+                                        {/* Desktop filters - only visible on larger screens */}
+                                        {displayedProducts.length > 0 && (
+                                            <div className="hidden lg:flex w-full lg:w-auto flex-col lg:flex-row items-start lg:items-center justify-between flex-wrap gap-2">
+                                                <p className="text-base font-cabin font-normal text-[#0BB248] mb-2 sm:mb-0">Sort By:</p>
                                                 <div className="flex items-center flex-wrap gap-2">
+                                                    {/* Date Sort Button */}
                                                     <button
-                                                        onClick={() => setBlipsFilter('all')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        onClick={() => setShowDateDialog(true)}
+                                                        className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                                     >
-                                                        All
+                                                        <Icon icon={calendarOutlineIcon} width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#0BB248"} />
+                                                        <p className={`text-xs sm:text-sm font-cabin font-normal`}>Date</p>
                                                     </button>
+
+                                                    {/* Status Sort Button */}
                                                     <button
-                                                        onClick={() => setBlipsFilter('1')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '1' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        onClick={() => setShowStatusDialog(true)}
+                                                        className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                                     >
-                                                        1 Blip
+                                                        <Icon icon={clockThinIcon} width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#0BB248"} />
+                                                        <p className={`text-xs sm:text-sm font-cabin font-normal`}>Status</p>
                                                     </button>
+
+                                                    {/* Price Sort Button */}
                                                     <button
+                                                        onClick={() => setShowPriceDialog(true)}
+                                                        className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                    >
+                                                        <Icon icon={sortByTimeLinearIcon} width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#0BB248"} />
+                                                        <p className={`text-xs sm:text-sm font-cabin font-normal`}>Price</p>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Additional Desktop Filters and Statistics (Only for products tab) */}
+                                    {activeTab === 'products' && (
+                                        <div className="hidden lg:flex flex-row gap-6 w-full mt-4">
+                                            {/* Left Section: Filters */}
+                                            <div className="flex flex-col gap-3 flex-1">
+                                                {/* Blips Filter */}
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-sm font-cabin font-medium text-[#17171B] min-w-[100px]">Filter by Blips:</p>
+                                                    <div className="flex items-center flex-wrap gap-2">
+                                                        <button
+                                                            onClick={() => setBlipsFilter('all')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            All
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setBlipsFilter('0')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '0' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            0 Blips
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setBlipsFilter('1')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '1' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            1 Blip
+                                                        </button>
+                                                        {/* <button
                                                         onClick={() => setBlipsFilter('2')}
                                                         className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '2' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                                     >
@@ -902,81 +946,119 @@ const ProductsPage = () => {
                                                         className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '4' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                                     >
                                                         4 Blips
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setBlipsFilter('5+')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '5+' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                    >
-                                                        5+ Blips
-                                                    </button>
+                                                    </button>*/}
+                                                        <button
+                                                            onClick={() => setBlipsFilter('5+')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === '5+' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            5+ Blips
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setBlipsFilter('custom')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${blipsFilter === 'custom' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            Custom Blips
+                                                        </button>
+
+                                                        {/* Custom Blips Input */}
+                                                        {blipsFilter === 'custom' && (
+                                                            <div className="flex items-center gap-2 ml-2">
+                                                                <span className="text-xs text-[#17171B]">Enter amount:</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={customBlipsInput}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        setCustomBlipsInput(value);
+                                                                        // Update the actual threshold when valid number is entered
+                                                                        const numValue = parseInt(value);
+                                                                        if (!isNaN(numValue) && numValue >= 0) {
+                                                                            setCustomBlipsThreshold(numValue);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        // Ensure we have a valid value on blur
+                                                                        const value = e.target.value;
+                                                                        const numValue = parseInt(value);
+                                                                        if (isNaN(numValue) || numValue < 0) {
+                                                                            setCustomBlipsInput('0');
+                                                                            setCustomBlipsThreshold(0);
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Enter number"
+                                                                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0BB248] focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Stock Filter */}
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-sm font-cabin font-medium text-[#17171B] min-w-[100px]">Filter by Stock:</p>
-                                                <div className="flex items-center flex-wrap gap-2">
-                                                    <button
-                                                        onClick={() => setStockFilter('all')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                    >
-                                                        All Stock
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setStockFilter('out-of-stock')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'out-of-stock' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                    >
-                                                        Out of Stock
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setStockFilter('low-stock')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'low-stock' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                    >
-                                                        Low Stock (&lt;10)
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setStockFilter('custom')}
-                                                        className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'custom' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
-                                                    >
-                                                        Custom Stock
-                                                    </button>
+                                                {/* Stock Filter */}
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-sm font-cabin font-medium text-[#17171B] min-w-[100px]">Filter by Stock:</p>
+                                                    <div className="flex items-center flex-wrap gap-2">
+                                                        <button
+                                                            onClick={() => setStockFilter('all')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            All Stock
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setStockFilter('out-of-stock')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'out-of-stock' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            Out of Stock
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setStockFilter('low-stock')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'low-stock' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            Low Stock (&lt;10)
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setStockFilter('custom')}
+                                                            className={`flex items-center gap-1 text-xs font-cabin font-normal cursor-pointer ${stockFilter === 'custom' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 px-3 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                        >
+                                                            Custom Stock
+                                                        </button>
 
-                                                    {/* Custom Stock Input */}
-                                                    {stockFilter === 'custom' && (
-                                                        <div className="flex items-center gap-2 ml-2">
-                                                            <span className="text-xs text-[#17171B]">Enter amount:</span>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={customStockInput}
-                                                                onChange={(e) => {
-                                                                    const value = e.target.value;
-                                                                    setCustomStockInput(value);
-                                                                    // Update the actual threshold when valid number is entered
-                                                                    const numValue = parseInt(value);
-                                                                    if (!isNaN(numValue) && numValue > 0) {
-                                                                        setCustomStockThreshold(numValue);
-                                                                    }
-                                                                }}
-                                                                onBlur={(e) => {
-                                                                    // Ensure we have a valid value on blur
-                                                                    const value = e.target.value;
-                                                                    const numValue = parseInt(value);
-                                                                    if (isNaN(numValue) || numValue < 1) {
-                                                                        setCustomStockInput('1');
-                                                                        setCustomStockThreshold(1);
-                                                                    }
-                                                                }}
-                                                                placeholder="Enter number"
-                                                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0BB248] focus:border-transparent"
-                                                            />
-                                                        </div>
-                                                    )}
+                                                        {/* Custom Stock Input */}
+                                                        {stockFilter === 'custom' && (
+                                                            <div className="flex items-center gap-2 ml-2">
+                                                                <span className="text-xs text-[#17171B]">Enter amount:</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={customStockInput}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        setCustomStockInput(value);
+                                                                        // Update the actual threshold when valid number is entered
+                                                                        const numValue = parseInt(value);
+                                                                        if (!isNaN(numValue) && numValue >= 0) {
+                                                                            setCustomStockThreshold(numValue);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        // Ensure we have a valid value on blur
+                                                                        const value = e.target.value;
+                                                                        const numValue = parseInt(value);
+                                                                        if (isNaN(numValue) || numValue < 0) {
+                                                                            setCustomStockInput('0');
+                                                                            setCustomStockThreshold(0);
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Enter number"
+                                                                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0BB248] focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
                                 </div>
                                 {/* Right Section: Statistics */}
                                 {productStatistics && Object.keys(productStatistics).length > 0 && (
@@ -1007,6 +1089,28 @@ const ProductsPage = () => {
                                                     <span className="font-medium text-[#17171B]">{productStatistics.productsWithoutBlips || 0}</span>
                                                 </div>
                                             </div>
+                                            
+                                            {/* Vacation Mode Switch */}
+                                            <div className="mt-3 pt-3 border-t border-gray-100">
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-[#17171B]">Vacation Mode</span>
+                                                        <span className="text-xs text-gray-500">Temporarily close your store</span>
+                                                    </div>
+                                                    {vacationRequestPending ? (
+                                                        <div className="flex items-center justify-center w-11 h-6">
+                                                            <Loader2 className="w-4 h-4 animate-spin text-[#0BB248]" />
+                                                        </div>
+                                                    ) : (
+                                                        <Switch
+                                                            checked={vacationMode}
+                                                            onCheckedChange={handleVacationModeToggle}
+                                                            className="data-[state=checked]:bg-[#0BB248] data-[state=unchecked]:bg-gray-200"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
                                         </div>
                                     </div>
                                 )}
@@ -1082,6 +1186,8 @@ const ProductsPage = () => {
                                                                 setStockFilter('all');
                                                                 setCustomStockInput('10');
                                                                 setCustomStockThreshold(10);
+                                                                setCustomBlipsInput('1');
+                                                                setCustomBlipsThreshold(1);
                                                                 setCurrentPage(1);
                                                             }}
                                                             className="bg-[#0BB248] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0BB248]/90 transition-all duration-300"
@@ -1119,10 +1225,10 @@ const ProductsPage = () => {
                                                             {/* Status Badges */}
                                                             <div className="flex flex-wrap gap-1.5 mt-1">
                                                                 <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${item.status === 'active'
-                                                                        ? 'bg-[#0BB248]/10 text-[#0BB248]'
-                                                                        : item.status === 'draft'
-                                                                            ? 'bg-[#FFA500]/10 text-[#FFA500]'
-                                                                            : 'bg-[#9333EA]/10 text-[#9333EA]'
+                                                                    ? 'bg-[#0BB248]/10 text-[#0BB248]'
+                                                                    : item.status === 'draft'
+                                                                        ? 'bg-[#FFA500]/10 text-[#FFA500]'
+                                                                        : 'bg-[#9333EA]/10 text-[#9333EA]'
                                                                     }`}>
                                                                     {item.status === 'active' ? 'Active' :
                                                                         item.status === 'draft' ? 'Draft' :
@@ -1131,8 +1237,8 @@ const ProductsPage = () => {
 
                                                                 {activeTab === 'auctions' && item.auction && (
                                                                     <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${item.auction.status === 'ended' ? 'bg-[#DF0707]/10 text-[#DF0707]' :
-                                                                            item.auction.status === 'ongoing' ? 'bg-[#0BB248]/10 text-[#0BB248]' :
-                                                                                'bg-[#FFA500]/10 text-[#FFA500]'
+                                                                        item.auction.status === 'ongoing' ? 'bg-[#0BB248]/10 text-[#0BB248]' :
+                                                                            'bg-[#FFA500]/10 text-[#FFA500]'
                                                                         }`}>
                                                                         {item.auction.status === 'ended' ? 'Ended' :
                                                                             item.auction.status === 'ongoing' ? 'Ongoing' :
@@ -1198,8 +1304,8 @@ const ProductsPage = () => {
                                                                     <div className="flex gap-2 items-center">
                                                                         <p className="text-sm">{item.stock || 0}</p>
                                                                         <span className={`px-1.5 py-0.5 text-xs rounded-full ${item.stock > 50 ? 'bg-[#0BB248]/10 text-[#0BB248]' :
-                                                                                item.stock > 0 ? 'bg-[#FFA500]/10 text-[#FFA500]' :
-                                                                                    'bg-[#DF0707]/10 text-[#DF0707]'
+                                                                            item.stock > 0 ? 'bg-[#FFA500]/10 text-[#FFA500]' :
+                                                                                'bg-[#DF0707]/10 text-[#DF0707]'
                                                                             }`}>
                                                                             {item.stock > 50 ? 'In Stock' :
                                                                                 item.stock > 0 ? 'Low Stock' :
@@ -1367,6 +1473,8 @@ const ProductsPage = () => {
                                                         setStockFilter('all');
                                                         setCustomStockInput('10');
                                                         setCustomStockThreshold(10);
+                                                        setCustomBlipsInput('1');
+                                                        setCustomBlipsThreshold(1);
                                                         setCurrentPage(1);
                                                     }}
                                                     className="bg-[#0BB248] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0BB248]/90 transition-all duration-300"
@@ -1393,8 +1501,8 @@ const ProductsPage = () => {
                                             onClick={handlePreviousPage}
                                             disabled={currentPage <= 1}
                                             className={`flex-1 ${currentPage <= 1
-                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                                                ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                                                : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                                 } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
                                             <Icon icon={arrowLongLeftIcon} width="14" height="14" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
@@ -1409,8 +1517,8 @@ const ProductsPage = () => {
                                             onClick={handleNextPage}
                                             disabled={currentPage >= paginationData.totalPages}
                                             className={`flex-1 ${currentPage >= paginationData.totalPages
-                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                                                ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                                                : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                                 } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
                                         >
                                             <span className="text-xs">Next</span>
@@ -1424,8 +1532,8 @@ const ProductsPage = () => {
                                             onClick={handlePreviousPage}
                                             disabled={currentPage <= 1}
                                             className={`text-xs sm:text-sm font-cabin font-normal ${currentPage <= 1
-                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                                                ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                                                : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                                 } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
                                             <Icon icon={arrowLongLeftIcon} width="16" height="16" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
@@ -1446,8 +1554,8 @@ const ProductsPage = () => {
                                             onClick={handleNextPage}
                                             disabled={currentPage >= paginationData.totalPages}
                                             className={`text-xs sm:text-sm font-cabin font-normal ${currentPage >= paginationData.totalPages
-                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                                                    : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                                                ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                                                : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
                                                 } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
                                         >
                                             <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
@@ -1568,8 +1676,8 @@ const ProductsPage = () => {
                                 setShowStatusDialog(false);
                             }}
                             className={`flex items-center justify-between p-3 sm:p-4 rounded-lg text-sm ${sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft')
-                                    ? 'bg-[#0BB248] text-white'
-                                    : 'bg-[#0BB24817] text-[#0BB248]'
+                                ? 'bg-[#0BB248] text-white'
+                                : 'bg-[#0BB24817] text-[#0BB248]'
                                 }`}
                         >
                             <span>Show All</span>
@@ -1654,8 +1762,8 @@ const ProductsPage = () => {
                                         <h2 className="text-xl font-semibold">{selectedProduct.name}</h2>
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className={`px-2 py-1 rounded-full text-xs ${selectedProduct.status === 'active'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-yellow-100 text-yellow-800'
                                                 }`}>
                                                 {selectedProduct.status.charAt(0).toUpperCase() + selectedProduct.status.slice(1)}
                                             </span>
@@ -1736,7 +1844,7 @@ const ProductsPage = () => {
                         <DialogHeader className="space-y-3">
                             <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
                             <DialogDescription className="text-sm sm:text-base">
-                                Detailed information about this auction's performance
+                                Detailed information about this auction&apos;s performance
                             </DialogDescription>
                         </DialogHeader>
 
@@ -1855,6 +1963,114 @@ const ProductsPage = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Mobile Drawer for Blips Filter */}
+            <Drawer open={showBlipsDrawer} onOpenChange={setShowBlipsDrawer}>
+                <DrawerContent className="p-4 rounded-t-2xl w-full max-w-full">
+                    <DrawerHeader>
+                        <DrawerTitle>Filter by Blips</DrawerTitle>
+                        <DrawerClose asChild>
+                            <button className="absolute right-4 top-4 text-gray-400" onClick={() => setShowBlipsDrawer(false)}>
+                                <Icon icon={xMarkIcon} width="24" />
+                            </button>
+                        </DrawerClose>
+                    </DrawerHeader>
+                    <div className="flex flex-col gap-3 mt-4">
+                        {/* Blips Filter UI (mobile) */}
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={() => { setBlipsFilter('all'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>All</button>
+                            <button onClick={() => { setBlipsFilter('0'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '0' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>0 Blips</button>
+                            <button onClick={() => { setBlipsFilter('1'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '1' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>1 Blip</button>
+                            <button onClick={() => { setBlipsFilter('2'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '2' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>2 Blips</button>
+                            <button onClick={() => { setBlipsFilter('3'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '3' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>3 Blips</button>
+                            <button onClick={() => { setBlipsFilter('4'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '4' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>4 Blips</button>
+                            <button onClick={() => { setBlipsFilter('5+'); setShowBlipsDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === '5+' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>5+ Blips</button>
+                            <button onClick={() => { setBlipsFilter('custom'); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${blipsFilter === 'custom' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>Custom Blips</button>
+                        </div>
+                        {blipsFilter === 'custom' && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-[#17171B]">Enter amount:</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={customBlipsInput}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setCustomBlipsInput(value);
+                                        const numValue = parseInt(value);
+                                        if (!isNaN(numValue) && numValue >= 0) {
+                                            setCustomBlipsThreshold(numValue);
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        const value = e.target.value;
+                                        const numValue = parseInt(value);
+                                        if (isNaN(numValue) || numValue < 0) {
+                                            setCustomBlipsInput('1');
+                                            setCustomBlipsThreshold(1);
+                                        }
+                                    }}
+                                    placeholder="Enter number"
+                                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0BB248] focus:border-transparent"
+                                />
+                                <button onClick={() => setShowBlipsDrawer(false)} className="ml-2 px-3 py-2 bg-[#0BB248] text-white rounded-lg text-xs">Apply</button>
+                            </div>
+                        )}
+                    </div>
+                </DrawerContent>
+            </Drawer>
+
+            {/* Mobile Drawer for Stock Filter */}
+            <Drawer open={showStockDrawer} onOpenChange={setShowStockDrawer}>
+                <DrawerContent className="p-4 rounded-t-2xl w-full max-w-full">
+                    <DrawerHeader>
+                        <DrawerTitle>Filter by Stock</DrawerTitle>
+                        <DrawerClose asChild>
+                            <button className="absolute right-4 top-4 text-gray-400" onClick={() => setShowStockDrawer(false)}>
+                                <Icon icon={xMarkIcon} width="24" />
+                            </button>
+                        </DrawerClose>
+                    </DrawerHeader>
+                    <div className="flex flex-col gap-3 mt-4">
+                        {/* Stock Filter UI (mobile) */}
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => { setStockFilter('all'); setShowStockDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${stockFilter === 'all' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>All Stock</button>
+                            <button onClick={() => { setStockFilter('out-of-stock'); setShowStockDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${stockFilter === 'out-of-stock' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>Out of Stock</button>
+                            <button onClick={() => { setStockFilter('low-stock'); setShowStockDrawer(false); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${stockFilter === 'low-stock' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>Low Stock (&lt;10)</button>
+                            <button onClick={() => { setStockFilter('custom'); }} className={`flex-1 px-3 py-2 rounded-lg text-sm ${stockFilter === 'custom' ? 'bg-[#0BB248] text-white' : 'bg-gray-100 text-[#0BB248]'}`}>Custom Stock</button>
+                        </div>
+                        {stockFilter === 'custom' && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-[#17171B]">Enter amount:</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={customStockInput}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setCustomStockInput(value);
+                                        const numValue = parseInt(value);
+                                        if (!isNaN(numValue) && numValue >= 0) {
+                                            setCustomStockThreshold(numValue);
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        const value = e.target.value;
+                                        const numValue = parseInt(value);
+                                        if (isNaN(numValue) || numValue < 0) {
+                                            setCustomStockInput('1');
+                                            setCustomStockThreshold(1);
+                                        }
+                                    }}
+                                    placeholder="Enter number"
+                                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0BB248] focus:border-transparent"
+                                />
+                                <button onClick={() => setShowStockDrawer(false)} className="ml-2 px-3 py-2 bg-[#0BB248] text-white rounded-lg text-xs">Apply</button>
+                            </div>
+                        )}
+                    </div>
+                </DrawerContent>
+            </Drawer>
         </>
     )
 }

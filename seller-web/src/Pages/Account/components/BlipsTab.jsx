@@ -119,7 +119,7 @@ export default function BlipsTab({ sellerId }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {blips.map((blip) => (
             <Card key={blip.blipId} className="overflow-hidden hover:shadow-lg transition-all duration-300 border border-zinc-200 hover:border-zinc-300">
               <div className="relative">

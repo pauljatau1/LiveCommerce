@@ -3,9 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 
+// Add this helper function for number formatting
+function formatMetricValue(value) {
+    if (!value) return "0";
+    if (value >= 1000000000) return `${(value / 1000000000).toFixed(2)}B`;
+    if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(2)}K`;
+    return value.toString();
+  }
+
 function formatChangeFromLastWeek (value, type) {
     if (type == 'number') {
-      return `+${value}`;
+      return `+₦${formatMetricValue(value)}`;
     } else if (type == 'percentage') {
       return `${value}%`;
     } else {

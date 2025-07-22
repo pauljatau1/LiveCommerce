@@ -186,7 +186,7 @@ export default function PaymentSettings() {
 
   const BankDetailsDialog = () => (
     <Dialog open={isEditing} onOpenChange={setIsEditing}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[70vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {bankDetails.accountNumber ? "Request Bank Details Change" : "Add Bank Details"}
@@ -351,7 +351,7 @@ export default function PaymentSettings() {
   return (
     <div className="space-y-6">
       <PendingRequestBanner />
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Payout Details */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -432,7 +432,7 @@ export default function PaymentSettings() {
 
       {/* Purchase Label Card */}
       <Card>
-        <CardContent className="flex items-center justify-between p-6">
+        <CardContent className="flex flex-col md:flex-row items-start gap-4 md:items-center justify-between p-6">
           <div>
             <h3 className="text-lg font-semibold mb-2">Purchase Label</h3>
             <p className="text-sm text-muted-foreground">

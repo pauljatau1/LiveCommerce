@@ -246,7 +246,7 @@ export default function DashboardOrdersTableCard() {
                             order.channel.slice(1)}
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-2">
+                          <div className="flex items-center justify-center">
                             <Badge
                               className={
                                 order.isStale
@@ -263,11 +263,11 @@ export default function DashboardOrdersTableCard() {
                                 : "Closed"}
                             </Badge>
                             {!order.orderStatus?.hasReturn ? (
-                              <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
+                              <Badge className="bg-green-100 ml-2 flex-nowrap whitespace-nowrap hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
                                 No Issues
                               </Badge>
                             ) : (
-                              <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
+                              <Badge className="bg-orange-100 ml-2 flex-nowrap whitespace-nowrap hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
                                 Order Issues
                               </Badge>
                             )}

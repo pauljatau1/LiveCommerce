@@ -23,7 +23,7 @@ import { trackEvent } from "@/util/analytics";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ui/tooltip";
 
 export default function AccountPage() {
-  const { setHeaderName } = useOutletContext();
+  const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +82,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     setHeaderName("Account");
-    
+    setNavName("");
     // Check if the URL has parameters
     const queryParams = new URLSearchParams(window.location.search);
     
@@ -531,7 +531,7 @@ export default function AccountPage() {
 
           {/* Rest of the content */}
           <div className="space-y-3 sm:space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-0">
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-2 lg:gap-0">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                   <h1 className="text-lg sm:text-2xl font-bold tracking-tight">{profile?.storeName || `${profile?.firstName} ${profile?.lastName}`}</h1>
@@ -623,7 +623,7 @@ export default function AccountPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
               {[
                 { 
                   label: "Streams", 

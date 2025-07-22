@@ -117,7 +117,7 @@ const NIGERIAN_BANKS = [
 ];
 
 const KycVerificationPage = () => {
-    const { setHeaderName } = useOutletContext();
+    const { setHeaderName, setNavName } = useOutletContext();
     const { emailVerified } = useAuthContext();
     const [activeTab, setActiveTab] = useState('email');
     const [sellerDetails, setSellerDetails] = useState(null);
@@ -162,6 +162,7 @@ const KycVerificationPage = () => {
 
     useEffect(() => {
         setHeaderName('KYC Verification');
+        setNavName('');
 
         // Get seller details from localStorage
         const seller = JSON.parse(localStorage.getItem('seller') || '{}');
@@ -631,7 +632,7 @@ const KycVerificationPage = () => {
             {/* Progress Overview */}
             <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
                 <h2 className="text-lg font-semibold mb-4">Verification Progress</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {tabs.map((tab) => (
                         <div key={tab.id} className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
                             <div className={`p-2 rounded-full ${tab.isVerified ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'

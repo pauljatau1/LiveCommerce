@@ -68,7 +68,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing vendor cache
-          key: v1-seller-{{ .Revision }}-{{ .Branch }}
+          key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
       - run:
           name: Install dependencies
           command: |
@@ -80,7 +80,7 @@ commands:
           path: package-lock.json
       - save_cache:
           name: Save vendor cache
-          key: v1-seller-{{ .Revision }}-{{ .Branch }}
+          key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
           paths:
             - << pipeline.parameters.build_path >>
   vendor_restore_cache:
@@ -89,7 +89,7 @@ commands:
       - restore_cache:
           name: Restore vendor cache
           keys:
-            - v1-seller-{{ .Revision }}-{{ .Branch }}
+            - v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
   build_backend_image:
     description: Build backend image (nodejs)
     parameters:
@@ -111,7 +111,7 @@ commands:
           region: eu-central-1
           tag: 'latest,$CIRCLE_SHA1'
           extra_build_args: >
-            --build-arg ACCOUNT_ID=<< parameters.account_id >> 
+            --build-arg ACCOUNT_ID=<< parameters.account_id >>
   add_deploy_key:
     description: Add circleci ssh key
     steps:
@@ -250,7 +250,7 @@ workflows:
             branches:
               ignore:
                 - main
-     
+
       - build:
           name: build_production
           context:
@@ -259,6 +259,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - approve-production-backend-deploy:
           type: approval
@@ -268,6 +270,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - deploy_to_production:
           name: deploy-to-production-backend
@@ -279,6 +283,8 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: .*
 
       - remove_cache_production:
           requires:
@@ -287,4 +293,5 @@ workflows:
             branches:
               only:
                 - main
-
+            tags:
+              only: .*

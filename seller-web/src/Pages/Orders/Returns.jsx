@@ -116,24 +116,24 @@ export default function ReturnsDashboard() {
 
     const getStatusBadgeStyles = (status) => {
         return status === "PENDING_SELLER_REVIEW"
-            ? "bg-blue-50 text-blue-600 border-blue-600"
+            ? "bg-blue-50 text-blue-600 border-blue-600 whitespace-nowrap"
             : status === "NEED_MORE_INFO"
-            ? "bg-purple-50 text-purple-600 border-purple-600"
+            ? "bg-purple-50 text-purple-600 border-purple-600 whitespace-nowrap"
             : status === "APPROVED"
-            ? "bg-green-50 text-green-600 border-green-600"
+            ? "bg-green-50 text-green-600 border-green-600 whitespace-nowrap"
             : status === "REJECTED"
-            ? "bg-red-50 text-red-600 border-red-600"
+            ? "bg-red-50 text-red-600 border-red-600 whitespace-nowrap"
             : status === "IN_TRANSIT"
-            ? "bg-yellow-50 text-yellow-600 border-yellow-600"
+            ? "bg-yellow-50 text-yellow-600 border-yellow-600 whitespace-nowrap"
             : status === "RECEIVED"
-            ? "bg-cyan-50 text-cyan-600 border-cyan-600"
+            ? "bg-cyan-50 text-cyan-600 border-cyan-600 whitespace-nowrap"
             : status === "REFUNDED"
-            ? "bg-emerald-50 text-emerald-600 border-emerald-600"
+            ? "bg-emerald-50 text-emerald-600 border-emerald-600 whitespace-nowrap"
             : status === "CLOSED"
-            ? "bg-gray-50 text-gray-600 border-gray-600"
+            ? "bg-gray-50 text-gray-600 border-gray-600 whitespace-nowrap"
             : status === "DISPUTED"
-            ? "bg-orange-50 text-orange-600 border-orange-600"
-            : "bg-teal-50 text-teal-600"; // for RESOLVED
+            ? "bg-orange-50 text-orange-600 border-orange-600 whitespace-nowrap"
+            : "bg-teal-50 text-teal-600 whitespace-nowrap"; // for RESOLVED
     };
 
     return (
@@ -141,7 +141,7 @@ export default function ReturnsDashboard() {
             {/* Desktop Tabs */}
             <div className="hidden sm:block">
                 <Tabs value={currentStatus} onValueChange={handleStatusChange} className="w-full">
-                    <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                    <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                         {[
                             { value: 'all-status', label: 'All Status' },
                             { value: 'pending_seller_review', label: 'Pending Review' },
@@ -169,7 +169,7 @@ export default function ReturnsDashboard() {
                     <SelectTrigger className="w-full bg-white">
                         <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent >
                         {[
                             { value: 'all-status', label: 'All Status' },
                             { value: 'pending_seller_review', label: 'Pending Review' },

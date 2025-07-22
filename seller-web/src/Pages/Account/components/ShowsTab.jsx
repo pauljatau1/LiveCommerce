@@ -111,8 +111,8 @@ export default function ShowsTab({ sellerId }) {
       ) : (
         streams.map((stream) => (
           <Card key={stream._id} className="overflow-hidden border-zinc-200 hover:border-zinc-300 hover:shadow-md transition-all duration-200">
-            <div className="md:flex">
-              <div className="w-full md:w-64 h-48 relative overflow-hidden">
+            <div className="lg:flex">
+              <div className="w-full lg:w-64 h-48 relative overflow-hidden">
                 <img
                   src={getImageUrl(stream)}
                   alt="Show thumbnail"
