@@ -1,11 +1,10 @@
 import { getToken } from "@/store/features/auth/utils";
-import { useToast } from '@/contexts/ToastContext';
+import { useToast } from "@/contexts/ToastContext";
 import { createContext, useContext, useReducer } from "react";
 import { useRouter } from "expo-router";
 import { trackEvent } from "@/utils/analytics";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 
 export const LivestreamContext = createContext({});
 
@@ -37,7 +36,11 @@ export const LivestreamProvider = ({ children }) => {
       case "RESET_STREAM_ENDED":
         return { ...state, isStreamEnded: false };
       case "SET_IS_STREAM_SCHEDULED":
-        return { ...state, isStreamScheduled: action.isStreamScheduled, scheduledStreamDetails: action.scheduledStreamDetails };
+        return {
+          ...state,
+          isStreamScheduled: action.isStreamScheduled,
+          scheduledStreamDetails: action.scheduledStreamDetails,
+        };
       default:
         return state;
     }
@@ -68,7 +71,11 @@ export const LivestreamProvider = ({ children }) => {
       dispatch({ type: "SET_IS_LOADING", payload: true });
       // Reset the stream ended state when joining a new stream
       dispatch({ type: "SET_STREAM_ENDED", payload: false });
-      dispatch({ type: "SET_IS_STREAM_SCHEDULED", isStreamScheduled: false, scheduledStreamDetails: null });
+      dispatch({
+        type: "SET_IS_STREAM_SCHEDULED",
+        isStreamScheduled: false,
+        scheduledStreamDetails: null,
+      });
       const token = await AsyncStorage.getItem("token");
       const userToken = JSON.parse(token);
 
@@ -78,7 +85,7 @@ export const LivestreamProvider = ({ children }) => {
           text1: "Error",
           text2: "You must be logged in to join a stream",
           type: "error",
-          topPosition: 18
+          topPosition: 18,
         });
         throw new Error("No authentication token found");
       }
@@ -102,8 +109,8 @@ export const LivestreamProvider = ({ children }) => {
         try {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
-          
-          trackEvent('buyer_joined_stream', {
+
+          trackEvent("buyer_joined_stream", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -117,7 +124,7 @@ export const LivestreamProvider = ({ children }) => {
             streamStartTime: response.data.stream.startTime,
             streamCategory: response.data.stream.category,
             streamSubCategory: response.data.stream.subCategory,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
         } catch (trackError) {
           console.log("Customer.io stream join tracking error:", trackError);
@@ -126,19 +133,25 @@ export const LivestreamProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Error joining stream:", error);
-      
+
       // Check if the error is a 404 error (stream ended)
       if (error?.response?.data?.message === "Stream has already ended") {
         console.log("Stream ended or not found, setting stream ended state");
         dispatch({ type: "SET_STREAM_ENDED", payload: true });
-      } else if (error?.response?.data?.message === "Stream has not started yet") {
+      } else if (
+        error?.response?.data?.message === "Stream has not started yet"
+      ) {
         console.log("Stream is not active, setting stream scheduled state");
         console.log("Scheduled stream details", error?.response?.data?.stream);
-        dispatch({ type: "SET_IS_STREAM_SCHEDULED", isStreamScheduled: true, scheduledStreamDetails: error?.response?.data?.stream });
+        dispatch({
+          type: "SET_IS_STREAM_SCHEDULED",
+          isStreamScheduled: true,
+          scheduledStreamDetails: error?.response?.data?.stream,
+        });
       }
-      
+
       throw new Error(
-        error?.response?.data?.message || "Failed to join stream"
+        error?.response?.data?.message || "Failed to join stream",
       );
     } finally {
       dispatch({ type: "SET_IS_LOADING", payload: false });
@@ -182,7 +195,7 @@ export const LivestreamProvider = ({ children }) => {
           headers: {
             Authorization: `Bearer ${userToken}`,
           },
-        }
+        },
       );
 
       if (response.status === 200) {
@@ -192,7 +205,7 @@ export const LivestreamProvider = ({ children }) => {
     } catch (error) {
       console.error("Error leaving stream:", error);
       throw new Error(
-        error?.response?.data?.message || "Failed to leave stream"
+        error?.response?.data?.message || "Failed to leave stream",
       );
     } finally {
       dispatch({ type: "SET_IS_LOADING", payload: false });
@@ -217,22 +230,26 @@ export const LivestreamProvider = ({ children }) => {
         },
       );
       if (response.status === 200) {
-        console.log("Successfully followed seller through stream:", response.data);
+        console.log(
+          "Successfully followed seller through stream:",
+          response.data,
+        );
         show({
           text1: "Success",
           text2: `You are now following ${sellerName}`,
           type: "success",
-          topPosition: 18
+          topPosition: 18,
         });
         return response.data;
       }
     } catch (error) {
       console.error("Error following seller through stream:", error);
       throw new Error(
-        error?.response?.data?.message || "Failed to follow seller through stream"
+        error?.response?.data?.message ||
+          "Failed to follow seller through stream",
       );
     }
-  }
+  };
 
   const unfollowSellerThroughStream = async (sellerId, sellerName) => {
     try {
@@ -251,22 +268,26 @@ export const LivestreamProvider = ({ children }) => {
         },
       );
       if (response.status === 200) {
-        console.log("Successfully unfollowed seller through stream:", response.data);
+        console.log(
+          "Successfully unfollowed seller through stream:",
+          response.data,
+        );
         show({
           text1: "Success",
           text2: `You unfollowed ${sellerName}`,
           type: "success",
-          topPosition: 18
+          topPosition: 18,
         });
         return response.data;
       }
     } catch (error) {
       console.error("Error unfollowing seller through stream:", error);
       throw new Error(
-        error?.response?.data?.message || "Failed to unfollow seller through stream"
+        error?.response?.data?.message ||
+          "Failed to unfollow seller through stream",
       );
     }
-  }
+  };
 
   const checkIfSellerIsFollowedFromSellerProfile = async (sellerId) => {
     try {
@@ -285,16 +306,20 @@ export const LivestreamProvider = ({ children }) => {
         },
       );
       if (response.status === 200) {
-        console.log("Successfully checked if seller is followed:", response.data);
+        console.log(
+          "Successfully checked if seller is followed:",
+          response.data,
+        );
         return response.data;
       }
     } catch (error) {
       console.error("Error checking if seller is followed:", error);
       throw new Error(
-        error?.response?.data?.message || "Failed to check if seller is followed"
+        error?.response?.data?.message ||
+          "Failed to check if seller is followed",
       );
     }
-  }
+  };
 
   const fetchStreamOrders = async (streamId) => {
     try {
@@ -320,10 +345,10 @@ export const LivestreamProvider = ({ children }) => {
     } catch (error) {
       console.error("Error fetching stream orders:", error);
       throw new Error(
-        error?.response?.data?.message || "Failed to fetch stream orders"
+        error?.response?.data?.message || "Failed to fetch stream orders",
       );
     }
-  }
+  };
 
   return (
     <LivestreamContext.Provider

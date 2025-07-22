@@ -10,14 +10,12 @@ import { FormProvider, useForm } from "react-hook-form";
 import {
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useDispatch } from "react-redux";
 import { useLoginMutation } from "@/services/auth";
@@ -38,6 +36,8 @@ import { identifyUser, trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // For development debugging
 import { debugAnalytics } from "@/utils/analytics";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -104,17 +104,8 @@ const Login = () => {
         if (result) {
           // Identify the user directly
           identifyUser(result?.user?._id, {
-            $email: email,
-            $name: result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-          });
-
-          trackEvent("buyer_login", {
-            userId: result?.user?._id,
-            $email: email,
-            $name: result?.user?.firstName + " " + result?.user?.lastName,
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,
             username: result?.user?.username,
@@ -122,12 +113,32 @@ const Login = () => {
             shippingAddress: result?.user?.shippingAddresses[0],
             country: result?.user?.country,
             emailVerified: result?.user?.emailVerified,
-            walletBalance: `₦${result?.user?.wallet?.balance?.toLocaleString()}`,
-            onHoldAmount: `₦${result?.user?.wallet?.onHoldAmount?.toLocaleString()}`,
+            walletBalance: result?.user?.wallet?.balance,
+            onHoldAmount: result?.user?.wallet?.onHoldAmount,
             onHoldItems: result?.user?.wallet?.onHoldAmount
               ? result?.user?.wallet?.onHoldItems[0]
               : "none",
-            userType: "buyer",
+            "User Type": "Buyer",
+            timestamp: new Date().toISOString(),
+          });
+
+          trackEvent("buyer_login", {
+            userId: result?.user?._id,
+            "$email": email,
+            "$name": result?.user?.firstName + " " + result?.user?.lastName,
+            firstName: result?.user?.firstName,
+            lastName: result?.user?.lastName,
+            username: result?.user?.username,
+            phoneNumber: result?.user?.phoneNumber,
+            shippingAddress: result?.user?.shippingAddresses[0],
+            country: result?.user?.country,
+            emailVerified: result?.user?.emailVerified,
+            walletBalance: result?.user?.wallet?.balance,
+            onHoldAmount: result?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.user?.wallet?.onHoldAmount
+              ? result?.user?.wallet?.onHoldItems[0]
+              : "none",
+            "User Type": "Buyer",
             timestamp: new Date().toISOString(),
           });
         }
@@ -232,7 +243,7 @@ const Login = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="bg-black h-full">
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={"padding"}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
           <ScrollView showsVerticalScrollIndicator={false}>

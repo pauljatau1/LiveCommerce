@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Pressable,
   Platform,
   useWindowDimensions,
@@ -23,6 +22,7 @@ import CatalogCard from "@/components/catalog/catalogCard";
 import CatalogComponent from "@/components/catalog/catalogComponent";
 import LiveStreamCatalog from "@/components/catalog/liveStreamCatalog";
 import SellerCatalog from "@/components/catalog/SellerCatalog";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width } = Dimensions.get("window");
 

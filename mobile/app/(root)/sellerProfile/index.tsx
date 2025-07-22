@@ -2,7 +2,6 @@ import {
   View,
   Text,
   Dimensions,
-  SafeAreaView,
   Animated,
   useWindowDimensions,
   TouchableOpacity,
@@ -43,6 +42,7 @@ import { RootState } from "@/store";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import { ScrollView } from "react-native-virtualized-view";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(

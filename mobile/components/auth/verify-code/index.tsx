@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import React, { useEffect } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { Link, useLocalSearchParams } from "expo-router";
 import {
@@ -25,6 +24,7 @@ import CustomButton from "@/components/global/button/CustomButton";
 import LoadingModal from "@/components/global/loading-modal";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const VerifyCodeOtp = () => {
   const params = useLocalSearchParams();

@@ -1,16 +1,23 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ActivityIndicator, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { WebView } from "react-native-webview";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { getUser } from "@/store/features/auth/utils";
 import Entypo from "@expo/vector-icons/Entypo";
 import { useRouter } from "expo-router";
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 //import useClarity from "@/hooks/useClarity";
-import Constants from 'expo-constants';
+import Constants from "expo-constants";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 // Get Intercom config from environment variables
-const INTERCOM_APP_ID = process.env.EXPO_PUBLIC_INTERCOM_APP_ID || '';
+const INTERCOM_APP_ID = process.env.EXPO_PUBLIC_INTERCOM_APP_ID || "";
 
 const SupportChat = () => {
   const router = useRouter();
@@ -19,13 +26,14 @@ const SupportChat = () => {
   const [webViewKey, setWebViewKey] = useState(1);
   const webViewRef = useRef<WebView>(null);
   //const clarityHook = useClarity();
-  
+
   // Track if Intercom has been opened
   const [intercomOpened, setIntercomOpened] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Track support chat in analytics
-  {/*const trackSupportChat = (action: string, details?: Record<string, any>) => {
+  {
+    /*const trackSupportChat = (action: string, details?: Record<string, any>) => {
     try {
       // Track in Clarity
       if (clarityHook.isInitialized) {
@@ -42,35 +50,43 @@ const SupportChat = () => {
     } catch (error) {
       console.error('Failed to track support chat in analytics:', error);
     }
-  };*/}
+  };*/
+  }
 
   useEffect(() => {
     // Validate Intercom app ID
     if (!INTERCOM_APP_ID) {
-      console.error('Intercom App ID is missing. Check your environment variables.');
-      setError('Intercom configuration is missing. Please contact support.');
+      console.error(
+        "Intercom App ID is missing. Check your environment variables.",
+      );
+      setError("Intercom configuration is missing. Please contact support.");
       setLoading(false);
       return;
     }
 
-    console.log(`Intercom chat being initialized with app ID: ${INTERCOM_APP_ID.substring(0, 3)}...${INTERCOM_APP_ID.substring(INTERCOM_APP_ID.length - 3)}`);
+    console.log(
+      `Intercom chat being initialized with app ID: ${INTERCOM_APP_ID.substring(0, 3)}...${INTERCOM_APP_ID.substring(INTERCOM_APP_ID.length - 3)}`,
+    );
 
     // Get user data if available
     const fetchUser = async () => {
       try {
         const userData = await getUser();
         if (userData) {
-          console.log('User data loaded for Intercom', { 
+          console.log("User data loaded for Intercom", {
             userId: userData.id || userData._id,
-            hasEmail: !!userData.email
+            hasEmail: !!userData.email,
           });
-          console.log('User data loaded for Intercom', JSON.stringify(userData));
+          console.log(
+            "User data loaded for Intercom",
+            JSON.stringify(userData),
+          );
           setUser(userData);
         } else {
-          console.log('No user data available, will use anonymous mode');
+          console.log("No user data available, will use anonymous mode");
         }
       } catch (error) {
-        console.error('Failed to get user data:', error);
+        console.error("Failed to get user data:", error);
         // Continue with anonymous mode
       } finally {
         setLoading(false);
@@ -106,7 +122,7 @@ const SupportChat = () => {
   // Function to manually force open Intercom
   const openIntercom = () => {
     if (webViewRef.current) {
-      console.log('Manually triggering Intercom open');
+      console.log("Manually triggering Intercom open");
       webViewRef.current.injectJavaScript(openIntercomJS);
       setIntercomOpened(true);
       //trackSupportChat('opened', { method: 'manual' });
@@ -135,9 +151,9 @@ const SupportChat = () => {
 
   // Handle when WebView is loaded
   const handleWebViewLoad = () => {
-    console.log('Intercom WebView loaded successfully');
+    console.log("Intercom WebView loaded successfully");
     //trackSupportChat('webview_loaded');
-    
+
     // Auto-open attempt when WebView is fully loaded
     if (webViewRef.current) {
       setTimeout(() => {
@@ -150,62 +166,62 @@ const SupportChat = () => {
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('Message from WebView:', data);
-      
+      console.log("Message from WebView:", data);
+
       // Handle log messages
-      if (data.type === 'log') {
-        console.log('WebView Log:', data.message);
+      if (data.type === "log") {
+        console.log("WebView Log:", data.message);
         return;
       }
-      
+
       // Handle error messages
-      if (data.type === 'error') {
-        console.error('WebView Error:', data.message);
-        
+      if (data.type === "error") {
+        console.error("WebView Error:", data.message);
+
         // Special handling for cookie errors
-        if (data.message && data.message.includes('cookie')) {
-          console.warn('Cookie error detected, will use alternative approach');
+        if (data.message && data.message.includes("cookie")) {
+          console.warn("Cookie error detected, will use alternative approach");
           // We'll rely on the cookie workaround in the HTML
           //trackSupportChat('cookie_error', { message: data.message });
           return;
         }
-        
-        setError(data.message || 'Unknown error in Intercom');
+
+        setError(data.message || "Unknown error in Intercom");
         //trackSupportChat('error', { errorMessage: data.message });
         return;
       }
-      
+
       switch (data.type) {
-        case 'intercomReady':
+        case "intercomReady":
           setIntercomOpened(true);
           //trackSupportChat('ready');
           break;
-          
-        case 'intercomHidden':
+
+        case "intercomHidden":
           // When Intercom is hidden/closed, go back to previous screen
-          console.log('Intercom messenger closed, navigating back');
+          console.log("Intercom messenger closed, navigating back");
           //trackSupportChat('closed');
           // Short delay to ensure smooth transition
           router.back();
           break;
-          
-        case 'autoOpenAttempted':
-          console.log('Auto-open was attempted');
+
+        case "autoOpenAttempted":
+          console.log("Auto-open was attempted");
           setIntercomOpened(true);
           //trackSupportChat('auto_opened');
           break;
-          
-        case 'intercomEvent':
+
+        case "intercomEvent":
           // Track Intercom-specific events
-          console.log('Intercom event:', data.eventName);
+          console.log("Intercom event:", data.eventName);
           //trackSupportChat(`intercom_${data.eventName}`, data.details || {});
           break;
-          
+
         default:
-          console.log('Unknown message type from WebView:', data.type);
+          console.log("Unknown message type from WebView:", data.type);
       }
     } catch (error) {
-      console.log('Error parsing WebView message:', error);
+      console.log("Error parsing WebView message:", error);
     }
   };
 
@@ -265,8 +281,8 @@ const SupportChat = () => {
 
   // Generate HTML content for Intercom with debugging
   const generateIntercomHtml = () => {
-    console.log('Generating Intercom HTML with App ID:', INTERCOM_APP_ID);
-    
+    console.log("Generating Intercom HTML with App ID:", INTERCOM_APP_ID);
+
     // Create a simpler HTML template focused on reliable Intercom loading
     let html = `
       <!DOCTYPE html>
@@ -375,9 +391,9 @@ const SupportChat = () => {
     if (user) {
       html += `
             user_id: "${user.id || user._id}",
-            name: "${user.firstName || ''} ${user.lastName || ''}".trim(),
-            email: "${user.email || ''}",
-            phone: "${user.phoneNumber || ''}",
+            name: "${user.firstName || ""} ${user.lastName || ""}".trim(),
+            email: "${user.email || ""}",
+            phone: "${user.phoneNumber || ""}",
             created_at: ${user.createdAt ? Math.floor(new Date(user.createdAt).getTime() / 1000) : Math.floor(Date.now() / 1000)},
       `;
 
@@ -398,23 +414,23 @@ const SupportChat = () => {
             app_name: "Auqli Mobile App",
             platform: "${Platform.OS}",
             version: "${Platform.Version}",
-            phone: "${user.phoneNumber || ''}",
+            phone: "${user.phoneNumber || ""}",
             
             // Customer support attributes
             last_active: "${new Date().toISOString()}",
-            device_model: "${Platform.OS === 'ios' ? 'iOS' : 'Android'} Device",
-            app_version: "${Constants?.expoConfig?.version || '1.0.0'}",
+            device_model: "${Platform.OS === "ios" ? "iOS" : "Android"} Device",
+            app_version: "${Constants?.expoConfig?.version || "1.0.0"}",
             
             // User status attributes
-            ${user?.isVerified ? 'is_verified: true,' : ''}
-            ${user?.lastLogin ? `last_login: "${user.lastLogin}",` : ''}
-            ${user?.accountType ? `account_type: "${user.accountType}",` : ''}
-            ${user?.createdAt ? `days_since_signup: ${Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))},` : ''}
+            ${user?.isVerified ? "is_verified: true," : ""}
+            ${user?.lastLogin ? `last_login: "${user.lastLogin}",` : ""}
+            ${user?.accountType ? `account_type: "${user.accountType}",` : ""}
+            ${user?.createdAt ? `days_since_signup: ${Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))},` : ""}
             
             // Business metrics (if available)
-            ${user?.totalOrders ? `total_orders: ${user.totalOrders},` : ''}
-            ${user?.totalSpent ? `total_spent: ${user.totalSpent},` : ''}
-            ${user?.preferredCategories?.length ? `preferred_categories: "${user.preferredCategories.join(', ')}"` : ''}
+            ${user?.totalOrders ? `total_orders: ${user.totalOrders},` : ""}
+            ${user?.totalSpent ? `total_spent: ${user.totalSpent},` : ""}
+            ${user?.preferredCategories?.length ? `preferred_categories: "${user.preferredCategories.join(", ")}"` : ""}
           };
           
           window.intercomSettings = intercomSettings;
@@ -537,8 +553,10 @@ const SupportChat = () => {
   // Handle WebView errors
   const handleWebViewError = (syntheticEvent: any) => {
     const { nativeEvent } = syntheticEvent;
-    console.error('WebView error:', nativeEvent);
-    setError(`Error loading chat: ${nativeEvent.description || 'Unknown error'}`);
+    console.error("WebView error:", nativeEvent);
+    setError(
+      `Error loading chat: ${nativeEvent.description || "Unknown error"}`,
+    );
     //trackSupportChat('webview_error', { error: nativeEvent.description });
   };
 
@@ -546,8 +564,8 @@ const SupportChat = () => {
   const retryLoading = () => {
     setError(null);
     setLoading(true);
-    setWebViewKey(prev => prev + 1);
-    
+    setWebViewKey((prev) => prev + 1);
+
     // Delay to give time for state updates
     setTimeout(() => {
       setLoading(false);
@@ -555,9 +573,9 @@ const SupportChat = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#121212' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      
+
       {/* Floating Back Button */}
       {/*<TouchableOpacity
         style={{
@@ -576,45 +594,60 @@ const SupportChat = () => {
       >
         <Entypo name="chevron-left" size={24} color="#FFFFFF" />
       </TouchableOpacity>*/}
-      
+
       {loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <ActivityIndicator size="large" color="#CCCCCC" />
-          <Text style={{ color: '#CCCCCC', marginTop: 10 }}>Loading chat support...</Text>
+          <Text style={{ color: "#CCCCCC", marginTop: 10 }}>
+            Loading chat support...
+          </Text>
         </View>
       ) : error ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={{ color: '#FF6B6B', textAlign: 'center', marginBottom: 20 }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <Text
+            style={{ color: "#FF6B6B", textAlign: "center", marginBottom: 20 }}
+          >
             {error}
           </Text>
           <TouchableOpacity
             style={{
-              backgroundColor: '#16783A',
+              backgroundColor: "#16783A",
               paddingVertical: 12,
               paddingHorizontal: 24,
               borderRadius: 8,
             }}
             onPress={retryLoading}
           >
-            <Text style={{ color: 'white', fontFamily: 'LexendDeca' }}>Try Again</Text>
+            <Text style={{ color: "white", fontFamily: "LexendDeca" }}>
+              Try Again
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
         <WebView
           ref={webViewRef}
           key={webViewKey}
-          source={{ 
+          source={{
             html: generateIntercomHtml(),
             headers: {
-              "Cookie": "allow_cookies=true"
+              Cookie: "allow_cookies=true",
             },
-            baseUrl: Platform.OS === 'android' ? 'https://auqli.com/' : ''
+            baseUrl: Platform.OS === "android" ? "https://auqli.com/" : "",
           }}
-          style={{ flex: 1, backgroundColor: '#121212' }}
+          style={{ flex: 1, backgroundColor: "#121212" }}
           onLoad={handleWebViewLoad}
           onError={handleWebViewError}
           onMessage={handleWebViewMessage}
-          originWhitelist={['*']}
+          originWhitelist={["*"]}
           javaScriptEnabled={true}
           domStorageEnabled={true}
           startInLoadingState={false}
@@ -627,20 +660,22 @@ const SupportChat = () => {
           allowUniversalAccessFromFileURLs={true}
           mediaPlaybackRequiresUserAction={false}
           onHttpError={(e) => {
-            console.error('WebView HTTP error:', e.nativeEvent);
+            console.error("WebView HTTP error:", e.nativeEvent);
             //trackSupportChat('http_error', { statusCode: e.nativeEvent.statusCode });
           }}
           renderLoading={() => (
-            <View style={{ 
-              position: 'absolute', 
-              top: 0, 
-              left: 0, 
-              right: 0, 
-              bottom: 0, 
-              justifyContent: 'center', 
-              alignItems: 'center',
-              backgroundColor: '#f2f7f6' 
-            }}>
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#f2f7f6",
+              }}
+            >
               <ActivityIndicator size="large" color="#16783A" />
             </View>
           )}
@@ -650,4 +685,4 @@ const SupportChat = () => {
   );
 };
 
-export default SupportChat; 
+export default SupportChat;

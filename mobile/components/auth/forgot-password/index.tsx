@@ -18,7 +18,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -26,6 +25,7 @@ import {
 } from "react-native";
 import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import OtpSheet from "./otpSheet";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 // import { SafeAreaView } from "react-native-safe-area-context";
 
 const ForgotPassword = () => {

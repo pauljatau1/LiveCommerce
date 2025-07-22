@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   StyleSheet,
   FlatList,
   TouchableOpacity,
@@ -52,6 +51,7 @@ import Animated, {
   SlideOutDown,
   useAnimatedKeyboard,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring,
   withTiming,
@@ -70,6 +70,11 @@ import CampaignMessageItem from "@/components/messages/campaignMessageItem";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  useKeyboardAnimation,
+  useReanimatedKeyboardAnimation,
+} from "react-native-keyboard-controller";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
@@ -143,18 +148,28 @@ const MessageRoom = () => {
   const listRef = useRef<FlatList>(null);
   const isInitialLoad = useRef(true);
 
-  const keyboard = useAnimatedKeyboard();
+  // const keyboard = useAnimatedKeyboard();
+
+  const { height, progress } = useReanimatedKeyboardAnimation();
+
+  const keyboardHeight = useDerivedValue(
+    () => Math.abs(height.value),
+    [height],
+  );
 
   const optionsHeight = useSharedValue(0);
 
   const fakeView = useAnimatedStyle(() => {
+    console.log(
+      `Reanimated update - Height: ${height.value} and ${insets.bottom}`,
+    );
     return {
       height:
         Platform.OS == "ios"
-          ? keyboard.height.value - insets.bottom
-          : keyboard.height.value,
+          ? keyboardHeight.value - insets.bottom
+          : keyboardHeight.value - insets.bottom,
     };
-  }, []);
+  }, [height]);
 
   const optionsView = useAnimatedStyle(() => {
     return {
@@ -931,6 +946,7 @@ const MessageRoom = () => {
                 <View className="flex-row items-center gap-[4px]">
                   <Pressable
                     onPress={() => {
+                      Keyboard.dismiss();
                       animateOptions();
                       setShowOptions(!showOptions);
                     }}
@@ -1076,7 +1092,7 @@ const ProductItem = memo(({ item, isMyMessage }: any) => {
         maxWidth: 250,
         // backgroundColor: "#f2f2f2",
       }}
-      onPress={() => router.push(`/(root)/product/${item?.id._id}`)}
+      onPress={() => router.push(`/(root)/product/${item?.id._id || item?.id}`)}
     >
       <View>
         <Image

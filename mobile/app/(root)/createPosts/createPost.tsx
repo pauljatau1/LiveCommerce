@@ -56,7 +56,7 @@ const AnimatedTouchableOpacity =
 const visibilityArray = ["Public", "Private", "Draft"];
 
 const createPost = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const [createPost, { isLoading }] = useCreatePostMutation({});
   const [body, setBody] = useState<string>("");
   const [selectedMedia, setSelectedMedia] = useState<any[]>([]);

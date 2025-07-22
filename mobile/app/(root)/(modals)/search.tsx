@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TextInput,
   Pressable,
   Platform,
@@ -29,6 +28,8 @@ import { trackEvent } from "@/utils/analytics";
 import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { debounce } from "lodash";
 
 const Search = () => {
   const token = useSelector((state: RootState) => state.authState.token);
@@ -40,32 +41,36 @@ const Search = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [sellers, setSellers] = useState<any[]>([]);
   const [keyboardFocused, setKeyboardFocused] = useState<boolean>(false);
-  
 
-  const fetchSellers = async () => {
-    if (!searchQuery) {
-      return setSellers([]);
-    }
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/seller/search?query=${searchQuery}&page=1&limit=5`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      if (response.status === 200) {
-        setSellers(response.data?.sellers);
+  const fetchSellers = useCallback(
+    debounce(async (query) => {
+      console.log("searching debounce .....");
+
+      if (!query) {
+        return setSellers([]);
       }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          process.env.EXPO_PUBLIC_API_URL +
+            `api/seller/search?query=${query}&page=1&limit=5`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        if (response.status === 200) {
+          setSellers(response.data?.sellers);
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
+    }, 500),
+    [],
+  );
 
   const getSearchHistory = async () => {
     const history = await AsyncStorage.getItem("searchHistory");
@@ -84,7 +89,7 @@ const Search = () => {
       });
       try {
         const userData = await AsyncStorage.getItem("user");
-        const user = JSON.parse(userData || '{}');
+        const user = JSON.parse(userData || "{}");
         trackEventMixpanel("search_product", {
           searchQuery,
           userId: user?._id,
@@ -140,7 +145,7 @@ const Search = () => {
 
   useEffect(() => {
     // if (searchQuery) {
-    fetchSellers();
+    // fetchSellers();
     // }
   }, [searchQuery]);
 
@@ -267,7 +272,10 @@ const Search = () => {
               autoFocus
               returnKeyType="search"
               value={searchQuery}
-              onChangeText={(text) => setSearchQuery(text)}
+              onChangeText={(text) => {
+                fetchSellers(text);
+                setSearchQuery(text);
+              }}
               onSubmitEditing={handleSearch}
               style={{
                 fontSize: 14,

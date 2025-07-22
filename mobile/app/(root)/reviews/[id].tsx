@@ -1,10 +1,4 @@
-import {
-  View,
-  Text,
-  SafeAreaView,
-  Dimensions,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, Dimensions, TouchableOpacity } from "react-native";
 import { ScrollView } from "react-native-virtualized-view";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useCallback, useEffect, useState } from "react";
@@ -19,6 +13,7 @@ import { getToken } from "@/store/features/auth/utils";
 import MainReviewCard from "@/components/reviews/mainReviewCard";
 import { FlatList } from "react-native-gesture-handler";
 import LottieView from "lottie-react-native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 

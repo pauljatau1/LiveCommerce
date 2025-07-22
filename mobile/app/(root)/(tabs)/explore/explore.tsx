@@ -25,7 +25,7 @@ import { GlassImage } from "../../livestream/components";
 import ExploreSkeleton from "@/components/skeleton/exploreSkeleton";
 
 const Explore = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { data, isLoading, refetch } = useGetAllCategoriesQuery({});
   const [categoriesData, setCategoriesData] = useState<any[]>([]);

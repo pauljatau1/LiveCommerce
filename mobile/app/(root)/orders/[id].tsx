@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   Image,
@@ -25,6 +24,7 @@ import CancelledOrders from "@/components/orders/cancelledOrders";
 import ReturnedOrders from "@/components/orders/ReturnedOrders";
 import { MaterialCommunityIcons, SimpleLineIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -106,408 +106,405 @@ const SingleOrder = () => {
     handleGetOrder();
   }, [id]);
   return (
-    <View>
+    <SafeAreaView
+      className="h-full flex-1 bg-[#121212] "
+      style={{ minHeight: height }}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView
-        className="h-full flex-1 bg-[#121212] "
-        style={{ minHeight: height }}
-      >
-        <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
-          <TouchableOpacity
-            className="absolute left-[12px]"
-            onPress={() => {
-              router?.canGoBack()
-                ? router.back()
-                : router.push("/(root)/(tabs)/profile");
-            }}
-          >
-            <Entypo
-              name="chevron-left"
-              size={24}
-              color="rgba(204, 204, 204, 0.8)"
-            />
-          </TouchableOpacity>
 
-          <Text className="text-white font-LexendDecaMedium text-[24px]">
-            Order Details
-          </Text>
-        </View>
-        {loading ? (
-          <ActivityIndicator
-            size={"small"}
-            color="#fff"
-            style={{ marginVertical: 10 }}
+      <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
+        <TouchableOpacity
+          className="absolute left-[12px]"
+          onPress={() => {
+            router?.canGoBack()
+              ? router.back()
+              : router.push("/(root)/(tabs)/profile");
+          }}
+        >
+          <Entypo
+            name="chevron-left"
+            size={24}
+            color="rgba(204, 204, 204, 0.8)"
           />
-        ) : (
-          <View
-            style={{
-              paddingHorizontal: 16,
-              flex: 1,
+        </TouchableOpacity>
+
+        <Text className="text-white font-LexendDecaMedium text-[24px]">
+          Order Details
+        </Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator
+          size={"small"}
+          color="#fff"
+          style={{ marginVertical: 10 }}
+        />
+      ) : (
+        <View
+          style={{
+            paddingHorizontal: 16,
+            flex: 1,
+          }}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingTop: 12,
             }}
           >
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingTop: 12,
-              }}
-            >
-              {order?.shipping?.tracking?.status == "cancelled" && (
-                <CancelledOrders
-                  order={order}
-                  userToken={userToken}
-                  conversationId={conversationId}
-                />
-              )}
+            {order?.shipping?.tracking?.status == "cancelled" && (
+              <CancelledOrders
+                order={order}
+                userToken={userToken}
+                conversationId={conversationId}
+              />
+            )}
 
-              {order?.order?.orderStatus?.hasReturn && (
-                <ReturnedOrders
-                  order={order}
-                  userToken={userToken}
-                  conversationId={conversationId}
-                />
-              )}
-              {[
-                "pending",
-                "pending_pickup",
-                "picked_up",
-                "dispatched",
-                "in_transit",
-                "delivered",
-              ].includes(order?.shipping?.tracking?.status?.toLowerCase()) &&
-                !order?.order?.orderStatus?.hasReturn && (
-                  <View>
-                    {order?.shipping?.tracking?.status == "in_transit" && (
-                      <View
-                        className="bg-white rounded-[16px]"
+            {order?.order?.orderStatus?.hasReturn && (
+              <ReturnedOrders
+                order={order}
+                userToken={userToken}
+                conversationId={conversationId}
+              />
+            )}
+            {[
+              "pending",
+              "pending_pickup",
+              "picked_up",
+              "dispatched",
+              "in_transit",
+              "delivered",
+            ].includes(order?.shipping?.tracking?.status?.toLowerCase()) &&
+              !order?.order?.orderStatus?.hasReturn && (
+                <View>
+                  {order?.shipping?.tracking?.status == "in_transit" && (
+                    <View
+                      className="bg-white rounded-[16px]"
+                      style={{
+                        paddingHorizontal: 24,
+                        paddingVertical: 8,
+                        marginBottom: 30,
+                      }}
+                    >
+                      <Image
+                        source={require("../../../assets/images/shipped.png")}
+                        resizeMode="contain"
                         style={{
-                          paddingHorizontal: 24,
-                          paddingVertical: 8,
-                          marginBottom: 30,
+                          width: 90,
+                          height: 90,
+                          marginBottom: 8,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          marginBottom: 8,
                         }}
                       >
-                        <Image
-                          source={require("../../../assets/images/shipped.png")}
-                          resizeMode="contain"
-                          style={{
-                            width: 90,
-                            height: 90,
-                            marginBottom: 8,
-                          }}
-                        />
-                        <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 800,
-                            marginBottom: 8,
-                          }}
-                        >
-                          Shipped
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            marginBottom: 8,
-                            color: "#16783A",
-                            fontFamily: "LexendDeca",
-                          }}
-                        >
-                          Package has been dispatched
-                        </Text>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <View
-                            style={{
-                              paddingVertical: 8,
-                              paddingHorizontal: 4,
-                              backgroundColor: "#EBF2FA",
-                              borderRadius: 6,
-                              flexDirection: "row",
-                              alignItems: "center",
-                              alignSelf: "flex-start",
-                              justifyContent: "center",
-                              // maxWidth: 110,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 10,
-                                color: "#A6B7D4",
-                                fontFamily: "LexendDeca-Medium",
-                              }}
-                            >
-                              Shipped by {order?.shipping?.carrier?.name}
-                            </Text>
-                          </View>
-                          <Text
-                            style={{
-                              color: "#3A3A3A",
-                              fontSize: 12,
-                              fontFamily: "LexendDeca-Medium",
-                            }}
-                          >
-                            {formatDate(
-                              order?.shipping?.tracking?.lastUpdate,
-                              "MMMM DD, YYYY",
-                            )}
-                          </Text>
-                        </View>
-
-                        <Text
-                          style={{
-                            position: "absolute",
-                            top: 16,
-                            right: 24,
-                            fontSize: 8,
-                            fontWeight: 900,
-                          }}
-                        >
-                          Easily track your package
-                        </Text>
-                      </View>
-                    )}
-
-                    {order?.shipping?.tracking?.status == "delivered" && (
+                        Shipped
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          marginBottom: 8,
+                          color: "#16783A",
+                          fontFamily: "LexendDeca",
+                        }}
+                      >
+                        Package has been dispatched
+                      </Text>
                       <View
                         style={{
                           flexDirection: "row",
-                          borderRadius: 16,
-                          paddingHorizontal: 16,
-                          paddingVertical: 18,
-                          gap: 10,
-                          backgroundColor: "rgba(41,41,41,0.8)",
+                          alignItems: "center",
+                          justifyContent: "space-between",
                         }}
                       >
-                        <Image
-                          source={require("../../../assets/icons/delivery-icon.png")}
-                          resizeMode="contain"
+                        <View
                           style={{
-                            width: 24,
-                            height: 24,
-                            marginTop: 6,
+                            paddingVertical: 8,
+                            paddingHorizontal: 4,
+                            backgroundColor: "#EBF2FA",
+                            borderRadius: 6,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            alignSelf: "flex-start",
+                            justifyContent: "center",
+                            // maxWidth: 110,
                           }}
-                        />
-                        <View className="shrink">
-                          <Text className="text-[#ccc] text-[11px] font-LexendDecaMedium leading-[20px]">
-                            {formatDate(
-                              order.shipping?.tracking?.history[2]?.timestamp,
-                              "MMM DD",
-                            )}{" "}
-                            - Package has been delivered. Please pickup and
-                            enjoy your order
-                          </Text>
-                          <Text className="text-[#ccc] opacity-70 text-[8px] font-LexendDecaLight leading-[20px]">
-                            You can request for refund / return of product
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              color: "#A6B7D4",
+                              fontFamily: "LexendDeca-Medium",
+                            }}
+                          >
+                            Shipped by {order?.shipping?.carrier?.name}
                           </Text>
                         </View>
+                        <Text
+                          style={{
+                            color: "#3A3A3A",
+                            fontSize: 12,
+                            fontFamily: "LexendDeca-Medium",
+                          }}
+                        >
+                          {formatDate(
+                            order?.shipping?.tracking?.lastUpdate,
+                            "MMMM DD, YYYY",
+                          )}
+                        </Text>
                       </View>
-                    )}
 
-                    {order?.items?.map((item: any, index: number) => {
-                      return (
-                        <OrderItem
-                          key={item._id || index}
-                          orderItem={item}
-                          orderStatus={order?.shipping?.tracking?.status}
-                          seller={order.seller}
-                          buyer={order.buyer}
-                          token={userToken?.toString()}
-                          orderId={order?.order?._id}
-                          conversationId={conversationId?.toString()}
-                        />
-                      );
-                    })}
+                      <Text
+                        style={{
+                          position: "absolute",
+                          top: 16,
+                          right: 24,
+                          fontSize: 8,
+                          fontWeight: 900,
+                        }}
+                      >
+                        Easily track your package
+                      </Text>
+                    </View>
+                  )}
 
-                    <View className="flex-row justify-between items-center gap-[6px] relative mb-[20px]">
+                  {order?.shipping?.tracking?.status == "delivered" && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        borderRadius: 16,
+                        paddingHorizontal: 16,
+                        paddingVertical: 18,
+                        gap: 10,
+                        backgroundColor: "rgba(41,41,41,0.8)",
+                      }}
+                    >
+                      <Image
+                        source={require("../../../assets/icons/delivery-icon.png")}
+                        resizeMode="contain"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          marginTop: 6,
+                        }}
+                      />
+                      <View className="shrink">
+                        <Text className="text-[#ccc] text-[11px] font-LexendDecaMedium leading-[20px]">
+                          {formatDate(
+                            order.shipping?.tracking?.history[2]?.timestamp,
+                            "MMM DD",
+                          )}{" "}
+                          - Package has been delivered. Please pickup and enjoy
+                          your order
+                        </Text>
+                        <Text className="text-[#ccc] opacity-70 text-[8px] font-LexendDecaLight leading-[20px]">
+                          You can request for refund / return of product
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {order?.items?.map((item: any, index: number) => {
+                    return (
+                      <OrderItem
+                        key={item._id || index}
+                        orderItem={item}
+                        orderStatus={order?.shipping?.tracking?.status}
+                        seller={order.seller}
+                        buyer={order.buyer}
+                        token={userToken?.toString()}
+                        orderId={order?.order?._id}
+                        conversationId={conversationId?.toString()}
+                      />
+                    );
+                  })}
+
+                  <View className="flex-row justify-between items-center gap-[6px] relative mb-[20px]">
+                    <Pressable
+                      className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
+                      style={{ width: "100%" }}
+                      onPress={() =>
+                        router.push({
+                          pathname: `../../(root)/messageRoom/${order.seller?._id}`,
+                          params: {
+                            name:
+                              order.items[0].product?.seller?.storeName ||
+                              order.items[0].product?.seller?.firstName +
+                                " " +
+                                order.items[0].product?.seller?.lastName ||
+                              "Default",
+                            avatar:
+                              order.items[0].product?.seller?.storeAvatar?.url,
+                            conversationId:
+                              conversations?.find(
+                                (convo: any) =>
+                                  convo.participant.id ==
+                                  order.items[0].product?.seller?._id,
+                              )?._id || "",
+                            userId: order?.buyer?._id || order?.buyer,
+                            token: userToken,
+                            model: "Seller",
+                            orderId: order?.id || order?.order?._id,
+                          },
+                        })
+                      }
+                    >
+                      <Text className="text-white text-[10px] font-LexendDecaMedium">
+                        Chat Seller
+                      </Text>
+                    </Pressable>
+                    {order.shipping.tracking.status == "delivered" &&
+                    order?.order?.orderStatus?.isOpen ? (
                       <Pressable
                         className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
                         style={{ width: "100%" }}
                         onPress={() =>
                           router.push({
-                            pathname: `../../(root)/messageRoom/${order.seller?._id}`,
+                            pathname: "/(root)/orders/returns",
                             params: {
-                              name:
-                                order.items[0].product?.seller?.storeName ||
-                                order.items[0].product?.seller?.firstName +
-                                  " " +
-                                  order.items[0].product?.seller?.lastName ||
-                                "Default",
-                              avatar:
-                                order.items[0].product?.seller?.storeAvatar
-                                  ?.url,
-                              conversationId:
-                                conversations?.find(
-                                  (convo: any) =>
-                                    convo.participant.id ==
-                                    order.items[0].product?.seller?._id,
-                                )?._id || "",
-                              userId: order?.buyer?._id || order?.buyer,
-                              token: userToken,
-                              model: "Seller",
-                              orderId: order?.id || order?.order?._id,
+                              productList: JSON.stringify(
+                                order?.items?.map((item: any) => {
+                                  return {
+                                    name: item?.product?.name,
+                                    description: item?.product.description,
+                                    price: item?.price,
+                                    quantity: item?.quantity,
+                                    specifications: item?.specifications,
+                                    id: item?.product._id,
+                                    image: item?.product?.images?.[0]?.url,
+                                  };
+                                }),
+                              ),
+                              orderId: order?.order?._id,
                             },
                           })
                         }
                       >
-                        <Text className="text-white text-[10px] font-LexendDecaMedium">
-                          Chat Seller
+                        <Text className="text-white text-[10px]">
+                          Return/Refund
                         </Text>
                       </Pressable>
-                      {order.shipping.tracking.status == "delivered" &&
-                      order?.order?.orderStatus?.isOpen ? (
-                        <Pressable
-                          className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
-                          style={{ width: "100%" }}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/(root)/orders/returns",
-                              params: {
-                                productList: JSON.stringify(
-                                  order?.items?.map((item: any) => {
-                                    return {
-                                      name: item?.product?.name,
-                                      description: item?.product.description,
-                                      price: item?.price,
-                                      quantity: item?.quantity,
-                                      specifications: item?.specifications,
-                                      id: item?.product._id,
-                                      image: item?.product?.images?.[0]?.url,
-                                    };
-                                  }),
-                                ),
-                                orderId: order?.order?._id,
-                              },
-                            })
-                          }
-                        >
-                          <Text className="text-white text-[10px]">
-                            Return/Refund
-                          </Text>
-                        </Pressable>
-                      ) : null}
+                    ) : null}
 
-                      {["pickup_arranged"].includes(
-                        order.shipping.tracking.status,
-                      ) && (
-                        <Link
-                          className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-                          style={{ width: "30%" }}
-                          href={order?.shipping?.tracking?.url || ""}
-                        >
-                          <Text className="text-white text-[10px] self-center text-center font-LexendDecaMedium">
-                            Track Order
-                          </Text>
-                        </Link>
-                      )}
-                    </View>
-
-                    {order?.order?.isStorePickup && (
-                      <StorePickupDetails
-                        details={order.items[0]}
-                        address={
-                          order?.seller?.sellerAddress ||
-                          order?.seller?.businessAddress
-                        }
-                      />
+                    {["pickup_arranged"].includes(
+                      order.shipping.tracking.status,
+                    ) && (
+                      <Link
+                        className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
+                        style={{ width: "30%" }}
+                        href={order?.shipping?.tracking?.url || ""}
+                      >
+                        <Text className="text-white text-[10px] self-center text-center font-LexendDecaMedium">
+                          Track Order
+                        </Text>
+                      </Link>
                     )}
+                  </View>
 
-                    <View>
-                      <Text className="text-[14px] mb-[10px] font-LexendDecaSemiBold text-white">
-                        Delivery Details
-                      </Text>
-                      <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-white font-LexendDecaLight text-[12px]">
-                            Order Total:
-                          </Text>
-                          <Text className="text-white font-LexendDecaMedium text-[12px]">
-                            ₦{order?.order?.totalAmount.toLocaleString()}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-white font-LexendDecaLight text-[12px]">
-                            Shipping Total:
-                          </Text>
-                          <Text className="text-white font-LexendDecaMedium text-[12px]">
-                            ₦{order?.shipping?.fee?.amount.toLocaleString()}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-white font-LexendDecaLight text-[12px]">
-                            Channel:
-                          </Text>
-                          <Text className="text-white font-LexendDecaMedium text-[12px]">
-                            {order?.order?.channel}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-white font-LexendDecaLight text-[12px]">
-                            Payment Method:
-                          </Text>
-                          <Text className="text-white font-LexendDecaMedium text-[12px]">
-                            {order?.order?.paymentInfo?.method}
-                          </Text>
-                        </View>
+                  {order?.order?.isStorePickup && (
+                    <StorePickupDetails
+                      details={order.items[0]}
+                      address={
+                        order?.seller?.sellerAddress ||
+                        order?.seller?.businessAddress
+                      }
+                    />
+                  )}
+
+                  <View>
+                    <Text className="text-[14px] mb-[10px] font-LexendDecaSemiBold text-white">
+                      Delivery Details
+                    </Text>
+                    <View className="bg-[#2a2a2a] rounded-[8px] p-[16px] gap-[16px] mb-[20px]">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Order Total:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          ₦{order?.order?.totalAmount.toLocaleString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Shipping Total:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          ₦{order?.shipping?.fee?.amount.toLocaleString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Channel:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          {order?.order?.channel}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white font-LexendDecaLight text-[12px]">
+                          Payment Method:
+                        </Text>
+                        <Text className="text-white font-LexendDecaMedium text-[12px]">
+                          {order?.order?.paymentInfo?.method}
+                        </Text>
                       </View>
                     </View>
-
-                    <View
-                      className="flex-row items-center"
-                      style={{ marginBottom: 36 }}
-                    >
-                      <Text className="font-LexendDeca text-[12px] text-[#ccc]">
-                        Tracking Number -{" "}
-                      </Text>
-                      <Pressable onPress={copyTrackingNumber}>
-                        <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
-                          {order?.shipping?.tracking.number || ""}
-                        </Text>
-                      </Pressable>
-
-                      {order?.shipping?.tracking?.number && (
-                        <Feather
-                          name="copy"
-                          size={12}
-                          color="#027CEC"
-                          style={{ marginLeft: 2 }}
-                        />
-                      )}
-                    </View>
-
-                    <View
-                      style={{
-                        justifyContent: "center",
-                        gap: 14,
-                        paddingHorizontal: 16,
-                        paddingLeft: 30,
-                        paddingBottom: 40,
-                      }}
-                    >
-                      <OrderHistory
-                        history={{
-                          timestamp: order?.order?.createdAt,
-                          status: "Order Placed",
-                          description:
-                            "Your order has been placed successfully",
-                        }}
-                      />
-                      {order?.shipping?.tracking?.history?.map(
-                        (data: any, index: number) => (
-                          <OrderHistory history={data} key={index} />
-                        ),
-                      )}
-                    </View>
                   </View>
-                )}
-            </ScrollView>
-          </View>
-        )}
-      </SafeAreaView>
-    </View>
+
+                  <View
+                    className="flex-row items-center"
+                    style={{ marginBottom: 36 }}
+                  >
+                    <Text className="font-LexendDeca text-[12px] text-[#ccc]">
+                      Tracking Number -{" "}
+                    </Text>
+                    <Pressable onPress={copyTrackingNumber}>
+                      <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
+                        {order?.shipping?.tracking.number || ""}
+                      </Text>
+                    </Pressable>
+
+                    {order?.shipping?.tracking?.number && (
+                      <Feather
+                        name="copy"
+                        size={12}
+                        color="#027CEC"
+                        style={{ marginLeft: 2 }}
+                      />
+                    )}
+                  </View>
+
+                  <View
+                    style={{
+                      justifyContent: "center",
+                      gap: 14,
+                      paddingHorizontal: 16,
+                      paddingLeft: 30,
+                      paddingBottom: 40,
+                    }}
+                  >
+                    <OrderHistory
+                      history={{
+                        timestamp: order?.order?.createdAt,
+                        status: "Order Placed",
+                        description: "Your order has been placed successfully",
+                      }}
+                    />
+                    {order?.shipping?.tracking?.history?.map(
+                      (data: any, index: number) => (
+                        <OrderHistory history={data} key={index} />
+                      ),
+                    )}
+                  </View>
+                </View>
+              )}
+          </ScrollView>
+        </View>
+      )}
+    </SafeAreaView>
   );
 };
 

@@ -18,7 +18,7 @@ import {
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 
 const SubCategoriesStreams = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const { category, subCategory } = useLocalSearchParams();
   const [loading, setLoading] = useState<boolean>(true);
   const [spotLight, setSpotLight] = useState<any[]>([]);

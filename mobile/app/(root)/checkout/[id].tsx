@@ -2,7 +2,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   TextInput,
   Pressable,
@@ -20,6 +19,7 @@ import { ActivityIndicator } from "react-native-paper";
 import { toast } from "@/core/toast";
 import { Paystack } from "react-native-paystack-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 

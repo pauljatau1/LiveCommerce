@@ -5,7 +5,6 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
-  SafeAreaView,
 } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -30,6 +29,7 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import SortSheet from "@/components/explore/exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
 import ExploreMarkets from "@/components/explore/exploreMarkets";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const SingleExplore = () => {
   const { id, name: categoryName, subCategories } = useLocalSearchParams();
@@ -96,90 +96,89 @@ const SingleExplore = () => {
   );
 
   return (
-    <>
+    <SafeAreaView className="h-full flex-1 bg-[#121212]" edges={["top"]}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="h-full relative flex-1">
-          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] mb-[24px] mt-[30px] relative">
-            <TouchableOpacity
-              className="absolute left-[12px]"
-              onPress={() => router.replace("/(root)/(tabs)/explore/explore")}
-            >
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
-
-            <Text className="text-white font-LexendDecaMedium text-[20px]">
-              {categoryName}
-            </Text>
-          </View>
-          <View className="w-full mb-[16px]">
-            <FlatList
-              data={parsedSubCats}
-              renderItem={({ item }) => renderSubCategory(item)}
-              keyExtractor={(item) => item.toString()}
-              horizontal
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-              }}
-              showsHorizontalScrollIndicator={false}
-            />
-          </View>
-
-          {mode == "liveshow" ? (
-            <ScrollView
-              className="flex-1"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: 80,
-              }}
-            >
-              <FavouriteExplore category={categoryName} />
-              <SpotLightExplore />
-            </ScrollView>
-          ) : (
-            <ExploreMarkets name={categoryName} switchMode={switchMode} />
-          )}
-
-          <View
-            className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
-            style={{
-              ...Platform.select({
-                ios: {
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 4,
-                },
-                android: {
-                  elevation: 5,
-                },
-              }),
-            }}
+      <View className="relative flex-1">
+        <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] mb-[24px] mt-[30px] relative">
+          <TouchableOpacity
+            className="absolute left-[12px]"
+            onPress={() => router.replace("/(root)/(tabs)/explore/explore")}
           >
-            <CustomButton
-              title="Live & Videos"
-              textStyle={`${mode == "liveshow" ? "!text-[#fff]" : "!text-[#141B34]"}`}
-              className={`rounded-tr-none rounded-br-none !w-[130px] rounded-[40px]  ${mode == "liveshow" ? "    !bg-primary-200" : "!bg-[#F2F2F2]  "}`}
-              onPress={() => {
-                switchMode("liveshow");
-              }}
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
             />
-            <CustomButton
-              title="Marketplace"
-              textStyle={`${mode == "marketplace" ? "!text-[#fff]" : "!text-[#141B34]"}`}
-              className={`!w-[130px]   rounded-tl-none rounded-bl-none rounded-[40px] ${mode == "marketplace" ? "!bg-primary-200" : "!bg-[#F2F2F2]   "}`}
-              onPress={() => {
-                switchMode("marketplace");
-              }}
-            />
-          </View>
+          </TouchableOpacity>
+
+          <Text className="text-white font-LexendDecaMedium text-[20px]">
+            {categoryName}
+          </Text>
+        </View>
+        <View className="w-full mb-[16px]">
+          <FlatList
+            data={parsedSubCats}
+            renderItem={({ item }) => renderSubCategory(item)}
+            keyExtractor={(item) => item.toString()}
+            horizontal
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+            }}
+            showsHorizontalScrollIndicator={false}
+          />
         </View>
 
-        {/* <View className="">
+        {mode == "liveshow" ? (
+          <ScrollView
+            className="flex-1"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingBottom: 80,
+            }}
+          >
+            <FavouriteExplore category={categoryName} />
+            <SpotLightExplore />
+          </ScrollView>
+        ) : (
+          <ExploreMarkets name={categoryName} switchMode={switchMode} />
+        )}
+
+        <View
+          className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
+          style={{
+            ...Platform.select({
+              ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.4,
+                shadowRadius: 4,
+              },
+              android: {
+                elevation: 5,
+              },
+            }),
+          }}
+        >
+          <CustomButton
+            title="Live & Videos"
+            textStyle={`${mode == "liveshow" ? "!text-[#fff]" : "!text-[#141B34]"}`}
+            className={`rounded-tr-none rounded-br-none !w-[130px] rounded-[40px]  ${mode == "liveshow" ? "    !bg-primary-200" : "!bg-[#F2F2F2]  "}`}
+            onPress={() => {
+              switchMode("liveshow");
+            }}
+          />
+          <CustomButton
+            title="Marketplace"
+            textStyle={`${mode == "marketplace" ? "!text-[#fff]" : "!text-[#141B34]"}`}
+            className={`!w-[130px]   rounded-tl-none rounded-bl-none rounded-[40px] ${mode == "marketplace" ? "!bg-primary-200" : "!bg-[#F2F2F2]   "}`}
+            onPress={() => {
+              switchMode("marketplace");
+            }}
+          />
+        </View>
+      </View>
+
+      {/* <View className="">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
                 Still Searching
               </Text>
@@ -202,8 +201,7 @@ const SingleExplore = () => {
                 />
               </View>
             </View> */}
-      </SafeAreaView>
-    </>
+    </SafeAreaView>
   );
 };
 

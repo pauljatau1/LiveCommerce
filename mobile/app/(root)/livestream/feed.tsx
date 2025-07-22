@@ -20,8 +20,9 @@ import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import LottieView from "lottie-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getToken } from "@/store/features/auth/utils";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
-const { height } = Dimensions.get("window");
+const { height } = Dimensions.get("screen");
 
 const LivestreamFeed = () => {
   const { id, type, itmSource } = useLocalSearchParams();
@@ -37,9 +38,11 @@ const LivestreamFeed = () => {
   const [fetching, setFetching] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const flatlistRef = useRef<FlatList>(null);
-  
+
   // Refs to hold cleanup functions for each livestream component
-  const livestreamRefs = useRef<{[key: number]: { cleanup: () => Promise<void> } | null}>({});
+  const livestreamRefs = useRef<{
+    [key: number]: { cleanup: () => Promise<void> } | null;
+  }>({});
 
   const refreshLives = useCallback(async () => {
     setRefreshing(true);
@@ -55,7 +58,7 @@ const LivestreamFeed = () => {
         },
       );
       const newStreams = response.data.streams;
-      
+
       if (newStreams.length > 0) {
         setLives([{ _id: id, type }, ...newStreams]);
         setPage(2);
@@ -108,29 +111,40 @@ const LivestreamFeed = () => {
     async ({ viewableItems }: { viewableItems: any }) => {
       if (viewableItems.length > 0) {
         const newIndex = viewableItems[0].index;
-        
+
         // If the index is changing, cleanup the previous stream BEFORE updating currentIndex
         if (newIndex !== currentIndex) {
-          console.log(`🔄 [Feed] Scrolling from index ${currentIndex} to ${newIndex}`);
-          
+          console.log(
+            `🔄 [Feed] Scrolling from index ${currentIndex} to ${newIndex}`,
+          );
+
           // Cleanup the current stream before switching
           const currentStreamRef = livestreamRefs.current[currentIndex];
           if (currentStreamRef?.cleanup) {
-            console.log(`🧹 [Feed] Triggering cleanup for stream at index ${currentIndex}`);
+            console.log(
+              `🧹 [Feed] Triggering cleanup for stream at index ${currentIndex}`,
+            );
             try {
               await currentStreamRef.cleanup();
-              console.log(`✅ [Feed] Cleanup completed for stream at index ${currentIndex}`);
+              console.log(
+                `✅ [Feed] Cleanup completed for stream at index ${currentIndex}`,
+              );
             } catch (error) {
-              console.error(`❌ [Feed] Cleanup failed for stream at index ${currentIndex}:`, error);
+              console.error(
+                `❌ [Feed] Cleanup failed for stream at index ${currentIndex}:`,
+                error,
+              );
             }
           } else {
-            console.log(`⚠️ [Feed] No cleanup function found for stream at index ${currentIndex}`);
+            console.log(
+              `⚠️ [Feed] No cleanup function found for stream at index ${currentIndex}`,
+            );
           }
-          
+
           // Small delay to ensure cleanup completes before render changes
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
-        
+
         setCurrentIndex(newIndex);
       }
     },
@@ -144,7 +158,9 @@ const LivestreamFeed = () => {
     ({ item, index }: any) => {
       const registerCleanup = (cleanupFn: () => Promise<void>) => {
         livestreamRefs.current[index] = { cleanup: cleanupFn };
-        console.log(`📝 [Feed] Registered cleanup function for stream at index ${index}`);
+        console.log(
+          `📝 [Feed] Registered cleanup function for stream at index ${index}`,
+        );
       };
 
       if (item?.type == "open_show") {
@@ -195,12 +211,15 @@ const LivestreamFeed = () => {
   }, [refreshing, statusBarHeight]);
 
   return (
-    <>
+    <SafeAreaView
+      className="flex-1 bg-[#121212]"
+      edges={Platform.OS == "ios" ? ["bottom"] : ["top", "bottom"]}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <View
         className="w-full relative bg-[#000]"
         style={{
-          height: height,
+          flex: 1,
         }}
       >
         {lives?.length < 1 ? (
@@ -237,26 +256,35 @@ const LivestreamFeed = () => {
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
-              length: height,
-              offset: height * index,
+              length:
+                Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.bottom - insets.top,
+              offset:
+                (Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.bottom - insets.top) * index,
               index,
             })}
             showsVerticalScrollIndicator={false}
             refreshing={refreshing}
-   
             progressViewOffset={Platform.OS == "ios" ? 120 : 0}
             ListHeaderComponent={renderFooter}
             removeClippedSubviews={false}
             updateCellsBatchingPeriod={50}
             decelerationRate="fast"
-            snapToInterval={height}
+            snapToInterval={
+              Platform.OS == "ios"
+                ? height - insets.bottom
+                : height - insets.bottom - insets.top
+            }
             snapToAlignment="center"
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
           />
         )}
       </View>
-    </>
+    </SafeAreaView>
   );
 };
 

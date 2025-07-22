@@ -44,7 +44,7 @@
     "expo-checkbox": "~4.0.1",
     "expo-clipboard": "~7.0.1",
     "expo-constants": "~17.0.3",
-    "expo-dev-client": "~5.0.12",
+    "expo-dev-client": "~5.0.20",
     "expo-device": "^7.0.2",
     "expo-font": "~13.0.2",
     "expo-haptics": "~14.0.1",
@@ -85,6 +85,7 @@
     "react-native-flash-message": "^0.4.2",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-keyboard-controller": "^1.17.5",
     "react-native-modal": "^13.0.1",
     "react-native-otp-entry": "^1.8.1",
     "react-native-pager-view": "6.5.1",
@@ -105,8 +106,10 @@
     "react-native-webview": "13.12.5",
     "react-redux": "^9.2.0",
     "socket.io-client": "^4.8.1",
+    "sonner-native": "^0.21.0",
     "tailwind-merge": "^2.5.5",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "react-native-svg": "15.8.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -2,7 +2,6 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -23,6 +22,7 @@ import * as ImagePicker from "expo-image-picker";
 import { toast } from "@/core/toast";
 import LoadingModal from "@/components/global/loading-modal";
 import { getToken } from "@/store/features/auth/utils";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 

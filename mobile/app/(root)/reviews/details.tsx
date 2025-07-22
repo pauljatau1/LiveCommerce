@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   Image,
@@ -16,6 +15,7 @@ import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { formatDate } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions?.get("window");
 

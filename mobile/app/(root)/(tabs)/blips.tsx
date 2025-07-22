@@ -1,5 +1,4 @@
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
@@ -26,11 +25,14 @@ import PromotionModal from "@/components/modals/promotion";
 import { Settings } from "react-native-fbsdk-next";
 import { checkVersion } from "react-native-check-version";
 import DeviceInfo from "react-native-device-info";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
-const { height } = Dimensions.get("window");
+const { height } = Dimensions.get("screen");
 const Blips = () => {
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
+  const tabBarHeight = useBottomTabBarHeight();
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videos, setVideos] = useState<any[]>([]);
@@ -225,12 +227,21 @@ const Blips = () => {
   }, [refreshing]);
 
   return (
-    <>
+    <SafeAreaView
+      className="flex-1"
+      style={{
+        backgroundColor: "#121212",
+      }}
+      edges={Platform.OS == "ios" ? ["bottom"] : ["top", "bottom"]}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <View
         className="w-full relative bg-[#000]"
         style={{
-          height: height,
+          height:
+            Platform.OS == "ios"
+              ? height - insets.bottom
+              : height - insets.top - insets.bottom,
         }}
       >
         {videos?.length < 1 ? (
@@ -267,8 +278,14 @@ const Blips = () => {
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
-              length: height,
-              offset: height * index,
+              length:
+                Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.top - insets.bottom,
+              offset:
+                (Platform.OS == "ios"
+                  ? height - insets.bottom
+                  : height - insets.top - insets.bottom) * index,
               index,
             })}
             showsVerticalScrollIndicator={false}
@@ -282,7 +299,7 @@ const Blips = () => {
         )}
       </View>
       <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} />
-    </>
+    </SafeAreaView>
   );
 };
 

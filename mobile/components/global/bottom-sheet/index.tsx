@@ -85,7 +85,7 @@ const BottomSheetComponent = ({
   const handleIndicatorStyle = useMemo(
     () => ({
       backgroundColor: "#94A3B1",
-      width: !enableDynamicSizing ? 0 : 40,
+      width: !enableDynamicSizing ? 40 : 40,
     }),
     [enableDynamicSizing],
   );
@@ -192,7 +192,7 @@ const BottomSheetComponent = ({
       enablePanDownToClose={enablePanDownToClose}
       backgroundStyle={backgroundStyle}
       onChange={handleSheetChanges}
-      handleComponent={enablePanDownToClose ? BottomSheetHandle : null}
+      handleComponent={BottomSheetHandle}
       enableHandlePanningGesture={enablePanDownToClose}
       backdropComponent={createCustomBackdrop()}
       handleIndicatorStyle={handleIndicatorStyle}
@@ -200,7 +200,7 @@ const BottomSheetComponent = ({
       enableContentPanningGesture={enableContentPanningGesture}
       animateOnMount
       overDragResistanceFactor={8}
-      android_keyboardInputMode="adjustResize"
+      // android_keyboardInputMode="adjustResize"
       style={styles.modal}
       {...rest}
     >

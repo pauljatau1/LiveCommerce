@@ -72,7 +72,7 @@ const { width, height } = Dimensions.get("window");
 const bidIncrement = 500;
 
 const ProductDescription = () => {
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams();
   const {
     data: product,
@@ -441,7 +441,7 @@ const ProductDescription = () => {
             username: user?.username,
             productId: productDetails?._id,
             productName: productDetails?.name,
-            productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+            productPrice: productDetails?.price,
             productCategory: productDetails?.category,
             productSubCategory: productDetails?.subCategory,
             productStock: productDetails?.stock,
@@ -459,7 +459,7 @@ const ProductDescription = () => {
             username: user?.username,
             productId: productDetails?._id,
             productName: productDetails?.name,
-            productPrice: `₦${productDetails?.price?.toLocaleString()}`,
+            productPrice: productDetails?.price,
             productCategory: productDetails?.category,
             productSubCategory: productDetails?.subCategory,
             productStock: productDetails?.stock,
@@ -745,7 +745,7 @@ const ProductDescription = () => {
             ref={scrollViewRef}
             style={{ flex: 1 }}
             contentContainerStyle={{
-              paddingBottom: Platform.OS == "android" ? 120 : 80,
+              paddingBottom: 140,
             }}
           >
             {isLoading || isFetching ? (
@@ -1424,7 +1424,7 @@ const ProductDescription = () => {
         <View
           className="absolute bottom-0 left-0 bg-black w-full flex-row justify-center px-[30px]"
           style={{
-            paddingBottom: 29,
+            paddingBottom: 29 + insets.bottom,
             paddingTop: 24,
             gap: 16,
             paddingHorizontal: 30,
@@ -1601,7 +1601,7 @@ const ProductDescription = () => {
         onRequestClose={() => setShowCheckout(false)}
         keyboardBehavior={"interactive"}
         enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        enableDynamicSizing={false}
       >
         <CheckoutNow
           productId={productDetails?._id}

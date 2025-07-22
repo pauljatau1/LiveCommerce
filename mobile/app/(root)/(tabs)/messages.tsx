@@ -8,7 +8,6 @@ import {
 } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getToken, getUser, setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 
@@ -24,6 +23,7 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import MessageListSkeleton from "@/components/skeleton/messageListSkeleton";
 import LottieView from "lottie-react-native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const Message = () => {
   const isFocused = useIsFocused();

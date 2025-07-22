@@ -116,8 +116,7 @@ const CustomToast = ({
         {
           transform: [{ translateY }],
           opacity,
-          paddingTop:
-            Platform.OS == "android" ? topPosition : topPosition + insets.top,
+          paddingTop: topPosition + insets.top,
         },
       ]}
     >

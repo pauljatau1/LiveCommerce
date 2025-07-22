@@ -37,7 +37,8 @@ module.exports = ({ config }) => {
         associatedDomains: ["applinks:app.auqli.live"],
       },
       android: {
-        softwareKeyboardLayoutMode: "pan",
+        // edgeToEdgeEnabled: false,
+        // softwareKeyboardLayoutMode: "pan",
         package: "com.auqli.auqliapp",
         runtimeVersion: "1.0.0",
         versionCode: 2,
@@ -88,7 +89,8 @@ module.exports = ({ config }) => {
         "expo-dev-client",
         "@react-native-google-signin/google-signin",
         "expo-video",
-        "./plugins/withWindowSoftInputMode",
+        // "./plugins/withWindowSoftInputMode",
+        "./plugins/withExpoPluginNinjaFix",
         [
           "customerio-expo-plugin",
           {
@@ -152,7 +154,13 @@ module.exports = ({ config }) => {
         [
           "expo-build-properties",
           {
+            android: {
+              compileSdkVersion: 35,
+              targetSdkVersion: 35,
+              buildToolsVersion: "35.0.0",
+            },
             ios: {
+              deploymentTarget: "15.1",
               useFrameworks: "static",
             },
           },

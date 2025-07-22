@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   StyleSheet,
   Pressable,
@@ -17,6 +16,7 @@ import { FlatList, TextInput } from "react-native-gesture-handler";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
 import { ActivityIndicator } from "react-native-paper";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const ProfileStats = () => {
   const { username, activeTab } = useLocalSearchParams();

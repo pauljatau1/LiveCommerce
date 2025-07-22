@@ -27,7 +27,10 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import { trackEvent } from "@/utils/analytics";
-import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetTextInput,
+  BottomSheetScrollView,
+} from "@gorhom/bottom-sheet";
 
 const mockDeliveryOtions = [
   {
@@ -91,6 +94,7 @@ const CheckoutNow = ({
     refetch,
     isFetching,
   } = useGetSingleProductQuery(productId);
+  // const { popup } = usePaystack();
   const [loading, setLoading] = useState<boolean>(true);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -146,7 +150,7 @@ const CheckoutNow = ({
     }
   }, []);
 
-  const generateReference = () => {
+  const generateReference = (): string => {
     const prefix = "ORDER";
     const newReference = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     return newReference;
@@ -254,6 +258,7 @@ const CheckoutNow = ({
 
         setSelectedAddress(delivery_address);
       } else {
+        setLoading(false);
         // closeSheet();
         // router.push("/addresses/addAddress");
       }
@@ -460,7 +465,7 @@ const CheckoutNow = ({
             trackEvent("blip_product_purchased", {
               productId: product._id,
               productName: product?.name,
-              productPrice: `₦${product?.price?.toLocaleString()}`,
+              productPrice: product?.price,
               productImage: product?.images[0]?.url,
               blipId: blipId,
               userId: user?._id,
@@ -774,15 +779,65 @@ const CheckoutNow = ({
     },
     [selectedPayment, walletBalance, selectedDeliveryOpt],
   );
+
+  // useEffect(() => {
+  //   if (showPaystack) {
+  //     popup.checkout({
+  //       email: user?.email,
+  //       amount:
+  //         selectedDeliveryOpt == 0
+  //           ? deliveryFee! +
+  //             (couponApplied ? couponApplied?.couponSubTotal : productTotal) -
+  //             walletCredit
+  //           : couponApplied
+  //             ? couponApplied?.couponSubTotal - walletCredit
+  //             : productTotal - walletCredit,
+  //       reference: generateReference(),
+  //       metadata: {
+  //         orderId: orderId,
+  //         buyerId: user?._id,
+  //         transactionType: "order_payment",
+  //         custom_fields: [
+  //           {
+  //             display_name: "Order ID",
+  //             variable_name: "order_id",
+  //             value: orderId,
+  //           },
+  //           {
+  //             display_name: "Buyer ID",
+  //             variable_name: "buyer_id",
+  //             value: user?._id,
+  //           },
+  //           {
+  //             display_name: "Transaction Type",
+  //             variable_name: "transaction_type",
+  //             value: "order_payment",
+  //           },
+  //         ],
+  //       },
+  //       onSuccess: onPaystackSuccess,
+  //       onCancel: onPaystackClose,
+  //       onLoad: (res) => console.log("WebView Loaded:", res),
+  //       onError: (err) => console.log("WebView Error:", err),
+  //     });
+  //   }
+  // }, [
+  //   showPaystack,
+  //   selectedDeliveryOpt,
+  //   deliveryFee,
+  //   couponApplied,
+  //   productTotal,
+  //   walletCredit,
+  //   user,
+  // ]);
   return (
     <View className="p-[8px] pb-[16px]">
-      <BottomSheetScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
+      <BottomSheetScrollView
+        className="bg-[#121212]"
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
-          <ActivityIndicator
-            size={"small"}
-            color={"#fff"}
-            style={{ marginTop: 30 }}
-          />
+          <ActivityIndicator size={"small"} color={"#fff"} />
         ) : (
           <>
             {addresses?.length < 1 ? (
@@ -803,307 +858,348 @@ const CheckoutNow = ({
                 </Pressable>
               </View>
             ) : (
-              <View className=" gap-[30px] pb-[20px]">
-                {freeShipping && (
-                  <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
-                    <FontAwesome5 name="truck" size={14} color="white" />
-                    <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
-                      Free Shipping on All Orders!
-                    </Text>
-                  </View>
-                )}
-                <TouchableOpacity
-                  className="p-[20px] rounded-[16px] flex-row items-center justify-between"
-                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                  onPress={() => {
-                    closeSheet();
-                    router.push("/settings/addresses");
-                  }}
-                >
-                  <View className="flex-row gap-[16px] shrink">
-                    <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-                      <Text className="text-white text-[9px]">
-                        {user?.firstName?.split("")[0]}
-                      </Text>
-                      <Text className="text-white text-[9px]">
-                        {user?.lastName?.split("")[0]}
-                      </Text>
-                    </View>
-                    <View className="gap-[18px] shrink">
-                      <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
-                        {user?.firstName + " " + user?.lastName}
-                      </Text>
-                      {selectedAddress ? (
-                        <View>
-                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                            {selectedAddress &&
-                              selectedAddress?.recipientAddress}
-                          </Text>
-                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                            Country: Nigeria
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                          Click to add address
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  <View>
-                    <Entypo
-                      name="chevron-right"
-                      size={16}
-                      color="rgba(204, 204, 204, 0.8)"
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                <CartItem cartItem={product} />
-
-                <View className="gap-[8px] mb-[10px]">
-                  <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
-                    Auqli Buyer Protection
-                  </Text>
-                  <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
-                    Protect your orders from theft, damages up to 30 days after
-                    receiving it{" "}
-                    {/* <Link href={"/"} className="text-[#49A3F6]">
-                  Learn More
-                </Link> */}
-                  </Text>
+              <View>
+                <View className="w-full flex-row items-center justify-between mb-[10px]">
+                  <Text></Text>
+                  <Pressable onPress={closeSheet} className="flex-end">
+                    <AntDesign name="close" size={20} color="white" />
+                  </Pressable>
                 </View>
 
-                <View className="gap-[20px] mb-[10px]">
-                  <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
-                    Delivery Options
-                  </Text>
-                  {mockDeliveryOtions?.map((item: any, index: number) => (
-                    <View key={index}>
-                      <Pressable
-                        className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
-                        style={{
-                          backgroundColor: "rgba(41, 41, 41, 0.81)",
-                          opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
-                        }}
-                        key={index}
-                        onPress={() => {
-                          if (!eligibleForPickup && index == 1) {
-                            return;
-                          }
-                          setSelectedDeliveryOpt(index);
-                        }}
-                      >
-                        <View className="flex-row gap-[16px] shrink items-center">
-                          {item?.icon}
-                          <View className="gap-[4px] shrink">
-                            <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
-                              {item.name}
-                            </Text>
-                            <View className="gap-[2px]">
-                              <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
-                                {item?.description}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        <View
-                          className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
-                          style={{
-                            borderColor:
-                              selectedDeliveryOpt == index
-                                ? "#16783A"
-                                : "#f2f2f2",
-                            borderWidth: 2,
-                          }}
-                        >
-                          <View
-                            className="w-[12px] h-[12px] rounded-[12px]"
-                            style={{
-                              backgroundColor:
-                                selectedDeliveryOpt == index ? "#16783A" : "",
-                            }}
-                          ></View>
-                        </View>
-                      </Pressable>
-                      {!eligibleForPickup && index == 1 && (
-                        <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
-                          * This seller does not offer store pickup
-                        </Text>
-                      )}
+                <View className=" gap-[30px] pb-[20px]">
+                  {freeShipping && (
+                    <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
+                      <FontAwesome5 name="truck" size={14} color="white" />
+                      <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
+                        Free Shipping on All Orders!
+                      </Text>
                     </View>
-                  ))}
-                </View>
-
-                <View
-                  className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
-                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                >
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-[18px] text-white font-LexendDecaSemiBold">
-                      Select Payment methods
-                    </Text>
-                    {/* <Pressable>
-                  <Text className="text-[#16783A] text-[12px]">Edit</Text>
-                </Pressable> */}
-                  </View>
-                  <View className="gap-[16px] mt-[10px]">
-                    {paymentOptions.map((option: any, index: number) =>
-                      renderPaymentOptions(option, index),
-                    )}
-                  </View>
-                </View>
-
-                {showWalletCredit && (
+                  )}
                   <TouchableOpacity
-                    className="mb-[1px]"
-                    style={{
-                      marginBottom: 0,
+                    className="p-[20px] rounded-[16px] flex-row items-center justify-between"
+                    style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                    onPress={() => {
+                      closeSheet();
+                      router.push("/settings/addresses");
                     }}
-                    onPress={() =>
-                      walletCredit > 0
-                        ? setWalletCredit(0)
-                        : setWalletCredit(walletBalance)
-                    }
                   >
-                    <View
-                      className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
-                    >
-                      <View className="flex-row items-center gap-[10px]">
-                        <View>
-                          <AntDesign
-                            name="checkcircle"
-                            size={20}
-                            color={walletCredit > 0 ? "#16783A" : "#cccccc"}
-                          />
-                        </View>
-                        <Text
-                          className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
-                          numberOfLines={1}
-                        >
-                          Apply Auqli Credit
+                    <View className="flex-row gap-[16px] shrink">
+                      <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
+                        <Text className="text-white text-[9px]">
+                          {user?.firstName?.split("")[0]}
+                        </Text>
+                        <Text className="text-white text-[9px]">
+                          {user?.lastName?.split("")[0]}
                         </Text>
                       </View>
-                      <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
-                        ₦{walletBalance?.toLocaleString()}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                <View className="mb-[10px]">
-                  <View
-                    className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
-                  >
-                    <BottomSheetTextInput
-                      placeholder="Enter Promo Code"
-                      placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
-                      className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
-                      onChangeText={(text) => setCouponCode(text)}
-                      value={couponCode}
-                      onFocus={() => setCouponInputFocused(true)}
-                      onBlur={() => setCouponInputFocused(false)}
-                      readOnly={couponApplied !== null}
-                    />
-                    {couponLoading ? (
-                      <ActivityIndicator size={16} color="#fff" />
-                    ) : (
-                      <Pressable onPress={handleApplyCoupon}>
-                        {couponApplied ? (
-                          <AntDesign
-                            name="closecircle"
-                            size={18}
-                            color="#fff"
-                          />
+                      <View className="gap-[18px] shrink">
+                        <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
+                          {user?.firstName + " " + user?.lastName}
+                        </Text>
+                        {selectedAddress ? (
+                          <View>
+                            <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
+                              {selectedAddress &&
+                                selectedAddress?.recipientAddress}
+                            </Text>
+                            <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
+                              Country: Nigeria
+                            </Text>
+                          </View>
                         ) : (
-                          <Text
-                            className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc25]"} text-[14px] font-LexendDecaMedium`}
-                          >
-                            APPLY
+                          <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
+                            Click to add address
                           </Text>
                         )}
-                      </Pressable>
+                      </View>
+                    </View>
+                    <View>
+                      <Entypo
+                        name="chevron-right"
+                        size={16}
+                        color="rgba(204, 204, 204, 0.8)"
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  <CartItem cartItem={product} />
+
+                  <View className="gap-[8px] mb-[10px]">
+                    <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
+                      Auqli Buyer Protection
+                    </Text>
+                    <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
+                      Protect your orders from theft, damages up to 30 days
+                      after receiving it{" "}
+                      {/* <Link href={"/"} className="text-[#49A3F6]">
+                  Learn More
+                </Link> */}
+                    </Text>
+                  </View>
+
+                  <View className="gap-[20px] mb-[10px]">
+                    <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
+                      Delivery Options
+                    </Text>
+                    {mockDeliveryOtions?.map((item: any, index: number) => (
+                      <View key={index}>
+                        <Pressable
+                          className="p-[20px] rounded-[16px] flex-row items-center justify-between gap-[10px]"
+                          style={{
+                            backgroundColor: "rgba(41, 41, 41, 0.81)",
+                            opacity: !eligibleForPickup && index == 1 ? 0.5 : 1,
+                          }}
+                          key={index}
+                          onPress={() => {
+                            if (!eligibleForPickup && index == 1) {
+                              return;
+                            }
+                            setSelectedDeliveryOpt(index);
+                          }}
+                        >
+                          <View className="flex-row gap-[16px] shrink items-center">
+                            {item?.icon}
+                            <View className="gap-[4px] shrink">
+                              <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
+                                {item.name}
+                              </Text>
+                              <View className="gap-[2px]">
+                                <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
+                                  {item?.description}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                          <View
+                            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+                            style={{
+                              borderColor:
+                                selectedDeliveryOpt == index
+                                  ? "#16783A"
+                                  : "#f2f2f2",
+                              borderWidth: 2,
+                            }}
+                          >
+                            <View
+                              className="w-[12px] h-[12px] rounded-[12px]"
+                              style={{
+                                backgroundColor:
+                                  selectedDeliveryOpt == index ? "#16783A" : "",
+                              }}
+                            ></View>
+                          </View>
+                        </Pressable>
+                        {!eligibleForPickup && index == 1 && (
+                          <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">
+                            * This seller does not offer store pickup
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+
+                  <View
+                    className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
+                    style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[18px] text-white font-LexendDecaSemiBold">
+                        Select Payment methods
+                      </Text>
+                      {/* <Pressable>
+                  <Text className="text-[#16783A] text-[12px]">Edit</Text>
+                </Pressable> */}
+                    </View>
+                    <View className="gap-[16px] mt-[10px]">
+                      {paymentOptions.map((option: any, index: number) =>
+                        renderPaymentOptions(option, index),
+                      )}
+                    </View>
+                  </View>
+
+                  {showWalletCredit && (
+                    <TouchableOpacity
+                      className="mb-[1px]"
+                      style={{
+                        marginBottom: 0,
+                      }}
+                      onPress={() =>
+                        walletCredit > 0
+                          ? setWalletCredit(0)
+                          : setWalletCredit(walletBalance)
+                      }
+                    >
+                      <View
+                        className={`rounded-[10px] ${walletCredit > 0 ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] py-[14px] `}
+                      >
+                        <View className="flex-row items-center gap-[10px]">
+                          <View>
+                            <AntDesign
+                              name="checkcircle"
+                              size={20}
+                              color={walletCredit > 0 ? "#16783A" : "#cccccc"}
+                            />
+                          </View>
+                          <Text
+                            className="font-LexendDecaMedium text-[14px] text-[#f2f2f2] shrink"
+                            numberOfLines={1}
+                          >
+                            Apply Auqli Credit
+                          </Text>
+                        </View>
+                        <Text className="font-LexendDecaMedium text-[14px] text-[#f2f2f2]">
+                          ₦{walletBalance?.toLocaleString()}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+
+                  <View className="mb-[10px]">
+                    <View
+                      className={`rounded-[10px] ${couponInputFocused ? "border-[#16783A]" : "border-[#cccccc25]"} border-[1px] px-[18px] flex-row items-center justify-between gap-[6px] `}
+                    >
+                      <BottomSheetTextInput
+                        placeholder="Enter Promo Code"
+                        placeholderTextColor={"rgb(204, 204, 204)"}
+                        className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
+                        onChangeText={(text) => setCouponCode(text)}
+                        value={couponCode?.toUpperCase()}
+                        onFocus={() => setCouponInputFocused(true)}
+                        onBlur={() => setCouponInputFocused(false)}
+                        readOnly={couponApplied !== null}
+                      />
+                      {couponLoading ? (
+                        <ActivityIndicator size={16} color="#fff" />
+                      ) : (
+                        <Pressable onPress={handleApplyCoupon}>
+                          {couponApplied ? (
+                            <AntDesign
+                              name="closecircle"
+                              size={18}
+                              color="#fff"
+                            />
+                          ) : (
+                            <Text
+                              className={`${couponCode ? "text-[#16783A]" : "text-[#cccccc80]"} text-[14px] font-LexendDecaMedium`}
+                            >
+                              APPLY
+                            </Text>
+                          )}
+                        </Pressable>
+                      )}
+                    </View>
+                    {couponMessage && (
+                      <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
+                        {couponMessage}
+                      </Text>
                     )}
                   </View>
-                  {couponMessage && (
-                    <Text className="text-[12px] font-LexendDeca text-[#fff] mt-[6px] ml-[4px]">
-                      {couponMessage}
-                    </Text>
-                  )}
-                </View>
 
-                <View
-                  className="p-[20px] rounded-[10px] gap-[10px]"
-                  style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-                >
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Merchandise Subtotal
-                    </Text>
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                      ₦
-                      {productTotal?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </View>
-                  {couponApplied && (
+                  <View
+                    className="p-[20px] rounded-[10px] gap-[10px]"
+                    style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+                  >
                     <View className="flex-row justify-between items-center">
                       <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                        Coupon Code Applied
+                        Merchandise Subtotal
                       </Text>
                       <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                        - ₦
-                        {couponApplied?.amountSaved?.toLocaleString(undefined, {
+                        ₦
+                        {productTotal?.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </Text>
                     </View>
-                  )}
-                  {walletCredit > 0 && (
-                    <View className="flex-row justify-between items-center">
-                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                        Auqli Credit Applied
-                      </Text>
-                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                        - ₦
-                        {walletCredit?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </View>
-                  )}
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Shipping Fee
-                    </Text>
-                    {shippingFeeLoading ? (
-                      <ActivityIndicator size={10} color="white" />
-                    ) : (
-                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                        {deliveryFee
-                          ? "₦" +
-                            deliveryFee?.toLocaleString(undefined, {
+                    {couponApplied && (
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                          Coupon Code Applied
+                        </Text>
+                        <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                          - ₦
+                          {couponApplied?.amountSaved?.toLocaleString(
+                            undefined,
+                            {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })
-                          : freeShipping
-                            ? "FREE"
-                            : "-"}
-                      </Text>
+                            },
+                          )}
+                        </Text>
+                      </View>
                     )}
+                    {walletCredit > 0 && (
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                          Auqli Credit Applied
+                        </Text>
+                        <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                          - ₦
+                          {walletCredit?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </Text>
+                      </View>
+                    )}
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Shipping Fee
+                      </Text>
+                      {shippingFeeLoading ? (
+                        <ActivityIndicator size={10} color="white" />
+                      ) : (
+                        <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                          {deliveryFee
+                            ? "₦" +
+                              deliveryFee?.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            : freeShipping
+                              ? "FREE"
+                              : "-"}
+                        </Text>
+                      )}
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                        Total
+                      </Text>
+                      {shippingFeeLoading ? (
+                        <ActivityIndicator size={10} color="white" />
+                      ) : (
+                        <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                          {(deliveryFee && productTotal) ||
+                          (selectedDeliveryOpt == 1 &&
+                            deliveryFee?.toString()) ||
+                          (freeShipping && productTotal)
+                            ? "₦" +
+                              (
+                                deliveryFee +
+                                (couponApplied
+                                  ? couponApplied?.couponSubTotal
+                                  : productTotal) -
+                                walletCredit
+                              )?.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            : "-"}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Total
-                    </Text>
-                    {shippingFeeLoading ? (
-                      <ActivityIndicator size={10} color="white" />
+
+                  <TouchableOpacity
+                    className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
+                    onPress={() => handleCompleteOrder()}
+                  >
+                    {orderLoading ? (
+                      <ActivityIndicator size={"small"} color="white" />
                     ) : (
-                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                      <Text className="text-white text-[16px] font-LexendDecaMedium">
+                        Pay (
                         {(deliveryFee && productTotal) ||
                         (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
                         (freeShipping && productTotal)
@@ -1119,39 +1215,11 @@ const CheckoutNow = ({
                               maximumFractionDigits: 2,
                             })
                           : "-"}
+                        )
                       </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
-                  onPress={() => handleCompleteOrder()}
-                >
-                  {orderLoading ? (
-                    <ActivityIndicator size={"small"} color="white" />
-                  ) : (
-                    <Text className="text-white text-[16px] font-LexendDecaMedium">
-                      Pay (
-                      {(deliveryFee && productTotal) ||
-                      (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                      (freeShipping && productTotal)
-                        ? "₦" +
-                          (
-                            deliveryFee +
-                            (couponApplied
-                              ? couponApplied?.couponSubTotal
-                              : productTotal) -
-                            walletCredit
-                          )?.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        : "-"}
-                      )
-                    </Text>
-                  )}
-                </TouchableOpacity>
               </View>
             )}
           </>
@@ -1225,7 +1293,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
   }, [cartItem]);
 
   return (
-    <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row">
+    <View className="rounded-[16px] p-[14px]">
       <View className="gap-[16px] shrink">
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
@@ -1238,18 +1306,19 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
             source={{ uri: cartItem?.images?.[0]?.url }}
             contentFit="cover"
             style={{
-              width: 115,
-              height: 136,
-              borderRadius: 8,
+              width: 100,
+              height: 100,
+              borderRadius: 12,
             }}
           />
           <View className="gap-[6px] relative shrink">
-            <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {cartItem?.name.length > 50
-                ? cartItem?.name.slice(0, 50) + "..."
-                : cartItem?.name}
+            <Text
+              className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca  leading-[20px]"
+              numberOfLines={2}
+            >
+              {cartItem?.name}
             </Text>
-            <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
+            <Text className="text-white opacity-80 font-LexendDecaMedium tracking-wide  text-[16px]">
               ₦
               {cartItem?.discount?.isActive
                 ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
@@ -1262,24 +1331,26 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
                 </Text>
               )}
             </Text>
-            <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
+            {/* <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {cartItem?._id?.toLocaleString()}
-            </Text>
+            </Text> */}
             {(cartItem?.seller?.offersStorePickup ||
               cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <Text className="text-[10px] text-[#1683da] font-LexendDeca">
-                Store Pickup Available
-              </Text>
+              <View className=" p-[4px] px-[8px] bg-[#1683da33] items-center justify-center self-start rounded-[10px]">
+                <Text className="text-[8px] text-[#1683da] font-LexendDeca">
+                  Store Pickup Available
+                </Text>
+              </View>
             )}
             <View
-              className="flex-row items-center justify-between gap-[8px] flex-wrap"
+              className="flex-row items-center justify-between gap-[8px] flex-wrap w-full"
               style={{
                 marginTop: "auto",
               }}
             >
               <Text className="text-white text-[12px] font-LexendDecaMedium">
                 Total:{" "}
-                <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
+                <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
                   ₦{totalPrice.toLocaleString()}
                 </Text>
               </Text>

@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  SafeAreaView,
   Dimensions,
   TouchableOpacity,
   StyleSheet,
@@ -30,6 +29,7 @@ import { toast } from "@/core/toast";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import TransactionDetails from "@/components/wallet/transaction-details";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const paymentOptions = [
   {

@@ -56,7 +56,7 @@ const offset = 20;
 const MorePostInfo = () => {
   const isFocused = useIsFocused();
 
-  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const insets = useSafeAreaInsets();
   const [commentPost, { isLoading }] = useCommentPostMutation({});
   const [replyComment, { isLoading: isLoadingReplyComment }] =
     useReplyCommentMutation({});

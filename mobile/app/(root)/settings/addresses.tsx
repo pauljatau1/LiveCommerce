@@ -1,18 +1,27 @@
-import {
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  Pressable,
-} from "react-native";
+import { View, Text, TouchableOpacity, Pressable, Alert } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { AntDesign, Entypo } from "@expo/vector-icons";
+import {
+  AntDesign,
+  Entypo,
+  EvilIcons,
+  Feather,
+  Ionicons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import * as Haptics from "expo-haptics";
+
+const addressTypeColors = {
+  home: "#b4e23f",
+  work: "#86bee2",
+  other: "#d7253a",
+} as any;
 
 const Addresses = () => {
   const isFocused = useIsFocused();
@@ -40,7 +49,7 @@ const Addresses = () => {
     }
   };
 
-  const deleteAddress = async (id: string) => {
+  const confirmDeleteAddress = async (id: String) => {
     setDeleteLoading(true);
     try {
       const token = await getToken();
@@ -59,6 +68,31 @@ const Addresses = () => {
     } finally {
       setDeleteLoading(false);
     }
+  };
+
+  const deleteAddress = async (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      "Delete Address",
+      "Are you sure you want to delete this address?",
+
+      [
+        { text: "Cancel" },
+        {
+          text: "Delete",
+          onPress: () => confirmDeleteAddress(id),
+        },
+      ],
+    );
+  };
+
+  const updateAddress = async (address: any) => {
+    router.push({
+      pathname: "/addresses/addAddress",
+      params: {
+        address: JSON.stringify(address),
+      },
+    });
   };
 
   useEffect(() => {
@@ -97,25 +131,33 @@ const Addresses = () => {
           addresses.map((address: any, index: any) => (
             <View
               key={index}
-              className="p-[16px] rounded-[16px] flex-row items-center justify-between"
+              className="p-[16px] rounded-[16px]"
               style={{
                 backgroundColor: "rgba(41, 41, 41, 0.81)",
 
                 opacity: deleteLoading ? 0.5 : 1,
               }}
             >
-              <View className="flex-row gap-[16px] shrink justify-between w-full">
-                {/* <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-                  <Text className="text-white text-[9px]">
-                    {address?.first_name?.split("")[0]}
-                  </Text>
-                  <Text className="text-white text-[9px]">
-                    {address?.last_name?.split("")[0]}
-                  </Text>
-                </View> */}
-
+              <View className="flex-row items-center gap-[6px] mb-[8px]">
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color="white"
+                  style={{ marginLeft: -5, padding: 0 }}
+                />
+                <Text
+                  className="font-LexendDecaMedium text-[12px] capitalize"
+                  style={{
+                    color:
+                      addressTypeColors[address?.addressType?.toLowerCase()],
+                  }}
+                >
+                  {address?.addressType}
+                </Text>
+              </View>
+              <View className=" gap-[16px] shrink w-full">
                 <View className="gap-[6px] shrink">
-                  <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium">
+                  {/* <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium">
                     Country:{"  "}
                     <Text className="font-LexendDeca">{address?.country}</Text>
                   </Text>
@@ -126,36 +168,36 @@ const Addresses = () => {
                   <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium">
                     City:{"  "}
                     <Text className="font-LexendDeca">{address?.city}</Text>
-                  </Text>
-                  <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium shrink">
-                    Street Address:{"  "}
+                  </Text> */}
+                  <Text className="text-[#fff] text-[14px] font-LexendDeca shrink">
+                    {/* Street Address:{"  "} */}
                     <Text className="font-LexendDeca">
-                      {address?.addressLine1}
+                      {address?.addressLine1}, {address?.city}, {address?.state}
                     </Text>
                   </Text>
-                  <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium">
+                  {/* <Text className="text-[#ccc] text-[12px] font-LexendDecaMedium">
                     Zip Code:{"  "}
                     <Text className="font-LexendDeca">{address?.zipCode}</Text>
-                  </Text>
+                  </Text> */}
                 </View>
 
-                <View className=" justify-between items-end">
-                  <View
-                    className="bg-[#deffee] rounded-[16px] px-[10px] py-[2px]"
-                    style={{ backgroundColor: "#DEFFEE" }}
+                <View className="flex-row justify-end items-center gap-[12px] flex-end w-full">
+                  <TouchableOpacity
+                    className="w-[26px] h-[26px] items-center justify-center rounded-[13px] bg-[#DEFFEE60]"
+                    onPress={() => updateAddress(address)}
                   >
-                    <Text className="font-LexendDecaLight text-[11px] capitalize">
-                      {address?.addressType}
-                    </Text>
-                  </View>
-                  <Pressable onPress={() => deleteAddress(address?._id)}>
-                    <Text
-                      className="font-LexendDecaMedium text-[12px]"
-                      style={{ color: "rgba(238, 87, 28, 0.85)" }}
-                    >
-                      Delete
-                    </Text>
-                  </Pressable>
+                    <Feather name="edit-2" size={14} color="#DEFFEE" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="w-[26px] h-[26px] items-center justify-center rounded-[13px] bg-[#d7253a60]"
+                    onPress={() => deleteAddress(address?._id)}
+                  >
+                    <MaterialIcons
+                      name="delete-outline"
+                      size={20}
+                      color="#d7253a"
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
