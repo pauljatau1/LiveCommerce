@@ -225,6 +225,25 @@ async function findByIdWithShippingAddresses(buyerId) {
   return Buyer.findById(buyerId).select('shippingAddresses');
 }
 
+/**
+ * Add a new shipping address to a buyer.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} addressData - The address data to add
+ * @returns {Promise<Buyer>} Updated buyer with new address
+ */
+async function addShippingAddress(buyerId, addressData) {
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  // Add new address to the array
+  buyer.shippingAddresses = [...buyer.shippingAddresses, addressData];
+
+  // Save the updated buyer document
+  return await buyer.save();
+}
+
 module.exports = {
   findAll,
   save,
@@ -244,5 +263,6 @@ module.exports = {
   findOrderByIdAndBuyer,
   findBuyerOrders,
   findRecentOrders,
-  findByIdWithShippingAddresses
+  findByIdWithShippingAddresses,
+  addShippingAddress
 };
