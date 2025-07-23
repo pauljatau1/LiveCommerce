@@ -10,8 +10,8 @@ const updateSelectedCategoriesService = require('../services/updateSelectedCateg
 const getSelectedCategoriesService = require('../services/getSelectedCategories.service');
 const getOrdersService = require('../services/getOrders.service');
 const getOrderDetailsService = require('../services/getOrderDetails.service');
+const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 const getAddressesService = require('../services/getAddresses.service');
-
 
 /**
  * Register a buyer user.
