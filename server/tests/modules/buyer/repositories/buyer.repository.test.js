@@ -1541,4 +1541,113 @@ describe('Buyer Repository', () => {
       expect(result[0].items[0].product.images).toHaveLength(0);
     });
   });
+
+  describe('findByIdWithShippingAddresses', () => {
+    let testBuyer;
+
+    beforeEach(async () => {
+      // Create a test buyer with shipping addresses
+      testBuyer = new Buyer({
+        ...mockBuyerData,
+        shippingAddresses: [
+          {
+            addressType: 'home',
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Main Street',
+            addressLine2: 'Apt 4B',
+            zipCode: '100001'
+          },
+          {
+            addressType: 'work',
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Victoria Island',
+            addressLine1: '456 Business Avenue',
+            addressLine2: 'Suite 10',
+            zipCode: '100002'
+          }
+        ]
+      });
+      await testBuyer.save();
+    });
+
+    it('should find buyer with shipping addresses', async () => {
+      const result = await buyerRepository.findByIdWithShippingAddresses(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(testBuyer._id.toString());
+      expect(result.shippingAddresses).toHaveLength(2);
+      expect(result.shippingAddresses[0].addressType).toBe('home');
+      expect(result.shippingAddresses[0].country).toBe('Nigeria');
+      expect(result.shippingAddresses[0].state).toBe('Lagos');
+      expect(result.shippingAddresses[0].city).toBe('Lagos');
+      expect(result.shippingAddresses[0].addressLine1).toBe('123 Main Street');
+      expect(result.shippingAddresses[0].addressLine2).toBe('Apt 4B');
+      expect(result.shippingAddresses[0].zipCode).toBe('100001');
+      expect(result.shippingAddresses[1].addressType).toBe('work');
+      expect(result.shippingAddresses[1].addressLine1).toBe('456 Business Avenue');
+    });
+
+    it('should return null for non-existent buyer', async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const result = await buyerRepository.findByIdWithShippingAddresses(nonExistentId);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with empty shipping addresses', async () => {
+      // Create buyer without shipping addresses
+      const emptyBuyer = new Buyer({
+        ...mockBuyerData,
+        email: 'empty@example.com',
+        username: 'emptyuser',
+        shippingAddresses: []
+      });
+
+      await emptyBuyer.save();
+
+      const result = await buyerRepository.findByIdWithShippingAddresses(emptyBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(emptyBuyer._id.toString());
+      expect(result.shippingAddresses).toHaveLength(0);
+    });
+
+    it('should handle invalid ObjectId format', async () => {
+      await expect(
+        buyerRepository.findByIdWithShippingAddresses('invalid-id')
+      ).rejects.toThrow('Cast to ObjectId failed for value "invalid-id"');
+    });
+
+    it('should only return shippingAddresses field', async () => {
+      const result = await buyerRepository.findByIdWithShippingAddresses(testBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toBeDefined();
+      // Should not have other fields like firstName, lastName, etc.
+      expect(result.firstName).toBeUndefined();
+      expect(result.lastName).toBeUndefined();
+      expect(result.email).toBeUndefined();
+    });
+
+    it('should handle buyer with null shipping addresses', async () => {
+      // Create buyer with null shipping addresses
+      const nullBuyer = new Buyer({
+        ...mockBuyerData,
+        email: 'null@example.com',
+        username: 'nulluser',
+        shippingAddresses: null
+      });
+
+      await nullBuyer.save();
+
+      const result = await buyerRepository.findByIdWithShippingAddresses(nullBuyer._id.toString());
+
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(nullBuyer._id.toString());
+      expect(result.shippingAddresses).toBeNull();
+    });
+  });
 }); 
