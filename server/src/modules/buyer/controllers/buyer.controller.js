@@ -12,6 +12,7 @@ const getOrdersService = require('../services/getOrders.service');
 const getOrderDetailsService = require('../services/getOrderDetails.service');
 const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 const getAddressesService = require('../services/getAddresses.service');
+const addAddressService = require('../services/addAddress.service');
 
 /**
  * Register a buyer user.
@@ -341,6 +342,29 @@ async function getAddresses(req, res, next) {
   }
 }
 
+/**
+ * Add a new shipping address for a buyer.
+ *
+ * This controller handles the address addition HTTP request.
+ * It delegates the addition logic to the service layer and returns the newly added address.
+ *
+ * @param {Request} req - Express request object containing the address data in `req.body` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address addition logic
+    const response = await addAddressService.addAddress(req.user.id, req.body);
+
+    // Send success response with newly added address
+    res.success(response, 'Address added successfully', 201);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -356,4 +380,5 @@ module.exports = {
   getOrderDetails,
   getPurchaseAnalytics,
   getAddresses,
+  addAddress,
 };
