@@ -216,6 +216,15 @@ async function findRecentOrders(buyerId, limit = 5) {
     .populate('items.product', 'name images price');
 }
 
+/**
+ * Find buyer by ID and select only shipping addresses.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with shipping addresses or null if not found
+ */
+async function findByIdWithShippingAddresses(buyerId) {
+  return Buyer.findById(buyerId).select('shippingAddresses');
+}
+
 module.exports = {
   findAll,
   save,
@@ -234,5 +243,6 @@ module.exports = {
   findReturnRequests,
   findOrderByIdAndBuyer,
   findBuyerOrders,
-  findRecentOrders
+  findRecentOrders,
+  findByIdWithShippingAddresses
 };

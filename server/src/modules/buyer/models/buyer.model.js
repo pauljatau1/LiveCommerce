@@ -258,7 +258,7 @@ buyerSchema.pre('save', async function(next) {
 
 // Add a pre-save middleware to check for duplicate address types
 buyerSchema.pre('save', function(next) {
-  if (this.isModified('shippingAddresses')) {
+  if (this.isModified('shippingAddresses') && this.shippingAddresses && Array.isArray(this.shippingAddresses)) {
     const addressTypes = this.shippingAddresses.map(addr => addr.addressType);
     const uniqueTypes = new Set(addressTypes);
     
