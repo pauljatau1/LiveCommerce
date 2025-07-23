@@ -164,14 +164,14 @@ async function handleWalletRefund(order, session) {
         walletRefundAmount = calculateRefundAmount(order);
         const walletTransaction = {
           type: 'credit',
-          amount: walletRefundAmount,
+          amount: walletRefundAmount - order.shipping.fee.amount,
           description: `Refund for cancelled order ${order.order_id}`,
           status: 'completed',
           createdAt: new Date()
         };
         
         // Add transaction to wallet
-        buyer.wallet.balance += walletRefundAmount;
+        buyer.wallet.balance += walletRefundAmount - order.shipping.fee.amount;
         buyer.wallet.transactions.push(walletTransaction);
         
         // Save buyer with updated wallet
@@ -186,7 +186,7 @@ async function handleWalletRefund(order, session) {
     }
   }
 
-  return { refunded: walletRefunded, amount: walletRefundAmount };
+  return { refunded: walletRefunded, amount: walletRefundAmount - order.shipping.fee.amount };
 }
 
 async function updateOrderForCancellation(order, reason, session) {
@@ -239,12 +239,14 @@ async function restoreProductStock(order, session) {
 
 // Helper to calculate refund amount (items total + shipping if paid)
 function calculateRefundAmount(order) {
+  // Hardcode free shipping for cancellations
+  const isFreeShipping = true;
   const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   if (FREE_SHIPPING_PROMO) {
     return itemsTotal;
   }
   const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
-  return itemsTotal + shippingFee;
+  return isFreeShipping ? itemsTotal : (itemsTotal + shippingFee);
 }
 
 function handleRefundRequest(order, reason) {
