@@ -2643,7 +2643,6 @@ setInterval(() => {
   }
 }, 30 * 1000); // Clean every 30 seconds
 
-
 exports.getPersonalizedBlips = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -2710,12 +2709,11 @@ exports.getPersonalizedBlips = async (req, res) => {
       console.log(`📝 [BLIPS DEBUG] First 5 seen blip IDs: ${seenBlipIds.slice(0, 5).join(', ')}`);
     }
 
-    // Exclude products with status 'draft' in all match stages
     const primaryMatchStage = {
       $and: [
         { 'blips.0': { $exists: true } },
         { blips: { $elemMatch: { processed: true } } },
-        { status: { $ne: 'draft' } }, // Exclude draft products
+        { status: { $ne: 'draft' } },
         {
           $or: [
             { status: { $ne: 'offline_auction' } },
@@ -2730,14 +2728,11 @@ exports.getPersonalizedBlips = async (req, res) => {
         }
       ]
     };
+    
 
     const fallbackMatchStage = {
       'blips.0': { $exists: true },
-      status: 'active',
-      // Exclude draft products (redundant since status: 'active', but for clarity)
-      $and: [
-        { status: { $ne: 'draft' } }
-      ]
+      status: 'active'
     };
 
     const buyerId = req.user?.id;
@@ -2760,58 +2755,48 @@ exports.getPersonalizedBlips = async (req, res) => {
     const now = new Date();
 
     const commonPipeline = [
-        {
-          $addFields: {
-            randomScore: { $rand: {} },
-            daysSinceCreation: {
-              $divide: [
-                { $subtract: [now, { $ifNull: ["$blips.createdAt", now] }] },
-                1000 * 60 * 60 * 24
-              ]
-            },
-            engagementScore: {
-              $add: [
-                { $ifNull: ["$blips.viewCount", 0] },
-                { $multiply: [{ $ifNull: ["$blips.likesCount", 0] }, 5] },
-                { $multiply: [{ $ifNull: ["$blips.commentsCount", 0] }, 10] }
-              ]
-            },
-            priorityBoost: { 
-              $cond: [
-                { $lt: ["$blips.viewCount", 40] },
-                5, 
-                1
-              ]
-            },
-            combinedScore: { 
-              $multiply: ["$randomScore", "$priorityBoost"]
-            }
-          }
-        },
-        { $sort: { combinedScore: -1 } }, 
-        { $limit: poolSize },
-        {
-          $project: {
-            _id: 1,
-            name: 1,
-            price: 1,
-            stock: 1,
-            status: 1,
-            category: 1,
-            subCategory: 1,
-            seller: 1,
-            discount: 1,
-            auction: 1,
-            images: { $arrayElemAt: ["$images.url", 0] },
-            blip: "$blips",
-            reviews: 1,
-            createdAt: 1,
-            daysSinceCreation: 1,
-            engagementScore: 1
+      {
+        $addFields: {
+          randomScore: { $rand: {} },
+          daysSinceCreation: {
+            $divide: [
+              { $subtract: [now, { $ifNull: ["$blips.createdAt", now] }] },
+              1000 * 60 * 60 * 24
+            ]
+          },
+          engagementScore: {
+            $add: [
+              { $ifNull: ["$blips.viewCount", 0] },
+              { $multiply: [{ $ifNull: ["$blips.likesCount", 0] }, 5] },
+              { $multiply: [{ $ifNull: ["$blips.commentsCount", 0] }, 10] }
+            ]
           }
         }
-      ];
-      
+      },
+      { $sort: { randomScore: -1 } },
+      { $limit: poolSize },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          price: 1,
+          stock: 1,
+          status: 1,
+          category: 1,
+          subCategory: 1,
+          seller: 1,
+          discount: 1,
+          auction: 1,
+          images: { $arrayElemAt: ["$images.url", 0] },
+          blip: "$blips",
+          reviews: 1,
+          createdAt: 1,
+          daysSinceCreation: 1,
+          engagementScore: 1
+        }
+      }
+    ];
+
     // Convert seen blip IDs to ObjectIds for MongoDB comparison
     const mongoose = require('mongoose');
     const seenBlipObjectIds = seenBlipIds.length > 0 ? seenBlipIds.map(id => {
@@ -2994,8 +2979,8 @@ exports.getPersonalizedBlips = async (req, res) => {
           isFollowingSeller: isFollowing || followedSellers.includes(product.seller._id.toString()),
           engagementScore: product.engagementScore,
           daysSinceCreation: product.daysSinceCreation,
-          isNewBlip: product.daysSinceCreation < 7,
-          isLowView: (product.blip.viewCount || 0) < 50,
+          isNewBlip: product.daysSinceCreation < 25,
+          isLowView: (product.blip.viewCount || 0) < 25,
           sellerId: product.seller._id.toString()
         }
       };
@@ -3015,7 +3000,7 @@ exports.getPersonalizedBlips = async (req, res) => {
 
       if (isAuthenticated && meta.isFollowingSeller) {
         categorizedBlips.followedSellers.push(blip);
-      } else if (meta.engagementScore > 100) {
+      } else if (meta.engagementScore > 80) {
         categorizedBlips.highEngagement.push(blip);
       } else if (meta.isLowView) {
         categorizedBlips.undiscovered.push(blip);
@@ -3152,6 +3137,8 @@ exports.getPersonalizedBlips = async (req, res) => {
     });
   }
 };
+
+
 
 
 

@@ -216,6 +216,34 @@ async function findRecentOrders(buyerId, limit = 5) {
     .populate('items.product', 'name images price');
 }
 
+/**
+ * Find buyer by ID and select only shipping addresses.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with shipping addresses or null if not found
+ */
+async function findByIdWithShippingAddresses(buyerId) {
+  return Buyer.findById(buyerId).select('shippingAddresses');
+}
+
+/**
+ * Add a new shipping address to a buyer.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} addressData - The address data to add
+ * @returns {Promise<Buyer>} Updated buyer with new address
+ */
+async function addShippingAddress(buyerId, addressData) {
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  // Add new address to the array
+  buyer.shippingAddresses = [...buyer.shippingAddresses, addressData];
+
+  // Save the updated buyer document
+  return await buyer.save();
+}
+
 module.exports = {
   findAll,
   save,
@@ -234,5 +262,7 @@ module.exports = {
   findReturnRequests,
   findOrderByIdAndBuyer,
   findBuyerOrders,
-  findRecentOrders
+  findRecentOrders,
+  findByIdWithShippingAddresses,
+  addShippingAddress
 };
