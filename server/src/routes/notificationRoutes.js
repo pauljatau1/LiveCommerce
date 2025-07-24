@@ -180,7 +180,7 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
  *       500:
  *         description: Server error
  */
-router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook);
+router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook2);
 
 /**
  * @swagger
