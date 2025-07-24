@@ -64,7 +64,7 @@ exports.cancelOrderBySeller = async (orderId, sellerId, reason) => {
         message: 'Order cancelled successfully',
         order: formatOrderResponse(order),
         walletRefunded: walletRefundResult.refunded,
-        walletRefundAmount: walletRefundResult.amount - order.shipping.fee.amount
+        walletRefundAmount: walletRefundResult.amount
       }
     };
 
@@ -155,14 +155,14 @@ async function handleWalletRefund(order, session) {
         walletRefundAmount = calculateRefundAmount(order);
         const walletTransaction = {
           type: 'credit',
-          amount: walletRefundAmount - order.shipping.fee.amount,
+          amount: walletRefundAmount,
           description: `Refund for cancelled order ${order.order_id}`,
           status: 'completed',
           createdAt: new Date()
         };
         
         // Add transaction to wallet
-        buyer.wallet.balance += walletRefundAmount - order.shipping.fee.amount;
+        buyer.wallet.balance += walletRefundAmount;
         buyer.wallet.transactions.push(walletTransaction);
         
         // Save buyer with updated wallet
@@ -177,7 +177,7 @@ async function handleWalletRefund(order, session) {
     }
   }
 
-  return { refunded: walletRefunded, amount: walletRefundAmount - order.shipping.fee.amount };
+  return { refunded: walletRefunded, amount: walletRefundAmount };
 }
 
 async function updateOrderForCancellation(order, reason, session) {
@@ -230,14 +230,12 @@ async function restoreProductStock(order, session) {
 
 // Helper to calculate refund amount (items total + shipping if paid)
 function calculateRefundAmount(order) {
-  // Hardcode free shipping for cancellations
-  const isFreeShipping = true;
   const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   if (FREE_SHIPPING_PROMO) {
     return itemsTotal;
   }
   const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
-  return isFreeShipping ? itemsTotal : (itemsTotal + shippingFee);
+  return itemsTotal + shippingFee;
 }
 
 function handleRefundRequest(order, reason) {
@@ -251,7 +249,7 @@ function handleRefundRequest(order, reason) {
       requestedBy: 'seller',
       reason: reason || 'Order cancelled by seller',
       status: 'pending',
-      refundAmount: calculateRefundAmount(order) - order.shipping.fee.amount
+      refundAmount: calculateRefundAmount(order)
     };
   } else {
     // For unpaid orders, close the order immediately
@@ -359,7 +357,7 @@ async function sendAdminRefundNotification(order, reason, walletRefundResult) {
               <li>Order ID: ${order.order_id}</li>
               <li>Seller: ${order.seller.storeName || order.seller.businessName}</li>
               <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
-              <li>Amount: ₦${(order.totalAmount - order.shipping.fee.amount).toLocaleString()}</li>
+              <li>Amount: ₦${calculateRefundAmount(order).toLocaleString()}</li>
               <li>Reason: ${reason || 'Order cancelled by seller'}</li>
               ${walletRefundResult.refunded ? `<li>Note: Wallet payment of ₦${walletRefundResult.amount.toLocaleString()} was automatically refunded</li>` : ''}
             </ul>
