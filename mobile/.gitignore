@@ -95,3 +95,11 @@ yarn-error.*
 *.tsbuildinfo
 
 # @end expo-cli
+
+.DS_Store
+.vscode
+.idea
+GoogleService-Info.plist:Zone.Identifier
+eas.json:Zone.Identifier
+env:Zone.Identifier
+google-services.json:Zone.Identifier
