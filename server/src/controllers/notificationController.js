@@ -1101,23 +1101,23 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
     const signature = req.headers['x-terminal-signature'] || req.headers['X-Terminal-Signature'];
     const secretKey = process.env.TERMINAL_SECRET_KEY;
     
-    // if (!signature || !secretKey) {
-    //   return res.status(400).json({
-    //     status: false,
-    //     message: 'Missing webhook signature or secret key'
-    //   });
-    // }
+    if (!signature || !secretKey) {
+      return res.status(400).json({
+        status: false,
+        message: 'Missing webhook signature or secret key'
+      });
+    }
 
     // Import the signature verification and handler from terminalWebhook.js
     const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
     // const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
     
-    // if (!verification.status) {
-    //   return res.status(400).json({
-    //     status: false,
-    //     message: verification.message
-    //   });
-    // }
+    if (!verification.status) {
+      return res.status(400).json({
+        status: false,
+        message: verification.message
+      });
+    }
 
     // Process the webhook using the full handler
     await handleTerminalWebhook(req, res, req.body);
