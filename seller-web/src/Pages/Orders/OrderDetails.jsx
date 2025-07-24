@@ -1263,9 +1263,12 @@ export default function OrderDetails() {
 
                     {/* Delivery Fee (if exists) */}
                     {shipping?.fee?.amount > 0 && (
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-sm items-center">
                         <span className="text-gray-600">Delivery Fee</span>
-                        <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-gray-600 line-through">₦{shipping.fee.amount.toLocaleString()}</span>
+                          <Badge className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold">Free</Badge>
+                        </span>
                       </div>
                     )}
                   </div>
