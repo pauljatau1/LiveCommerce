@@ -856,23 +856,34 @@ exports.handleTerminalWebhookRoute = async (req, res) => {
     }
 
     const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
-    
     if (!verification.status) {
-      return res.status(400).json({
+      return res.status(401).json({
         status: false,
         message: verification.message
       });
     }
 
-    // Process the webhook
-    await handleTerminalWebhook(req.body);
+    // Validate payload schema (must have event and data)
+    const { event, data } = req.body;
+    if (!event || !data) {
+      return res.status(400).json({
+        status: false,
+        message: 'Invalid webhook payload: missing event or data'
+      });
+    }
 
-    res.status(200).json({
-      status: true,
-      message: 'Terminal webhook processed successfully'
-    });
+    // Immediately acknowledge receipt to Terminal Africa
+    res.sendStatus(200);
+
+    // Process the webhook asynchronously (no await)
+    handleTerminalWebhook(req, null, req.body)
+      .catch((err) => {
+        console.error('[WEBHOOK ASYNC ERROR]', err);
+      });
+
   } catch (error) {
     console.error('Error in Terminal webhook route:', error);
+    // Only return 500 for actual server errors (not business logic)
     res.status(500).json({
       status: false,
       message: 'Failed to process Terminal webhook',
