@@ -1411,6 +1411,77 @@ router.put('/addresses/:addressId', verifyToken, isBuyer, buyerController.update
  */
 router.delete('/addresses/:addressId', verifyToken, isBuyer, buyerController.deleteAddress);
 
+/**
+ * @swagger
+ * /api/v2/buyers/follow/{sellerId}:
+ *   post:
+ *     summary: Follow a seller
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to follow
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Successfully followed seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully followed seller"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     followData:
+ *                       type: object
+ *                       properties:
+ *                         buyerId:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         followDate:
+ *                           type: string
+ *                           format: date-time
+ *                         totalOrders:
+ *                           type: number
+ *                         mainAddress:
+ *                           type: object
+ *                           nullable: true
+ *                     sellerFollowCount:
+ *                       type: number
+ *                       description: Total number of followers for the seller
+ *                     buyerFollowingCount:
+ *                       type: number
+ *                       description: Total number of sellers the buyer is following
+ *       400:
+ *         description: Bad Request - Already following this seller
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or seller not found
+ *       422:
+ *         description: Validation error - Invalid seller ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/follow/:sellerId', verifyToken, isBuyer, buyerController.followSeller);
+
 
 
 module.exports = router;

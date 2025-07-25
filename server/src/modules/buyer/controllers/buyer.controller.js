@@ -15,6 +15,7 @@ const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
 const updateAddressService = require('../services/updateAddress.service');
 const deleteAddressService = require('../services/deleteAddress.service');
+const followSellerService = require('../services/followSeller.service');
 
 /**
  * Register a buyer user.
@@ -413,6 +414,29 @@ async function deleteAddress(req, res, next) {
   }
 }
 
+/**
+ * Follow a seller by a buyer.
+ *
+ * This controller handles the follow seller HTTP request.
+ * It delegates the follow logic to the service layer and returns the follow data.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function followSeller(req, res, next) {
+  try {
+    // Call the service layer to handle follow seller logic
+    const response = await followSellerService.followSeller(req.user.id, req.params.sellerId);
+
+    // Send success response with follow data
+    res.success(response, 'Successfully followed seller');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -431,4 +455,5 @@ module.exports = {
   addAddress,
   updateAddress,
   deleteAddress,
+  followSeller,
 };
