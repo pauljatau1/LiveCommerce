@@ -244,6 +244,36 @@ async function addShippingAddress(buyerId, addressData) {
   return await buyer.save();
 }
 
+/**
+ * Update a shipping address for a buyer.
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} addressId - The address ID to update
+ * @param {Object} updateData - The address data to update
+ * @returns {Promise<Buyer>} Updated buyer with modified address
+ */
+async function updateShippingAddress(buyerId, addressId, updateData) {
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  const addressIndex = buyer.shippingAddresses.findIndex(
+    addr => addr._id.toString() === addressId
+  );
+
+  if (addressIndex === -1) {
+    return null;
+  }
+
+  const updatedAddress = {
+    ...buyer.shippingAddresses[addressIndex].toObject(),
+    ...updateData
+  };
+
+  buyer.shippingAddresses[addressIndex] = updatedAddress;
+  return await buyer.save();
+}
+
 module.exports = {
   findAll,
   save,
@@ -264,5 +294,6 @@ module.exports = {
   findBuyerOrders,
   findRecentOrders,
   findByIdWithShippingAddresses,
-  addShippingAddress
+  addShippingAddress,
+  updateShippingAddress
 };

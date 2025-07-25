@@ -1791,4 +1791,166 @@ describe('Buyer Repository', () => {
       ).rejects.toThrow('Cast to ObjectId failed for value "invalid-id"');
     });
   });
+
+  describe('updateShippingAddress', () => {
+    let testBuyer;
+    let testAddressId;
+
+    beforeEach(async () => {
+      // Create a test buyer with an address
+      testBuyer = new Buyer({
+        ...mockBuyerData,
+        shippingAddresses: [{
+          addressType: 'home',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Lagos',
+          addressLine1: '123 Main Street',
+          addressLine2: 'Apt 4B',
+          zipCode: '100001'
+        }]
+      });
+      await testBuyer.save();
+      testAddressId = testBuyer.shippingAddresses[0]._id.toString();
+    });
+
+    it('should update shipping address successfully', async () => {
+      // Arrange
+      const updateData = {
+        addressType: 'work',
+        city: 'Victoria Island',
+        addressLine1: '456 Business Avenue',
+        addressLine2: 'Suite 100',
+        zipCode: '100002'
+      };
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId, 
+        updateData
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(1);
+      expect(result.shippingAddresses[0].addressType).toBe('work');
+      expect(result.shippingAddresses[0].city).toBe('Victoria Island');
+      expect(result.shippingAddresses[0].addressLine1).toBe('456 Business Avenue');
+      expect(result.shippingAddresses[0].addressLine2).toBe('Suite 100');
+      expect(result.shippingAddresses[0].zipCode).toBe('100002');
+      // Other fields should remain unchanged
+      expect(result.shippingAddresses[0].country).toBe('Nigeria');
+      expect(result.shippingAddresses[0].state).toBe('Lagos');
+    });
+
+    it('should update address with partial data', async () => {
+      // Arrange
+      const partialUpdateData = {
+        addressType: 'work'
+      };
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId, 
+        partialUpdateData
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses[0].addressType).toBe('work');
+      // Other fields should remain unchanged
+      expect(result.shippingAddresses[0].country).toBe('Nigeria');
+      expect(result.shippingAddresses[0].state).toBe('Lagos');
+      expect(result.shippingAddresses[0].city).toBe('Lagos');
+      expect(result.shippingAddresses[0].addressLine1).toBe('123 Main Street');
+      expect(result.shippingAddresses[0].addressLine2).toBe('Apt 4B');
+      expect(result.shippingAddresses[0].zipCode).toBe('100001');
+    });
+
+    it('should return null when buyer not found', async () => {
+      // Arrange
+      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
+      const updateData = {
+        addressType: 'work'
+      };
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        nonExistentBuyerId, 
+        testAddressId, 
+        updateData
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should return null when address not found', async () => {
+      // Arrange
+      const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
+      const updateData = {
+        addressType: 'work'
+      };
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        testBuyer._id.toString(), 
+        nonExistentAddressId, 
+        updateData
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should handle empty update data', async () => {
+      // Arrange
+      const emptyUpdateData = {};
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId, 
+        emptyUpdateData
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses[0]).toMatchObject({
+        addressType: 'home',
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Lagos',
+        addressLine1: '123 Main Street',
+        addressLine2: 'Apt 4B',
+        zipCode: '100001'
+      });
+    });
+
+    it('should preserve existing fields when updating specific fields', async () => {
+      // Arrange
+      const updateData = {
+        addressLine1: '789 New Street'
+      };
+
+      // Act
+      const result = await buyerRepository.updateShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId, 
+        updateData
+      );
+
+      // Assert
+      expect(result.shippingAddresses[0].addressLine1).toBe('789 New Street');
+      // Other fields should remain unchanged
+      expect(result.shippingAddresses[0].addressType).toBe('home');
+      expect(result.shippingAddresses[0].country).toBe('Nigeria');
+      expect(result.shippingAddresses[0].state).toBe('Lagos');
+      expect(result.shippingAddresses[0].city).toBe('Lagos');
+      expect(result.shippingAddresses[0].addressLine2).toBe('Apt 4B');
+      expect(result.shippingAddresses[0].zipCode).toBe('100001');
+    });
+  });
 }); 

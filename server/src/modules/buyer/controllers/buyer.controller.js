@@ -13,6 +13,7 @@ const getOrderDetailsService = require('../services/getOrderDetails.service');
 const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
+const updateAddressService = require('../services/updateAddress.service');
 
 /**
  * Register a buyer user.
@@ -365,6 +366,29 @@ async function addAddress(req, res, next) {
   }
 }
 
+/**
+ * Update an existing shipping address for a buyer.
+ *
+ * This controller handles the address update HTTP request.
+ * It delegates the address update logic to the service layer and returns the updated address.
+ *
+ * @param {Request} req - Express request object containing the address update data in `req.body`, buyer ID in `req.user.id`, and address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address update logic
+    const response = await updateAddressService.updateAddress(req.user.id, req.params.addressId, req.body);
+
+    // Send success response with updated address data
+    res.success(response, 'Address updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -381,4 +405,5 @@ module.exports = {
   getPurchaseAnalytics,
   getAddresses,
   addAddress,
+  updateAddress,
 };
