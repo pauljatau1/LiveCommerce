@@ -14,6 +14,7 @@ const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.se
 const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
 const updateAddressService = require('../services/updateAddress.service');
+const deleteAddressService = require('../services/deleteAddress.service');
 
 /**
  * Register a buyer user.
@@ -389,6 +390,29 @@ async function updateAddress(req, res, next) {
   }
 }
 
+/**
+ * Delete a shipping address for a buyer.
+ *
+ * This controller handles the address deletion HTTP request.
+ * It delegates the address deletion logic to the service layer and returns a success message.
+ *
+ * @param {Request} req - Express request object containing the address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function deleteAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address deletion logic
+    const response = await deleteAddressService.deleteAddress(req.user.id, req.params.addressId);
+
+    // Send success response with deletion message
+    res.success(response, 'Address deleted successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -406,4 +430,5 @@ module.exports = {
   getAddresses,
   addAddress,
   updateAddress,
+  deleteAddress,
 };

@@ -1953,4 +1953,194 @@ describe('Buyer Repository', () => {
       expect(result.shippingAddresses[0].zipCode).toBe('100001');
     });
   });
+
+  describe('deleteShippingAddress', () => {
+    let testBuyer;
+    let testAddressId;
+
+    beforeEach(async () => {
+      // Create a test buyer with addresses
+      testBuyer = new Buyer({
+        ...mockBuyerData,
+        shippingAddresses: [
+          {
+            addressType: 'home',
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Main Street',
+            addressLine2: 'Apt 4B',
+            zipCode: '100001'
+          },
+          {
+            addressType: 'work',
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Victoria Island',
+            addressLine1: '456 Business Ave',
+            zipCode: '100002'
+          }
+        ]
+      });
+      await testBuyer.save();
+      testAddressId = testBuyer.shippingAddresses[0]._id.toString();
+    });
+
+    it('should delete an address successfully', async () => {
+      // Arrange
+      const initialAddressCount = testBuyer.shippingAddresses.length;
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(initialAddressCount - 1);
+      expect(result.shippingAddresses[0].addressType).toBe('work');
+      expect(result.shippingAddresses.find(addr => addr._id.toString() === testAddressId)).toBeUndefined();
+    });
+
+    it('should delete the last address successfully', async () => {
+      // Arrange
+      const secondAddressId = testBuyer.shippingAddresses[1]._id.toString();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        testBuyer._id.toString(), 
+        secondAddressId
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(1);
+      expect(result.shippingAddresses[0].addressType).toBe('home');
+      expect(result.shippingAddresses.find(addr => addr._id.toString() === secondAddressId)).toBeUndefined();
+    });
+
+    it('should return null when buyer not found', async () => {
+      // Arrange
+      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        nonExistentBuyerId, 
+        testAddressId
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should return null when address not found', async () => {
+      // Arrange
+      const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        testBuyer._id.toString(), 
+        nonExistentAddressId
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with no addresses', async () => {
+      // Arrange
+      const buyerWithNoAddresses = new Buyer({
+        ...mockBuyerData,
+        email: 'no-address@example.com',
+        username: 'noaddress',
+        shippingAddresses: []
+      });
+      await buyerWithNoAddresses.save();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        buyerWithNoAddresses._id.toString(), 
+        testAddressId
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with null shippingAddresses', async () => {
+      // Arrange
+      const buyerWithNullAddresses = new Buyer({
+        ...mockBuyerData,
+        email: 'null-address@example.com',
+        username: 'nulladdress',
+        shippingAddresses: null
+      });
+      await buyerWithNullAddresses.save();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        buyerWithNullAddresses._id.toString(), 
+        testAddressId
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should handle buyer with undefined shippingAddresses', async () => {
+      // Arrange
+      const buyerWithUndefinedAddresses = new Buyer({
+        ...mockBuyerData,
+        email: 'undefined-address@example.com',
+        username: 'undefinedaddress'
+      });
+      buyerWithUndefinedAddresses.shippingAddresses = undefined;
+      await buyerWithUndefinedAddresses.save();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        buyerWithUndefinedAddresses._id.toString(), 
+        testAddressId
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should handle case-sensitive address ID comparison', async () => {
+      // Arrange
+      const addressIdUpperCase = testAddressId.toUpperCase();
+
+      // Act
+      const result = await buyerRepository.deleteShippingAddress(
+        testBuyer._id.toString(), 
+        addressIdUpperCase
+      );
+
+      // Assert
+      expect(result).toBeNull(); // Should not find the address due to case sensitivity
+    });
+
+    it('should handle multiple address deletions correctly', async () => {
+      // Arrange
+      const secondAddressId = testBuyer.shippingAddresses[1]._id.toString();
+
+      // Act - Delete first address
+      const result1 = await buyerRepository.deleteShippingAddress(
+        testBuyer._id.toString(), 
+        testAddressId
+      );
+
+      // Act - Delete second address
+      const result2 = await buyerRepository.deleteShippingAddress(
+        result1._id.toString(), 
+        secondAddressId
+      );
+
+      // Assert
+      expect(result1.shippingAddresses).toHaveLength(1);
+      expect(result2.shippingAddresses).toHaveLength(0);
+    });
+  });
 }); 

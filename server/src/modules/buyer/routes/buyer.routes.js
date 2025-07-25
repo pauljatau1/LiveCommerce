@@ -1364,4 +1364,53 @@ router.post('/addresses', verifyToken, isBuyer, buyerController.addAddress);
  */
 router.put('/addresses/:addressId', verifyToken, isBuyer, buyerController.updateAddress);
 
+/**
+ * @swagger
+ * /api/v2/buyers/addresses/{addressId}:
+ *   delete:
+ *     summary: Delete a shipping address for a buyer
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the address to delete
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Address deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Address deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Address deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or address not found
+ *       422:
+ *         description: Validation error - Invalid address ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/addresses/:addressId', verifyToken, isBuyer, buyerController.deleteAddress);
+
+
+
 module.exports = router;
