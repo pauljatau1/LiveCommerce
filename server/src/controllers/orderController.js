@@ -1235,6 +1235,16 @@ exports.createOrder = async (req, res) => {
 
     console.log('Transaction committed successfully');
 
+    // Update product stock for wallet-paid orders
+    if (isFullyPaidFromWallet) {
+      console.log('Updating product stock for wallet-paid orders');
+      for (const order of orders) {
+        if (order.paid) {
+          await updateProductStockForPaidOrder(order);
+        }
+      }
+    }
+
     const trackingOrderData = {};
 
     // Track order sales on Mixpanel - one event per order with all items as numbered properties
@@ -5007,6 +5017,9 @@ exports.simpleMarkPaid = async (req, res) => {
     order.paymentInfo.status = 'paid';
     order.paymentInfo.paymentReference = reference || 'manual-update';
     order.paymentInfo.paidAt = new Date();
+
+    // Update product stock now that the order is paid
+    await updateProductStockForPaidOrder(order);
 
     const updatedOrder = await order.save();
 

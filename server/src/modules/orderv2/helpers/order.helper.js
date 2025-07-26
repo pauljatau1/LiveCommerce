@@ -139,22 +139,42 @@ exports.updateProductStockForPaidOrder = async (order) => {
     for (const item of order.items) {
       const productBefore = await Product.findById(item.product);
       
-      if (productBefore) {
-        console.log(`Product ${item.product} before stock update:`, {
-          currentStock: productBefore.stock,
-          currentSoldCount: productBefore.stats.soldCount,
-          itemQuantity: item.quantity
-        });
-
-        // Since stock was already updated during order creation, we don't need to update it again
-        // This function is mainly for consistency with the original controller
-        console.log(`Stock already updated for product ${item.product} during order creation`);
+      if (!productBefore) {
+        console.error(`Product not found for item in order ${order.order_id}:`, item.product);
+        continue;
       }
+      
+      console.log(`Product ${item.product} before stock update:`, {
+        currentStock: productBefore.stock,
+        currentSoldCount: productBefore.stats.soldCount,
+        itemQuantity: item.quantity
+      });
+
+      // Actually update the product stock and sold count
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true } // Return the updated document
+      );
+
+      console.log(`Product ${item.product} after stock update:`, {
+        newStock: updateResult.stock,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
+      });
     }
     
-    console.log(`✅ Product stock verification completed for order: ${order.order_id}`);
+    console.log(`✅ Product stock updated successfully for order: ${order.order_id}`);
+    return true;
   } catch (error) {
     console.error(`Error updating product stock for order ${order.order_id}:`, error);
+    return false;
   }
 };
 
