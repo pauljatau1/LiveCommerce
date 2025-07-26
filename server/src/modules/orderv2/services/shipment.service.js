@@ -83,7 +83,7 @@ exports.createShipmentForOrder = async (orderId, shipmentPurpose) => {
         const terminalShipmentRequest = {
             pickup_address: cleanPickupAddress,
             delivery_address: cleanDeliveryAddress,
-            metadata: "Order from Auqli", // Simplified metadata string as requested
+            metadata : {delivery_type: "Urgent delivery from Auqli"},
             shipment_purpose: shipmentPurpose || 'commercial',
             parcel: {
               items: parcelItems,

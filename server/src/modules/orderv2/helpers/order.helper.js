@@ -261,7 +261,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
           <div style="text-align: left; margin-top: 20px;">
             <p><strong>Order ID:</strong> ${order.order_id}</p>
             <p><strong>Seller:</strong> ${sellerName}</p>
-            <p><strong>Total Amount:</strong> ₦${order.totalAmount.toLocaleString()}</p>
+           
             <p><strong>Items:</strong></p>
             <ul>
               ${order.items.map(item => `<li>${item.productName} (Qty: ${item.quantity})</li>`).join('')}
@@ -308,7 +308,7 @@ exports.sendSellerOrderNotificationEmail = async (order, seller) => {
             <ul>
               ${order.items.map(item => `<li>${item.productName} (Qty: ${item.quantity})</li>`).join('')}
             </ul>
-            <p><strong>Total Amount:</strong> ₦${order.totalAmount.toLocaleString()}</p>
+           
           </div>
 
           <p style="margin-top: 20px;">Please prepare the items for shipping. You can view the full order details in your seller dashboard.</p>
@@ -617,6 +617,7 @@ const arrangeShipmentHelper = async (order, rateId, session = null) => {
     // Call Terminal Africa API to arrange pickup
     const arrangePickupResponse = await terminalAPI.post('/shipments/pickup', {
       rate_id: rateId,
+      shipment_id: order.shipping?.shipment_id,
       purchase_insurance: false
     });
 
