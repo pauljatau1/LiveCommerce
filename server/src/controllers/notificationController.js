@@ -1094,6 +1094,47 @@ exports.simulateTerminalWebhook = async (req, res) => {
   }
 };
 
+// Add a new controller that uses the full handleTerminalWebhook logic from terminalWebhook.js
+exports.simulateTerminalWebhook2 = async (req, res) => {
+  try {
+    // Verify webhook signature
+    const signature = req.headers['x-terminal-signature'] || req.headers['X-Terminal-Signature'];
+    const secretKey = process.env.TERMINAL_SECRET_KEY;
+    
+    if (!signature || !secretKey) {
+      return res.status(400).json({
+        status: false,
+        message: 'Missing webhook signature or secret key'
+      });
+    }
+
+    // Import the signature verification and handler from terminalWebhook.js
+    const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
+    const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
+    
+    if (!verification.status) {
+      return res.status(400).json({
+        status: false,
+        message: verification.message
+      });
+    }
+
+    // Process the webhook using the full handler
+    await handleTerminalWebhook(req, res, req.body);
+
+    
+
+   
+  } catch (error) {
+    console.error('Error in simulateTerminalWebhook2:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to process Terminal webhook (simulateTerminalWebhook2)',
+      error: error.message
+    });
+  }
+};
+
 // Helper function to send push notification
 exports.sendPushNotification = async (expoPushToken, title, body, data = {}) => {
   try {

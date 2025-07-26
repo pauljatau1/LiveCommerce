@@ -5,6 +5,9 @@ const Product = require('../../../models/Product');
 const Buyer = require('../../buyer/models/buyer.model');
 const sgMail = require('@sendgrid/mail');
 
+// Set this to true to enable free shipping promo, false to disable
+const FREE_SHIPPING_PROMO = true;
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
@@ -157,8 +160,8 @@ async function handleWalletRefund(order, session) {
       const buyer = await Buyer.findById(order.buyer);
       
       if (buyer) {
-        // Refund the wallet amount that was used
-        walletRefundAmount = order.paymentInfo.walletAmountUsed;
+        // Refund the wallet amount that was used (excluding shipping if promo is on)
+        walletRefundAmount = calculateRefundAmount(order);
         const walletTransaction = {
           type: 'credit',
           amount: walletRefundAmount,
@@ -237,6 +240,9 @@ async function restoreProductStock(order, session) {
 // Helper to calculate refund amount (items total + shipping if paid)
 function calculateRefundAmount(order) {
   const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  if (FREE_SHIPPING_PROMO) {
+    return itemsTotal;
+  }
   const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
   return itemsTotal + shippingFee;
 }
@@ -362,7 +368,7 @@ async function sendAdminRefundNotification(order, reason, walletRefundResult) {
               <li>Order ID: ${order.order_id}</li>
               <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
               <li>Seller: ${order.seller.storeName || order.seller.businessName}</li>
-              <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
+              <li>Amount: ₦${calculateRefundAmount(order).toLocaleString()}</li>
               <li>Reason: ${reason || 'Order cancelled by buyer'}</li>
               ${walletRefundResult.refunded ? `<li>Note: Wallet payment of ₦${walletRefundResult.amount.toLocaleString()} was automatically refunded</li>` : ''}
             </ul>

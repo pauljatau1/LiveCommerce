@@ -2366,10 +2366,12 @@ exports.getFollowers = async (req, res) => {
     // Get additional order information for each follower
     const followersWithDetails = await Promise.all(
       followers.map(async (follower) => {
-        // Get all orders from this follower with this seller
+        // Get all orders from this follower with this seller, excluding stale and cancelled
         const orders = await Order.find({
           buyer: follower.buyerId,
-          'items.seller': seller._id
+          'items.seller': seller._id,
+          isStale: { $ne: true },
+          status: { $ne: 'cancelled' }
         });
 
         // Get buyer details including profile image
@@ -2429,18 +2431,22 @@ exports.getBuyerDetails = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Get all orders for this buyer with this seller
+    // Get all orders for this buyer with this seller, excluding stale and cancelled
     const orders = await Order.find({
       buyer: buyerId,
-      seller: sellerId
+      seller: sellerId,
+      isStale: { $ne: true },
+      status: { $ne: 'cancelled' }
     })
     .populate('items.product', 'name images price category')
     .sort({ createdAt: -1 });
 
-    // Get recent 5 orders with details
+    // Get recent 5 orders with details, excluding stale and cancelled
     const recentOrders = await Order.find({
       buyer: buyerId,
-      seller: sellerId
+      seller: sellerId,
+      isStale: { $ne: true },
+      status: { $ne: 'cancelled' }
     })
     .sort({ createdAt: -1 })
     .limit(5)

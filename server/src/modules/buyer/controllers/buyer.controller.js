@@ -13,6 +13,9 @@ const getOrderDetailsService = require('../services/getOrderDetails.service');
 const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
+const updateAddressService = require('../services/updateAddress.service');
+const deleteAddressService = require('../services/deleteAddress.service');
+const followSellerService = require('../services/followSeller.service');
 
 /**
  * Register a buyer user.
@@ -365,6 +368,75 @@ async function addAddress(req, res, next) {
   }
 }
 
+/**
+ * Update an existing shipping address for a buyer.
+ *
+ * This controller handles the address update HTTP request.
+ * It delegates the address update logic to the service layer and returns the updated address.
+ *
+ * @param {Request} req - Express request object containing the address update data in `req.body`, buyer ID in `req.user.id`, and address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address update logic
+    const response = await updateAddressService.updateAddress(req.user.id, req.params.addressId, req.body);
+
+    // Send success response with updated address data
+    res.success(response, 'Address updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Delete a shipping address for a buyer.
+ *
+ * This controller handles the address deletion HTTP request.
+ * It delegates the address deletion logic to the service layer and returns a success message.
+ *
+ * @param {Request} req - Express request object containing the address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function deleteAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address deletion logic
+    const response = await deleteAddressService.deleteAddress(req.user.id, req.params.addressId);
+
+    // Send success response with deletion message
+    res.success(response, 'Address deleted successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Follow a seller by a buyer.
+ *
+ * This controller handles the follow seller HTTP request.
+ * It delegates the follow logic to the service layer and returns the follow data.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function followSeller(req, res, next) {
+  try {
+    // Call the service layer to handle follow seller logic
+    const response = await followSellerService.followSeller(req.user.id, req.params.sellerId);
+
+    // Send success response with follow data
+    res.success(response, 'Successfully followed seller');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -381,4 +453,7 @@ module.exports = {
   getPurchaseAnalytics,
   getAddresses,
   addAddress,
+  updateAddress,
+  deleteAddress,
+  followSeller,
 };

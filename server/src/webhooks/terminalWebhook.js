@@ -11,7 +11,7 @@ const {
 } = require('../templates/shipmentEmailTemplates');
 
 // Helper function to verify Terminal webhook signature (for simulation)
-const verifyTerminalWebhookSignature = (signature, secretKey, body) => {
+exports.verifyTerminalWebhookSignature = (signature, secretKey, body) => {
   try {
     const manualHashSignature = crypto
       .createHmac('sha512', secretKey)
@@ -35,37 +35,185 @@ const verifyTerminalWebhookSignature = (signature, secretKey, body) => {
 };
 
 // Simulation handler for Terminal Africa webhooks (separate from existing webhook system)
-const handleTerminalWebhook = async (webhookData) => {
+const handleTerminalWebhook = async (req, res, webhookData) => {
   try {
-    console.log('🚚 Processing simulated Terminal webhook:', webhookData);
-    
+    console.log('--- Terminal Webhook Handler Start ---');
+    console.log('Received webhook payload:', JSON.stringify(webhookData, null, 2));
     const { event, data } = webhookData;
-    
     if (!event || !data) {
-      console.error('Invalid webhook data: missing event or data');
+      console.error('[ERROR] Invalid webhook data: missing event or data');
+      if (res && typeof res.status === 'function') {
+        return res.status(400).json({
+          status: false,
+          message: 'Invalid webhook data: missing event or data'
+        });
+      }
       return;
+
+      
     }
 
-    // Find the order by Terminal shipment ID
-    const Order = mongoose.model('Order');
-    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id });
-    
-    if (!order) {
-      console.error('Order not found for Terminal shipment ID:', data.shipment_id);
-      return;
+    // For simulation: acknowledge receipt immediately
+    if (res && typeof res.status === 'function') {
+      res.status(200).json({
+        status: true,
+        message: 'Terminal webhook processed successfully (simulateTerminalWebhook2)'
+      });
     }
 
-    console.log('Found order:', order.order_id);
+    // All business logic below runs asynchronously after response
+    (async () => {
+      try {
+        // Extract tracking number from data.extras.tracking_number
+        const trackingNumber = data?.extras?.tracking_number || data?.tracking_number;
+        console.log('[INFO] Extracted tracking number:', trackingNumber);
+        if (!trackingNumber) {
+          console.error('[ERROR] Tracking number not found in webhook data');
+          return;
+        }
 
-    // Update order based on event type
-    await updateOrderForTerminalEvent(order, event, data);
+        // Find the order by tracking number
+        const Order = mongoose.model('Order');
+        console.log('[INFO] Looking up order with shipping.tracking.number =', trackingNumber);
+        const order = await Order.findOne({ 'shipping.tracking.number': trackingNumber });
+        if (!order) {
+          console.error('[ERROR] Order not found for tracking number:', trackingNumber);
+          return;
+        }
+        console.log('[SUCCESS] Found order:', order.order_id);
 
-    // Send notifications
-    await sendNotificationsForTerminalEvent(order, event, data);
+        // Normalize event name (support dash and underscore)
+        const normalizedEvent = event.replace(/-/g, '_');
+        console.log('[INFO] Normalized event:', normalizedEvent);
 
-    console.log('Simulated Terminal webhook processed successfully');
+        // Prepare update data
+        const updateData = {
+          'shipping.lastUpdated': new Date(),
+          'shipping.tracking.status': data.status || normalizedEvent,
+          'shipping.tracking.lastUpdate': new Date(),
+        };
+        if (trackingNumber) {
+          updateData['shipping.tracking.number'] = trackingNumber;
+        }
+        if (data.carrier || data?.metadata?.selected_rate?.carrier_name) {
+          updateData['shipping.carrier.name'] = data.carrier || data?.metadata?.selected_rate?.carrier_name;
+        }
+        console.log('[INFO] Update data prepared:', JSON.stringify(updateData, null, 2));
+
+        // Add tracking history entry
+        const historyEntry = {
+          status: data.status || normalizedEvent,
+          timestamp: new Date(),
+          location: data?.metadata?.selected_rate?.delivery_address?.city || data?.events?.[0]?.location || 'Unknown',
+          description: data?.events?.[data?.events?.length - 1]?.description || data.description || `Terminal webhook: ${event}`
+        };
+        console.log('[INFO] Tracking history entry:', JSON.stringify(historyEntry, null, 2));
+
+        // Event-specific updates
+        switch (normalizedEvent) {
+          case 'shipment_created':
+            updateData['shipping.status'] = 'pending';
+            updateData['status'] = 'pending';
+            console.log('[EVENT] shipment.created: Setting status to pending');
+            break;
+          case 'shipment_updated':
+            updateData['shipping.status'] = 'picked-up';
+            updateData['status'] = 'shipped';
+            updateData['shipping.pickedUpAt'] = new Date();
+            console.log('[EVENT] shipment.updated: Setting status to picked-up/shipped');
+            break;
+          case 'shipment_in_transit':
+            updateData['shipping.status'] = 'in-transit';
+            updateData['status'] = 'shipped';
+            updateData['shipping.inTransitAt'] = new Date();
+            console.log('[EVENT] shipment.in-transit: Setting status to in-transit/shipped');
+            break;
+          case 'shipment_delivered':
+            updateData['shipping.status'] = 'delivered';
+            updateData['status'] = 'delivered';
+            updateData['shipping.deliveredAt'] = new Date();
+            console.log('[EVENT] shipment.delivered: Setting status to delivered');
+            // Schedule the order closure job for 1 day after delivery
+            try {
+              console.log(`[SCHEDULE] Scheduling order closure for order ${order.order_id} in 1 day.`);
+              await agenda.schedule('in 1 day', 'closeOrder', { orderId: order._id.toString() });
+              console.log(`[SCHEDULE] Job scheduled successfully for order ${order.order_id}`);
+            } catch (scheduleError) {
+              console.error(`[SCHEDULE ERROR] Error scheduling closeOrder job for order ${order.order_id}:`, scheduleError);
+            }
+            break;
+          case 'shipment_cancelled':
+            updateData['shipping.status'] = 'cancelled';
+            updateData['status'] = 'cancelled';
+            updateData['shipping.cancelledAt'] = new Date();
+            console.log('[EVENT] shipment.cancelled: Setting status to cancelled');
+            break;
+          default:
+            console.log('[EVENT] Unhandled event type, only updating tracking info');
+            break;
+        }
+
+        // Update the order
+        console.log('[DB] Updating order with:', JSON.stringify(updateData, null, 2));
+        await order.updateOne({
+          $set: updateData,
+          $push: {
+            'shipping.tracking.history': historyEntry
+          }
+        });
+        console.log('[DB] Order updated successfully');
+
+        // Update items status for certain events
+        if ([
+          'shipment_in_transit',
+          'shipment_delivered',
+          'shipment_cancelled'
+        ].includes(normalizedEvent)) {
+          let itemStatus = null;
+          if (normalizedEvent === 'shipment_in_transit') itemStatus = 'in-transit';
+          if (normalizedEvent === 'shipment_delivered') itemStatus = 'delivered';
+          if (normalizedEvent === 'shipment_cancelled') itemStatus = 'cancelled';
+          if (itemStatus) {
+            console.log(`[DB] Updating all items status to: ${itemStatus}`);
+            await order.updateOne({
+              $set: {
+                'items.$[].status': itemStatus
+              },
+              $push: {
+                'items.$[].statusHistory': {
+                  status: itemStatus,
+                  timestamp: new Date(),
+                  note: data?.events?.[data?.events?.length - 1]?.description || `Status updated via Terminal webhook: ${event}`
+                }
+              }
+            });
+            console.log('[DB] Items status updated successfully');
+          }
+        }
+
+        // Send notifications
+        console.log('[NOTIFY] Sending notifications for event:', normalizedEvent);
+        await sendNotificationsForTerminalEvent(order, normalizedEvent, {
+          ...data,
+          tracking_number: trackingNumber,
+          carrier: data.carrier || data?.metadata?.selected_rate?.carrier_name
+        });
+        console.log('[NOTIFY] Notifications sent');
+
+        console.log('--- Terminal Webhook Handler End ---');
+      } catch (error) {
+        console.error('[FATAL ERROR] Error processing simulated Terminal webhook:', error);
+      }
+    })();
   } catch (error) {
-    console.error('Error processing simulated Terminal webhook:', error);
+    console.error('[FATAL ERROR] Error processing simulated Terminal webhook:', error);
+    if (res && typeof res.status === 'function') {
+      return res.status(500).json({
+        status: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
     throw error;
   }
 };
@@ -108,14 +256,14 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         updateData['shipping.pickedUpAt'] = new Date();
         break;
         
-      case 'shipment.in_transit':
+      case 'shipment.in-transit' || 'shipment.in_transit':
         updateData['status'] = 'shipped';
         updateData['shipping.status'] = 'in-transit';
         updateData['shipping.tracking.status'] = 'in-transit';
         updateData['shipping.inTransitAt'] = new Date();
         break;
         
-      case 'shipment.out_for_delivery':
+      case 'shipment.out-for-delivery' || 'shipment.out_for_delivery':
         updateData['shipping.status'] = 'out-for-delivery';
         updateData['shipping.tracking.status'] = 'out-for-delivery';
         updateData['shipping.outForDeliveryAt'] = new Date();
@@ -718,23 +866,34 @@ exports.handleTerminalWebhookRoute = async (req, res) => {
     }
 
     const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
-    
     if (!verification.status) {
-      return res.status(400).json({
+      return res.status(401).json({
         status: false,
         message: verification.message
       });
     }
 
-    // Process the webhook
-    await handleTerminalWebhook(req.body);
+    // Validate payload schema (must have event and data)
+    const { event, data } = req.body;
+    if (!event || !data) {
+      return res.status(400).json({
+        status: false,
+        message: 'Invalid webhook payload: missing event or data'
+      });
+    }
 
-    res.status(200).json({
-      status: true,
-      message: 'Terminal webhook processed successfully'
-    });
+    // Immediately acknowledge receipt to Terminal Africa
+    res.sendStatus(200);
+
+    // Process the webhook asynchronously (no await)
+    handleTerminalWebhook(req, null, req.body)
+      .catch((err) => {
+        console.error('[WEBHOOK ASYNC ERROR]', err);
+      });
+
   } catch (error) {
     console.error('Error in Terminal webhook route:', error);
+    // Only return 500 for actual server errors (not business logic)
     res.status(500).json({
       status: false,
       message: 'Failed to process Terminal webhook',
