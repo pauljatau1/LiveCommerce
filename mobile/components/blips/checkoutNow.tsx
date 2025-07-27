@@ -1037,7 +1037,7 @@ const CheckoutNow = ({
                     </View>
                   </View>
 
-                  {showWalletCredit && (
+                  {/* {showWalletCredit && (
                     <TouchableOpacity
                       className="mb-[1px]"
                       style={{
@@ -1072,7 +1072,7 @@ const CheckoutNow = ({
                         </Text>
                       </View>
                     </TouchableOpacity>
-                  )}
+                  )} */}
 
                   <View className="mb-[10px]">
                     <View

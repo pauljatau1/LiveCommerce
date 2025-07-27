@@ -49,6 +49,10 @@ const VerifyCodeOtp = () => {
   const [verify, { isLoading }] = useVerifyEmailMutation();
 
   const resendOtp = async (actioned: boolean) => {
+    if(!actioned && !params?.fromLogin)
+    {
+      return
+    }
     try {
       const response = await axios.post(
         process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/auth/resend-otp`,
@@ -68,7 +72,7 @@ const VerifyCodeOtp = () => {
       }
     } catch (error: any) {
       console.log(error);
-      toast.error(error.data.message);
+      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Could not Resend OTP");
     }
   };
 

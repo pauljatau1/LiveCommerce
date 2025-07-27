@@ -174,6 +174,7 @@ const SingleOrder = () => {
               "picked_up",
               "dispatched",
               "in_transit",
+              "in-transit",
               "delivered",
             ].includes(order?.shipping?.tracking?.status?.toLowerCase()) &&
               !order?.order?.orderStatus?.hasReturn && (

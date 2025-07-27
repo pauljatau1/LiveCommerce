@@ -140,7 +140,7 @@ const AddAddress = () => {
         setzipCodeError("invalid zipcode");
         setzipCode(value);
       }
-    } else setzipCodeError("");
+    } else {setzipCodeError(""); setzipCode(value)}
   };
 
   const handleAddAddress = async () => {

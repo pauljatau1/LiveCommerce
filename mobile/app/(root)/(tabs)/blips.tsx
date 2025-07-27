@@ -39,6 +39,7 @@ const Blips = () => {
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isPromotionVisible, setIsPromotionVisible] = useState<boolean>(false);
+  const [promotionAmount, setPromotionAmount] = useState<number>();
 
   const verifyAppVersion = async () => {
     const version = await checkVersion();
@@ -87,9 +88,10 @@ const Blips = () => {
     if (
       isFirstTime &&
       verifyPayload &&
-      verifyPayload.bonus?.amount == 2000 &&
+      verifyPayload.bonus?.amount &&
       token
     ) {
+      setPromotionAmount(verifyPayload.bonus?.amount)
       setTimeout(() => setIsPromotionVisible(true), 3000);
       await AsyncStorage.removeItem("fromVerify");
     }
@@ -298,7 +300,7 @@ const Blips = () => {
           />
         )}
       </View>
-      <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} />
+      <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} promotionAmount={promotionAmount} />
     </SafeAreaView>
   );
 };
