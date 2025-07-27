@@ -32,13 +32,13 @@ export const auth = createApi({
   }),
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, any>({
-      query: (credentials) => postRequest("/buyer/login", credentials),
+      query: (credentials) => postRequest("v2/buyers/auth/login", credentials),
     }),
     signUp: builder.mutation<SignUpResponse, SignUpRequest>({
-      query: (credentials) => postRequest("/buyer/register", credentials),
+      query: (credentials) => postRequest("v2/buyers/auth/register", credentials),
     }),
     verifyEmail: builder.mutation<VerifyEmailResponse, VerifyEmailRequest>({
-      query: (credentials) => postRequest("/buyer/verify-otp", credentials),
+      query: (credentials) => postRequest("v2/buyers/auth/verify-otp", credentials),
     }),
     resendEmailOTP: builder.mutation<any, any>({
       query: (credentials) => postRequest("/buyer/resend-otp", credentials),

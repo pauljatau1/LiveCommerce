@@ -108,7 +108,7 @@ const CreateAccount = () => {
     };
     try {
       const result = await signUp(details).unwrap();
-      await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+      await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
 
       try {
         if (result) {
@@ -136,7 +136,7 @@ const CreateAccount = () => {
           });
           // Track event for buyer signup
           trackCustomerioEvent("buyer_account_created", {
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             email: email,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,
@@ -160,7 +160,7 @@ const CreateAccount = () => {
 
           trackMixpanelEvent("signup_method", {
             signup_method: email ? "email" : "not email",
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             email: email,
             firstName: result?.user?.firstName,
             lastName: result?.user?.lastName,

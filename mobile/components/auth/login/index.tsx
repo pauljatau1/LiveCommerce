@@ -85,8 +85,8 @@ const Login = () => {
         password,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
-      if (!result?.user?.emailVerified) {
-        await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+      if (!result?.data?.user?.emailVerified) {
+        await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
         return router.push({
           pathname: "/(root)/(auth)/verify-code",
           params: {
@@ -95,7 +95,7 @@ const Login = () => {
           },
         });
       }
-      dispatch(signIn(result));
+      dispatch(signIn(result?.data));
       setPassword(password);
       setUserEmail(email);
 
@@ -147,7 +147,7 @@ const Login = () => {
         // Allow login flow to continue even if tracking fails
       }
 
-      if (result?.user?.selectedCategories?.length! > 0) {
+      if (result?.data?.user?.selectedCategories?.length! > 0) {
         router.replace("/(root)/(tabs)/blips");
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
@@ -192,10 +192,10 @@ const Login = () => {
         profileImage: googleResponse?.user?.photo,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
-      dispatch(signIn(result));
-      setPassword(result?.user?.password!);
-      setUserEmail(result?.user?.email!);
-      if (result?.user?.selectedCategories?.length! > 0) {
+      dispatch(signIn(result?.data));
+      setPassword(result?.data?.user?.password!);
+      setUserEmail(result?.data?.user?.email!);
+      if (result?.data?.user?.selectedCategories?.length! > 0) {
         router.replace("/(root)/(tabs)/home/home");
       } else router.replace("/(root)/(categories)/category");
 
