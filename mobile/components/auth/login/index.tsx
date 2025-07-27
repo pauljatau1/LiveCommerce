@@ -103,40 +103,40 @@ const Login = () => {
       try {
         if (result) {
           // Identify the user directly
-          identifyUser(result?.user?._id, {
+          identifyUser(result?.data?.user?._id, {
             "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
-            shippingAddress: result?.user?.shippingAddresses[0],
-            country: result?.user?.country,
-            emailVerified: result?.user?.emailVerified,
-            walletBalance: result?.user?.wallet?.balance,
-            onHoldAmount: result?.user?.wallet?.onHoldAmount,
-            onHoldItems: result?.user?.wallet?.onHoldAmount
-              ? result?.user?.wallet?.onHoldItems[0]
+            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
+            shippingAddress: result?.data?.user?.shippingAddresses[0],
+            country: result?.data?.user?.country,
+            emailVerified: result?.data?.user?.emailVerified,
+            walletBalance: result?.data?.user?.wallet?.balance,
+            onHoldAmount: result?.data?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.data?.user?.wallet?.onHoldAmount
+              ? result?.data?.user?.wallet?.onHoldItems[0]
               : "none",
             "User Type": "Buyer",
             timestamp: new Date().toISOString(),
           });
 
           trackEvent("buyer_login", {
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
-            shippingAddress: result?.user?.shippingAddresses[0],
-            country: result?.user?.country,
-            emailVerified: result?.user?.emailVerified,
-            walletBalance: result?.user?.wallet?.balance,
-            onHoldAmount: result?.user?.wallet?.onHoldAmount,
-            onHoldItems: result?.user?.wallet?.onHoldAmount
-              ? result?.user?.wallet?.onHoldItems[0]
+            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
+            shippingAddress: result?.data?.user?.shippingAddresses[0],
+            country: result?.data?.user?.country,
+            emailVerified: result?.data?.user?.emailVerified,
+            walletBalance: result?.data?.user?.wallet?.balance,
+            onHoldAmount: result?.data?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.data?.user?.wallet?.onHoldAmount
+              ? result?.data?.user?.wallet?.onHoldItems[0]
               : "none",
             "User Type": "Buyer",
             timestamp: new Date().toISOString(),
@@ -151,9 +151,8 @@ const Login = () => {
         router.replace("/(root)/(tabs)/blips");
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
-      console.log(error);
-
-      toast.error(error.data.message);
+      console.log(error?.data?.message);
+      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Error Logging in. Please try Again!");
     }
   };
 

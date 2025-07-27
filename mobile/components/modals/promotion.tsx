@@ -15,7 +15,7 @@ import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import { ActivityIndicator } from "react-native-paper";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 
-const PromotionModal = ({ isVisible, closeModal }: any) => {
+const PromotionModal = ({ isVisible, closeModal,promotionAmount }: any) => {
   const deviceWidth = Dimensions.get("window").width;
   const deviceHeight =
     // Platform.OS === 'ios'
@@ -100,10 +100,10 @@ const PromotionModal = ({ isVisible, closeModal }: any) => {
             Welcome to Auqli!
           </Text>
           <Text className="font-LexendDecaBold text-[20px] text-[#111] mb-[20px] text-center">
-            ₦2000 FREE GIFT!
+            ₦{promotionAmount?.toLocaleString()} FREE GIFT!
           </Text>
           <Text className="font-LexendDeca text-[14px] text-[#111] mb-[30px] text-center leading-[18px]">
-            You’ve just received a ₦2,000 Wallet Credit as a welcome gift 🎁
+            You’ve just received a ₦{promotionAmount?.toLocaleString()} Wallet Credit as a welcome gift 🎁
             {"\n\n"}
             Use it on your first livestream purchase or auction bid!
           </Text>

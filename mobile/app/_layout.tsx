@@ -21,6 +21,7 @@ import {
 } from "react-native-safe-area-context";
 import { ToastProvider } from "@/contexts/ToastContext";
 import useInitializeAuthState from "@/hooks/useInitializeAuthState";
+import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -31,6 +32,9 @@ export default function RootLayout() {
 }
 function RootLayoutNav() {
   const router = useRouter();
+  const { paystackPublicKey } = useGetPaystackKeys();
+
+  console.log({ paystackPublicKey });
 
   const [loaded] = useFonts({
     LexendDeca: require("../assets/fonts/LexendDeca-Regular.ttf"),
@@ -85,10 +89,10 @@ function RootLayoutNav() {
 
                     <Stack.Screen name="+not-found" />
                   </Stack>
-                  <Toaster />
                   <FlashMessage floating style={styles.flashMessage} />
                 </LivestreamProvider>
               </BottomSheetModalProvider>
+              <Toaster />
             </ToastProvider>
           </KeyboardProvider>
         </SafeAreaProvider>

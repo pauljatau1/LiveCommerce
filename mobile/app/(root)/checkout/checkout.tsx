@@ -8,6 +8,7 @@ import {
   Image,
   Platform,
   FlatList,
+  StatusBar,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
@@ -33,7 +34,6 @@ import { toast } from "@/core/toast";
 import LoadingModal from "@/components/global/loading-modal";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { useIsFocused } from "@react-navigation/native";
-import { Paystack } from "react-native-paystack-webview";
 import OrderPopup from "@/components/global/orders/order-popup";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -51,6 +51,10 @@ import {
 } from "@/utils/facebook-analytics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import CartItem from "@/components/orders/cartItem";
+import AddressSheet from "@/components/orders/addressSheet";
+// import CallPaystack from "./callPaystack";
+import SelectRatesSheet from "@/components/orders/selectRatesSheet";
 
 const { width, height } = Dimensions.get("window");
 
@@ -96,6 +100,7 @@ const Checkout = () => {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const token = useSelector((state: RootState) => state.authState.token);
+  // const { openPaystackPopup } = CallPaystack();
   const [loading, setLoading] = useState<boolean>(true);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -112,13 +117,15 @@ const Checkout = () => {
   const [showPaystack, setShowPaystack] = useState(false);
   const [payLoading, setPayLoading] = useState<boolean>(false);
   const [orderId, setOrderId] = useState<string>("");
+  const [orderTotal, setOrderTotal] = useState<string>("");
+  const [rates, setRates] = useState<any[]>([]);
 
   const [showAddressSheet, setShowAddressSheet] = useState<boolean>(false);
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [totalWalletBalance, setTotalWalletBalance] = useState<number>(0);
   const [isSuccessVisible, setIsSuccessVisible] = useState<boolean>(false);
-  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(false);
   const [fetchedShippingFee, setFetchedShippingFee] = useState<number>(0);
   const [paystackKey, setPaystackKey] = useState<any>();
   const [couponCode, setCouponCode] = useState<string>("");
@@ -129,6 +136,8 @@ const Checkout = () => {
   const [walletCredit, setWalletCredit] = useState<number>(0);
   const [showWalletCredit, setShowWalletCredit] = useState<boolean>(false);
   const [freeShipping, setFreeShipping] = useState<boolean>(false);
+  const [isInternational, setIsInternational] = useState<boolean>(false);
+  const [showRatesSheet, setShowRatesSheet] = useState<boolean>(false);
 
   const eligibleForPickup = useMemo(() => {
     return !cart?.some(
@@ -224,17 +233,21 @@ const Checkout = () => {
 
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
-      recipientName: user.firstName + " " + user.lastName,
-      recipientEmail: user.email,
-      recipientPhone:
-        user.phoneNumber.replaceAll("-", "")?.length > 14
-          ? user.phoneNumber
+      first_name: user?.firstName,
+      last_name: user?.lastName,
+      email: user?.email,
+      phone:
+        user?.phoneNumber.replaceAll("-", "")?.length > 14
+          ? user?.phoneNumber
               .replaceAll("-", "")
               ?.replace("+234", "")
               ?.replace("0", "")
-          : user.phoneNumber.replaceAll("-", ""),
-      recipientAddress: address.addressLine1,
-      recipientState: address.state,
+          : user?.phoneNumber.replaceAll("-", ""),
+      line1: address?.addressLine1,
+      state: address?.state,
+      city: address?.city,
+      zip: address?.zipCode,
+      country: address?.country,
     };
     setSelectedAddress(delivery_address);
     setShowAddressSheet(false);
@@ -288,17 +301,21 @@ const Checkout = () => {
       setAddresses(response.data);
       if (response.data.length > 0) {
         const delivery_address = {
-          recipientName: user.firstName + " " + user.lastName,
-          recipientEmail: user.email,
-          recipientPhone:
-            user.phoneNumber.replaceAll("-", "")?.length > 14
+          first_name: user?.firstName,
+          last_name: user?.lastName,
+          email: user?.email,
+          phone:
+            user?.phoneNumber.replaceAll("-", "")?.length > 14
               ? user.phoneNumber
                   .replaceAll("-", "")
                   ?.replace("+234", "")
                   ?.replace("0", "")
-              : user.phoneNumber.replaceAll("-", ""),
-          recipientAddress: response.data[0].addressLine1,
-          recipientState: response.data[0].state,
+              : user?.phoneNumber.replaceAll("-", ""),
+          line1: response.data[0]?.addressLine1,
+          state: response.data[0]?.state,
+          city: response.data[0]?.city,
+          zip: response.data[0]?.zipCode,
+          country: response.data[0]?.country,
         };
 
         setSelectedAddress(delivery_address);
@@ -311,12 +328,14 @@ const Checkout = () => {
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
+    } finally {
+      setLoading(false);
     }
   };
 
   const getCart = async () => {
     try {
-      const cart = await AsyncStorage.getItem("cart");
+      const cart = await AsyncStorage.getItem("segmentedCart");
       const filteredCart = JSON.parse(cart!).filter(
         (item: any) => item.includeInOrder,
       );
@@ -430,6 +449,10 @@ const Checkout = () => {
     }
   };
 
+  const handleCloseRatesSheet = useCallback(() => {
+    setShowRatesSheet(false);
+  }, []);
+
   const onPaystackSuccess = useCallback(
     async (paystackResponse: any) => {
       setShowPaystack(false);
@@ -492,25 +515,46 @@ const Checkout = () => {
     }
   }, [fetchedShippingFee, selectedDeliveryOpt]);
 
-  useEffect(() => {
-    if (selectedAddress?.recipientState) {
-      getShippingFee();
-    }
-  }, [selectedAddress]);
+  // useEffect(() => {
+  //   if (selectedAddress?.state) {
+  //     getShippingFee();
+  //   }
+  // }, [selectedAddress]);
+
+  // const payNow = () => {
+  //   openPaystackPopup({
+  //     email: "jane.doe@example.com",
+  //     amount: 5000,
+  //     reference: "TXN_123451",
+  //     metadata: {
+  //       custom_fields: [
+  //         {
+  //           display_name: "Order ID",
+  //           variable_name: "order_id",
+  //           value: "OID1234",
+  //         },
+  //       ],
+  //     },
+  //     onSuccess: (res: any) => console.log("Success:", res),
+  //     onCancel: () => console.log("User cancelled"),
+  //     onLoad: (res: any) => console.log("WebView Loaded:", res),
+  //     onError: (err: any) => console.log("WebView Error:", err),
+  //   });
+  // };
 
   const handleCompleteOrder = useCallback(async () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
-    if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
-      return toast.error("error getting delivery fee");
-    }
+    // if (!deliveryFee && selectedDeliveryOpt == 0 && !freeShipping) {
+    //   return toast.error("error getting delivery fee");
+    // }
 
-    if (selectedPayment == 1) {
-      if (walletBalance < deliveryFee! + cartTotal) {
-        return toast.error("Insufficient Wallet Balance");
-      }
-    }
+    // if (selectedPayment == 1) {
+    //   if (walletBalance < deliveryFee! + cartTotal) {
+    //     return toast.error("Insufficient Wallet Balance");
+    //   }
+    // }
 
     if (deliveryFee! + cartTotal > 50000 && selectedPayment == 2) {
       return toast.info(
@@ -529,26 +573,26 @@ const Checkout = () => {
               ? couponApplied?.discountedPrice
               : item.price,
           weight: item.weight?.toFixed(0) * item.quantity,
-          seller: {
-            sellerId: item.seller._id,
-            senderInfo: {
-              senderName:
-                item?.seller?.firstName + " " + item?.seller?.lastName,
-              senderAddress:
-                item?.seller?.warehouseDetails?.address?.addressLine1,
-              senderPhone: item?.seller?.phoneNumber?.includes("+")
-                ? item?.seller?.phoneNumber
-                : `+${item?.seller?.phoneNumber}`,
-              senderEmail: item?.seller?.email,
-              pickUpState: item?.seller?.warehouseDetails?.address?.state,
-            },
-            shippingFee: deliveryFeeObject?.find(
-              (obj: any) => obj?.sellerId == item.seller?._id,
-            )?.cost,
-            parcelInfo: {
-              itemDescription: item?.name?.slice(0, 199),
-            },
-          },
+          // seller: {
+          //   sellerId: item.seller._id,
+          //   senderInfo: {
+          //     senderName:
+          //       item?.seller?.firstName + " " + item?.seller?.lastName,
+          //     senderAddress:
+          //       item?.seller?.warehouseDetails?.address?.addressLine1,
+          //     senderPhone: item?.seller?.phoneNumber?.includes("+")
+          //       ? item?.seller?.phoneNumber
+          //       : `+${item?.seller?.phoneNumber}`,
+          //     senderEmail: item?.seller?.email,
+          //     pickUpState: item?.seller?.warehouseDetails?.address?.state,
+          //   },
+          //   shippingFee: deliveryFeeObject?.find(
+          //     (obj: any) => obj?.sellerId == item.seller?._id,
+          //   )?.cost,
+          //   parcelInfo: {
+          //     itemDescription: item?.name?.slice(0, 199),
+          //   },
+          // },
           specifications: item.specifications || {
             color: "",
             size: "",
@@ -557,22 +601,23 @@ const Checkout = () => {
         };
       }),
       shippingAddress: selectedAddress,
-      paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
-      isItemCod: selectedPayment == 2,
-      shippingFee: deliveryFee,
-      additionalDetails: "Please handle with care",
-      paidFromWallet: selectedPayment == 1,
+      // paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+      // isItemCod: selectedPayment == 2,
+      // shippingFee: deliveryFee,
+      // additionalDetails: "Please handle with care",
+      // paidFromWallet: selectedPayment == 1,
+      // isWalletCredit: walletCredit > 0 ? true : false,
       isStorePickup: selectedDeliveryOpt == 1,
-      isWalletCredit: walletCredit > 0 ? true : false,
     };
 
+    // return;
     // return console.log(JSON.stringify(order));
 
     setOrderloading(true);
     try {
       const config = {
         method: "POST",
-        url: process.env.EXPO_PUBLIC_API_URL + `api/order`,
+        url: process.env.EXPO_PUBLIC_API_URL + `api/v2/orders`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -581,7 +626,9 @@ const Checkout = () => {
       };
 
       const response = await axios(config);
-      const cart = await AsyncStorage.getItem("cart");
+      setFreeShipping(response.data?.orders[0]?.isFreeShipping);
+      setIsInternational(response.data?.orders[0]?.isInternational);
+      const cart = await AsyncStorage.getItem("segmentedCart");
       const cartData = JSON.parse(cart || "{}");
 
       if (response.status == 201) {
@@ -803,14 +850,20 @@ const Checkout = () => {
         }
       }
 
-      if (selectedPayment == 0) {
-        setOrderId(response.data.orders[0]?.orderId);
-        setTimeout(() => setShowPaystack(true), 500);
-      } else if (selectedPayment == 2) {
-        setTimeout(() => setIsSuccessVisible(true), 500);
-      } else {
-        setTimeout(() => setIsSuccessVisible(true), 500);
-      }
+      // if (selectedPayment == 0) {
+      //   setOrderId(response.data.orders[0]?.orderId);
+      //   setTimeout(() => setShowPaystack(true), 1000);
+      // } else if (selectedPayment == 2) {
+      //   setTimeout(() => setIsSuccessVisible(true), 500);
+      // } else {
+      //   setTimeout(() => setIsSuccessVisible(true), 500);
+      // }
+
+      setRates(response?.data?.orders?.[0]?.rates);
+      setOrderId(response?.data?.orders?.[0]?.orderId);
+      setOrderTotal(response?.data?.orders?.[0]?.totalAmount);
+      setOrderloading(false);
+      setShowRatesSheet(true);
 
       try {
         const userData = await AsyncStorage.getItem("user");
@@ -839,16 +892,20 @@ const Checkout = () => {
         console.log("error tracking payment initiated", trackError);
       }
 
-      if (cart) {
-        const newCart = JSON.parse(cart!)?.filter(
-          (item: any) => !item.includeInOrder,
-        );
-        if (newCart?.length < 1) {
-          await AsyncStorage.removeItem("cart");
-        } else {
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart));
-        }
-      }
+      // const generalCart = await AsyncStorage.getItem("cart");
+      // if (cart && generalCart) {
+      //   const segmentedCartData = JSON.parse(cart!);
+      //   const newCart = JSON.parse(generalCart!)?.filter(
+      //     (item: any) =>
+      //       !item.includeInOrder ||
+      //       !segmentedCartData?.find((sg: any) => sg?._id == item?._id),
+      //   );
+      //   if (newCart?.length < 1) {
+      //     await AsyncStorage.removeItem("cart");
+      //   } else {
+      //     await AsyncStorage.setItem("cart", JSON.stringify(newCart));
+      //   }
+      // }
     } catch (e: any) {
       setOrderloading(false);
       console.log("could not create order", e?.response?.data?.message);
@@ -1125,14 +1182,14 @@ const Checkout = () => {
               Checkout
             </Text>
           </View>
-          {freeShipping && (
+          {/* {freeShipping && (
             <View className="justify-center items-center flex-row px-[16px] py-[10px] gap-[8px] mb-[8px] bg-[#16783a]">
               <FontAwesome5 name="truck" size={14} color="white" />
               <Text className="font-LexendDeca text-[12px] text-[#ffffff]">
                 Free Shipping on All Orders!
               </Text>
             </View>
-          )}
+          )} */}
 
           <ScrollView className="bg-[#121212]">
             {loading ? (
@@ -1174,14 +1231,13 @@ const Checkout = () => {
                       {selectedAddress ? (
                         <View>
                           <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                            {selectedAddress &&
-                              selectedAddress?.recipientAddress}
+                            {selectedAddress && selectedAddress?.line1}
                           </Text>
                           <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                            Phone: {selectedAddress?.recipientPhone}
+                            Phone: {selectedAddress?.phone}
                           </Text>
                           <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                            Country: Nigeria
+                            Country: {selectedAddress?.country}
                           </Text>
                         </View>
                       ) : (
@@ -1316,7 +1372,7 @@ const Checkout = () => {
                   </View>
                 </View>
 
-                {showWalletCredit && (
+                {/* {showWalletCredit && (
                   <TouchableOpacity
                     className="mb-[1px]"
                     style={{
@@ -1351,7 +1407,7 @@ const Checkout = () => {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                )}
+                )} */}
 
                 <View className="mb-[10px]">
                   <View
@@ -1362,10 +1418,11 @@ const Checkout = () => {
                       placeholderTextColor={"rgb(204, 204, 204)"}
                       className={`${couponApplied ? "text-[#cccccc25]" : "text-white"} text-[14px] font-LexendDeca py-[15px] w-[100%] shrink`}
                       onChangeText={(text) => setCouponCode(text)}
-                      value={couponCode?.toUpperCase()}
+                      value={couponCode}
                       onFocus={() => setCouponInputFocused(true)}
                       onBlur={() => setCouponInputFocused(false)}
                       readOnly={couponApplied !== null}
+                      autoCapitalize="characters"
                     />
                     {couponLoading ? (
                       <ActivityIndicator size={16} color="#fff" />
@@ -1399,10 +1456,10 @@ const Checkout = () => {
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
                 >
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                    <Text className="text-white text-[14px] font-LexendDeca shrink">
                       Merchandise Subtotal
                     </Text>
-                    <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
+                    <Text className="text-[#fff] text-[14px] font-LexendDecaSemiBold">
                       ₦
                       {cartTotal?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -1412,7 +1469,7 @@ const Checkout = () => {
                   </View>
                   {couponApplied && (
                     <View className="flex-row justify-between items-center">
-                      <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
+                      <Text className="text-white text-[14px] font-LexendDeca shrink">
                         Coupon Code Applied
                       </Text>
                       <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
@@ -1438,7 +1495,7 @@ const Checkout = () => {
                       </Text>
                     </View>
                   )}
-                  <View className="flex-row justify-between items-center">
+                  {/* <View className="flex-row justify-between items-center">
                     <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
                       Shipping Fee
                     </Text>
@@ -1457,25 +1514,21 @@ const Checkout = () => {
                             : "-"}
                       </Text>
                     )}
-                  </View>
+                  </View> */}
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-[14px] font-LexendDecaSemiBold shrink">
-                      Net Total
+                    <Text className="text-white text-[14px] font-LexendDeca shrink">
+                      Total
                     </Text>
                     {shippingFeeLoading ? (
                       <ActivityIndicator size={10} color="white" />
                     ) : (
-                      <Text className="text-[#16783A] text-[14px] font-LexendDecaSemiBold">
-                        {(deliveryFee && cartTotal) ||
-                        (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                        (freeShipping && cartTotal)
+                      <Text className="text-[#fff] text-[14px] font-LexendDecaSemiBold">
+                        {cartTotal
                           ? "₦" +
                             (
-                              deliveryFee +
                               (couponApplied
                                 ? couponApplied?.couponSubTotal
-                                : cartTotal) -
-                              walletCredit
+                                : cartTotal) - walletCredit
                             )?.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -1487,34 +1540,38 @@ const Checkout = () => {
                 </View>
 
                 <TouchableOpacity
-                  className="rounded-[16px] items-center justify-center p-[12px] bg-[#16783A]"
+                  disabled={orderLoading}
+                  className="rounded-[16px] items-center justify-center px-[12px] h-[50px] bg-[#16783A]"
                   onPress={handleCompleteOrder}
                 >
-                  <Text className="text-white text-[16px] font-LexendDecaMedium">
-                    Pay (
-                    {(deliveryFee && cartTotal) ||
-                    (selectedDeliveryOpt == 1 && deliveryFee?.toString()) ||
-                    (freeShipping && cartTotal)
-                      ? "₦" +
-                        (
-                          deliveryFee +
-                          (couponApplied
-                            ? couponApplied?.couponSubTotal
-                            : cartTotal) -
-                          walletCredit
-                        )?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "-"}
-                    )
-                  </Text>
+                  {orderLoading ? (
+                    <ActivityIndicator size={"small"} color="white" />
+                  ) : (
+                    <Text className="text-white text-[16px] font-LexendDecaMedium">
+                      {/* Pay (
+                      {cartTotal
+                        ? "₦" +
+                          (
+                            deliveryFee +
+                            (couponApplied
+                              ? couponApplied?.couponSubTotal
+                              : cartTotal) -
+                            walletCredit
+                          )?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "-"}
+                      ) */}
+                      Continue
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
           </ScrollView>
 
-          {showPaystack && (
+          {/* {showPaystack && (
             <Paystack
               refNumber={generateReference()}
               paystackKey={paystackKey?.publicKey}
@@ -1567,9 +1624,9 @@ const Checkout = () => {
                 ],
               })}
             />
-          )}
+          )} */}
 
-          <LoadingModal isVisible={orderLoading} />
+          {/* <LoadingModal isVisible={orderLoading} /> */}
           <OrderPopup
             isVisible={isSuccessVisible}
             closePopup={closeSuccessPopup}
@@ -1590,234 +1647,36 @@ const Checkout = () => {
               selectAddress={handleSelectAddress}
             />
           </BottomSheet>
+
+          <BottomSheet
+            bgColor="#121212"
+            childrenStyle="!px-[0px]"
+            showCloseIcon={false}
+            title=""
+            show={showRatesSheet}
+            titleColor="!text-white"
+            onRequestClose={() => setShowRatesSheet(false)}
+            keyboardBehavior="extend"
+          >
+            <SelectRatesSheet
+              rates={rates}
+              orderId={orderId}
+              orderTotal={orderTotal}
+              userEmail={selectedAddress?.email || user?.email}
+              fromSheet={false}
+              paymentMethod={paymentOptions[
+                selectedPayment
+              ]?.name?.toLowerCase()}
+              closeSheet={handleCloseRatesSheet}
+              isInternational={isInternational}
+              isFreeShipping={freeShipping}
+              isStorePickup={selectedDeliveryOpt == 1}
+            />
+          </BottomSheet>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const CartItem = ({
-  cartItem,
-  index,
-  isLastItem,
-}: {
-  cartItem: any;
-  index: number;
-  isLastItem: boolean;
-}) => {
-  const [quantity, setQuantity] = useState<number>(cartItem?.quantity);
-
-  const totalPrice = useMemo(() => {
-    const price = cartItem.discount?.isActive
-      ? cartItem.discount?.discountedPrice
-      : cartItem.price;
-    return price * cartItem.quantity;
-  }, [quantity]);
-
-  return (
-    <View
-      className=" py-[30px] px-[8px]"
-      style={{
-        paddingTop: index == 0 ? 10 : 20,
-        borderBottomColor: "#ffffff33",
-        borderBottomWidth: isLastItem ? 0 : 1,
-      }}
-    >
-      <View className="gap-[16px] shrink">
-        <View className=" flex-row items-center justify-between">
-          <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-            {cartItem?.seller?.businessName ||
-              cartItem?.seller?.storeInfo?.storeName ||
-              cartItem?.seller?.storeName}
-          </Text>
-        </View>
-        <View className="flex-row gap-[16px]">
-          <View>
-            <Image
-              source={{ uri: cartItem?.images[0].url }}
-              resizeMode="cover"
-              resizeMethod="resize"
-              className="w-[100px] h-[100px] rounded-[12px]"
-            />
-          </View>
-          <View className="gap-[6px] relative shrink">
-            <Text
-              className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca leading-[20px]"
-              numberOfLines={2}
-            >
-              {cartItem?.name}
-            </Text>
-            <Text className="text-white opacity-80 font-LexendDecaMedium tracking-wide  text-[16px]">
-              ₦
-              {cartItem?.discount?.isActive
-                ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
-                : cartItem?.price?.toLocaleString()}
-              {"  "}
-              {cartItem?.discount?.isActive && (
-                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                  {cartItem?.discount?.value}
-                  {cartItem?.discount?.type == "percentage" && "%"} off
-                </Text>
-              )}
-            </Text>
-            {/* <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-              Item ID: {cartItem._id}
-            </Text> */}
-            {(cartItem?.seller?.offersStorePickup ||
-              cartItem?.seller?.shippingInfo?.offersStorePickup) && (
-              <View className=" p-[4px] px-[8px] bg-[#1683da33] items-center justify-center self-start rounded-[10px]">
-                <Text className="text-[8px] text-[#1683da] font-LexendDeca">
-                  Store Pickup Available
-                </Text>
-              </View>
-            )}
-            <View
-              className="flex-row w-full items-center justify-between gap-[8px] flex-wrap"
-              style={{
-                marginTop: "auto",
-              }}
-            >
-              <Text className="text-white text-[12px] font-LexendDecaMedium">
-                Total:{" "}
-                <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
-                  ₦{totalPrice.toLocaleString()}
-                </Text>
-              </Text>
-              <Text className="text-white text-[11px] font-LexendDecaMedium">
-                Qty: {quantity}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const AddressSheet = ({
-  addresses,
-  closeSheet,
-  selectAddress,
-}: {
-  addresses: any;
-  closeSheet: () => void;
-  selectAddress: (address: any) => void;
-}) => {
-  const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [checked, setChecked] = useState<number>(-1);
-
-  const handleSelectAddress = () => {
-    if (!selectedAddress) {
-      return;
-    }
-    selectAddress(selectedAddress);
-  };
-
-  useEffect(() => {
-    if (addresses?.length > 0) {
-      setSelectedAddress(addresses[checked]);
-    }
-  }, [checked]);
-
-  return (
-    <View className="p-[8px] pb-[16px]">
-      <View className="flex-row justify-center items-center mb-[23px] w-full">
-        <View className="">
-          <Text className="text-[18px] text-[#ccc] font-LexendDecaBold">
-            Select Shipping Address
-          </Text>
-        </View>
-        <Pressable
-          onPress={closeSheet}
-          className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%] absolute"
-          style={{
-            right: 8,
-          }}
-        >
-          <AntDesign name="closecircle" size={30} color="#F9C7B3" />
-        </Pressable>
-      </View>
-
-      <View className="mb-[20px] gap-[10px]">
-        {addresses?.length > 0 ? (
-          addresses.map((address: any, index: any) => (
-            <TouchableOpacity
-              key={index}
-              className="p-[20px] rounded-[16px] flex-row items-center justify-between"
-              style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
-              onPress={() => {
-                setChecked(index);
-              }}
-            >
-              <View className="flex-row gap-[16px] shrink">
-                <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-                  <Text className="text-white text-[9px]">
-                    {address?.first_name?.split("")[0]}
-                  </Text>
-                  <Text className="text-white text-[9px]">
-                    {address?.last_name?.split("")[0]}
-                  </Text>
-                </View>
-                <View className="gap-[18px] shrink">
-                  {/* <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
-                  {address?.first_name + " " + address?.last_name}
-                </Text> */}
-
-                  <View className="gap-[4px]">
-                    <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                      Country: {address?.country}
-                    </Text>
-                    <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                      State: {address?.state}
-                    </Text>
-                    <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                      City: {address?.city}
-                    </Text>
-                    <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                      Street Address: {address?.addressLine1}
-                    </Text>
-                    <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                      Zip Code: {address?.zipCode}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View
-                className={`border-[1px] ${checked == index ? "border-[#16783A]" : "border-[#ccc]"} rounded-[20px] w-[20px] h-[20px] justify-center items-center`}
-              >
-                <View
-                  className={` ${checked == index ? "bg-[#16783A]" : ""} rounded-[12px] w-[12px] h-[12px] justify-center items-center`}
-                ></View>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text className="p-4 text-[#ccc] text-[12px] self-center">
-            No addresses found
-          </Text>
-        )}
-      </View>
-
-      <Pressable
-        className="px-[20px] py-[12px] self-center mb-[20px] rounded-[8px] border-dashed border-[1px] border-[#ccc] max-w-[200px] items-center justify-center"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.20)" }}
-        onPress={() => {
-          closeSheet();
-          router.push("/addresses/addAddress");
-        }}
-      >
-        <Text className="text-[#ccc] text-[14px] ">Add New Address</Text>
-      </Pressable>
-
-      <TouchableOpacity
-        className="py-[10px] rounded-[6px] bg-[#16783A] items-center justify-center"
-        onPress={handleSelectAddress}
-      >
-        <Text className="text-white text-[14px] font-LexendDecaMedium">
-          Confirm Delivery method
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
 export default Checkout;

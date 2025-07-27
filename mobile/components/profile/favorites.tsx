@@ -47,14 +47,14 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
     return (
       <View className="w-[100%] basis-[49%]">
         <CatalogCard
-          key={item.id}
-          id={item._id}
-          title={item.name}
-          price={item.price}
-          category={item.category}
-          sellerName={item.seller?.storeName}
-          imageUrl={item.images}
-          sellerRating={item.stats?.averageRating}
+          key={item?.id}
+          id={item?._id}
+          title={item?.name}
+          price={item?.price}
+          category={item?.category}
+          sellerName={item?.seller?.storeName}
+          imageUrl={item?.images}
+          sellerRating={item?.stats?.averageRating}
           moreDetails={item}
           profileImage={undefined}
           location={""}

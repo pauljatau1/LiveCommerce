@@ -15,9 +15,13 @@ import { ScrollView } from "react-native-gesture-handler";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
+  processing: { name: "Processing", color: "#FFF8DE" },
+  confirmed: { name: "Confirmed", color: "#FFF8DE" },
   pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
+  "in-transit": { name: "Dispatched", color: "rgb(219 234 254)" },
+  shipped: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
   returned: { name: "refund request", color: "rgba(238, 87, 28, 0.85)" },
@@ -214,7 +218,9 @@ const OrderItem = ({
           >
             <Text className="text-white text-[10px]">Chat Seller</Text>
           </Pressable>
-          {orderItem.shipping.tracking.status == "pending" ? (
+          {["pending", "processing", "confirmed"]?.includes(
+            orderItem.shipping.tracking.status,
+          ) ? (
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A] shrink"
               style={{ width: "100%" }}
@@ -244,7 +250,7 @@ const OrderItem = ({
             </Link>
           )}
 
-          {!orderItem.paid &&
+          {/* {!orderItem.paid &&
           orderItem.shipping.tracking.status !== "cancelled" &&
           orderItem?.paymentInfo?.method == "paystack" ? (
             <Pressable
@@ -261,7 +267,7 @@ const OrderItem = ({
             >
               <Text className="text-white text-[10px]">Pay</Text>
             </Pressable>
-          ) : null}
+          ) : null} */}
         </View>
       </View>
 

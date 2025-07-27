@@ -148,7 +148,7 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
           <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
         </View>
       ) : (
-        <View className="">
+        <View className="px-[16px]">
           <Animated.FlatList
             ref={flatListRef}
             data={myBids}
