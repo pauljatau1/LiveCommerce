@@ -1680,6 +1680,64 @@ router.post('/wishlist', verifyToken, isBuyer, buyerController.addToWishlist);
  */
 router.get('/wishlist', verifyToken, isBuyer, buyerController.getWishlist);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist/{productId}:
+ *   delete:
+ *     summary: Remove a product from wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to remove from wishlist
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product removed from wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product removed from wishlist successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     wishlist:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: string
+ *                             description: Product ID
+ *                           addedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when product was added to wishlist
+ *       400:
+ *         description: Bad Request - Product not found in wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid product ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.removeFromWishlist);
+
 
 
 module.exports = router;
