@@ -19,6 +19,7 @@ const followSellerService = require('../services/followSeller.service');
 const unfollowSellerService = require('../services/unfollowSeller.service');
 const addToWishlistService = require('../services/addToWishlist.service');
 const getWishlistService = require('../services/getWishlist.service');
+const removeFromWishlistService = require('../services/removeFromWishlist.service');
 
 /**
  * Register a buyer user.
@@ -509,6 +510,29 @@ async function getWishlist(req, res, next) {
   }
 }
 
+/**
+ * Remove a product from buyer's wishlist.
+ *
+ * This controller handles the remove from wishlist HTTP request.
+ * It delegates the remove from wishlist logic to the service layer and returns the updated wishlist data.
+ *
+ * @param {Request} req - Express request object containing the product ID in `req.params.productId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function removeFromWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle remove from wishlist logic
+    const response = await removeFromWishlistService.removeFromWishlist(req.user.id, req.params.productId);
+
+    // Send success response with updated wishlist data
+    res.success(response, 'Product removed from wishlist successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -531,4 +555,5 @@ module.exports = {
   unfollowSeller,
   addToWishlist,
   getWishlist,
+  removeFromWishlist,
 };
