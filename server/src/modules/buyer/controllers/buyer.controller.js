@@ -17,6 +17,7 @@ const updateAddressService = require('../services/updateAddress.service');
 const deleteAddressService = require('../services/deleteAddress.service');
 const followSellerService = require('../services/followSeller.service');
 const unfollowSellerService = require('../services/unfollowSeller.service');
+const addToWishlistService = require('../services/addToWishlist.service');
 
 /**
  * Register a buyer user.
@@ -461,6 +462,29 @@ async function unfollowSeller(req, res, next) {
   }
 }
 
+/**
+ * Add a product to buyer's wishlist.
+ *
+ * This controller handles the add to wishlist HTTP request.
+ * It delegates the add to wishlist logic to the service layer and returns the wishlist data.
+ *
+ * @param {Request} req - Express request object containing the product ID in `req.body.productId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addToWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle add to wishlist logic
+    const response = await addToWishlistService.addToWishlist(req.user.id, req.body.productId);
+
+    // Send success response with wishlist data
+    res.success(response, 'Product added to wishlist successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -481,4 +505,5 @@ module.exports = {
   deleteAddress,
   followSeller,
   unfollowSeller,
+  addToWishlist,
 };
