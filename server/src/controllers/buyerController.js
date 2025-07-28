@@ -55,6 +55,204 @@ const generateResetOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
+// Register a new buyer
+exports.register = async (req, res) => {
+  const { firstName, lastName, username, email, country, phoneNumber, password, expoPushToken } = req.body;
+
+  // Validate required fields (remove expoPushToken from required check)
+  if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
+    return res.status(400).json({
+      message: 'Missing required fields',
+      details: {
+        firstName: !firstName ? 'First name is required' : null,
+        lastName: !lastName ? 'Last name is required' : null,
+        email: !email ? 'Email is required' : null,
+        phoneNumber: !phoneNumber ? 'Phone number is required' : null,
+        password: !password ? 'Password is required' : null
+      }
+    });
+  }
+
+  try {
+    // Check if email exists
+    const existingEmail = await Buyer.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ message: 'Email is already registered' });
+    }
+
+    // Check if username exists
+    const existingUsername = await Buyer.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: 'Username is already taken' });
+    }
+
+    // Check if phone number exists
+    const existingPhoneNumber = await Buyer.findOne({ phoneNumber });
+    if (existingPhoneNumber) {
+      return res.status(409).json({ message: 'Phone number is already registered' });
+    }
+
+    const otp = generateOTP();
+    const newBuyer = new Buyer({
+      firstName,
+      lastName,
+      username,
+      email,
+      country,
+      phoneNumber,
+      password,
+      otp,
+      expoPushToken,
+      wallet: {
+        balance: 0,
+        onHoldAmount: 0,
+        currency: 'NGN',
+        transactions: [], // Initialize as empty array
+        onHoldItems: []  // Initialize as empty array
+      },
+      shippingAddresses: [],
+      wishlist: [],
+      selectedCategories: [],
+      activityFeed: [],
+      conversations: [],
+      messages: [],
+      posts: [],
+      viewedBlips: [],
+      followers: []
+    });
+
+    // Save the new buyer with properly initialized wallet
+    await newBuyer.save();
+
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(newBuyer._id, expoPushToken);
+    }
+
+    const token = generateToken(newBuyer._id);
+
+    const msg = {
+      to: email,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: 'Your Email Verification Code',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+            </div>
+    
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Verify Your Email Address</h1>
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Thank you for signing up with Auqli Nigeria. To start shopping, please verify your email address using the code below.</p>
+    
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Verification Code</h3>
+                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${otp}</p>
+                <p style="font-size: 14px; color: #bbbbbb;">Enter this code in the app to verify your email</p>
+              </div>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">If you did not request this code, please ignore this email or contact our support team.</p>
+    
+              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What's Next?</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Verify your email using the code above</span>
+                    </div>
+                  </li>
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Complete your profile to personalize your experience</span>
+                    </div>
+                  </li>
+                  <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Start exploring unique products from our sellers</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+    
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+    
+
+    try {
+      await sgMail.send(msg);
+    } catch (sendError) {
+      console.error('SendGrid error:', sendError);
+      return res.status(500).json({
+        message: 'Account created but failed to send verification email',
+        error: sendError.message
+      });
+    }
+
+    res.status(201).json({ user: newBuyer, token });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      message: 'Failed to register buyer',
+      error: error.message
+    });
+  }
+};
+
+// Login a buyer
+exports.login = async (req, res) => {
+  const { email, password, expoPushToken, googleToken } = req.body;
+  if (googleToken) {
+    return await googleLoginMobile(req.body, res)
+  }
+  if (!email || !password) {
+    return res.status(400).json({
+      message: 'Email and password are required.',
+      details: {
+        email: !email ? 'Email is required' : null,
+        password: !password ? 'Password is required' : null
+      }
+    });
+  }
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer || !(await buyer.comparePassword(password))) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(buyer._id, expoPushToken);
+    }
+
+    const userToken = await getToken(buyer._id);
+    if (userToken) {
+      await expo.sendPushNotificationsAsync([{
+        to: userToken.token,
+        title: `Welcome to Auqli`,
+        body: `You have successfully logged in to your account`
+      }]);
+    }
+
+    const token = generateToken(buyer._id);
+    res.json({ user: buyer, token });
+  } catch (error) {
+    res.status(500).json({ message: 'Login failed', error: error.message });
+  }
+};
+
 async function googleLoginMobile(data, res) {
   const { email, googleToken, expoPushToken } = data
   try {
@@ -133,6 +331,599 @@ async function googleRegisterMobile(data, res) {
   }
 
 }
+
+
+exports.checkToken = async (req, res) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+
+  if (!token) return res.status(403).json({ message: "A token is required for authentication" });
+
+  try {
+    const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
+    const newToken = generateToken(decodedUserData.id);
+    res.json({ message: "Token is valid", token: newToken });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Token has expired. Please sign in again." });
+    }
+    return res.status(401).json({ message: "Invalid Token" });
+  }
+};
+
+
+// Get buyer profile
+exports.getProfile = async (req, res) => {
+  try {
+    // First get the buyer with basic info and notification preferences
+    const buyer = await Buyer.findById(req.user.id)
+      .select({
+        firstName: 1,
+        lastName: 1,
+        username: 1,
+        email: 1,
+        country: 1,
+        phoneNumber: 1,
+        profileImage: 1,
+        shippingAddresses: 1,
+        emailVerified: 1,
+        phoneVerified: 1,
+        isDisabled: 1,
+        isNewBuyer: 1,
+        createdAt: 1,
+        isIdentityVerified: 1,
+        preferredCurrency: 1,
+        preferredLanguage: 1,
+        role: 1,
+        wallet: 1,
+        bio: 1,
+        notificationPreferences: 1,
+        isActive: 1  
+      })
+      .lean();
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Get counts in parallel using the activityFeed to count following
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      Buyer.findById(req.user.id).select('followers').then(b => b.followers?.length || 0),
+      Buyer.findById(req.user.id)
+        .select('activityFeed')
+        .then(b => b.activityFeed?.filter(activity =>
+          activity.type === 'follow' &&
+          activity.referenceModel === 'Seller'
+        ).length || 0),
+      Post.countDocuments({ 'author.userId': req.user.id, 'author.userModel': 'Buyer' })
+    ]);
+
+    // Add the counts and profile picture URL to the response
+    const enhancedBuyer = {
+      ...buyer,
+      followersCount,
+      followingCount,
+      postsCount,
+      profilePictureUrl: buyer.profileImage?.url || null,
+      bio: buyer.bio || null  // Explicitly include bio in the response
+    };
+
+    res.json(enhancedBuyer);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error fetching buyer profile',
+      error: error.message
+    });
+  }
+};
+
+// Update buyer profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      username,
+      country,
+      phoneNumber,
+      bio,
+      notificationPreferences,
+      preferredLanguage,
+      preferredCurrency
+    } = req.body;
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if username is being changed and verify uniqueness
+    if (username && username !== buyer.username) {
+      const existingUsername = await Buyer.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      buyer.username = username;
+    }
+
+    // Update fields if provided
+    if (firstName) buyer.firstName = firstName;
+    if (lastName) buyer.lastName = lastName;
+    if (country) buyer.country = country;
+    if (phoneNumber) buyer.phoneNumber = phoneNumber;
+    if (bio !== undefined) buyer.bio = bio; // Changed to handle empty string case
+    if (notificationPreferences) {
+      buyer.notificationPreferences = {
+        ...buyer.notificationPreferences,
+        ...notificationPreferences
+      };
+    }
+    if (preferredLanguage) buyer.preferredLanguage = preferredLanguage;
+    if (preferredCurrency) buyer.preferredCurrency = preferredCurrency;
+
+    const updatedBuyer = await buyer.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      buyer: {
+        firstName: updatedBuyer.firstName,
+        lastName: updatedBuyer.lastName,
+        username: updatedBuyer.username,
+        email: updatedBuyer.email,
+        country: updatedBuyer.country,
+        phoneNumber: updatedBuyer.phoneNumber,
+        bio: updatedBuyer.bio,
+        notificationPreferences: updatedBuyer.notificationPreferences,
+        preferredLanguage: updatedBuyer.preferredLanguage,
+        preferredCurrency: updatedBuyer.preferredCurrency
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to update profile',
+      error: error.message
+    });
+  }
+};
+
+// Upload buyer profile image
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    const avatarFile = req.file;
+    const buyer = await Buyer.findById(req.user.id);
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    let data;
+    if (avatarFile) {
+      const params = {
+        Bucket: process.env.CDN_S3_BUCKET,
+        Key: `${uuidv4()}-${avatarFile.originalname}`,
+        Body: avatarFile.buffer,
+        ContentType: avatarFile.mimetype,
+      };
+      data = await s3.upload(params).promise();
+    } else {
+      data = {
+        Location: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579531/user-account-management-logo-user-icon-11562867145a56rus2zwu_cgs18m.png',
+        Key: 'default-profile-image',
+      };
+    }
+
+    buyer.profileImage = {
+      url: `https://` + process.env.CDN_URL + `/${data.Key}`,
+      public_id: data.Key,
+    };
+
+    const updatedBuyer = await buyer.save();
+
+    res.json({ message: 'Profile image uploaded successfully', buyer: updatedBuyer });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload profile image', error: error.message });
+  }
+};
+
+
+exports.verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required.' });
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+
+    if (buyer.otp === otp) {
+      buyer.emailVerified = true;
+      buyer.otp = undefined; 
+      await buyer.save();
+
+      // Schedule the welcome bonus to be credited after 10 seconds
+      await agenda.schedule('in 10 seconds', 'credit_welcome_bonus', { buyerId: buyer._id });
+      console.log(`Scheduled welcome bonus for buyer ${buyer._id} in 10 seconds`);
+
+      return res.json({ 
+        message: 'Email verified successfully.',
+        bonus: {
+          coming: true,
+          amount: 500,
+          currency: 'NGN',
+          timeToCredit: '10 seconds'
+        }
+      });
+    } else {
+      return res.status(400).json({ message: 'Invalid OTP.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};
+
+exports.resendOTP = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: 'Email is required.' });
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+
+    const otp = generateOTP();
+    buyer.otp = otp;
+    await buyer.save();
+
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <support@auqli.com>',
+      subject: 'Your New Verification Code - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">New Verification Code</h1>
+            <p style="font-size: 16px; line-height: 1.5;">You requested a new verification code. Here it is:</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Your New Code</h3>
+              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${otp}</p>
+              <p style="font-size: 14px; color: #999999;">This code will expire in 10 minutes.</p>
+            </div>
+
+            <p style="font-size: 14px; line-height: 1.5; color: #999999;">If you didn't request this code, please ignore this email or contact our support team if you have concerns.</p>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    try {
+      await sgMail.send(msg);
+    } catch (sendError) {
+      console.error('SendGrid error:', sendError);
+      return res.status(500).json({ message: 'Failed to send verification email', error: sendError.message });
+    }
+
+    res.json({ message: 'OTP resent successfully.' });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ message: 'Failed to resend OTP', error: error.message });
+  }
+};
+
+exports.updateSelectedCategories = async (req, res) => {
+  const { selectedCategories } = req.body;
+
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found.' });
+    }
+
+    buyer.selectedCategories = selectedCategories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name,
+      })),
+    }));
+
+    const updatedBuyer = await buyer.save();
+    res.json({ message: 'Selected categories updated successfully', buyer: updatedBuyer });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
+  }
+};
+
+// Get buyer's orders with filtering
+exports.getOrders = async (req, res) => {
+  const { 
+    trackingStatus, 
+    hasReturn, 
+    search,
+    page = 1,
+    limit = 10,
+    sort = '-createdAt' 
+  } = req.query;
+
+  try {
+    // Build the base query
+    const query = { 
+      buyer: req.user.id,
+      isStale: { $ne: true } 
+    };
+
+    // Add tracking status filter if provided
+    if (trackingStatus) {
+      // Map the case-insensitive tracking statuses to their internal values
+      const statusMap = {
+        'picked-up': 'picked_up',
+        'pickedup': 'picked_up',
+        'picked_up': 'picked_up',
+        'dispatched': 'in_transit',
+        'delivered': 'delivered',
+        'cancelled': 'cancelled',
+        'pending': 'pending',
+        'refunded': 'refunded'
+      };
+      
+      // Normalize the provided status (remove hyphens, convert to lowercase)
+      const normalizedStatus = trackingStatus.toLowerCase().replace(/[-_\s]/g, '');
+      
+      // Find the matching internal status by doing a loose case-insensitive match
+      let internalStatus = null;
+      
+      for (const [key, value] of Object.entries(statusMap)) {
+        // Normalize the key for comparison (remove hyphens, convert to lowercase)
+        const normalizedKey = key.toLowerCase().replace(/[-_\s]/g, '');
+        
+        if (normalizedKey === normalizedStatus) {
+          internalStatus = value;
+          break;
+        }
+      }
+      
+      // Use the mapped internal status if found
+      if (internalStatus) {
+        query['shipping.tracking.status'] = internalStatus;
+      }
+    }
+
+    // Add search query for order_id or product name
+    if (search) {
+      query.$or = [
+        { order_id: { $regex: search, $options: 'i' } },
+        { 'items.productName': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get total count for pagination before applying limit & skip
+    const total = await Order.countDocuments(query);
+
+    // Parse pagination parameters
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Fetch orders with pagination
+    const orders = await Order.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum)
+      .populate('items.product', 'name images price')
+      .populate('items.seller', 'storeName');
+      
+
+    // Get associated return requests for these orders
+    const Return = mongoose.model('Return');
+    const returnRequests = await Return.find({
+      order: { $in: orders.map(order => order._id) }
+    }, '_id order status');
+
+    // Create a map of order IDs to return request details
+    const returnMap = new Map(returnRequests.map(r => [r.order.toString(), { returnId: r._id, status: r.status }]));
+
+    // Add return request info to orders
+    const ordersWithReturns = orders.map(order => {
+      const orderObj = order.toObject();
+      const returnInfo = returnMap.get(order._id.toString());
+      if (returnInfo) {
+        orderObj.returnRequestId = returnInfo.returnId;
+        orderObj.returnStatus = returnInfo.status;
+        
+        // Check for refunded status in a case-insensitive way
+        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' && 
+            returnInfo.status.toLowerCase() !== 'refunded') {
+          return null;
+        }
+      } else if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded') {
+        // If we're filtering for refunded but this order has no return request
+        return null;
+      }
+      return orderObj;
+    }).filter(Boolean); // Remove null entries
+
+    // Filter by hasReturn if specified
+    let filteredOrders = ordersWithReturns;
+    if (hasReturn === 'true') {
+      filteredOrders = ordersWithReturns.filter(order => order.returnRequestId);
+    } else if (hasReturn === 'false') {
+      filteredOrders = ordersWithReturns.filter(order => !order.returnRequestId);
+    }
+
+    // Calculate final count after all filters
+    const totalOrders = hasReturn || trackingStatus ? filteredOrders.length : total;
+    const totalPages = Math.ceil(totalOrders / limitNum);
+    
+    res.json({
+      orders: filteredOrders,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalOrders,
+        hasMore: pageNum < totalPages,
+        hasPrevious: pageNum > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+};
+
+
+// Get order details
+exports.getOrderDetails = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      buyer: req.user.id
+    })
+      .populate('items.product')
+      .populate('items.seller', 'storeName email phoneNumber');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching order details', error: error.message });
+  }
+};
+
+// Get buyer's purchase analytics
+exports.getPurchaseAnalytics = async (req, res) => {
+  try {
+    const orders = await Order.find({ buyer: req.user.id });
+
+    const analytics = {
+      totalOrders: orders.length,
+      totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+      ordersByStatus: {
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        returned: 0
+      },
+      recentOrders: await Order.find({ buyer: req.user.id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('items.product', 'name images price')
+    };
+
+    // Count orders by status
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        analytics.ordersByStatus[item.status]++;
+      });
+    });
+
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching analytics', error: error.message });
+  }
+};
+
+// Get all addresses
+exports.getAddresses = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id)
+      .select('shippingAddresses');
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Return complete address objects
+    res.json(buyer.shippingAddresses);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve addresses',
+      error: error.message
+    });
+  }
+};
+
+// Add new address
+exports.addAddress = async (req, res) => {
+  try {
+    const {
+      addressType,
+      country,
+      state,
+      city,
+      addressLine1,
+      addressLine2,
+      zipCode
+    } = req.body;
+
+    // Validate required fields
+    if (!addressType || !country || !state || !city || !addressLine1 || !zipCode) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        required: ['addressType', 'country', 'state', 'city', 'addressLine1', 'zipCode']
+      });
+    }
+
+    // Validate address type
+    const validAddressTypes = ['home', 'work', 'other'];
+    if (!validAddressTypes.includes(addressType)) {
+      return res.status(400).json({
+        message: 'Invalid address type',
+        validTypes: validAddressTypes
+      });
+    }
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if address type already exists
+    const existingAddressType = buyer.shippingAddresses.find(
+      addr => addr.addressType === addressType
+    );
+
+    if (existingAddressType) {
+      return res.status(400).json({
+        message: `Address type '${addressType}' already exists. Please use a different type or update the existing address.`
+      });
+    }
+
+    const newAddress = {
+      addressType,
+      country,
+      state,
+      city,
+      addressLine1,
+      addressLine2,
+      zipCode
+    };
+
+    // Add new address to the array
+    buyer.shippingAddresses = [...buyer.shippingAddresses, newAddress];
+
+    // Save the updated buyer document
+    const updatedBuyer = await buyer.save();
+
+    // Return the newly added address
+    const addedAddress = updatedBuyer.shippingAddresses[updatedBuyer.shippingAddresses.length - 1];
+
+    res.status(201).json({
+      message: 'Address added successfully',
+      address: addedAddress
+    });
+  } catch (error) {
+    console.error('Add address error:', error); // Add this for debugging
+    res.status(500).json({
+      message: 'Failed to add address',
+      error: error.message
+    });
+  }
+};
 
 // Update address
 exports.updateAddress = async (req, res) => {
@@ -984,6 +1775,37 @@ exports.getSellerProfile = async (req, res) => {
     });
   }
 };
+
+exports.getSelectedCategories = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id)
+      .select('selectedCategories')
+      .populate({
+        path: 'selectedCategories',
+        select: 'name subCategories'
+      });
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json({
+      categories: buyer.selectedCategories.map(category => ({
+        name: category.name,
+        subCategories: category.subCategories.map(sub => ({
+          name: sub.name
+        }))
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching selected categories:', error);
+    res.status(500).json({
+      message: 'Failed to fetch selected categories',
+      error: error.message
+    });
+  }
+};
+
 
 // Verify buyer's identity
 exports.verifyIdentity = async (req, res) => {
