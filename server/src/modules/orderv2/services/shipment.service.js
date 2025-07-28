@@ -1,10 +1,10 @@
-// src/modules/orderv2/services/shipment.service.js
 const mongoose = require('mongoose');
 const orderRepository = require('../repositories/order.repository');
 const terminalAPI = require('../../../config/terminalAPI');
 const { determinePickupAddress, formatAddressForTerminal } = require('../helpers/order.helper');
 const { formatAddress } = require('../helpers/address.helper');
 const { handleShipmentFailure } = require('../helpers/shipment.helper');
+const errorLoggingService = require('../../error-logging/services/error-logging.service');
 
 const formatPhoneNumber = (phone) => {
     if (typeof phone === 'string' && phone.startsWith('0')) {
@@ -83,7 +83,7 @@ exports.createShipmentForOrder = async (orderId, shipmentPurpose) => {
         const terminalShipmentRequest = {
             pickup_address: cleanPickupAddress,
             delivery_address: cleanDeliveryAddress,
-            metadata: "Order from Auqli", // Simplified metadata string as requested
+            metadata : {delivery_type: "Urgent delivery from Auqli"},
             shipment_purpose: shipmentPurpose || 'commercial',
             parcel: {
               items: parcelItems,
@@ -97,6 +97,7 @@ exports.createShipmentForOrder = async (orderId, shipmentPurpose) => {
         console.log('Shipment Service: Received response from Terminal Africa:', JSON.stringify(terminalResponse.data, null, 2));
 
         if (!terminalResponse.data.status || !terminalResponse.data.data) {
+            await errorLoggingService.logError(orderId, 'arrange_shipment', terminalResponse.data);
             throw new Error(terminalResponse.data.message || 'Failed to create shipment with Terminal Africa');
         }
 

@@ -20,5 +20,10 @@ router.post('/webhooks/disable/:webhookId', adminAuth, adminController.disableWe
 router.patch('/sellers/:sellerId/products/draft-status', adminAuth, adminController.setSellerProductsDraftStatus);
 router.patch('/sellers/:sellerId/vacation-mode', adminAuth, adminController.setSellerVacationMode);
 
+// Product management routes
+router.patch('/products/:productId/sold-count', adminAuth, adminController.updateProductSoldCount);
 
-module.exports = router; 
+// Error logging routes
+router.get('/errors', adminAuth, adminController.getErrors);
+
+module.exports = router;

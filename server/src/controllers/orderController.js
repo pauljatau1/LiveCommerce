@@ -7,6 +7,7 @@ const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
 const terminalAPI = require('../config/terminalAPI');
 
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const mongoose = require('mongoose');
 const WebhookService = require('../services/WebhookService');
@@ -1233,6 +1234,16 @@ exports.createOrder = async (req, res) => {
     session.endSession();
 
     console.log('Transaction committed successfully');
+
+    // Update product stock for wallet-paid orders
+    if (isFullyPaidFromWallet) {
+      console.log('Updating product stock for wallet-paid orders');
+      for (const order of orders) {
+        if (order.paid) {
+          await updateProductStockForPaidOrder(order);
+        }
+      }
+    }
 
     const trackingOrderData = {};
 
@@ -5007,6 +5018,9 @@ exports.simpleMarkPaid = async (req, res) => {
     order.paymentInfo.paymentReference = reference || 'manual-update';
     order.paymentInfo.paidAt = new Date();
 
+    // Update product stock now that the order is paid
+    await updateProductStockForPaidOrder(order);
+
     const updatedOrder = await order.save();
 
     // Return success response
@@ -5323,6 +5337,19 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
   }
 };
 
+// Set this to true to enable free shipping promo, false to disable
+const FREE_SHIPPING_PROMO = true;
+
+// Helper to calculate refund amount (items total + shipping if paid)
+function calculateRefundAmount(order) {
+  const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  if (FREE_SHIPPING_PROMO) {
+    return itemsTotal;
+  }
+  const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
+  return itemsTotal + shippingFee;
+}
+
 // Get all refund requests for admin
 exports.getRefundRequests = async (req, res) => {
   try {
@@ -5375,7 +5402,7 @@ exports.getRefundRequests = async (req, res) => {
         name: order.seller.businessName || order.seller.storeName,
         email: order.seller.email
       },
-      amount: order.totalAmount,
+      amount: calculateRefundAmount(order),
       paymentMethod: order.paymentInfo?.method,
       paidAt: order.paymentInfo?.paidAt,
       isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false,
@@ -5477,7 +5504,7 @@ exports.processRefundRequest = async (req, res) => {
             refundAmount = 0;
           } else {
             // Use the proportional wallet amount for this order
-            refundAmount = order.paymentInfo.walletAmountUsed;
+            refundAmount = Math.min(order.paymentInfo.walletAmountUsed, calculateRefundAmount(order));
             
             if (isBatchOrder) {
               console.log(`Processing refund for batch order ${order.order_id} (batch ${order.paymentInfo.batchId}):`, {
@@ -5515,7 +5542,7 @@ exports.processRefundRequest = async (req, res) => {
           });
         } else {
           // Refund the full order amount (do not deduct shipping fee)
-          refundAmount = order.totalAmount;
+          refundAmount = calculateRefundAmount(order);
         }
         
         refundDetails = {

@@ -13,6 +13,14 @@ const getOrderDetailsService = require('../services/getOrderDetails.service');
 const getPurchaseAnalyticsService = require('../services/getPurchaseAnalytics.service');
 const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
+const updateAddressService = require('../services/updateAddress.service');
+const deleteAddressService = require('../services/deleteAddress.service');
+const followSellerService = require('../services/followSeller.service');
+const unfollowSellerService = require('../services/unfollowSeller.service');
+const addToWishlistService = require('../services/addToWishlist.service');
+const getWishlistService = require('../services/getWishlist.service');
+const removeFromWishlistService = require('../services/removeFromWishlist.service');
+const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
 
 /**
  * Register a buyer user.
@@ -365,6 +373,190 @@ async function addAddress(req, res, next) {
   }
 }
 
+/**
+ * Update an existing shipping address for a buyer.
+ *
+ * This controller handles the address update HTTP request.
+ * It delegates the address update logic to the service layer and returns the updated address.
+ *
+ * @param {Request} req - Express request object containing the address update data in `req.body`, buyer ID in `req.user.id`, and address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address update logic
+    const response = await updateAddressService.updateAddress(req.user.id, req.params.addressId, req.body);
+
+    // Send success response with updated address data
+    res.success(response, 'Address updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Delete a shipping address for a buyer.
+ *
+ * This controller handles the address deletion HTTP request.
+ * It delegates the address deletion logic to the service layer and returns a success message.
+ *
+ * @param {Request} req - Express request object containing the address ID in `req.params.addressId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function deleteAddress(req, res, next) {
+  try {
+    // Call the service layer to handle address deletion logic
+    const response = await deleteAddressService.deleteAddress(req.user.id, req.params.addressId);
+
+    // Send success response with deletion message
+    res.success(response, 'Address deleted successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Follow a seller by a buyer.
+ *
+ * This controller handles the follow seller HTTP request.
+ * It delegates the follow logic to the service layer and returns the follow data.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function followSeller(req, res, next) {
+  try {
+    // Call the service layer to handle follow seller logic
+    const response = await followSellerService.followSeller(req.user.id, req.params.sellerId);
+
+    // Send success response with follow data
+    res.success(response, 'Successfully followed seller');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Unfollow a seller by a buyer.
+ *
+ * This controller handles the unfollow seller HTTP request.
+ * It delegates the unfollow logic to the service layer and returns the unfollow data.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function unfollowSeller(req, res, next) {
+  try {
+    // Call the service layer to handle unfollow seller logic
+    const response = await unfollowSellerService.unfollowSeller(req.user.id, req.params.sellerId);
+
+    // Send success response with unfollow data
+    res.success(response, 'Successfully unfollowed seller');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Add a product to buyer's wishlist.
+ *
+ * This controller handles the add to wishlist HTTP request.
+ * It delegates the add to wishlist logic to the service layer and returns the wishlist data.
+ *
+ * @param {Request} req - Express request object containing the product ID in `req.body.productId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addToWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle add to wishlist logic
+    const response = await addToWishlistService.addToWishlist(req.user.id, req.body.productId);
+
+    // Send success response with wishlist data
+    res.success(response, 'Product added to wishlist successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get buyer's wishlist.
+ *
+ * This controller handles the get wishlist HTTP request.
+ * It delegates the get wishlist logic to the service layer and returns the wishlist data.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle get wishlist logic
+    const response = await getWishlistService.getWishlist(req.user.id);
+
+    // Send success response with wishlist data
+    res.success(response, 'Wishlist retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Remove a product from buyer's wishlist.
+ *
+ * This controller handles the remove from wishlist HTTP request.
+ * It delegates the remove from wishlist logic to the service layer and returns the updated wishlist data.
+ *
+ * @param {Request} req - Express request object containing the product ID in `req.params.productId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function removeFromWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle remove from wishlist logic
+    const response = await removeFromWishlistService.removeFromWishlist(req.user.id, req.params.productId);
+
+    // Send success response with updated wishlist data
+    res.success(response, 'Product removed from wishlist successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Upload identity document for buyer verification.
+ *
+ * This controller handles the upload identity document HTTP request.
+ * It delegates the upload logic to the service layer and returns the uploaded document information.
+ *
+ * @param {Request} req - Express request object containing the uploaded file in `req.file` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadIdentityDocument(req, res, next) {
+  try {
+    // Call the service layer to handle upload identity document logic
+    const response = await uploadIdentityDocumentService.uploadIdentityDocument(req.user.id, req.file);
+
+    // Send success response with uploaded document information
+    res.success(response, 'Identity document uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -381,4 +573,12 @@ module.exports = {
   getPurchaseAnalytics,
   getAddresses,
   addAddress,
+  updateAddress,
+  deleteAddress,
+  followSeller,
+  unfollowSeller,
+  addToWishlist,
+  getWishlist,
+  removeFromWishlist,
+  uploadIdentityDocument,
 };

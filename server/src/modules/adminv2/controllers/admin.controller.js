@@ -3,6 +3,7 @@ const Product = require('../../../models/Product');
 const Seller = require('../../../models/Seller');
 const emailService = require('../../../utils/emailService');
 const { toggleSellerVacationMode } = require('../services/adminVacation.service');
+const ErrorLog = require('../../../models/ErrorLog');
 
 const getShipments = async (req, res, next) => {
   try {
@@ -170,6 +171,67 @@ const setSellerVacationMode = async (req, res, next) => {
   }
 };
 
+/**
+ * Manually update a product's sold count
+ * PATCH /admin/products/:productId/sold-count
+ * Body: { soldCount: number }
+ */
+const updateProductSoldCount = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const { soldCount } = req.body;
+
+    // Validate input
+    if (typeof soldCount !== 'number' || soldCount < 0) {
+      return res.status(400).json({ 
+        status: false, 
+        message: 'soldCount must be a non-negative number' 
+      });
+    }
+
+    // Find the product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ 
+        status: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    // Get the old sold count for logging
+    const oldSoldCount = product.stats.soldCount;
+
+    // Update the sold count
+    product.stats.soldCount = soldCount;
+    await product.save();
+
+    // Log the change
+   
+
+    res.status(200).json({ 
+      status: true, 
+      message: 'Product sold count updated successfully',
+      product: {
+        _id: product._id,
+        name: product.name,
+        oldSoldCount,
+        newSoldCount: product.stats.soldCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getErrors = async (req, res) => {
+  try {
+    const errors = await ErrorLog.find().sort({ createdAt: -1 });
+    res.status(200).json({ errors });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch error logs', error: error.message });
+  }
+};
+
 module.exports = {
   getShipments,
   getShipmentById,
@@ -185,4 +247,6 @@ module.exports = {
   disableWebhook,
   setSellerProductsDraftStatus,
   setSellerVacationMode,
-}; 
+  updateProductSoldCount,
+  getErrors,
+};

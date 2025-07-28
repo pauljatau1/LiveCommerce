@@ -1233,4 +1233,581 @@ router.get('/addresses', verifyToken, isBuyer, buyerController.getAddresses);
  */
 router.post('/addresses', verifyToken, isBuyer, buyerController.addAddress);
 
+/**
+ * @swagger
+ * /api/v2/buyers/addresses/{addressId}:
+ *   put:
+ *     summary: Update an existing shipping address
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the address to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               addressType:
+ *                 type: string
+ *                 enum: [home, work, other]
+ *                 description: Type of address
+ *                 example: "home"
+ *               country:
+ *                 type: string
+ *                 description: Country name
+ *                 example: "Nigeria"
+ *               state:
+ *                 type: string
+ *                 description: State or province
+ *                 example: "Lagos"
+ *               city:
+ *                 type: string
+ *                 description: City name
+ *                 example: "Lagos"
+ *               addressLine1:
+ *                 type: string
+ *                 description: Primary address line
+ *                 example: "123 Main Street"
+ *               addressLine2:
+ *                 type: string
+ *                 description: Secondary address line (optional)
+ *                 example: "Apt 4B"
+ *               zipCode:
+ *                 type: string
+ *                 description: Postal or zip code
+ *                 example: "100001"
+ *     responses:
+ *       200:
+ *         description: Address updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Address updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Address updated successfully"
+ *                     address:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         addressType:
+ *                           type: string
+ *                           example: "home"
+ *                         country:
+ *                           type: string
+ *                           example: "Nigeria"
+ *                         state:
+ *                           type: string
+ *                           example: "Lagos"
+ *                         city:
+ *                           type: string
+ *                           example: "Lagos"
+ *                         addressLine1:
+ *                           type: string
+ *                           example: "123 Main Street"
+ *                         addressLine2:
+ *                           type: string
+ *                           example: "Apt 4B"
+ *                         zipCode:
+ *                           type: string
+ *                           example: "100001"
+ *       422:
+ *         description: Unprocessable Entity - Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "addressType"
+ *                       message:
+ *                         type: string
+ *                         example: "Address type is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or address not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/addresses/:addressId', verifyToken, isBuyer, buyerController.updateAddress);
+
+/**
+ * @swagger
+ * /api/v2/buyers/addresses/{addressId}:
+ *   delete:
+ *     summary: Delete a shipping address for a buyer
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the address to delete
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Address deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Address deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Address deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or address not found
+ *       422:
+ *         description: Validation error - Invalid address ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/addresses/:addressId', verifyToken, isBuyer, buyerController.deleteAddress);
+
+/**
+ * @swagger
+ * /api/v2/buyers/follow/{sellerId}:
+ *   post:
+ *     summary: Follow a seller
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to follow
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Successfully followed seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully followed seller"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     followData:
+ *                       type: object
+ *                       properties:
+ *                         buyerId:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         followDate:
+ *                           type: string
+ *                           format: date-time
+ *                         totalOrders:
+ *                           type: number
+ *                         mainAddress:
+ *                           type: object
+ *                           nullable: true
+ *                     sellerFollowCount:
+ *                       type: number
+ *                       description: Total number of followers for the seller
+ *                     buyerFollowingCount:
+ *                       type: number
+ *                       description: Total number of sellers the buyer is following
+ *       400:
+ *         description: Bad Request - Already following this seller
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or seller not found
+ *       422:
+ *         description: Validation error - Invalid seller ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/follow/:sellerId', verifyToken, isBuyer, buyerController.followSeller);
+
+/**
+ * @swagger
+ * /api/v2/buyers/follow/{sellerId}:
+ *   delete:
+ *     summary: Unfollow a seller
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to unfollow
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Successfully unfollowed seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully unfollowed seller"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sellerFollowCount:
+ *                       type: number
+ *                       description: Total number of followers for the seller after unfollow
+ *                     buyerFollowingCount:
+ *                       type: number
+ *                       description: Total number of sellers the buyer is following after unfollow
+ *       400:
+ *         description: Bad Request - Not following this seller
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or seller not found
+ *       422:
+ *         description: Validation error - Invalid seller ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/follow/:sellerId', verifyToken, isBuyer, buyerController.unfollowSeller);
+
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist:
+ *   post:
+ *     summary: Add a product to wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to add to wishlist
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product added to wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product added to wishlist successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     wishlist:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: string
+ *                             description: Product ID
+ *                           addedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when product was added to wishlist
+ *       400:
+ *         description: Bad Request - Product already in wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or product not found
+ *       422:
+ *         description: Validation error - Invalid product ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/wishlist', verifyToken, isBuyer, buyerController.addToWishlist);
+
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist:
+ *   get:
+ *     summary: Get buyer's wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wishlist retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wishlist retrieved successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       product:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Product ID
+ *                           name:
+ *                             type: string
+ *                             description: Product name
+ *                           description:
+ *                             type: string
+ *                             description: Product description
+ *                           price:
+ *                             type: number
+ *                             description: Product price
+ *                           images:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                             description: Product images
+ *                           category:
+ *                             type: string
+ *                             description: Product category
+ *                           brand:
+ *                             type: string
+ *                             description: Product brand
+ *                           stock:
+ *                             type: number
+ *                             description: Product stock
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 description: Seller ID
+ *                               storeName:
+ *                                 type: string
+ *                                 description: Seller store name
+ *                               businessName:
+ *                                 type: string
+ *                                 description: Seller business name
+ *                       addedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Date when product was added to wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid buyer ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/wishlist', verifyToken, isBuyer, buyerController.getWishlist);
+
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist/{productId}:
+ *   delete:
+ *     summary: Remove a product from wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to remove from wishlist
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product removed from wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product removed from wishlist successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     wishlist:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: string
+ *                             description: Product ID
+ *                           addedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when product was added to wishlist
+ *       400:
+ *         description: Bad Request - Product not found in wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid product ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.removeFromWishlist);
+
+/**
+ * @swagger
+ * /api/v2/buyers/identity-verification:
+ *   post:
+ *     summary: Upload identity verification document
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               identityDocument:
+ *                 type: string
+ *                 format: binary
+ *                 description: Identity document file (PDF, JPEG, PNG, GIF, DOC, DOCX)
+ *                 example: "document.pdf"
+ *     responses:
+ *       200:
+ *         description: Identity document uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Identity document uploaded successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     document:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                           description: URL of the uploaded document
+ *                           example: "https://cdn.example.com/verification/buyers/507f1f77bcf86cd799439011/identity-1640995200000-document.pdf"
+ *                         public_id:
+ *                           type: string
+ *                           description: S3 key of the uploaded document
+ *                           example: "verification/buyers/507f1f77bcf86cd799439011/identity-1640995200000-document.pdf"
+ *                         uploadedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Date when document was uploaded
+ *                           example: "2025-01-27T10:30:00.000Z"
+ *                         status:
+ *                           type: string
+ *                           description: Verification status
+ *                           example: "pending"
+ *       400:
+ *         description: Bad Request - No file uploaded, invalid file type, or file too large
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid buyer ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/identity-verification', verifyToken, upload.single('identityDocument'), buyerController.uploadIdentityDocument);
+
+
+
 module.exports = router;

@@ -139,22 +139,42 @@ exports.updateProductStockForPaidOrder = async (order) => {
     for (const item of order.items) {
       const productBefore = await Product.findById(item.product);
       
-      if (productBefore) {
-        console.log(`Product ${item.product} before stock update:`, {
-          currentStock: productBefore.stock,
-          currentSoldCount: productBefore.stats.soldCount,
-          itemQuantity: item.quantity
-        });
-
-        // Since stock was already updated during order creation, we don't need to update it again
-        // This function is mainly for consistency with the original controller
-        console.log(`Stock already updated for product ${item.product} during order creation`);
+      if (!productBefore) {
+        console.error(`Product not found for item in order ${order.order_id}:`, item.product);
+        continue;
       }
+      
+      console.log(`Product ${item.product} before stock update:`, {
+        currentStock: productBefore.stock,
+        currentSoldCount: productBefore.stats.soldCount,
+        itemQuantity: item.quantity
+      });
+
+      // Actually update the product stock and sold count
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true } // Return the updated document
+      );
+
+      console.log(`Product ${item.product} after stock update:`, {
+        newStock: updateResult.stock,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
+      });
     }
     
-    console.log(`✅ Product stock verification completed for order: ${order.order_id}`);
+    console.log(`✅ Product stock updated successfully for order: ${order.order_id}`);
+    return true;
   } catch (error) {
     console.error(`Error updating product stock for order ${order.order_id}:`, error);
+    return false;
   }
 };
 
@@ -241,7 +261,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
           <div style="text-align: left; margin-top: 20px;">
             <p><strong>Order ID:</strong> ${order.order_id}</p>
             <p><strong>Seller:</strong> ${sellerName}</p>
-            <p><strong>Total Amount:</strong> ₦${order.totalAmount.toLocaleString()}</p>
+           
             <p><strong>Items:</strong></p>
             <ul>
               ${order.items.map(item => `<li>${item.productName} (Qty: ${item.quantity})</li>`).join('')}
@@ -288,7 +308,7 @@ exports.sendSellerOrderNotificationEmail = async (order, seller) => {
             <ul>
               ${order.items.map(item => `<li>${item.productName} (Qty: ${item.quantity})</li>`).join('')}
             </ul>
-            <p><strong>Total Amount:</strong> ₦${order.totalAmount.toLocaleString()}</p>
+           
           </div>
 
           <p style="margin-top: 20px;">Please prepare the items for shipping. You can view the full order details in your seller dashboard.</p>
@@ -597,6 +617,7 @@ const arrangeShipmentHelper = async (order, rateId, session = null) => {
     // Call Terminal Africa API to arrange pickup
     const arrangePickupResponse = await terminalAPI.post('/shipments/pickup', {
       rate_id: rateId,
+      shipment_id: order.shipping?.shipment_id,
       purchase_insurance: false
     });
 

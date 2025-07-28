@@ -133,7 +133,7 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                         console.error(`Failed to send shipment failure email for order ${order.order_id}:`, emailError);
                     }
 
-                    throw new Error(`Payment was processed, but shipment arrangement failed. The amount has been refunded to your wallet.`);
+                    throw new Error(`Something went wrong. Please try again with a different carrier.`);
                 }
             }
             
