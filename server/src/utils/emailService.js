@@ -215,9 +215,32 @@ const sendShipmentFailureEmail = async (buyer, order, errorMessage) => {
   }
 };
 
+const sendEmail = async (to, subject, text, html) => {
+  const msg = {
+    to,
+    from: VERIFIED_SENDER,
+    subject,
+    text,
+    html,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Email sent to ${to} with subject: ${subject}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send email to ${to} with subject ${subject}:`, error);
+    if (error.response) {
+      console.error('SendGrid error response body:', error.response.body);
+    }
+    return false;
+  }
+};
+
 module.exports = { 
   sendPasswordResetEmail,
   sendAdminLoginNotificationEmail,
   sendInternationalSellerEmail,
-  sendShipmentFailureEmail
+  sendShipmentFailureEmail,
+  sendEmail
 };

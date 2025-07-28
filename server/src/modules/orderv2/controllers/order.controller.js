@@ -14,8 +14,10 @@ const terminalWebhookListService = require('../services/terminal-webhook-list.se
 const terminalWebhookDeleteService = require('../services/terminal-webhook-delete.service');
 const terminalService = require('../services/terminal.service');
 const orderRepository = require('../repositories/order.repository');
+const errorLoggingService = require('../../error-logging/services/error-logging.service');
 
 exports.createOrder = async (req, res) => {
+  let orderId;
   try {
     // Step 1: Create the draft order(s)
     console.log('Controller: Calling createOrder service...');
@@ -25,32 +27,42 @@ exports.createOrder = async (req, res) => {
 
     // Step 2 & 3: For each order, create shipment and get rates
     const ordersWithRates = await Promise.all(orderResult.orders.map(async (order) => {
+      orderId = order.orderId.toString();
       // If order is for store pickup or is international, skip shipment/rate steps
       if (order.isStorePickup || order.isInternational) {
-        console.log(`Controller: Skipping shipment and rates for orderId ${order.orderId} (isStorePickup: ${order.isStorePickup}, isInternational: ${order.isInternational})`);
+        console.log(`Controller: Skipping shipment and rates for orderId ${orderId} (isStorePickup: ${order.isStorePickup}, isInternational: ${order.isInternational})`);
         return {
           ...order,
           rates: [], // Return empty rates array
         };
       }
 
-      const orderId = order.orderId.toString();
       console.log(`Controller: Processing orderId ${orderId}`);
       
       // Create shipment
-      console.log(`Controller: Calling createShipmentForOrder for orderId ${orderId}`);
-      await shipmentService.createShipmentForOrder(orderId);
-      console.log(`Controller: Shipment created for orderId ${orderId}`);
+      try {
+        console.log(`Controller: Calling createShipmentForOrder for orderId ${orderId}`);
+        await shipmentService.createShipmentForOrder(orderId);
+        console.log(`Controller: Shipment created for orderId ${orderId}`);
+      } catch (error) {
+        await errorLoggingService.logError(orderId, 'create_shipment', error);
+        throw error;
+      }
       
       // Get rates
-      console.log(`Controller: Calling getOrderRates for orderId ${orderId}`);
-      const ratesResult = await ratesService.getOrderRates(orderId);
-      console.log(`Controller: Rates received for orderId ${orderId}`, ratesResult.data.rates);
-      
-      return {
-        ...order,
-        rates: ratesResult.data.rates || [],
-      };
+      try {
+        console.log(`Controller: Calling getOrderRates for orderId ${orderId}`);
+        const ratesResult = await ratesService.getOrderRates(orderId);
+        console.log(`Controller: Rates received for orderId ${orderId}`, ratesResult.data.rates);
+        
+        return {
+          ...order,
+          rates: ratesResult.data.rates || [],
+        };
+      } catch (error) {
+        await errorLoggingService.logError(orderId, 'get_rates', error);
+        throw error;
+      }
     }));
 
     // Step 4: Return the consolidated response
@@ -67,6 +79,9 @@ exports.createOrder = async (req, res) => {
 
   } catch (error) {
     console.error('Error in createOrder workflow:', error);
+    if (orderId) {
+      await errorLoggingService.logError(orderId, 'create_order', error);
+    }
     return res.status(500).json({ message: 'Failed to create order, shipment, and fetch rates', error: error.message });
   }
 };
@@ -76,8 +91,8 @@ exports.createOrder = async (req, res) => {
 
 
 exports.payForOrder = async (req, res) => {
+  const { orderId } = req.params;
   try {
-    const { orderId } = req.params;
     const { paymentDetails, carrier } = req.body;
 
     // Fetch the order to check its properties
@@ -107,6 +122,7 @@ exports.payForOrder = async (req, res) => {
     
   } catch (error) {
     console.error('Error in payForOrder workflow:', error);
+    await errorLoggingService.logError(orderId, 'payment', error);
     return res.status(500).json({ message: 'Failed to process payment', error: error.message });
   }
 };
@@ -296,4 +312,3 @@ exports.getCities = async (req, res) => {
     return res.status(500).json({ message: 'Failed to get cities', error: error.message });
   }
 };
-
