@@ -1597,6 +1597,89 @@ router.delete('/follow/:sellerId', verifyToken, isBuyer, buyerController.unfollo
  */
 router.post('/wishlist', verifyToken, isBuyer, buyerController.addToWishlist);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist:
+ *   get:
+ *     summary: Get buyer's wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wishlist retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wishlist retrieved successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       product:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Product ID
+ *                           name:
+ *                             type: string
+ *                             description: Product name
+ *                           description:
+ *                             type: string
+ *                             description: Product description
+ *                           price:
+ *                             type: number
+ *                             description: Product price
+ *                           images:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                             description: Product images
+ *                           category:
+ *                             type: string
+ *                             description: Product category
+ *                           brand:
+ *                             type: string
+ *                             description: Product brand
+ *                           stock:
+ *                             type: number
+ *                             description: Product stock
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 description: Seller ID
+ *                               storeName:
+ *                                 type: string
+ *                                 description: Seller store name
+ *                               businessName:
+ *                                 type: string
+ *                                 description: Seller business name
+ *                       addedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Date when product was added to wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid buyer ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/wishlist', verifyToken, isBuyer, buyerController.getWishlist);
+
 
 
 module.exports = router;
