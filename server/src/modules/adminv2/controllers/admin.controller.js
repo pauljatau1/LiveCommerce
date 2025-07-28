@@ -3,6 +3,7 @@ const Product = require('../../../models/Product');
 const Seller = require('../../../models/Seller');
 const emailService = require('../../../utils/emailService');
 const { toggleSellerVacationMode } = require('../services/adminVacation.service');
+const ErrorLog = require('../../../models/ErrorLog');
 
 const getShipments = async (req, res, next) => {
   try {
@@ -222,6 +223,15 @@ const updateProductSoldCount = async (req, res, next) => {
   }
 };
 
+const getErrors = async (req, res) => {
+  try {
+    const errors = await ErrorLog.find().sort({ createdAt: -1 });
+    res.status(200).json({ errors });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch error logs', error: error.message });
+  }
+};
+
 module.exports = {
   getShipments,
   getShipmentById,
@@ -238,4 +248,5 @@ module.exports = {
   setSellerProductsDraftStatus,
   setSellerVacationMode,
   updateProductSoldCount,
-}; 
+  getErrors,
+};

@@ -23,4 +23,7 @@ router.patch('/sellers/:sellerId/vacation-mode', adminAuth, adminController.setS
 // Product management routes
 router.patch('/products/:productId/sold-count', adminAuth, adminController.updateProductSoldCount);
 
-module.exports = router; 
+// Error logging routes
+router.get('/errors', adminAuth, adminController.getErrors);
+
+module.exports = router;
