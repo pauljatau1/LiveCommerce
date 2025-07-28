@@ -302,6 +302,23 @@ async function deleteShippingAddress(buyerId, addressId) {
   return await buyer.save();
 }
 
+/**
+ * Find a buyer by ID with populated wishlist data.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with populated wishlist or null if not found
+ */
+async function findByIdWithPopulatedWishlist(buyerId) {
+  return Buyer.findById(buyerId)
+    .populate({
+      path: 'wishlist.product',
+      select: 'name description price images category brand stock',
+      populate: {
+        path: 'seller',
+        select: 'storeName businessName'
+      }
+    });
+}
+
 module.exports = {
   findAll,
   save,
@@ -324,5 +341,6 @@ module.exports = {
   findByIdWithShippingAddresses,
   addShippingAddress,
   updateShippingAddress,
-  deleteShippingAddress
+  deleteShippingAddress,
+  findByIdWithPopulatedWishlist
 };

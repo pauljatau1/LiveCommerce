@@ -18,6 +18,7 @@ const deleteAddressService = require('../services/deleteAddress.service');
 const followSellerService = require('../services/followSeller.service');
 const unfollowSellerService = require('../services/unfollowSeller.service');
 const addToWishlistService = require('../services/addToWishlist.service');
+const getWishlistService = require('../services/getWishlist.service');
 
 /**
  * Register a buyer user.
@@ -485,6 +486,29 @@ async function addToWishlist(req, res, next) {
   }
 }
 
+/**
+ * Get buyer's wishlist.
+ *
+ * This controller handles the get wishlist HTTP request.
+ * It delegates the get wishlist logic to the service layer and returns the wishlist data.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getWishlist(req, res, next) {
+  try {
+    // Call the service layer to handle get wishlist logic
+    const response = await getWishlistService.getWishlist(req.user.id);
+
+    // Send success response with wishlist data
+    res.success(response, 'Wishlist retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -506,4 +530,5 @@ module.exports = {
   followSeller,
   unfollowSeller,
   addToWishlist,
+  getWishlist,
 };
