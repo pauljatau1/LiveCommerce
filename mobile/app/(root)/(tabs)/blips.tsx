@@ -2,6 +2,7 @@ import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
+  Text,
   Dimensions,
   FlatList,
   Platform,
@@ -10,6 +11,7 @@ import {
   RefreshControl,
   Alert,
   Linking,
+  Pressable,
 } from "react-native";
 import VideoItem from "@/components/blips/videoItem";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,9 +29,13 @@ import { checkVersion } from "react-native-check-version";
 import DeviceInfo from "react-native-device-info";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useIsFocused } from "@react-navigation/native";
+import BottomSheet from "@/components/global/bottom-sheet";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const { height } = Dimensions.get("screen");
 const Blips = () => {
+  const isFocused = useIsFocused()
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
   const tabBarHeight = useBottomTabBarHeight();
@@ -40,23 +46,38 @@ const Blips = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isPromotionVisible, setIsPromotionVisible] = useState<boolean>(false);
   const [promotionAmount, setPromotionAmount] = useState<number>();
+  const [version,setVersion] = useState<any>()
+  const [showUpdateSheet,setShowUpdateSheet] = useState<boolean>(false)
 
   const verifyAppVersion = async () => {
     const version = await checkVersion();
     console.log("Got version info:", version);
 
     if (version.needsUpdate) {
-      Alert.alert(
-        "New Update Available",
-        "Update the app to get the latest features",
-        [
-          { text: "Cancel" },
-          {
-            text: "Update",
-            onPress: () => Linking.openURL(version.url),
-          },
-        ],
-      );
+      setVersion(version)
+      setShowUpdateSheet(true)
+      // Alert.alert(
+      //   "New Update Available",
+      //   "Update the app to get the latest features",
+      //   [
+      //     { text: "Cancel",
+
+      //       onPress:() => {
+      //         if(["major","minor"].includes(version?.updateType!))
+      //         {
+
+      //         }
+      //       }
+      //      },
+      //     {
+      //       text: "Update",
+      //       onPress: () => Linking.openURL(version.url),
+      //     },
+      //   ],
+      //   {
+      //     cancelable:false
+      //   }
+      // );
     }
   };
 
@@ -301,6 +322,29 @@ const Blips = () => {
         )}
       </View>
       <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} promotionAmount={promotionAmount} />
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        title=""
+        show={showUpdateSheet}
+        onRequestClose={() => null}
+        keyboardBehavior="extend"
+        enablePanDownToClose={false}
+
+      >
+        <View className="px-[20px] pb-[20px] pt-[10px]">
+          <MaterialIcons name="update" size={50} color="white" style={{alignSelf:'center',marginBottom:8}}/>
+          <Text className="text-[24px] text-white font-LexendDecaMedium leading-[32.4px] tracking-[-0.96px] self-center mb-[8px]">Update Available</Text>
+          <Text className="text-[16px] text-[#FFFFFF99] font-LexendDecaLight leading-[25.6px] tracking-[-0.16px] text-center mb-[32px]">Please update to the latest version of the app to continue using Auqli.</Text>
+          <Pressable className="bg-[#16783A] p-[20px] py-[16px] rounded-[10px]" style={{
+            borderCurve:'continuous'
+          }} onPress={() => Linking.openURL(version.url)}>
+            <Text className="text-white text-[15px] font-LexendDecaMedium self-center tracking-[-0.22px]">Update</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 };

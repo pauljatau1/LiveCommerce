@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { memo, useMemo } from "react";
 import { TouchableWithoutFeedback } from "react-native";
 import Animated, {
   Extrapolation,
@@ -36,7 +36,7 @@ export function createCustomBackdrop(
 
     return (
       <TouchableWithoutFeedback
-        onPress={() => close()}
+        onPress={() => onClose ? onClose() : close()}
         accessibilityLabel="Close bottom drawer"
         accessibilityHint=""
         onAccessibilityEscape={() => {
@@ -49,5 +49,5 @@ export function createCustomBackdrop(
       </TouchableWithoutFeedback>
     );
   };
-  return CustomBackdrop;
+  return memo(CustomBackdrop);
 }
