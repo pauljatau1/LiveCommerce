@@ -16,6 +16,7 @@ const addAddressService = require('../services/addAddress.service');
 const updateAddressService = require('../services/updateAddress.service');
 const deleteAddressService = require('../services/deleteAddress.service');
 const followSellerService = require('../services/followSeller.service');
+const unfollowSellerService = require('../services/unfollowSeller.service');
 
 /**
  * Register a buyer user.
@@ -437,6 +438,29 @@ async function followSeller(req, res, next) {
   }
 }
 
+/**
+ * Unfollow a seller by a buyer.
+ *
+ * This controller handles the unfollow seller HTTP request.
+ * It delegates the unfollow logic to the service layer and returns the unfollow data.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function unfollowSeller(req, res, next) {
+  try {
+    // Call the service layer to handle unfollow seller logic
+    const response = await unfollowSellerService.unfollowSeller(req.user.id, req.params.sellerId);
+
+    // Send success response with unfollow data
+    res.success(response, 'Successfully unfollowed seller');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -456,4 +480,5 @@ module.exports = {
   updateAddress,
   deleteAddress,
   followSeller,
+  unfollowSeller,
 };
