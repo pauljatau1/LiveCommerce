@@ -20,6 +20,7 @@ const unfollowSellerService = require('../services/unfollowSeller.service');
 const addToWishlistService = require('../services/addToWishlist.service');
 const getWishlistService = require('../services/getWishlist.service');
 const removeFromWishlistService = require('../services/removeFromWishlist.service');
+const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
 
 /**
  * Register a buyer user.
@@ -533,6 +534,29 @@ async function removeFromWishlist(req, res, next) {
   }
 }
 
+/**
+ * Upload identity document for buyer verification.
+ *
+ * This controller handles the upload identity document HTTP request.
+ * It delegates the upload logic to the service layer and returns the uploaded document information.
+ *
+ * @param {Request} req - Express request object containing the uploaded file in `req.file` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadIdentityDocument(req, res, next) {
+  try {
+    // Call the service layer to handle upload identity document logic
+    const response = await uploadIdentityDocumentService.uploadIdentityDocument(req.user.id, req.file);
+
+    // Send success response with uploaded document information
+    res.success(response, 'Identity document uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -556,4 +580,5 @@ module.exports = {
   addToWishlist,
   getWishlist,
   removeFromWishlist,
+  uploadIdentityDocument,
 };

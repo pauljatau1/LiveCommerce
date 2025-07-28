@@ -1738,6 +1738,76 @@ router.get('/wishlist', verifyToken, isBuyer, buyerController.getWishlist);
  */
 router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.removeFromWishlist);
 
+/**
+ * @swagger
+ * /api/v2/buyers/identity-verification:
+ *   post:
+ *     summary: Upload identity verification document
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               identityDocument:
+ *                 type: string
+ *                 format: binary
+ *                 description: Identity document file (PDF, JPEG, PNG, GIF, DOC, DOCX)
+ *                 example: "document.pdf"
+ *     responses:
+ *       200:
+ *         description: Identity document uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Identity document uploaded successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     document:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                           description: URL of the uploaded document
+ *                           example: "https://cdn.example.com/verification/buyers/507f1f77bcf86cd799439011/identity-1640995200000-document.pdf"
+ *                         public_id:
+ *                           type: string
+ *                           description: S3 key of the uploaded document
+ *                           example: "verification/buyers/507f1f77bcf86cd799439011/identity-1640995200000-document.pdf"
+ *                         uploadedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Date when document was uploaded
+ *                           example: "2025-01-27T10:30:00.000Z"
+ *                         status:
+ *                           type: string
+ *                           description: Verification status
+ *                           example: "pending"
+ *       400:
+ *         description: Bad Request - No file uploaded, invalid file type, or file too large
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid buyer ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/identity-verification', verifyToken, upload.single('identityDocument'), buyerController.uploadIdentityDocument);
+
 
 
 module.exports = router;
