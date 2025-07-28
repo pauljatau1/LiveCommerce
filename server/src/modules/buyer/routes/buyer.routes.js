@@ -1534,6 +1534,69 @@ router.post('/follow/:sellerId', verifyToken, isBuyer, buyerController.followSel
  */
 router.delete('/follow/:sellerId', verifyToken, isBuyer, buyerController.unfollowSeller);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist:
+ *   post:
+ *     summary: Add a product to wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to add to wishlist
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Product added to wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Product added to wishlist successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     wishlist:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: string
+ *                             description: Product ID
+ *                           addedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when product was added to wishlist
+ *       400:
+ *         description: Bad Request - Product already in wishlist
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or product not found
+ *       422:
+ *         description: Validation error - Invalid product ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/wishlist', verifyToken, isBuyer, buyerController.addToWishlist);
+
 
 
 module.exports = router;
