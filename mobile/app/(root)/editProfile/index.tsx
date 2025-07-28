@@ -32,6 +32,7 @@ import {
   KeyboardAwareScrollView,
 } from "react-native-keyboard-controller";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { toast } from "@/core/toast";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
@@ -149,8 +150,9 @@ const EditProfile = () => {
         }),
       );
       updateProfile();
-    } catch (e) {
+    } catch (e:any) {
       console.log("error updating avatar", e);
+      toast.error(e?.data?.errors?.[0]?.message || e?.data?.message ||  "error updating avatar")
       setLoading(false);
     }
   };
@@ -191,8 +193,10 @@ const EditProfile = () => {
         }),
       );
       router.back();
-    } catch (e) {
-      console.log(e);
+    } catch (e:any) {
+      console.log(e?.response?.data);
+      toast.error(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message ||  "Error Updating Profile")
+
     } finally {
       setLoading(false);
     }

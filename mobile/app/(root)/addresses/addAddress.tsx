@@ -190,9 +190,10 @@ const AddAddress = () => {
           router.back();
         }, 2000);
       }
-    } catch (e) {
-      console.log("cant create address", e);
-      toast.error("unable to add address");
+    } catch (e:any) {
+      console.log("cant create address", e?.response?.data);
+            toast.error(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message ||  "Unable to Add Address. Please try Again!")
+      
     } finally {
       setLoading(false);
     }
