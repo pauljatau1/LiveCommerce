@@ -596,7 +596,7 @@ function OrderDetail() {
                       <SelectItem value="packaging.updated">Packaging Updated</SelectItem>
                       <SelectItem value="shipment.cancelled">Shipment Cancelled</SelectItem>
                       <SelectItem value="shipment.created">Shipment Created</SelectItem>
-                      <SelectItem value="shipment.in_transit">Shipment In-Transit</SelectItem>
+                      <SelectItem value="shipment.in-transit">Shipment In-Transit</SelectItem>
                       <SelectItem value="shipment.updated">Shipment Updated</SelectItem>
                       <SelectItem value="shipment.delivered">Shipment Delivered</SelectItem>
                     </SelectContent>
