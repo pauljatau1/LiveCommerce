@@ -1808,6 +1808,63 @@ router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.remo
  */
 router.post('/identity-verification', verifyToken, upload.single('identityDocument'), buyerController.uploadIdentityDocument);
 
+/**
+ * @swagger
+ * /api/v2/buyers/send-phone-otp:
+ *   post:
+ *     summary: Send phone OTP for verification
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Phone number with country code
+ *                 example: "+2348012345678"
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: true
+ *               message:
+ *                 type: string
+ *                 example: "OTP sent successfully"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "OTP sent successfully"
+ *                   validFor:
+ *                     type: string
+ *                     example: "10 minutes"
+ *       400:
+ *         description: Bad Request - Invalid phone number format
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid phone number format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/send-phone-otp', verifyToken, isBuyer, buyerController.sendPhoneOTP);
+
 
 
 module.exports = router;
