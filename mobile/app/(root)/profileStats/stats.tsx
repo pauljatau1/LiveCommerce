@@ -116,7 +116,7 @@ const ProfileStats = () => {
     setFollowLoading(item.id);
     const token = await getToken();
     const config = {
-      url: process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${item?.id}`,
+      url: process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${item?.id}`,
       method,
       headers: {
         Authorization: "Bearer " + token,

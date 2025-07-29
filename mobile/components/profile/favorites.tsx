@@ -23,7 +23,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/wishlist",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/wishlist",
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -31,7 +31,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
         },
       );
 
-      setWishList(response.data.map((wh: any) => wh.product));
+      setWishList(response.data?.data?.map((wh: any) => wh.product));
     } catch (e) {
       console.log(e);
     } finally {

@@ -249,7 +249,7 @@ const CartScreen = () => {
     try {
       const token = await getToken();
       const response = await axios.post(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/wishlist",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/wishlist",
         {
           productId: id,
         },
@@ -272,7 +272,7 @@ const CartScreen = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/wishlist",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/wishlist",
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -280,7 +280,7 @@ const CartScreen = () => {
         },
       );
 
-      setWishList(response.data);
+      setWishList(response.data?.data);
     } catch (e) {
       console.log(e);
     } finally {
@@ -292,7 +292,7 @@ const CartScreen = () => {
     try {
       const token = await getToken();
       const response = await axios.delete(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/wishlist/" + id,
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/wishlist/" + id,
         {
           headers: {
             Authorization: "Bearer " + token,

@@ -78,7 +78,7 @@ const CollapsibleHeader = memo(
       const token = await getToken();
       try {
         const response = await axios.post(
-          process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+          process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${sellerId}`,
           {},
           {
             headers: {
@@ -96,7 +96,7 @@ const CollapsibleHeader = memo(
       const token = await getToken();
       try {
         const response = await axios.delete(
-          process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+          process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${sellerId}`,
           {
             headers: {
               Authorization: "Bearer " + token,
