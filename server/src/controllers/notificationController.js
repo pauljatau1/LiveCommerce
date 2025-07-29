@@ -1197,13 +1197,12 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
 // Debug order lookup for webhook
 exports.debugOrderLookup = async (req, res) => {
   try {
-    const { tracking_number, shipment_id, terminal_id } = req.query;
+    const { tracking_number, shipment_id } = req.query;
     const Order = require('../models/Order');
     
     console.log('🔍 Debug Order Lookup Request:', {
       tracking_number,
-      shipment_id, 
-      terminal_id
+      shipment_id
     });
     
     const searches = [];
@@ -1212,9 +1211,7 @@ exports.debugOrderLookup = async (req, res) => {
     const searchStrategies = [
       { field: 'shipping.tracking.number', value: tracking_number, name: 'tracking_number' },
       { field: 'shipping.shipment_id', value: shipment_id, name: 'shipment_id' },
-      { field: 'shipping.tracking.number', value: shipment_id, name: 'shipment_id_as_tracking' },
-      { field: 'shipping.tracking.number', value: terminal_id, name: 'terminal_id_as_tracking' },
-      { field: 'shipping.shipment_id', value: terminal_id, name: 'terminal_id_as_shipment' }
+      { field: 'shipping.tracking.number', value: shipment_id, name: 'shipment_id_as_tracking' }
     ];
     
     for (const strategy of searchStrategies) {
@@ -1243,7 +1240,7 @@ exports.debugOrderLookup = async (req, res) => {
       ]
     }).limit(10).sort({ createdAt: -1 });
     
-    // Get total counts
+    // Get total counts  
     const totalOrdersWithTracking = await Order.countDocuments({ 'shipping.tracking.number': { $exists: true } });
     const totalOrdersWithShipmentId = await Order.countDocuments({ 'shipping.shipment_id': { $exists: true } });
     
@@ -1253,8 +1250,7 @@ exports.debugOrderLookup = async (req, res) => {
       data: {
         searched_parameters: {
           tracking_number,
-          shipment_id,
-          terminal_id
+          shipment_id
         },
         search_results: searches,
         recent_orders_with_shipping: recentOrdersWithShipping.map(order => ({
@@ -1262,7 +1258,6 @@ exports.debugOrderLookup = async (req, res) => {
           _id: order._id,
           tracking_number: order.shipping?.tracking?.number,
           shipment_id: order.shipping?.shipment_id,
-          terminal_id: order.shipping?.terminal_id,
           status: order.status,
           shipping_status: order.shipping?.status,
           created_at: order.createdAt
