@@ -45,44 +45,87 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
       return;
     }
 
-    // Extract tracking number from data.extras.tracking_number
+    // Extract tracking number and shipment ID from Terminal webhook
     const trackingNumber = data?.extras?.tracking_number || data?.tracking_number;
-    console.log('[INFO] Extracted tracking number:', trackingNumber);
-    if (!trackingNumber) {
-      console.error('[ERROR] Tracking number not found in webhook data');
-      return res.status(400).json({
-        status: false,
-        message: 'Tracking number not found in webhook data'
-      });
-    }
-
-    // Find the order by tracking number
-    const Order = mongoose.model('Order');
-    console.log('[INFO] Looking up order with shipping.tracking.number =', trackingNumber);
-    const order = await Order.findOne({ 'shipping.tracking.number': trackingNumber });
-    if (!order) {
-      console.error('Order not found for Terminal shipment ID:', data.shipment_id);
-      return res.status(400).json({
-        status: false,
-        message: 'Order not found for Terminal shipment ID'
-      });
-    }
-
-    // Update the order
-    console.log('[DB] Updating order with:', JSON.stringify(updateData, null, 2));
-    await order.updateOne({
-      $set: updateData,
-      $push: {
-        'shipping.tracking.history': historyEntry
-      }
+    const shipmentId = data?.shipment_id;
+    const terminalId = data?._id;
+    
+    console.log('[INFO] Extracted identifiers:', {
+      tracking_number: trackingNumber,
+      shipment_id: shipmentId,
+      terminal_id: terminalId
     });
-    console.log('[DB] Order updated successfully');
-    // Update order based on event type
-    await updateOrderForTerminalEvent(order, event, data);
+    
+    if (!trackingNumber && !shipmentId && !terminalId) {
+      console.error('[ERROR] No tracking identifiers found in webhook data');
+      return res.status(400).json({
+        status: false,
+        message: 'No tracking identifiers found in webhook data',
+        debug: {
+          available_fields: Object.keys(data)
+        }
+      });
+    }
 
-    // Send notifications
-    console.log('[NOTIFY] Sending notifications for event:', normalizedEvent);
-    await sendNotificationsForTerminalEvent(order, normalizedEvent, {
+    // Find the order using multiple strategies
+    const Order = mongoose.model('Order');
+    let order = null;
+    let foundBy = null;
+    
+    const searchStrategies = [
+      { field: 'shipping.tracking.number', value: trackingNumber, name: 'tracking_number' },
+      { field: 'shipping.shipment_id', value: shipmentId, name: 'shipment_id' },
+      { field: 'shipping.tracking.number', value: shipmentId, name: 'shipment_id_as_tracking' },
+      { field: 'shipping.tracking.number', value: terminalId, name: 'terminal_id_as_tracking' },
+      { field: 'shipping.shipment_id', value: terminalId, name: 'terminal_id_as_shipment' }
+    ];
+    
+    for (const strategy of searchStrategies) {
+      if (strategy.value && !order) {
+        console.log(`[INFO] Searching by ${strategy.name}: ${strategy.field} = ${strategy.value}`);
+        order = await Order.findOne({ [strategy.field]: strategy.value });
+        if (order) {
+          foundBy = strategy.name;
+          console.log(`[SUCCESS] Found order ${order.order_id} by ${strategy.name}`);
+          break;
+        }
+      }
+    }
+    
+    if (!order) {
+      console.error('[ERROR] Order not found for Terminal shipment. Searched by:', {
+        tracking_number: trackingNumber,
+        shipment_id: shipmentId,
+        terminal_id: terminalId,
+        searched_strategies: searchStrategies.filter(s => s.value).map(s => s.name)
+      });
+      return res.status(400).json({
+        status: false,
+        message: 'Order not found for Terminal shipment',
+        debug: {
+          searched_tracking_number: trackingNumber,
+          searched_shipment_id: shipmentId,
+          searched_terminal_id: terminalId,
+          webhook_event: event
+        }
+      });
+    }
+
+    console.log(`[SUCCESS] Found order: ${order.order_id} by ${foundBy}`);
+
+    // Update order based on event type
+    console.log(`[INFO] Processing Terminal webhook event: ${event}`);
+    await updateOrderForTerminalEvent(order, event, {
+      ...data,
+      tracking_number: trackingNumber,
+      shipment_id: shipmentId,
+      terminal_id: terminalId,
+      carrier: data.carrier || data?.metadata?.selected_rate?.carrier_name
+    });
+
+    // Send notifications and emails
+    console.log(`[NOTIFY] Sending notifications for event: ${event}`);
+    await sendNotificationsForTerminalEvent(order, event, {
       ...data,
       tracking_number: trackingNumber,
       carrier: data.carrier || data?.metadata?.selected_rate?.carrier_name
@@ -136,32 +179,75 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
       description: data.description || `Terminal webhook: ${event}`
     };
 
-    // Event-specific updates
+    // Event-specific updates based on Terminal webhook events
     switch (event) {
-      case 'packaging.created':
+      case 'shipment.created':
+        // Shipment has been created and arranged
+        updateData['status'] = 'confirmed';
+        updateData['shipping.status'] = 'confirmed';
+        updateData['shipping.tracking.status'] = 'confirmed';
+        updateData['shipping.confirmedAt'] = new Date();
+        
+        // Store comprehensive Terminal shipment details
+        if (data.shipment_id) {
+          updateData['shipping.shipment_id'] = data.shipment_id;
+        }
+        if (data.terminal_id) {
+          updateData['shipping.terminal_id'] = data.terminal_id;
+        }
+        if (data.tracking_number) {
+          updateData['shipping.tracking.number'] = data.tracking_number;
+        }
+        if (data.carrier || data.metadata?.selected_rate?.carrier_name) {
+          updateData['shipping.carrier.name'] = data.carrier || data.metadata.selected_rate.carrier_name;
+          updateData['shipping.carrier.reference'] = data.carrier;
+        }
+        if (data.metadata?.selected_rate?.delivery_date || data.delivery_date) {
+          updateData['shipping.estimatedDeliveryDate'] = data.metadata?.selected_rate?.delivery_date || data.delivery_date;
+        }
+        if (data.pickup_date) {
+          updateData['shipping.estimatedPickupDate'] = data.pickup_date;
+        }
+        
+        historyEntry.description = `Shipment created and arranged with ${data.carrier || data.metadata?.selected_rate?.carrier_name || 'carrier'}`;
+        console.log('✅ Shipment created - Order confirmed');
+        break;
+        
+      case 'shipment.updated':
+        // Shipment has been updated (typically picked up)
         updateData['shipping.status'] = 'picked-up';
         updateData['shipping.tracking.status'] = 'picked-up';
         updateData['shipping.pickedUpAt'] = new Date();
+        
+        historyEntry.description = 'Shipment picked up by carrier';
+        console.log('📦 Shipment picked up by carrier');
         break;
         
-      case 'shipment.in-transit' || 'shipment.in_transit':
+      case 'shipment.in-transit':
+        // Shipment is now in transit
         updateData['status'] = 'shipped';
         updateData['shipping.status'] = 'in-transit';
         updateData['shipping.tracking.status'] = 'in-transit';
         updateData['shipping.inTransitAt'] = new Date();
-        break;
         
-      case 'shipment.out-for-delivery' || 'shipment.out_for_delivery':
-        updateData['shipping.status'] = 'out-for-delivery';
-        updateData['shipping.tracking.status'] = 'out-for-delivery';
-        updateData['shipping.outForDeliveryAt'] = new Date();
+        historyEntry.description = 'Shipment is now in transit to destination';
+        console.log('🚚 Shipment is now in transit');
         break;
         
       case 'shipment.delivered':
+        // Shipment has been delivered
         updateData['status'] = 'delivered';
         updateData['shipping.status'] = 'delivered';
         updateData['shipping.tracking.status'] = 'delivered';
         updateData['shipping.deliveredAt'] = new Date();
+        
+        if (data.delivery_date) {
+          updateData['shipping.delivery.actualDate'] = new Date(data.delivery_date);
+        }
+        
+        historyEntry.description = 'Shipment delivered successfully';
+        console.log('✅ Shipment delivered successfully');
+        
         // Schedule the order closure job for 1 day after delivery
         try {
           console.log(`Scheduling order closure for order ${order.order_id} in 1 day.`);
@@ -170,35 +256,67 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         } catch (scheduleError) {
           console.error(`❌ Error scheduling closeOrder job for order ${order.order_id}:`, scheduleError);
         }
-
         break;
         
       case 'shipment.cancelled':
+        // Shipment has been cancelled
         updateData['shipping.status'] = 'cancelled';
         updateData['shipping.tracking.status'] = 'cancelled';
         updateData['shipping.cancelledAt'] = new Date();
+        
+        if (data.cancellation_reason) {
+          updateData['shipping.cancellationReason'] = data.cancellation_reason;
+        }
+        
+        historyEntry.description = `Shipment cancelled: ${data.cancellation_reason || 'No reason provided'}`;
+        console.log('❌ Shipment cancelled');
         break;
         
       default:
-        console.log('Unknown Terminal event:', event);
+        console.log('⚠️ Unknown Terminal event:', event);
+        // Still update with basic tracking info for unknown events
+        updateData['shipping.tracking.status'] = 'updated';
+        historyEntry.description = `Unknown Terminal event: ${event}`;
         break;
     }
 
-    console.log('Update data being applied:', updateData);
+    console.log('📝 Update data being applied:', JSON.stringify(updateData, null, 2));
+    console.log('📝 Adding history entry:', JSON.stringify(historyEntry, null, 2));
 
     // First update the main order fields
-    await order.updateOne({
+    const updateResult = await order.updateOne({
       $set: updateData,
       $push: {
         'shipping.tracking.history': historyEntry
       }
     });
+    
+    console.log('📝 Database update result:', updateResult);
+    
+    // Verify the update by fetching the order again
+    const Order = mongoose.model('Order');
+    const updatedOrder = await Order.findById(order._id);
+    console.log('🔍 Verification - Updated order status:', {
+      orderId: updatedOrder.order_id,
+      status: updatedOrder.status,
+      shippingStatus: updatedOrder.shipping?.status,
+      trackingStatus: updatedOrder.shipping?.tracking?.status,
+      shipmentId: updatedOrder.shipping?.shipment_id,
+      historyCount: updatedOrder.shipping?.tracking?.history?.length || 0
+    });
 
-    // Update items status for specific events (separate operation)
-    if (['shipment.in-transit', 'shipment.delivered'].includes(event)) {
-      const itemStatus = event === 'shipment.delivered' ? 'delivered' : 'in-transit';
-      
-      console.log(`🎯 Updating all items status to: ${itemStatus}`);
+    // Update items status for all relevant events (separate operation)
+    const itemStatusMap = {
+      'shipment.created': 'confirmed',
+      'shipment.updated': 'shipped', // Picked up but still shipped status
+      'shipment.in-transit': 'shipped', // Still shipped until delivered
+      'shipment.delivered': 'delivered',
+      'shipment.cancelled': 'cancelled'
+    };
+    
+    if (itemStatusMap[event]) {
+      const itemStatus = itemStatusMap[event];
+      console.log(`🎯 Updating all items status to: ${itemStatus} for event: ${event}`);
       
       // Update each item's status
       await order.updateOne({
@@ -209,10 +327,12 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
           'items.$[].statusHistory': {
             status: itemStatus,
             timestamp: new Date(),
-            note: data.description || `Status updated via Terminal webhook: ${event}`
+            note: historyEntry.description || `Status updated via Terminal webhook: ${event}`
           }
         }
       });
+      
+      console.log(`✅ All items updated to status: ${itemStatus}`);
     }
 
     console.log(`✅ Order ${order.order_id} updated successfully for Terminal event: ${event}`);
@@ -343,29 +463,58 @@ const getTerminalEventEmailContent = (event, order, data, buyer, seller) => {
     case 'shipment.created':
       return {
         buyer: {
-          subject: `🚚 Pickup Scheduled for Your Order #${orderId}`,
+          subject: `✅ Order Confirmed and Ready for Shipment #${orderId}`,
           html: `
             ${emailStyles}
             <div class="email-container">
               <div class="header">
                 <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" class="logo">
-                <h2 class="title">Pickup Scheduled</h2>
+                <h2 class="title">Order Confirmed</h2>
               </div>
               
               <p>Hi ${buyerName},</p>
-              <p>Your order has been packaged and is now ready for pickup by our delivery partner.</p>
+              <p>Great news! Your order has been confirmed and a shipment has been arranged with our delivery partner.</p>
               
               <div class="info-box">
                 <div class="info-item"><span class="info-label">Order ID:</span> <span class="info-value">#${orderId}</span></div>
                 <div class="info-item"><span class="info-label">Carrier:</span> <span class="info-value">${carrier}</span></div>
-                <div class="info-item"><span class="info-label">Status:</span> <span class="status-picked-up">Ready for Pickup</span></div>
+                <div class="info-item"><span class="info-label">Status:</span> <span class="status-picked-up">Confirmed</span></div>
                 <div class="info-item"><span class="info-label">Tracking Number:</span> <span class="info-value">${trackingNumber}</span></div>
               </div>
               
-              <p>We'll update you as soon as your order is picked up and begins its journey to you!</p>
+              <p>Your order is now confirmed and ready for pickup by our delivery partner. We'll update you as soon as it's picked up and on its way!</p>
               
               <div class="footer">
                 <p>Thank you for shopping with Auqli!</p>
+                <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+              </div>
+            </div>
+          `
+        },
+        seller: {
+          subject: `✅ Order Confirmed - Shipment Arranged #${orderId}`,
+          html: `
+            ${emailStyles}
+            <div class="email-container">
+              <div class="header">
+                <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" class="logo">
+                <h2 class="title">Order Confirmed</h2>
+              </div>
+              
+              <p>Hi ${sellerName},</p>
+              <p>Your order #${orderId} has been confirmed and a shipment has been successfully arranged with ${carrier}.</p>
+              
+              <div class="info-box">
+                <div class="info-item"><span class="info-label">Order ID:</span> <span class="info-value">#${orderId}</span></div>
+                <div class="info-item"><span class="info-label">Carrier:</span> <span class="info-value">${carrier}</span></div>
+                <div class="info-item"><span class="info-label">Status:</span> <span class="status-picked-up">Confirmed</span></div>
+                <div class="info-item"><span class="info-label">Tracking Number:</span> <span class="info-value">${trackingNumber}</span></div>
+              </div>
+              
+              <p>The carrier will pick up the order soon. You'll be notified of all subsequent updates.</p>
+              
+              <div class="footer">
+                <p>Best regards,<br>The Auqli Team</p>
                 <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
               </div>
             </div>
@@ -641,7 +790,7 @@ const sendNotificationsForTerminalEvent = async (order, event, data) => {
         
       case 'shipment.created':
         notificationType = 'order_status_update';
-        notificationData.status = 'Ready for pickup';
+        notificationData.status = 'Confirmed';
         break;
         
       case 'shipment.updated':

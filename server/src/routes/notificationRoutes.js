@@ -185,6 +185,9 @@ router.post('/simulate-terminal-webhook', notificationController.simulateTermina
 // Test webhook logging endpoint
 router.post('/test-webhook-logging', notificationController.testWebhookLogging);
 
+// Debug order lookup endpoint
+router.get('/debug-order-lookup', notificationController.debugOrderLookup);
+
 /**
  * @swagger
  * /api/notifications/webhook-logs:
