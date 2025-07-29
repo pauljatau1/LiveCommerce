@@ -887,12 +887,6 @@ exports.addAddress = async (req, res) => {
       addr => addr.addressType === addressType
     );
 
-    if (existingAddressType) {
-      return res.status(400).json({
-        message: `Address type '${addressType}' already exists. Please use a different type or update the existing address.`
-      });
-    }
-
     const newAddress = {
       addressType,
       country,
