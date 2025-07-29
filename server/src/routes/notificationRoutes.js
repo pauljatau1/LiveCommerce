@@ -182,6 +182,186 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
  */
 router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook2);
 
+// Test webhook logging endpoint
+router.post('/test-webhook-logging', notificationController.testWebhookLogging);
+
+// Debug order lookup endpoint
+router.get('/debug-order-lookup', notificationController.debugOrderLookup);
+
+/**
+ * @swagger
+ * /api/notifications/webhook-logs:
+ *   get:
+ *     summary: Get webhook request logs
+ *     description: Retrieve logged webhook requests with filtering and pagination
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: endpoint
+ *         schema:
+ *           type: string
+ *         description: Filter by endpoint URL (partial match)
+ *         example: "simulate-terminal-webhook"
+ *       - in: query
+ *         name: success
+ *         schema:
+ *           type: boolean
+ *         description: Filter by success status
+ *         example: true
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Page number for pagination
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page
+ *         example: 20
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter from date (ISO 8601)
+ *         example: "2025-01-01T00:00:00.000Z"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter to date (ISO 8601)
+ *         example: "2025-12-31T23:59:59.999Z"
+ *     responses:
+ *       200:
+ *         description: Webhook logs retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook logs retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     logs:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           endpoint:
+ *                             type: string
+ *                           method:
+ *                             type: string
+ *                           headers:
+ *                             type: object
+ *                           body:
+ *                             type: object
+ *                           response:
+ *                             type: object
+ *                           success:
+ *                             type: boolean
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *                         totalCount:
+ *                           type: integer
+ *                         hasNext:
+ *                           type: boolean
+ *                         hasPrev:
+ *                           type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/webhook-logs', notificationController.getWebhookLogs);
+
+/**
+ * @swagger
+ * /api/notifications/webhook-stats:
+ *   get:
+ *     summary: Get webhook request statistics
+ *     description: Retrieve statistical information about webhook requests
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: endpoint
+ *         schema:
+ *           type: string
+ *         description: Filter by endpoint URL (partial match)
+ *         example: "simulate-terminal-webhook"
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter from date (ISO 8601)
+ *         example: "2025-01-01T00:00:00.000Z"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter to date (ISO 8601)
+ *         example: "2025-12-31T23:59:59.999Z"
+ *     responses:
+ *       200:
+ *         description: Webhook statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Webhook statistics retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalRequests:
+ *                       type: integer
+ *                       example: 150
+ *                     successfulRequests:
+ *                       type: integer
+ *                       example: 140
+ *                     failedRequests:
+ *                       type: integer
+ *                       example: 10
+ *                     successRate:
+ *                       type: string
+ *                       example: "93.33"
+ *                     averageResponseTime:
+ *                       type: integer
+ *                       example: 245
+ *                     statusCodeDistribution:
+ *                       type: object
+ *                       example: { "200": 140, "400": 5, "500": 5 }
+ *       500:
+ *         description: Server error
+ */
+router.get('/webhook-stats', notificationController.getWebhookStats);
+
 /**
  * @swagger
  * /api/notifications/buyer:

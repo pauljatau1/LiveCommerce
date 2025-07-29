@@ -1096,40 +1096,296 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
 // Add a new controller that uses the full handleTerminalWebhook logic from terminalWebhook.js
 exports.simulateTerminalWebhook2 = async (req, res) => {
+  const startTime = Date.now();
+  const webhookLogService = require('../services/webhookLogService');
+  let responseData = null;
+  let error = null;
+
+  // // Log the request immediately when it arrives
+  // console.log('=== WEBHOOK REQUEST RECEIVED ===');
+  // console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  // console.log('Body:', JSON.stringify(req.body, null, 2));
+  // console.log('Method:', req.method);
+  // console.log('URL:', req.originalUrl);
+  // console.log('================================');
+
   try {
     // Verify webhook signature
     const signature = req.headers['x-terminal-signature'] || req.headers['X-Terminal-Signature'];
     const secretKey = process.env.TERMINAL_SECRET_KEY;
     
+    console.log('Signature from header:', signature);
+    console.log('Secret key exists:', !!secretKey);
+    
     if (!signature || !secretKey) {
-      return res.status(400).json({
+      responseData = {
         status: false,
-        message: 'Missing webhook signature or secret key'
-      });
+        message: 'Missing webhook signature or secret key',
+        debug: {
+          hasSignature: !!signature,
+          hasSecretKey: !!secretKey,
+          headers: req.headers
+        }
+      };
+      res.status(400).json(responseData);
+      await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+      return;
     }
 
     // Import the signature verification and handler from terminalWebhook.js
     const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
     const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
     
+    console.log('Signature verification result:', verification);
+    
     if (!verification.status) {
-      return res.status(400).json({
+      responseData = {
         status: false,
-        message: verification.message
-      });
+        message: verification.message,
+        debug: {
+          providedSignature: signature,
+          bodyUsedForVerification: req.body
+        }
+      };
+      res.status(400).json(responseData);
+      await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+      return;
     }
 
     // Process the webhook using the full handler
-    await handleTerminalWebhook(req, res, req.body);
-
+    console.log('Processing webhook with handleTerminalWebhook...');
     
+    // handleTerminalWebhook sends its own response, so we need to handle that
+    const originalJson = res.json;
+    let webhookResponse = null;
+    
+    // Override res.json to capture the response
+    res.json = function(data) {
+      webhookResponse = data;
+      return originalJson.call(this, data);
+    };
+    
+    await handleTerminalWebhook(req, res, req.body);
+    
+    // Restore original res.json
+    res.json = originalJson;
+    
+    // Log the actual response sent by handleTerminalWebhook
+    responseData = webhookResponse || { status: true, message: 'Webhook processed successfully' };
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
 
    
-  } catch (error) {
-    console.error('Error in simulateTerminalWebhook2:', error);
-    res.status(500).json({
+  } catch (err) {
+    error = err;
+    console.error('Error in simulateTerminalWebhook2:', err);
+    
+    responseData = {
       status: false,
       message: 'Failed to process Terminal webhook (simulateTerminalWebhook2)',
+      error: err.message,
+      stack: err.stack
+    };
+    
+    if (!res.headersSent) {
+      res.status(500).json(responseData);
+    }
+    
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime, error);
+  }
+};
+
+// Debug order lookup for webhook
+exports.debugOrderLookup = async (req, res) => {
+  try {
+    const { tracking_number, shipment_id } = req.query;
+    const Order = require('../models/Order');
+    
+    console.log('🔍 Debug Order Lookup Request:', {
+      tracking_number,
+      shipment_id
+    });
+    
+    const searches = [];
+    
+    // Search strategies matching webhook handler
+    const searchStrategies = [
+      { field: 'shipping.tracking.number', value: tracking_number, name: 'tracking_number' },
+      { field: 'shipping.shipment_id', value: shipment_id, name: 'shipment_id' },
+      { field: 'shipping.tracking.number', value: shipment_id, name: 'shipment_id_as_tracking' }
+    ];
+    
+    for (const strategy of searchStrategies) {
+      if (strategy.value) {
+        const foundOrder = await Order.findOne({ [strategy.field]: strategy.value });
+        searches.push({
+          method: strategy.name,
+          field: strategy.field,
+          value: strategy.value,
+          found: !!foundOrder,
+          order: foundOrder ? {
+            order_id: foundOrder.order_id,
+            _id: foundOrder._id,
+            status: foundOrder.status,
+            shipping_status: foundOrder.shipping?.status
+          } : null
+        });
+      }
+    }
+    
+    // Also search for recent orders with shipping info
+    const recentOrdersWithShipping = await Order.find({
+      $or: [
+        { 'shipping.tracking.number': { $exists: true } },
+        { 'shipping.shipment_id': { $exists: true } }
+      ]
+    }).limit(10).sort({ createdAt: -1 });
+    
+    // Get total counts  
+    const totalOrdersWithTracking = await Order.countDocuments({ 'shipping.tracking.number': { $exists: true } });
+    const totalOrdersWithShipmentId = await Order.countDocuments({ 'shipping.shipment_id': { $exists: true } });
+    
+    res.status(200).json({
+      status: true,
+      message: 'Order lookup debug results',
+      data: {
+        searched_parameters: {
+          tracking_number,
+          shipment_id
+        },
+        search_results: searches,
+        recent_orders_with_shipping: recentOrdersWithShipping.map(order => ({
+          order_id: order.order_id,
+          _id: order._id,
+          tracking_number: order.shipping?.tracking?.number,
+          shipment_id: order.shipping?.shipment_id,
+          status: order.status,
+          shipping_status: order.shipping?.status,
+          created_at: order.createdAt
+        })),
+        statistics: {
+          total_orders_with_tracking: totalOrdersWithTracking,
+          total_orders_with_shipment_id: totalOrdersWithShipmentId,
+          recent_orders_found: recentOrdersWithShipping.length
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in debug order lookup:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Debug lookup failed',
+      error: error.message
+    });
+  }
+};
+
+// Test webhook logging endpoint (for debugging)
+exports.testWebhookLogging = async (req, res) => {
+  const startTime = Date.now();
+  const webhookLogService = require('../services/webhookLogService');
+  
+  console.log('=== TEST WEBHOOK LOGGING ===');
+  console.log('This should definitely be logged!');
+  
+  try {
+    const responseData = {
+      status: true,
+      message: 'Test webhook logging successful',
+      timestamp: new Date().toISOString(),
+      testData: req.body
+    };
+    
+    res.status(200).json(responseData);
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+    
+    console.log('Test logging completed');
+  } catch (error) {
+    console.error('Error in test webhook logging:', error);
+    const errorResponse = {
+      status: false,
+      message: 'Test webhook logging failed',
+      error: error.message
+    };
+    
+    res.status(500).json(errorResponse);
+    await webhookLogService.logWebhookRequest(req, res, errorResponse, startTime, error);
+  }
+};
+
+// Get webhook request logs
+exports.getWebhookLogs = async (req, res) => {
+  try {
+    const webhookLogService = require('../services/webhookLogService');
+    
+    const {
+      endpoint,
+      success,
+      page = 1,
+      limit = 20,
+      startDate,
+      endDate
+    } = req.query;
+
+    const options = {
+      endpoint,
+      success: success !== undefined ? success === 'true' : undefined,
+      page: parseInt(page),
+      limit: Math.min(parseInt(limit), 100), // Cap at 100 items per page
+      // Only add date filters if explicitly provided
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
+    };
+
+    // Remove undefined values to avoid filtering issues
+    Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
+
+    const result = await webhookLogService.getWebhookLogs(options);
+    
+    res.status(200).json({
+      status: true,
+      message: 'Webhook logs retrieved successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error getting webhook logs:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to retrieve webhook logs',
+      error: error.message
+    });
+  }
+};
+
+// Get webhook request statistics
+exports.getWebhookStats = async (req, res) => {
+  try {
+    const webhookLogService = require('../services/webhookLogService');
+    
+    const {
+      endpoint,
+      startDate,
+      endDate
+    } = req.query;
+
+    const options = {
+      endpoint,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
+    };
+
+    const stats = await webhookLogService.getWebhookStats(options);
+    
+    res.status(200).json({
+      status: true,
+      message: 'Webhook statistics retrieved successfully',
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error getting webhook stats:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to retrieve webhook statistics',
       error: error.message
     });
   }
