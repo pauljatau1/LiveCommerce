@@ -235,7 +235,7 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         break;
         
       case 'shipment.delivered':
-        // Shipment has been delivered
+        // Shipment has been delivere
         updateData['status'] = 'delivered';
         updateData['shipping.status'] = 'delivered';
         updateData['shipping.tracking.status'] = 'delivered';
