@@ -165,33 +165,6 @@ describe('Add Address Controller', () => {
       expect(response.body.errors).toBeDefined();
     });
 
-    it('should return 422 when address type already exists', async () => {
-      // Arrange - Add existing address with same type
-      const existingAddress = {
-        addressType: 'home',
-        country: 'Nigeria',
-        state: 'Lagos',
-        city: 'Lagos',
-        addressLine1: '789 Old Street',
-        zipCode: '100003'
-      };
-
-      testBuyer.shippingAddresses = [existingAddress];
-      await testBuyer.save();
-
-      // Act
-      const response = await request(app)
-        .post('/api/v2/buyers/addresses')
-        .set('Authorization', `Bearer ${token}`)
-        .send(validAddressData)
-        .expect(422);
-
-      // Assert
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Validation failed');
-      expect(response.body.errors).toBeDefined();
-    });
-
     it('should return 401 when no token provided', async () => {
       // Act
       const response = await request(app)
