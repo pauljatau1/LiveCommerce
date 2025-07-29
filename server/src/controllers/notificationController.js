@@ -1101,13 +1101,13 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
   let responseData = null;
   let error = null;
 
-  // Log the request immediately when it arrives
-  console.log('=== WEBHOOK REQUEST RECEIVED ===');
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Body:', JSON.stringify(req.body, null, 2));
-  console.log('Method:', req.method);
-  console.log('URL:', req.originalUrl);
-  console.log('================================');
+  // // Log the request immediately when it arrives
+  // console.log('=== WEBHOOK REQUEST RECEIVED ===');
+  // console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  // console.log('Body:', JSON.stringify(req.body, null, 2));
+  // console.log('Method:', req.method);
+  // console.log('URL:', req.originalUrl);
+  // console.log('================================');
 
   try {
     // Verify webhook signature
@@ -1154,11 +1154,24 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
 
     // Process the webhook using the full handler
     console.log('Processing webhook with handleTerminalWebhook...');
+    
+    // handleTerminalWebhook sends its own response, so we need to handle that
+    const originalJson = res.json;
+    let webhookResponse = null;
+    
+    // Override res.json to capture the response
+    res.json = function(data) {
+      webhookResponse = data;
+      return originalJson.call(this, data);
+    };
+    
     await handleTerminalWebhook(req, res, req.body);
     
-    // If we reach here, the webhook was processed successfully
-    // Note: handleTerminalWebhook sends its own response, so we need to capture it
-    responseData = { status: true, message: 'Webhook processed successfully' };
+    // Restore original res.json
+    res.json = originalJson;
+    
+    // Log the actual response sent by handleTerminalWebhook
+    responseData = webhookResponse || { status: true, message: 'Webhook processed successfully' };
     await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
 
    
@@ -1178,6 +1191,97 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
     }
     
     await webhookLogService.logWebhookRequest(req, res, responseData, startTime, error);
+  }
+};
+
+// Debug order lookup for webhook
+exports.debugOrderLookup = async (req, res) => {
+  try {
+    const { tracking_number, shipment_id, terminal_id } = req.query;
+    const Order = require('../models/Order');
+    
+    console.log('🔍 Debug Order Lookup Request:', {
+      tracking_number,
+      shipment_id, 
+      terminal_id
+    });
+    
+    const searches = [];
+    
+    // Search strategies matching webhook handler
+    const searchStrategies = [
+      { field: 'shipping.tracking.number', value: tracking_number, name: 'tracking_number' },
+      { field: 'shipping.shipment_id', value: shipment_id, name: 'shipment_id' },
+      { field: 'shipping.tracking.number', value: shipment_id, name: 'shipment_id_as_tracking' },
+      { field: 'shipping.tracking.number', value: terminal_id, name: 'terminal_id_as_tracking' },
+      { field: 'shipping.shipment_id', value: terminal_id, name: 'terminal_id_as_shipment' }
+    ];
+    
+    for (const strategy of searchStrategies) {
+      if (strategy.value) {
+        const foundOrder = await Order.findOne({ [strategy.field]: strategy.value });
+        searches.push({
+          method: strategy.name,
+          field: strategy.field,
+          value: strategy.value,
+          found: !!foundOrder,
+          order: foundOrder ? {
+            order_id: foundOrder.order_id,
+            _id: foundOrder._id,
+            status: foundOrder.status,
+            shipping_status: foundOrder.shipping?.status
+          } : null
+        });
+      }
+    }
+    
+    // Also search for recent orders with shipping info
+    const recentOrdersWithShipping = await Order.find({
+      $or: [
+        { 'shipping.tracking.number': { $exists: true } },
+        { 'shipping.shipment_id': { $exists: true } }
+      ]
+    }).limit(10).sort({ createdAt: -1 });
+    
+    // Get total counts
+    const totalOrdersWithTracking = await Order.countDocuments({ 'shipping.tracking.number': { $exists: true } });
+    const totalOrdersWithShipmentId = await Order.countDocuments({ 'shipping.shipment_id': { $exists: true } });
+    
+    res.status(200).json({
+      status: true,
+      message: 'Order lookup debug results',
+      data: {
+        searched_parameters: {
+          tracking_number,
+          shipment_id,
+          terminal_id
+        },
+        search_results: searches,
+        recent_orders_with_shipping: recentOrdersWithShipping.map(order => ({
+          order_id: order.order_id,
+          _id: order._id,
+          tracking_number: order.shipping?.tracking?.number,
+          shipment_id: order.shipping?.shipment_id,
+          terminal_id: order.shipping?.terminal_id,
+          status: order.status,
+          shipping_status: order.shipping?.status,
+          created_at: order.createdAt
+        })),
+        statistics: {
+          total_orders_with_tracking: totalOrdersWithTracking,
+          total_orders_with_shipment_id: totalOrdersWithShipmentId,
+          recent_orders_found: recentOrdersWithShipping.length
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in debug order lookup:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Debug lookup failed',
+      error: error.message
+    });
   }
 };
 
