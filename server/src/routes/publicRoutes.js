@@ -1263,6 +1263,207 @@ router.get('/meta-product-feed', async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/public/seller-locations:
+ *   get:
+ *     summary: Get seller location data organized by country, state, and city
+ *     tags: [Public]
+ *     responses:
+ *       200:
+ *         description: CSV file containing seller location data
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/seller-locations', async (req, res, next) => {
+  try {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=seller-locations.csv'
+    );
+
+    const fields = [
+      'Country',
+      'State',
+      'City',
+      'Total_Sellers',
+      'Verified_Sellers',
+      'Business_Accounts',
+      'Individual_Accounts',
+      'New_Sellers',
+      'Featured_Sellers'
+    ];
+
+    const csvTransform = new Transform(
+      { fields },
+      { objectMode: true }
+    );
+    csvTransform.pipe(res);
+
+    // Use MongoDB aggregation for efficient processing
+    const locationAggregation = await Seller.aggregate([
+      // Match only active sellers
+      { $match: { isDisabled: false } },
+      
+      // Project only needed fields to reduce memory usage
+      {
+        $project: {
+          businessAddress: 1,
+          sellerAddress: 1,
+          warehouseDetails: 1,
+          isVerified: 1,
+          accountType: 1,
+          isNewSeller: 1,
+          isFeatured: 1
+        }
+      },
+      
+      // Create an array of all addresses for each seller
+      {
+        $addFields: {
+          allAddresses: {
+            $filter: {
+              input: [
+                {
+                  $cond: {
+                    if: { $and: [
+                      { $ne: ['$businessAddress', null] },
+                      { $ne: ['$businessAddress.country', null] }
+                    ]},
+                    then: {
+                      country: '$businessAddress.country',
+                      state: '$businessAddress.state',
+                      city: '$businessAddress.city'
+                    },
+                    else: null
+                  }
+                },
+                {
+                  $cond: {
+                    if: { $and: [
+                      { $ne: ['$sellerAddress', null] },
+                      { $ne: ['$sellerAddress.country', null] }
+                    ]},
+                    then: {
+                      country: '$sellerAddress.country',
+                      state: '$sellerAddress.state',
+                      city: '$sellerAddress.city'
+                    },
+                    else: null
+                  }
+                },
+                {
+                  $cond: {
+                    if: { $and: [
+                      { $ne: ['$warehouseDetails.address', null] },
+                      { $ne: ['$warehouseDetails.address.country', null] }
+                    ]},
+                    then: {
+                      country: '$warehouseDetails.address.country',
+                      state: '$warehouseDetails.address.state',
+                      city: '$warehouseDetails.address.city'
+                    },
+                    else: null
+                  }
+                }
+              ],
+              as: 'address',
+              cond: { $ne: ['$$address', null] }
+            }
+          }
+        }
+      },
+      
+      // If no addresses found, add default Nigeria location
+      {
+        $addFields: {
+          allAddresses: {
+            $cond: {
+              if: { $eq: [{ $size: '$allAddresses' }, 0] },
+              then: [{ country: 'Nigeria', state: 'Unknown', city: 'Unknown' }],
+              else: '$allAddresses'
+            }
+          }
+        }
+      },
+      
+      // Unwind addresses to create a document for each address
+      { $unwind: '$allAddresses' },
+      
+      // Group by location and aggregate seller statistics
+      {
+        $group: {
+          _id: {
+            country: { $ifNull: ['$allAddresses.country', 'Nigeria'] },
+            state: { $ifNull: ['$allAddresses.state', 'Unknown'] },
+            city: { $ifNull: ['$allAddresses.city', 'Unknown'] }
+          },
+          totalSellers: { $sum: 1 },
+          verifiedSellers: { $sum: { $cond: ['$isVerified', 1, 0] } },
+          businessAccounts: { $sum: { $cond: [{ $eq: ['$accountType', 'business'] }, 1, 0] } },
+          individualAccounts: { $sum: { $cond: [{ $eq: ['$accountType', 'individual'] }, 1, 0] } },
+          newSellers: { $sum: { $cond: ['$isNewSeller', 1, 0] } },
+          featuredSellers: { $sum: { $cond: ['$isFeatured', 1, 0] } }
+        }
+      },
+      
+      // Sort by location hierarchy and total sellers
+      {
+        $sort: {
+          '_id.country': 1,
+          '_id.state': 1,
+          '_id.city': 1,
+          totalSellers: -1
+        }
+      }
+    ]);
+
+    // Process results in chunks to avoid memory issues
+    const chunkSize = 100;
+    for (let i = 0; i < locationAggregation.length; i += chunkSize) {
+      const chunk = locationAggregation.slice(i, i + chunkSize);
+      
+      for (const location of chunk) {
+        const csvRow = {
+          Country: location._id.country,
+          State: location._id.state,
+          City: location._id.city,
+          Total_Sellers: location.totalSellers,
+          Verified_Sellers: location.verifiedSellers,
+          Business_Accounts: location.businessAccounts,
+          Individual_Accounts: location.individualAccounts,
+          New_Sellers: location.newSellers,
+          Featured_Sellers: location.featuredSellers
+        };
+        
+        const ok = csvTransform.write(csvRow);
+        if (!ok) await once(csvTransform, 'drain');
+      }
+      
+      // Allow other operations to proceed (non-blocking)
+      if (i % (chunkSize * 10) === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+    }
+
+    csvTransform.end();
+
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        csvTransform.end();
+      }
+    });
+  } catch (err) {
+    console.error('Error generating seller locations CSV:', err);
+    next(err);
+  }
+});
+
 function toMetaRow(p) {
   return {
     id:          p._id.toString(),
