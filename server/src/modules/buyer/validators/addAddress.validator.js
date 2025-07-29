@@ -28,7 +28,6 @@ async function validateAddressType(addressType, buyerId) {
   
   await validateAddressTypeRequired(addressType, errors);
   await validateAddressTypeValue(addressType, errors);
-  await validateAddressTypeUniqueness(addressType, buyerId, errors);
 
   if (errors.length > 0) {
     throw new ValidationError(errors);
@@ -64,31 +63,6 @@ async function validateAddressTypeValue(addressType, errors) {
       field: 'addressType', 
       message: 'Invalid address type',
       validTypes: validAddressTypes
-    });
-  }
-}
-
-/**
- * Validate that address type is unique for the buyer.
- * 
- * @param {string} addressType - The address type
- * @param {string} buyerId - The buyer's ID
- * @param {Array} errors - Array to collect errors
- */
-async function validateAddressTypeUniqueness(addressType, buyerId, errors) {
-  if (!addressType || !buyerId) return;
-
-  const buyer = await buyerRepository.findByIdWithShippingAddresses(buyerId);
-  if (!buyer || !buyer.shippingAddresses) return;
-
-  const existingAddressType = buyer.shippingAddresses.find(
-    addr => addr.addressType === addressType
-  );
-  
-  if (existingAddressType) {
-    errors.push({ 
-      field: 'addressType', 
-      message: `Address type '${addressType}' already exists. Please use a different type or update the existing address.`
     });
   }
 }
@@ -193,7 +167,6 @@ module.exports = {
   validateAddressType,
   validateAddressTypeRequired,
   validateAddressTypeValue,
-  validateAddressTypeUniqueness,
   validateCountry,
   validateState,
   validateCity,

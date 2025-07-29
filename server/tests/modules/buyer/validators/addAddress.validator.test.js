@@ -182,25 +182,7 @@ describe('Add Address Validator', () => {
       ).rejects.toThrow(ValidationError);
     });
 
-    it('should throw ValidationError when address type already exists', async () => {
-      // Arrange - Add existing address with same type
-      const existingAddress = {
-        addressType: 'home',
-        country: 'Nigeria',
-        state: 'Lagos',
-        city: 'Lagos',
-        addressLine1: '789 Old Street',
-        zipCode: '100003'
-      };
 
-      testBuyer.shippingAddresses = [existingAddress];
-      await testBuyer.save();
-
-      // Act & Assert
-      await expect(
-        addAddressValidator.validateAddressType('home', testBuyer._id.toString())
-      ).rejects.toThrow(ValidationError);
-    });
 
     it('should allow different address types for same buyer', async () => {
       // Arrange - Add existing address with different type
@@ -276,72 +258,7 @@ describe('Add Address Validator', () => {
     });
   });
 
-  describe('validateAddressTypeUniqueness', () => {
-    let testBuyer;
 
-    beforeEach(async () => {
-      // Create a test buyer
-      testBuyer = new Buyer({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'password123',
-        shippingAddresses: []
-      });
-      await testBuyer.save();
-    });
-
-    it('should not add error when addressType is unique', async () => {
-      // Act & Assert
-      const errors = [];
-      await addAddressValidator.validateAddressTypeUniqueness('home', testBuyer._id.toString(), errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should not add error when addressType is null', async () => {
-      // Act & Assert
-      const errors = [];
-      await addAddressValidator.validateAddressTypeUniqueness(null, testBuyer._id.toString(), errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should not add error when buyerId is null', async () => {
-      // Act & Assert
-      const errors = [];
-      await addAddressValidator.validateAddressTypeUniqueness('home', null, errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should add error when addressType already exists', async () => {
-      // Arrange - Add existing address with same type
-      const existingAddress = {
-        addressType: 'home',
-        country: 'Nigeria',
-        state: 'Lagos',
-        city: 'Lagos',
-        addressLine1: '789 Old Street',
-        zipCode: '100003'
-      };
-
-      testBuyer.shippingAddresses = [existingAddress];
-      await testBuyer.save();
-
-      // Act & Assert
-      const errors = [];
-      await addAddressValidator.validateAddressTypeUniqueness('home', testBuyer._id.toString(), errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0].field).toBe('addressType');
-      expect(errors[0].message).toBe("Address type 'home' already exists. Please use a different type or update the existing address.");
-    });
-
-    it('should not add error when buyer has no addresses', async () => {
-      // Act & Assert
-      const errors = [];
-      await addAddressValidator.validateAddressTypeUniqueness('home', testBuyer._id.toString(), errors);
-      expect(errors).toHaveLength(0);
-    });
-  });
 
   describe('validateCountry', () => {
     it('should validate valid country', async () => {
