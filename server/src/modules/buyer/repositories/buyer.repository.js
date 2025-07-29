@@ -319,6 +319,22 @@ async function findByIdWithPopulatedWishlist(buyerId) {
     });
 }
 
+/**
+ * Update buyer's phone verification data.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} phoneVerificationData - The phone verification data to update
+ * @returns {Promise<Buyer|null>} Updated buyer or null if not found
+ */
+async function updatePhoneVerification(buyerId, phoneVerificationData) {
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  buyer.phoneVerification = phoneVerificationData;
+  return await buyer.save();
+}
+
 module.exports = {
   findAll,
   save,
@@ -342,5 +358,6 @@ module.exports = {
   addShippingAddress,
   updateShippingAddress,
   deleteShippingAddress,
-  findByIdWithPopulatedWishlist
+  findByIdWithPopulatedWishlist,
+  updatePhoneVerification
 };

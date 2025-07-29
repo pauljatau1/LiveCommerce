@@ -2143,4 +2143,136 @@ describe('Buyer Repository', () => {
       expect(result2.shippingAddresses).toHaveLength(0);
     });
   });
+
+  describe('updatePhoneVerification', () => {
+    it('should update phone verification data successfully', async () => {
+      // Arrange
+      const buyer = new Buyer(mockBuyerData);
+      await buyer.save();
+
+      const phoneVerificationData = {
+        otp: '123456',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        attempts: 0
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(
+        buyer._id.toString(),
+        phoneVerificationData
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result._id.toString()).toBe(buyer._id.toString());
+      expect(result.phoneVerification).toEqual(phoneVerificationData);
+      expect(result.phoneVerification.otp).toBe('123456');
+      expect(result.phoneVerification.attempts).toBe(0);
+      expect(result.phoneVerification.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('should return null when buyer does not exist', async () => {
+      // Arrange
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const phoneVerificationData = {
+        otp: '123456',
+        expiresAt: new Date(),
+        attempts: 0
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(
+        nonExistentId,
+        phoneVerificationData
+      );
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should update phone verification with different data formats', async () => {
+      // Arrange
+      const buyer = new Buyer(mockBuyerData);
+      await buyer.save();
+
+      const phoneVerificationData1 = {
+        otp: '654321',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        attempts: 1
+      };
+
+      // Act
+      const result1 = await buyerRepository.updatePhoneVerification(
+        buyer._id.toString(),
+        phoneVerificationData1
+      );
+
+      // Assert
+      expect(result1.phoneVerification.otp).toBe('654321');
+      expect(result1.phoneVerification.attempts).toBe(1);
+
+      // Update with different data
+      const phoneVerificationData2 = {
+        otp: '999999',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        attempts: 3
+      };
+
+      const result2 = await buyerRepository.updatePhoneVerification(
+        buyer._id.toString(),
+        phoneVerificationData2
+      );
+
+      // Assert
+      expect(result2.phoneVerification.otp).toBe('999999');
+      expect(result2.phoneVerification.attempts).toBe(3);
+    });
+
+    it('should handle phone verification data with null values', async () => {
+      // Arrange
+      const buyer = new Buyer(mockBuyerData);
+      await buyer.save();
+
+      const phoneVerificationData = {
+        otp: null,
+        expiresAt: null,
+        attempts: null
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(
+        buyer._id.toString(),
+        phoneVerificationData
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.phoneVerification).toEqual(phoneVerificationData);
+    });
+
+    it('should preserve other buyer fields when updating phone verification', async () => {
+      // Arrange
+      const buyer = new Buyer(mockBuyerData);
+      await buyer.save();
+
+      const phoneVerificationData = {
+        otp: '123456',
+        expiresAt: new Date(),
+        attempts: 0
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(
+        buyer._id.toString(),
+        phoneVerificationData
+      );
+
+      // Assert
+      expect(result.firstName).toBe(buyer.firstName);
+      expect(result.lastName).toBe(buyer.lastName);
+      expect(result.email).toBe(buyer.email);
+      expect(result.username).toBe(buyer.username);
+      expect(result.phoneNumber).toBe(buyer.phoneNumber);
+    });
+  });
 }); 

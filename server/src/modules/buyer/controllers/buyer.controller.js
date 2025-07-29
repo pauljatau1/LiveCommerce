@@ -21,6 +21,7 @@ const addToWishlistService = require('../services/addToWishlist.service');
 const getWishlistService = require('../services/getWishlist.service');
 const removeFromWishlistService = require('../services/removeFromWishlist.service');
 const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
+const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
 
 /**
  * Register a buyer user.
@@ -557,6 +558,29 @@ async function uploadIdentityDocument(req, res, next) {
   }
 }
 
+/**
+ * Send phone OTP to the specified phone number.
+ *
+ * This controller handles the send phone OTP HTTP request.
+ * It delegates the OTP sending logic to the service layer and returns the success response.
+ *
+ * @param {Request} req - Express request object containing the phone number in `req.body.phoneNumber` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function sendPhoneOTP(req, res, next) {
+  try {
+    // Call the service layer to handle send phone OTP logic
+    const response = await sendPhoneOTPService.sendPhoneOTP(req.user.id, req.body.phoneNumber);
+
+    // Send success response with OTP sending confirmation
+    res.success(response, 'OTP sent successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -581,4 +605,5 @@ module.exports = {
   getWishlist,
   removeFromWishlist,
   uploadIdentityDocument,
+  sendPhoneOTP,
 };
