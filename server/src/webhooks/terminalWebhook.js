@@ -48,21 +48,21 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
     // Extract tracking number and shipment ID from Terminal webhook
     const trackingNumber = data?.extras?.tracking_number || data?.tracking_number;
     const shipmentId = data?.shipment_id;
-    const terminalId = data?._id;
     
     console.log('[INFO] Extracted identifiers:', {
       tracking_number: trackingNumber,
-      shipment_id: shipmentId,
-      terminal_id: terminalId
+      shipment_id: shipmentId
     });
     
-    if (!trackingNumber && !shipmentId && !terminalId) {
+    if (!trackingNumber && !shipmentId) {
       console.error('[ERROR] No tracking identifiers found in webhook data');
       return res.status(400).json({
         status: false,
-        message: 'No tracking identifiers found in webhook data',
+        message: 'No tracking identifiers found in webhook data - need tracking_number or shipment_id',
         debug: {
-          available_fields: Object.keys(data)
+          available_fields: Object.keys(data),
+          extracted_tracking_number: trackingNumber,
+          extracted_shipment_id: shipmentId
         }
       });
     }
@@ -75,9 +75,7 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
     const searchStrategies = [
       { field: 'shipping.tracking.number', value: trackingNumber, name: 'tracking_number' },
       { field: 'shipping.shipment_id', value: shipmentId, name: 'shipment_id' },
-      { field: 'shipping.tracking.number', value: shipmentId, name: 'shipment_id_as_tracking' },
-      { field: 'shipping.tracking.number', value: terminalId, name: 'terminal_id_as_tracking' },
-      { field: 'shipping.shipment_id', value: terminalId, name: 'terminal_id_as_shipment' }
+      { field: 'shipping.tracking.number', value: shipmentId, name: 'shipment_id_as_tracking' }
     ];
     
     for (const strategy of searchStrategies) {
@@ -96,7 +94,6 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
       console.error('[ERROR] Order not found for Terminal shipment. Searched by:', {
         tracking_number: trackingNumber,
         shipment_id: shipmentId,
-        terminal_id: terminalId,
         searched_strategies: searchStrategies.filter(s => s.value).map(s => s.name)
       });
       return res.status(400).json({
@@ -105,8 +102,8 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
         debug: {
           searched_tracking_number: trackingNumber,
           searched_shipment_id: shipmentId,
-          searched_terminal_id: terminalId,
-          webhook_event: event
+          webhook_event: event,
+          terminal_internal_id: data._id // For debugging only, not used for search
         }
       });
     }
@@ -119,7 +116,6 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
       ...data,
       tracking_number: trackingNumber,
       shipment_id: shipmentId,
-      terminal_id: terminalId,
       carrier: data.carrier || data?.metadata?.selected_rate?.carrier_name
     });
 
@@ -191,9 +187,6 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         // Store comprehensive Terminal shipment details
         if (data.shipment_id) {
           updateData['shipping.shipment_id'] = data.shipment_id;
-        }
-        if (data.terminal_id) {
-          updateData['shipping.terminal_id'] = data.terminal_id;
         }
         if (data.tracking_number) {
           updateData['shipping.tracking.number'] = data.tracking_number;
