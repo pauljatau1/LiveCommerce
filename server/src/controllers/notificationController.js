@@ -1096,40 +1096,197 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
 // Add a new controller that uses the full handleTerminalWebhook logic from terminalWebhook.js
 exports.simulateTerminalWebhook2 = async (req, res) => {
+  const startTime = Date.now();
+  const webhookLogService = require('../services/webhookLogService');
+  let responseData = null;
+  let error = null;
+
+  // Log the request immediately when it arrives
+  console.log('=== WEBHOOK REQUEST RECEIVED ===');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  console.log('Method:', req.method);
+  console.log('URL:', req.originalUrl);
+  console.log('================================');
+
   try {
     // Verify webhook signature
     const signature = req.headers['x-terminal-signature'] || req.headers['X-Terminal-Signature'];
     const secretKey = process.env.TERMINAL_SECRET_KEY;
     
+    console.log('Signature from header:', signature);
+    console.log('Secret key exists:', !!secretKey);
+    
     if (!signature || !secretKey) {
-      return res.status(400).json({
+      responseData = {
         status: false,
-        message: 'Missing webhook signature or secret key'
-      });
+        message: 'Missing webhook signature or secret key',
+        debug: {
+          hasSignature: !!signature,
+          hasSecretKey: !!secretKey,
+          headers: req.headers
+        }
+      };
+      res.status(400).json(responseData);
+      await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+      return;
     }
 
     // Import the signature verification and handler from terminalWebhook.js
     const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
     const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
     
+    console.log('Signature verification result:', verification);
+    
     if (!verification.status) {
-      return res.status(400).json({
+      responseData = {
         status: false,
-        message: verification.message
-      });
+        message: verification.message,
+        debug: {
+          providedSignature: signature,
+          bodyUsedForVerification: req.body
+        }
+      };
+      res.status(400).json(responseData);
+      await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+      return;
     }
 
     // Process the webhook using the full handler
+    console.log('Processing webhook with handleTerminalWebhook...');
     await handleTerminalWebhook(req, res, req.body);
-
     
+    // If we reach here, the webhook was processed successfully
+    // Note: handleTerminalWebhook sends its own response, so we need to capture it
+    responseData = { status: true, message: 'Webhook processed successfully' };
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
 
    
-  } catch (error) {
-    console.error('Error in simulateTerminalWebhook2:', error);
-    res.status(500).json({
+  } catch (err) {
+    error = err;
+    console.error('Error in simulateTerminalWebhook2:', err);
+    
+    responseData = {
       status: false,
       message: 'Failed to process Terminal webhook (simulateTerminalWebhook2)',
+      error: err.message,
+      stack: err.stack
+    };
+    
+    if (!res.headersSent) {
+      res.status(500).json(responseData);
+    }
+    
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime, error);
+  }
+};
+
+// Test webhook logging endpoint (for debugging)
+exports.testWebhookLogging = async (req, res) => {
+  const startTime = Date.now();
+  const webhookLogService = require('../services/webhookLogService');
+  
+  console.log('=== TEST WEBHOOK LOGGING ===');
+  console.log('This should definitely be logged!');
+  
+  try {
+    const responseData = {
+      status: true,
+      message: 'Test webhook logging successful',
+      timestamp: new Date().toISOString(),
+      testData: req.body
+    };
+    
+    res.status(200).json(responseData);
+    await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
+    
+    console.log('Test logging completed');
+  } catch (error) {
+    console.error('Error in test webhook logging:', error);
+    const errorResponse = {
+      status: false,
+      message: 'Test webhook logging failed',
+      error: error.message
+    };
+    
+    res.status(500).json(errorResponse);
+    await webhookLogService.logWebhookRequest(req, res, errorResponse, startTime, error);
+  }
+};
+
+// Get webhook request logs
+exports.getWebhookLogs = async (req, res) => {
+  try {
+    const webhookLogService = require('../services/webhookLogService');
+    
+    const {
+      endpoint,
+      success,
+      page = 1,
+      limit = 20,
+      startDate,
+      endDate
+    } = req.query;
+
+    const options = {
+      endpoint,
+      success: success !== undefined ? success === 'true' : undefined,
+      page: parseInt(page),
+      limit: Math.min(parseInt(limit), 100), // Cap at 100 items per page
+      // Only add date filters if explicitly provided
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
+    };
+
+    // Remove undefined values to avoid filtering issues
+    Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
+
+    const result = await webhookLogService.getWebhookLogs(options);
+    
+    res.status(200).json({
+      status: true,
+      message: 'Webhook logs retrieved successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error getting webhook logs:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to retrieve webhook logs',
+      error: error.message
+    });
+  }
+};
+
+// Get webhook request statistics
+exports.getWebhookStats = async (req, res) => {
+  try {
+    const webhookLogService = require('../services/webhookLogService');
+    
+    const {
+      endpoint,
+      startDate,
+      endDate
+    } = req.query;
+
+    const options = {
+      endpoint,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
+    };
+
+    const stats = await webhookLogService.getWebhookStats(options);
+    
+    res.status(200).json({
+      status: true,
+      message: 'Webhook statistics retrieved successfully',
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error getting webhook stats:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to retrieve webhook statistics',
       error: error.message
     });
   }
