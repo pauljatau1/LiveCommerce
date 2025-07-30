@@ -22,6 +22,9 @@ const getWishlistService = require('../services/getWishlist.service');
 const removeFromWishlistService = require('../services/removeFromWishlist.service');
 const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
 const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
+const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
+const getSellerProfileService = require('../services/getSellerProfile.service');
+
 
 /**
  * Register a buyer user.
@@ -581,6 +584,52 @@ async function sendPhoneOTP(req, res, next) {
   }
 }
 
+/**
+ * Verify phone OTP for buyer phone verification.
+ *
+ * This controller handles the verify phone OTP HTTP request.
+ * It delegates the OTP verification logic to the service layer and returns the verification result.
+ *
+ * @param {Request} req - Express request object containing the OTP in `req.body.otp` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyPhoneOTP(req, res, next) {
+  try {
+    // Call the service layer to handle verify phone OTP logic
+    const response = await verifyPhoneOTPService.verifyPhoneOTP(req.user.id, req.body.otp);
+
+    // Send success response with verification result
+    res.success(response, 'Phone number verified successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get detailed seller profile information.
+ *
+ * This controller handles the seller profile retrieval HTTP request.
+ * It delegates the profile logic to the service layer and returns the complete seller profile.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellerProfile(req, res, next) {
+  try {
+    // Call the service layer to handle seller profile retrieval logic
+    const response = await getSellerProfileService.getSellerProfile(req.params.sellerId, req.user.id);
+
+    // Send success response with seller profile data
+    res.success(response, 'Seller profile retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -606,4 +655,6 @@ module.exports = {
   removeFromWishlist,
   uploadIdentityDocument,
   sendPhoneOTP,
+  verifyPhoneOTP,
+  getSellerProfile,
 };

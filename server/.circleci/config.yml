@@ -23,7 +23,7 @@ executors:
     working_directory: << pipeline.parameters.working_dir >>
     docker:
       - image: << pipeline.parameters.docker_base_image_version >>
-    resource_class: "medium"
+    resource_class: "medium+"
 
 orbs:
   aws-ecr: circleci/aws-ecr@9.3.4
@@ -122,6 +122,7 @@ commands:
             npm run test:ci
           environment:
             JEST_JUNIT_OUTPUT_DIR: ./reports/
+            NODE_OPTIONS: "--max-old-space-size=4096"
       - store_test_results:
           path: ./reports/
 
