@@ -122,6 +122,7 @@ commands:
             npm run test:ci
           environment:
             JEST_JUNIT_OUTPUT_DIR: ./reports/
+            NODE_OPTIONS: "--max-old-space-size=4096"
       - store_test_results:
           path: ./reports/
 
