@@ -23,6 +23,7 @@ const removeFromWishlistService = require('../services/removeFromWishlist.servic
 const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
 const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
 const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
+const getSellerProfileService = require('../services/getSellerProfile.service');
 
 
 /**
@@ -606,6 +607,29 @@ async function verifyPhoneOTP(req, res, next) {
   }
 }
 
+/**
+ * Get detailed seller profile information.
+ *
+ * This controller handles the seller profile retrieval HTTP request.
+ * It delegates the profile logic to the service layer and returns the complete seller profile.
+ *
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellerProfile(req, res, next) {
+  try {
+    // Call the service layer to handle seller profile retrieval logic
+    const response = await getSellerProfileService.getSellerProfile(req.params.sellerId, req.user.id);
+
+    // Send success response with seller profile data
+    res.success(response, 'Seller profile retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -632,4 +656,5 @@ module.exports = {
   uploadIdentityDocument,
   sendPhoneOTP,
   verifyPhoneOTP,
+  getSellerProfile,
 };

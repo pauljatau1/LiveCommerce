@@ -1922,4 +1922,203 @@ router.post('/send-phone-otp', verifyToken, isBuyer, buyerController.sendPhoneOT
  */
 router.post('/verify-phone-otp', verifyToken, isBuyer, buyerController.verifyPhoneOTP);
 
+/**
+ * @swagger
+ * /api/v2/buyers/seller/{sellerId}:
+ *   get:
+ *     summary: Get detailed seller profile and store information
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to fetch
+ *     responses:
+ *       200:
+ *         description: Seller profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Seller profile retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     personalInfo:
+ *                       type: object
+ *                       properties:
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                     storeInfo:
+ *                       type: object
+ *                       properties:
+ *                         storeName:
+ *                           type: string
+ *                         aboutStore:
+ *                           type: string
+ *                         storeAvatar:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                         storeBanner:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                         isVerified:
+ *                           type: boolean
+ *                         isFeatured:
+ *                           type: boolean
+ *                         accountPending:
+ *                           type: boolean
+ *                         joinedDate:
+ *                           type: string
+ *                           format: date-time
+ *                         bio:
+ *                           type: string
+ *                         isFollowing:
+ *                           type: boolean
+ *                         socialMedia:
+ *                           type: object
+ *                           properties:
+ *                             instagram:
+ *                               type: string
+ *                             facebook:
+ *                               type: string
+ *                             tiktok:
+ *                               type: string
+ *                     businessInfo:
+ *                       type: object
+ *                       properties:
+ *                         businessName:
+ *                           type: string
+ *                         businessType:
+ *                           type: string
+ *                         categories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               subCategories:
+ *                                 type: array
+ *                                 items:
+ *                                   type: string
+ *                         addresses:
+ *                           type: object
+ *                           properties:
+ *                             business:
+ *                               type: object
+ *                             warehouse:
+ *                               type: object
+ *                             seller:
+ *                               type: object
+ *                     location:
+ *                       type: object
+ *                       properties:
+ *                         country:
+ *                           type: string
+ *                         state:
+ *                           type: string
+ *                         city:
+ *                           type: string
+ *                     storePolicies:
+ *                       type: object
+ *                       properties:
+ *                         delivery:
+ *                           type: object
+ *                           properties:
+ *                             processingTime:
+ *                               type: string
+ *                             deliveryTimes:
+ *                               type: string
+ *                             freeShippingPolicy:
+ *                               type: string
+ *                             allowsCod:
+ *                               type: boolean
+ *                         returns:
+ *                           type: object
+ *                           properties:
+ *                             returnWindow:
+ *                               type: number
+ *                             returnCondition:
+ *                               type: string
+ *                             returnShipping:
+ *                               type: string
+ *                             nonRefundableItems:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                         refunds:
+ *                           type: object
+ *                           properties:
+ *                             refundPolicy:
+ *                               type: string
+ *                             refundMethod:
+ *                               type: string
+ *                             lostOrDamagedPolicy:
+ *                               type: string
+ *                         exchange:
+ *                           type: object
+ *                           properties:
+ *                             exchangePolicy:
+ *                               type: string
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         followersCount:
+ *                           type: number
+ *                         followingCount:
+ *                           type: number
+ *                         totalOrders:
+ *                           type: number
+ *                         totalStreams:
+ *                           type: number
+ *                         soldItems:
+ *                           type: number
+ *                     reviews:
+ *                       type: object
+ *                       properties:
+ *                         averageRating:
+ *                           type: number
+ *                         totalReviews:
+ *                           type: number
+ *                         ratingDistribution:
+ *                           type: object
+ *                           properties:
+ *                             "1":
+ *                               type: number
+ *                             "2":
+ *                               type: number
+ *                             "3":
+ *                               type: number
+ *                             "4":
+ *                               type: number
+ *                             "5":
+ *                               type: number
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid seller ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerProfile);
+
 module.exports = router;
