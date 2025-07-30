@@ -30,7 +30,7 @@ import ReturnRequests from '@/pages/ReturnRequests';
 import PickupRequests from '@/pages/pickupRequests';
 import BuyerNotifications from '@/pages/buyerNotifications';
 import TerminalShipments from '@/pages/terminalShipments';
-import ErrorLogs from '@/pages/errorLogs';
+import SystemLogs from '@/pages/systemLogs';
 import { useAuth } from '@/context/authContext';
 
 // Logout component that will clear localStorage and redirect to login
@@ -86,7 +86,8 @@ function App() {
             <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
             <Route path="/dashboard/buyer-notifications" element={<BuyerNotifications />} />
             <Route path="/dashboard/terminal-shipments" element={<TerminalShipments />} />
-            <Route path="/dashboard/error-logs" element={<ErrorLogs />} />
+            <Route path="/dashboard/system-logs" element={<SystemLogs />} />
+            <Route path="/dashboard/error-logs" element={<SystemLogs />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

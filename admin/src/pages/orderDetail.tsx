@@ -377,11 +377,398 @@ function OrderDetail() {
     
     try {
       setIsSimulatingTerminalWebhook(true);
-      const response = await api.post('/api/notifications/simulate-terminal-webhook', {
+      
+      // Create the request body in the Terminal webhook format
+      const requestBody = {
         event: terminalEvent,
-        shipment_id: terminalShipmentId.trim(),
-        tracking_number: orderData?.shipping?.tracking?.number || undefined,
-        carrier: orderData?.shipping?.carrier?.name || undefined
+        data: {
+          _id: terminalShipmentId.trim(),
+          address_to: "AD-YJGJYNEBNZ86NQEK",
+          address_from: "AD-B6UUF2QV3N28NI1I",
+          address_return: "AD-B6UUF2QV3N28NI1I",
+          delivery_cancelled: null,
+          delivery_delivered: terminalEvent === "shipment.delivered" ? new Date().toISOString() : null,
+          delivery_dropped_off: null,
+          delivery_picked_up: terminalEvent === "shipment.in-transit" ? new Date().toISOString() : null,
+          metadata: {
+            delivery_type: "Urgent delivery from Auqli",
+            carrier: orderData?.shipping?.carrier?.reference || "CA-81957188177",
+            selected_rate: {
+              _id: "6888b4f2cd649ab945900be1",
+              amount: orderData?.shipping?.fee?.amount || 5908.4,
+              breakdown: {
+                shipment_cost: (orderData?.shipping?.fee?.amount || 5908.4) * 0.76,
+                shipment_cost_currency: "NGN",
+                address_validation_fee: 0,
+                label_generation_fee: 0,
+                surcharge_amount: 0,
+                vat: ((orderData?.shipping?.fee?.amount || 5908.4) * 0.76 * 0.07),
+                charge_amount: orderData?.shipping?.fee?.amount || 5908.4,
+                charge_amount_currency: "NGN",
+                insurance_fee: 0,
+                markup_fee: 1300,
+                custom_account_charge: 0,
+                emergency_fee: 0,
+                charge_amount_ngn: orderData?.shipping?.fee?.amount || 5908.4,
+                currency_surcharge: 0,
+                markup_vat: 97.5,
+                demand_surcharge: 0,
+                discrepancy_charge: 1200,
+                additional_charge: 0
+              },
+              cargo_type: "",
+              carrier_logo: "https://terminal-static-file.s3.us-east-1.amazonaws.com/images/DHL.svg",
+              carrier_name: orderData?.shipping?.carrier?.name || "DHL Express",
+              carrier_rate_description: "DOMESTIC",
+              carrier_reference: orderData?.shipping?.carrier?.reference || "CA-81957188177",
+              carrier_slug: "dhl-ng",
+              currency: "NGN",
+              domain: "",
+              default_amount: orderData?.shipping?.fee?.amount || 5908.4,
+              default_currency: "NGN",
+              delivery_address: {
+                user: "USER-KNPID5IKLZSD7UMV",
+                child_user: "",
+                alias: "",
+                city: orderData?.addresses?.delivery?.city || "Amuwo-Odofin",
+                coordinates: {
+                  lat: "",
+                  lng: ""
+                },
+                country: orderData?.addresses?.delivery?.country || "NG",
+                email: orderData?.addresses?.delivery?.email || "bolu4good@gmail.com",
+                first_name: orderData?.addresses?.delivery?.first_name || "BOLUWATIFE",
+                is_residential: true,
+                last_name: orderData?.addresses?.delivery?.last_name || "AJAYI",
+                line1: orderData?.addresses?.delivery?.line1 || "Block 16 Plot 22 Segun Ajayi Close Amuwo Odof",
+                line2: "",
+                phone: orderData?.addresses?.delivery?.phone || "+2349124634152",
+                alt_phone: "",
+                place_id: "",
+                sender_default: false,
+                child_default: false,
+                state: orderData?.addresses?.delivery?.state || "Lagos",
+                shop_ship: "",
+                type: "user_address",
+                zip: orderData?.addresses?.delivery?.zip || "102102",
+                is_deleted: false,
+                address_id: "AD-YJGJYNEBNZ86NQEK",
+                created_at: "2025-07-29T11:48:01.572Z",
+                updated_at: "2025-07-29T11:48:01.572Z",
+                __v: 0
+              },
+              delivery_date: "2025-08-03T11:48:02.112Z",
+              delivery_eta: 7200,
+              delivery_time: "Within 5 days",
+              dropoff_available: true,
+              dropoff_only: false,
+              dropoff_required: false,
+              wordpress_used: false,
+              insurance_coverage: 0,
+              includes_duties: false,
+              insurance_fee: 0,
+              includes_insurance: false,
+              metadata: {
+                localProductCode: "N",
+                productCode: "N",
+                default_parcel: {
+                  packaging_dimension: {
+                    length: 10,
+                    height: 10,
+                    width: 10
+                  },
+                  parcel_total_weight: 0.4,
+                  parcel_value: orderData?.order?.totalAmount || 60000,
+                  packages: [
+                    {
+                      weight: 0.5,
+                      dimensions: {
+                        length: 10,
+                        width: 10,
+                        height: 10
+                      }
+                    }
+                  ]
+                },
+                address_payload: {
+                  pickup_address: {
+                    city: orderData?.addresses?.pickup?.city || "Amuwo-Odofin",
+                    state: orderData?.addresses?.pickup?.state || "Lagos",
+                    country: orderData?.addresses?.pickup?.country || "NG",
+                    zip: orderData?.addresses?.pickup?.zip || "102102"
+                  },
+                  delivery_address: {
+                    city: orderData?.addresses?.delivery?.city || "Amuwo-Odofin",
+                    state: orderData?.addresses?.delivery?.state || "Lagos",
+                    country: orderData?.addresses?.delivery?.country || "NG",
+                    zip: orderData?.addresses?.delivery?.zip || "102102"
+                  }
+                },
+                is_manual: true,
+                shipment_cost: (orderData?.shipping?.fee?.amount || 5908.4) * 0.76,
+                markup_version: 15,
+                score: 10,
+                _id: null,
+                avgActualTurnaroundTime: 0,
+                avgActualPickupTime: 1,
+                avgRating: 0,
+                insurance_fee: 0,
+                insurance_currency: "NGN",
+                insurance_default_fee: 0,
+                insurance_default_currency: "NGN",
+                cod_processing_fee: 0,
+                recommended: true
+              },
+              parcel: {
+                _id: "6888b4f1cd649ab945900b9f",
+                description: `Order from ${orderData?.seller?.storeName || "Top G Stores"}`,
+                items: orderData?.items?.map(item => ({
+                  description: item.productName,
+                  name: item.productName,
+                  type: "parcel",
+                  currency: "NGN",
+                  value: item.price * item.quantity,
+                  quantity: item.quantity,
+                  weight: 0.4
+                })) || [{
+                  description: "iphone 11",
+                  name: "iphone 11",
+                  type: "parcel",
+                  currency: "NGN",
+                  value: orderData?.order?.totalAmount || 60000,
+                  quantity: 1,
+                  weight: 0.4
+                }],
+                proof_of_payments: [],
+                rec_docs: [],
+                packaging: {
+                  _id: "6849ef81c3d990ccfcf2d464",
+                  default: true,
+                  height: 10,
+                  length: 10,
+                  name: "Terminal Default Standard",
+                  size_unit: "cm",
+                  type: "box",
+                  user: "USER-KNPID5IKLZSD7UMV",
+                  child_user: "",
+                  weight: 0.1,
+                  weight_unit: "kg",
+                  width: 10,
+                  packaging_id: "PA-O1IPAYZKS7B0OQC8",
+                  created_at: "2025-06-11T21:05:05.291Z",
+                  updated_at: "2025-06-11T21:05:05.291Z",
+                  __v: 0
+                },
+                total_weight: 0.4,
+                user: "USER-KNPID5IKLZSD7UMV",
+                child_user: "",
+                weight_unit: "kg",
+                parcel_id: "PC-P21FZLFKXAA3PI2G",
+                created_at: "2025-07-29T11:48:01.572Z",
+                updated_at: "2025-07-29T11:48:01.572Z",
+                __v: 0,
+                contains_perishables: false,
+                total_value: orderData?.order?.totalAmount || 60000,
+                id: "6888b4f1cd649ab945900b9f"
+              },
+              parcels: [],
+              pickup_address: {
+                user: "USER-KNPID5IKLZSD7UMV",
+                child_user: "",
+                alias: "",
+                city: orderData?.addresses?.pickup?.city || "Amuwo-Odofin",
+                coordinates: {
+                  lat: "",
+                  lng: ""
+                },
+                country: orderData?.addresses?.pickup?.country || "NG",
+                email: orderData?.addresses?.pickup?.email || "bolu@auqli.com",
+                first_name: orderData?.addresses?.pickup?.first_name || "bolu",
+                is_residential: true,
+                last_name: orderData?.addresses?.pickup?.last_name || "ajayi",
+                line1: orderData?.addresses?.pickup?.line1 || "Block 16 plot 22 segun ajayi close amuwo odof",
+                line2: "Block 16 Plot 22 Segun Ajayi Close Amuwo Odof",
+                phone: orderData?.addresses?.pickup?.phone || "+2349124634152",
+                alt_phone: "",
+                place_id: "",
+                sender_default: false,
+                child_default: false,
+                state: orderData?.addresses?.pickup?.state || "Lagos",
+                shop_ship: "",
+                type: "user_address",
+                zip: orderData?.addresses?.pickup?.zip || "102102",
+                is_deleted: false,
+                address_id: "AD-B6UUF2QV3N28NI1I",
+                created_at: "2025-07-29T11:48:01.572Z",
+                updated_at: "2025-07-29T11:48:01.572Z",
+                __v: 0
+              },
+              pickup_date: "2025-07-31T11:48:02.112Z",
+              pickup_eta: 2880,
+              pickup_time: "Within 48 Hours",
+              rate_id: "RT-OKE04H8MLX1E9J5M",
+              source: "api",
+              type: "standard",
+              used: false,
+              user: {
+                _id: "6759f15487835dd14116a721",
+                account_active: true,
+                account_type: "platform",
+                admin: false,
+                barred_countries: [],
+                business_category: "",
+                business_operation: "",
+                business_type: "Physical Store",
+                carriers: {
+                  domestic: [
+                    "CA-42199963340",
+                    "CA-58583827047",
+                    "CA-81957188177",
+                    "CA-31377601348",
+                    "CA-71017347351",
+                    "CA-18228854618",
+                    "CA-85479996273",
+                    "CA-86012707216",
+                    "CA-39897596546",
+                    "CA-49411197653",
+                    "CA-19429970231",
+                    "CA-EPTEBPNPW7HWULW0",
+                    "CA-EMBFYYC4LO4IHFTW",
+                    "CA-TNVVUT1XVB1ULV5Q",
+                    "CA-76337527026"
+                  ],
+                  international: [
+                    "CA-42199963340",
+                    "CA-81957188177",
+                    "CA-31377601348",
+                    "CA-85479996273",
+                    "CA-39897596546",
+                    "CA-49411197653",
+                    "CA-19429970231",
+                    "CA-A0D845KA5GINP9QX"
+                  ],
+                  regional: [
+                    "CA-42199963340",
+                    "CA-58583827047",
+                    "CA-81957188177",
+                    "CA-31377601348",
+                    "CA-71017347351",
+                    "CA-18228854618",
+                    "CA-85479996273",
+                    "CA-86012707216",
+                    "CA-39897596546",
+                    "CA-49411197653",
+                    "CA-19429970231",
+                    "CA-EPTEBPNPW7HWULW0",
+                    "CA-EMBFYYC4LO4IHFTW",
+                    "CA-TNVVUT1XVB1ULV5Q",
+                    "CA-76337527026"
+                  ]
+                },
+                company_logo: "",
+                company_name: orderData?.seller?.businessName || "BOLUWATIFE AJAYI",
+                country: "NG",
+                country_state: "",
+                device_tokens: [],
+                email: orderData?.seller?.email || "bolu@auqli.com",
+                enforce_verification: false,
+                first_name: orderData?.seller?.firstName || "BOLUWATIFE",
+                last_name: orderData?.seller?.lastName || "AJAYI",
+                metadata: {
+                  storeId: "dbvGNNWAcxbz5PA8i9CDlnIC4I62",
+                  tracking_only: true
+                },
+                notifications_enabled: true,
+                payment_gateway_status: "inactive",
+                phone: orderData?.seller?.phoneNumber || "+2349124634152",
+                plan: "",
+                referralCode: "REF-A99A19A737A",
+                staff_number: 1,
+                shipment_limit: 5000,
+                pass_code: "",
+                parent_thub_user: "",
+                child_thub_email: "",
+                wallet: "6759f154fc9e596f51573ed8",
+                wallet_enabled: false,
+                user_id: "USER-KNPID5IKLZSD7UMV",
+                created_at: "2024-12-11T20:08:52.864Z",
+                updated_at: "2025-07-29T10:56:29.179Z",
+                __v: 0,
+                new_publication: true
+              },
+              __v: 0,
+              created_at: "2025-07-29T11:48:02.335Z",
+              updated_at: "2025-07-29T11:48:02.335Z"
+            },
+            dropoff: false
+          },
+          parcel: "PC-P21FZLFKXAA3PI2G",
+          parcels: [],
+          pickup_date: "2025-07-29T11:48:08.147Z",
+          cancellation_request: false,
+          cancellation_reason: "",
+          cancellation_requested_at: null,
+          cancellation_request_sent: false,
+          shipment_cost_currency: "NGN",
+          shipment_purpose: "commercial",
+          thub_shipment_status: "draft",
+          status: terminalEvent === "shipment.delivered" ? "delivered" : 
+                  terminalEvent === "shipment.in-transit" ? "in-transit" : 
+                  terminalEvent === "shipment.cancelled" ? "cancelled" : "confirmed",
+          type: "terminal",
+          source: "api",
+          created_source: "api",
+          consolidated_reference: "",
+          user: "USER-KNPID5IKLZSD7UMV",
+          child_user: "",
+          parent_shipment: "",
+          pickup_requested: false,
+          events: [
+            {
+              status: "confirmed",
+              created_at: "2025-07-29T11:48:08.147Z",
+              description: `Shipment arranged by ${orderData?.seller?.firstName || "BOLUWATIFE"} ${orderData?.seller?.lastName || "AJAYI"}`,
+              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"}, ${orderData?.addresses?.delivery?.country || "NG"}`
+            },
+            ...(terminalEvent === "shipment.in-transit" ? [{
+              created_at: new Date().toISOString(),
+              description: "In transit",
+              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"} ${orderData?.addresses?.delivery?.country || "NG"}`,
+              status: "PU"
+            }] : []),
+            ...(terminalEvent === "shipment.delivered" ? [{
+              created_at: new Date().toISOString(),
+              description: "Delivery Completed",
+              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"} ${orderData?.addresses?.delivery?.country || "NG"}`,
+              status: "OK"
+            }] : [])
+          ],
+          shipment_id: terminalShipmentId.trim(),
+          created_at: "2025-07-29T11:48:01.627Z",
+          updated_at: new Date().toISOString(),
+          __v: 0,
+          carrier: orderData?.shipping?.carrier?.reference || "CA-81957188177",
+          delivery_arranged: "2025-07-29T11:48:08.147Z",
+          delivery_date: "2025-08-02T11:48:08.147Z",
+          extras: {
+            tracking_number: orderData?.shipping?.tracking?.number || "IEEXKMX1ON9QGK",
+            carrier_tracking_url: `https://testing.terminal.africa/track/${terminalShipmentId.trim()}`,
+            tracking_url: `https://testing.terminal.africa/track/${terminalShipmentId.trim()}`,
+            reference: terminalShipmentId.trim(),
+            shipping_label_url: `https://sandbox.terminal.africa/v1/shipments/label/${terminalShipmentId.trim()}.pdf`,
+            commercial_invoice_url: `https://sandbox.terminal.africa/v1/shipments/commercial-invoice/${terminalShipmentId.trim()}.pdf`
+          },
+          rate: "RT-OKE04H8MLX1E9J5M",
+          shipment_cost: orderData?.shipping?.fee?.amount || 5908.4,
+          transaction_reference: "TR-6EWUWSPISRAVC6Z4OSRGT02Z93PEGKQ",
+          id: terminalShipmentId.trim()
+        }
+      };
+
+      const response = await api.post('/api/notifications/simulate-terminal-webhook', requestBody, {
+        headers: {
+          'x-terminal-signature': '5d53f182d1ace32ea47ffac3c74e15f3a87fea90ef1c084afc12377ef801c81d6ccab8f9b40de5c2cd12868dfbe2b51f119f3fffc6522b0930d07a1e3edbf446'
+        }
       });
       
       toast.success(response.data.message || "Terminal webhook simulated successfully");
@@ -1464,7 +1851,7 @@ function OrderDetail() {
                   <div className="flex justify-between font-medium">
                     <span className="text-white">Total</span>
                     <span className="text-white text-lg">
-                      ₦{((orderData?.order?.totalAmount || 0) + (orderData?.shipping?.fee?.amount || 0)).toLocaleString()}
+                      ₦{((orderData?.order?.totalAmount || 0) + (0)).toLocaleString()}
                     </span>
                   </div>
                 </div>
