@@ -23,7 +23,7 @@ executors:
     working_directory: << pipeline.parameters.working_dir >>
     docker:
       - image: << pipeline.parameters.docker_base_image_version >>
-    resource_class: "medium"
+    resource_class: "medium+"
 
 orbs:
   aws-ecr: circleci/aws-ecr@9.3.4
