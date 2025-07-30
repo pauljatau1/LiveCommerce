@@ -24,6 +24,7 @@ const uploadIdentityDocumentService = require('../services/uploadIdentityDocumen
 const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
 const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
 
+
 /**
  * Register a buyer user.
  *
