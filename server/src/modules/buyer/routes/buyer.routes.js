@@ -1808,6 +1808,317 @@ router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.remo
  */
 router.post('/identity-verification', verifyToken, upload.single('identityDocument'), buyerController.uploadIdentityDocument);
 
+/**
+ * @swagger
+ * /api/v2/buyers/send-phone-otp:
+ *   post:
+ *     summary: Send phone OTP for verification
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Phone number with country code
+ *                 example: "+2348012345678"
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: true
+ *               message:
+ *                 type: string
+ *                 example: "OTP sent successfully"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "OTP sent successfully"
+ *                   validFor:
+ *                     type: string
+ *                     example: "10 minutes"
+ *       400:
+ *         description: Bad Request - Invalid phone number format
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid phone number format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/send-phone-otp', verifyToken, isBuyer, buyerController.sendPhoneOTP);
 
+/**
+ * @swagger
+ * /api/v2/buyers/verify-phone-otp:
+ *   post:
+ *     summary: Verify phone OTP for verification
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - otp
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: 6-digit OTP received on phone
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Phone number verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Phone number verified successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Phone number verified successfully"
+ *                     phoneVerified:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Bad Request - Invalid OTP, expired OTP, or too many attempts
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid OTP format or no verification in progress
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verify-phone-otp', verifyToken, isBuyer, buyerController.verifyPhoneOTP);
+
+/**
+ * @swagger
+ * /api/v2/buyers/seller/{sellerId}:
+ *   get:
+ *     summary: Get detailed seller profile and store information
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to fetch
+ *     responses:
+ *       200:
+ *         description: Seller profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Seller profile retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     personalInfo:
+ *                       type: object
+ *                       properties:
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                     storeInfo:
+ *                       type: object
+ *                       properties:
+ *                         storeName:
+ *                           type: string
+ *                         aboutStore:
+ *                           type: string
+ *                         storeAvatar:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                         storeBanner:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                         isVerified:
+ *                           type: boolean
+ *                         isFeatured:
+ *                           type: boolean
+ *                         accountPending:
+ *                           type: boolean
+ *                         joinedDate:
+ *                           type: string
+ *                           format: date-time
+ *                         bio:
+ *                           type: string
+ *                         isFollowing:
+ *                           type: boolean
+ *                         socialMedia:
+ *                           type: object
+ *                           properties:
+ *                             instagram:
+ *                               type: string
+ *                             facebook:
+ *                               type: string
+ *                             tiktok:
+ *                               type: string
+ *                     businessInfo:
+ *                       type: object
+ *                       properties:
+ *                         businessName:
+ *                           type: string
+ *                         businessType:
+ *                           type: string
+ *                         categories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               subCategories:
+ *                                 type: array
+ *                                 items:
+ *                                   type: string
+ *                         addresses:
+ *                           type: object
+ *                           properties:
+ *                             business:
+ *                               type: object
+ *                             warehouse:
+ *                               type: object
+ *                             seller:
+ *                               type: object
+ *                     location:
+ *                       type: object
+ *                       properties:
+ *                         country:
+ *                           type: string
+ *                         state:
+ *                           type: string
+ *                         city:
+ *                           type: string
+ *                     storePolicies:
+ *                       type: object
+ *                       properties:
+ *                         delivery:
+ *                           type: object
+ *                           properties:
+ *                             processingTime:
+ *                               type: string
+ *                             deliveryTimes:
+ *                               type: string
+ *                             freeShippingPolicy:
+ *                               type: string
+ *                             allowsCod:
+ *                               type: boolean
+ *                         returns:
+ *                           type: object
+ *                           properties:
+ *                             returnWindow:
+ *                               type: number
+ *                             returnCondition:
+ *                               type: string
+ *                             returnShipping:
+ *                               type: string
+ *                             nonRefundableItems:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                         refunds:
+ *                           type: object
+ *                           properties:
+ *                             refundPolicy:
+ *                               type: string
+ *                             refundMethod:
+ *                               type: string
+ *                             lostOrDamagedPolicy:
+ *                               type: string
+ *                         exchange:
+ *                           type: object
+ *                           properties:
+ *                             exchangePolicy:
+ *                               type: string
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         followersCount:
+ *                           type: number
+ *                         followingCount:
+ *                           type: number
+ *                         totalOrders:
+ *                           type: number
+ *                         totalStreams:
+ *                           type: number
+ *                         soldItems:
+ *                           type: number
+ *                     reviews:
+ *                       type: object
+ *                       properties:
+ *                         averageRating:
+ *                           type: number
+ *                         totalReviews:
+ *                           type: number
+ *                         ratingDistribution:
+ *                           type: object
+ *                           properties:
+ *                             "1":
+ *                               type: number
+ *                             "2":
+ *                               type: number
+ *                             "3":
+ *                               type: number
+ *                             "4":
+ *                               type: number
+ *                             "5":
+ *                               type: number
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid seller ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerProfile);
 
 module.exports = router;

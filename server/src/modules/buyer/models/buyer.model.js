@@ -256,19 +256,6 @@ buyerSchema.pre('save', async function(next) {
   next();
 });
 
-// Add a pre-save middleware to check for duplicate address types
-buyerSchema.pre('save', function(next) {
-  if (this.isModified('shippingAddresses') && this.shippingAddresses && Array.isArray(this.shippingAddresses)) {
-    const addressTypes = this.shippingAddresses.map(addr => addr.addressType);
-    const uniqueTypes = new Set(addressTypes);
-    
-    if (addressTypes.length !== uniqueTypes.size) {
-      return next(new Error('Multiple addresses of the same type are not allowed'));
-    }
-  }
-  next();
-});
-
 // Compare passwords
 buyerSchema.methods.comparePassword = function(password) {
   if (!this.password) {

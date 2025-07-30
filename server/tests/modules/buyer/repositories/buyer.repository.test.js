@@ -2143,4 +2143,419 @@ describe('Buyer Repository', () => {
       expect(result2.shippingAddresses).toHaveLength(0);
     });
   });
+
+  describe('updatePhoneVerification', () => {
+    it('should update phone verification data for existing buyer', async () => {
+      // Arrange
+      const buyer = new Buyer(mockBuyerData);
+      const savedBuyer = await buyer.save();
+      
+      const phoneVerificationData = {
+        otp: '123456',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+        attempts: 0
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(savedBuyer._id, phoneVerificationData);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.phoneVerification).toEqual(phoneVerificationData);
+    });
+
+    it('should return null when buyer not found', async () => {
+      // Arrange
+      const nonExistentBuyerId = new mongoose.Types.ObjectId();
+      const phoneVerificationData = {
+        otp: '123456',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        attempts: 0
+      };
+
+      // Act
+      const result = await buyerRepository.updatePhoneVerification(nonExistentBuyerId, phoneVerificationData);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('Seller-related methods', () => {
+    const mockSellerData = {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      email: 'jane.smith@example.com',
+      password: 'hashedPassword123',
+      phoneNumber: '+2348012345679',
+      storeName: 'Jane\'s Store',
+      businessName: 'Jane Smith Business',
+      businessType: 'Retail',
+      isVerified: true,
+      isFeatured: false,
+      accountPending: false,
+      storeAvatar: { url: 'https://example.com/avatar.jpg' },
+      storeBanner: { url: 'https://example.com/banner.jpg' },
+      socialMedia: {
+        instagram: '@janesmith',
+        facebook: 'janesmith',
+        tiktok: '@janesmith'
+      },
+      businessAddress: {
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Amuwo-Odofin',
+        addressLine1: '123 Main St',
+        zipCode: '100001'
+      },
+      sellerAddress: {
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Amuwo-Odofin',
+        addressLine1: '456 Side St',
+        zipCode: '100002'
+      },
+      warehouseDetails: {
+        name: 'Main Warehouse',
+        contactNumber: '+2348012345680',
+        address: {
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Amuwo-Odofin',
+          addressLine1: '789 Warehouse St',
+          zipCode: '100003'
+        }
+      },
+      categories: [
+        { name: 'Electronics', subCategories: [{ name: 'Phones' }] }
+      ],
+      storePolicy: {
+        processingTime: '2-3 days',
+        deliveryTimes: '3-5 days',
+        freeShippingPolicy: 'Free shipping on orders above $50',
+        allowsCod: true,
+        returnWindow: 14,
+        returnCondition: 'Good condition',
+        returnShipping: 'Buyer pays',
+        nonRefundableItems: ['Digital products'],
+        refundPolicy: 'Full refund within 14 days',
+        refundMethod: 'Original payment method',
+        lostOrDamagedPolicy: 'Replacement or refund',
+        exchangePolicy: 'Exchange within 7 days'
+      },
+      followers: [],
+      reviews: [],
+      stats: {
+        averageRating: 4.5,
+        totalReviews: 100,
+        ratingDistribution: { 1: 5, 2: 10, 3: 15, 4: 30, 5: 40 }
+      }
+    };
+
+    describe('findSellerById', () => {
+      it('should find seller by ID with selected fields', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellerById(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedSeller._id.toString());
+        expect(result.firstName).toBe('Jane');
+        expect(result.lastName).toBe('Smith');
+        expect(result.storeName).toBe('Jane\'s Store');
+        expect(result.password).toBeUndefined();
+        expect(result.bankDetails).toBeUndefined();
+        expect(result.otp).toBeUndefined();
+        expect(result.emailVerified).toBeUndefined();
+        expect(result.walletBalance).toBeUndefined();
+        expect(result.phoneNumber).toBeUndefined();
+      });
+
+      it('should return null when seller not found', async () => {
+        // Arrange
+        const nonExistentSellerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findSellerById(nonExistentSellerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('findOrdersBySeller', () => {
+      it('should find orders for a seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const orderData = {
+          buyer: savedBuyer._id,
+          seller: savedSeller._id,
+          orderNumber: 'ORD-001',
+          totalAmount: 1000,
+          status: 'delivered',
+          buyerDetails: {
+            _id: savedBuyer._id,
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            email: savedBuyer.email
+          },
+          items: [
+            {
+              product: new mongoose.Types.ObjectId(),
+              seller: savedSeller._id,
+              quantity: 1,
+              price: 1000,
+              status: 'delivered'
+            }
+          ],
+          shipping: {
+            method: 'standard',
+            status: 'delivered',
+            tracking: { status: 'delivered' }
+          },
+          paymentInfo: {
+            method: 'card',
+            status: 'completed'
+          }
+        };
+
+        const order = new Order(orderData);
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.findOrdersBySeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(1);
+        expect(result[0].seller.toString()).toBe(savedSeller._id.toString());
+        expect(result[0].buyer.toString()).toBe(savedBuyer._id.toString());
+      });
+
+      it('should return empty array when no orders found for seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findOrdersBySeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('countStreamsBySeller', () => {
+      it('should count streams for a seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        const Stream = require('@models/Stream');
+        const streamData = {
+          seller: savedSeller._id,
+          title: 'Live Stream 1',
+          status: 'live',
+          category: 'Electronics',
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 3600000) // 1 hour later
+        };
+
+        const stream1 = new Stream(streamData);
+        const stream2 = new Stream({ ...streamData, title: 'Live Stream 2' });
+        await stream1.save();
+        await stream2.save();
+
+        // Act
+        const result = await buyerRepository.countStreamsBySeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBe(2);
+      });
+
+      it('should return 0 when no streams found for seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.countStreamsBySeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBe(0);
+      });
+    });
+
+    describe('countBuyersFollowingSeller', () => {
+      it('should count buyers following a seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        const buyer1 = new Buyer(mockBuyerData);
+        const buyer2 = new Buyer({
+          ...mockBuyerData,
+          email: 'buyer2@example.com',
+          username: 'buyer2',
+          firstName: 'Buyer',
+          lastName: 'Two'
+        });
+        const savedBuyer1 = await buyer1.save();
+        const savedBuyer2 = await buyer2.save();
+
+        // Add followers to seller
+        seller.followers = [
+          { buyerId: savedBuyer1._id, firstName: 'John', lastName: 'Doe' },
+          { buyerId: savedBuyer2._id, firstName: 'Buyer', lastName: 'Two' }
+        ];
+        await seller.save();
+
+        // Act
+        const result = await buyerRepository.countBuyersFollowingSeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBe(2);
+      });
+
+      it('should return 0 when no buyers following seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.countBuyersFollowingSeller(savedSeller._id);
+
+        // Assert
+        expect(result).toBe(0);
+      });
+    });
+
+    describe('getSellerReviewStats', () => {
+      it('should get review statistics for a seller', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const product = new Product({
+          name: 'Test Product',
+          description: 'Test Description',
+          price: 1000,
+          seller: savedSeller._id,
+          category: 'Electronics',
+          brand: 'Test Brand',
+          stock: 10,
+          reviews: [{
+            buyer: savedBuyer._id,
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            rating: 5,
+            comment: 'Great product!',
+            createdAt: new Date()
+          }]
+        });
+        const savedProduct = await product.save();
+
+        const orderData = {
+          buyer: savedBuyer._id,
+          seller: savedSeller._id,
+          orderNumber: 'ORD-001',
+          totalAmount: 1000,
+          status: 'delivered',
+          buyerDetails: {
+            _id: savedBuyer._id,
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            email: savedBuyer.email
+          },
+          items: [
+            {
+              product: savedProduct._id,
+              seller: savedSeller._id,
+              quantity: 1,
+              price: 1000,
+              status: 'delivered'
+            }
+          ],
+          shipping: {
+            method: 'standard',
+            status: 'delivered',
+            tracking: { status: 'delivered' }
+          },
+          paymentInfo: {
+            method: 'card',
+            status: 'completed'
+          }
+        };
+
+        const order = new Order(orderData);
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.getSellerReviewStats(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(1);
+        expect(result[0]).toHaveProperty('totalReviews');
+        expect(result[0]).toHaveProperty('averageRating');
+        expect(result[0].totalReviews).toBe(1);
+        expect(result[0].averageRating).toBe(5);
+      });
+
+      it('should return empty array when no reviews found', async () => {
+        // Arrange
+        const seller = new Seller(mockSellerData);
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.getSellerReviewStats(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('incrementSellerStoreVisits', () => {
+      it('should increment store visits for a seller', async () => {
+        // Arrange
+        const seller = new Seller({
+          ...mockSellerData,
+          storeVisits: 10
+        });
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.incrementSellerStoreVisits(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.storeVisits).toBe(11);
+      });
+
+      it('should return null when seller not found', async () => {
+        // Arrange
+        const nonExistentSellerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.incrementSellerStoreVisits(nonExistentSellerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+    });
+  });
 }); 

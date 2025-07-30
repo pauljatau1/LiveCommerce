@@ -1,5 +1,8 @@
 const Buyer = require('../models/buyer.model');
 const Post = require('../../../models/Post');
+const Seller = require('../../../models/Seller');
+const Order = require('../../../models/Order');
+const Stream = require('../../../models/Stream');
 
 /**
  * Retrieves all buyers that match the given filters.
@@ -319,6 +322,102 @@ async function findByIdWithPopulatedWishlist(buyerId) {
     });
 }
 
+/**
+ * Update buyer's phone verification data.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} phoneVerificationData - The phone verification data to update
+ * @returns {Promise<Buyer|null>} Updated buyer or null if not found
+ */
+async function updatePhoneVerification(buyerId, phoneVerificationData) {
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  buyer.phoneVerification = phoneVerificationData;
+  return await buyer.save();
+}
+
+/**
+ * Find a seller by ID with selected fields.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Seller|null>} Seller with selected fields or null if not found
+ */
+async function findSellerById(sellerId) {
+  return Seller.findById(sellerId)
+    .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
+    .populate('reviews')
+    .lean();
+}
+
+/**
+ * Find orders for a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Array>} Array of orders
+ */
+async function findOrdersBySeller(sellerId) {
+  return Order.find({ seller: sellerId });
+}
+
+/**
+ * Count streams for a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<number>} Number of streams
+ */
+async function countStreamsBySeller(sellerId) {
+  return Stream.countDocuments({ seller: sellerId });
+}
+
+/**
+ * Count buyers following a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<number>} Number of followers
+ */
+async function countBuyersFollowingSeller(sellerId) {
+  const seller = await Seller.findById(sellerId).select('followers');
+  return seller ? (seller.followers?.length || 0) : 0;
+}
+
+/**
+ * Get review statistics for a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Object>} Review statistics
+ */
+async function getSellerReviewStats(sellerId) {
+  const mongoose = require('mongoose');
+  
+  return Order.aggregate([
+    { $match: { seller: new mongoose.Types.ObjectId(sellerId) } },
+    { $unwind: '$items' },
+    {
+      $lookup: {
+        from: 'products',
+        localField: 'items.product',
+        foreignField: '_id',
+        as: 'productData'
+      }
+    },
+    { $unwind: '$productData' },
+    { $unwind: '$productData.reviews' },
+    {
+      $group: {
+        _id: null,
+        totalReviews: { $sum: 1 },
+        averageRating: { $avg: '$productData.reviews.rating' }
+      }
+    }
+  ]);
+}
+
+/**
+ * Increment store visits for a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Seller|null>} Updated seller or null if not found
+ */
+async function incrementSellerStoreVisits(sellerId) {
+  return Seller.findByIdAndUpdate(sellerId, { $inc: { storeVisits: 1 } }, { new: true });
+}
+
 module.exports = {
   findAll,
   save,
@@ -342,5 +441,12 @@ module.exports = {
   addShippingAddress,
   updateShippingAddress,
   deleteShippingAddress,
-  findByIdWithPopulatedWishlist
+  findByIdWithPopulatedWishlist,
+  updatePhoneVerification,
+  findSellerById,
+  findOrdersBySeller,
+  countStreamsBySeller,
+  countBuyersFollowingSeller,
+  getSellerReviewStats,
+  incrementSellerStoreVisits
 };
