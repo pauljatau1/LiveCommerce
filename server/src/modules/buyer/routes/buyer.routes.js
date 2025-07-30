@@ -1865,6 +1865,61 @@ router.post('/identity-verification', verifyToken, upload.single('identityDocume
  */
 router.post('/send-phone-otp', verifyToken, isBuyer, buyerController.sendPhoneOTP);
 
-
+/**
+ * @swagger
+ * /api/v2/buyers/verify-phone-otp:
+ *   post:
+ *     summary: Verify phone OTP for verification
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - otp
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: 6-digit OTP received on phone
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Phone number verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Phone number verified successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Phone number verified successfully"
+ *                     phoneVerified:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Bad Request - Invalid OTP, expired OTP, or too many attempts
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid OTP format or no verification in progress
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verify-phone-otp', verifyToken, isBuyer, buyerController.verifyPhoneOTP);
 
 module.exports = router;
