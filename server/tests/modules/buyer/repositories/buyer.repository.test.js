@@ -2699,5 +2699,139 @@ describe('Buyer Repository', () => {
           .toThrow('Cast to ObjectId failed for value "invalid-id" (type string) at path "_id" for model "Buyer"');
       });
     });
+
+    describe('findSellersFollowingByBuyer', () => {
+      it('should find sellers that a buyer follows', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          businessName: 'Doe Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar1.jpg' },
+          profileImage: { url: 'https://cdn.example.com/profile1.jpg' },
+          followers: [
+            {
+              buyerId: buyerId,
+              firstName: 'Bob',
+              lastName: 'Smith',
+              email: 'bob.smith@example.com',
+              followDate: new Date('2024-01-15T10:30:00.000Z'),
+              totalOrders: 0,
+              mainAddress: null
+            }
+          ]
+        });
+        
+        const seller2 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Wilson',
+          email: 'jane.wilson@example.com',
+          phoneNumber: '+1234567891',
+          password: 'password123',
+          storeName: 'Jane\'s Store',
+          businessName: 'Wilson Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar2.jpg' },
+          profileImage: { url: 'https://cdn.example.com/profile2.jpg' },
+          followers: [
+            {
+              buyerId: buyerId,
+              firstName: 'Bob',
+              lastName: 'Smith',
+              email: 'bob.smith@example.com',
+              followDate: new Date('2024-01-16T11:30:00.000Z'),
+              totalOrders: 0,
+              mainAddress: null
+            }
+          ]
+        });
+        
+        const seller3 = new Seller({
+          firstName: 'Mike',
+          lastName: 'Johnson',
+          email: 'mike.johnson@example.com',
+          phoneNumber: '+1234567892',
+          password: 'password123',
+          storeName: 'Mike\'s Store',
+          businessName: 'Johnson Enterprises',
+          followers: [] // No followers
+        });
+
+        await seller1.save();
+        await seller2.save();
+        await seller3.save();
+
+        // Act
+        const result = await buyerRepository.findSellersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result[0].firstName).toBe('John');
+        expect(result[0].lastName).toBe('Doe');
+        expect(result[0].storeName).toBe('John\'s Electronics');
+        expect(result[1].firstName).toBe('Jane');
+        expect(result[1].lastName).toBe('Wilson');
+        expect(result[1].storeName).toBe('Jane\'s Store');
+      });
+
+      it('should return empty array when buyer follows no sellers', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          followers: [] // No followers
+        });
+
+        await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should handle invalid buyer ID', async () => {
+        // Act & Assert
+        await expect(buyerRepository.findSellersFollowingByBuyer('invalid-id'))
+          .rejects
+          .toThrow('Cast to ObjectId failed for value "invalid-id" (type string) at path "buyerId" for model "Seller"');
+      });
+    });
+
+    describe('findBuyersFollowingByBuyer', () => {
+      it('should return empty array as buyers do not follow other buyers', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          followers: []
+        });
+
+        await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+    });
   });
 }); 

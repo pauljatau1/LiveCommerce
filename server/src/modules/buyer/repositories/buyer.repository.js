@@ -431,6 +431,28 @@ async function findByIdWithPopulatedFollowers(buyerId) {
     });
 }
 
+/**
+ * Find sellers that a buyer follows.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of sellers that the buyer follows
+ */
+async function findSellersFollowingByBuyer(buyerId) {
+  return Seller.find({
+    'followers.buyerId': buyerId
+  }).select('_id firstName lastName storeName businessName storeAvatar profileImage followers');
+}
+
+/**
+ * Find buyers that a buyer follows.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of buyers that the buyer follows
+ */
+async function findBuyersFollowingByBuyer(buyerId) {
+  // Note: Buyers don't follow other buyers in the current schema
+  // This method is kept for future extensibility
+  return [];
+}
+
 module.exports = {
   findAll,
   save,
@@ -462,5 +484,7 @@ module.exports = {
   countBuyersFollowingSeller,
   getSellerReviewStats,
   incrementSellerStoreVisits,
-  findByIdWithPopulatedFollowers
+  findByIdWithPopulatedFollowers,
+  findSellersFollowingByBuyer,
+  findBuyersFollowingByBuyer
 };
