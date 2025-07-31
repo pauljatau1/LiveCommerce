@@ -2222,6 +2222,109 @@ router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerP
  */
 router.get('/followers', verifyToken, isBuyer, buyerController.getFollowers);
 
+/**
+ * @swagger
+ * /api/v2/buyers/following:
+ *   get:
+ *     summary: Get list of users the buyer follows (both buyers and sellers)
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Following list retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Following retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     following:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: User ID (seller or buyer)
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           type:
+ *                             type: string
+ *                             enum: [buyer, seller]
+ *                             example: "seller"
+ *                           name:
+ *                             type: string
+ *                             description: User's full name
+ *                             example: "John Doe"
+ *                           storeName:
+ *                             type: string
+ *                             nullable: true
+ *                             description: Store name (only for sellers)
+ *                             example: "John's Electronics"
+ *                           profileImage:
+ *                             type: string
+ *                             nullable: true
+ *                             description: URL to profile image
+ *                             example: "https://cdn.example.com/profile.jpg"
+ *                           followDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: When the buyer started following this user
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of following
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid pagination parameters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/following', verifyToken, isBuyer, buyerController.getFollowing);
+
 
 
 module.exports = router;
