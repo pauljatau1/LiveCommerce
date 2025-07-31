@@ -2121,4 +2121,107 @@ router.post('/verify-phone-otp', verifyToken, isBuyer, buyerController.verifyPho
  */
 router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerProfile);
 
+/**
+ * @swagger
+ * /api/v2/buyers/followers:
+ *   get:
+ *     summary: Get buyer's followers with pagination
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Followers retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     followers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: Seller ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           type:
+ *                             type: string
+ *                             enum: [seller]
+ *                             example: "seller"
+ *                           name:
+ *                             type: string
+ *                             description: Seller's full name
+ *                             example: "John Doe"
+ *                           storeName:
+ *                             type: string
+ *                             description: Store or business name
+ *                             example: "John's Electronics"
+ *                           profileImage:
+ *                             type: string
+ *                             description: URL to profile image
+ *                             example: "https://cdn.example.com/profile.jpg"
+ *                           followDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: When the seller started following the buyer
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of followers
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid pagination parameters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/followers', verifyToken, isBuyer, buyerController.getFollowers);
+
+
+
 module.exports = router;

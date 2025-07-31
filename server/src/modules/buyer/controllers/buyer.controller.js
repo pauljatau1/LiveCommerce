@@ -24,6 +24,7 @@ const uploadIdentityDocumentService = require('../services/uploadIdentityDocumen
 const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
 const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
 const getSellerProfileService = require('../services/getSellerProfile.service');
+const getFollowersService = require('../services/getFollowers.service');
 
 
 /**
@@ -630,6 +631,32 @@ async function getSellerProfile(req, res, next) {
   }
 }
 
+/**
+ * Get followers for the authenticated buyer
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getFollowers(req, res, next) {
+  try {
+    const buyerId = req.user.id;
+
+    const pagination = getFollowersService.getPaginationOptions(req);
+    const filters = getFollowersService.getFilters(req);
+
+    let followers = [];
+    if (pagination.enabled) {
+      const params = { ...pagination, filters: filters };
+      followers = await getFollowersService.listPaginatedFollowers(buyerId, params);
+    } else {
+      followers = await getFollowersService.listFollowers(buyerId, filters);
+    }
+
+    return res.success(followers, 'Followers retrieved successfully', 200);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -657,4 +684,5 @@ module.exports = {
   sendPhoneOTP,
   verifyPhoneOTP,
   getSellerProfile,
+  getFollowers,
 };
