@@ -96,16 +96,7 @@ module.exports = ({ config }) => {
           {
             android: {
               googleServicesFile: "./google-services.json",
-            },
-            ios: {
-              pushNotification: {
-                useRichPush: false,
-                env: {
-                  cdpApiKey: "dc26bc9d13796901d562",
-                  region: "us",
-                },
-              },
-            },
+            }
           },
         ],
         // [
