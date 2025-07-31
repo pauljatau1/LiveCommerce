@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info, AlertTriangle, MinusCircle } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info, AlertTriangle, MinusCircle, Edit2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -194,6 +194,12 @@ function Products() {
   const [sellerSearch, setSellerSearch] = useState('')
   const [sellerSearchInput, setSellerSearchInput] = useState('')
   const [loadingMoreSellers, setLoadingMoreSellers] = useState(false)
+
+  // State for updating sold count
+  const [soldCountModalOpen, setSoldCountModalOpen] = useState(false);
+  const [productToUpdateSold, setProductToUpdateSold] = useState<Product | null>(null);
+  const [newSoldCount, setNewSoldCount] = useState('');
+  const [updatingSoldCount, setUpdatingSoldCount] = useState(false);
 
   useEffect(() => {
     setLoading(true)
@@ -811,6 +817,43 @@ function Products() {
     }
   }
 
+  // Handler to open sold count modal
+  const openSoldCountModal = (product: Product) => {
+    setProductToUpdateSold(product);
+    setNewSoldCount(product.stats?.soldCount?.toString() || '');
+    setSoldCountModalOpen(true);
+  };
+
+  // Handler to update sold count
+  const handleUpdateSoldCount = async () => {
+    if (!productToUpdateSold || !newSoldCount) return;
+    const soldCountNum = parseInt(newSoldCount, 10);
+    if (isNaN(soldCountNum) || soldCountNum < 0) {
+      toast.error('Please enter a valid sold count');
+      return;
+    }
+    setUpdatingSoldCount(true);
+    try {
+      const response = await api.patch(`/api/v2/admin/products/${productToUpdateSold._id}/sold-count`, { soldCount: soldCountNum });
+      if (response.data.status) {
+        toast.success(response.data.message || 'Sold count updated');
+        // Update product in list
+        setProducts(prev => prev.map(p =>
+          p._id === productToUpdateSold._id
+            ? { ...p, stats: { ...p.stats, soldCount: soldCountNum } }
+            : p
+        ));
+        setSoldCountModalOpen(false);
+      } else {
+        toast.error(response.data.message || 'Failed to update sold count');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update sold count');
+    } finally {
+      setUpdatingSoldCount(false);
+    }
+  };
+
   // Initial loading state for the entire page
   if (loading && pagination.currentPage === 1 && products.length === 0) {
     return (
@@ -1292,6 +1335,15 @@ function Products() {
                         <div className="flex items-center gap-2 bg-blue-900/30 px-2 py-1 rounded-md">
                           <Package2 className="h-3 w-3 text-blue-400" />
                           <span className="text-slate-300"><span className="font-semibold text-blue-300">{product.stats?.soldCount || 0}</span> sold</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="ml-1 p-1 h-6 w-6 text-blue-400 hover:text-blue-300"
+                            onClick={() => openSoldCountModal(product)}
+                            title="Edit Sold Count"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
                         </div>
                         <div className="flex items-center gap-2 bg-purple-900/30 px-2 py-1 rounded-md">
                           <Eye className="h-3 w-3 text-purple-400" />
@@ -2067,6 +2119,52 @@ function Products() {
             >
               {disablingProduct ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MinusCircle className="h-4 w-4 mr-2" />}
               Disable Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sold Count Update Modal */}
+      <Dialog open={soldCountModalOpen} onOpenChange={setSoldCountModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Sold Count</DialogTitle>
+            <DialogDescription>
+              {productToUpdateSold && (
+                <>
+                  Update sold count for <span className="font-medium">{productToUpdateSold.name}</span>.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="sold-count-input" className="block text-sm font-medium mb-2">
+              New Sold Count
+            </label>
+            <input
+              id="sold-count-input"
+              type="number"
+              min="0"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={newSoldCount}
+              onChange={e => setNewSoldCount(e.target.value)}
+              disabled={updatingSoldCount}
+            />
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleUpdateSoldCount}
+              disabled={updatingSoldCount}
+            >
+              {updatingSoldCount ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Edit2 className="h-4 w-4 mr-2" />}
+              Update Sold Count
             </Button>
           </DialogFooter>
         </DialogContent>

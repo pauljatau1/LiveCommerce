@@ -31,7 +31,8 @@ import {
   BoltIcon,
   Zap,
   FolderTree,
-  Terminal
+  Terminal,
+  AlertTriangle
 } from 'lucide-react';
 
 // Interface for simplified seller data
@@ -79,6 +80,7 @@ const mainLinks = [
   { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
   { icon: FileText, label: 'Return Requests', path: '/dashboard/return-requests' },
   { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests', showPendingCount: true },
+  { icon: AlertTriangle, label: 'System Logs', path: '/dashboard/error-logs' },
 ];
 
 

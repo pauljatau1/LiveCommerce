@@ -223,7 +223,7 @@ const TerminalShipments: React.FC = () => {
     "shipment.created",
     "shipment.updated",
     "shipment.cancelled",
-    "shipment.in_transit",
+    "shipment.in-transit",
     "shipment.delivered",
     "packaging.created",
     "packaging.updated",
