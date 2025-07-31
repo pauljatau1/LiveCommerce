@@ -19,6 +19,7 @@ const statusColor = {
   confirmed: { name: "Confirmed", color: "#FFF8DE" },
   pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
+  "picked-up": { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   "in-transit": { name: "Dispatched", color: "rgb(219 234 254)" },
   shipped: { name: "Dispatched", color: "rgb(219 234 254)" },
