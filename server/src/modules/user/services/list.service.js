@@ -28,15 +28,15 @@ async function listUsers({ filters }) {
  */
 async function listPaginatedUsers({ page, limit, filters }) {
   const users = await userRepository.findAllPaginated({ page, limit, filters });
-  const totalUsers = await userRepository.countUsers(filters);
+  const total = await userRepository.countUsers(filters);
 
   return {
     data: users,
     pagination: {
       page,
       limit,
-      totalUsers,
-      pages: Math.ceil(totalUsers / limit),
+      total,
+      pages: Math.ceil(total / limit),
     },
   };
 }

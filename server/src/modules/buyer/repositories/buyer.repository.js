@@ -418,6 +418,19 @@ async function incrementSellerStoreVisits(sellerId) {
   return Seller.findByIdAndUpdate(sellerId, { $inc: { storeVisits: 1 } }, { new: true });
 }
 
+/**
+ * Find buyer with populated followers.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with populated followers or null if not found
+ */
+async function findByIdWithPopulatedFollowers(buyerId) {
+  return Buyer.findById(buyerId)
+    .populate({
+      path: 'followers.sellerId',
+      select: 'firstName lastName storeName businessName profileImage storeAvatar'
+    });
+}
+
 module.exports = {
   findAll,
   save,
@@ -448,5 +461,6 @@ module.exports = {
   countStreamsBySeller,
   countBuyersFollowingSeller,
   getSellerReviewStats,
-  incrementSellerStoreVisits
+  incrementSellerStoreVisits,
+  findByIdWithPopulatedFollowers
 };

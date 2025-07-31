@@ -2557,5 +2557,147 @@ describe('Buyer Repository', () => {
         expect(result).toBeNull();
       });
     });
+
+    describe('findByIdWithPopulatedFollowers', () => {
+      it('should find buyer with populated followers', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          businessName: 'Doe Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar.jpg' }
+        });
+        const savedSeller = await seller.save();
+
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          followers: [{
+            sellerId: savedSeller._id,
+            storeName: 'John\'s Electronics',
+            followDate: new Date('2024-01-15T10:30:00.000Z')
+          }]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(1);
+        expect(result.followers[0].sellerId).toBeDefined();
+        expect(result.followers[0].sellerId.firstName).toBe('John');
+        expect(result.followers[0].sellerId.lastName).toBe('Doe');
+        expect(result.followers[0].sellerId.storeName).toBe('John\'s Electronics');
+        expect(result.followers[0].sellerId.businessName).toBe('Doe Enterprises');
+        expect(result.followers[0].sellerId.storeAvatar).toBeDefined();
+        expect(result.followers[0].sellerId.storeAvatar.url).toBe('https://cdn.example.com/avatar.jpg');
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with no followers', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          followers: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(0);
+      });
+
+      it('should handle buyer with multiple followers', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          profileImage: { url: 'https://cdn.example.com/profile1.jpg' }
+        });
+        const seller2 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Wilson',
+          email: 'jane.wilson@example.com',
+          phoneNumber: '+1234567891',
+          password: 'password123',
+          businessName: 'Wilson Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar2.jpg' }
+        });
+        const savedSeller1 = await seller1.save();
+        const savedSeller2 = await seller2.save();
+
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Smith',
+          email: 'bob.smith@example.com',
+          username: 'bobsmith',
+          password: 'password123',
+          followers: [
+            {
+              sellerId: savedSeller1._id,
+              storeName: 'John\'s Electronics',
+              followDate: new Date('2024-01-15T10:30:00.000Z')
+            },
+            {
+              sellerId: savedSeller2._id,
+              businessName: 'Wilson Enterprises',
+              followDate: new Date('2024-01-16T11:30:00.000Z')
+            }
+          ]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(2);
+        expect(result.followers[0].sellerId.firstName).toBe('John');
+        expect(result.followers[0].sellerId.lastName).toBe('Doe');
+        expect(result.followers[1].sellerId.firstName).toBe('Jane');
+        expect(result.followers[1].sellerId.lastName).toBe('Wilson');
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Act & Assert
+        await expect(buyerRepository.findByIdWithPopulatedFollowers('invalid-id'))
+          .rejects
+          .toThrow('Cast to ObjectId failed for value "invalid-id" (type string) at path "_id" for model "Buyer"');
+      });
+    });
   });
 }); 
