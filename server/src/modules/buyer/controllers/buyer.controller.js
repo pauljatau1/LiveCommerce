@@ -26,6 +26,7 @@ const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
 const getSellerProfileService = require('../services/getSellerProfile.service');
 const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
+const reviewSellerService = require('../services/reviewSeller.service');
 
 
 /**
@@ -684,6 +685,26 @@ async function getFollowing(req, res, next) {
   }
 }
 
+/**
+ * Review a seller's store
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+async function reviewSeller(req, res, next) {
+  try {
+    const buyerId = req.user.id;
+    const { sellerId } = req.params;
+    const { rating, comment } = req.body;
+
+    const review = await reviewSellerService.reviewSeller(buyerId, sellerId, { rating, comment });
+
+    return res.success({ review }, 'Review submitted successfully', 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -713,4 +734,5 @@ module.exports = {
   getSellerProfile,
   getFollowers,
   getFollowing,
+  reviewSeller,
 };
