@@ -2325,6 +2325,112 @@ router.get('/followers', verifyToken, isBuyer, buyerController.getFollowers);
  */
 router.get('/following', verifyToken, isBuyer, buyerController.getFollowing);
 
+/**
+ * @swagger
+ * /api/v2/buyers/seller/{sellerId}/review:
+ *   post:
+ *     summary: Write a review for a seller's store
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to review
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *               - comment
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating from 1 to 5
+ *                 example: 5
+ *               comment:
+ *                 type: string
+ *                 minLength: 10
+ *                 description: Review comment
+ *                 example: "Great seller! Fast delivery and excellent products."
+ *     responses:
+ *       201:
+ *         description: Review created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Review submitted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     review:
+ *                       type: object
+ *                       properties:
+ *                         buyer:
+ *                           type: string
+ *                           description: Buyer ID
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         rating:
+ *                           type: number
+ *                           example: 5
+ *                         comment:
+ *                           type: string
+ *                           example: "Great seller! Fast delivery and excellent products."
+ *                         buyerName:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         buyerImage:
+ *                           type: string
+ *                           nullable: true
+ *                           example: "https://cdn.example.com/profile.jpg"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                         isVerifiedPurchase:
+ *                           type: boolean
+ *                           example: true
+ *       400:
+ *         description: Invalid input or already reviewed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You have already reviewed this seller"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Buyer must be a follower or have made a purchase
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/seller/:sellerId/review', verifyToken, isBuyer, buyerController.reviewSeller);
+
 
 
 module.exports = router;

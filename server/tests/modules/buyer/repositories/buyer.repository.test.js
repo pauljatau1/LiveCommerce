@@ -2194,6 +2194,19 @@ describe('Buyer Repository', () => {
       isVerified: true,
       isFeatured: false,
       accountPending: false,
+      emailVerified: true,
+      otp: '123456',
+      walletBalance: 1000,
+      bankDetails: {
+        bankCountry: 'Nigeria',
+        bankName: 'First Bank',
+        bankAccountType: 'Savings',
+        accountCurrency: 'NGN',
+        accountNumber: '1234567890',
+        accountName: 'Jane Smith',
+        swiftCode: 'FBNING',
+        bankIdentifierCode: 'FBNING'
+      },
       storeAvatar: { url: 'https://example.com/avatar.jpg' },
       storeBanner: { url: 'https://example.com/banner.jpg' },
       socialMedia: {
@@ -2260,19 +2273,22 @@ describe('Buyer Repository', () => {
 
         // Act
         const result = await buyerRepository.findSellerById(savedSeller._id);
-
+        
         // Assert
         expect(result).toBeDefined();
         expect(result._id.toString()).toBe(savedSeller._id.toString());
         expect(result.firstName).toBe('Jane');
         expect(result.lastName).toBe('Smith');
         expect(result.storeName).toBe('Jane\'s Store');
-        expect(result.password).toBeUndefined();
-        expect(result.bankDetails).toBeUndefined();
-        expect(result.otp).toBeUndefined();
-        expect(result.emailVerified).toBeUndefined();
-        expect(result.walletBalance).toBeUndefined();
-        expect(result.phoneNumber).toBeUndefined();
+        
+        // Check that sensitive fields are excluded
+        const resultObj = result.toObject();
+        expect(resultObj.password).toBeUndefined();
+        expect(resultObj.bankDetails).toBeUndefined();
+        expect(resultObj.otp).toBeUndefined();
+        expect(resultObj.emailVerified).toBeUndefined();
+        expect(resultObj.walletBalance).toBeUndefined();
+        expect(resultObj.phoneNumber).toBeUndefined();
       });
 
       it('should return null when seller not found', async () => {
@@ -2831,6 +2847,148 @@ describe('Buyer Repository', () => {
 
         // Assert
         expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('hasVerifiedPurchase', () => {
+      it('should return true when buyer has made a verified purchase from seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+        
+        const order = new Order({
+          buyer: buyerId,
+          seller: sellerId,
+          totalAmount: 100,
+          buyerDetails: {
+            _id: buyerId,
+            firstName: 'John',
+            lastName: 'Doe'
+          },
+          paymentInfo: {
+            status: 'completed'
+          },
+          shipping: {
+            tracking: {
+              status: 'delivered'
+            }
+          },
+          items: [
+            {
+              product: new mongoose.Types.ObjectId('507f1f77bcf86cd799439013'),
+              seller: sellerId,
+              quantity: 1,
+              price: 100
+            }
+          ]
+        });
+
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(true);
+      });
+
+      it('should return false when buyer has not made a verified purchase from seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+        
+        const order = new Order({
+          buyer: buyerId,
+          seller: sellerId,
+          totalAmount: 100,
+          buyerDetails: {
+            _id: buyerId,
+            firstName: 'John',
+            lastName: 'Doe'
+          },
+          paymentInfo: {
+            status: 'pending'
+          },
+          shipping: {
+            tracking: {
+              status: 'shipped'
+            }
+          },
+          items: [
+            {
+              product: new mongoose.Types.ObjectId('507f1f77bcf86cd799439013'),
+              seller: sellerId,
+              quantity: 1,
+              price: 100
+            }
+          ]
+        });
+
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(false);
+      });
+
+      it('should return false when no order exists between buyer and seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('saveSeller', () => {
+      it('should save seller successfully', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Store',
+          businessName: 'Doe Enterprises'
+        });
+
+        // Act
+        const result = await buyerRepository.saveSeller(seller);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id).toBeDefined();
+        expect(result.firstName).toBe('John');
+        expect(result.lastName).toBe('Doe');
+        expect(result.storeName).toBe('John\'s Store');
+      });
+
+      it('should update existing seller successfully', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Store'
+        });
+
+        const savedSeller = await seller.save();
+        savedSeller.storeName = 'Updated Store Name';
+
+        // Act
+        const result = await buyerRepository.saveSeller(savedSeller);
+
+        // Assert
+        expect(result.storeName).toBe('Updated Store Name');
       });
     });
   });

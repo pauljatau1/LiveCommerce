@@ -345,9 +345,8 @@ async function updatePhoneVerification(buyerId, phoneVerificationData) {
  */
 async function findSellerById(sellerId) {
   return Seller.findById(sellerId)
-    .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
-    .populate('reviews')
-    .lean();
+    .select('firstName lastName email businessName businessType taxInformation businessEmail businessNumber accountPending businessAddress accountType isVerified isInternational verificationDocuments smileIdVerification cancelledStreamCount lastStreamCancellation categories shippingOptions warehouseDetails storeName aboutStore storeAvatar storeBanner socialMedia vacationMode createdAt updatedAt followers reviews stats')
+    .populate('reviews');
 }
 
 /**
@@ -453,6 +452,31 @@ async function findBuyersFollowingByBuyer(buyerId) {
   return [];
 }
 
+/**
+ * Check if buyer has made a verified purchase from seller.
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<boolean>} True if buyer has made a verified purchase
+ */
+async function hasVerifiedPurchase(buyerId, sellerId) {
+  const completedOrder = await Order.findOne({
+    buyer: buyerId,
+    seller: sellerId,
+    'paymentInfo.status': 'completed',
+    'shipping.tracking.status': 'delivered'
+  });
+  return !!completedOrder;
+}
+
+/**
+ * Save a seller instance.
+ * @param {Object} seller - The seller instance to save
+ * @returns {Promise<Seller>} The saved seller
+ */
+async function saveSeller(seller) {
+  return seller.save();
+}
+
 module.exports = {
   findAll,
   save,
@@ -486,5 +510,7 @@ module.exports = {
   incrementSellerStoreVisits,
   findByIdWithPopulatedFollowers,
   findSellersFollowingByBuyer,
-  findBuyersFollowingByBuyer
+  findBuyersFollowingByBuyer,
+  hasVerifiedPurchase,
+  saveSeller
 };
