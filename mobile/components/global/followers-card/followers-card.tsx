@@ -27,7 +27,7 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
       method = "DELETE";
     }
     const config = {
-      url: process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${item}`,
+      url: process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${item}`,
       method,
       headers: {
         Authorization: "Bearer " + token,

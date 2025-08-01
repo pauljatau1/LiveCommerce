@@ -108,16 +108,16 @@ const CreateAccount = () => {
     };
     try {
       const result = await signUp(details).unwrap();
-      await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+      await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
 
       try {
         if (result) {
           // Identify the user directly after signup
-          identifyUser(result?.user?._id, {
+          identifyUser(result?.data?.user?._id, {
             "$email": email,
-            "$name": `${result?.user?.firstName} ${result?.user?.lastName}`,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
+            "$name": `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
@@ -125,23 +125,23 @@ const CreateAccount = () => {
 
           // Track event for buyer signup
           trackMixpanelEvent("buyer_account_created", {
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             "$email": email,
-            "$name": `${result?.user?.firstName} ${result?.user?.lastName}`,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
+            "$name": `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
           });
           // Track event for buyer signup
           trackCustomerioEvent("buyer_account_created", {
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             email: email,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
@@ -149,10 +149,10 @@ const CreateAccount = () => {
 
           trackFacebookEvent("CompleteRegistration", {
             email: email,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
@@ -160,12 +160,12 @@ const CreateAccount = () => {
 
           trackMixpanelEvent("signup_method", {
             signup_method: email ? "email" : "not email",
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             email: email,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
             osType: Platform.OS,
             timestamp: new Date().toISOString(),
@@ -184,7 +184,7 @@ const CreateAccount = () => {
       });
     } catch (error: any) {
       console.log(error.data);
-      toast.error(error.data.message);
+      toast.error(error.data?.errors[0]?.message || error?.data?.message || "Sorry, your account could not be created at this time. Please try again!" );
     }
   };
 

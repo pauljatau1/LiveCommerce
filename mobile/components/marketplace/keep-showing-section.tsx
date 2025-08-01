@@ -158,7 +158,7 @@ const KeepShowingSection = () => {
   }, [page]);
 
   return (
-    <View className=" w-[100%] pb-[10px] flex-1">
+    <View className=" w-[100%] pb-[10px] pt-[16px] flex-1">
       <View className="flex-row items-center justify-between">
         <SectionHeader title="Keep shopping" />
       </View>

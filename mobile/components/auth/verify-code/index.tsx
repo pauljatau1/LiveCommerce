@@ -49,19 +49,30 @@ const VerifyCodeOtp = () => {
   const [verify, { isLoading }] = useVerifyEmailMutation();
 
   const resendOtp = async (actioned: boolean) => {
+    if(!actioned && !params?.fromLogin)
+    {
+      return
+    }
     try {
       const response = await axios.post(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/resend-otp`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/auth/resend-otp`,
         {
           email,
         },
       );
       if (actioned) {
-        toast.success("OTP has been Resent");
+        if(response.data?.success)
+        {
+          toast.success("OTP has been Resent");
+        }
+        else
+        {
+          toast.error(response.data?.data?.message)
+        }
       }
     } catch (error: any) {
       console.log(error);
-      toast.error(error.data.message);
+      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Could not Resend OTP");
     }
   };
 
@@ -72,12 +83,17 @@ const VerifyCodeOtp = () => {
         email,
         otp,
       }).unwrap();
+      if(result?.success)
+      {
+
       toast.success("success");
-      await AsyncStorage.setItem("fromVerify", JSON.stringify(result));
-      // router.push({
-      //     pathname: '/(root)/(auth)/sign-in',
-      // });
+      await AsyncStorage.setItem("fromVerify", JSON.stringify(result?.data));
       router.replace("/(root)/(categories)/category");
+    }
+else
+{
+  toast.error(result?.message)
+}
     } catch (error: any) {
       console.log(error);
       toast.error(error.data.message);

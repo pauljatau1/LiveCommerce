@@ -23,7 +23,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/wishlist",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/wishlist",
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -31,7 +31,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
         },
       );
 
-      setWishList(response.data.map((wh: any) => wh.product));
+      setWishList(response.data?.data?.map((wh: any) => wh.product));
     } catch (e) {
       console.log(e);
     } finally {
@@ -47,14 +47,14 @@ const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
     return (
       <View className="w-[100%] basis-[49%]">
         <CatalogCard
-          key={item.id}
-          id={item._id}
-          title={item.name}
-          price={item.price}
-          category={item.category}
-          sellerName={item.seller?.storeName}
-          imageUrl={item.images}
-          sellerRating={item.stats?.averageRating}
+          key={item?.id}
+          id={item?._id}
+          title={item?.name}
+          price={item?.price}
+          category={item?.category}
+          sellerName={item?.seller?.storeName}
+          imageUrl={item?.images}
+          sellerRating={item?.stats?.averageRating}
           moreDetails={item}
           profileImage={undefined}
           location={""}

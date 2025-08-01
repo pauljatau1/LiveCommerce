@@ -85,8 +85,8 @@ const Login = () => {
         password,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
-      if (!result?.user?.emailVerified) {
-        await AsyncStorage.setItem("registerPayload", JSON.stringify(result));
+      if (!result?.data?.user?.emailVerified) {
+        await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
         return router.push({
           pathname: "/(root)/(auth)/verify-code",
           params: {
@@ -95,7 +95,7 @@ const Login = () => {
           },
         });
       }
-      dispatch(signIn(result));
+      dispatch(signIn(result?.data));
       setPassword(password);
       setUserEmail(email);
 
@@ -103,40 +103,40 @@ const Login = () => {
       try {
         if (result) {
           // Identify the user directly
-          identifyUser(result?.user?._id, {
+          identifyUser(result?.data?.user?._id, {
             "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
-            shippingAddress: result?.user?.shippingAddresses[0],
-            country: result?.user?.country,
-            emailVerified: result?.user?.emailVerified,
-            walletBalance: result?.user?.wallet?.balance,
-            onHoldAmount: result?.user?.wallet?.onHoldAmount,
-            onHoldItems: result?.user?.wallet?.onHoldAmount
-              ? result?.user?.wallet?.onHoldItems[0]
+            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
+            shippingAddress: result?.data?.user?.shippingAddresses[0],
+            country: result?.data?.user?.country,
+            emailVerified: result?.data?.user?.emailVerified,
+            walletBalance: result?.data?.user?.wallet?.balance,
+            onHoldAmount: result?.data?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.data?.user?.wallet?.onHoldAmount
+              ? result?.data?.user?.wallet?.onHoldItems[0]
               : "none",
             "User Type": "Buyer",
             timestamp: new Date().toISOString(),
           });
 
           trackEvent("buyer_login", {
-            userId: result?.user?._id,
+            userId: result?.data?.user?._id,
             "$email": email,
-            "$name": result?.user?.firstName + " " + result?.user?.lastName,
-            firstName: result?.user?.firstName,
-            lastName: result?.user?.lastName,
-            username: result?.user?.username,
-            phoneNumber: result?.user?.phoneNumber,
-            shippingAddress: result?.user?.shippingAddresses[0],
-            country: result?.user?.country,
-            emailVerified: result?.user?.emailVerified,
-            walletBalance: result?.user?.wallet?.balance,
-            onHoldAmount: result?.user?.wallet?.onHoldAmount,
-            onHoldItems: result?.user?.wallet?.onHoldAmount
-              ? result?.user?.wallet?.onHoldItems[0]
+            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            firstName: result?.data?.user?.firstName,
+            lastName: result?.data?.user?.lastName,
+            username: result?.data?.user?.username,
+            phoneNumber: result?.data?.user?.phoneNumber,
+            shippingAddress: result?.data?.user?.shippingAddresses[0],
+            country: result?.data?.user?.country,
+            emailVerified: result?.data?.user?.emailVerified,
+            walletBalance: result?.data?.user?.wallet?.balance,
+            onHoldAmount: result?.data?.user?.wallet?.onHoldAmount,
+            onHoldItems: result?.data?.user?.wallet?.onHoldAmount
+              ? result?.data?.user?.wallet?.onHoldItems[0]
               : "none",
             "User Type": "Buyer",
             timestamp: new Date().toISOString(),
@@ -147,13 +147,12 @@ const Login = () => {
         // Allow login flow to continue even if tracking fails
       }
 
-      if (result?.user?.selectedCategories?.length! > 0) {
+      if (result?.data?.user?.selectedCategories?.length! > 0) {
         router.replace("/(root)/(tabs)/blips");
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
-      console.log(error);
-
-      toast.error(error.data.message);
+      console.log(error?.data?.message);
+      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Error Logging in. Please try Again!");
     }
   };
 
@@ -192,10 +191,10 @@ const Login = () => {
         profileImage: googleResponse?.user?.photo,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
-      dispatch(signIn(result));
-      setPassword(result?.user?.password!);
-      setUserEmail(result?.user?.email!);
-      if (result?.user?.selectedCategories?.length! > 0) {
+      dispatch(signIn(result?.data));
+      setPassword(result?.data?.user?.password!);
+      setUserEmail(result?.data?.user?.email!);
+      if (result?.data?.user?.selectedCategories?.length! > 0) {
         router.replace("/(root)/(tabs)/home/home");
       } else router.replace("/(root)/(categories)/category");
 

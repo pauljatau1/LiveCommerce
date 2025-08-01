@@ -28,9 +28,12 @@ import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
+  confirmed: { name: "Confirmed", color: "#FFF8DE" },
   pending_pickup: { name: "Pending Pick-Up", color: "rgb(219 234 254)" },
   picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
+  "picked-up": { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
+  "in-transit": { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
   returned: { name: "refund request", color: "rgba(238, 87, 28, 0.85)" },
@@ -168,10 +171,13 @@ const SingleOrder = () => {
             )}
             {[
               "pending",
+              "confirmed",
               "pending_pickup",
               "picked_up",
+              "picked-up",
               "dispatched",
               "in_transit",
+              "in-transit",
               "delivered",
             ].includes(order?.shipping?.tracking?.status?.toLowerCase()) &&
               !order?.order?.orderStatus?.hasReturn && (
@@ -356,7 +362,7 @@ const SingleOrder = () => {
                         Chat Seller
                       </Text>
                     </Pressable>
-                    {order.shipping.tracking.status == "delivered" &&
+                    {/* {order.shipping.tracking.status == "delivered" &&
                     order?.order?.orderStatus?.isOpen ? (
                       <Pressable
                         className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px] shrink"
@@ -387,7 +393,7 @@ const SingleOrder = () => {
                           Return/Refund
                         </Text>
                       </Pressable>
-                    ) : null}
+                    ) : null} */}
 
                     {["pickup_arranged"].includes(
                       order.shipping.tracking.status,
@@ -664,9 +670,9 @@ const OrderItem = ({
         });
         return variant.images[0]?.data;
       }
-      return orderItem?.product?.images[0].url;
+      return orderItem?.product?.images[0]?.url;
     } else {
-      return orderItem?.product?.images[0].url;
+      return orderItem?.product?.images[0]?.url;
     }
   }, [orderItem]);
   return (

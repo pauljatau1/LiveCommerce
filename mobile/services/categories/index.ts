@@ -27,7 +27,7 @@ export const category = createApi({
   endpoints: (builder) => ({
     uploadCategories: builder.mutation<any, any>({
       query: (credentials) =>
-        putRequest("/buyer/selected-categories", credentials),
+        putRequest("/v2/buyers/selected-categories", credentials),
     }),
     getAllCategories: builder.query({
       query: (credentials) => getRequest("/public/categories", credentials),

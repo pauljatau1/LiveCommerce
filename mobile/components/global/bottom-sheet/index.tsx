@@ -194,12 +194,13 @@ const BottomSheetComponent = ({
       onChange={handleSheetChanges}
       handleComponent={BottomSheetHandle}
       enableHandlePanningGesture={enablePanDownToClose}
-      backdropComponent={createCustomBackdrop()}
+      backdropComponent={createCustomBackdrop(handleClosePress)}
       handleIndicatorStyle={handleIndicatorStyle}
       footerComponent={footerComponent}
       enableContentPanningGesture={enableContentPanningGesture}
       animateOnMount
       overDragResistanceFactor={8}
+      stackBehavior="push"
       // android_keyboardInputMode="adjustResize"
       style={styles.modal}
       {...rest}

@@ -417,7 +417,7 @@ const VideoItem = ({
     const config = {
       url:
         process.env.EXPO_PUBLIC_API_URL +
-        `api/buyer/follow/${item?.seller?._id}`,
+        `api/v2/buyers/follow/${item?.seller?._id}`,
       method,
       headers: {
         Authorization: "Bearer " + token,

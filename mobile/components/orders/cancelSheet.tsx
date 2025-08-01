@@ -37,11 +37,11 @@ const CancelSheet = ({
   const handleCancelOrder = async () => {
     setLoading(true);
     try {
-      const response = await axios.post(
+      const response = await axios.put(
         process.env.EXPO_PUBLIC_API_URL +
-          "api/order/" +
+          "api/v2/orders/" +
           orderItem._id +
-          "/cancel-shipment",
+          "/cancel-by-buyer",
         {},
         {
           headers: {
@@ -51,10 +51,10 @@ const CancelSheet = ({
       );
 
       try {
-        const userData = await AsyncStorage.getItem('user');
-        const user = JSON.parse(userData || '{}');
+        const userData = await AsyncStorage.getItem("user");
+        const user = JSON.parse(userData || "{}");
         if (user?._id) {
-          trackEvent('order_cancelled', {
+          trackEvent("order_cancelled", {
             userId: user?._id,
             email: user?.email,
             firstName: user?.firstName,
@@ -71,7 +71,9 @@ const CancelSheet = ({
                 sellerId: item.seller._id,
               };
             }),
-            cancellationReason: selectedReasons.map((reason) => cancellationReasons[reason]).join(", "),
+            cancellationReason: selectedReasons
+              .map((reason) => cancellationReasons[reason])
+              .join(", "),
             timestamp: new Date().toISOString(),
           });
         }

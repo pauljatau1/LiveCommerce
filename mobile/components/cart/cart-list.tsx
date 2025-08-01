@@ -6,7 +6,7 @@ import {
   Image,
   FlatList,
 } from "react-native";
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useMemo, useState } from "react";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
@@ -29,12 +29,35 @@ const CartList = ({
   cart,
   handleModifyCart,
   conversations,
+  handleCheckout,
 }: {
   cart: any[];
   handleModifyCart: (action: string, data: any) => Promise<void>;
   conversations: any;
+  handleCheckout: (sellerId: string) => void;
 }) => {
   const [user, setUser] = useState<any>({});
+
+  const checkoutBtnScale = useSharedValue(1);
+
+  const checkoutBtnStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkoutBtnScale.value }],
+  }));
+
+  const subTotal = useMemo(() => {
+    let total = 0;
+    let cartLength = 0;
+    cart?.forEach((item: any) => {
+      if (item.includeInOrder) {
+        const price = item.discount?.isActive
+          ? item.discount?.discountedPrice
+          : item.price;
+        total += price * item.quantity;
+        cartLength += 1;
+      }
+    });
+    return total;
+  }, [cart]);
 
   const getUserData = async () => {
     const userData = await getUser();
@@ -50,9 +73,68 @@ const CartList = ({
   }, []);
 
   return (
-    <View className="px-[20px] h-[100%]">
+    <View className="px-[20px]">
       {/* <ScrollView className="w-full" showsVerticalScrollIndicator={false}> */}
-      <FlatList
+      {cart?.length > 0 &&
+        cart?.map((item: any, index: number) => (
+          <CartItem
+            cartItem={item}
+            handleModifyCart={handleModifyCart}
+            key={item._id}
+            conversations={conversations}
+            user={user}
+            isLastItem={index == cart?.length - 1}
+          />
+        ))}
+
+      <View className="flex-row items-center justify-between mb-[10]">
+        <Text className="text-white text-[14px] font-LexendDeca">Subtotal</Text>
+        <Text className="text-white text-[14px] font-LexendDeca">
+          ₦
+          {subTotal?.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </Text>
+      </View>
+
+      <AnimatedPressable
+        disabled={subTotal < 1}
+        onPressIn={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          checkoutBtnScale.value = withTiming(0.99, {
+            duration: 100,
+            easing: Easing.out(Easing.ease),
+          });
+        }}
+        onPressOut={() => {
+          checkoutBtnScale.value = withTiming(
+            1,
+            {
+              duration: 100,
+            },
+
+            () => runOnJS(handleCheckout)(cart[0]?.seller?._id),
+          );
+        }}
+        style={[
+          checkoutBtnStyle,
+          {
+            height: 50,
+            borderRadius: 18,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: subTotal > 0 ? "#16783A" : "#C6C6C6",
+            opacity: subTotal > 0 ? 1 : 0.8,
+          },
+        ]}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-white">
+          Checkout
+        </Text>
+      </AnimatedPressable>
+
+      {/* <FlatList
         data={cart}
         renderItem={({ item }) => (
           <CartItem
@@ -68,7 +150,7 @@ const CartList = ({
         ItemSeparatorComponent={() => (
           <View className="h-[1px] bg-white opacity-20 w-full"></View>
         )}
-      />
+      /> */}
     </View>
   );
 };
@@ -79,11 +161,13 @@ const CartItem = memo(
     handleModifyCart,
     conversations,
     user,
+    isLastItem,
   }: {
     cartItem: any;
     handleModifyCart: (action: string, data: any) => Promise<void>;
     conversations: any;
     user: any;
+    isLastItem: boolean;
   }) => {
     const [quantity, setQuantity] = useState<number>(cartItem?.quantity);
     const [includeInOrder, setIncludeInOrder] = useState<boolean>(
@@ -113,8 +197,13 @@ const CartItem = memo(
 
     return (
       <TouchableOpacity
-        className=" rounded-[16px] py-[30px] px-[8px] flex-row "
+        className=" py-[30px]"
         activeOpacity={0.8}
+        style={{
+          paddingTop: 20,
+          borderBottomColor: "#ffffff33",
+          borderBottomWidth: isLastItem ? 0 : 1,
+        }}
         onPress={() => router.push(`/product/${cartItem?._id}`)}
       >
         <View className="gap-[16px] shrink">
@@ -192,7 +281,7 @@ const CartItem = memo(
               </Text> */}
               <Text
                 className="text-[14px] text-[#ffffff] opacity-80 font-LexendDeca mb-[4px] leading-[20px]"
-                numberOfLines={2}
+                numberOfLines={1}
               >
                 {cartItem.name}
               </Text>

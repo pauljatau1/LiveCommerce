@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  ScrollView,
 } from "react-native";
 // import { ScrollView } from "react-native-virtualized-view";
 import React, {
@@ -38,6 +37,7 @@ import { RootState } from "@/store";
 import MyBids from "@/components/profile/myBids";
 import PostsComingSoon from "@/components/profile/postsComingSoon";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { ScrollView } from "react-native-virtualized-view";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -322,14 +322,14 @@ const Profile = () => {
     }
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/profile`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/profile`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setProfile(response.data);
+      setProfile(response.data?.data);
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }

@@ -88,7 +88,7 @@ const ForYou = () => {
           <ForYouNewAuqliSection />
           <ForYouFeaturedShopsSection />
           <MarketsSuggestedBlips />
-          <ForYouAuctionSection />
+          {/* <ForYouAuctionSection /> */}
         </View>
         <KeepShowingSection />
       </View>

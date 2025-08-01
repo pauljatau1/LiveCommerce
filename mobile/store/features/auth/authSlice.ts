@@ -2,7 +2,7 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 
-import type { LoginResponse, User } from "../../../types/services/auth";
+import type { LoginResponse, LoginResponseData, User } from "../../../types/services/auth";
 import {
   getToken,
   getUser,
@@ -54,7 +54,7 @@ export const authSlice = createSlice({
       setUser(action.payload);
       state.user = action.payload;
     },
-    signIn: (state, action: PayloadAction<LoginResponse>) => {
+    signIn: (state, action: PayloadAction<LoginResponseData>) => {
       setToken(action?.payload?.token);
       setUser(action?.payload?.user!);
       state.user = action?.payload?.user!;

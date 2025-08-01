@@ -221,7 +221,7 @@ export const LivestreamProvider = ({ children }) => {
       }
 
       const response = await axios.post(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${sellerId}`,
         {},
         {
           headers: {
@@ -240,7 +240,7 @@ export const LivestreamProvider = ({ children }) => {
           type: "success",
           topPosition: 18,
         });
-        return response.data;
+        return response.data.data;
       }
     } catch (error) {
       console.error("Error following seller through stream:", error);
@@ -260,7 +260,7 @@ export const LivestreamProvider = ({ children }) => {
       }
 
       const response = await axios.delete(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${sellerId}`,
         {
           headers: {
             Authorization: `Bearer ${userToken}`,
@@ -278,7 +278,7 @@ export const LivestreamProvider = ({ children }) => {
           type: "success",
           topPosition: 18,
         });
-        return response.data;
+        return response.data.data;
       }
     } catch (error) {
       console.error("Error unfollowing seller through stream:", error);

@@ -59,14 +59,14 @@ const Marketplace = () => {
 
       if (!cat || cat?.length < 1) {
         const response = await axios.get(
-          process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+          process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/selected-categories",
           {
             headers: {
               Authorization: "Bearer " + token,
             },
           },
         );
-        cat = response.data.categories;
+        cat = response.data.data.categories;
       }
       if (token && cat) {
         setCategories(["For You", ...cat.map((ct: any) => ct.name)]);

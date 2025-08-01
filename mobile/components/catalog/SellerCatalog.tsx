@@ -295,7 +295,7 @@ const SellerCard = memo(({ item }: any) => {
     setFollowLoading(true);
     const token = await getToken();
     const config = {
-      url: process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${item?._id}`,
+      url: process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/follow/${item?._id}`,
       method,
       headers: {
         Authorization: "Bearer " + token,

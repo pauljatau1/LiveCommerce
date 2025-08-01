@@ -63,15 +63,14 @@ const Categories = () => {
   const getSelectedCategories = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/selected-categories",
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-
-      setValue("selectedCategories", response.data?.categories);
+      setValue("selectedCategories", response.data?.data?.categories);
     } catch (e) {
       console.log(e);
       toast.error("Could not get Selected Categories");
@@ -108,14 +107,20 @@ const Categories = () => {
     setLoading(true);
     try {
       const result = await uploadCategories({ selectedCategories }).unwrap();
-      await setUser(result?.buyer);
+      await setUser(result?.data);
       setLoading(false);
       toast.success(result.message);
       router.back();
     } catch (error: any) {
       setLoading(false);
-      console.log("result", error);
-      toast.error(error.data.message);
+      const apiErrors = error.data.errors || [];
+      if (apiErrors.length > 0) {
+        apiErrors.forEach((err: any) => {
+          toast.error(err.message);
+        });
+      } else {
+        toast.error(error.data.message);
+      }
     }
   };
 

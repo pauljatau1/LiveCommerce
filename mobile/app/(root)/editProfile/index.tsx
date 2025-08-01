@@ -32,6 +32,7 @@ import {
   KeyboardAwareScrollView,
 } from "react-native-keyboard-controller";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { toast } from "@/core/toast";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
@@ -137,7 +138,7 @@ const EditProfile = () => {
       };
 
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/avatar",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile/avatar",
         formData,
         config,
       );
@@ -145,12 +146,13 @@ const EditProfile = () => {
       dispatch(
         setUserData({
           ...user,
-          profileImage: { url: response.data.buyer?.profileImage?.url },
+          profileImage: { url: response.data?.data?.profileImage?.url },
         }),
       );
       updateProfile();
-    } catch (e) {
+    } catch (e:any) {
       console.log("error updating avatar", e);
+      toast.error(e?.data?.errors?.[0]?.message || e?.data?.message ||  "error updating avatar")
       setLoading(false);
     }
   };
@@ -169,7 +171,7 @@ const EditProfile = () => {
         lastName: editLastNameVal,
       };
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/update",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile",
         payload,
         {
           headers: {
@@ -191,8 +193,10 @@ const EditProfile = () => {
         }),
       );
       router.back();
-    } catch (e) {
-      console.log(e);
+    } catch (e:any) {
+      console.log(e?.response?.data);
+      toast.error(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message ||  "Error Updating Profile")
+
     } finally {
       setLoading(false);
     }

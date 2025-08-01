@@ -34,6 +34,16 @@ const tabs = [
   "Cancelled",
   "My Returns",
 ];
+
+// const tabs = [
+//   "All",
+//   "Processing",
+//   "Shipped",
+//   "Delivered",
+//   "Cancelled",
+//   "Failed",
+//   "My Returns",
+// ];
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
   pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
@@ -100,7 +110,7 @@ const Orders = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/orders?page=${page}&limit=${selectedTab == "My Returns" ? 100 : 10}&trackingStatus=${selectedTab}&hasReturn=${selectedTab == "My Returns"}`,
+          `api/v2/buyers/orders?page=${page}&limit=${selectedTab == "My Returns" ? 100 : 10}&trackingStatus=${selectedTab}&hasReturn=${selectedTab == "My Returns"}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -110,12 +120,12 @@ const Orders = () => {
       // setSelectedTab("All");
       // setAllOrders(response.data.orders);
       if (page == 1) {
-        setOrders(response.data.orders);
+        setOrders(response.data.data);
       } else {
-        setOrders([...orders, ...response.data.orders]);
+        setOrders([...orders || [], ...response.data.data]);
       }
 
-      if (response.data?.orders?.length < 1) {
+      if (response.data?.data?.length < 1) {
         setHasReachedEnd(true);
       }
     } catch (e) {
