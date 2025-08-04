@@ -500,14 +500,47 @@ async function findBuyerByIdWithFields(buyerId) {
 }
 
 /**
- * Find buyer by ID with notification preferences.
+ * Find buyer by ID with notification preferences field selected.
+ * 
+ * This method retrieves a buyer from the database and selects only the
+ * notificationPreferences field to optimize performance when only preferences
+ * are needed.
+ * 
  * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Buyer|null>} Buyer with notification preferences or null if not found
+ * @returns {Promise<Object|null>} The buyer with notification preferences or null if not found
  */
 async function findBuyerWithNotificationPreferences(buyerId) {
-  // Query buyer by ID and select only the notification preferences field
-  return Buyer.findById(buyerId)
-    .select('notificationPreferences');
+  // Use findById with field selection to only retrieve notificationPreferences
+  // This optimizes database queries when only preferences are needed
+  return Buyer.findById(buyerId).select('notificationPreferences');
+}
+
+/**
+ * Update notification preferences for a buyer.
+ * 
+ * This method updates the notification preferences for a specific buyer
+ * using findByIdAndUpdate with optimistic concurrency control.
+ * The method returns the updated document with the new preferences.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} preferences - The notification preferences to update
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateNotificationPreferences(buyerId, preferences) {
+  // Use findByIdAndUpdate with $set to update only the notificationPreferences field
+  // This ensures atomic updates and returns the updated document
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        notificationPreferences: preferences
+      }
+    },
+    {
+      new: true,        // Return the updated document
+      runValidators: true  // Run Mongoose validators on the update
+    }
+  );
 }
 
 module.exports = {
@@ -548,5 +581,6 @@ module.exports = {
   saveSeller,
   findSellerWithReviews,
   findBuyerByIdWithFields,
-  findBuyerWithNotificationPreferences
+  findBuyerWithNotificationPreferences,
+  updateNotificationPreferences
 };
