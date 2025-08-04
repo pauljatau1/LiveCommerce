@@ -28,6 +28,12 @@ const options = {
           bearerFormat: 'JWT',
         },
       },
+      tags: [
+        {
+          name: 'Buyer V2',
+          description: 'Buyer V2 API endpoints'
+        }
+      ],
       schemas: {
         Success: {
           type: 'boolean',
@@ -83,6 +89,7 @@ const options = {
     './src/routes/*.js',
     './src/modules/user/routes/*.js',
     './src/modules/listing/routes/*.js',
+    './src/modules/buyer/routes/*.js',              // <-- Buyer V2 route definitions
     './src/modules/orderv2/routes/*.js',            // <-- Order V2 route definitions
     './src/modules/orderv2/docs/*.yml',             // <-- Order V2 YAML docs
     './src/modules/orderv2/docs/*.yaml',            // (support .yaml extension as well)
