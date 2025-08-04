@@ -583,6 +583,87 @@ export const LivestreamProvider = ({ children }) => {
         return Math.round((endTime - startTime) / (1000 * 60));
     };
 
+    // Function to reschedule an expired stream
+    const rescheduleExpiredStream = async (streamId, newScheduledStartTime) => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const sellerToken = localStorage.getItem('sellerToken');
+            const sellerData = JSON.parse(localStorage.getItem('seller'));
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+
+            if (!tokenData?.data) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await axios.post(
+                `${BASE_URL}/streams/reschedule-expired`,
+                {
+                    streamId,
+                    newScheduledStartTime
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                // Update the fetched streams to reflect the rescheduled stream
+                const updatedStreams = state.fetchedLiveStreams.map(stream => {
+                    if (stream._id === streamId) {
+                        return {
+                            ...stream,
+                            scheduledStartTime: newScheduledStartTime,
+                            status: 'scheduled'
+                        };
+                    }
+                    return stream;
+                });
+                
+                dispatch({ type: 'SET_FETCHED_LIVE_STREAMS', payload: updatedStreams });
+
+                toast.success('Stream rescheduled successfully', {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+
+                // Track the reschedule event
+                trackEvent("Live Stream Rescheduled", {
+                    "seller id": sellerData._id,
+                    "seller email": sellerData.email,
+                    "seller store name": sellerData.storeName,
+                    "seller first name": sellerData.firstName,
+                    "seller last name": sellerData.lastName,
+                    "stream id": streamId,
+                    "new scheduled start time": newScheduledStartTime,
+                    "reschedule timestamp": new Date().toISOString()
+                });
+
+                return response.data.stream;
+            }
+        } catch (error) {
+            console.error('Reschedule stream error:', error);
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || error.message
+            });
+            toast.error('Error rescheduling stream', {
+                description: error.response?.data?.message || 'Something went wrong',
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    };
+
     // Function to renew Agora token for a livestream
     const renewAgoraToken = async (streamId) => {
         try {
@@ -634,6 +715,7 @@ export const LivestreamProvider = ({ children }) => {
             joinLiveStreamAsHost,
             activateProductBidding,
             renewAgoraToken,
+            rescheduleExpiredStream,
             dispatch
         }}>
             {children}
