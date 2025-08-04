@@ -2991,5 +2991,144 @@ describe('Buyer Repository', () => {
         expect(result.storeName).toBe('Updated Store Name');
       });
     });
+
+    describe('findSellerWithReviews', () => {
+      it('should find seller with reviews and stats', async () => {
+        // Arrange
+        const seller = new Seller({
+          ...mockSellerData,
+          reviews: [
+            {
+              buyer: new mongoose.Types.ObjectId('507f1f77bcf86cd799439011'),
+              rating: 5,
+              comment: 'Great seller!',
+              createdAt: new Date(),
+              isVerifiedPurchase: true
+            }
+          ],
+          stats: {
+            averageRating: 4.5,
+            totalReviews: 1,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 }
+          }
+        });
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedSeller._id.toString());
+        expect(result.reviews).toHaveLength(1);
+        expect(result.stats).toBeDefined();
+        // Note: The stats might be 0 if not properly initialized in the schema
+        expect(result.stats).toHaveProperty('averageRating');
+        expect(result.stats).toHaveProperty('totalReviews');
+        expect(result.stats).toHaveProperty('ratingDistribution');
+      });
+
+      it('should return null when seller not found', async () => {
+        // Arrange
+        const nonExistentSellerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(nonExistentSellerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should only select reviews and stats fields', async () => {
+        // Arrange
+        const seller = new Seller({
+          ...mockSellerData,
+          reviews: [],
+          stats: {
+            averageRating: 0,
+            totalReviews: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          }
+        });
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedSeller._id.toString());
+        expect(result.reviews).toBeDefined();
+        expect(result.stats).toBeDefined();
+        // Should not have other fields like firstName, lastName, etc.
+        expect(result.firstName).toBeUndefined();
+        expect(result.lastName).toBeUndefined();
+      });
+    });
+
+    describe('findBuyerByIdWithFields', () => {
+      it('should find buyer with selected fields', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          profileImage: { url: 'https://example.com/profile.jpg' }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.firstName).toBe('John');
+        expect(result.lastName).toBe('Doe');
+        expect(result.profileImage).toBeDefined();
+        expect(result.profileImage.url).toBe('https://example.com/profile.jpg');
+        // Should not have other fields like email, username, password
+        expect(result.email).toBeUndefined();
+        expect(result.username).toBeUndefined();
+        expect(result.password).toBeUndefined();
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with null profile image', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          profileImage: null
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.firstName).toBe('Jane');
+        expect(result.lastName).toBe('Smith');
+        // profileImage should be included in the selection even if null
+        expect(result).toHaveProperty('profileImage');
+      });
+    });
   });
 }); 

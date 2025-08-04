@@ -27,6 +27,7 @@ const getSellerProfileService = require('../services/getSellerProfile.service');
 const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
 const reviewSellerService = require('../services/reviewSeller.service');
+const getSellerReviewsService = require('../services/getSellerReviews.service');
 
 
 /**
@@ -705,6 +706,45 @@ async function reviewSeller(req, res, next) {
   }
 }
 
+/**
+ * Get all reviews for a seller's store.
+ *
+ * This controller handles the seller reviews retrieval HTTP request.
+ * It delegates the reviews logic to the service layer and returns the paginated reviews with stats.
+ *
+ * @param {Request} req - Express request object containing sellerId in params and pagination/sort in query
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellerReviews(req, res, next) {
+  try {
+    // Extract seller ID from request parameters
+    const { sellerId } = req.params;
+
+    // Get pagination options from request using service method
+    const pagination = getSellerReviewsService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getSellerReviewsService.getFilters(req);
+
+    let result;
+    // Check if pagination is enabled to determine which service method to call
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      result = await getSellerReviewsService.listPaginatedSellerReviews(sellerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      result = await getSellerReviewsService.listSellerReviews(sellerId, filters);
+    }
+
+    // Return success response with reviews data and success message
+    return res.success(result.data, 'Seller reviews retrieved successfully', 200);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -735,4 +775,5 @@ module.exports = {
   getFollowers,
   getFollowing,
   reviewSeller,
+  getSellerReviews,
 };
