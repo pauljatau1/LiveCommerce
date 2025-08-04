@@ -28,6 +28,7 @@ const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
 const reviewSellerService = require('../services/reviewSeller.service');
 const getSellerReviewsService = require('../services/getSellerReviews.service');
+const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
 
 
 /**
@@ -745,6 +746,32 @@ async function getSellerReviews(req, res, next) {
   }
 }
 
+/**
+ * Get notification preferences for a buyer.
+ *
+ * This controller handles the notification preferences retrieval HTTP request.
+ * It delegates the preferences logic to the service layer and returns the preferences data.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in req.user.id
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getNotificationPreferences(req, res, next) {
+  try {
+    // Extract buyer ID from request user object
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle notification preferences retrieval logic
+    const response = await getNotificationPreferencesService.getNotificationPreferences(buyerId);
+
+    // Return success response with preferences data and success message
+    return res.success(response.data, 'Notification preferences retrieved successfully', 200);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -776,4 +803,5 @@ module.exports = {
   getFollowing,
   reviewSeller,
   getSellerReviews,
+  getNotificationPreferences,
 };
