@@ -27,6 +27,9 @@ const getSellerProfileService = require('../services/getSellerProfile.service');
 const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
 const reviewSellerService = require('../services/reviewSeller.service');
+const getSellerReviewsService = require('../services/getSellerReviews.service');
+const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
+const updateNotificationPreferencesService = require('../services/updateNotificationPreferences.service');
 
 
 /**
@@ -41,8 +44,11 @@ const reviewSellerService = require('../services/reviewSeller.service');
  */
 async function register(req, res, next) {
   try {
+    // Extract registration data from request body
+    const registrationData = req.body;
+
     // Call the service layer to handle buyer registration logic
-    const response = await registerService.register(req.body);
+    const response = await registerService.register(registrationData);
 
     // Send a 201 Created response with success message and buyer data
     res.success(response, 'Buyer registered successfully', 201);
@@ -63,9 +69,16 @@ async function register(req, res, next) {
  */
 async function login(req, res, next) {
   try {
-    const response = await loginService.login(req.body);
+    // Extract login credentials from request body
+    const loginData = req.body;
+
+    // Call the service layer to handle authentication
+    const response = await loginService.login(loginData);
+
+    // Send success response with user data and token
     res.success(response, 'Login successful');
   } catch (err) {
+    // Forward any error to the error-handling middleware
     next(err);
   }
 }
@@ -82,8 +95,11 @@ async function login(req, res, next) {
  */
 async function getProfile(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle profile retrieval logic
-    const response = await profileService.getProfile(req.user.id);
+    const response = await profileService.getProfile(buyerId);
 
     // Send success response with profile data
     res.success(response, 'Profile retrieved successfully');
@@ -131,8 +147,14 @@ async function checkToken(req, res, next) {
  */
 async function updateProfile(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Extract profile update data from request body
+    const profileData = req.body;
+
     // Call the service layer to handle profile update logic
-    const response = await updateProfileService.updateProfile(req.user.id, req.body);
+    const response = await updateProfileService.updateProfile(buyerId, profileData);
 
     // Send success response with updated profile data
     res.success(response, 'Profile updated successfully');
@@ -155,8 +177,11 @@ async function updateProfile(req, res, next) {
  */
 async function uploadProfileImage(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle profile image upload logic
-    const response = await uploadProfileImageService.uploadProfileImage(req.user.id, req.file);
+    const response = await uploadProfileImageService.uploadProfileImage(buyerId, req.file);
 
     // Send success response with updated profile data
     res.success(response, 'Profile image uploaded successfully');
@@ -177,8 +202,11 @@ async function uploadProfileImage(req, res, next) {
  */
 async function verifyOTP(req, res, next) {
   try {
+    // Extract email and OTP from request body
+    const { email, otp } = req.body;
+
     // Call the service layer to handle OTP verification logic
-    const response = await verifyOTPService.verifyOTP(req.body.email, req.body.otp);
+    const response = await verifyOTPService.verifyOTP(email, otp);
 
     // Send success response with verification result
     res.success(response, 'OTP verified successfully');
@@ -200,8 +228,11 @@ async function verifyOTP(req, res, next) {
  */
 async function resendOTP(req, res, next) {
   try {
+    // Extract email from request body
+    const { email } = req.body;
+
     // Call the service layer to handle OTP resend logic
-    const response = await resendOTPService.resendOTP(req.body.email);
+    const response = await resendOTPService.resendOTP(email);
 
     // Send success response
     res.success(response, 'OTP resent successfully');
@@ -223,8 +254,14 @@ async function resendOTP(req, res, next) {
  */
 async function updateSelectedCategories(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Extract selected categories from request body
+    const selectedCategories = req.body.selectedCategories;
+
     // Call the service layer to handle selected categories update logic
-    const response = await updateSelectedCategoriesService.updateSelectedCategories(req.user.id, req.body.selectedCategories);
+    const response = await updateSelectedCategoriesService.updateSelectedCategories(buyerId, selectedCategories);
 
     // Send success response with updated buyer data
     res.success(response, 'Selected categories updated successfully');
@@ -246,8 +283,11 @@ async function updateSelectedCategories(req, res, next) {
  */
 async function getSelectedCategories(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle selected categories retrieval logic
-    const response = await getSelectedCategoriesService.getSelectedCategories(req.user.id);
+    const response = await getSelectedCategoriesService.getSelectedCategories(buyerId);
 
     // Send success response with categories data
     res.success(response, 'Selected categories retrieved successfully');
@@ -269,15 +309,22 @@ async function getSelectedCategories(req, res, next) {
  */
 async function getOrders(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Get pagination options from request using service method
     const pagination = getOrdersService.getPaginationOptions(req);
+    // Get filter options from request using service method
     const filters = getOrdersService.getFilters(req);
 
     let response = {};
     if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
       const params = { ...pagination, filters: filters };
-      response = await getOrdersService.getPaginatedOrders(req.user.id, params);
+      response = await getOrdersService.getPaginatedOrders(buyerId, params);
     } else {
-      response = await getOrdersService.getOrders(req.user.id, filters);
+      // Use non-paginated retrieval with filter parameters only
+      response = await getOrdersService.getOrders(buyerId, filters);
     }
 
     // Send success response with orders data
@@ -300,8 +347,11 @@ async function getOrders(req, res, next) {
  */
 async function getOrderDetails(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle order details retrieval logic
-    const response = await getOrderDetailsService.getOrderDetails(req.user.id, req.params.id);
+    const response = await getOrderDetailsService.getOrderDetails(buyerId, req.params.id);
 
     // Send success response with order details
     res.success(response, 'Order details retrieved successfully');
@@ -323,8 +373,11 @@ async function getOrderDetails(req, res, next) {
  */
 async function getPurchaseAnalytics(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle purchase analytics logic
-    const response = await getPurchaseAnalyticsService.getPurchaseAnalytics(req.user.id);
+    const response = await getPurchaseAnalyticsService.getPurchaseAnalytics(buyerId);
 
     // Send success response with analytics data
     res.success(response, 'Purchase analytics retrieved successfully');
@@ -346,8 +399,11 @@ async function getPurchaseAnalytics(req, res, next) {
  */
 async function getAddresses(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle addresses retrieval logic
-    const response = await getAddressesService.getAddresses(req.user.id);
+    const response = await getAddressesService.getAddresses(buyerId);
 
     // Send success response with addresses data
     res.success(response, 'Addresses retrieved successfully');
@@ -369,8 +425,11 @@ async function getAddresses(req, res, next) {
  */
 async function addAddress(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle address addition logic
-    const response = await addAddressService.addAddress(req.user.id, req.body);
+    const response = await addAddressService.addAddress(buyerId, req.body);
 
     // Send success response with newly added address
     res.success(response, 'Address added successfully', 201);
@@ -392,8 +451,11 @@ async function addAddress(req, res, next) {
  */
 async function updateAddress(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle address update logic
-    const response = await updateAddressService.updateAddress(req.user.id, req.params.addressId, req.body);
+    const response = await updateAddressService.updateAddress(buyerId, req.params.addressId, req.body);
 
     // Send success response with updated address data
     res.success(response, 'Address updated successfully');
@@ -415,8 +477,11 @@ async function updateAddress(req, res, next) {
  */
 async function deleteAddress(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle address deletion logic
-    const response = await deleteAddressService.deleteAddress(req.user.id, req.params.addressId);
+    const response = await deleteAddressService.deleteAddress(buyerId, req.params.addressId);
 
     // Send success response with deletion message
     res.success(response, 'Address deleted successfully');
@@ -438,8 +503,12 @@ async function deleteAddress(req, res, next) {
  */
 async function followSeller(req, res, next) {
   try {
+    // Extract buyer ID and seller ID from request parameters
+    const buyerId = req.user.id;
+    const sellerId = req.params.sellerId;
+
     // Call the service layer to handle follow seller logic
-    const response = await followSellerService.followSeller(req.user.id, req.params.sellerId);
+    const response = await followSellerService.followSeller(buyerId, sellerId);
 
     // Send success response with follow data
     res.success(response, 'Successfully followed seller');
@@ -461,8 +530,12 @@ async function followSeller(req, res, next) {
  */
 async function unfollowSeller(req, res, next) {
   try {
+    // Extract buyer ID and seller ID from request parameters
+    const buyerId = req.user.id;
+    const sellerId = req.params.sellerId;
+
     // Call the service layer to handle unfollow seller logic
-    const response = await unfollowSellerService.unfollowSeller(req.user.id, req.params.sellerId);
+    const response = await unfollowSellerService.unfollowSeller(buyerId, sellerId);
 
     // Send success response with unfollow data
     res.success(response, 'Successfully unfollowed seller');
@@ -484,8 +557,12 @@ async function unfollowSeller(req, res, next) {
  */
 async function addToWishlist(req, res, next) {
   try {
+    // Extract buyer ID and product ID from request body
+    const buyerId = req.user.id;
+    const productId = req.body.productId;
+
     // Call the service layer to handle add to wishlist logic
-    const response = await addToWishlistService.addToWishlist(req.user.id, req.body.productId);
+    const response = await addToWishlistService.addToWishlist(buyerId, productId);
 
     // Send success response with wishlist data
     res.success(response, 'Product added to wishlist successfully');
@@ -507,8 +584,11 @@ async function addToWishlist(req, res, next) {
  */
 async function getWishlist(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle get wishlist logic
-    const response = await getWishlistService.getWishlist(req.user.id);
+    const response = await getWishlistService.getWishlist(buyerId);
 
     // Send success response with wishlist data
     res.success(response, 'Wishlist retrieved successfully');
@@ -530,8 +610,12 @@ async function getWishlist(req, res, next) {
  */
 async function removeFromWishlist(req, res, next) {
   try {
+    // Extract buyer ID and product ID from request parameters
+    const buyerId = req.user.id;
+    const productId = req.params.productId;
+
     // Call the service layer to handle remove from wishlist logic
-    const response = await removeFromWishlistService.removeFromWishlist(req.user.id, req.params.productId);
+    const response = await removeFromWishlistService.removeFromWishlist(buyerId, productId);
 
     // Send success response with updated wishlist data
     res.success(response, 'Product removed from wishlist successfully');
@@ -553,8 +637,11 @@ async function removeFromWishlist(req, res, next) {
  */
 async function uploadIdentityDocument(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
     // Call the service layer to handle upload identity document logic
-    const response = await uploadIdentityDocumentService.uploadIdentityDocument(req.user.id, req.file);
+    const response = await uploadIdentityDocumentService.uploadIdentityDocument(buyerId, req.file);
 
     // Send success response with uploaded document information
     res.success(response, 'Identity document uploaded successfully');
@@ -576,8 +663,12 @@ async function uploadIdentityDocument(req, res, next) {
  */
 async function sendPhoneOTP(req, res, next) {
   try {
+    // Extract buyer ID and phone number from request body
+    const buyerId = req.user.id;
+    const phoneNumber = req.body.phoneNumber;
+
     // Call the service layer to handle send phone OTP logic
-    const response = await sendPhoneOTPService.sendPhoneOTP(req.user.id, req.body.phoneNumber);
+    const response = await sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber);
 
     // Send success response with OTP sending confirmation
     res.success(response, 'OTP sent successfully');
@@ -599,8 +690,12 @@ async function sendPhoneOTP(req, res, next) {
  */
 async function verifyPhoneOTP(req, res, next) {
   try {
+    // Extract buyer ID and OTP from request body
+    const buyerId = req.user.id;
+    const otp = req.body.otp;
+
     // Call the service layer to handle verify phone OTP logic
-    const response = await verifyPhoneOTPService.verifyPhoneOTP(req.user.id, req.body.otp);
+    const response = await verifyPhoneOTPService.verifyPhoneOTP(buyerId, otp);
 
     // Send success response with verification result
     res.success(response, 'Phone number verified successfully');
@@ -622,8 +717,14 @@ async function verifyPhoneOTP(req, res, next) {
  */
 async function getSellerProfile(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Extract seller ID from request parameters
+    const sellerId = req.params.sellerId;
+
     // Call the service layer to handle seller profile retrieval logic
-    const response = await getSellerProfileService.getSellerProfile(req.params.sellerId, req.user.id);
+    const response = await getSellerProfileService.getSellerProfile(sellerId, buyerId);
 
     // Send success response with seller profile data
     res.success(response, 'Seller profile retrieved successfully');
@@ -640,16 +741,21 @@ async function getSellerProfile(req, res, next) {
  */
 async function getFollowers(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
     const buyerId = req.user.id;
 
+    // Get pagination options from request using service method
     const pagination = getFollowersService.getPaginationOptions(req);
+    // Get filter options from request using service method
     const filters = getFollowersService.getFilters(req);
 
     let followers = [];
     if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
       const params = { ...pagination, filters: filters };
       followers = await getFollowersService.listPaginatedFollowers(buyerId, params);
     } else {
+      // Use non-paginated retrieval with filter parameters only
       followers = await getFollowersService.listFollowers(buyerId, filters);
     }
 
@@ -666,16 +772,21 @@ async function getFollowers(req, res, next) {
  */
 async function getFollowing(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
     const buyerId = req.user.id;
 
+    // Get pagination options from request using service method
     const pagination = getFollowingService.getPaginationOptions(req);
+    // Get filter options from request using service method
     const filters = getFollowingService.getFilters(req);
 
     let following = [];
     if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
       const params = { ...pagination, filters: filters };
       following = await getFollowingService.listPaginatedFollowing(buyerId, params);
     } else {
+      // Use non-paginated retrieval with filter parameters only
       following = await getFollowingService.listFollowing(buyerId, filters);
     }
 
@@ -693,14 +804,116 @@ async function getFollowing(req, res, next) {
  */
 async function reviewSeller(req, res, next) {
   try {
+    // Extract buyer ID from authenticated user
     const buyerId = req.user.id;
+
+    // Extract seller ID and review data from request parameters and body
     const { sellerId } = req.params;
     const { rating, comment } = req.body;
 
+    // Call the service layer to handle review submission
     const review = await reviewSellerService.reviewSeller(buyerId, sellerId, { rating, comment });
 
+    // Return success response with review data and success message
     return res.success({ review }, 'Review submitted successfully', 201);
   } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get seller reviews with pagination and filtering support.
+ *
+ * This controller handles the seller reviews retrieval HTTP request.
+ * It supports both paginated and non-paginated responses based on query parameters.
+ * The response includes reviews data and statistics about the seller's reviews.
+ *
+ * @param {Request} req - Express request object containing seller ID in params and query parameters
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellerReviews(req, res, next) {
+  try {
+    // Extract seller ID from request parameters
+    const { sellerId } = req.params;
+
+    // Get pagination options from request using service method
+    const pagination = getSellerReviewsService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getSellerReviewsService.getFilters(req);
+
+    let result = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      result = await getSellerReviewsService.listPaginatedSellerReviews(sellerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      result = await getSellerReviewsService.listSellerReviews(sellerId, filters);
+    }
+
+    // Return success response with reviews data and success message
+    return res.success(result.data, 'Seller reviews retrieved successfully', 200);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get notification preferences for a buyer.
+ *
+ * This controller handles the notification preferences retrieval HTTP request.
+ * It delegates the preferences logic to the service layer and returns the preferences data.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in req.user.id
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getNotificationPreferences(req, res, next) {
+  try {
+    // Extract buyer ID from request user object
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle notification preferences retrieval logic
+    const response = await getNotificationPreferencesService.getNotificationPreferences(buyerId);
+
+    // Return success response with preferences data and success message
+    return res.success(response.data, 'Notification preferences retrieved successfully', 200);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Update notification preferences for a buyer.
+ *
+ * This controller handles the notification preferences update HTTP request.
+ * It delegates the update logic to the service layer and returns the updated preferences data.
+ * The service performs validation and deep merging of preferences.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in req.user.id and preferences in req.body
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateNotificationPreferences(req, res, next) {
+  try {
+    // Extract buyer ID from request user object
+    const buyerId = req.user.id;
+    
+    // Extract preferences from request body
+    const { preferences } = req.body;
+
+    // Call the service layer to handle notification preferences update logic
+    // The service will validate the preferences and perform deep merging
+    const response = await updateNotificationPreferencesService.updateNotificationPreferences(buyerId, preferences);
+
+    // Return success response with updated preferences data and success message
+    return res.success(response.data, 'Notification preferences updated successfully', 200);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
     next(err);
   }
 }
@@ -735,4 +948,7 @@ module.exports = {
   getFollowers,
   getFollowing,
   reviewSeller,
+  getSellerReviews,
+  getNotificationPreferences,
+  updateNotificationPreferences,
 };

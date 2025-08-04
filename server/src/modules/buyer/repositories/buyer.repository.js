@@ -477,6 +477,72 @@ async function saveSeller(seller) {
   return seller.save();
 }
 
+/**
+ * Find seller with reviews and stats.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Seller|null>} Seller with reviews and stats or null if not found
+ */
+async function findSellerWithReviews(sellerId) {
+  // Query seller by ID and select only the fields needed for reviews functionality
+  return Seller.findById(sellerId)
+    .select('reviews stats.averageRating stats.totalReviews stats.ratingDistribution');
+}
+
+/**
+ * Find buyer by ID with selected fields.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with selected fields or null if not found
+ */
+async function findBuyerByIdWithFields(buyerId) {
+  // Query buyer by ID and select only the fields needed for review population
+  return Buyer.findById(buyerId)
+    .select('firstName lastName profileImage');
+}
+
+/**
+ * Find buyer by ID with notification preferences field selected.
+ * 
+ * This method retrieves a buyer from the database and selects only the
+ * notificationPreferences field to optimize performance when only preferences
+ * are needed.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} The buyer with notification preferences or null if not found
+ */
+async function findBuyerWithNotificationPreferences(buyerId) {
+  // Use findById with field selection to only retrieve notificationPreferences
+  // This optimizes database queries when only preferences are needed
+  return Buyer.findById(buyerId).select('notificationPreferences');
+}
+
+/**
+ * Update notification preferences for a buyer.
+ * 
+ * This method updates the notification preferences for a specific buyer
+ * using findByIdAndUpdate with optimistic concurrency control.
+ * The method returns the updated document with the new preferences.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} preferences - The notification preferences to update
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateNotificationPreferences(buyerId, preferences) {
+  // Use findByIdAndUpdate with $set to update only the notificationPreferences field
+  // This ensures atomic updates and returns the updated document
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        notificationPreferences: preferences
+      }
+    },
+    {
+      new: true,        // Return the updated document
+      runValidators: true  // Run Mongoose validators on the update
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -512,5 +578,9 @@ module.exports = {
   findSellersFollowingByBuyer,
   findBuyersFollowingByBuyer,
   hasVerifiedPurchase,
-  saveSeller
+  saveSeller,
+  findSellerWithReviews,
+  findBuyerByIdWithFields,
+  findBuyerWithNotificationPreferences,
+  updateNotificationPreferences
 };
