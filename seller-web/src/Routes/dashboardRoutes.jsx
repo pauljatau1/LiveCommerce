@@ -1,6 +1,7 @@
 import {lazy} from 'react';
 import {Navigate} from 'react-router-dom';
 import NotFoundPage from '../Pages/NotFoundPage/NotFoundPage';
+import RouterErrorHandler from '../Components/RouterErrorHandler';
 import {VariantsProvider} from '../Contexts/VariantContext';
 import {LivestreamProvider} from '../Contexts/LivestreamContext';
 
@@ -42,7 +43,7 @@ const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio
 
 export const dashboardRoutes = [
     {
-        errorElement: <NotFoundPage/>,
+        errorElement: <RouterErrorHandler/>,
         children: [
             {path: 'home', element: <HomePage/>},
             {path: 'customers', element: <Customers/>},

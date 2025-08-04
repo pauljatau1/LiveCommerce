@@ -7,12 +7,12 @@ import DashboardRoute from '../Components/DashboardRoute';
 import OnboardingLayout from '../Components/OnboardingLayout';
 import DashboardLayout from '../Components/DashboardLayout';
 import NotFoundPage from '../Pages/NotFoundPage/NotFoundPage';
+import RouterErrorHandler from '../Components/RouterErrorHandler';
 import { Navigate } from "react-router-dom";
 
 import {publicRoutes} from './publicRoutes.jsx';
 import {onboardingRoutes} from './onboardingRoutes.jsx';
 import {dashboardRoutes} from './dashboardRoutes.jsx';
-
 
 export const rootRoutes = [
     { index: true, element: <Navigate to="dashboard/home" replace /> },
@@ -26,7 +26,7 @@ export const rootRoutes = [
                 </AppProviders>
             </AuthProvider>
         ),
-        errorElement: <NotFoundPage/>,
+        errorElement: <RouterErrorHandler />,
         children: [
             ...publicRoutes,
             {

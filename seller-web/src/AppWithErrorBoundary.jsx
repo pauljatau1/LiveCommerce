@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react';
 import App from './App.jsx';
+import ChunkErrorBoundary from './Components/ChunkErrorBoundary.jsx';
 
 const APP_STATE = import.meta.env.VITE_APP_STATE || 'development';
 
@@ -14,12 +15,18 @@ if (APP_STATE !== 'development') {
 
 export default function AppWithErrorBoundary() {
   if (APP_STATE === 'development') {
-    return <App />;
+    return (
+      <ChunkErrorBoundary>
+        <App />
+      </ChunkErrorBoundary>
+    );
   }
 
   return (
     <Sentry.ErrorBoundary showDialog={false}>
-      <App />
+      <ChunkErrorBoundary>
+        <App />
+      </ChunkErrorBoundary>
     </Sentry.ErrorBoundary>
   );
 }
