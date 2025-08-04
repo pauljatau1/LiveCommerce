@@ -3130,5 +3130,135 @@ describe('Buyer Repository', () => {
         expect(result).toHaveProperty('profileImage');
       });
     });
+
+    describe('findBuyerWithNotificationPreferences', () => {
+      it('should find buyer with notification preferences', async () => {
+        // Arrange
+        const notificationPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: false,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: false
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: false,
+            chatReplies: true,
+            mentions: true
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: false,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: true,
+            couponsAndDeals: true,
+            trendingProducts: false,
+            recommendations: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          notificationPreferences: notificationPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(notificationPreferences);
+        // Should not have other fields like firstName, lastName, email, etc.
+        expect(result.firstName).toBeUndefined();
+        expect(result.lastName).toBeUndefined();
+        expect(result.email).toBeUndefined();
+        expect(result.username).toBeUndefined();
+        expect(result.password).toBeUndefined();
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with null notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          notificationPreferences: null
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        // notificationPreferences should be included in the selection
+        expect(result).toHaveProperty('notificationPreferences');
+        // Due to Mongoose schema defaults, notificationPreferences will have default values even when set to null
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toHaveProperty('orderUpdates');
+        expect(result.notificationPreferences).toHaveProperty('liveShows');
+        expect(result.notificationPreferences).toHaveProperty('messages');
+        expect(result.notificationPreferences).toHaveProperty('communityActivity');
+        expect(result.notificationPreferences).toHaveProperty('promotionsAndSales');
+      });
+
+      it('should handle buyer with undefined notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Johnson',
+          email: 'bob.johnson@example.com',
+          username: 'bobjohnson',
+          password: 'password123'
+          // notificationPreferences is undefined
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        // notificationPreferences should be included in the selection
+        expect(result).toHaveProperty('notificationPreferences');
+        // Due to Mongoose schema defaults, notificationPreferences will have default values even when undefined
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toHaveProperty('orderUpdates');
+        expect(result.notificationPreferences).toHaveProperty('liveShows');
+        expect(result.notificationPreferences).toHaveProperty('messages');
+        expect(result.notificationPreferences).toHaveProperty('communityActivity');
+        expect(result.notificationPreferences).toHaveProperty('promotionsAndSales');
+      });
+    });
   });
 }); 

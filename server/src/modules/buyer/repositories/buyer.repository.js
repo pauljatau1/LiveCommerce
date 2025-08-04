@@ -499,6 +499,17 @@ async function findBuyerByIdWithFields(buyerId) {
     .select('firstName lastName profileImage');
 }
 
+/**
+ * Find buyer by ID with notification preferences.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with notification preferences or null if not found
+ */
+async function findBuyerWithNotificationPreferences(buyerId) {
+  // Query buyer by ID and select only the notification preferences field
+  return Buyer.findById(buyerId)
+    .select('notificationPreferences');
+}
+
 module.exports = {
   findAll,
   save,
@@ -536,5 +547,6 @@ module.exports = {
   hasVerifiedPurchase,
   saveSeller,
   findSellerWithReviews,
-  findBuyerByIdWithFields
+  findBuyerByIdWithFields,
+  findBuyerWithNotificationPreferences
 };
