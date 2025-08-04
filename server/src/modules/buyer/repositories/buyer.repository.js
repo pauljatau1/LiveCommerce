@@ -477,6 +477,28 @@ async function saveSeller(seller) {
   return seller.save();
 }
 
+/**
+ * Find seller with reviews and stats.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Seller|null>} Seller with reviews and stats or null if not found
+ */
+async function findSellerWithReviews(sellerId) {
+  // Query seller by ID and select only the fields needed for reviews functionality
+  return Seller.findById(sellerId)
+    .select('reviews stats.averageRating stats.totalReviews stats.ratingDistribution');
+}
+
+/**
+ * Find buyer by ID with selected fields.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with selected fields or null if not found
+ */
+async function findBuyerByIdWithFields(buyerId) {
+  // Query buyer by ID and select only the fields needed for review population
+  return Buyer.findById(buyerId)
+    .select('firstName lastName profileImage');
+}
+
 module.exports = {
   findAll,
   save,
@@ -512,5 +534,7 @@ module.exports = {
   findSellersFollowingByBuyer,
   findBuyersFollowingByBuyer,
   hasVerifiedPurchase,
-  saveSeller
+  saveSeller,
+  findSellerWithReviews,
+  findBuyerByIdWithFields
 };
