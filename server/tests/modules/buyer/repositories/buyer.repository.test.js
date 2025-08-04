@@ -3260,5 +3260,294 @@ describe('Buyer Repository', () => {
         expect(result.notificationPreferences).toHaveProperty('promotionsAndSales');
       });
     });
+
+    describe('updateNotificationPreferences', () => {
+      it('should update notification preferences successfully', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: true
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: true,
+            chatReplies: true,
+            mentions: true
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: true,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: true,
+            couponsAndDeals: true,
+            trendingProducts: true,
+            recommendations: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: false,
+            followedSellers: true,
+            recommendedShows: true
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: false,
+            chatReplies: true,
+            mentions: false
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: false,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: false,
+            couponsAndDeals: true,
+            trendingProducts: false,
+            recommendations: true
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, newPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(newPreferences);
+        
+        // Verify specific fields were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.liveShows.allShows).toBe(false);
+        expect(result.notificationPreferences.messages.fromBuyers).toBe(false);
+        expect(result.notificationPreferences.messages.mentions).toBe(false);
+        expect(result.notificationPreferences.communityActivity.postLikes).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.flashSales).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.trendingProducts).toBe(false);
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(nonExistentBuyerId, newPreferences);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle partial preferences update', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const partialPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, partialPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        
+        // Verify only specified fields were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(true); // Should remain unchanged
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(true); // Should remain unchanged
+        
+        // Other sections should remain unchanged
+        expect(result.notificationPreferences.liveShows.allShows).toBe(true);
+        expect(result.notificationPreferences.liveShows.followedSellers).toBe(true);
+        expect(result.notificationPreferences.liveShows.recommendedShows).toBe(true);
+      });
+
+      it('should handle complete preferences replacement', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Johnson',
+          email: 'bob.johnson@example.com',
+          username: 'bobjohnson',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const completeNewPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false,
+            orderCancellation: false,
+            refundUpdates: false
+          },
+          liveShows: {
+            allShows: false,
+            followedSellers: false,
+            recommendedShows: false
+          },
+          messages: {
+            fromSellers: false,
+            fromBuyers: false,
+            chatReplies: false,
+            mentions: false
+          },
+          communityActivity: {
+            postComments: false,
+            postLikes: false,
+            repliesAndMentions: false
+          },
+          promotionsAndSales: {
+            flashSales: false,
+            couponsAndDeals: false,
+            trendingProducts: false,
+            recommendations: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, completeNewPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(completeNewPreferences);
+        
+        // Verify all preferences were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(false);
+        
+        expect(result.notificationPreferences.liveShows.allShows).toBe(false);
+        expect(result.notificationPreferences.liveShows.followedSellers).toBe(false);
+        expect(result.notificationPreferences.liveShows.recommendedShows).toBe(false);
+        
+        expect(result.notificationPreferences.messages.fromSellers).toBe(false);
+        expect(result.notificationPreferences.messages.fromBuyers).toBe(false);
+        expect(result.notificationPreferences.messages.chatReplies).toBe(false);
+        expect(result.notificationPreferences.messages.mentions).toBe(false);
+        
+        expect(result.notificationPreferences.communityActivity.postComments).toBe(false);
+        expect(result.notificationPreferences.communityActivity.postLikes).toBe(false);
+        expect(result.notificationPreferences.communityActivity.repliesAndMentions).toBe(false);
+        
+        expect(result.notificationPreferences.promotionsAndSales.flashSales).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.couponsAndDeals).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.trendingProducts).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.recommendations).toBe(false);
+      });
+
+      it('should handle buyer with default notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Alice',
+          lastName: 'Brown',
+          email: 'alice.brown@example.com',
+          username: 'alicebrown',
+          password: 'password123'
+          // notificationPreferences will use schema defaults
+        });
+        const savedBuyer = await buyer.save();
+
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, newPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        
+        // Verify the new preferences were applied
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        
+        // Other default values should remain
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(true); // Default value
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(true); // Default value
+      });
+    });
   });
 }); 
