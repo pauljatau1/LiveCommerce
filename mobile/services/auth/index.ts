@@ -48,13 +48,13 @@ export const auth = createApi({
       ForgotPasswordRequest
     >({
       query: (credentials) =>
-        postRequest("/buyer/forgot-password", credentials),
+        postRequest("/v2/buyers/forgot-password", credentials),
     }),
     resetPassword: builder.mutation<
       ResetPasswordResponse,
       ResetPasswordRequest
     >({
-      query: (credentials) => postRequest("/buyer/reset-password", credentials),
+      query: (credentials) => postRequest("/v2/buyers/reset-password", credentials),
     }),
     requestDelete: builder.mutation<any, any>({
       query: (credentials) =>

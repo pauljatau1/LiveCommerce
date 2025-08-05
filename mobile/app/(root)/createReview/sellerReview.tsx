@@ -46,7 +46,7 @@ const SellerReview = () => {
         comment,
       };
       const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_API_URL}api/buyer/seller/${id}/review`,
+        `${process.env.EXPO_PUBLIC_API_URL}api/v2/buyers/seller/${id}/review`,
         payload,
         {
           headers: {

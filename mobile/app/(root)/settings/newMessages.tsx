@@ -35,7 +35,7 @@ const NewMessages = () => {
         method: "PUT",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -61,7 +61,7 @@ const NewMessages = () => {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           Authorization: "Bearer " + token,
         },
@@ -69,7 +69,7 @@ const NewMessages = () => {
       };
 
       const response = await axios(config);
-      setIsEnabled(response.data?.preferences?.messages?.fromSellers);
+      setIsEnabled(response.data?.data?.preferences?.messages?.fromSellers);
 
       console.log("get notification update response", response.data);
     } catch (e) {
