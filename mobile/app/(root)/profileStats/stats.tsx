@@ -41,16 +41,16 @@ const ProfileStats = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/followers?page=${page}&limit=${20}`,
+          `api/v2/buyers/followers?page=${page}&limit=${20}`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setFollowers(response.data.followers);
-      setfilteredfollowers(response.data.followers);
-      setFollowersCount(response.data.pagination.total);
+      setFollowers(response.data.data.followers);
+      setfilteredfollowers(response.data.data.followers);
+      setFollowersCount(response.data.pagination?.total);
     } catch (e) {
       console.log("error getting followers", e);
     }
@@ -63,15 +63,15 @@ const ProfileStats = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/following?page=${page}&limit=${20}`,
+          `api/v2/buyers/following?page=${page}&limit=${20}`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setFollowing(response.data.following);
-      setfilteredFollowing(response.data.following);
+      setFollowing(response.data.data.following);
+      setfilteredFollowing(response.data.data.following);
       setFollowingCount(response.data.pagination.total);
     } catch (e) {
       console.log("error getting following", e);

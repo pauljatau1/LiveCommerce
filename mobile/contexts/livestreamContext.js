@@ -298,7 +298,7 @@ export const LivestreamProvider = ({ children }) => {
       }
 
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/seller/${sellerId}`,
         {
           headers: {
             Authorization: `Bearer ${userToken}`,
@@ -310,7 +310,7 @@ export const LivestreamProvider = ({ children }) => {
           "Successfully checked if seller is followed:",
           response.data,
         );
-        return response.data;
+        return response.data.data;
       }
     } catch (error) {
       console.error("Error checking if seller is followed:", error);
