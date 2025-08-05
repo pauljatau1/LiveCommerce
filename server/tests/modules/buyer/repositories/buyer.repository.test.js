@@ -3895,5 +3895,201 @@ describe('Buyer Repository', () => {
         expect(result.resetPasswordOTPExpires).toBeUndefined();
       });
     });
+
+    describe('updateAccountDeletionOTP', () => {
+      it('should update buyer with account deletion OTP and expiry', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const deletionOTP = '5678';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(nonExistentId, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle empty OTP string', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle null OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = null;
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBeNull();
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle undefined OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = undefined;
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBeUndefined();
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle past expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '9999';
+        const expiresAt = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle very long OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '1'.repeat(100);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle special characters in OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '!@#$';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle unicode characters in OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '🚀🌟🎉';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should overwrite existing account deletion data', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1111',
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes from now
+            attempts: 3
+          }
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newDeletionOTP = '2222';
+        const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, newDeletionOTP, newExpiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(newDeletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(newExpiresAt);
+        expect(result.accountDeletion.attempts).toBe(0); // Should reset to 0
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+        const deletionOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act & Assert
+        await expect(
+          buyerRepository.updateAccountDeletionOTP(invalidId, deletionOTP, expiresAt)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+    });
   });
 }); 

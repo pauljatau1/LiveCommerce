@@ -32,6 +32,7 @@ const getNotificationPreferencesService = require('../services/getNotificationPr
 const updateNotificationPreferencesService = require('../services/updateNotificationPreferences.service');
 const forgotPasswordService = require('../services/forgotPassword.service');
 const resetPasswordService = require('../services/resetPassword.service');
+const requestAccountDeletionService = require('../services/requestAccountDeletion.service');
 
 
 /**
@@ -972,6 +973,32 @@ async function resetPassword(req, res, next) {
   }
 }
 
+/**
+ * Request account deletion for a buyer.
+ *
+ * This controller handles the account deletion request HTTP request.
+ * It delegates the deletion logic to the service layer and returns a success response.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function requestAccountDeletion(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle account deletion logic
+    const response = await requestAccountDeletionService.requestAccountDeletion(buyerId);
+
+    // Send success response with deletion message
+    res.success(response, 'Account deletion request submitted successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1007,4 +1034,5 @@ module.exports = {
   updateNotificationPreferences,
   forgotPassword,
   resetPassword,
+  requestAccountDeletion,
 };
