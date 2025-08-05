@@ -599,6 +599,34 @@ async function resetPassword(buyerId, newPassword) {
   );
 }
 
+/**
+ * Update buyer with account deletion OTP and expiry.
+ * 
+ * This method updates the account deletion OTP fields for a specific buyer
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} deletionOTP - The deletion OTP to set
+ * @param {Date} expiresAt - The expiry date for the OTP
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateAccountDeletionOTP(buyerId, deletionOTP, expiresAt) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'accountDeletion.otp': deletionOTP,
+        'accountDeletion.expiresAt': expiresAt,
+        'accountDeletion.attempts': 0
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -640,5 +668,6 @@ module.exports = {
   findBuyerWithNotificationPreferences,
   updateNotificationPreferences,
   updateResetPasswordOTP,
-  resetPassword
+  resetPassword,
+  updateAccountDeletionOTP
 };
