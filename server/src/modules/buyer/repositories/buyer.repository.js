@@ -543,6 +543,33 @@ async function updateNotificationPreferences(buyerId, preferences) {
   );
 }
 
+/**
+ * Update buyer with reset password OTP and expiry.
+ * 
+ * This method updates the reset password OTP fields for a specific buyer
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} resetOTP - The reset OTP to set
+ * @param {Date} expiresAt - The expiry date for the OTP
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateResetPasswordOTP(buyerId, resetOTP, expiresAt) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        resetPasswordOTP: resetOTP,
+        resetPasswordOTPExpires: expiresAt
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -582,5 +609,6 @@ module.exports = {
   findSellerWithReviews,
   findBuyerByIdWithFields,
   findBuyerWithNotificationPreferences,
-  updateNotificationPreferences
+  updateNotificationPreferences,
+  updateResetPasswordOTP
 };

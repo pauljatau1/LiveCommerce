@@ -2858,6 +2858,56 @@ router.get('/notification-preferences', verifyToken, buyerController.getNotifica
  */
 router.put('/notification-preferences', verifyToken, buyerController.updateNotificationPreferences);
 
+/**
+ * @swagger
+ * /api/v2/buyers/forgot-password:
+ *   post:
+ *     summary: Request password reset OTP
+ *     description: Send a password reset OTP to the buyer's email address
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *                 description: The buyer's email address
+ *     responses:
+ *       200:
+ *         description: Password reset code sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset code sent successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Password reset code sent successfully"
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid email format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password', buyerController.forgotPassword);
+
 
 
 module.exports = router;
