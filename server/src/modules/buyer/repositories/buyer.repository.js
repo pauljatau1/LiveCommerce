@@ -570,6 +570,35 @@ async function updateResetPasswordOTP(buyerId, resetOTP, expiresAt) {
   );
 }
 
+/**
+ * Reset buyer password and clear reset OTP fields.
+ * 
+ * This method updates the buyer's password and clears the reset OTP fields
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} newPassword - The new hashed password
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function resetPassword(buyerId, newPassword) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        password: newPassword
+      },
+      $unset: {
+        resetPasswordOTP: 1,
+        resetPasswordOTPExpires: 1
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -610,5 +639,6 @@ module.exports = {
   findBuyerByIdWithFields,
   findBuyerWithNotificationPreferences,
   updateNotificationPreferences,
-  updateResetPasswordOTP
+  updateResetPasswordOTP,
+  resetPassword
 };
