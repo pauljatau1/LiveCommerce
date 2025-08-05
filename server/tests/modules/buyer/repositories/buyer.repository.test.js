@@ -3712,5 +3712,188 @@ describe('Buyer Repository', () => {
         expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
       });
     });
+
+    describe('resetPassword', () => {
+      it('should reset password and clear reset OTP fields', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '1234',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword456';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const newPassword = 'newHashedPassword456';
+
+        // Act
+        const result = await buyerRepository.resetPassword(nonExistentId, newPassword);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should preserve other buyer fields when resetting password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '5678',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword789';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result.firstName).toBe(mockBuyerData.firstName);
+        expect(result.lastName).toBe(mockBuyerData.lastName);
+        expect(result.email).toBe(mockBuyerData.email);
+        expect(result.username).toBe(mockBuyerData.username);
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle buyer without reset OTP fields', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword999';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle empty password string', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '1111',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = '';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle null password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '2222',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = null;
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBeNull();
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+
+
+      it('should handle very long password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '4444',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'a'.repeat(1000);
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle special characters in password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '5555',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle unicode characters in password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '6666',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'password123🚀🌟🎉';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+    });
   });
 }); 
