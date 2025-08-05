@@ -2058,7 +2058,8 @@ agenda.define('delete_unpaid_orders', async (job) => {
 });
 
 // Define job to delete expired streams after 1 hour
-agenda.define('delete_expired_streams', async (job) => {
+//! This feature has been suspended to accommodate the reschedule expired stream feature as deleted expired stream defeats the whole purpose of reschedule
+{/*agenda.define('delete_expired_streams', async (job) => {
   try {
     console.log('Starting job to delete expired streams');
     
@@ -2087,7 +2088,7 @@ agenda.define('delete_expired_streams', async (job) => {
   } catch (error) {
     console.error('Error in delete_expired_streams job:', error);
   }
-});
+});*/}
 
 // Define job for daily livestream analytics at midnight WAT
 agenda.define('daily_livestream_analytics', async (job) => {
@@ -2674,7 +2675,8 @@ const startAgenda = async () => {
     // console.log('Scheduled message notification job to run every 5 minutes');
     
     // Schedule the delete expired streams job to run every 15 minutes
-    await agenda.every('15 minutes', 'delete_expired_streams');
+    //! This feature has been suspended to accommodate the reschedule expired stream feature as deleted expired stream defeats the whole purpose of reschedule
+    //await agenda.every('15 minutes', 'delete_expired_streams');
     // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
     
     // Schedule daily livestream analytics job to run at midnight WAT

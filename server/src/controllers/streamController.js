@@ -1267,12 +1267,12 @@ exports.getSellerStreams = async (req, res) => {
       const update = { status: 'expired' };
 
       if (stream.status === 'scheduled' && stream.scheduledStartTime) {
-        const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+        const expirationTime = new Date(stream.scheduledStartTime.getTime());
         if (now > expirationTime) {
           needsUpdate = true;
         }
       } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime) {
-        const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
+        const expirationTime = new Date(stream.actualStartTime.getTime());
         if (now > expirationTime) {
           needsUpdate = true;
         }
@@ -3954,6 +3954,82 @@ exports.getCurrentAnnouncement = async (req, res) => {
       success: false,
       message: 'Failed to get current announcement',
       error: error.message
+    });
+  }
+};
+
+exports.rescheduleExpiredStream = async (req, res) => {
+  try {
+    const { streamId, newScheduledStartTime } = req.body;
+
+    // Validate required fields
+    if (!streamId || !newScheduledStartTime) {
+      return res.status(400).json({
+        message: 'Stream ID and new scheduled start time are required'
+      });
+    }
+
+    // Validate newScheduledStartTime format
+    const newStartDate = new Date(newScheduledStartTime);
+    if (isNaN(newStartDate.getTime())) {
+      return res.status(400).json({
+        message: 'Invalid date and time format for new scheduled start time'
+      });
+    }
+
+    // Ensure new scheduled time is in the future
+    const now = new Date();
+    if (newStartDate <= now) {
+      return res.status(400).json({
+        message: 'New scheduled start time must be in the future'
+      });
+    }
+
+    // Find the stream and ensure it belongs to the current seller
+    const stream = await Stream.findOne({
+      _id: streamId,
+      seller: req.user.id
+    }).populate('seller', 'storeName businessName storeAvatar rating');
+
+    if (!stream) {
+      return res.status(404).json({
+        message: 'Stream not found or you do not have permission to modify this stream'
+      });
+    }
+
+    // Validate that the stream status is "expired"
+    if (stream.status !== 'expired') {
+      return res.status(400).json({
+        message: `Cannot reschedule stream. Stream status is "${stream.status}" but must be "expired" to reschedule`
+      });
+    }
+
+    // Update the stream with new scheduled time and reset status to scheduled
+    stream.scheduledStartTime = newStartDate;
+    stream.status = 'scheduled';
+    
+    // Clear any end time if it was set during expiration
+    if (stream.endTime) {
+      stream.endTime = undefined;
+    }
+
+    await stream.save();
+
+    // Populate the updated stream for response
+    const updatedStream = await Stream.findById(stream._id)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price');
+
+    res.json({
+      message: 'Stream rescheduled successfully',
+      stream: updatedStream
+    });
+
+  } catch (error) {
+    console.error('Reschedule expired stream error:', error);
+    res.status(500).json({
+      message: 'Failed to reschedule stream',
+      error: error.message || 'Internal server error'
     });
   }
 };
