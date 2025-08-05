@@ -31,6 +31,7 @@ const getSellerReviewsService = require('../services/getSellerReviews.service');
 const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
 const updateNotificationPreferencesService = require('../services/updateNotificationPreferences.service');
 const forgotPasswordService = require('../services/forgotPassword.service');
+const resetPasswordService = require('../services/resetPassword.service');
 
 
 /**
@@ -945,6 +946,32 @@ async function forgotPassword(req, res, next) {
   }
 }
 
+/**
+ * Process password reset request.
+ *
+ * This controller handles the password reset HTTP request.
+ * It delegates the password reset logic to the service layer and returns a success response.
+ *
+ * @param {Request} req - Express request object containing the reset data in req.body
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function resetPassword(req, res, next) {
+  try {
+    // Extract reset password data from request body
+    const resetPasswordData = req.body;
+
+    // Call the service layer to handle password reset logic
+    const response = await resetPasswordService.resetPassword(resetPasswordData);
+
+    // Send success response with message
+    res.success(response, 'Password reset successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -979,4 +1006,5 @@ module.exports = {
   getNotificationPreferences,
   updateNotificationPreferences,
   forgotPassword,
+  resetPassword,
 };
