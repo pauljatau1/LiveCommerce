@@ -30,6 +30,7 @@ const reviewSellerService = require('../services/reviewSeller.service');
 const getSellerReviewsService = require('../services/getSellerReviews.service');
 const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
 const updateNotificationPreferencesService = require('../services/updateNotificationPreferences.service');
+const forgotPasswordService = require('../services/forgotPassword.service');
 
 
 /**
@@ -918,6 +919,32 @@ async function updateNotificationPreferences(req, res, next) {
   }
 }
 
+/**
+ * Process forgot password request.
+ *
+ * This controller handles the forgot password HTTP request.
+ * It delegates the forgot password logic to the service layer and returns a success response.
+ *
+ * @param {Request} req - Express request object containing the email in req.body
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function forgotPassword(req, res, next) {
+  try {
+    // Extract email from request body
+    const forgotPasswordData = req.body;
+
+    // Call the service layer to handle forgot password logic
+    const response = await forgotPasswordService.forgotPassword(forgotPasswordData);
+
+    // Send success response with message
+    res.success(response, 'Password reset code sent successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -951,4 +978,5 @@ module.exports = {
   getSellerReviews,
   getNotificationPreferences,
   updateNotificationPreferences,
+  forgotPassword,
 };

@@ -3549,5 +3549,168 @@ describe('Buyer Repository', () => {
         expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(true); // Default value
       });
     });
+
+    describe('updateResetPasswordOTP', () => {
+      it('should update buyer with reset password OTP and expiry', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id).toEqual(savedBuyer._id);
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const resetOTP = '5678';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          nonExistentId, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should update existing reset password OTP when called multiple times', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const firstOTP = '1111';
+        const firstExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        
+        const secondOTP = '2222';
+        const secondExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        // Act
+        const firstResult = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          firstOTP, 
+          firstExpiresAt
+        );
+        
+        const secondResult = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          secondOTP, 
+          secondExpiresAt
+        );
+
+        // Assert
+        expect(firstResult.resetPasswordOTP).toBe(firstOTP);
+        expect(firstResult.resetPasswordOTPExpires).toEqual(firstExpiresAt);
+        
+        expect(secondResult.resetPasswordOTP).toBe(secondOTP);
+        expect(secondResult.resetPasswordOTPExpires).toEqual(secondExpiresAt);
+        
+        // Verify the second update overwrote the first
+        expect(secondResult.resetPasswordOTP).not.toBe(firstOTP);
+      });
+
+      it('should handle empty string OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+
+      it('should handle null expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '9999';
+        const expiresAt = null;
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toBeNull();
+      });
+
+      it('should handle undefined expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '8888';
+        const expiresAt = undefined;
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should preserve other buyer fields when updating reset password OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '7777';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result.firstName).toBe(mockBuyerData.firstName);
+        expect(result.lastName).toBe(mockBuyerData.lastName);
+        expect(result.email).toBe(mockBuyerData.email);
+        expect(result.username).toBe(mockBuyerData.username);
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+    });
   });
 }); 
