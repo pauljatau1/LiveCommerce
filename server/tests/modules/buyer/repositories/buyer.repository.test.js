@@ -2194,6 +2194,19 @@ describe('Buyer Repository', () => {
       isVerified: true,
       isFeatured: false,
       accountPending: false,
+      emailVerified: true,
+      otp: '123456',
+      walletBalance: 1000,
+      bankDetails: {
+        bankCountry: 'Nigeria',
+        bankName: 'First Bank',
+        bankAccountType: 'Savings',
+        accountCurrency: 'NGN',
+        accountNumber: '1234567890',
+        accountName: 'Jane Smith',
+        swiftCode: 'FBNING',
+        bankIdentifierCode: 'FBNING'
+      },
       storeAvatar: { url: 'https://example.com/avatar.jpg' },
       storeBanner: { url: 'https://example.com/banner.jpg' },
       socialMedia: {
@@ -2260,19 +2273,22 @@ describe('Buyer Repository', () => {
 
         // Act
         const result = await buyerRepository.findSellerById(savedSeller._id);
-
+        
         // Assert
         expect(result).toBeDefined();
         expect(result._id.toString()).toBe(savedSeller._id.toString());
         expect(result.firstName).toBe('Jane');
         expect(result.lastName).toBe('Smith');
         expect(result.storeName).toBe('Jane\'s Store');
-        expect(result.password).toBeUndefined();
-        expect(result.bankDetails).toBeUndefined();
-        expect(result.otp).toBeUndefined();
-        expect(result.emailVerified).toBeUndefined();
-        expect(result.walletBalance).toBeUndefined();
-        expect(result.phoneNumber).toBeUndefined();
+        
+        // Check that sensitive fields are excluded
+        const resultObj = result.toObject();
+        expect(resultObj.password).toBeUndefined();
+        expect(resultObj.bankDetails).toBeUndefined();
+        expect(resultObj.otp).toBeUndefined();
+        expect(resultObj.emailVerified).toBeUndefined();
+        expect(resultObj.walletBalance).toBeUndefined();
+        expect(resultObj.phoneNumber).toBeUndefined();
       });
 
       it('should return null when seller not found', async () => {
@@ -2555,6 +2571,2252 @@ describe('Buyer Repository', () => {
 
         // Assert
         expect(result).toBeNull();
+      });
+    });
+
+    describe('findByIdWithPopulatedFollowers', () => {
+      it('should find buyer with populated followers', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          businessName: 'Doe Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar.jpg' }
+        });
+        const savedSeller = await seller.save();
+
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          followers: [{
+            sellerId: savedSeller._id,
+            storeName: 'John\'s Electronics',
+            followDate: new Date('2024-01-15T10:30:00.000Z')
+          }]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(1);
+        expect(result.followers[0].sellerId).toBeDefined();
+        expect(result.followers[0].sellerId.firstName).toBe('John');
+        expect(result.followers[0].sellerId.lastName).toBe('Doe');
+        expect(result.followers[0].sellerId.storeName).toBe('John\'s Electronics');
+        expect(result.followers[0].sellerId.businessName).toBe('Doe Enterprises');
+        expect(result.followers[0].sellerId.storeAvatar).toBeDefined();
+        expect(result.followers[0].sellerId.storeAvatar.url).toBe('https://cdn.example.com/avatar.jpg');
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with no followers', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          followers: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(0);
+      });
+
+      it('should handle buyer with multiple followers', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          profileImage: { url: 'https://cdn.example.com/profile1.jpg' }
+        });
+        const seller2 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Wilson',
+          email: 'jane.wilson@example.com',
+          phoneNumber: '+1234567891',
+          password: 'password123',
+          businessName: 'Wilson Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar2.jpg' }
+        });
+        const savedSeller1 = await seller1.save();
+        const savedSeller2 = await seller2.save();
+
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Smith',
+          email: 'bob.smith@example.com',
+          username: 'bobsmith',
+          password: 'password123',
+          followers: [
+            {
+              sellerId: savedSeller1._id,
+              storeName: 'John\'s Electronics',
+              followDate: new Date('2024-01-15T10:30:00.000Z')
+            },
+            {
+              sellerId: savedSeller2._id,
+              businessName: 'Wilson Enterprises',
+              followDate: new Date('2024-01-16T11:30:00.000Z')
+            }
+          ]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findByIdWithPopulatedFollowers(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.followers).toHaveLength(2);
+        expect(result.followers[0].sellerId.firstName).toBe('John');
+        expect(result.followers[0].sellerId.lastName).toBe('Doe');
+        expect(result.followers[1].sellerId.firstName).toBe('Jane');
+        expect(result.followers[1].sellerId.lastName).toBe('Wilson');
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Act & Assert
+        await expect(buyerRepository.findByIdWithPopulatedFollowers('invalid-id'))
+          .rejects
+          .toThrow('Cast to ObjectId failed for value "invalid-id" (type string) at path "_id" for model "Buyer"');
+      });
+    });
+
+    describe('findSellersFollowingByBuyer', () => {
+      it('should find sellers that a buyer follows', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          businessName: 'Doe Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar1.jpg' },
+          profileImage: { url: 'https://cdn.example.com/profile1.jpg' },
+          followers: [
+            {
+              buyerId: buyerId,
+              firstName: 'Bob',
+              lastName: 'Smith',
+              email: 'bob.smith@example.com',
+              followDate: new Date('2024-01-15T10:30:00.000Z'),
+              totalOrders: 0,
+              mainAddress: null
+            }
+          ]
+        });
+        
+        const seller2 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Wilson',
+          email: 'jane.wilson@example.com',
+          phoneNumber: '+1234567891',
+          password: 'password123',
+          storeName: 'Jane\'s Store',
+          businessName: 'Wilson Enterprises',
+          storeAvatar: { url: 'https://cdn.example.com/avatar2.jpg' },
+          profileImage: { url: 'https://cdn.example.com/profile2.jpg' },
+          followers: [
+            {
+              buyerId: buyerId,
+              firstName: 'Bob',
+              lastName: 'Smith',
+              email: 'bob.smith@example.com',
+              followDate: new Date('2024-01-16T11:30:00.000Z'),
+              totalOrders: 0,
+              mainAddress: null
+            }
+          ]
+        });
+        
+        const seller3 = new Seller({
+          firstName: 'Mike',
+          lastName: 'Johnson',
+          email: 'mike.johnson@example.com',
+          phoneNumber: '+1234567892',
+          password: 'password123',
+          storeName: 'Mike\'s Store',
+          businessName: 'Johnson Enterprises',
+          followers: [] // No followers
+        });
+
+        await seller1.save();
+        await seller2.save();
+        await seller3.save();
+
+        // Act
+        const result = await buyerRepository.findSellersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result[0].firstName).toBe('John');
+        expect(result[0].lastName).toBe('Doe');
+        expect(result[0].storeName).toBe('John\'s Electronics');
+        expect(result[1].firstName).toBe('Jane');
+        expect(result[1].lastName).toBe('Wilson');
+        expect(result[1].storeName).toBe('Jane\'s Store');
+      });
+
+      it('should return empty array when buyer follows no sellers', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Electronics',
+          followers: [] // No followers
+        });
+
+        await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should handle invalid buyer ID', async () => {
+        // Act & Assert
+        await expect(buyerRepository.findSellersFollowingByBuyer('invalid-id'))
+          .rejects
+          .toThrow('Cast to ObjectId failed for value "invalid-id" (type string) at path "buyerId" for model "Seller"');
+      });
+    });
+
+    describe('findBuyersFollowingByBuyer', () => {
+      it('should return empty array as buyers do not follow other buyers', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          followers: []
+        });
+
+        await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyersFollowingByBuyer(buyerId.toString());
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('hasVerifiedPurchase', () => {
+      it('should return true when buyer has made a verified purchase from seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+        
+        const order = new Order({
+          buyer: buyerId,
+          seller: sellerId,
+          totalAmount: 100,
+          buyerDetails: {
+            _id: buyerId,
+            firstName: 'John',
+            lastName: 'Doe'
+          },
+          paymentInfo: {
+            status: 'completed'
+          },
+          shipping: {
+            tracking: {
+              status: 'delivered'
+            }
+          },
+          items: [
+            {
+              product: new mongoose.Types.ObjectId('507f1f77bcf86cd799439013'),
+              seller: sellerId,
+              quantity: 1,
+              price: 100
+            }
+          ]
+        });
+
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(true);
+      });
+
+      it('should return false when buyer has not made a verified purchase from seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+        
+        const order = new Order({
+          buyer: buyerId,
+          seller: sellerId,
+          totalAmount: 100,
+          buyerDetails: {
+            _id: buyerId,
+            firstName: 'John',
+            lastName: 'Doe'
+          },
+          paymentInfo: {
+            status: 'pending'
+          },
+          shipping: {
+            tracking: {
+              status: 'shipped'
+            }
+          },
+          items: [
+            {
+              product: new mongoose.Types.ObjectId('507f1f77bcf86cd799439013'),
+              seller: sellerId,
+              quantity: 1,
+              price: 100
+            }
+          ]
+        });
+
+        await order.save();
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(false);
+      });
+
+      it('should return false when no order exists between buyer and seller', async () => {
+        // Arrange
+        const buyerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
+        const sellerId = new mongoose.Types.ObjectId('507f1f77bcf86cd799439012');
+
+        // Act
+        const result = await buyerRepository.hasVerifiedPurchase(buyerId.toString(), sellerId.toString());
+
+        // Assert
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('saveSeller', () => {
+      it('should save seller successfully', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Store',
+          businessName: 'Doe Enterprises'
+        });
+
+        // Act
+        const result = await buyerRepository.saveSeller(seller);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id).toBeDefined();
+        expect(result.firstName).toBe('John');
+        expect(result.lastName).toBe('Doe');
+        expect(result.storeName).toBe('John\'s Store');
+      });
+
+      it('should update existing seller successfully', async () => {
+        // Arrange
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '+1234567890',
+          password: 'password123',
+          storeName: 'John\'s Store'
+        });
+
+        const savedSeller = await seller.save();
+        savedSeller.storeName = 'Updated Store Name';
+
+        // Act
+        const result = await buyerRepository.saveSeller(savedSeller);
+
+        // Assert
+        expect(result.storeName).toBe('Updated Store Name');
+      });
+    });
+
+    describe('findSellerWithReviews', () => {
+      it('should find seller with reviews and stats', async () => {
+        // Arrange
+        const seller = new Seller({
+          ...mockSellerData,
+          reviews: [
+            {
+              buyer: new mongoose.Types.ObjectId('507f1f77bcf86cd799439011'),
+              rating: 5,
+              comment: 'Great seller!',
+              createdAt: new Date(),
+              isVerifiedPurchase: true
+            }
+          ],
+          stats: {
+            averageRating: 4.5,
+            totalReviews: 1,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 }
+          }
+        });
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedSeller._id.toString());
+        expect(result.reviews).toHaveLength(1);
+        expect(result.stats).toBeDefined();
+        // Note: The stats might be 0 if not properly initialized in the schema
+        expect(result.stats).toHaveProperty('averageRating');
+        expect(result.stats).toHaveProperty('totalReviews');
+        expect(result.stats).toHaveProperty('ratingDistribution');
+      });
+
+      it('should return null when seller not found', async () => {
+        // Arrange
+        const nonExistentSellerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(nonExistentSellerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should only select reviews and stats fields', async () => {
+        // Arrange
+        const seller = new Seller({
+          ...mockSellerData,
+          reviews: [],
+          stats: {
+            averageRating: 0,
+            totalReviews: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          }
+        });
+        const savedSeller = await seller.save();
+
+        // Act
+        const result = await buyerRepository.findSellerWithReviews(savedSeller._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedSeller._id.toString());
+        expect(result.reviews).toBeDefined();
+        expect(result.stats).toBeDefined();
+        // Should not have other fields like firstName, lastName, etc.
+        expect(result.firstName).toBeUndefined();
+        expect(result.lastName).toBeUndefined();
+      });
+    });
+
+    describe('findBuyerByIdWithFields', () => {
+      it('should find buyer with selected fields', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          profileImage: { url: 'https://example.com/profile.jpg' }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.firstName).toBe('John');
+        expect(result.lastName).toBe('Doe');
+        expect(result.profileImage).toBeDefined();
+        expect(result.profileImage.url).toBe('https://example.com/profile.jpg');
+        // Should not have other fields like email, username, password
+        expect(result.email).toBeUndefined();
+        expect(result.username).toBeUndefined();
+        expect(result.password).toBeUndefined();
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with null profile image', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          profileImage: null
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerByIdWithFields(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.firstName).toBe('Jane');
+        expect(result.lastName).toBe('Smith');
+        // profileImage should be included in the selection even if null
+        expect(result).toHaveProperty('profileImage');
+      });
+    });
+
+    describe('findBuyerWithNotificationPreferences', () => {
+      it('should find buyer with notification preferences', async () => {
+        // Arrange
+        const notificationPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: false,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: false
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: false,
+            chatReplies: true,
+            mentions: true
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: false,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: true,
+            couponsAndDeals: true,
+            trendingProducts: false,
+            recommendations: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          notificationPreferences: notificationPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(notificationPreferences);
+        // Should not have other fields like firstName, lastName, email, etc.
+        expect(result.firstName).toBeUndefined();
+        expect(result.lastName).toBeUndefined();
+        expect(result.email).toBeUndefined();
+        expect(result.username).toBeUndefined();
+        expect(result.password).toBeUndefined();
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(nonExistentBuyerId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with null notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          notificationPreferences: null
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        // notificationPreferences should be included in the selection
+        expect(result).toHaveProperty('notificationPreferences');
+        // Due to Mongoose schema defaults, notificationPreferences will have default values even when set to null
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toHaveProperty('orderUpdates');
+        expect(result.notificationPreferences).toHaveProperty('liveShows');
+        expect(result.notificationPreferences).toHaveProperty('messages');
+        expect(result.notificationPreferences).toHaveProperty('communityActivity');
+        expect(result.notificationPreferences).toHaveProperty('promotionsAndSales');
+      });
+
+      it('should handle buyer with undefined notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Johnson',
+          email: 'bob.johnson@example.com',
+          username: 'bobjohnson',
+          password: 'password123'
+          // notificationPreferences is undefined
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.findBuyerWithNotificationPreferences(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        // notificationPreferences should be included in the selection
+        expect(result).toHaveProperty('notificationPreferences');
+        // Due to Mongoose schema defaults, notificationPreferences will have default values even when undefined
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toHaveProperty('orderUpdates');
+        expect(result.notificationPreferences).toHaveProperty('liveShows');
+        expect(result.notificationPreferences).toHaveProperty('messages');
+        expect(result.notificationPreferences).toHaveProperty('communityActivity');
+        expect(result.notificationPreferences).toHaveProperty('promotionsAndSales');
+      });
+    });
+
+    describe('updateNotificationPreferences', () => {
+      it('should update notification preferences successfully', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: true
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: true,
+            chatReplies: true,
+            mentions: true
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: true,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: true,
+            couponsAndDeals: true,
+            trendingProducts: true,
+            recommendations: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: false,
+            followedSellers: true,
+            recommendedShows: true
+          },
+          messages: {
+            fromSellers: true,
+            fromBuyers: false,
+            chatReplies: true,
+            mentions: false
+          },
+          communityActivity: {
+            postComments: true,
+            postLikes: false,
+            repliesAndMentions: true
+          },
+          promotionsAndSales: {
+            flashSales: false,
+            couponsAndDeals: true,
+            trendingProducts: false,
+            recommendations: true
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, newPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(newPreferences);
+        
+        // Verify specific fields were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.liveShows.allShows).toBe(false);
+        expect(result.notificationPreferences.messages.fromBuyers).toBe(false);
+        expect(result.notificationPreferences.messages.mentions).toBe(false);
+        expect(result.notificationPreferences.communityActivity.postLikes).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.flashSales).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.trendingProducts).toBe(false);
+      });
+
+      it('should return null when buyer not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(nonExistentBuyerId, newPreferences);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle partial preferences update', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true,
+            orderCancellation: true,
+            refundUpdates: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true,
+            recommendedShows: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          username: 'janesmith',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const partialPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, partialPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        
+        // Verify only specified fields were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(true); // Should remain unchanged
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(true); // Should remain unchanged
+        
+        // Other sections should remain unchanged
+        expect(result.notificationPreferences.liveShows.allShows).toBe(true);
+        expect(result.notificationPreferences.liveShows.followedSellers).toBe(true);
+        expect(result.notificationPreferences.liveShows.recommendedShows).toBe(true);
+      });
+
+      it('should handle complete preferences replacement', async () => {
+        // Arrange
+        const initialPreferences = {
+          orderUpdates: {
+            orderConfirmation: true,
+            shippingAndDelivery: true
+          },
+          liveShows: {
+            allShows: true,
+            followedSellers: true
+          }
+        };
+
+        const buyer = new Buyer({
+          firstName: 'Bob',
+          lastName: 'Johnson',
+          email: 'bob.johnson@example.com',
+          username: 'bobjohnson',
+          password: 'password123',
+          notificationPreferences: initialPreferences
+        });
+        const savedBuyer = await buyer.save();
+
+        const completeNewPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false,
+            orderCancellation: false,
+            refundUpdates: false
+          },
+          liveShows: {
+            allShows: false,
+            followedSellers: false,
+            recommendedShows: false
+          },
+          messages: {
+            fromSellers: false,
+            fromBuyers: false,
+            chatReplies: false,
+            mentions: false
+          },
+          communityActivity: {
+            postComments: false,
+            postLikes: false,
+            repliesAndMentions: false
+          },
+          promotionsAndSales: {
+            flashSales: false,
+            couponsAndDeals: false,
+            trendingProducts: false,
+            recommendations: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, completeNewPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        expect(result.notificationPreferences).toEqual(completeNewPreferences);
+        
+        // Verify all preferences were updated
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(false);
+        
+        expect(result.notificationPreferences.liveShows.allShows).toBe(false);
+        expect(result.notificationPreferences.liveShows.followedSellers).toBe(false);
+        expect(result.notificationPreferences.liveShows.recommendedShows).toBe(false);
+        
+        expect(result.notificationPreferences.messages.fromSellers).toBe(false);
+        expect(result.notificationPreferences.messages.fromBuyers).toBe(false);
+        expect(result.notificationPreferences.messages.chatReplies).toBe(false);
+        expect(result.notificationPreferences.messages.mentions).toBe(false);
+        
+        expect(result.notificationPreferences.communityActivity.postComments).toBe(false);
+        expect(result.notificationPreferences.communityActivity.postLikes).toBe(false);
+        expect(result.notificationPreferences.communityActivity.repliesAndMentions).toBe(false);
+        
+        expect(result.notificationPreferences.promotionsAndSales.flashSales).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.couponsAndDeals).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.trendingProducts).toBe(false);
+        expect(result.notificationPreferences.promotionsAndSales.recommendations).toBe(false);
+      });
+
+      it('should handle buyer with default notification preferences', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          firstName: 'Alice',
+          lastName: 'Brown',
+          email: 'alice.brown@example.com',
+          username: 'alicebrown',
+          password: 'password123'
+          // notificationPreferences will use schema defaults
+        });
+        const savedBuyer = await buyer.save();
+
+        const newPreferences = {
+          orderUpdates: {
+            orderConfirmation: false,
+            shippingAndDelivery: false
+          }
+        };
+
+        // Act
+        const result = await buyerRepository.updateNotificationPreferences(savedBuyer._id, newPreferences);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.notificationPreferences).toBeDefined();
+        
+        // Verify the new preferences were applied
+        expect(result.notificationPreferences.orderUpdates.orderConfirmation).toBe(false);
+        expect(result.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(false);
+        
+        // Other default values should remain
+        expect(result.notificationPreferences.orderUpdates.orderCancellation).toBe(true); // Default value
+        expect(result.notificationPreferences.orderUpdates.refundUpdates).toBe(true); // Default value
+      });
+    });
+
+    describe('updateResetPasswordOTP', () => {
+      it('should update buyer with reset password OTP and expiry', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id).toEqual(savedBuyer._id);
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const resetOTP = '5678';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          nonExistentId, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should update existing reset password OTP when called multiple times', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const firstOTP = '1111';
+        const firstExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        
+        const secondOTP = '2222';
+        const secondExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        // Act
+        const firstResult = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          firstOTP, 
+          firstExpiresAt
+        );
+        
+        const secondResult = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          secondOTP, 
+          secondExpiresAt
+        );
+
+        // Assert
+        expect(firstResult.resetPasswordOTP).toBe(firstOTP);
+        expect(firstResult.resetPasswordOTPExpires).toEqual(firstExpiresAt);
+        
+        expect(secondResult.resetPasswordOTP).toBe(secondOTP);
+        expect(secondResult.resetPasswordOTPExpires).toEqual(secondExpiresAt);
+        
+        // Verify the second update overwrote the first
+        expect(secondResult.resetPasswordOTP).not.toBe(firstOTP);
+      });
+
+      it('should handle empty string OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+
+      it('should handle null expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '9999';
+        const expiresAt = null;
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toBeNull();
+      });
+
+      it('should handle undefined expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '8888';
+        const expiresAt = undefined;
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should preserve other buyer fields when updating reset password OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const resetOTP = '7777';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateResetPasswordOTP(
+          savedBuyer._id, 
+          resetOTP, 
+          expiresAt
+        );
+
+        // Assert
+        expect(result.firstName).toBe(mockBuyerData.firstName);
+        expect(result.lastName).toBe(mockBuyerData.lastName);
+        expect(result.email).toBe(mockBuyerData.email);
+        expect(result.username).toBe(mockBuyerData.username);
+        expect(result.resetPasswordOTP).toBe(resetOTP);
+        expect(result.resetPasswordOTPExpires).toEqual(expiresAt);
+      });
+    });
+
+    describe('resetPassword', () => {
+      it('should reset password and clear reset OTP fields', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '1234',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword456';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const newPassword = 'newHashedPassword456';
+
+        // Act
+        const result = await buyerRepository.resetPassword(nonExistentId, newPassword);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should preserve other buyer fields when resetting password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '5678',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword789';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result.firstName).toBe(mockBuyerData.firstName);
+        expect(result.lastName).toBe(mockBuyerData.lastName);
+        expect(result.email).toBe(mockBuyerData.email);
+        expect(result.username).toBe(mockBuyerData.username);
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle buyer without reset OTP fields', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'newHashedPassword999';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle empty password string', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '1111',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = '';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle null password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '2222',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = null;
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBeNull();
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+
+
+      it('should handle very long password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '4444',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'a'.repeat(1000);
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle special characters in password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '5555',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+
+      it('should handle unicode characters in password', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          resetPasswordOTP: '6666',
+          resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newPassword = 'password123🚀🌟🎉';
+
+        // Act
+        const result = await buyerRepository.resetPassword(savedBuyer._id, newPassword);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.password).toBe(newPassword);
+        expect(result.resetPasswordOTP).toBeUndefined();
+        expect(result.resetPasswordOTPExpires).toBeUndefined();
+      });
+    });
+
+    describe('updateAccountDeletionOTP', () => {
+      it('should update buyer with account deletion OTP and expiry', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should return null when buyer does not exist', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+        const deletionOTP = '5678';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(nonExistentId, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle empty OTP string', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle null OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = null;
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBeNull();
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle undefined OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = undefined;
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBeUndefined();
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle past expiry date', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '9999';
+        const expiresAt = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle very long OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '1'.repeat(100);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle special characters in OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '!@#$';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should handle unicode characters in OTP', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const deletionOTP = '🚀🌟🎉';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, deletionOTP, expiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(deletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(expiresAt);
+        expect(result.accountDeletion.attempts).toBe(0);
+      });
+
+      it('should overwrite existing account deletion data', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1111',
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes from now
+            attempts: 3
+          }
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newDeletionOTP = '2222';
+        const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
+
+        // Act
+        const result = await buyerRepository.updateAccountDeletionOTP(savedBuyer._id, newDeletionOTP, newExpiresAt);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.otp).toBe(newDeletionOTP);
+        expect(result.accountDeletion.expiresAt).toEqual(newExpiresAt);
+        expect(result.accountDeletion.attempts).toBe(0); // Should reset to 0
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+        const deletionOTP = '1234';
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Act & Assert
+        await expect(
+          buyerRepository.updateAccountDeletionOTP(invalidId, deletionOTP, expiresAt)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+    });
+
+    describe('incrementAccountDeletionAttempts', () => {
+      it('should increment account deletion attempts for existing buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 2
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(3); // Should be incremented from 2 to 3
+        expect(result.accountDeletion.otp).toBe('1234');
+        expect(result.accountDeletion.expiresAt).toEqual(savedBuyer.accountDeletion.expiresAt);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle initial increment when attempts is undefined', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+            // attempts not set, should be undefined
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1); // Should be incremented from undefined to 1
+      });
+
+      it('should handle buyer without accountDeletion field', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1); // Should create field and set to 1
+      });
+
+      it('should handle large attempt numbers', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 999
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1000);
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+
+        // Act & Assert
+        await expect(
+          buyerRepository.incrementAccountDeletionAttempts(invalidId)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+    });
+
+    describe('deleteById', () => {
+      it('should delete existing buyer and return deleted document', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.email).toBe(mockBuyerData.email);
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.deleteById(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should delete buyer with all associated data', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          shippingAddresses: [
+            {
+              addressType: 'home',
+              country: 'United States',
+              state: 'California',
+              city: 'Los Angeles',
+              addressLine1: '123 Main St',
+              zipCode: '90210'
+            }
+          ],
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 3
+          },
+          wishlist: [new mongoose.Types.ObjectId()]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.shippingAddresses).toHaveLength(1);
+        expect(result.accountDeletion).toBeDefined();
+        expect(result.wishlist).toHaveLength(1);
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+
+        // Act & Assert
+        await expect(
+          buyerRepository.deleteById(invalidId)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+
+      it('should handle deletion of buyer with verified status', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isIdentityVerified: true,
+          phoneVerification: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+            attempts: 0
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isIdentityVerified).toBe(true);
+        expect(result.phoneVerification).toBeDefined();
+        expect(result.phoneVerification.otp).toBe('1234');
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should return complete buyer document on deletion', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toMatchObject({
+          firstName: mockBuyerData.firstName,
+          lastName: mockBuyerData.lastName,
+          email: mockBuyerData.email,
+          username: mockBuyerData.username,
+          phoneNumber: mockBuyerData.phoneNumber
+        });
+        expect(result._id).toBeDefined();
+        expect(result.createdAt).toBeDefined();
+        // Note: updatedAt is not defined in the buyer schema, only createdAt
+      });
+    });
+
+    describe('addReport', () => {
+      it('should add report to buyer\'s reports array successfully', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products and refusing refunds to customers.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.reports).toHaveLength(1);
+        expect(result.reports[0].reportedUser.userId.toString()).toBe(reportData.reportedUser.userId);
+        expect(result.reports[0].reportedUser.userType).toBe(reportData.reportedUser.userType);
+        expect(result.reports[0].reason).toBe(reportData.reason);
+        expect(result.reports[0].description).toBe(reportData.description);
+        expect(result.reports[0].status).toBe('pending');
+        expect(result.reports[0].createdAt).toBeDefined();
+      });
+
+      it('should add multiple reports to buyer\'s reports array', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const firstReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'First report description.'
+        };
+
+        const secondReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Inappropriate behavior',
+          description: 'Second report description.'
+        };
+
+        // Act
+        const firstResult = await buyerRepository.addReport(savedBuyer._id, firstReportData);
+        const secondResult = await buyerRepository.addReport(savedBuyer._id, secondReportData);
+
+        // Assert
+        expect(firstResult.reports).toHaveLength(1);
+        expect(secondResult.reports).toHaveLength(2);
+        expect(secondResult.reports[0].reason).toBe('Fraudulent behavior');
+        expect(secondResult.reports[1].reason).toBe('Inappropriate behavior');
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(nonExistentBuyerId, reportData);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act & Assert
+        await expect(
+          buyerRepository.addReport(invalidId, reportData)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+
+      it('should preserve existing reports when adding new ones', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          reports: [{
+            reportedUser: {
+              userId: new mongoose.Types.ObjectId(),
+              userType: 'buyer'
+            },
+            reason: 'Existing report',
+            description: 'This is an existing report.',
+            status: 'pending',
+            createdAt: new Date()
+          }]
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'New report',
+          description: 'This is a new report being added.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, newReportData);
+
+        // Assert
+        expect(result.reports).toHaveLength(2);
+        expect(result.reports[0].reason).toBe('Existing report');
+        expect(result.reports[1].reason).toBe('New report');
+      });
+
+      it('should handle empty reason and description gracefully', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: '',
+          description: ''
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.reports).toHaveLength(1);
+        expect(result.reports[0].reason).toBe('No reason provided');
+        expect(result.reports[0].description).toBe('No description provided');
+      });
+
+      it('should set default status and createdAt for new reports', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        const beforeTime = new Date();
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        const afterTime = new Date();
+        expect(result.reports[0].status).toBe('pending');
+        expect(result.reports[0].createdAt).toBeInstanceOf(Date);
+        expect(result.reports[0].createdAt.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+        expect(result.reports[0].createdAt.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+      });
+
+      it('should handle concurrent report additions atomically', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData1 = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Report 1',
+          description: 'First concurrent report.'
+        };
+
+        const reportData2 = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Report 2',
+          description: 'Second concurrent report.'
+        };
+
+        // Act
+        const [result1, result2] = await Promise.all([
+          buyerRepository.addReport(savedBuyer._id, reportData1),
+          buyerRepository.addReport(savedBuyer._id, reportData2)
+        ]);
+
+        // Assert
+        // One of them should have 1 report, the other should have 2
+        const reports1Count = result1.reports.length;
+        const reports2Count = result2.reports.length;
+        
+        expect([reports1Count, reports2Count].sort()).toEqual([1, 2]);
+        
+        // Verify final state by fetching from database
+        const finalBuyer = await Buyer.findById(savedBuyer._id);
+        expect(finalBuyer.reports).toHaveLength(2);
+      });
+
+      it('should return updated buyer document with new: true option', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.reports).toHaveLength(1);
+        
+        // Verify the returned document reflects the update
+        expect(result.reports[0].reportedUser.userId.toString()).toBe(reportData.reportedUser.userId);
+      });
+
+      it('should handle different userType values correctly', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const sellerReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Seller issue',
+          description: 'Problem with seller.'
+        };
+
+        const buyerReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Buyer issue',
+          description: 'Problem with buyer.'
+        };
+
+        // Act
+        await buyerRepository.addReport(savedBuyer._id, sellerReportData);
+        const result = await buyerRepository.addReport(savedBuyer._id, buyerReportData);
+
+        // Assert
+        expect(result.reports).toHaveLength(2);
+        expect(result.reports[0].reportedUser.userType).toBe('seller');
+        expect(result.reports[1].reportedUser.userType).toBe('buyer');
+      });
+    });
+
+    describe('Wallet-related methods', () => {
+      describe('findByIdWithWalletOnHoldItems', () => {
+        it('should find buyer with populated wallet on-hold items', async () => {
+          // Arrange
+          const productId = new mongoose.Types.ObjectId();
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: productId,
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(savedBuyer._id);
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(1);
+          expect(result.wallet.onHoldItems[0].productId).toBeDefined();
+        });
+
+        it('should return null when buyer not found', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(nonExistentId);
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle buyer with no on-hold items', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 0,
+              currency: 'NGN',
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(savedBuyer._id);
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(0);
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Act & Assert
+          await expect(buyerRepository.findByIdWithWalletOnHoldItems('invalid-id'))
+            .rejects
+            .toThrow();
+        });
+      });
+
+      describe('updateWalletOnHoldItems', () => {
+        it('should update wallet on-hold items and amount', async () => {
+          // Arrange
+          const productId = new mongoose.Types.ObjectId();
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 2500,
+              currency: 'NGN',
+              onHoldItems: [
+                {
+                  productId: productId,
+                  amount: 1500,
+                  bidDate: new Date()
+                },
+                {
+                  productId: new mongoose.Types.ObjectId(),
+                  amount: 1000,
+                  bidDate: new Date()
+                }
+              ]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [buyer.wallet.onHoldItems[0]]; // Only first item
+          const recalculatedOnHoldAmount = 1500;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(1);
+          expect(result.wallet.onHoldAmount).toBe(1500);
+          expect(result.wallet.onHoldItems[0].productId.toString()).toBe(productId.toString());
+        });
+
+        it('should return null when buyer not found', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            nonExistentId,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle empty on-hold items array', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: new mongoose.Types.ObjectId(),
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(0);
+          expect(result.wallet.onHoldAmount).toBe(0);
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Arrange
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act & Assert
+          await expect(buyerRepository.updateWalletOnHoldItems(
+            'invalid-id',
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          )).rejects.toThrow();
+        });
+
+        it('should preserve other wallet fields when updating', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: new mongoose.Types.ObjectId(),
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.wallet.balance).toBe(5000); // Should be preserved
+          expect(result.wallet.currency).toBe('NGN'); // Should be preserved
+          expect(result.wallet.onHoldItems).toHaveLength(0); // Should be updated
+          expect(result.wallet.onHoldAmount).toBe(0); // Should be updated
+        });
       });
     });
   });

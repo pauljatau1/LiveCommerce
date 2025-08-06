@@ -2121,4 +2121,1324 @@ router.post('/verify-phone-otp', verifyToken, isBuyer, buyerController.verifyPho
  */
 router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerProfile);
 
+/**
+ * @swagger
+ * /api/v2/buyers/followers:
+ *   get:
+ *     summary: Get buyer's followers with pagination
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Followers retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     followers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: Seller ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           type:
+ *                             type: string
+ *                             enum: [seller]
+ *                             example: "seller"
+ *                           name:
+ *                             type: string
+ *                             description: Seller's full name
+ *                             example: "John Doe"
+ *                           storeName:
+ *                             type: string
+ *                             description: Store or business name
+ *                             example: "John's Electronics"
+ *                           profileImage:
+ *                             type: string
+ *                             description: URL to profile image
+ *                             example: "https://cdn.example.com/profile.jpg"
+ *                           followDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: When the seller started following the buyer
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of followers
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid pagination parameters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/followers', verifyToken, isBuyer, buyerController.getFollowers);
+
+/**
+ * @swagger
+ * /api/v2/buyers/following:
+ *   get:
+ *     summary: Get list of users the buyer follows (both buyers and sellers)
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Following list retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Following retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     following:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: User ID (seller or buyer)
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           type:
+ *                             type: string
+ *                             enum: [buyer, seller]
+ *                             example: "seller"
+ *                           name:
+ *                             type: string
+ *                             description: User's full name
+ *                             example: "John Doe"
+ *                           storeName:
+ *                             type: string
+ *                             nullable: true
+ *                             description: Store name (only for sellers)
+ *                             example: "John's Electronics"
+ *                           profileImage:
+ *                             type: string
+ *                             nullable: true
+ *                             description: URL to profile image
+ *                             example: "https://cdn.example.com/profile.jpg"
+ *                           followDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: When the buyer started following this user
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of following
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid pagination parameters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/following', verifyToken, isBuyer, buyerController.getFollowing);
+
+/**
+ * @swagger
+ * /api/v2/buyers/seller/{sellerId}/review:
+ *   post:
+ *     summary: Write a review for a seller's store
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to review
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *               - comment
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating from 1 to 5
+ *                 example: 5
+ *               comment:
+ *                 type: string
+ *                 minLength: 10
+ *                 description: Review comment
+ *                 example: "Great seller! Fast delivery and excellent products."
+ *     responses:
+ *       201:
+ *         description: Review created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Review submitted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     review:
+ *                       type: object
+ *                       properties:
+ *                         buyer:
+ *                           type: string
+ *                           description: Buyer ID
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         rating:
+ *                           type: number
+ *                           example: 5
+ *                         comment:
+ *                           type: string
+ *                           example: "Great seller! Fast delivery and excellent products."
+ *                         buyerName:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         buyerImage:
+ *                           type: string
+ *                           nullable: true
+ *                           example: "https://cdn.example.com/profile.jpg"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                         isVerifiedPurchase:
+ *                           type: boolean
+ *                           example: true
+ *       400:
+ *         description: Invalid input or already reviewed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You have already reviewed this seller"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Buyer must be a follower or have made a purchase
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/seller/:sellerId/review', verifyToken, isBuyer, buyerController.reviewSeller);
+
+/**
+ * @swagger
+ * /api/v2/buyers/seller/{sellerId}/reviews:
+ *   get:
+ *     summary: Get all reviews for a seller's store
+ *     tags: [Buyer V2]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, rating-high, rating-low]
+ *           default: recent
+ *         description: Sort order for reviews
+ *     responses:
+ *       200:
+ *         description: List of seller reviews
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Seller reviews retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     reviews:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           rating:
+ *                             type: number
+ *                             example: 5
+ *                           comment:
+ *                             type: string
+ *                             example: "Great seller! Fast delivery and excellent products."
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439012"
+ *                               name:
+ *                                 type: string
+ *                                 example: "John Doe"
+ *                               image:
+ *                                 type: string
+ *                                 nullable: true
+ *                                 example: "https://cdn.example.com/profile.jpg"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           isVerifiedPurchase:
+ *                             type: boolean
+ *                             example: true
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         averageRating:
+ *                           type: number
+ *                           example: 4.5
+ *                         totalReviews:
+ *                           type: number
+ *                           example: 25
+ *                         ratingDistribution:
+ *                           type: object
+ *                           properties:
+ *                             "1":
+ *                               type: number
+ *                               example: 1
+ *                             "2":
+ *                               type: number
+ *                               example: 2
+ *                             "3":
+ *                               type: number
+ *                               example: 3
+ *                             "4":
+ *                               type: number
+ *                               example: 8
+ *                             "5":
+ *                               type: number
+ *                               example: 11
+ *                         verifiedPurchaseCount:
+ *                           type: number
+ *                           example: 20
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: number
+ *                           example: 1
+ *                         totalPages:
+ *                           type: number
+ *                           example: 3
+ *                         totalReviews:
+ *                           type: number
+ *                           example: 25
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/seller/:sellerId/reviews', buyerController.getSellerReviews);
+
+/**
+ * @swagger
+ * /api/v2/buyers/notification-preferences:
+ *   get:
+ *     summary: Get buyer's notification preferences
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notification preferences retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification preferences retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     preferences:
+ *                       type: object
+ *                       properties:
+ *                         orderUpdates:
+ *                           type: object
+ *                           properties:
+ *                             orderConfirmation:
+ *                               type: boolean
+ *                               example: true
+ *                             shippingAndDelivery:
+ *                               type: boolean
+ *                               example: true
+ *                             orderCancellation:
+ *                               type: boolean
+ *                               example: false
+ *                             refundUpdates:
+ *                               type: boolean
+ *                               example: true
+ *                         liveShows:
+ *                           type: object
+ *                           properties:
+ *                             allShows:
+ *                               type: boolean
+ *                               example: true
+ *                             followedSellers:
+ *                               type: boolean
+ *                               example: true
+ *                             recommendedShows:
+ *                               type: boolean
+ *                               example: false
+ *                         messages:
+ *                           type: object
+ *                           properties:
+ *                             fromSellers:
+ *                               type: boolean
+ *                               example: true
+ *                             fromBuyers:
+ *                               type: boolean
+ *                               example: false
+ *                             chatReplies:
+ *                               type: boolean
+ *                               example: true
+ *                             mentions:
+ *                               type: boolean
+ *                               example: true
+ *                         communityActivity:
+ *                           type: object
+ *                           properties:
+ *                             postComments:
+ *                               type: boolean
+ *                               example: true
+ *                             postLikes:
+ *                               type: boolean
+ *                               example: false
+ *                             repliesAndMentions:
+ *                               type: boolean
+ *                               example: true
+ *                         promotionsAndSales:
+ *                           type: object
+ *                           properties:
+ *                             flashSales:
+ *                               type: boolean
+ *                               example: true
+ *                             couponsAndDeals:
+ *                               type: boolean
+ *                               example: true
+ *                             trendingProducts:
+ *                               type: boolean
+ *                               example: false
+ *                             recommendations:
+ *                               type: boolean
+ *                               example: true
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/notification-preferences', verifyToken, buyerController.getNotificationPreferences);
+
+/**
+ * @swagger
+ * /api/v2/buyers/notification-preferences:
+ *   put:
+ *     summary: Update buyer's notification preferences
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - preferences
+ *             properties:
+ *               preferences:
+ *                 type: object
+ *                 properties:
+ *                   orderUpdates:
+ *                     type: object
+ *                     properties:
+ *                       orderConfirmation:
+ *                         type: boolean
+ *                         example: true
+ *                       shippingAndDelivery:
+ *                         type: boolean
+ *                         example: true
+ *                       orderCancellation:
+ *                         type: boolean
+ *                         example: false
+ *                       refundUpdates:
+ *                         type: boolean
+ *                         example: true
+ *                   liveShows:
+ *                     type: object
+ *                     properties:
+ *                       allShows:
+ *                         type: boolean
+ *                         example: true
+ *                       followedSellers:
+ *                         type: boolean
+ *                         example: true
+ *                       recommendedShows:
+ *                         type: boolean
+ *                         example: false
+ *                   messages:
+ *                     type: object
+ *                     properties:
+ *                       fromSellers:
+ *                         type: boolean
+ *                         example: true
+ *                       fromBuyers:
+ *                         type: boolean
+ *                         example: false
+ *                       chatReplies:
+ *                         type: boolean
+ *                         example: true
+ *                       mentions:
+ *                         type: boolean
+ *                         example: true
+ *                   communityActivity:
+ *                     type: object
+ *                     properties:
+ *                       postComments:
+ *                         type: boolean
+ *                         example: true
+ *                       postLikes:
+ *                         type: boolean
+ *                         example: false
+ *                       repliesAndMentions:
+ *                         type: boolean
+ *                         example: true
+ *                   promotionsAndSales:
+ *                     type: object
+ *                     properties:
+ *                       flashSales:
+ *                         type: boolean
+ *                         example: true
+ *                       couponsAndDeals:
+ *                         type: boolean
+ *                         example: true
+ *                       trendingProducts:
+ *                         type: boolean
+ *                         example: false
+ *                       recommendations:
+ *                         type: boolean
+ *                         example: true
+ *     responses:
+ *       200:
+ *         description: Notification preferences updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Notification preferences updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     preferences:
+ *                       type: object
+ *                       properties:
+ *                         orderUpdates:
+ *                           type: object
+ *                           properties:
+ *                             orderConfirmation:
+ *                               type: boolean
+ *                               example: true
+ *                             shippingAndDelivery:
+ *                               type: boolean
+ *                               example: true
+ *                             orderCancellation:
+ *                               type: boolean
+ *                               example: false
+ *                             refundUpdates:
+ *                               type: boolean
+ *                               example: true
+ *                         liveShows:
+ *                           type: object
+ *                           properties:
+ *                             allShows:
+ *                               type: boolean
+ *                               example: true
+ *                             followedSellers:
+ *                               type: boolean
+ *                               example: true
+ *                             recommendedShows:
+ *                               type: boolean
+ *                               example: false
+ *                         messages:
+ *                           type: object
+ *                           properties:
+ *                             fromSellers:
+ *                               type: boolean
+ *                               example: true
+ *                             fromBuyers:
+ *                               type: boolean
+ *                               example: false
+ *                             chatReplies:
+ *                               type: boolean
+ *                               example: true
+ *                             mentions:
+ *                               type: boolean
+ *                               example: true
+ *                         communityActivity:
+ *                           type: object
+ *                           properties:
+ *                             postComments:
+ *                               type: boolean
+ *                               example: true
+ *                             postLikes:
+ *                               type: boolean
+ *                               example: false
+ *                             repliesAndMentions:
+ *                               type: boolean
+ *                               example: true
+ *                         promotionsAndSales:
+ *                           type: object
+ *                           properties:
+ *                             flashSales:
+ *                               type: boolean
+ *                               example: true
+ *                             couponsAndDeals:
+ *                               type: boolean
+ *                               example: true
+ *                             trendingProducts:
+ *                               type: boolean
+ *                               example: false
+ *                             recommendations:
+ *                               type: boolean
+ *                               example: true
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/notification-preferences', verifyToken, buyerController.updateNotificationPreferences);
+
+/**
+ * @swagger
+ * /api/v2/buyers/forgot-password:
+ *   post:
+ *     summary: Request password reset OTP
+ *     description: Send a password reset OTP to the buyer's email address
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *                 description: The buyer's email address
+ *     responses:
+ *       200:
+ *         description: Password reset code sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset code sent successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Password reset code sent successfully"
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid email format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password', buyerController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/v2/buyers/reset-password:
+ *   post:
+ *     summary: Reset password using OTP
+ *     description: Reset a buyer's password using the OTP received from forgot password request
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *                 description: The buyer's email address
+ *               otp:
+ *                 type: string
+ *                 example: "1234"
+ *                 description: The 4-digit OTP received from forgot password request
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: "newSecurePassword123"
+ *                 description: The new password (minimum 6 characters, must contain letters and numbers)
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Password reset successfully"
+ *                 pagination:
+ *                   type: "null"
+ *       400:
+ *         description: Invalid or expired OTP
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/reset-password', buyerController.resetPassword);
+
+/**
+ * @swagger
+ * /api/v2/buyers/request-account-deletion:
+ *   post:
+ *     summary: Request account deletion
+ *     description: Request account deletion by sending a verification code to the buyer's email
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deletion verification code sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Account deletion request submitted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Account deletion verification code sent to your email"
+ *                     validFor:
+ *                       type: string
+ *                       example: "10 minutes"
+ *                 pagination:
+ *                   type: "null"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Account deletion already in progress
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/request-account-deletion', verifyToken, buyerController.requestAccountDeletion);
+
+/**
+ * @swagger
+ * /api/v2/buyers/confirm-account-deletion:
+ *   post:
+ *     summary: Confirm and execute account deletion
+ *     description: Verify the OTP and permanently delete the buyer's account. This action cannot be undone.
+ *     tags:
+ *       - Buyer Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 pattern: '^[0-9]{4}$'
+ *                 description: 4-digit verification code received via email
+ *                 example: "1234"
+ *             required:
+ *               - otp
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Account deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Account deleted successfully"
+ *                 pagination:
+ *                   type: "null"
+ *       400:
+ *         description: Bad request - Invalid OTP or deletion request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid verification code"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "otp"
+ *                       message:
+ *                         type: string
+ *                         example: "Invalid verification code"
+ *                       remainingAttempts:
+ *                         type: number
+ *                         example: 3
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+// Route: POST /api/v2/buyers/confirm-account-deletion
+// Purpose: Confirms and executes account deletion after OTP verification
+// Security: Requires JWT authentication via verifyToken middleware
+// Flow: verifyToken -> buyerController.confirmAccountDeletion -> service layer
+router.post('/confirm-account-deletion', verifyToken, buyerController.confirmAccountDeletion);
+
+/**
+ * @swagger
+ * /api/v2/buyers/report-user:
+ *   post:
+ *     summary: Report a user for violations or inappropriate behavior
+ *     description: |
+ *       Allows buyers to report other users (buyers or sellers) for policy violations,
+ *       inappropriate behavior, or other concerns. The report is automatically sent
+ *       to administrators for review and appropriate action.
+ *       
+ *       Features:
+ *       - Comprehensive input validation
+ *       - Prevention of self-reporting
+ *       - Automatic admin notifications
+ *       - Unique report ID generation
+ *       - Audit trail and tracking
+ *     tags:
+ *       - Buyer V2
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - userType
+ *               - reason
+ *               - description
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: The MongoDB ObjectId of the user being reported
+ *                 example: "60f5e8b3e1b2c3d4e5f6g7h8"
+ *               userType:
+ *                 type: string
+ *                 enum: [buyer, seller]
+ *                 description: The type of user being reported
+ *                 example: "seller"
+ *               reason:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 100
+ *                 description: Main reason for reporting the user
+ *                 example: "Fraudulent behavior"
+ *               description:
+ *                 type: string
+ *                 minLength: 10
+ *                 maxLength: 500
+ *                 description: Detailed description of the issue or violation
+ *                 example: "This seller is selling counterfeit products and refusing refunds to customers."
+ *     responses:
+ *       201:
+ *         description: Report submitted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Report submitted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Report submitted successfully"
+ *                     report:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           description: Unique identifier for the report
+ *                           example: "60f5e8b3e1b2c3d4e5f6g7h9"
+ *                         reportedUser:
+ *                           type: object
+ *                           properties:
+ *                             userId:
+ *                               type: string
+ *                               example: "60f5e8b3e1b2c3d4e5f6g7h8"
+ *                             userType:
+ *                               type: string
+ *                               example: "seller"
+ *                         reason:
+ *                           type: string
+ *                           example: "Fraudulent behavior"
+ *                         description:
+ *                           type: string
+ *                           example: "This seller is selling counterfeit products and refusing refunds to customers."
+ *                         status:
+ *                           type: string
+ *                           enum: [pending, reviewed, resolved]
+ *                           example: "pending"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-07-20T10:30:00.000Z"
+ *                 pagination:
+ *                   type: "null"
+ *       400:
+ *         description: Bad request - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "reason"
+ *                       message:
+ *                         type: string
+ *                         example: "Reason must be at least 3 characters long"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Reported user does not exist
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "userId"
+ *                       message:
+ *                         type: string
+ *                         example: "Reported user not found"
+ *       422:
+ *         description: Validation error - Self-reporting or other business rule violations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "userId"
+ *                       message:
+ *                         type: string
+ *                         example: "You cannot report yourself"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+// Route: POST /api/v2/buyers/report-user
+// Purpose: Allows buyers to report other users for violations or inappropriate behavior
+// Security: Requires JWT authentication and buyer role verification
+// Flow: verifyToken -> isBuyer -> buyerController.reportUser -> service layer
+router.post('/report-user', verifyToken, isBuyer, buyerController.reportUser);
+
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/balance:
+ *   get:
+ *     summary: Get buyer's wallet balance with on-hold items
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet balance retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     balance:
+ *                       type: number
+ *                       description: Total wallet balance
+ *                       example: 5000.00
+ *                     onHoldAmount:
+ *                       type: number
+ *                       description: Amount currently on hold for active bids
+ *                       example: 1500.00
+ *                     availableBalance:
+ *                       type: number
+ *                       description: Available balance (total - on hold)
+ *                       example: 3500.00
+ *                     onHoldItems:
+ *                       type: array
+ *                       description: List of items currently on hold
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           productId:
+ *                             type: string
+ *                             description: Product ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           productName:
+ *                             type: string
+ *                             description: Product name
+ *                             example: "iPhone 13 Pro"
+ *                           productImage:
+ *                             type: string
+ *                             description: Product image URL
+ *                             example: "https://example.com/image.jpg"
+ *                           amount:
+ *                             type: number
+ *                             description: Amount on hold for this item
+ *                             example: 750.00
+ *                           bidDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when the bid was placed
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           auctionStatus:
+ *                             type: string
+ *                             description: Current auction status
+ *                             example: "active"
+ *                           auctionEndDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Auction end date
+ *                             example: "2024-01-20T18:00:00.000Z"
+ *                     currency:
+ *                       type: string
+ *                       description: Currency code
+ *                       example: "NGN"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+// Route: GET /api/v2/buyers/wallet/balance
+// Purpose: Retrieve buyer's wallet balance with on-hold items and formatted data
+// Security: Requires JWT authentication and buyer role verification
+// Flow: verifyToken -> isBuyer -> buyerController.getWalletBalance -> service layer
+router.get('/wallet/balance', verifyToken, isBuyer, buyerController.getWalletBalance);
+
+
+
 module.exports = router;

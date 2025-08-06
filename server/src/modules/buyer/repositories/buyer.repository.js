@@ -345,9 +345,8 @@ async function updatePhoneVerification(buyerId, phoneVerificationData) {
  */
 async function findSellerById(sellerId) {
   return Seller.findById(sellerId)
-    .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
-    .populate('reviews')
-    .lean();
+    .select('firstName lastName email businessName businessType taxInformation businessEmail businessNumber accountPending businessAddress accountType isVerified isInternational verificationDocuments smileIdVerification cancelledStreamCount lastStreamCancellation categories shippingOptions warehouseDetails storeName aboutStore storeAvatar storeBanner socialMedia vacationMode createdAt updatedAt followers reviews stats')
+    .populate('reviews');
 }
 
 /**
@@ -418,6 +417,341 @@ async function incrementSellerStoreVisits(sellerId) {
   return Seller.findByIdAndUpdate(sellerId, { $inc: { storeVisits: 1 } }, { new: true });
 }
 
+/**
+ * Find buyer with populated followers.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with populated followers or null if not found
+ */
+async function findByIdWithPopulatedFollowers(buyerId) {
+  return Buyer.findById(buyerId)
+    .populate({
+      path: 'followers.sellerId',
+      select: 'firstName lastName storeName businessName profileImage storeAvatar'
+    });
+}
+
+/**
+ * Find sellers that a buyer follows.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of sellers that the buyer follows
+ */
+async function findSellersFollowingByBuyer(buyerId) {
+  return Seller.find({
+    'followers.buyerId': buyerId
+  }).select('_id firstName lastName storeName businessName storeAvatar profileImage followers');
+}
+
+/**
+ * Find buyers that a buyer follows.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of buyers that the buyer follows
+ */
+async function findBuyersFollowingByBuyer(buyerId) {
+  // Note: Buyers don't follow other buyers in the current schema
+  // This method is kept for future extensibility
+  return [];
+}
+
+/**
+ * Check if buyer has made a verified purchase from seller.
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<boolean>} True if buyer has made a verified purchase
+ */
+async function hasVerifiedPurchase(buyerId, sellerId) {
+  const completedOrder = await Order.findOne({
+    buyer: buyerId,
+    seller: sellerId,
+    'paymentInfo.status': 'completed',
+    'shipping.tracking.status': 'delivered'
+  });
+  return !!completedOrder;
+}
+
+/**
+ * Save a seller instance.
+ * @param {Object} seller - The seller instance to save
+ * @returns {Promise<Seller>} The saved seller
+ */
+async function saveSeller(seller) {
+  return seller.save();
+}
+
+/**
+ * Find seller with reviews and stats.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Seller|null>} Seller with reviews and stats or null if not found
+ */
+async function findSellerWithReviews(sellerId) {
+  // Query seller by ID and select only the fields needed for reviews functionality
+  return Seller.findById(sellerId)
+    .select('reviews stats.averageRating stats.totalReviews stats.ratingDistribution');
+}
+
+/**
+ * Find buyer by ID with selected fields.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with selected fields or null if not found
+ */
+async function findBuyerByIdWithFields(buyerId) {
+  // Query buyer by ID and select only the fields needed for review population
+  return Buyer.findById(buyerId)
+    .select('firstName lastName profileImage');
+}
+
+/**
+ * Find buyer by ID with notification preferences field selected.
+ * 
+ * This method retrieves a buyer from the database and selects only the
+ * notificationPreferences field to optimize performance when only preferences
+ * are needed.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} The buyer with notification preferences or null if not found
+ */
+async function findBuyerWithNotificationPreferences(buyerId) {
+  // Use findById with field selection to only retrieve notificationPreferences
+  // This optimizes database queries when only preferences are needed
+  return Buyer.findById(buyerId).select('notificationPreferences');
+}
+
+/**
+ * Update notification preferences for a buyer.
+ * 
+ * This method updates the notification preferences for a specific buyer
+ * using findByIdAndUpdate with optimistic concurrency control.
+ * The method returns the updated document with the new preferences.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} preferences - The notification preferences to update
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateNotificationPreferences(buyerId, preferences) {
+  // Use findByIdAndUpdate with $set to update only the notificationPreferences field
+  // This ensures atomic updates and returns the updated document
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        notificationPreferences: preferences
+      }
+    },
+    {
+      new: true,        // Return the updated document
+      runValidators: true  // Run Mongoose validators on the update
+    }
+  );
+}
+
+/**
+ * Update buyer with reset password OTP and expiry.
+ * 
+ * This method updates the reset password OTP fields for a specific buyer
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} resetOTP - The reset OTP to set
+ * @param {Date} expiresAt - The expiry date for the OTP
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateResetPasswordOTP(buyerId, resetOTP, expiresAt) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        resetPasswordOTP: resetOTP,
+        resetPasswordOTPExpires: expiresAt
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
+/**
+ * Reset buyer password and clear reset OTP fields.
+ * 
+ * This method updates the buyer's password and clears the reset OTP fields
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} newPassword - The new hashed password
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function resetPassword(buyerId, newPassword) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        password: newPassword
+      },
+      $unset: {
+        resetPasswordOTP: 1,
+        resetPasswordOTPExpires: 1
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
+/**
+ * Update buyer with account deletion OTP and expiry.
+ * 
+ * This method updates the account deletion OTP fields for a specific buyer
+ * using findByIdAndUpdate to ensure atomic updates.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} deletionOTP - The deletion OTP to set
+ * @param {Date} expiresAt - The expiry date for the OTP
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
+ */
+async function updateAccountDeletionOTP(buyerId, deletionOTP, expiresAt) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'accountDeletion.otp': deletionOTP,
+        'accountDeletion.expiresAt': expiresAt,
+        'accountDeletion.attempts': 0
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
+/**
+ * Increments the account deletion OTP verification attempts for a buyer.
+ * This function is used for security tracking and brute force prevention.
+ * It atomically increments the failed attempt counter to ensure data consistency
+ * even in concurrent scenarios.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The updated buyer document with incremented attempts or null if buyer not found
+ */
+async function incrementAccountDeletionAttempts(buyerId) {
+  // Use MongoDB's atomic $inc operator to safely increment the attempts counter
+  // This prevents race conditions when multiple requests occur simultaneously
+  return Buyer.findByIdAndUpdate(
+    buyerId,                          // Filter: find buyer by ID
+    {
+      $inc: {
+        'accountDeletion.attempts': 1  // Increment attempts by 1 using atomic operation
+      }
+    },
+    {
+      new: true,                      // Return the updated document (after modification)
+      runValidators: true             // Ensure Mongoose schema validators are applied
+    }
+  );
+}
+
+/**
+ * Permanently deletes a buyer account by ID.
+ * This is an irreversible operation that completely removes the buyer document
+ * from the database. Use with extreme caution as this cannot be undone.
+ * All associated data should be handled by cascade operations or cleanup processes.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The deleted buyer document or null if buyer not found
+ */
+async function deleteById(buyerId) {
+  // Permanently remove the buyer document from the database
+  // This is the final step in account deletion process
+  return Buyer.findByIdAndDelete(buyerId);
+}
+
+/**
+ * Adds a new report to a buyer's reports array.
+ * This function safely adds a report document to the buyer's reports collection
+ * using MongoDB's $push operator for atomic array operations.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string) who is making the report
+ * @param {Object} reportData - The report data to add
+ * @param {Object} reportData.reportedUser - Information about the reported user
+ * @param {string} reportData.reportedUser.userId - ID of the reported user
+ * @param {string} reportData.reportedUser.userType - Type of reported user ('buyer' or 'seller')
+ * @param {string} reportData.reason - The reason for the report
+ * @param {string} reportData.description - Detailed description of the report
+ * @returns {Promise<Object|null>} The updated buyer document with the new report or null if buyer not found
+ */
+async function addReport(buyerId, reportData) {
+  // Provide default values for empty reason and description to handle graceful degradation
+  // Use meaningful defaults to satisfy required fields in the schema
+  const reason = reportData.reason || 'No reason provided';
+  const description = reportData.description || 'No description provided';
+  
+  // Use MongoDB's atomic $push operator to safely add the report to the reports array
+  // This prevents race conditions when multiple reports are submitted simultaneously
+  return Buyer.findByIdAndUpdate(
+    buyerId,                              // Filter: find buyer by ID
+    {
+      $push: {
+        reports: {                        // Add to reports array
+          reportedUser: {
+            userId: reportData.reportedUser.userId,           // ID of reported user
+            userType: reportData.reportedUser.userType        // Type of reported user
+          },
+          reason: reason,                                     // Report reason (with default)
+          description: description,                           // Report description (with default)
+          status: 'pending',                                  // Default status for new reports
+          createdAt: new Date()                              // Timestamp for when report was created
+        }
+      }
+    },
+    {
+      new: true,                          // Return the updated document (after modification)
+      runValidators: true                 // Ensure Mongoose schema validators are applied
+    }
+  );
+}
+
+/**
+ * Find buyer by ID with populated wallet on-hold items.
+ * This function retrieves a buyer document with their wallet on-hold items
+ * populated with product information including auction status and images.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The buyer document with populated wallet on-hold items or null if not found
+ */
+async function findByIdWithWalletOnHoldItems(buyerId) {
+  return Buyer.findById(buyerId)
+    .populate('wallet.onHoldItems.productId', 'name images auction.status auction.endDate');
+}
+
+/**
+ * Update buyer's wallet on-hold items and recalculated on-hold amount.
+ * This function atomically updates the buyer's wallet with filtered on-hold items
+ * and the recalculated on-hold amount when ended auctions are released.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @param {Array} filteredOnHoldItems - The filtered on-hold items (ended auctions removed)
+ * @param {number} recalculatedOnHoldAmount - The recalculated total on-hold amount
+ * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ */
+async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculatedOnHoldAmount) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'wallet.onHoldItems': filteredOnHoldItems,
+        'wallet.onHoldAmount': recalculatedOnHoldAmount
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -448,5 +782,22 @@ module.exports = {
   countStreamsBySeller,
   countBuyersFollowingSeller,
   getSellerReviewStats,
-  incrementSellerStoreVisits
+  incrementSellerStoreVisits,
+  findByIdWithPopulatedFollowers,
+  findSellersFollowingByBuyer,
+  findBuyersFollowingByBuyer,
+  hasVerifiedPurchase,
+  saveSeller,
+  findSellerWithReviews,
+  findBuyerByIdWithFields,
+  findBuyerWithNotificationPreferences,
+  updateNotificationPreferences,
+  updateResetPasswordOTP,
+  resetPassword,
+  updateAccountDeletionOTP,
+  incrementAccountDeletionAttempts,
+  deleteById,
+  addReport,
+  findByIdWithWalletOnHoldItems,
+  updateWalletOnHoldItems
 };

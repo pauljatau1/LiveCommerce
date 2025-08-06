@@ -1226,6 +1226,78 @@ router.post('/open-live-show',
 
 /**
  * @swagger
+ * /api/streams/reschedule-expired:
+ *   post:
+ *     summary: Reschedule an expired livestream
+ *     description: Allows a seller to reschedule their expired livestream with a new scheduled start time. Stream must have status "expired" to be rescheduled.
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - streamId
+ *               - newScheduledStartTime
+ *             properties:
+ *               streamId:
+ *                 type: string
+ *                 description: ID of the expired stream to reschedule
+ *                 example: "64f5a1b2c3d4e5f6789abcde"
+ *               newScheduledStartTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: New scheduled start time for the stream (must be in the future)
+ *                 example: "2024-01-20T15:30:00.000Z"
+ *     responses:
+ *       200:
+ *         description: Stream rescheduled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Stream rescheduled successfully"
+ *                 stream:
+ *                   $ref: '#/components/schemas/Stream'
+ *       400:
+ *         description: Bad request - validation errors or stream not expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Cannot reschedule stream. Stream status is \"scheduled\" but must be \"expired\" to reschedule"
+ *       401:
+ *         description: Unauthorized - not authenticated as seller
+ *       404:
+ *         description: Stream not found or not owned by seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Stream not found or you do not have permission to modify this stream"
+ *       500:
+ *         description: Server error
+ */
+router.post('/reschedule-expired',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.rescheduleExpiredStream
+);
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     Stream:
