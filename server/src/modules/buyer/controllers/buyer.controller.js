@@ -33,6 +33,7 @@ const updateNotificationPreferencesService = require('../services/updateNotifica
 const forgotPasswordService = require('../services/forgotPassword.service');
 const resetPasswordService = require('../services/resetPassword.service');
 const requestAccountDeletionService = require('../services/requestAccountDeletion.service');
+const confirmAccountDeletionService = require('../services/confirmAccountDeletion.service');
 
 
 /**
@@ -999,6 +1000,40 @@ async function requestAccountDeletion(req, res, next) {
   }
 }
 
+/**
+ * Confirms and executes account deletion after OTP verification.
+ * 
+ * This controller handles the account deletion confirmation HTTP request.
+ * It verifies the provided OTP and permanently deletes the buyer's account.
+ *
+ * @param {Request} req - Express request object containing the OTP in body and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function confirmAccountDeletion(req, res, next) {
+  try {
+    // Step 1: Extract buyer ID from authenticated user (JWT token)
+    // The verifyToken middleware sets req.user.id from the JWT payload
+    const buyerId = req.user.id;
+    
+    // Step 2: Extract OTP from request body payload
+    // Expected format: { "otp": "1234" }
+    const { otp } = req.body;
+    
+    // Step 3: Delegate business logic to service layer
+    // Service will handle validation, OTP verification, email sending, and account deletion
+    const response = await confirmAccountDeletionService.confirmAccountDeletion(buyerId, otp);
+    
+    // Step 4: Send success response using standardized response formatter
+    // This ensures consistent API response structure across the application
+    res.success(response, 'Account deleted successfully');
+  } catch (err) {
+    // Step 5: Forward any errors to centralized error-handling middleware
+    // ValidationError, database errors, and service errors will be handled appropriately
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1035,4 +1070,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   requestAccountDeletion,
+  confirmAccountDeletion,
 };

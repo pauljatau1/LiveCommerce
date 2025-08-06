@@ -627,6 +627,47 @@ async function updateAccountDeletionOTP(buyerId, deletionOTP, expiresAt) {
   );
 }
 
+/**
+ * Increments the account deletion OTP verification attempts for a buyer.
+ * This function is used for security tracking and brute force prevention.
+ * It atomically increments the failed attempt counter to ensure data consistency
+ * even in concurrent scenarios.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The updated buyer document with incremented attempts or null if buyer not found
+ */
+async function incrementAccountDeletionAttempts(buyerId) {
+  // Use MongoDB's atomic $inc operator to safely increment the attempts counter
+  // This prevents race conditions when multiple requests occur simultaneously
+  return Buyer.findByIdAndUpdate(
+    buyerId,                          // Filter: find buyer by ID
+    {
+      $inc: {
+        'accountDeletion.attempts': 1  // Increment attempts by 1 using atomic operation
+      }
+    },
+    {
+      new: true,                      // Return the updated document (after modification)
+      runValidators: true             // Ensure Mongoose schema validators are applied
+    }
+  );
+}
+
+/**
+ * Permanently deletes a buyer account by ID.
+ * This is an irreversible operation that completely removes the buyer document
+ * from the database. Use with extreme caution as this cannot be undone.
+ * All associated data should be handled by cascade operations or cleanup processes.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The deleted buyer document or null if buyer not found
+ */
+async function deleteById(buyerId) {
+  // Permanently remove the buyer document from the database
+  // This is the final step in account deletion process
+  return Buyer.findByIdAndDelete(buyerId);
+}
+
 module.exports = {
   findAll,
   save,
@@ -669,5 +710,7 @@ module.exports = {
   updateNotificationPreferences,
   updateResetPasswordOTP,
   resetPassword,
-  updateAccountDeletionOTP
+  updateAccountDeletionOTP,
+  incrementAccountDeletionAttempts,
+  deleteById
 };
