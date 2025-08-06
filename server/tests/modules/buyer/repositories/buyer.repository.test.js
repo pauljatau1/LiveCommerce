@@ -4603,5 +4603,221 @@ describe('Buyer Repository', () => {
         expect(result.reports[1].reportedUser.userType).toBe('buyer');
       });
     });
+
+    describe('Wallet-related methods', () => {
+      describe('findByIdWithWalletOnHoldItems', () => {
+        it('should find buyer with populated wallet on-hold items', async () => {
+          // Arrange
+          const productId = new mongoose.Types.ObjectId();
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: productId,
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(savedBuyer._id);
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(1);
+          expect(result.wallet.onHoldItems[0].productId).toBeDefined();
+        });
+
+        it('should return null when buyer not found', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(nonExistentId);
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle buyer with no on-hold items', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 0,
+              currency: 'NGN',
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWalletOnHoldItems(savedBuyer._id);
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(0);
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Act & Assert
+          await expect(buyerRepository.findByIdWithWalletOnHoldItems('invalid-id'))
+            .rejects
+            .toThrow();
+        });
+      });
+
+      describe('updateWalletOnHoldItems', () => {
+        it('should update wallet on-hold items and amount', async () => {
+          // Arrange
+          const productId = new mongoose.Types.ObjectId();
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 2500,
+              currency: 'NGN',
+              onHoldItems: [
+                {
+                  productId: productId,
+                  amount: 1500,
+                  bidDate: new Date()
+                },
+                {
+                  productId: new mongoose.Types.ObjectId(),
+                  amount: 1000,
+                  bidDate: new Date()
+                }
+              ]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [buyer.wallet.onHoldItems[0]]; // Only first item
+          const recalculatedOnHoldAmount = 1500;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(1);
+          expect(result.wallet.onHoldAmount).toBe(1500);
+          expect(result.wallet.onHoldItems[0].productId.toString()).toBe(productId.toString());
+        });
+
+        it('should return null when buyer not found', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            nonExistentId,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle empty on-hold items array', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: new mongoose.Types.ObjectId(),
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.onHoldItems).toHaveLength(0);
+          expect(result.wallet.onHoldAmount).toBe(0);
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Arrange
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act & Assert
+          await expect(buyerRepository.updateWalletOnHoldItems(
+            'invalid-id',
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          )).rejects.toThrow();
+        });
+
+        it('should preserve other wallet fields when updating', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 5000,
+              onHoldAmount: 1500,
+              currency: 'NGN',
+              onHoldItems: [{
+                productId: new mongoose.Types.ObjectId(),
+                amount: 1500,
+                bidDate: new Date()
+              }]
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const filteredOnHoldItems = [];
+          const recalculatedOnHoldAmount = 0;
+
+          // Act
+          const result = await buyerRepository.updateWalletOnHoldItems(
+            savedBuyer._id,
+            filteredOnHoldItems,
+            recalculatedOnHoldAmount
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result.wallet.balance).toBe(5000); // Should be preserved
+          expect(result.wallet.currency).toBe('NGN'); // Should be preserved
+          expect(result.wallet.onHoldItems).toHaveLength(0); // Should be updated
+          expect(result.wallet.onHoldAmount).toBe(0); // Should be updated
+        });
+      });
+    });
   });
 }); 

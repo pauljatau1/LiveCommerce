@@ -713,6 +713,45 @@ async function addReport(buyerId, reportData) {
   );
 }
 
+/**
+ * Find buyer by ID with populated wallet on-hold items.
+ * This function retrieves a buyer document with their wallet on-hold items
+ * populated with product information including auction status and images.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The buyer document with populated wallet on-hold items or null if not found
+ */
+async function findByIdWithWalletOnHoldItems(buyerId) {
+  return Buyer.findById(buyerId)
+    .populate('wallet.onHoldItems.productId', 'name images auction.status auction.endDate');
+}
+
+/**
+ * Update buyer's wallet on-hold items and recalculated on-hold amount.
+ * This function atomically updates the buyer's wallet with filtered on-hold items
+ * and the recalculated on-hold amount when ended auctions are released.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @param {Array} filteredOnHoldItems - The filtered on-hold items (ended auctions removed)
+ * @param {number} recalculatedOnHoldAmount - The recalculated total on-hold amount
+ * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ */
+async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculatedOnHoldAmount) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'wallet.onHoldItems': filteredOnHoldItems,
+        'wallet.onHoldAmount': recalculatedOnHoldAmount
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -758,5 +797,7 @@ module.exports = {
   updateAccountDeletionOTP,
   incrementAccountDeletionAttempts,
   deleteById,
-  addReport
+  addReport,
+  findByIdWithWalletOnHoldItems,
+  updateWalletOnHoldItems
 };
