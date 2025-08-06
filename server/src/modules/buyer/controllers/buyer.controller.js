@@ -35,6 +35,7 @@ const resetPasswordService = require('../services/resetPassword.service');
 const requestAccountDeletionService = require('../services/requestAccountDeletion.service');
 const confirmAccountDeletionService = require('../services/confirmAccountDeletion.service');
 const reportUserService = require('../services/reportUser.service');
+const getWalletBalanceService = require('../services/getWalletBalance.service');
 
 
 /**
@@ -1081,6 +1082,37 @@ async function reportUser(req, res, next) {
   }
 }
 
+/**
+ * Get buyer's wallet balance with on-hold items and formatted data.
+ *
+ * This controller handles the wallet balance retrieval HTTP request.
+ * It extracts the buyer ID from the authenticated user and delegates
+ * the wallet balance logic to the service layer. The service retrieves
+ * the buyer's wallet information, filters out ended auctions from
+ * on-hold items, recalculates the on-hold amount, and formats the
+ * response for frontend display. It also updates the buyer's wallet
+ * if there are ended auctions that need to be released from hold.
+ *
+ * @param {Request} req - Express request object containing the buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getWalletBalance(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle wallet balance retrieval logic
+    const response = await getWalletBalanceService.getWalletBalance(buyerId);
+
+    // Send success response with wallet balance data
+    res.success(response, 'Wallet balance retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1119,4 +1151,5 @@ module.exports = {
   requestAccountDeletion,
   confirmAccountDeletion,
   reportUser,
+  getWalletBalance
 };

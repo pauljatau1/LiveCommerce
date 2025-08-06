@@ -3316,6 +3316,129 @@ router.post('/confirm-account-deletion', verifyToken, buyerController.confirmAcc
 // Flow: verifyToken -> isBuyer -> buyerController.reportUser -> service layer
 router.post('/report-user', verifyToken, isBuyer, buyerController.reportUser);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/balance:
+ *   get:
+ *     summary: Get buyer's wallet balance with on-hold items
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet balance retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     balance:
+ *                       type: number
+ *                       description: Total wallet balance
+ *                       example: 5000.00
+ *                     onHoldAmount:
+ *                       type: number
+ *                       description: Amount currently on hold for active bids
+ *                       example: 1500.00
+ *                     availableBalance:
+ *                       type: number
+ *                       description: Available balance (total - on hold)
+ *                       example: 3500.00
+ *                     onHoldItems:
+ *                       type: array
+ *                       description: List of items currently on hold
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           productId:
+ *                             type: string
+ *                             description: Product ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           productName:
+ *                             type: string
+ *                             description: Product name
+ *                             example: "iPhone 13 Pro"
+ *                           productImage:
+ *                             type: string
+ *                             description: Product image URL
+ *                             example: "https://example.com/image.jpg"
+ *                           amount:
+ *                             type: number
+ *                             description: Amount on hold for this item
+ *                             example: 750.00
+ *                           bidDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Date when the bid was placed
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           auctionStatus:
+ *                             type: string
+ *                             description: Current auction status
+ *                             example: "active"
+ *                           auctionEndDate:
+ *                             type: string
+ *                             format: date-time
+ *                             description: Auction end date
+ *                             example: "2024-01-20T18:00:00.000Z"
+ *                     currency:
+ *                       type: string
+ *                       description: Currency code
+ *                       example: "NGN"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+// Route: GET /api/v2/buyers/wallet/balance
+// Purpose: Retrieve buyer's wallet balance with on-hold items and formatted data
+// Security: Requires JWT authentication and buyer role verification
+// Flow: verifyToken -> isBuyer -> buyerController.getWalletBalance -> service layer
+router.get('/wallet/balance', verifyToken, isBuyer, buyerController.getWalletBalance);
+
 
 
 module.exports = router;
