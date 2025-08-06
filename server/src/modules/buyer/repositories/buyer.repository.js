@@ -668,6 +668,51 @@ async function deleteById(buyerId) {
   return Buyer.findByIdAndDelete(buyerId);
 }
 
+/**
+ * Adds a new report to a buyer's reports array.
+ * This function safely adds a report document to the buyer's reports collection
+ * using MongoDB's $push operator for atomic array operations.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string) who is making the report
+ * @param {Object} reportData - The report data to add
+ * @param {Object} reportData.reportedUser - Information about the reported user
+ * @param {string} reportData.reportedUser.userId - ID of the reported user
+ * @param {string} reportData.reportedUser.userType - Type of reported user ('buyer' or 'seller')
+ * @param {string} reportData.reason - The reason for the report
+ * @param {string} reportData.description - Detailed description of the report
+ * @returns {Promise<Object|null>} The updated buyer document with the new report or null if buyer not found
+ */
+async function addReport(buyerId, reportData) {
+  // Provide default values for empty reason and description to handle graceful degradation
+  // Use meaningful defaults to satisfy required fields in the schema
+  const reason = reportData.reason || 'No reason provided';
+  const description = reportData.description || 'No description provided';
+  
+  // Use MongoDB's atomic $push operator to safely add the report to the reports array
+  // This prevents race conditions when multiple reports are submitted simultaneously
+  return Buyer.findByIdAndUpdate(
+    buyerId,                              // Filter: find buyer by ID
+    {
+      $push: {
+        reports: {                        // Add to reports array
+          reportedUser: {
+            userId: reportData.reportedUser.userId,           // ID of reported user
+            userType: reportData.reportedUser.userType        // Type of reported user
+          },
+          reason: reason,                                     // Report reason (with default)
+          description: description,                           // Report description (with default)
+          status: 'pending',                                  // Default status for new reports
+          createdAt: new Date()                              // Timestamp for when report was created
+        }
+      }
+    },
+    {
+      new: true,                          // Return the updated document (after modification)
+      runValidators: true                 // Ensure Mongoose schema validators are applied
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -712,5 +757,6 @@ module.exports = {
   resetPassword,
   updateAccountDeletionOTP,
   incrementAccountDeletionAttempts,
-  deleteById
+  deleteById,
+  addReport
 };

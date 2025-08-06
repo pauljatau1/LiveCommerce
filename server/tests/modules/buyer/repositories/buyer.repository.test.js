@@ -4317,5 +4317,291 @@ describe('Buyer Repository', () => {
         // Note: updatedAt is not defined in the buyer schema, only createdAt
       });
     });
+
+    describe('addReport', () => {
+      it('should add report to buyer\'s reports array successfully', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products and refusing refunds to customers.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.reports).toHaveLength(1);
+        expect(result.reports[0].reportedUser.userId.toString()).toBe(reportData.reportedUser.userId);
+        expect(result.reports[0].reportedUser.userType).toBe(reportData.reportedUser.userType);
+        expect(result.reports[0].reason).toBe(reportData.reason);
+        expect(result.reports[0].description).toBe(reportData.description);
+        expect(result.reports[0].status).toBe('pending');
+        expect(result.reports[0].createdAt).toBeDefined();
+      });
+
+      it('should add multiple reports to buyer\'s reports array', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const firstReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'First report description.'
+        };
+
+        const secondReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Inappropriate behavior',
+          description: 'Second report description.'
+        };
+
+        // Act
+        const firstResult = await buyerRepository.addReport(savedBuyer._id, firstReportData);
+        const secondResult = await buyerRepository.addReport(savedBuyer._id, secondReportData);
+
+        // Assert
+        expect(firstResult.reports).toHaveLength(1);
+        expect(secondResult.reports).toHaveLength(2);
+        expect(secondResult.reports[0].reason).toBe('Fraudulent behavior');
+        expect(secondResult.reports[1].reason).toBe('Inappropriate behavior');
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(nonExistentBuyerId, reportData);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act & Assert
+        await expect(
+          buyerRepository.addReport(invalidId, reportData)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+
+      it('should preserve existing reports when adding new ones', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          reports: [{
+            reportedUser: {
+              userId: new mongoose.Types.ObjectId(),
+              userType: 'buyer'
+            },
+            reason: 'Existing report',
+            description: 'This is an existing report.',
+            status: 'pending',
+            createdAt: new Date()
+          }]
+        });
+        const savedBuyer = await buyer.save();
+        
+        const newReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'New report',
+          description: 'This is a new report being added.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, newReportData);
+
+        // Assert
+        expect(result.reports).toHaveLength(2);
+        expect(result.reports[0].reason).toBe('Existing report');
+        expect(result.reports[1].reason).toBe('New report');
+      });
+
+      it('should handle empty reason and description gracefully', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: '',
+          description: ''
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.reports).toHaveLength(1);
+        expect(result.reports[0].reason).toBe('No reason provided');
+        expect(result.reports[0].description).toBe('No description provided');
+      });
+
+      it('should set default status and createdAt for new reports', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        const beforeTime = new Date();
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        const afterTime = new Date();
+        expect(result.reports[0].status).toBe('pending');
+        expect(result.reports[0].createdAt).toBeInstanceOf(Date);
+        expect(result.reports[0].createdAt.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+        expect(result.reports[0].createdAt.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+      });
+
+      it('should handle concurrent report additions atomically', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData1 = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Report 1',
+          description: 'First concurrent report.'
+        };
+
+        const reportData2 = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Report 2',
+          description: 'Second concurrent report.'
+        };
+
+        // Act
+        const [result1, result2] = await Promise.all([
+          buyerRepository.addReport(savedBuyer._id, reportData1),
+          buyerRepository.addReport(savedBuyer._id, reportData2)
+        ]);
+
+        // Assert
+        // One of them should have 1 report, the other should have 2
+        const reports1Count = result1.reports.length;
+        const reports2Count = result2.reports.length;
+        
+        expect([reports1Count, reports2Count].sort()).toEqual([1, 2]);
+        
+        // Verify final state by fetching from database
+        const finalBuyer = await Buyer.findById(savedBuyer._id);
+        expect(finalBuyer.reports).toHaveLength(2);
+      });
+
+      it('should return updated buyer document with new: true option', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const reportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Fraudulent behavior',
+          description: 'This seller is selling counterfeit products.'
+        };
+
+        // Act
+        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
+
+        // Assert
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.reports).toHaveLength(1);
+        
+        // Verify the returned document reflects the update
+        expect(result.reports[0].reportedUser.userId.toString()).toBe(reportData.reportedUser.userId);
+      });
+
+      it('should handle different userType values correctly', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+        
+        const sellerReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'seller'
+          },
+          reason: 'Seller issue',
+          description: 'Problem with seller.'
+        };
+
+        const buyerReportData = {
+          reportedUser: {
+            userId: new mongoose.Types.ObjectId().toString(),
+            userType: 'buyer'
+          },
+          reason: 'Buyer issue',
+          description: 'Problem with buyer.'
+        };
+
+        // Act
+        await buyerRepository.addReport(savedBuyer._id, sellerReportData);
+        const result = await buyerRepository.addReport(savedBuyer._id, buyerReportData);
+
+        // Assert
+        expect(result.reports).toHaveLength(2);
+        expect(result.reports[0].reportedUser.userType).toBe('seller');
+        expect(result.reports[1].reportedUser.userType).toBe('buyer');
+      });
+    });
   });
 }); 
