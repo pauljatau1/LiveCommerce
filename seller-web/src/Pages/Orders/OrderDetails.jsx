@@ -1263,9 +1263,12 @@ export default function OrderDetails() {
 
                     {/* Delivery Fee (if exists) */}
                     {shipping?.fee?.amount > 0 && (
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-sm items-center">
                         <span className="text-gray-600">Delivery Fee</span>
-                        <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-gray-600 line-through">₦{shipping.fee.amount.toLocaleString()}</span>
+                          <Badge className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold">Free</Badge>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1629,32 +1632,29 @@ export default function OrderDetails() {
                   {shipping.documents.shippingLabel && (
                     <div className="group">
                       <Button
-                        className="w-full h-auto p-4 bg-white border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 flex flex-col items-center gap-3 text-gray-700 hover:text-blue-700"
+                        className="w-full h-auto p-4 bg-green-600 border-2 border-green-600 hover:bg-green-700 hover:border-green-700 transition-all duration-200 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
                         variant="outline"
                         onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
                       >
-                        <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-blue-600"
-                          >
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                            <line x1="12" y1="17" x2="12" y2="21"></line>
-                          </svg>
-                        </div>
-                        <div className="text-center">
-                          <p className="font-medium text-sm">Shipping Label</p>
-                          <p className="text-xs text-gray-500">Print and attach to package</p>
-                        </div>
+                        {/* Truck icon to better depict tracking */}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-white"
+                        >
+                          <rect x="1" y="3" width="15" height="13" rx="2" ry="2"></rect>
+                          <path d="M16 8h3.5a2 2 0 0 1 2 2l1.5 5v3a2 2 0 0 1-2 2h-1.5"></path>
+                          <circle cx="5.5" cy="18.5" r="2"></circle>
+                          <circle cx="18.5" cy="18.5" r="2"></circle>
+                        </svg>
+                        Track Shipment
                       </Button>
                     </div>
                   )}
@@ -1662,33 +1662,28 @@ export default function OrderDetails() {
                   {shipping.documents.commercialInvoice && (
                     <div className="group">
                       <Button
-                        className="w-full h-auto p-4 bg-white border-2 border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all duration-200 flex flex-col items-center gap-3 text-gray-700 hover:text-green-700"
+                        className="w-full h-auto p-4 bg-blue-600 border-2 border-blue-600 hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
                         variant="outline"
                         onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
                       >
-                        <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-green-600"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                          </svg>
-                        </div>
-                        <div className="text-center">
-                          <p className="font-medium text-sm">Commercial Invoice</p>
-                          <p className="text-xs text-gray-500">Required for customs</p>
-                        </div>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-white"
+                        >
+                          <rect x="3" y="4" width="18" height="14" rx="2" ry="2"></rect>
+                          <path d="M7 20h10v-4H7v4z"></path>
+                          <path d="M17 8V4H7v4"></path>
+                          <line x1="9" y1="12" x2="15" y2="12"></line>
+                        </svg>
+                         Shipping Label
                       </Button>
                     </div>
                   )}

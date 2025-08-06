@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
-import { Upload } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { useSelector, useDispatch } from "react-redux"
+import { toggleVacationMode } from "@/Redux/Slices/ProductSlice"
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
@@ -10,6 +12,7 @@ import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 import { Switch } from "@/Components/ui/switch"
 import { useIntercom } from 'react-use-intercom';
+import { fetchSellerProducts } from "@/Redux/Slices/ProductSlice"
 
 
 // Add these constants at the top of the file, after the imports
@@ -52,6 +55,8 @@ const DELIVERY_POLICIES = {
 
 export default function StoreSettings() {
   const { show } = useIntercom();
+  const dispatch = useDispatch();
+  const { vacationMode, vacationRequestPending } = useSelector((state) => state.product);
   const [formData, setFormData] = useState({
     storeName: "",
     phoneNumber: "",
@@ -68,15 +73,7 @@ export default function StoreSettings() {
     businessDetails: {
       cac: "",
     },
-    operatingHours: {
-      monday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      tuesday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      wednesday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      thursday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      friday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      saturday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-      sunday: { isOpen: false, openTime: "09:00", closeTime: "17:00" }
-    },
+
     specialDates: [],
     timezone: "Africa/Lagos",
     storePolicy: {
@@ -124,10 +121,14 @@ export default function StoreSettings() {
     businessInfo: false,
     individualInfo: false,
     storeProfile: false,
-    operatingHours: false,
     storePolicy: false,
     socialMedia: false,
   });
+
+  //fetch seller products
+  useEffect(() => {
+    dispatch(fetchSellerProducts());
+  }, []);
 
   // Fetch initial store data
   useEffect(() => {
@@ -161,15 +162,7 @@ export default function StoreSettings() {
           businessDetails: {
             taxInformation: data.businessType || "",
           },
-          operatingHours: data.operatingHours || {
-            monday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            tuesday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            wednesday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            thursday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            friday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            saturday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
-            sunday: { isOpen: false, openTime: "09:00", closeTime: "17:00" }
-          },
+
           specialDates: data.specialDates || [],
           timezone: data.timezone || "Africa/Lagos",
           storePolicy: data.storePolicy || {
@@ -312,18 +305,7 @@ export default function StoreSettings() {
     }
   };
 
-  const handleOperatingHoursChange = (day, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      operatingHours: {
-        ...prev.operatingHours,
-        [day]: {
-          ...prev.operatingHours[day],
-          [field]: value
-        }
-      }
-    }));
-  };
+
 
   const handleAddSpecialDate = () => {
     if (!newSpecialDate.date) {
@@ -370,6 +352,10 @@ export default function StoreSettings() {
         [platform]: value
       }
     }));
+  };
+
+  const handleVacationModeToggle = async (isOn) => {
+    dispatch(toggleVacationMode(isOn));
   };
 
   // Add this validation function
@@ -565,31 +551,7 @@ export default function StoreSettings() {
     }
   };
 
-  const updateOperatingHours = async () => {
-    setUpdatingSection(prev => ({ ...prev, operatingHours: true }));
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/operating-hours`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sellerToken}`,
-        },
-        body: JSON.stringify({
-          operatingHours: formData.operatingHours,
-          timezone: formData.timezone
-        }),
-      });
 
-      if (!response.ok) throw new Error("Failed to update operating hours");
-      return true;
-    } catch (error) {
-      toast.error("Error updating operating hours");
-      return false;
-    } finally {
-      setUpdatingSection(prev => ({ ...prev, operatingHours: false }));
-    }
-  };
 
   const updateSpecialDates = async () => {
     try {
@@ -702,10 +664,6 @@ export default function StoreSettings() {
       const storeProfileSuccess = await updateStoreProfile();
       if (!storeProfileSuccess) return;
 
-      // Update operating hours
-      const operatingHoursSuccess = await updateOperatingHours();
-      if (!operatingHoursSuccess) return;
-
       // Update special dates
       const specialDatesSuccess = await updateSpecialDates();
       if (!specialDatesSuccess) return;
@@ -726,19 +684,7 @@ export default function StoreSettings() {
     }
   };
 
-  // Generate time options for select
-  const generateTimeOptions = () => {
-    const times = [];
-    for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        times.push(timeString);
-      }
-    }
-    return times;
-  };
 
-  const timeOptions = generateTimeOptions();
 
   return (
     <div className="space-y-8">
@@ -935,63 +881,31 @@ export default function StoreSettings() {
             </CardContent>
           </Card>
 
-          {/* Operating Hours Card */}
+          {/* Vacation Mode Card */}
           <Card className="shadow-sm">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl">Operating Hours</CardTitle>
+              <CardTitle className="text-2xl">Vacation Mode</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Set your store's regular operating hours
+                Temporarily close your store
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Object.entries(formData.operatingHours).map(([day, hours]) => (
-                <div key={day} className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-                  <div className="capitalize">{day}</div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={hours.isOpen}
-                      onCheckedChange={(checked) => 
-                        handleOperatingHoursChange(day, 'isOpen', checked)
-                      }
-                    />
-                    <span>{hours.isOpen ? 'Open' : 'Closed'}</span>
-                  </div>
-                  {hours.isOpen && (
-                    <>
-                      <Select
-                        value={hours.openTime}
-                        onValueChange={(time) => handleOperatingHoursChange(day, 'openTime', time)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Open Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeOptions.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={hours.closeTime}
-                        onValueChange={(time) => handleOperatingHoursChange(day, 'closeTime', time)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Close Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeOptions.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </>
-                  )}
+              <div className="flex justify-between gap-7 items-center">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-[#17171B]">Activate only when your store will be unavailable for a long period of time typically over one week</span>
                 </div>
-              ))}
+                {vacationRequestPending ? (
+                  <div className="flex items-center justify-center w-11 h-6">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#0BB248]" />
+                  </div>
+                ) : (
+                  <Switch
+                    checked={vacationMode}
+                    onCheckedChange={handleVacationModeToggle}
+                    className="data-[state=checked]:bg-[#0BB248] data-[state=unchecked]:bg-gray-200"
+                  />
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

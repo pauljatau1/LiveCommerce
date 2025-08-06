@@ -708,7 +708,7 @@ export default function OrdersDashboard() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">₦{(order.totalAmount - (order.shipping?.fee?.amount || 0)).toLocaleString()}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {order.channel === "marketplace" ? (
@@ -857,7 +857,7 @@ export default function OrdersDashboard() {
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Amount</p>
-                            <p className="text-sm font-medium">₦{order.totalAmount.toLocaleString()}</p>
+                            <p className="text-sm font-medium">₦{(order.totalAmount - (order.shipping?.fee?.amount || 0)).toLocaleString()}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Shipping</p>

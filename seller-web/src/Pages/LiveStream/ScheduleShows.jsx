@@ -63,7 +63,7 @@ const ScheduleShows = () => {
                     blip={item?.video}
                     tags={item?.tags}
                     startTime={item?.scheduledStartTime}
-                    isLiveStatus={item.status}
+                    isLiveStatus={item?.status}
                     category={item?.category}
                     location={sellerInfo?.businessAddress}
                     streamLink={item?.streamLink}

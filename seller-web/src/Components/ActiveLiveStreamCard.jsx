@@ -5,6 +5,7 @@ import DraftThumbnail from '../assets/young-woman-organizing-live-shop 1.png'
 import { useState, useRef, useMemo } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 import { toast } from 'sonner';
+import RescheduleModal from './RescheduleModal';
 
 const ActiveLiveStreamCard = ({
     streamerName,
@@ -20,6 +21,7 @@ const ActiveLiveStreamCard = ({
     streamLink
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
     const videoRef = useRef(null);
 
     const handleVideoPlayPause = () => {
@@ -110,6 +112,20 @@ const ActiveLiveStreamCard = ({
         } catch {
             toast.error('Failed to copy link');
         }
+    };
+
+    // Handle opening reschedule modal
+    const handleRescheduleClick = () => {
+        setIsRescheduleModalOpen(true);
+    };
+
+    // Stream data for the reschedule modal
+    const streamData = {
+        id: id,
+        title: streamTitle,
+        category: category,
+        status: isLiveStatus,
+        scheduledStartTime: startTime,
     };
 
     return (
@@ -228,25 +244,45 @@ const ActiveLiveStreamCard = ({
             <p className="text-[#425466] capitalize font-inter text-xs mt-2">lagos, Nigeria</p>
             {
                 isStreamAvailableToEnter ? (
-                    <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
+                    isLiveStatus === 'expired' ? (
                         <button
-                            disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
-                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={handleRescheduleClick}
+                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors`}
                         >
-                            Enter Studio
+                            Reschedule
                         </button>
-                    </NavLink>
+                    ) : (
+                        <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
+                            <button
+                                disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
+                                className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                Enter Studio
+                            </button>
+                        </NavLink>
+                    )
                 ) : (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
-                                <button
-                                    disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
-                                    className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    Enter Studio
-                                </button>
-                            </NavLink>
+                            {
+                                isLiveStatus === 'expired' ? (
+                                    <button
+                                        onClick={handleRescheduleClick}
+                                        className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        Reschedule
+                                    </button>
+                                ) : (
+                                    <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
+                                        <button
+                                            disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
+                                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            Enter Studio
+                                        </button>
+                                    </NavLink>
+                                )
+                            }
                         </TooltipTrigger>
                         <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
                             <p>Enter studio 30 minutes before the start time</p>
@@ -254,6 +290,13 @@ const ActiveLiveStreamCard = ({
                     </Tooltip>
                 )
             }
+
+            {/* Reschedule Modal */}
+            <RescheduleModal
+                isOpen={isRescheduleModalOpen}
+                onClose={() => setIsRescheduleModalOpen(false)}
+                streamData={streamData}
+            />
         </div>
     );
 };
