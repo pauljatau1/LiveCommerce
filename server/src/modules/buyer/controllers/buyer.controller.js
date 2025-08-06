@@ -34,6 +34,7 @@ const forgotPasswordService = require('../services/forgotPassword.service');
 const resetPasswordService = require('../services/resetPassword.service');
 const requestAccountDeletionService = require('../services/requestAccountDeletion.service');
 const confirmAccountDeletionService = require('../services/confirmAccountDeletion.service');
+const reportUserService = require('../services/reportUser.service');
 
 
 /**
@@ -1034,6 +1035,52 @@ async function confirmAccountDeletion(req, res, next) {
   }
 }
 
+/**
+ * Handles HTTP request for reporting a user (buyer or seller).
+ * This controller manages user reporting functionality where buyers can report
+ * other users for violations, inappropriate behavior, or policy breaches.
+ * 
+ * Features:
+ * - Comprehensive input validation and sanitization
+ * - Prevention of self-reporting
+ * - Automatic admin notification via email
+ * - Report tracking and unique ID generation
+ * - Database storage with audit trail
+ * 
+ * Security considerations:
+ * - Requires valid JWT authentication
+ * - Validates reported user existence
+ * - Prevents abuse through validation rules
+ * - Admin notifications for immediate review
+ * 
+ * @param {Request} req - Express request object containing report data in body and reporter's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function reportUser(req, res, next) {
+  try {
+    // Step 1: Extract reporter ID from authenticated user (JWT token)
+    // The verifyToken middleware sets req.user.id from the JWT payload
+    const reporterId = req.user.id;
+    
+    // Step 2: Extract report data from request body
+    // Expected format: { "userId": "...", "userType": "buyer|seller", "reason": "...", "description": "..." }
+    const reportData = req.body;
+    
+    // Step 3: Delegate business logic to service layer
+    // Service will handle validation, data storage, and admin notifications
+    const response = await reportUserService.reportUser(reporterId, reportData);
+    
+    // Step 4: Send success response using standardized response formatter
+    // This ensures consistent API response structure across the application
+    res.success(response, response.message, 201);
+  } catch (err) {
+    // Step 5: Forward any errors to centralized error-handling middleware
+    // ValidationError, database errors, and service errors will be handled appropriately
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1071,4 +1118,5 @@ module.exports = {
   resetPassword,
   requestAccountDeletion,
   confirmAccountDeletion,
+  reportUser,
 };
