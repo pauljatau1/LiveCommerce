@@ -4091,5 +4091,231 @@ describe('Buyer Repository', () => {
         ).rejects.toThrow(/Cast to ObjectId failed/);
       });
     });
+
+    describe('incrementAccountDeletionAttempts', () => {
+      it('should increment account deletion attempts for existing buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 2
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(3); // Should be incremented from 2 to 3
+        expect(result.accountDeletion.otp).toBe('1234');
+        expect(result.accountDeletion.expiresAt).toEqual(savedBuyer.accountDeletion.expiresAt);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle initial increment when attempts is undefined', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+            // attempts not set, should be undefined
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1); // Should be incremented from undefined to 1
+      });
+
+      it('should handle buyer without accountDeletion field', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1); // Should create field and set to 1
+      });
+
+      it('should handle large attempt numbers', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 999
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.incrementAccountDeletionAttempts(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.accountDeletion.attempts).toBe(1000);
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+
+        // Act & Assert
+        await expect(
+          buyerRepository.incrementAccountDeletionAttempts(invalidId)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+    });
+
+    describe('deleteById', () => {
+      it('should delete existing buyer and return deleted document', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.email).toBe(mockBuyerData.email);
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.deleteById(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should delete buyer with all associated data', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          shippingAddresses: [
+            {
+              addressType: 'home',
+              country: 'United States',
+              state: 'California',
+              city: 'Los Angeles',
+              addressLine1: '123 Main St',
+              zipCode: '90210'
+            }
+          ],
+          accountDeletion: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            attempts: 3
+          },
+          wishlist: [new mongoose.Types.ObjectId()]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.shippingAddresses).toHaveLength(1);
+        expect(result.accountDeletion).toBeDefined();
+        expect(result.wishlist).toHaveLength(1);
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should handle invalid ObjectId format', async () => {
+        // Arrange
+        const invalidId = 'invalid-id-format';
+
+        // Act & Assert
+        await expect(
+          buyerRepository.deleteById(invalidId)
+        ).rejects.toThrow(/Cast to ObjectId failed/);
+      });
+
+      it('should handle deletion of buyer with verified status', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isIdentityVerified: true,
+          phoneVerification: {
+            otp: '1234',
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+            attempts: 0
+          }
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isIdentityVerified).toBe(true);
+        expect(result.phoneVerification).toBeDefined();
+        expect(result.phoneVerification.otp).toBe('1234');
+
+        // Verify buyer is actually deleted from database
+        const deletedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(deletedBuyer).toBeNull();
+      });
+
+      it('should return complete buyer document on deletion', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.deleteById(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toMatchObject({
+          firstName: mockBuyerData.firstName,
+          lastName: mockBuyerData.lastName,
+          email: mockBuyerData.email,
+          username: mockBuyerData.username,
+          phoneNumber: mockBuyerData.phoneNumber
+        });
+        expect(result._id).toBeDefined();
+        expect(result.createdAt).toBeDefined();
+        // Note: updatedAt is not defined in the buyer schema, only createdAt
+      });
+    });
   });
 }); 
