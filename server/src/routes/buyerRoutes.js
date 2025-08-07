@@ -2580,4 +2580,16 @@ router.get('/selected-major-categories',
   buyerController.getSelectedMajorCategories
 );
 
+router.post('/throw/403', (req, res, next) => {
+  const err = new Error('403 Forbidden');
+  err.status = 403;
+  next(err);
+});
+
+router.post('/throw/401', (req, res, next) => {
+  const err = new Error('401 Unauthorized');
+  err.status = 401;
+  next(err);
+});
+
 module.exports = router;

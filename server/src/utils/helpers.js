@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 function generateStreamLink(streamId,type) {
-  return `https://app.auqli.live/livestream/feed?id=${streamId}&type=${type}&itmSource=share`
+  return `https://app.auqli.live/livestream/feed?id=${streamId}&type=${type}&itmSource=share`;
 }
 
 // Helper function to generate OTP (4-digit)
@@ -14,8 +15,19 @@ function generateToken(id) {
   return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 }
 
+/**
+ * Generate a unique payment reference for wallet transactions.
+ * @returns {string} A unique payment reference in format PAY-{timestamp}-{random}
+ */
+function generatePaymentReference() {
+  const timestamp = Date.now().toString();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `PAY-${timestamp}-${random}`;
+}
+
 module.exports = {
   generateStreamLink,
   generateOTP,
-  generateToken
-}
+  generateToken,
+  generatePaymentReference
+};

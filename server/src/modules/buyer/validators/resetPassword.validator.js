@@ -28,41 +28,36 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * The email lookup is case-insensitive to provide better user experience.
  *
  * @param {string} email - The email to validate
- * @returns {Promise<Object>} The buyer object if validation passes
- * @throws {ValidationError} If email is missing, invalid format, or buyer doesn't exist
+ * @param {Array} errors - Array to collect validation errors
+ * @returns {Promise<Object|null>} The buyer object if validation passes, null if validation fails
  * 
  * @example
  * // Valid email
- * const buyer = await validateEmail('john.doe@example.com');
+ * const buyer = await validateEmail('john.doe@example.com', errors);
  * 
  * @example
  * // Invalid email format
- * try {
- *   await validateEmail('invalid-email');
- * } catch (error) {
- *   // error.message contains validation details
- * }
+ * validateEmail('invalid-email', errors);
+ * // errors array will contain validation details
  */
-async function validateEmail(email) {
-  const errors = [];
-  
+async function validateEmail(email, errors) {
   // Check if email is provided
   if (!email) {
     errors.push({ field: 'email', message: 'Email is required' });
-    throw new ValidationError(errors);
+    return null;
   }
   
   // Validate email format using validator.js library
   if (!validator.isEmail(email)) {
     errors.push({ field: 'email', message: 'Invalid email format' });
-    throw new ValidationError(errors);
+    return null;
   }
   
   // Check if buyer exists with this email (case-insensitive search)
   const buyer = await buyerRepository.findByEmail(email);
   if (!buyer) {
     errors.push({ field: 'email', message: 'No account found with this email' });
-    throw new ValidationError(errors);
+    return null;
   }
   
   return buyer;
@@ -81,48 +76,40 @@ async function validateEmail(email) {
  * OTP must be sent as a string type from the client.
  *
  * @param {string} otp - The OTP to validate
+ * @param {Array} errors - Array to collect validation errors
  * @returns {boolean} True if OTP is valid
- * @throws {ValidationError} If OTP is missing, not a string, non-numeric, or wrong length
  * 
  * @example
  * // Valid OTP (string type)
- * validateOTP('1234'); // Returns true
+ * validateOTP('1234', errors); // Returns true
  * 
  * @example
  * // Invalid OTP - too short
- * try {
- *   validateOTP('123');
- * } catch (error) {
- *   // error.message contains validation details
- * }
+ * validateOTP('123', errors);
+ * // errors array will contain validation details
  * 
  * @example
  * // Invalid OTP - not a string
- * try {
- *   validateOTP(1234);
- * } catch (error) {
- *   // error.message contains validation details
- * }
+ * validateOTP(1234, errors);
+ * // errors array will contain validation details
  */
-function validateOTP(otp) {
-  const errors = [];
-  
+function validateOTP(otp, errors) {
   // Check if OTP is provided
   if (!otp) {
     errors.push({ field: 'otp', message: 'OTP is required' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   // Validate that OTP is a string type
   if (typeof otp !== 'string') {
     errors.push({ field: 'otp', message: 'OTP must be a string' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   // Validate OTP format: must contain only numeric characters and exactly 4 digits
   if (!validator.isNumeric(otp) || otp.length !== 4) {
     errors.push({ field: 'otp', message: 'OTP must be a 4-digit number' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   return true;
@@ -140,34 +127,29 @@ function validateOTP(otp) {
  * More complex requirements can be added here if needed.
  *
  * @param {string} newPassword - The new password to validate
+ * @param {Array} errors - Array to collect validation errors
  * @returns {boolean} True if password meets all requirements
- * @throws {ValidationError} If password doesn't meet security requirements
  * 
  * @example
  * // Valid password
- * validateNewPassword('SecurePass123'); // Returns true
+ * validateNewPassword('SecurePass123', errors); // Returns true
  * 
  * @example
  * // Invalid password - too short
- * try {
- *   validateNewPassword('weak');
- * } catch (error) {
- *   // error.message contains validation details
- * }
+ * validateNewPassword('weak', errors);
+ * // errors array will contain validation details
  */
-function validateNewPassword(newPassword) {
-  const errors = [];
-  
+function validateNewPassword(newPassword, errors) {
   // Check if password is provided
   if (!newPassword) {
     errors.push({ field: 'newPassword', message: 'New password is required' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   // Validate minimum length requirement
   if (newPassword.length < 6) {
     errors.push({ field: 'newPassword', message: 'Password must be at least 6 characters long' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   // Validate complexity: must contain at least one letter and one number
@@ -175,7 +157,7 @@ function validateNewPassword(newPassword) {
   //                    (?=.*\d) - at least one digit
   if (!validator.matches(newPassword, /^(?=.*[A-Za-z])(?=.*\d)/)) {
     errors.push({ field: 'newPassword', message: 'Password must contain at least one letter and one number' });
-    throw new ValidationError(errors);
+    return false;
   }
   
   return true;
@@ -226,27 +208,32 @@ async function validateResetPasswordData(data) {
   
   // Step 1: Validate email and get buyer object
   // This also ensures the buyer exists in the database
-  const buyer = await validateEmail(data.email);
+  const buyer = await validateEmail(data.email, errors);
   
   // Step 2: Validate OTP format
   // This ensures the OTP is in the correct format before checking against stored value
-  validateOTP(data.otp);
+  const isOTPValid = validateOTP(data.otp, errors);
   
   // Step 3: Validate new password requirements
   // This ensures the new password meets security standards
-  validateNewPassword(data.newPassword);
+  const isPasswordValid = validateNewPassword(data.newPassword, errors);
 
-  // Step 4: Verify OTP matches the stored value
-  // This prevents unauthorized password resets with incorrect OTP
-  if (buyer.resetPasswordOTP !== data.otp) {
-    errors.push({ field: 'otp', message: 'Invalid reset code' });
-    throw new ValidationError(errors);
+  // Only proceed with OTP verification if we have a valid buyer and OTP format
+  if (buyer && isOTPValid) {
+    // Step 4: Verify OTP matches the stored value
+    // This prevents unauthorized password resets with incorrect OTP
+    if (buyer.resetPasswordOTP !== data.otp) {
+      errors.push({ field: 'otp', message: 'Invalid reset code' });
+    } else {
+      // Step 5: Check if OTP has expired
+      // This ensures the reset link hasn't expired for security reasons
+      if (!buyer.resetPasswordOTPExpires || buyer.resetPasswordOTPExpires < new Date()) {
+        errors.push({ field: 'otp', message: 'Reset code has expired' });
+      }
+    }
   }
   
-  // Step 5: Check if OTP has expired
-  // This ensures the reset link hasn't expired for security reasons
-  if (!buyer.resetPasswordOTPExpires || buyer.resetPasswordOTPExpires < new Date()) {
-    errors.push({ field: 'otp', message: 'Reset code has expired' });
+  if (errors.length > 0) {
     throw new ValidationError(errors);
   }
   

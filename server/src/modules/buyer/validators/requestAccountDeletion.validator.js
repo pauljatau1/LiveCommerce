@@ -12,6 +12,7 @@
  * @module requestAccountDeletionValidator
  */
 
+const mongoose = require('mongoose');
 const buyerRepository = require('../repositories/buyer.repository');
 const ValidationError = require('../../../utils/errors/ValidationError');
 
@@ -25,48 +26,33 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * 4. Checks that buyer is not already in deletion process
  *
  * @param {string} buyerId - The buyer's ID to validate
- * @returns {Promise<Object>} The buyer object if validation passes
- * @throws {ValidationError} If buyerId is missing, invalid format, or buyer doesn't exist
- *
- * @example
- * // Valid buyer ID
- * const buyer = await validateBuyerId('507f1f77bcf86cd799439011');
- *
- * @example
- * // Invalid buyer ID format
- * try {
- *   await validateBuyerId('invalid-id');
- * } catch (error) {
- *   // error.message contains validation details
- * }
+ * @param {Array} errors - Array to collect validation errors
+ * @returns {Promise<Object|null>} The buyer object if validation passes, null if errors
  */
-async function validateBuyerId(buyerId) {
-  const errors = [];
-
+async function validateBuyerId(buyerId, errors) {
   // Check if buyerId is provided
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
-    throw new ValidationError(errors);
+    return null;
   }
 
   // Validate buyerId format (MongoDB ObjectId)
-  const mongoose = require('mongoose');
   if (!mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
-    throw new ValidationError(errors);
+    return null;
   }
 
   // Check if buyer exists with this ID
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
-    throw new ValidationError(errors);
+    return null;
   }
 
   // Check if buyer is already in deletion process
   if (buyer.accountDeletion && buyer.accountDeletion.otp) {
     errors.push({ field: 'buyerId', message: 'Account deletion request already in progress' });
-    throw new ValidationError(errors);
+    return null;
   }
 
   return buyer;
@@ -85,23 +71,16 @@ async function validateBuyerId(buyerId) {
  * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Object>} The buyer object if all validations pass
  * @throws {ValidationError} If any validation fails (invalid buyerId, buyer not found, or already in deletion process)
- *
- * @example
- * // Successful validation
- * const buyer = await validateRequestAccountDeletionData('507f1f77bcf86cd799439011');
- *
- * @example
- * // Failed validation - buyer not found
- * try {
- *   await validateRequestAccountDeletionData('507f1f77bcf86cd799439011');
- * } catch (error) {
- *   // error.message contains validation details
- * }
  */
 async function validateRequestAccountDeletionData(buyerId) {
+  const errors = [];
+
   // Validate buyer ID and get buyer object
-  // This also ensures the buyer exists and is not already in deletion process
-  const buyer = await validateBuyerId(buyerId);
+  const buyer = await validateBuyerId(buyerId, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 
   // All validations passed, return the buyer object
   // The service layer can now proceed with account deletion request

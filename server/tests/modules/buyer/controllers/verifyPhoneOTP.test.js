@@ -1,11 +1,11 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
-const verifyPhoneOTPService = require('../../../../src/modules/buyer/services/verifyPhoneOTP.service');
+const Buyer = require('@modules/buyer/models/buyer.model');
+const verifyPhoneOTPService = require('@modules/buyer/services/verifyPhoneOTP.service');
 
 // Mock the service
-jest.mock('../../../../src/modules/buyer/services/verifyPhoneOTP.service');
+jest.mock('@modules/buyer/services/verifyPhoneOTP.service');
 
 let mongoServer;
 
@@ -142,7 +142,7 @@ describe('Verify Phone OTP Controller', () => {
     it('should return 422 when service throws ValidationError', async () => {
       // Arrange
       const otp = '123456';
-      const ValidationError = require('../../../../src/utils/errors/ValidationError');
+      const ValidationError = require('@utils/errors/ValidationError');
       const validationError = new ValidationError([{ field: 'otp', message: 'Invalid OTP' }]);
 
       verifyPhoneOTPService.verifyPhoneOTP.mockRejectedValue(validationError);
@@ -163,7 +163,7 @@ describe('Verify Phone OTP Controller', () => {
     it('should return 404 when service throws NotFoundException', async () => {
       // Arrange
       const otp = '123456';
-      const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
+      const NotFoundException = require('@utils/errors/NotFoundException');
       const notFoundError = new NotFoundException('Buyer not found');
 
       verifyPhoneOTPService.verifyPhoneOTP.mockRejectedValue(notFoundError);

@@ -10,14 +10,20 @@ const buyerRepository = require('../repositories/buyer.repository');
  * @throws {ValidationError} If validation fails
  */
 async function validateUpdateAddressData(data, buyerId, addressId) {
-  await validateAddressExists(buyerId, addressId);
-  await validateAddressTypeUpdate(data.addressType, buyerId, addressId);
-  await validateAddressTypeValue(data.addressType);
-  await validateCountry(data.country);
-  await validateState(data.state);
-  await validateCity(data.city);
-  await validateAddressLine1(data.addressLine1);
-  await validateZipCode(data.zipCode);
+  const errors = [];
+
+  await validateAddressExists(buyerId, addressId, errors);
+  await validateAddressTypeUpdate(data.addressType, buyerId, addressId, errors);
+  await validateAddressTypeValue(data.addressType, errors);
+  await validateCountry(data.country, errors);
+  await validateState(data.state, errors);
+  await validateCity(data.city, errors);
+  await validateAddressLine1(data.addressLine1, errors);
+  await validateZipCode(data.zipCode, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 /**
@@ -25,11 +31,13 @@ async function validateUpdateAddressData(data, buyerId, addressId) {
  * 
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateAddressExists(buyerId, addressId) {
+async function validateAddressExists(buyerId, addressId, errors) {
   const buyer = await buyerRepository.findByIdWithShippingAddresses(buyerId);
   if (!buyer) {
-    throw new ValidationError([{ field: 'buyer', message: 'Buyer not found' }]);
+    errors.push({ field: 'buyer', message: 'Buyer not found' });
+    return;
   }
 
   const addressIndex = buyer.shippingAddresses.findIndex(
@@ -37,7 +45,7 @@ async function validateAddressExists(buyerId, addressId) {
   );
 
   if (addressIndex === -1) {
-    throw new ValidationError([{ field: 'addressId', message: 'Address not found' }]);
+    errors.push({ field: 'addressId', message: 'Address not found' });
   }
 }
 
@@ -47,8 +55,9 @@ async function validateAddressExists(buyerId, addressId) {
  * @param {string} addressType - The new address type
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID being updated
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateAddressTypeUpdate(addressType, buyerId, addressId) {
+async function validateAddressTypeUpdate(addressType, buyerId, addressId, errors) {
   if (!addressType) return;
 
   const buyer = await buyerRepository.findByIdWithShippingAddresses(buyerId);
@@ -58,7 +67,7 @@ async function validateAddressTypeUpdate(addressType, buyerId, addressId) {
   if (!currentAddress) return;
 
   if (isAddressTypeChanged(addressType, currentAddress.addressType)) {
-    validateAddressTypeUniqueness(buyer.shippingAddresses, addressType, addressId);
+    validateAddressTypeUniqueness(buyer.shippingAddresses, addressType, addressId, errors);
   }
 }
 
@@ -90,17 +99,18 @@ function isAddressTypeChanged(newAddressType, currentAddressType) {
  * @param {Array} shippingAddresses - Array of shipping addresses
  * @param {string} addressType - The address type to validate
  * @param {string} addressId - The address ID being updated
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateAddressTypeUniqueness(shippingAddresses, addressType, addressId) {
+function validateAddressTypeUniqueness(shippingAddresses, addressType, addressId, errors) {
   const existingAddressType = shippingAddresses.find(
     addr => addr.addressType === addressType && addr._id.toString() !== addressId
   );
 
   if (existingAddressType) {
-    throw new ValidationError([{ 
+    errors.push({ 
       field: 'addressType', 
       message: `Address type '${addressType}' already exists`
-    }]);
+    });
   }
 }
 
@@ -108,17 +118,18 @@ function validateAddressTypeUniqueness(shippingAddresses, addressType, addressId
  * Validate that address type has a valid value.
  * 
  * @param {string} addressType - The address type
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateAddressTypeValue(addressType) {
+async function validateAddressTypeValue(addressType, errors) {
   if (!addressType) return;
 
   const validAddressTypes = ['home', 'work', 'other'];
   if (!validAddressTypes.includes(addressType)) {
-    throw new ValidationError([{ 
+    errors.push({ 
       field: 'addressType', 
       message: 'Invalid address type',
       validTypes: validAddressTypes
-    }]);
+    });
   }
 }
 
@@ -126,12 +137,13 @@ async function validateAddressTypeValue(addressType) {
  * Validate country field.
  * 
  * @param {string} country - The country
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateCountry(country) {
+async function validateCountry(country, errors) {
   if (country === undefined || country === null) return;
   
   if (typeof country !== 'string' || country.trim().length === 0) {
-    throw new ValidationError([{ field: 'country', message: 'Country must be a valid string' }]);
+    errors.push({ field: 'country', message: 'Country must be a valid string' });
   }
 }
 
@@ -139,12 +151,13 @@ async function validateCountry(country) {
  * Validate state field.
  * 
  * @param {string} state - The state
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateState(state) {
+async function validateState(state, errors) {
   if (state === undefined || state === null) return;
   
   if (typeof state !== 'string' || state.trim().length === 0) {
-    throw new ValidationError([{ field: 'state', message: 'State must be a valid string' }]);
+    errors.push({ field: 'state', message: 'State must be a valid string' });
   }
 }
 
@@ -152,12 +165,13 @@ async function validateState(state) {
  * Validate city field.
  * 
  * @param {string} city - The city
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateCity(city) {
+async function validateCity(city, errors) {
   if (city === undefined || city === null) return;
   
   if (typeof city !== 'string' || city.trim().length === 0) {
-    throw new ValidationError([{ field: 'city', message: 'City must be a valid string' }]);
+    errors.push({ field: 'city', message: 'City must be a valid string' });
   }
 }
 
@@ -165,12 +179,13 @@ async function validateCity(city) {
  * Validate address line 1 field.
  * 
  * @param {string} addressLine1 - The address line 1
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateAddressLine1(addressLine1) {
+async function validateAddressLine1(addressLine1, errors) {
   if (addressLine1 === undefined || addressLine1 === null) return;
   
   if (typeof addressLine1 !== 'string' || addressLine1.trim().length === 0) {
-    throw new ValidationError([{ field: 'addressLine1', message: 'Address line 1 must be a valid string' }]);
+    errors.push({ field: 'addressLine1', message: 'Address line 1 must be a valid string' });
   }
 }
 
@@ -178,23 +193,16 @@ async function validateAddressLine1(addressLine1) {
  * Validate zip code field.
  * 
  * @param {string} zipCode - The zip code
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateZipCode(zipCode) {
+async function validateZipCode(zipCode, errors) {
   if (zipCode === undefined || zipCode === null) return;
   
   if (typeof zipCode !== 'string' || zipCode.trim().length === 0) {
-    throw new ValidationError([{ field: 'zipCode', message: 'Zip code must be a valid string' }]);
+    errors.push({ field: 'zipCode', message: 'Zip code must be a valid string' });
   }
 }
 
 module.exports = {
-  validateUpdateAddressData,
-  validateAddressExists,
-  validateAddressTypeUpdate,
-  validateAddressTypeValue,
-  validateCountry,
-  validateState,
-  validateCity,
-  validateAddressLine1,
-  validateZipCode
+  validateUpdateAddressData
 }; 

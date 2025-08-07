@@ -1,13 +1,13 @@
 const request = require('supertest');
-const { app } = require('../../../../src/app');
+const { app } = require('@/app');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const getSellerReviewsService = require('../../../../src/modules/buyer/services/getSellerReviews.service');
-const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const getSellerReviewsService = require('@modules/buyer/services/getSellerReviews.service');
+const NotFoundException = require('@utils/errors/NotFoundException');
+const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the service
-jest.mock('../../../../src/modules/buyer/services/getSellerReviews.service');
+jest.mock('@modules/buyer/services/getSellerReviews.service');
 
 describe('Get Seller Reviews Controller', () => {
   const mockSellerId = '507f1f77bcf86cd799439011';

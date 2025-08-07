@@ -37,6 +37,7 @@ const confirmAccountDeletionService = require('../services/confirmAccountDeletio
 const reportUserService = require('../services/reportUser.service');
 const getWalletBalanceService = require('../services/getWalletBalance.service');
 const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service');
+const topUpWalletService = require('../services/topUpWallet.service');
 
 
 /**
@@ -1144,6 +1145,40 @@ async function verifyWalletTopUp(req, res, next) {
   }
 }
 
+/**
+ * Top up buyer's wallet with specified amount.
+ *
+ * This controller handles the wallet top-up HTTP request.
+ * It delegates the top-up logic to the service layer and returns
+ * the transaction details and updated balance.
+ *
+ * @param {Request} req - Express request object containing the top-up data in `req.body` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function topUpWallet(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+    
+    // Extract top-up data from request body
+    const topUpData = req.body;
+    
+    // Get user and environment information
+    const user = req.user;
+    const nodeEnv = process.env.NODE_ENV;
+
+    // Call the service layer to handle wallet top-up logic
+    const response = await topUpWalletService.topUpWallet(buyerId, topUpData, user, nodeEnv);
+
+    // Send success response with transaction details
+    res.success(response, response.message);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1183,5 +1218,6 @@ module.exports = {
   confirmAccountDeletion,
   reportUser,
   getWalletBalance,
-  verifyWalletTopUp
+  verifyWalletTopUp,
+  topUpWallet
 };

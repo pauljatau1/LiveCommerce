@@ -103,6 +103,62 @@ describe('Get Wishlist Validator', () => {
       ).rejects.toThrow('Validation failed');
     });
 
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        await expect(
+          getWishlistValidator.validateGetWishlistData(null)
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid buyer ID format', async () => {
+        await expect(
+          getWishlistValidator.validateGetWishlistData('invalid-id')
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Invalid buyer ID format'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for empty buyer ID string', async () => {
+        await expect(
+          getWishlistValidator.validateGetWishlistData('')
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for buyer not found', async () => {
+        buyerRepository.findById.mockResolvedValue(null);
+
+        await expect(
+          getWishlistValidator.validateGetWishlistData(mockBuyerId.toString())
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer not found'
+            }
+          ]
+        });
+      });
+    });
+
     it('should throw validation error for undefined buyer ID', async () => {
       // Act & Assert
       await expect(

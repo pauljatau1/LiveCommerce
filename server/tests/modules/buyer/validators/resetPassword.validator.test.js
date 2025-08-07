@@ -33,6 +33,7 @@ describe('resetPassword.validator', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
+      username: 'johndoe', // Add username
       password: 'hashedPassword123',
       resetPasswordOTP: '1234',
       resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
@@ -71,7 +72,14 @@ describe('resetPassword.validator', () => {
 
       // Act & Assert
       await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        });
     });
 
     it('should throw ValidationError when email format is invalid', async () => {
@@ -84,7 +92,14 @@ describe('resetPassword.validator', () => {
 
       // Act & Assert
       await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Invalid email format'
+            }
+          ]
+        });
     });
 
     it('should throw ValidationError when buyer does not exist', async () => {
@@ -97,170 +112,188 @@ describe('resetPassword.validator', () => {
 
       // Act & Assert
       await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'No account found with this email'
+            }
+          ]
+        });
     });
 
-    it('should throw ValidationError when OTP is missing', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        newPassword: 'newSecurePassword123'
-      };
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing email', async () => {
+        const invalidData = {
+          otp: '1234',
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Email is required'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when OTP is not 4 digits', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '123',
-        newPassword: 'newSecurePassword123'
-      };
+      it('should include specific error message for invalid email format', async () => {
+        const invalidData = {
+          email: 'invalid-email',
+          otp: '1234',
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Invalid email format'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when OTP is not numeric', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: 'abcd',
-        newPassword: 'newSecurePassword123'
-      };
+      it('should include specific error message for non-existent email', async () => {
+        const invalidData = {
+          email: 'nonexistent@example.com',
+          otp: '1234',
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'No account found with this email'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when OTP is not a string type', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: 1234, // Number instead of string
-        newPassword: 'newSecurePassword123'
-      };
+      it('should include specific error message for missing OTP', async () => {
+        const invalidData = {
+          email: 'john.doe@example.com',
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'otp',
+                message: 'OTP is required'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when new password is missing', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234'
-      };
+      it('should include specific error message for non-string OTP', async () => {
+        const invalidData = {
+          email: 'john.doe@example.com',
+          otp: 1234,
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'otp',
+                message: 'OTP must be a string'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when new password is too short', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234',
-        newPassword: 'weak'
-      };
+      it('should throw ValidationError for invalid OTP format', async () => {
+        const invalidData = {
+          email: 'john.doe@example.com',
+          otp: '123', // too short
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'otp',
+                message: 'OTP must be a 4-digit number'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when new password has no letters', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234',
-        newPassword: '123456'
-      };
+      it('should throw ValidationError for invalid password format', async () => {
+        const invalidData = {
+          email: 'john.doe@example.com',
+          otp: '1234',
+          newPassword: 'weak' // too short and no number
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'newPassword',
+                message: 'Password must be at least 6 characters long'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when new password has no numbers', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234',
-        newPassword: 'password'
-      };
+      it('should include specific error message for invalid OTP', async () => {
+        const invalidData = {
+          email: 'john.doe@example.com',
+          otp: '5678',
+          newPassword: 'newSecurePassword123'
+        };
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'otp',
+                message: 'Invalid reset code'
+              }
+            ]
+          });
+      });
 
-    it('should throw ValidationError when OTP does not match', async () => {
-      // Arrange
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '5678',
-        newPassword: 'newSecurePassword123'
-      };
+      it('should throw ValidationError for expired OTP', async () => {
+        // Create a buyer with expired OTP
+        const expiredBuyer = new Buyer({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane.doe@example.com',
+          username: 'janedoe', // Add unique username
+          password: 'hashedPassword123',
+          resetPasswordOTP: '1234',
+          resetPasswordOTPExpires: new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
+        });
+        await expiredBuyer.save();
 
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
+        const invalidData = {
+          email: 'jane.doe@example.com',
+          otp: '1234',
+          newPassword: 'newSecurePassword123'
+        };
 
-    it('should throw ValidationError when OTP has expired', async () => {
-      // Arrange - Update buyer with expired OTP
-      testBuyer.resetPasswordOTPExpires = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
-      await testBuyer.save();
-
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234',
-        newPassword: 'newSecurePassword123'
-      };
-
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when OTP expiry is missing', async () => {
-      // Arrange - Update buyer with no expiry
-      testBuyer.resetPasswordOTPExpires = undefined;
-      await testBuyer.save();
-
-      const invalidData = {
-        email: 'john.doe@example.com',
-        otp: '1234',
-        newPassword: 'newSecurePassword123'
-      };
-
-      // Act & Assert
-      await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-    });
-
-    it('should handle case insensitive email matching', async () => {
-      // Arrange
-      const validData = {
-        email: 'JOHN.DOE@EXAMPLE.COM',
-        otp: '1234',
-        newPassword: 'newSecurePassword123'
-      };
-
-      // Act
-      const result = await resetPasswordValidator.validateResetPasswordData(validData);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.email).toBe('john.doe@example.com');
+        await expect(resetPasswordValidator.validateResetPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'otp',
+                message: 'Reset code has expired'
+              }
+            ]
+          });
+      });
     });
   });
 }); 

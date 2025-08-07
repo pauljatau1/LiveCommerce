@@ -1,8 +1,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { app } = require('../../../../src/app');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
+const { app } = require('@/app');
+const Buyer = require('@modules/buyer/models/buyer.model');
 
 let mongoServer;
 

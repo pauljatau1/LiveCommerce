@@ -36,31 +36,36 @@ describe('Update Notification Preferences Service', () => {
       const existingPreferences = {
         orderUpdates: {
           orderConfirmation: true,
-          shippingAndDelivery: true,
-          orderCancellation: true,
-          refundUpdates: true
+          orderShipped: true,
+          orderDelivered: true,
+          orderCancelled: true,
+          orderRefunded: true,
+          orderReturned: true
         },
         liveShows: {
-          allShows: true,
-          followedSellers: true,
-          recommendedShows: true
+          liveShowStarted: true,
+          liveShowEnded: true,
+          liveShowReminder: true,
+          newLiveShow: true
         },
         messages: {
-          fromSellers: true,
-          fromBuyers: true,
-          chatReplies: true,
-          mentions: true
+          newMessage: true,
+          messageRead: true,
+          messageReplied: true
         },
         communityActivity: {
-          postComments: true,
-          postLikes: true,
-          repliesAndMentions: true
+          newFollower: true,
+          newFollowing: true,
+          newReview: true,
+          newComment: true,
+          newLike: true
         },
         promotionsAndSales: {
-          flashSales: true,
-          couponsAndDeals: true,
-          trendingProducts: true,
-          recommendations: true
+          newPromotion: true,
+          flashSale: true,
+          discountOffer: true,
+          seasonalSale: true,
+          newProduct: true
         }
       };
 
@@ -68,14 +73,14 @@ describe('Update Notification Preferences Service', () => {
       const newPreferences = {
         orderUpdates: {
           orderConfirmation: false,
-          shippingAndDelivery: false
+          orderShipped: false
         },
         liveShows: {
-          allShows: false
+          liveShowStarted: false
         },
         messages: {
-          fromBuyers: false,
-          chatReplies: false
+          messageRead: false,
+          messageReplied: false
         }
       };
 
@@ -87,27 +92,32 @@ describe('Update Notification Preferences Service', () => {
 
       // Verify the merge result
       expect(result.orderUpdates.orderConfirmation).toBe(false);
-      expect(result.orderUpdates.shippingAndDelivery).toBe(false);
-      expect(result.orderUpdates.orderCancellation).toBe(true); // Should remain unchanged
-      expect(result.orderUpdates.refundUpdates).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderShipped).toBe(false);
+      expect(result.orderUpdates.orderDelivered).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderCancelled).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderRefunded).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderReturned).toBe(true); // Should remain unchanged
       
-      expect(result.liveShows.allShows).toBe(false);
-      expect(result.liveShows.followedSellers).toBe(true); // Should remain unchanged
-      expect(result.liveShows.recommendedShows).toBe(true); // Should remain unchanged
+      expect(result.liveShows.liveShowStarted).toBe(false);
+      expect(result.liveShows.liveShowEnded).toBe(true); // Should remain unchanged
+      expect(result.liveShows.liveShowReminder).toBe(true); // Should remain unchanged
+      expect(result.liveShows.newLiveShow).toBe(true); // Should remain unchanged
       
-      expect(result.messages.fromSellers).toBe(true); // Should remain unchanged
-      expect(result.messages.fromBuyers).toBe(false);
-      expect(result.messages.chatReplies).toBe(false);
-      expect(result.messages.mentions).toBe(true); // Should remain unchanged
+      expect(result.messages.newMessage).toBe(true); // Should remain unchanged
+      expect(result.messages.messageRead).toBe(false);
+      expect(result.messages.messageReplied).toBe(false);
       
-      expect(result.communityActivity.postComments).toBe(true); // Should remain unchanged
-      expect(result.communityActivity.postLikes).toBe(true); // Should remain unchanged
-      expect(result.communityActivity.repliesAndMentions).toBe(true); // Should remain unchanged
+      expect(result.communityActivity.newFollower).toBe(true); // Should remain unchanged
+      expect(result.communityActivity.newFollowing).toBe(true); // Should remain unchanged
+      expect(result.communityActivity.newReview).toBe(true); // Should remain unchanged
+      expect(result.communityActivity.newComment).toBe(true); // Should remain unchanged
+      expect(result.communityActivity.newLike).toBe(true); // Should remain unchanged
       
-      expect(result.promotionsAndSales.flashSales).toBe(true); // Should remain unchanged
-      expect(result.promotionsAndSales.couponsAndDeals).toBe(true); // Should remain unchanged
-      expect(result.promotionsAndSales.trendingProducts).toBe(true); // Should remain unchanged
-      expect(result.promotionsAndSales.recommendations).toBe(true); // Should remain unchanged
+      expect(result.promotionsAndSales.newPromotion).toBe(true); // Should remain unchanged
+      expect(result.promotionsAndSales.flashSale).toBe(true); // Should remain unchanged
+      expect(result.promotionsAndSales.discountOffer).toBe(true); // Should remain unchanged
+      expect(result.promotionsAndSales.seasonalSale).toBe(true); // Should remain unchanged
+      expect(result.promotionsAndSales.newProduct).toBe(true); // Should remain unchanged
     });
 
     it('should handle empty new preferences', () => {
@@ -115,11 +125,11 @@ describe('Update Notification Preferences Service', () => {
       const existingPreferences = {
         orderUpdates: {
           orderConfirmation: true,
-          shippingAndDelivery: true
+          orderShipped: true
         },
         liveShows: {
-          allShows: true,
-          followedSellers: true
+          liveShowStarted: true,
+          liveShowEnded: true
         }
       };
 
@@ -141,14 +151,17 @@ describe('Update Notification Preferences Service', () => {
       const existingPreferences = {
         orderUpdates: {
           orderConfirmation: true,
-          shippingAndDelivery: true,
-          orderCancellation: true,
-          refundUpdates: true
+          orderShipped: true,
+          orderDelivered: true,
+          orderCancelled: true,
+          orderRefunded: true,
+          orderReturned: true
         },
         liveShows: {
-          allShows: true,
-          followedSellers: true,
-          recommendedShows: true
+          liveShowStarted: true,
+          liveShowEnded: true,
+          liveShowReminder: true,
+          newLiveShow: true
         }
       };
 
@@ -167,13 +180,16 @@ describe('Update Notification Preferences Service', () => {
 
       // Verify only the specified field is updated
       expect(result.orderUpdates.orderConfirmation).toBe(false);
-      expect(result.orderUpdates.shippingAndDelivery).toBe(true); // Should remain unchanged
-      expect(result.orderUpdates.orderCancellation).toBe(true); // Should remain unchanged
-      expect(result.orderUpdates.refundUpdates).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderShipped).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderDelivered).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderCancelled).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderRefunded).toBe(true); // Should remain unchanged
+      expect(result.orderUpdates.orderReturned).toBe(true); // Should remain unchanged
       
-      expect(result.liveShows.allShows).toBe(true); // Should remain unchanged
-      expect(result.liveShows.followedSellers).toBe(true); // Should remain unchanged
-      expect(result.liveShows.recommendedShows).toBe(true); // Should remain unchanged
+      expect(result.liveShows.liveShowStarted).toBe(true); // Should remain unchanged
+      expect(result.liveShows.liveShowEnded).toBe(true); // Should remain unchanged
+      expect(result.liveShows.liveShowReminder).toBe(true); // Should remain unchanged
+      expect(result.liveShows.newLiveShow).toBe(true); // Should remain unchanged
     });
   });
 
@@ -187,31 +203,36 @@ describe('Update Notification Preferences Service', () => {
         notificationPreferences: {
           orderUpdates: {
             orderConfirmation: true,
-            shippingAndDelivery: true,
-            orderCancellation: true,
-            refundUpdates: true
+            orderShipped: true,
+            orderDelivered: true,
+            orderCancelled: true,
+            orderRefunded: true,
+            orderReturned: true
           },
           liveShows: {
-            allShows: true,
-            followedSellers: true,
-            recommendedShows: true
+            liveShowStarted: true,
+            liveShowEnded: true,
+            liveShowReminder: true,
+            newLiveShow: true
           },
           messages: {
-            fromSellers: true,
-            fromBuyers: true,
-            chatReplies: true,
-            mentions: true
+            newMessage: true,
+            messageRead: true,
+            messageReplied: true
           },
           communityActivity: {
-            postComments: true,
-            postLikes: true,
-            repliesAndMentions: true
+            newFollower: true,
+            newFollowing: true,
+            newReview: true,
+            newComment: true,
+            newLike: true
           },
           promotionsAndSales: {
-            flashSales: true,
-            couponsAndDeals: true,
-            trendingProducts: true,
-            recommendations: true
+            newPromotion: true,
+            flashSale: true,
+            discountOffer: true,
+            seasonalSale: true,
+            newProduct: true
           }
         }
       };
@@ -222,31 +243,36 @@ describe('Update Notification Preferences Service', () => {
         notificationPreferences: {
           orderUpdates: {
             orderConfirmation: false,
-            shippingAndDelivery: false,
-            orderCancellation: true,
-            refundUpdates: true
+            orderShipped: false,
+            orderDelivered: true,
+            orderCancelled: true,
+            orderRefunded: true,
+            orderReturned: true
           },
           liveShows: {
-            allShows: true,
-            followedSellers: true,
-            recommendedShows: true
+            liveShowStarted: true,
+            liveShowEnded: true,
+            liveShowReminder: true,
+            newLiveShow: true
           },
           messages: {
-            fromSellers: true,
-            fromBuyers: true,
-            chatReplies: true,
-            mentions: true
+            newMessage: true,
+            messageRead: true,
+            messageReplied: true
           },
           communityActivity: {
-            postComments: true,
-            postLikes: true,
-            repliesAndMentions: true
+            newFollower: true,
+            newFollowing: true,
+            newReview: true,
+            newComment: true,
+            newLike: true
           },
           promotionsAndSales: {
-            flashSales: true,
-            couponsAndDeals: true,
-            trendingProducts: true,
-            recommendations: true
+            newPromotion: true,
+            flashSale: true,
+            discountOffer: true,
+            seasonalSale: true,
+            newProduct: true
           }
         }
       };
@@ -255,7 +281,7 @@ describe('Update Notification Preferences Service', () => {
       const newPreferences = {
         orderUpdates: {
           orderConfirmation: false,
-          shippingAndDelivery: false
+          orderShipped: false
         }
       };
 
@@ -306,7 +332,8 @@ describe('Update Notification Preferences Service', () => {
         notificationPreferences: {
           orderUpdates: {
             orderConfirmation: true,
-            shippingAndDelivery: true
+            orderShipped: true,
+            orderDelivered: true
           }
         }
       };
@@ -390,31 +417,36 @@ describe('Update Notification Preferences Service', () => {
         notificationPreferences: {
           orderUpdates: {
             orderConfirmation: true,
-            shippingAndDelivery: true,
-            orderCancellation: true,
-            refundUpdates: true
+            orderShipped: true,
+            orderDelivered: true,
+            orderCancelled: true,
+            orderRefunded: true,
+            orderReturned: true
           },
           liveShows: {
-            allShows: true,
-            followedSellers: true,
-            recommendedShows: true
+            liveShowStarted: true,
+            liveShowEnded: true,
+            liveShowReminder: true,
+            newLiveShow: true
           },
           messages: {
-            fromSellers: true,
-            fromBuyers: true,
-            chatReplies: true,
-            mentions: true
+            newMessage: true,
+            messageRead: true,
+            messageReplied: true
           },
           communityActivity: {
-            postComments: true,
-            postLikes: true,
-            repliesAndMentions: true
+            newFollower: true,
+            newFollowing: true,
+            newReview: true,
+            newComment: true,
+            newLike: true
           },
           promotionsAndSales: {
-            flashSales: true,
-            couponsAndDeals: true,
-            trendingProducts: true,
-            recommendations: true
+            newPromotion: true,
+            flashSale: true,
+            discountOffer: true,
+            seasonalSale: true,
+            newProduct: true
           }
         }
       };
@@ -425,31 +457,36 @@ describe('Update Notification Preferences Service', () => {
         notificationPreferences: {
           orderUpdates: {
             orderConfirmation: false,
-            shippingAndDelivery: false,
-            orderCancellation: false,
-            refundUpdates: false
+            orderShipped: false,
+            orderDelivered: false,
+            orderCancelled: false,
+            orderRefunded: false,
+            orderReturned: false
           },
           liveShows: {
-            allShows: false,
-            followedSellers: false,
-            recommendedShows: false
+            liveShowStarted: false,
+            liveShowEnded: false,
+            liveShowReminder: false,
+            newLiveShow: false
           },
           messages: {
-            fromSellers: false,
-            fromBuyers: false,
-            chatReplies: false,
-            mentions: false
+            newMessage: false,
+            messageRead: false,
+            messageReplied: false
           },
           communityActivity: {
-            postComments: false,
-            postLikes: false,
-            repliesAndMentions: false
+            newFollower: false,
+            newFollowing: false,
+            newReview: false,
+            newComment: false,
+            newLike: false
           },
           promotionsAndSales: {
-            flashSales: false,
-            couponsAndDeals: false,
-            trendingProducts: false,
-            recommendations: false
+            newPromotion: false,
+            flashSale: false,
+            discountOffer: false,
+            seasonalSale: false,
+            newProduct: false
           }
         }
       };
@@ -458,31 +495,36 @@ describe('Update Notification Preferences Service', () => {
       const newPreferences = {
         orderUpdates: {
           orderConfirmation: false,
-          shippingAndDelivery: false,
-          orderCancellation: false,
-          refundUpdates: false
+          orderShipped: false,
+          orderDelivered: false,
+          orderCancelled: false,
+          orderRefunded: false,
+          orderReturned: false
         },
         liveShows: {
-          allShows: false,
-          followedSellers: false,
-          recommendedShows: false
+          liveShowStarted: false,
+          liveShowEnded: false,
+          liveShowReminder: false,
+          newLiveShow: false
         },
         messages: {
-          fromSellers: false,
-          fromBuyers: false,
-          chatReplies: false,
-          mentions: false
+          newMessage: false,
+          messageRead: false,
+          messageReplied: false
         },
         communityActivity: {
-          postComments: false,
-          postLikes: false,
-          repliesAndMentions: false
+          newFollower: false,
+          newFollowing: false,
+          newReview: false,
+          newComment: false,
+          newLike: false
         },
         promotionsAndSales: {
-          flashSales: false,
-          couponsAndDeals: false,
-          trendingProducts: false,
-          recommendations: false
+          newPromotion: false,
+          flashSale: false,
+          discountOffer: false,
+          seasonalSale: false,
+          newProduct: false
         }
       };
 

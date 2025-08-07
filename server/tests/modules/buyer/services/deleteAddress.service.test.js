@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const deleteAddressService = require('../../../../src/modules/buyer/services/deleteAddress.service');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
-const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const deleteAddressService = require('@modules/buyer/services/deleteAddress.service');
+const Buyer = require('@modules/buyer/models/buyer.model');
+const NotFoundException = require('@utils/errors/NotFoundException');
+const ValidationError = require('@utils/errors/ValidationError');
 
 let mongoServer;
 
@@ -188,16 +188,16 @@ describe('deleteAddress.service', () => {
   describe('Database errors', () => {
     it('should handle database save errors', async () => {
       // Mock the repository to simulate save failure
-      const originalDeleteShippingAddress = require('../../../../src/modules/buyer/repositories/buyer.repository').deleteShippingAddress;
+      const originalDeleteShippingAddress = require('@modules/buyer/repositories/buyer.repository').deleteShippingAddress;
       
-      require('../../../../src/modules/buyer/repositories/buyer.repository').deleteShippingAddress = jest.fn().mockResolvedValue(null);
+              require('@modules/buyer/repositories/buyer.repository').deleteShippingAddress = jest.fn().mockResolvedValue(null);
 
       await expect(
         deleteAddressService.deleteAddress(buyer._id.toString(), addressId)
       ).rejects.toThrow('Failed to delete address');
 
       // Restore original function
-      require('../../../../src/modules/buyer/repositories/buyer.repository').deleteShippingAddress = originalDeleteShippingAddress;
+              require('@modules/buyer/repositories/buyer.repository').deleteShippingAddress = originalDeleteShippingAddress;
     });
   });
 }); 

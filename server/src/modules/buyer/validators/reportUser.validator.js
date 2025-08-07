@@ -61,24 +61,27 @@ async function findUserById(userId, userType) {
 }
 
 /**
- * Validates the buyer ID format and existence in the database.
- * This function ensures that the reporting buyer exists and is valid.
+ * Validates the buyer ID format and existence.
+ * This function checks if the reporter (buyer) exists.
  * 
- * @param {string} buyerId - The buyer ID to validate (should be a valid ObjectId string)
- * @returns {Promise<Object>} The buyer object if validation passes
+ * @param {string} buyerId - The buyer ID to validate
+ * @param {Array} errors - Array to collect validation errors
+ * @returns {Promise<Object|null>} The buyer object if validation passes, null if errors
  * @throws {ValidationError} If buyer ID is invalid or buyer doesn't exist
  */
-async function validateBuyerId(buyerId) {
+async function validateBuyerId(buyerId, errors) {
   // Validate format first
   const formatErrors = validateBuyerIdFormat(buyerId);
   if (formatErrors.length > 0) {
-    throw new ValidationError(formatErrors);
+    errors.push(...formatErrors);
+    return null;
   }
   
   // Check if buyer exists
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
-    throw new ValidationError([{ field: 'buyerId', message: 'Buyer not found' }]);
+    errors.push({ field: 'buyerId', message: 'Buyer not found' });
+    return null;
   }
   
   return buyer;
@@ -90,36 +93,34 @@ async function validateBuyerId(buyerId) {
  * 
  * @param {string} userId - The reported user ID to validate
  * @param {string} userType - The type of user ('buyer' or 'seller')
- * @returns {Promise<Object>} The reported user object if validation passes
- * @throws {ValidationError} If user ID is invalid or user doesn't exist
+ * @param {Array} errors - Array to collect validation errors
+ * @returns {Promise<Object|null>} The reported user object if validation passes, null if errors
  */
-async function validateReportedUser(userId, userType) {
+async function validateReportedUser(userId, userType, errors) {
   // Validate format first
   const formatErrors = validateUserIdFormat(userId);
   if (formatErrors.length > 0) {
-    throw new ValidationError(formatErrors);
+    errors.push(...formatErrors);
+    return null;
   }
   
   // Find the reported user based on userType
   const reportedUser = await findUserById(userId, userType);
   if (!reportedUser) {
-    throw new ValidationError([{ field: 'userId', message: 'Reported user not found' }]);
+    errors.push({ field: 'userId', message: 'Reported user not found' });
+    return null;
   }
   
   return reportedUser;
 }
 
-
-
 /**
- * Validates userType field and returns any validation errors.
+ * Validates userType field and adds any validation errors to the errors array.
  * 
  * @param {string} userType - The user type to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateUserType(userType) {
-  const errors = [];
-  
+function validateUserType(userType, errors) {
   if (!userType) {
     errors.push({ field: 'userType', message: 'User type is required' });
   } else if (typeof userType !== 'string') {
@@ -130,19 +131,15 @@ function validateUserType(userType) {
       errors.push({ field: 'userType', message: 'User type must be either "buyer" or "seller"' });
     }
   }
-  
-  return errors;
 }
 
 /**
- * Validates reason field and returns any validation errors.
+ * Validates reason field and adds any validation errors to the errors array.
  * 
  * @param {string} reason - The reason to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateReason(reason) {
-  const errors = [];
-  
+function validateReason(reason, errors) {
   if (!reason) {
     errors.push({ field: 'reason', message: 'Reason is required' });
   } else if (typeof reason !== 'string') {
@@ -152,19 +149,15 @@ function validateReason(reason) {
   } else if (reason.trim().length > 100) {
     errors.push({ field: 'reason', message: 'Reason must not exceed 100 characters' });
   }
-  
-  return errors;
 }
 
 /**
- * Validates description field and returns any validation errors.
+ * Validates description field and adds any validation errors to the errors array.
  * 
  * @param {string} description - The description to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateDescription(description) {
-  const errors = [];
-  
+function validateDescription(description, errors) {
   if (!description) {
     errors.push({ field: 'description', message: 'Description is required' });
   } else if (typeof description !== 'string') {
@@ -174,110 +167,95 @@ function validateDescription(description) {
   } else if (description.trim().length > 500) {
     errors.push({ field: 'description', message: 'Description must not exceed 500 characters' });
   }
-  
-  return errors;
 }
 
 /**
- * Validates userId field and returns any validation errors.
+ * Validates userId field and adds any validation errors to the errors array.
  * 
  * @param {string} userId - The user ID to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateUserId(userId) {
-  const errors = [];
-  
+function validateUserId(userId, errors) {
   if (!userId) {
     errors.push({ field: 'userId', message: 'User ID is required' });
+  } else if (typeof userId !== 'string') {
+    errors.push({ field: 'userId', message: 'User ID must be a string' });
   } else if (!mongoose.Types.ObjectId.isValid(userId)) {
     errors.push({ field: 'userId', message: 'Invalid user ID format' });
   }
-  
-  return errors;
 }
 
 /**
- * Validates basic input fields and returns any validation errors.
- * This function orchestrates validation of userType, reason, description, and userId.
+ * Validates basic fields in the report data and adds any validation errors to the errors array.
  * 
- * @param {Object} reportData - The report data object
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Object} reportData - The report data to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBasicFields(reportData) {
-  const { userId, userType, reason, description } = reportData;
-  
-  // Collect validation errors from each field
-  const userTypeErrors = validateUserType(userType);
-  const reasonErrors = validateReason(reason);
-  const descriptionErrors = validateDescription(description);
-  const userIdErrors = validateUserId(userId);
-  
-  // Combine all errors
-  return [...userTypeErrors, ...reasonErrors, ...descriptionErrors, ...userIdErrors];
+function validateBasicFields(reportData, errors) {
+  validateUserId(reportData.userId, errors);
+  validateUserType(reportData.userType, errors);
+  validateReason(reportData.reason, errors);
+  validateDescription(reportData.description, errors);
 }
 
 /**
- * Validates self-report prevention.
+ * Validates that a user is not reporting themselves and adds any validation errors to the errors array.
  * 
- * @param {string} reporterId - The ID of the reporter
- * @param {string} reportedUserId - The ID of the reported user
+ * @param {string} reporterId - The ID of the user making the report
+ * @param {string} reportedUserId - The ID of the user being reported
  * @param {string} userType - The type of user being reported
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSelfReport(reporterId, reportedUserId, userType) {
-  const errors = [];
-  
-  // Check if user is trying to report themselves when userType is buyer
-  if (userType === 'buyer' && reporterId === reportedUserId) {
-    errors.push({ field: 'userId', message: 'You cannot report yourself' });
+function validateSelfReport(reporterId, reportedUserId, userType, errors) {
+  if (reporterId === reportedUserId) {
+    errors.push({ 
+      field: 'userId', 
+      message: 'You cannot report yourself' 
+    });
   }
-  
-  return errors;
 }
 
 /**
- * Validates the complete report user request data.
- * This is the main validation function that orchestrates all validation steps:
- * 1. Input field validation (userType, reason, description)
- * 2. Reporter validation (buyer exists)
- * 3. Reported user validation (user exists)
- * 4. Self-report prevention
+ * Validates the complete report user data.
+ * This function orchestrates all validation steps for reporting a user.
  * 
- * @param {string} reporterId - The ID of the buyer making the report
- * @param {Object} reportData - The report data object
- * @param {string} reportData.userId - The ID of the user being reported
- * @param {string} reportData.userType - The type of user being reported
- * @param {string} reportData.reason - The reason for the report
- * @param {string} reportData.description - The detailed description of the report
+ * @param {string} reporterId - The ID of the user making the report
+ * @param {Object} reportData - The report data containing userId, userType, reason, description
  * @returns {Promise<Object>} Object containing validated reporter and reported user
- * @throws {ValidationError} If any validation step fails
+ * @throws {ValidationError} If validation fails
  */
 async function validateReportUserData(reporterId, reportData) {
-  // Step 1: Validate basic input fields
-  const basicErrors = validateBasicFields(reportData);
+  const errors = [];
+
+  // Validate basic fields
+  validateBasicFields(reportData, errors);
   
-  // Step 2: Validate self-report prevention
-  const selfReportErrors = validateSelfReport(reporterId, reportData.userId, reportData.userType);
-  
-  // Combine all validation errors
-  const allErrors = [...basicErrors, ...selfReportErrors];
-  
-  // If there are validation errors, throw them now before database calls
-  if (allErrors.length > 0) {
-    throw new ValidationError(allErrors);
+  // Validate self-report
+  validateSelfReport(reporterId, reportData.userId, reportData.userType, errors);
+
+  // If basic validation passes, validate existence
+  if (errors.length === 0) {
+    // Validate reporter (buyer) exists
+    const reporter = await validateBuyerId(reporterId, errors);
+    
+    // Validate reported user exists
+    let reportedUser = null;
+    if (reporter) {
+      reportedUser = await validateReportedUser(reportData.userId, reportData.userType, errors);
+    }
+
+    // If all validations pass, return the objects
+    if (errors.length === 0) {
+      return {
+        reporter,
+        reportedUser
+      };
+    }
   }
-  
-  // Step 3: Validate reporter (buyer) exists and is accessible
-  const reporter = await validateBuyerId(reporterId);
-  
-  // Step 4: Validate reported user exists based on userType
-  const reportedUser = await validateReportedUser(reportData.userId, reportData.userType);
-  
-  // Return validated objects for use in service layer
-  return {
-    reporter,
-    reportedUser
-  };
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {

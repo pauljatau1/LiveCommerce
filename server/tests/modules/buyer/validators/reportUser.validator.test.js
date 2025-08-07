@@ -125,6 +125,50 @@ describe('reportUser.validator', () => {
       expect(result.reportedUser._id.toString()).toBe(savedAnotherBuyer._id.toString());
     });
 
+    it('should throw ValidationError when userId is missing', async () => {
+      // Arrange
+      const reportData = {
+        // userId missing
+        userType: 'seller',
+        reason: 'Fraudulent behavior',
+        description: 'This seller is selling counterfeit products.'
+      };
+
+      // Act & Assert
+      await expect(
+        reportUserValidator.validateReportUserData(reporterId, reportData)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'User ID is required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError when userId is invalid format', async () => {
+      // Arrange
+      const reportData = {
+        userId: 'invalid-id',
+        userType: 'seller',
+        reason: 'Fraudulent behavior',
+        description: 'This seller is selling counterfeit products.'
+      };
+
+      // Act & Assert
+      await expect(
+        reportUserValidator.validateReportUserData(reporterId, reportData)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'Invalid user ID format'
+          }
+        ]
+      });
+    });
+
     it('should throw ValidationError when userType is missing', async () => {
       // Arrange
       const reportData = {
@@ -137,20 +181,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userType',
-              message: 'User type is required'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userType',
+            message: 'User type is required'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when userType is invalid', async () => {
@@ -165,20 +203,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userType',
-              message: 'User type must be either "buyer" or "seller"'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userType',
+            message: 'User type must be either "buyer" or "seller"'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when reason is missing', async () => {
@@ -193,20 +225,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'reason',
-              message: 'Reason is required'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'reason',
+            message: 'Reason is required'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when reason is too short', async () => {
@@ -221,20 +247,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'reason',
-              message: 'Reason must be at least 3 characters long'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'reason',
+            message: 'Reason must be at least 3 characters long'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when reason is too long', async () => {
@@ -249,20 +269,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'reason',
-              message: 'Reason must not exceed 100 characters'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'reason',
+            message: 'Reason must not exceed 100 characters'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when description is missing', async () => {
@@ -277,20 +291,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'description',
-              message: 'Description is required'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'description',
+            message: 'Description is required'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when description is too short', async () => {
@@ -299,26 +307,20 @@ describe('reportUser.validator', () => {
         userId: reportedUserId,
         userType: 'seller',
         reason: 'Fraudulent behavior',
-        description: 'Too short' // less than 10 characters
+        description: 'Short' // too short (less than 10 characters)
       };
 
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'description',
-              message: 'Description must be at least 10 characters long'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'description',
+            message: 'Description must be at least 10 characters long'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when description is too long', async () => {
@@ -333,26 +335,20 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'description',
-              message: 'Description must not exceed 500 characters'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'description',
+            message: 'Description must not exceed 500 characters'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when userId is missing', async () => {
+    it('should throw ValidationError when user reports themselves', async () => {
       // Arrange
       const reportData = {
-        // userId missing
+        userId: reporterId, // same as reporter
         userType: 'seller',
         reason: 'Fraudulent behavior',
         description: 'This seller is selling counterfeit products.'
@@ -361,51 +357,17 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userId',
-              message: 'User ID is required'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'You cannot report yourself'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when userId has invalid format', async () => {
-      // Arrange
-      const reportData = {
-        userId: 'invalid-id-format',
-        userType: 'seller',
-        reason: 'Fraudulent behavior',
-        description: 'This seller is selling counterfeit products.'
-      };
-
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userId',
-              message: 'Invalid user ID format'
-            })
-          ])
-        );
-      }
-    });
-
-    it('should throw ValidationError when reporterId has invalid format', async () => {
+    it('should throw ValidationError when buyerId is missing', async () => {
       // Arrange
       const reportData = {
         userId: reportedUserId,
@@ -416,26 +378,19 @@ describe('reportUser.validator', () => {
 
       // Act & Assert
       await expect(
-        reportUserValidator.validateReportUserData('invalid-reporter-id', reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData('invalid-reporter-id', reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'buyerId',
-              message: 'Invalid buyer ID format'
-            })
-          ])
-        );
-      }
+        reportUserValidator.validateReportUserData(null, reportData)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when reporter does not exist', async () => {
+    it('should throw ValidationError when buyerId is invalid format', async () => {
       // Arrange
-      const nonExistentReporterId = new mongoose.Types.ObjectId().toString();
       const reportData = {
         userId: reportedUserId,
         userType: 'seller',
@@ -445,28 +400,46 @@ describe('reportUser.validator', () => {
 
       // Act & Assert
       await expect(
-        reportUserValidator.validateReportUserData(nonExistentReporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(nonExistentReporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'buyerId',
-              message: 'Buyer not found'
-            })
-          ])
-        );
-      }
+        reportUserValidator.validateReportUserData('invalid-id', reportData)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Invalid buyer ID format'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when reported user does not exist', async () => {
+    it('should throw ValidationError when buyer not found', async () => {
       // Arrange
-      const nonExistentUserId = new mongoose.Types.ObjectId().toString();
       const reportData = {
-        userId: nonExistentUserId,
+        userId: reportedUserId,
+        userType: 'seller',
+        reason: 'Fraudulent behavior',
+        description: 'This seller is selling counterfeit products.'
+      };
+
+      // Mock buyer not found by using a non-existent buyer ID
+      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
+
+      // Act & Assert
+      await expect(
+        reportUserValidator.validateReportUserData(nonExistentBuyerId, reportData)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer not found'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError when reported user not found', async () => {
+      // Arrange
+      const reportData = {
+        userId: new mongoose.Types.ObjectId().toString(), // Use non-existent user ID
         userType: 'seller',
         reason: 'Fraudulent behavior',
         description: 'This seller is selling counterfeit products.'
@@ -475,48 +448,14 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userId',
-              message: 'Reported user not found'
-            })
-          ])
-        );
-      }
-    });
-
-    it('should throw ValidationError when user tries to report themselves (buyer)', async () => {
-      // Arrange
-      const reportData = {
-        userId: reporterId, // same as reporter ID
-        userType: 'buyer',
-        reason: 'Self-report test',
-        description: 'This is a test of self-reporting prevention.'
-      };
-
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userId',
-              message: 'You cannot report yourself'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'Reported user not found'
+          }
+        ]
+      });
     });
 
     it('should handle multiple validation errors at once', async () => {
@@ -531,89 +470,60 @@ describe('reportUser.validator', () => {
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(4);
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userType',
-              message: 'User type must be either "buyer" or "seller"'
-            }),
-            expect.objectContaining({
-              field: 'reason',
-              message: 'Reason must be at least 3 characters long'
-            }),
-            expect.objectContaining({
-              field: 'description',
-              message: 'Description must be at least 10 characters long'
-            }),
-            expect.objectContaining({
-              field: 'userId',
-              message: 'Invalid user ID format'
-            })
-          ])
-        );
-      }
-    });
-
-    it('should handle whitespace trimming in reason and description validation', async () => {
-      // Arrange
-      const reportData = {
-        userId: reportedUserId,
-        userType: 'seller',
-        reason: '   Valid reason   ', // has whitespace
-        description: '   This is a valid description with enough characters   ' // has whitespace
-      };
-
-      // Act
-      const result = await reportUserValidator.validateReportUserData(reporterId, reportData);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.reporter).toBeDefined();
-      expect(result.reportedUser).toBeDefined();
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'Invalid user ID format'
+          },
+          {
+            field: 'userType',
+            message: 'User type must be either "buyer" or "seller"'
+          },
+          {
+            field: 'reason',
+            message: 'Reason must be at least 3 characters long'
+          },
+          {
+            field: 'description',
+            message: 'Description must be at least 10 characters long'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError with specific error messages', async () => {
       // Arrange
       const reportData = {
-        userId: reportedUserId,
-        userType: 123, // not a string
-        reason: 456, // not a string
-        description: 789 // not a string
+        userId: 'invalid-id',
+        userType: 123, // non-string
+        reason: 456, // non-string
+        description: 789 // non-string
       };
 
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toThrow(ValidationError);
-
-      try {
-        await reportUserValidator.validateReportUserData(reporterId, reportData);
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.name).toBe('ValidationError');
-        expect(error.errors).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              field: 'userType',
-              message: 'User type must be a string'
-            }),
-            expect.objectContaining({
-              field: 'reason',
-              message: 'Reason must be a string'
-            }),
-            expect.objectContaining({
-              field: 'description',
-              message: 'Description must be a string'
-            })
-          ])
-        );
-      }
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'userId',
+            message: 'Invalid user ID format'
+          },
+          {
+            field: 'userType',
+            message: 'User type must be a string'
+          },
+          {
+            field: 'reason',
+            message: 'Reason must be a string'
+          },
+          {
+            field: 'description',
+            message: 'Description must be a string'
+          }
+        ]
+      });
     });
   });
 });

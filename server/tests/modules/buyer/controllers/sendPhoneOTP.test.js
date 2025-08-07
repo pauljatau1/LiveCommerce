@@ -1,11 +1,11 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
-const sendPhoneOTPService = require('../../../../src/modules/buyer/services/sendPhoneOTP.service');
+const Buyer = require('@modules/buyer/models/buyer.model');
+const sendPhoneOTPService = require('@modules/buyer/services/sendPhoneOTP.service');
 
 // Mock the service
-jest.mock('../../../../src/modules/buyer/services/sendPhoneOTP.service');
+jest.mock('@modules/buyer/services/sendPhoneOTP.service');
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-sns', () => ({

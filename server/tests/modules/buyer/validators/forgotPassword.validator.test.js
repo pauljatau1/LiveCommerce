@@ -65,17 +65,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Email is required'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email is empty string', async () => {
@@ -86,17 +83,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Email is required'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email is null', async () => {
@@ -107,17 +101,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Email is required'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email format is invalid', async () => {
@@ -128,17 +119,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Invalid email format'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Invalid email format'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email format is invalid with @ symbol', async () => {
@@ -149,17 +137,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Invalid email format'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Invalid email format'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email format is invalid with domain only', async () => {
@@ -170,17 +155,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'Invalid email format'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Invalid email format'
+            }
+          ]
         });
-      }
     });
 
     it('should throw ValidationError when email exists but buyer does not exist', async () => {
@@ -191,17 +173,14 @@ describe('forgotPassword.validator', () => {
 
       // Act & Assert
       await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
-        .rejects.toThrow(ValidationError);
-      
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'email',
-          message: 'No account found with this email'
+        .rejects.toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'No account found with this email'
+            }
+          ]
         });
-      }
     });
 
     it('should pass validation with valid email format and existing buyer (case insensitive)', async () => {
@@ -237,7 +216,7 @@ describe('forgotPassword.validator', () => {
         .resolves.not.toThrow();
     });
 
-    it('should handle multiple validation errors', async () => {
+    it('should throw ValidationError for invalid data', async () => {
       // Arrange - This test is more theoretical since we validate email format first
       // But we can test the structure of ValidationError
       const invalidData = {
@@ -245,13 +224,110 @@ describe('forgotPassword.validator', () => {
       };
 
       // Act & Assert
-      try {
-        await forgotPasswordValidator.validateForgotPasswordData(invalidData);
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toBeDefined();
-        expect(Array.isArray(error.errors)).toBe(true);
-      }
+      await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'email',
+            message: 'Invalid email format'
+          }
+        ]
+      });
+    });
+
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing email', async () => {
+        const invalidData = {};
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Email is required'
+              }
+            ]
+          });
+      });
+
+      it('should include specific error message for empty email string', async () => {
+        const invalidData = {
+          email: ''
+        };
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Email is required'
+              }
+            ]
+          });
+      });
+
+      it('should include specific error message for null email', async () => {
+        const invalidData = {
+          email: null
+        };
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Email is required'
+              }
+            ]
+          });
+      });
+
+      it('should include specific error message for undefined email', async () => {
+        const invalidData = {
+          email: undefined
+        };
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Email is required'
+              }
+            ]
+          });
+      });
+
+      it('should include specific error message for invalid email format', async () => {
+        const invalidData = {
+          email: 'invalid-email'
+        };
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'Invalid email format'
+              }
+            ]
+          });
+      });
+
+      it('should include specific error message for non-existent email', async () => {
+        const invalidData = {
+          email: 'nonexistent@example.com'
+        };
+
+        await expect(forgotPasswordValidator.validateForgotPasswordData(invalidData))
+          .rejects.toMatchObject({
+            errors: [
+              {
+                field: 'email',
+                message: 'No account found with this email'
+              }
+            ]
+          });
+      });
     });
   });
 }); 

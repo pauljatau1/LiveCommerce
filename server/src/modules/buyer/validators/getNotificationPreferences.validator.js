@@ -3,28 +3,16 @@ const ValidationError = require('../../../utils/errors/ValidationError');
 /**
  * Validate buyer ID for notification preferences retrieval
  * @param {string} buyerId - The buyer ID to validate
- * @throws {ValidationError} If buyer ID is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBuyerId(buyerId) {
+function validateBuyerId(buyerId, errors) {
   // Check if buyer ID is provided
   if (!buyerId) {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID is required' }
-    ]);
-  }
-
-  // Check if buyer ID is a string
-  if (typeof buyerId !== 'string') {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID must be a string' }
-    ]);
-  }
-
-  // Check if buyer ID is not empty
-  if (buyerId.trim() === '') {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID cannot be empty' }
-    ]);
+    errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
+  } else if (typeof buyerId !== 'string') {
+    errors.push({ field: 'buyerId', message: 'Buyer ID must be a string' });
+  } else if (buyerId.trim() === '') {
+    errors.push({ field: 'buyerId', message: 'Buyer ID cannot be empty' });
   }
 }
 
@@ -34,8 +22,13 @@ function validateBuyerId(buyerId) {
  * @throws {ValidationError} If validation fails
  */
 async function validateGetNotificationPreferencesData(buyerId) {
-  // Validate buyer ID
-  validateBuyerId(buyerId);
+  const errors = [];
+
+  validateBuyerId(buyerId, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {

@@ -3576,6 +3576,197 @@ router.get('/wallet/balance', verifyToken, isBuyer, buyerController.getWalletBal
 // Flow: verifyToken -> isBuyer -> buyerController.verifyWalletTopUp -> service layer
 router.get('/wallet/topup/verify', verifyToken, isBuyer, buyerController.verifyWalletTopUp);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/topup:
+ *   post:
+ *     summary: Top up buyer's wallet
+ *     description: Top up the buyer's wallet with a specified amount. This endpoint handles both new transactions and updates to existing pending transactions. It supports direct top-ups for admin users or in development environment.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to top up (must be greater than 0)
+ *                 example: 5000.00
+ *               description:
+ *                 type: string
+ *                 description: Optional description for the transaction
+ *                 example: "Wallet top up"
+ *               bypassPaystack:
+ *                 type: boolean
+ *                 description: Whether to bypass Paystack (admin only)
+ *                 example: false
+ *               paymentReference:
+ *                 type: string
+ *                 description: Optional payment reference for existing transactions
+ *                 example: "PAY-1234567890-ABC123"
+ *             required:
+ *               - amount
+ *     responses:
+ *       200:
+ *         description: Wallet topped up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet topped up successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       description: Success message
+ *                       example: "Wallet topped up successfully"
+ *                     transaction:
+ *                       type: object
+ *                       description: Transaction details
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                           description: Transaction type
+ *                           example: "credit"
+ *                         amount:
+ *                           type: number
+ *                           description: Transaction amount in NGN
+ *                           example: 5000.00
+ *                         paymentReference:
+ *                           type: string
+ *                           description: Payment reference
+ *                           example: "PAY-1234567890-ABC123"
+ *                         description:
+ *                           type: string
+ *                           description: Transaction description
+ *                           example: "Wallet top up"
+ *                         status:
+ *                           type: string
+ *                           description: Transaction status
+ *                           example: "completed"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Transaction creation date
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                     newBalance:
+ *                       type: number
+ *                       description: Updated wallet balance
+ *                       example: 15000.00
+ *       400:
+ *         description: Bad request - Invalid amount or validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid amount. Amount must be greater than 0."
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "amount"
+ *                       message:
+ *                         type: string
+ *                         example: "Invalid amount. Amount must be greater than 0."
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       403:
+ *         description: Forbidden - Direct wallet top-up not allowed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Direct wallet top-up is not allowed"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "amount"
+ *                       message:
+ *                         type: string
+ *                         example: "Invalid amount. Amount must be greater than 0."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+router.post('/wallet/topup', verifyToken, isBuyer, buyerController.topUpWallet);
+
 
 
 module.exports = router;

@@ -214,6 +214,13 @@ app.use((err, req, res, next) => {
     });
   }
 
+  if (err.status === 403 || err.status === 401) {
+    return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
    res.status(500).json({ error: 'Something went wrong!' });
 });
 
