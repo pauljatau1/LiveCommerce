@@ -3439,6 +3439,143 @@ router.post('/report-user', verifyToken, isBuyer, buyerController.reportUser);
 // Flow: verifyToken -> isBuyer -> buyerController.getWalletBalance -> service layer
 router.get('/wallet/balance', verifyToken, isBuyer, buyerController.getWalletBalance);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/topup/verify:
+ *   get:
+ *     summary: Verify a wallet top-up payment
+ *     description: Verify a Paystack payment and complete wallet top-up. This endpoint verifies the payment with Paystack, validates the transaction data, and updates the buyer's wallet with the top-up amount. It handles both new transactions and updates to existing pending transactions.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: reference
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Paystack payment reference
+ *         example: "TXN_1234567890"
+ *     responses:
+ *       200:
+ *         description: Wallet topped up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet topped up successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       description: Success message
+ *                       example: "Wallet topped up successfully"
+ *                     transaction:
+ *                       type: object
+ *                       description: Transaction details
+ *                       properties:
+ *                         paymentReference:
+ *                           type: string
+ *                           description: Payment reference from Paystack
+ *                           example: "TXN_1234567890"
+ *                         amount:
+ *                           type: number
+ *                           description: Transaction amount in NGN
+ *                           example: 5000.00
+ *                         type:
+ *                           type: string
+ *                           description: Transaction type
+ *                           example: "credit"
+ *                         status:
+ *                           type: string
+ *                           description: Transaction status
+ *                           example: "completed"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           description: Transaction creation date
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                     newBalance:
+ *                       type: number
+ *                       description: Updated wallet balance
+ *                       example: 15000.00
+ *       400:
+ *         description: Bad request - Invalid payment reference or verification failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Payment reference is required"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "reference"
+ *                       message:
+ *                         type: string
+ *                         example: "Payment reference is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+// Route: GET /api/v2/buyers/wallet/topup/verify
+// Purpose: Verify a Paystack payment and complete wallet top-up
+// Security: Requires JWT authentication and buyer role verification
+// Flow: verifyToken -> isBuyer -> buyerController.verifyWalletTopUp -> service layer
+router.get('/wallet/topup/verify', verifyToken, isBuyer, buyerController.verifyWalletTopUp);
+
 
 
 module.exports = router;
