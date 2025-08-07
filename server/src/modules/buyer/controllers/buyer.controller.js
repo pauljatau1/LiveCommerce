@@ -36,6 +36,7 @@ const requestAccountDeletionService = require('../services/requestAccountDeletio
 const confirmAccountDeletionService = require('../services/confirmAccountDeletion.service');
 const reportUserService = require('../services/reportUser.service');
 const getWalletBalanceService = require('../services/getWalletBalance.service');
+const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service');
 
 
 /**
@@ -1113,6 +1114,36 @@ async function getWalletBalance(req, res, next) {
   }
 }
 
+/**
+ * Verify and complete wallet top-up payment.
+ *
+ * This controller handles the wallet top-up verification HTTP request.
+ * It extracts the payment reference from query parameters and delegates
+ * the verification logic to the service layer. The service verifies
+ * the payment with Paystack, validates the transaction data, and
+ * updates the buyer's wallet with the top-up amount. It handles both
+ * new transactions and updates to existing pending transactions.
+ *
+ * @param {Request} req - Express request object containing payment reference in query params
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyWalletTopUp(req, res, next) {
+  try {
+    // Extract payment reference from query parameters
+    const { reference } = req.query;
+
+    // Call the service layer to handle wallet top-up verification logic
+    const response = await verifyWalletTopUpService.verifyWalletTopUp(reference);
+
+    // Send success response with transaction data
+    res.success(response, response.message);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1151,5 +1182,6 @@ module.exports = {
   requestAccountDeletion,
   confirmAccountDeletion,
   reportUser,
-  getWalletBalance
+  getWalletBalance,
+  verifyWalletTopUp
 };

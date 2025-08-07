@@ -4818,6 +4818,240 @@ describe('Buyer Repository', () => {
           expect(result.wallet.onHoldAmount).toBe(0); // Should be updated
         });
       });
+
+      describe('findByIdWithWallet', () => {
+        it('should find buyer with wallet information', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 10000,
+              currency: 'NGN',
+              transactions: [],
+              onHoldAmount: 0,
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWallet(savedBuyer._id);
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet).toBeDefined();
+          expect(result.wallet.balance).toBe(10000);
+          expect(result.wallet.currency).toBe('NGN');
+          expect(result.firstName).toBe('John');
+          expect(result.lastName).toBe('Doe');
+          expect(result.email).toBe('john.doe@example.com');
+        });
+
+        it('should return null for non-existent buyer', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+
+          // Act
+          const result = await buyerRepository.findByIdWithWallet(nonExistentId);
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Act & Assert
+          await expect(buyerRepository.findByIdWithWallet('invalid-id')).rejects.toThrow();
+        });
+      });
+
+      describe('updateWalletWithTransaction', () => {
+        it('should add new transaction and update balance', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 10000,
+              currency: 'NGN',
+              transactions: [],
+              onHoldAmount: 0,
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const newTransaction = {
+            type: 'credit',
+            amount: 5000,
+            paymentReference: 'TXN_1234567890',
+            description: 'Wallet top up',
+            status: 'completed',
+            createdAt: new Date()
+          };
+          const newBalance = 15000;
+
+          // Act
+          const result = await buyerRepository.updateWalletWithTransaction(
+            savedBuyer._id,
+            newTransaction,
+            newBalance
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.balance).toBe(15000);
+          expect(result.wallet.transactions).toHaveLength(1);
+          expect(result.wallet.transactions[0]).toMatchObject({
+            type: 'credit',
+            amount: 5000,
+            paymentReference: 'TXN_1234567890',
+            description: 'Wallet top up',
+            status: 'completed'
+          });
+        });
+
+        it('should return null for non-existent buyer', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+          const newTransaction = {
+            type: 'credit',
+            amount: 5000,
+            paymentReference: 'TXN_1234567890',
+            description: 'Wallet top up',
+            status: 'completed',
+            createdAt: new Date()
+          };
+          const newBalance = 15000;
+
+          // Act
+          const result = await buyerRepository.updateWalletWithTransaction(
+            nonExistentId,
+            newTransaction,
+            newBalance
+          );
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Arrange
+          const newTransaction = {
+            type: 'credit',
+            amount: 5000,
+            paymentReference: 'TXN_1234567890',
+            description: 'Wallet top up',
+            status: 'completed',
+            createdAt: new Date()
+          };
+          const newBalance = 15000;
+
+          // Act & Assert
+          await expect(buyerRepository.updateWalletWithTransaction(
+            'invalid-id',
+            newTransaction,
+            newBalance
+          )).rejects.toThrow();
+        });
+      });
+
+      describe('updateWalletTransactionStatus', () => {
+        it('should update existing transaction status and balance', async () => {
+          // Arrange
+          const existingTransaction = {
+            type: 'credit',
+            amount: 5000,
+            paymentReference: 'TXN_1234567890',
+            description: 'Wallet top up',
+            status: 'pending',
+            createdAt: new Date()
+          };
+
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 10000,
+              currency: 'NGN',
+              transactions: [existingTransaction],
+              onHoldAmount: 0,
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          const newStatus = 'completed';
+          const newBalance = 15000;
+
+          // Act
+          const result = await buyerRepository.updateWalletTransactionStatus(
+            savedBuyer._id,
+            'TXN_1234567890',
+            newStatus,
+            newBalance
+          );
+
+          // Assert
+          expect(result).toBeDefined();
+          expect(result._id.toString()).toBe(savedBuyer._id.toString());
+          expect(result.wallet.balance).toBe(15000);
+          expect(result.wallet.transactions).toHaveLength(1);
+          expect(result.wallet.transactions[0].status).toBe('completed');
+          expect(result.wallet.transactions[0].paymentReference).toBe('TXN_1234567890');
+        });
+
+        it('should return null for non-existent buyer', async () => {
+          // Arrange
+          const nonExistentId = new mongoose.Types.ObjectId();
+
+          // Act
+          const result = await buyerRepository.updateWalletTransactionStatus(
+            nonExistentId,
+            'TXN_1234567890',
+            'completed',
+            15000
+          );
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should return null for non-existent transaction', async () => {
+          // Arrange
+          const buyer = new Buyer({
+            ...mockBuyerData,
+            wallet: {
+              balance: 10000,
+              currency: 'NGN',
+              transactions: [],
+              onHoldAmount: 0,
+              onHoldItems: []
+            }
+          });
+          const savedBuyer = await buyer.save();
+
+          // Act
+          const result = await buyerRepository.updateWalletTransactionStatus(
+            savedBuyer._id,
+            'NON_EXISTENT_REFERENCE',
+            'completed',
+            15000
+          );
+
+          // Assert
+          expect(result).toBeNull();
+        });
+
+        it('should handle invalid ObjectId format', async () => {
+          // Act & Assert
+          await expect(buyerRepository.updateWalletTransactionStatus(
+            'invalid-id',
+            'TXN_1234567890',
+            'completed',
+            15000
+          )).rejects.toThrow();
+        });
+      });
     });
   });
 }); 
