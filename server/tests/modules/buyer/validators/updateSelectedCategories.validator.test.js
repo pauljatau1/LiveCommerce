@@ -10,7 +10,19 @@ const {
 } = require('@modules/buyer/validators/updateSelectedCategories.validator');
 const ValidationError = require('@utils/errors/ValidationError');
 
+// Mock the validateXSS function
+jest.mock('@utils/validator', () => ({
+  validateXSS: jest.fn()
+}));
+
+// Import the mocked function
+const { validateXSS } = require('@utils/validator');
+
 describe('updateSelectedCategories.validator', () => {
+  beforeEach(() => {
+    validateXSS.mockReturnValue(null);
+  });
+
   describe('validateUpdateSelectedCategoriesData', () => {
     it('should pass validation with valid data', async () => {
       const validData = {
@@ -28,24 +40,52 @@ describe('updateSelectedCategories.validator', () => {
       await expect(validateUpdateSelectedCategoriesData(validData)).resolves.not.toThrow();
     });
 
-    it('should throw ValidationError when data is null', async () => {
-      await expect(validateUpdateSelectedCategoriesData(null)).rejects.toThrow(ValidationError);
+    it('should throw ValidationError for null data', async () => {
+      await expect(validateUpdateSelectedCategoriesData(null)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'data',
+            message: 'Request data is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when data is undefined', async () => {
-      await expect(validateUpdateSelectedCategoriesData(undefined)).rejects.toThrow(ValidationError);
+    it('should throw ValidationError for undefined data', async () => {
+      await expect(validateUpdateSelectedCategoriesData(undefined)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'data',
+            message: 'Request data is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when data is not an object', async () => {
-      await expect(validateUpdateSelectedCategoriesData('not-an-object')).rejects.toThrow(ValidationError);
+    it('should throw ValidationError for non-object data', async () => {
+      await expect(validateUpdateSelectedCategoriesData('not-an-object')).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'data',
+            message: 'Request data is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when selectedCategories is missing', async () => {
+    it('should throw ValidationError for invalid data structure', async () => {
       const invalidData = {
-        someOtherField: 'value'
+        selectedCategories: 'not-an-array'
       };
 
-      await expect(validateUpdateSelectedCategoriesData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUpdateSelectedCategoriesData(invalidData)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'selectedCategories',
+            message: 'selectedCategories must be an array'
+          }
+        ]
+      });
     });
   });
 
@@ -242,6 +282,11 @@ describe('updateSelectedCategories.validator', () => {
     });
 
     it('should detect XSS patterns in category names', () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].name'
+      });
+      
       const errors = validateCategoryName('<script>alert("xss")</script>', 'selectedCategories[0].name');
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('selectedCategories[0].name');
@@ -346,6 +391,11 @@ describe('updateSelectedCategories.validator', () => {
     });
 
     it('should detect XSS patterns in subcategory names', () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].subCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].subCategories[0].name'
+      });
+      
       const errors = validateSubCategoryName('javascript:alert("xss")', 'selectedCategories[0].subCategories[0].name');
       expect(errors).toHaveLength(1);
       expect(errors[0].field).toBe('selectedCategories[0].subCategories[0].name');
@@ -576,6 +626,11 @@ describe('updateSelectedCategories.validator', () => {
 
   describe('XSS Validation', () => {
     it('should detect XSS patterns in category names through validateCategory', () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].name'
+      });
+      
       const categoryWithXSS = {
         name: '<script>alert("xss")</script>',
         subCategories: []
@@ -588,6 +643,11 @@ describe('updateSelectedCategories.validator', () => {
     });
 
     it('should detect XSS patterns in subcategory names through validateSubCategory', () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].subCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].subCategories[0].name'
+      });
+      
       const subCategoryWithXSS = {
         name: 'javascript:alert("xss")'
       };
@@ -635,6 +695,308 @@ describe('updateSelectedCategories.validator', () => {
 
       const errors = validateCategory(categoryWithMaxSubCategories, 0);
       expect(errors).toEqual([]);
+    });
+  });
+
+  describe('Specific Error Messages', () => {
+
+    it('should include specific error message for missing selectedCategories', async () => {
+      const invalidData = {
+        // selectedCategories is missing
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'selectedCategories',
+              message: 'selectedCategories is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for null selectedCategories', async () => {
+      const invalidData = {
+        selectedCategories: null
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'selectedCategories',
+              message: 'selectedCategories is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for undefined selectedCategories', async () => {
+      const invalidData = {
+        selectedCategories: undefined
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'selectedCategories',
+              message: 'selectedCategories is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for non-array selectedCategories', async () => {
+      const invalidData = {
+        selectedCategories: 'not-an-array'
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'selectedCategories',
+              message: 'selectedCategories must be an array'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for too many categories', async () => {
+      const invalidData = {
+        selectedCategories: Array.from({ length: 51 }, (_, i) => ({
+          name: `Category ${i}`,
+          subCategories: []
+        }))
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories',
+              message: 'Cannot select more than 50 categories'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for category with XSS', async () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].name'
+      });
+
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: '<script>alert("xss")</script>',
+            subCategories: []
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].name',
+              message: 'Invalid characters detected in selectedCategories[0].name'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for empty category name', async () => {
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: '',
+            subCategories: []
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].name',
+              message: 'Category name cannot be empty'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for category name too long', async () => {
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: 'A'.repeat(101),
+            subCategories: []
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].name',
+              message: 'Category name must not exceed 100 characters'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for subcategory with XSS', async () => {
+      validateXSS.mockReturnValue({
+        field: 'selectedCategories[0].subCategories[0].name',
+        message: 'Invalid characters detected in selectedCategories[0].subCategories[0].name'
+      });
+
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              {
+                name: 'javascript:alert("xss")'
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].subCategories[0].name',
+              message: 'Invalid characters detected in selectedCategories[0].subCategories[0].name'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for empty subcategory name', async () => {
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              {
+                name: ''
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].subCategories[0].name',
+              message: 'Subcategory name cannot be empty'
+            }
+          ])
+        });
+    });
+
+    it('should include specific error message for subcategory name too long', async () => {
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              {
+                name: 'A'.repeat(101)
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].subCategories[0].name',
+              message: 'Subcategory name must not exceed 100 characters'
+            }
+          ])
+        });
+    });
+
+    it('should include multiple error messages for multiple validation failures', async () => {
+      const invalidData = {
+        selectedCategories: [
+          {
+            name: '',
+            subCategories: [
+              {
+                name: 'A'.repeat(101)
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(invalidData))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'selectedCategories[0].name',
+              message: 'Category name cannot be empty'
+            },
+            {
+              field: 'selectedCategories[0].subCategories[0].name',
+              message: 'Subcategory name must not exceed 100 characters'
+            }
+          ])
+        });
+    });
+
+    it('should not throw error for valid data', async () => {
+      const validData = {
+        selectedCategories: [
+          {
+            name: 'Electronics',
+            subCategories: [
+              {
+                name: 'Smartphones'
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(validData))
+        .resolves.not.toThrow();
+    });
+
+    it('should not throw error for empty categories array', async () => {
+      const validData = {
+        selectedCategories: []
+      };
+
+      await expect(validateUpdateSelectedCategoriesData(validData))
+        .resolves.not.toThrow();
     });
   });
 }); 

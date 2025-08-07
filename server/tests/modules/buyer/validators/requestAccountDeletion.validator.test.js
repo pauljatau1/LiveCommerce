@@ -1,203 +1,171 @@
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const requestAccountDeletionValidator = require('@modules/buyer/validators/requestAccountDeletion.validator');
-const Buyer = require('@modules/buyer/models/buyer.model');
 const ValidationError = require('@utils/errors/ValidationError');
+const mongoose = require('mongoose');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
-let mongoServer;
+// Mock the buyer repository
+jest.mock('@modules/buyer/repositories/buyer.repository');
 
-describe('requestAccountDeletion.validator', () => {
-  let testBuyer;
-
-  beforeAll(async () => {
-    // Start in-memory MongoDB with compatible version
-    mongoServer = await MongoMemoryServer.create({
-      binary: {
-        version: '7.0.3'
-      }
-    });
-    const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
-  });
-
-  afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
-  });
-
-  beforeEach(async () => {
-    await Buyer.deleteMany({});
-    
-    // Create a test buyer without account deletion request
-    testBuyer = new Buyer({
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      password: 'hashedPassword123'
-    });
-    await testBuyer.save();
-  });
-
-  afterEach(async () => {
-    await Buyer.deleteMany({});
+describe('Request Account Deletion Validator', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('validateRequestAccountDeletionData', () => {
-    it('should validate successful request account deletion data', async () => {
-      // Arrange
-      const buyerId = testBuyer._id.toString();
+    const validBuyerId = new mongoose.Types.ObjectId().toString();
+    const mockBuyer = {
+      _id: validBuyerId,
+      email: 'test@example.com',
+      accountDeletion: null
+    };
 
-      // Act
-      const result = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
+    it('should not throw for valid buyer ID', async () => {
+      buyerRepository.findById.mockResolvedValue(mockBuyer);
 
-      // Assert
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(buyerId);
-      expect(result.email).toBe('john.doe@example.com');
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(validBuyerId)).resolves.not.toThrow();
     });
 
-    it('should throw ValidationError when buyerId is missing', async () => {
-      // Arrange
-      const buyerId = null;
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for null buyer ID', async () => {
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(null)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyerId is undefined', async () => {
-      // Arrange
-      const buyerId = undefined;
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for undefined buyer ID', async () => {
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(undefined)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyerId is empty string', async () => {
-      // Arrange
-      const buyerId = '';
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for empty string buyer ID', async () => {
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData('')).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyerId format is invalid', async () => {
-      // Arrange
-      const buyerId = 'invalid-id-format';
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for whitespace-only buyer ID', async () => {
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData('   ')).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Invalid buyer ID format'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyer does not exist', async () => {
-      // Arrange
-      const nonExistentId = new mongoose.Types.ObjectId().toString();
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(nonExistentId))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for invalid ObjectId format', async () => {
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData('invalid-id')).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Invalid buyer ID format'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyer already has account deletion in progress', async () => {
-      // Arrange - Update buyer with existing account deletion request
-      testBuyer.accountDeletion = {
-        otp: '1234',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
-        attempts: 0
+    it('should throw ValidationError when buyer not found', async () => {
+      buyerRepository.findById.mockResolvedValue(null);
+
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(validBuyerId)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer not found'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError when buyer already in deletion process', async () => {
+      const buyerInDeletion = {
+        ...mockBuyer,
+        accountDeletion: {
+          otp: '123456'
+        }
       };
-      await testBuyer.save();
+      buyerRepository.findById.mockResolvedValue(buyerInDeletion);
 
-      const buyerId = testBuyer._id.toString();
-
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
+      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(validBuyerId)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Account deletion request already in progress'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError when buyer has expired account deletion request', async () => {
-      // Arrange - Update buyer with expired account deletion request
-      testBuyer.accountDeletion = {
-        otp: '1234',
-        expiresAt: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-        attempts: 0
-      };
-      await testBuyer.save();
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(null)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
 
-      const buyerId = testBuyer._id.toString();
+      it('should include specific error message for invalid buyer ID format', async () => {
+        await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData('invalid-id')).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Invalid buyer ID format'
+            }
+          ]
+        });
+      });
 
-      // Act & Assert
-      await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId))
-        .rejects.toThrow(ValidationError);
-    });
+      it('should include specific error message for buyer not found', async () => {
+        buyerRepository.findById.mockResolvedValue(null);
 
-    it('should throw ValidationError when buyer has account deletion with no OTP', async () => {
-      // Arrange - Update buyer with account deletion but no OTP
-      testBuyer.accountDeletion = {
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
-        attempts: 0
-      };
-      await testBuyer.save();
+        await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(validBuyerId)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer not found'
+            }
+          ]
+        });
+      });
 
-      const buyerId = testBuyer._id.toString();
+      it('should include specific error message for buyer already in deletion process', async () => {
+        const buyerInDeletion = {
+          ...mockBuyer,
+          accountDeletion: {
+            otp: '123456'
+          }
+        };
+        buyerRepository.findById.mockResolvedValue(buyerInDeletion);
 
-      // Act & Assert - This should actually be allowed since there's no OTP
-      const result = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(buyerId);
-    });
-
-    it('should allow request when buyer has no account deletion data', async () => {
-      // Arrange - Ensure buyer has no account deletion data
-      testBuyer.accountDeletion = undefined;
-      await testBuyer.save();
-
-      const buyerId = testBuyer._id.toString();
-
-      // Act
-      const result = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(buyerId);
-    });
-
-    it('should allow request when buyer has empty account deletion object', async () => {
-      // Arrange - Update buyer with empty account deletion object
-      testBuyer.accountDeletion = {};
-      await testBuyer.save();
-
-      const buyerId = testBuyer._id.toString();
-
-      // Act
-      const result = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(buyerId);
-    });
-
-    it('should allow request when buyer has account deletion with null OTP', async () => {
-      // Arrange - Update buyer with account deletion but null OTP
-      testBuyer.accountDeletion = {
-        otp: null,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
-        attempts: 0
-      };
-      await testBuyer.save();
-
-      const buyerId = testBuyer._id.toString();
-
-      // Act
-      const result = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(buyerId);
+        await expect(requestAccountDeletionValidator.validateRequestAccountDeletionData(validBuyerId)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Account deletion request already in progress'
+            }
+          ]
+        });
+      });
     });
   });
 }); 

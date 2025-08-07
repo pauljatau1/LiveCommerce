@@ -8,9 +8,6 @@ const { app } = require('@/app');
 // Import the controller directly for unit testing
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
-// Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
-
 // Mock the checkToken service
 jest.mock('@modules/buyer/services/checkToken.service', () => ({
   checkToken: jest.fn()
@@ -48,9 +45,6 @@ describe('Buyer Controller - CheckToken', () => {
   beforeEach(async () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
-    // Clear database
-    await Buyer.deleteMany({});
   });
 
   describe('checkToken', () => {

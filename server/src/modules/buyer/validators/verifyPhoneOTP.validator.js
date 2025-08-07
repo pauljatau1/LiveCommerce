@@ -1,4 +1,5 @@
 const ValidationError = require('../../../utils/errors/ValidationError');
+const mongoose = require('mongoose');
 
 /**
  * Validates OTP format and structure.
@@ -37,6 +38,8 @@ function validateBuyerId(buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
   } else if (typeof buyerId !== 'string') {
     errors.push({ field: 'buyerId', message: 'Buyer ID must be a string' });
+  } else if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+    errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
   }
 
   if (errors.length > 0) {

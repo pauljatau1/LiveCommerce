@@ -4,31 +4,27 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * Validates the buyer ID parameter.
  * 
  * This function ensures the buyer ID is provided, is a string, and is not empty.
- * It throws a ValidationError with specific field information if validation fails.
+ * It adds validation errors to the errors array if validation fails.
  * 
  * @param {string} buyerId - The buyer ID to validate
- * @throws {ValidationError} If buyer ID is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBuyerId(buyerId) {
+function validateBuyerId(buyerId, errors) {
   // Check if buyer ID is provided (not null, undefined, or empty)
   if (!buyerId) {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID is required' }
-    ]);
+    errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
+    return;
   }
 
   // Check if buyer ID is a string type
   if (typeof buyerId !== 'string') {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID must be a string' }
-    ]);
+    errors.push({ field: 'buyerId', message: 'Buyer ID must be a string' });
+    return;
   }
 
   // Check if buyer ID is not empty after trimming whitespace
   if (buyerId.trim() === '') {
-    throw new ValidationError([
-      { field: 'buyerId', message: 'Buyer ID cannot be empty' }
-    ]);
+    errors.push({ field: 'buyerId', message: 'Buyer ID cannot be empty' });
   }
 }
 
@@ -39,46 +35,44 @@ function validateBuyerId(buyerId) {
  * and validates each section if it exists. It performs deep validation of nested objects.
  * 
  * @param {Object} preferences - The notification preferences to validate
- * @throws {ValidationError} If preferences structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateNotificationPreferences(preferences) {
+function validateNotificationPreferences(preferences, errors) {
   // Check if preferences is provided (not null or undefined)
   if (!preferences) {
-    throw new ValidationError([
-      { field: 'preferences', message: 'Notification preferences are required' }
-    ]);
+    errors.push({ field: 'preferences', message: 'Notification preferences are required' });
+    return;
   }
 
   // Check if preferences is an object and not an array
   if (typeof preferences !== 'object' || Array.isArray(preferences)) {
-    throw new ValidationError([
-      { field: 'preferences', message: 'Notification preferences must be an object' }
-    ]);
+    errors.push({ field: 'preferences', message: 'Notification preferences must be an object' });
+    return;
   }
 
   // Validate orderUpdates section if it exists in the preferences
   if (preferences.orderUpdates) {
-    validateOrderUpdates(preferences.orderUpdates);
+    validateOrderUpdates(preferences.orderUpdates, errors);
   }
 
   // Validate liveShows section if it exists in the preferences
   if (preferences.liveShows) {
-    validateLiveShows(preferences.liveShows);
+    validateLiveShows(preferences.liveShows, errors);
   }
 
   // Validate messages section if it exists in the preferences
   if (preferences.messages) {
-    validateMessages(preferences.messages);
+    validateMessages(preferences.messages, errors);
   }
 
   // Validate communityActivity section if it exists in the preferences
   if (preferences.communityActivity) {
-    validateCommunityActivity(preferences.communityActivity);
+    validateCommunityActivity(preferences.communityActivity, errors);
   }
 
   // Validate promotionsAndSales section if it exists in the preferences
   if (preferences.promotionsAndSales) {
-    validatePromotionsAndSales(preferences.promotionsAndSales);
+    validatePromotionsAndSales(preferences.promotionsAndSales, errors);
   }
 }
 
@@ -89,33 +83,42 @@ function validateNotificationPreferences(preferences) {
  * allowed boolean fields for order-related notifications.
  * 
  * @param {Object} orderUpdates - The order updates preferences
- * @throws {ValidationError} If order updates structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateOrderUpdates(orderUpdates) {
+function validateOrderUpdates(orderUpdates, errors) {
   // Check if orderUpdates is an object and not an array
   if (typeof orderUpdates !== 'object' || Array.isArray(orderUpdates)) {
-    throw new ValidationError([
-      { field: 'preferences.orderUpdates', message: 'Order updates must be an object' }
-    ]);
+    errors.push({ field: 'preferences.orderUpdates', message: 'Order updates must be an object' });
+    return;
   }
 
-  // Define the valid fields allowed in orderUpdates
-  const validFields = ['orderConfirmation', 'shippingAndDelivery', 'orderCancellation', 'refundUpdates'];
-  
-  // Iterate through each key-value pair in the orderUpdates object
-  for (const [key, value] of Object.entries(orderUpdates)) {
-    // Check if the field is in the list of valid fields
-    if (!validFields.includes(key)) {
-      throw new ValidationError([
-        { field: `preferences.orderUpdates.${key}`, message: `Invalid field: ${key}` }
-      ]);
+  // Define allowed fields for order updates
+  const allowedFields = [
+    'orderConfirmation',
+    'orderShipped',
+    'orderDelivered',
+    'orderCancelled',
+    'orderRefunded',
+    'orderReturned'
+  ];
+
+  // Check each field in orderUpdates
+  for (const [field, value] of Object.entries(orderUpdates)) {
+    // Check if field is allowed
+    if (!allowedFields.includes(field)) {
+      errors.push({ 
+        field: `preferences.orderUpdates.${field}`, 
+        message: `Invalid field '${field}' in order updates. Allowed fields: ${allowedFields.join(', ')}` 
+      });
+      continue;
     }
-    
-    // Check if the value is a boolean type
+
+    // Check if value is a boolean
     if (typeof value !== 'boolean') {
-      throw new ValidationError([
-        { field: `preferences.orderUpdates.${key}`, message: `${key} must be a boolean value` }
-      ]);
+      errors.push({ 
+        field: `preferences.orderUpdates.${field}`, 
+        message: `Order update preference '${field}' must be a boolean` 
+      });
     }
   }
 }
@@ -127,33 +130,40 @@ function validateOrderUpdates(orderUpdates) {
  * allowed boolean fields for live show notifications.
  * 
  * @param {Object} liveShows - The live shows preferences
- * @throws {ValidationError} If live shows structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateLiveShows(liveShows) {
+function validateLiveShows(liveShows, errors) {
   // Check if liveShows is an object and not an array
   if (typeof liveShows !== 'object' || Array.isArray(liveShows)) {
-    throw new ValidationError([
-      { field: 'preferences.liveShows', message: 'Live shows must be an object' }
-    ]);
+    errors.push({ field: 'preferences.liveShows', message: 'Live shows must be an object' });
+    return;
   }
 
-  // Define the valid fields allowed in liveShows
-  const validFields = ['allShows', 'followedSellers', 'recommendedShows'];
-  
-  // Iterate through each key-value pair in the liveShows object
-  for (const [key, value] of Object.entries(liveShows)) {
-    // Check if the field is in the list of valid fields
-    if (!validFields.includes(key)) {
-      throw new ValidationError([
-        { field: `preferences.liveShows.${key}`, message: `Invalid field: ${key}` }
-      ]);
+  // Define allowed fields for live shows
+  const allowedFields = [
+    'liveShowStarted',
+    'liveShowEnded',
+    'liveShowReminder',
+    'newLiveShow'
+  ];
+
+  // Check each field in liveShows
+  for (const [field, value] of Object.entries(liveShows)) {
+    // Check if field is allowed
+    if (!allowedFields.includes(field)) {
+      errors.push({ 
+        field: `preferences.liveShows.${field}`, 
+        message: `Invalid field '${field}' in live shows. Allowed fields: ${allowedFields.join(', ')}` 
+      });
+      continue;
     }
-    
-    // Check if the value is a boolean type
+
+    // Check if value is a boolean
     if (typeof value !== 'boolean') {
-      throw new ValidationError([
-        { field: `preferences.liveShows.${key}`, message: `${key} must be a boolean value` }
-      ]);
+      errors.push({ 
+        field: `preferences.liveShows.${field}`, 
+        message: `Live show preference '${field}' must be a boolean` 
+      });
     }
   }
 }
@@ -165,33 +175,39 @@ function validateLiveShows(liveShows) {
  * allowed boolean fields for message notifications.
  * 
  * @param {Object} messages - The messages preferences
- * @throws {ValidationError} If messages structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateMessages(messages) {
+function validateMessages(messages, errors) {
   // Check if messages is an object and not an array
   if (typeof messages !== 'object' || Array.isArray(messages)) {
-    throw new ValidationError([
-      { field: 'preferences.messages', message: 'Messages must be an object' }
-    ]);
+    errors.push({ field: 'preferences.messages', message: 'Messages must be an object' });
+    return;
   }
 
-  // Define the valid fields allowed in messages
-  const validFields = ['fromSellers', 'fromBuyers', 'chatReplies', 'mentions'];
-  
-  // Iterate through each key-value pair in the messages object
-  for (const [key, value] of Object.entries(messages)) {
-    // Check if the field is in the list of valid fields
-    if (!validFields.includes(key)) {
-      throw new ValidationError([
-        { field: `preferences.messages.${key}`, message: `Invalid field: ${key}` }
-      ]);
+  // Define allowed fields for messages
+  const allowedFields = [
+    'newMessage',
+    'messageRead',
+    'messageReplied'
+  ];
+
+  // Check each field in messages
+  for (const [field, value] of Object.entries(messages)) {
+    // Check if field is allowed
+    if (!allowedFields.includes(field)) {
+      errors.push({ 
+        field: `preferences.messages.${field}`, 
+        message: `Invalid field '${field}' in messages. Allowed fields: ${allowedFields.join(', ')}` 
+      });
+      continue;
     }
-    
-    // Check if the value is a boolean type
+
+    // Check if value is a boolean
     if (typeof value !== 'boolean') {
-      throw new ValidationError([
-        { field: `preferences.messages.${key}`, message: `${key} must be a boolean value` }
-      ]);
+      errors.push({ 
+        field: `preferences.messages.${field}`, 
+        message: `Message preference '${field}' must be a boolean` 
+      });
     }
   }
 }
@@ -203,33 +219,41 @@ function validateMessages(messages) {
  * allowed boolean fields for community activity notifications.
  * 
  * @param {Object} communityActivity - The community activity preferences
- * @throws {ValidationError} If community activity structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateCommunityActivity(communityActivity) {
+function validateCommunityActivity(communityActivity, errors) {
   // Check if communityActivity is an object and not an array
   if (typeof communityActivity !== 'object' || Array.isArray(communityActivity)) {
-    throw new ValidationError([
-      { field: 'preferences.communityActivity', message: 'Community activity must be an object' }
-    ]);
+    errors.push({ field: 'preferences.communityActivity', message: 'Community activity must be an object' });
+    return;
   }
 
-  // Define the valid fields allowed in communityActivity
-  const validFields = ['postComments', 'postLikes', 'repliesAndMentions'];
-  
-  // Iterate through each key-value pair in the communityActivity object
-  for (const [key, value] of Object.entries(communityActivity)) {
-    // Check if the field is in the list of valid fields
-    if (!validFields.includes(key)) {
-      throw new ValidationError([
-        { field: `preferences.communityActivity.${key}`, message: `Invalid field: ${key}` }
-      ]);
+  // Define allowed fields for community activity
+  const allowedFields = [
+    'newFollower',
+    'newFollowing',
+    'newReview',
+    'newComment',
+    'newLike'
+  ];
+
+  // Check each field in communityActivity
+  for (const [field, value] of Object.entries(communityActivity)) {
+    // Check if field is allowed
+    if (!allowedFields.includes(field)) {
+      errors.push({ 
+        field: `preferences.communityActivity.${field}`, 
+        message: `Invalid field '${field}' in community activity. Allowed fields: ${allowedFields.join(', ')}` 
+      });
+      continue;
     }
-    
-    // Check if the value is a boolean type
+
+    // Check if value is a boolean
     if (typeof value !== 'boolean') {
-      throw new ValidationError([
-        { field: `preferences.communityActivity.${key}`, message: `${key} must be a boolean value` }
-      ]);
+      errors.push({ 
+        field: `preferences.communityActivity.${field}`, 
+        message: `Community activity preference '${field}' must be a boolean` 
+      });
     }
   }
 }
@@ -238,36 +262,44 @@ function validateCommunityActivity(communityActivity) {
  * Validates the promotionsAndSales section of notification preferences.
  * 
  * This function ensures the promotionsAndSales object is valid and contains only
- * allowed boolean fields for promotions and sales notifications.
+ * allowed boolean fields for promotion and sale notifications.
  * 
  * @param {Object} promotionsAndSales - The promotions and sales preferences
- * @throws {ValidationError} If promotions and sales structure is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validatePromotionsAndSales(promotionsAndSales) {
+function validatePromotionsAndSales(promotionsAndSales, errors) {
   // Check if promotionsAndSales is an object and not an array
   if (typeof promotionsAndSales !== 'object' || Array.isArray(promotionsAndSales)) {
-    throw new ValidationError([
-      { field: 'preferences.promotionsAndSales', message: 'Promotions and sales must be an object' }
-    ]);
+    errors.push({ field: 'preferences.promotionsAndSales', message: 'Promotions and sales must be an object' });
+    return;
   }
 
-  // Define the valid fields allowed in promotionsAndSales
-  const validFields = ['flashSales', 'couponsAndDeals', 'trendingProducts', 'recommendations'];
-  
-  // Iterate through each key-value pair in the promotionsAndSales object
-  for (const [key, value] of Object.entries(promotionsAndSales)) {
-    // Check if the field is in the list of valid fields
-    if (!validFields.includes(key)) {
-      throw new ValidationError([
-        { field: `preferences.promotionsAndSales.${key}`, message: `Invalid field: ${key}` }
-      ]);
+  // Define allowed fields for promotions and sales
+  const allowedFields = [
+    'newPromotion',
+    'flashSale',
+    'discountOffer',
+    'seasonalSale',
+    'newProduct'
+  ];
+
+  // Check each field in promotionsAndSales
+  for (const [field, value] of Object.entries(promotionsAndSales)) {
+    // Check if field is allowed
+    if (!allowedFields.includes(field)) {
+      errors.push({ 
+        field: `preferences.promotionsAndSales.${field}`, 
+        message: `Invalid field '${field}' in promotions and sales. Allowed fields: ${allowedFields.join(', ')}` 
+      });
+      continue;
     }
-    
-    // Check if the value is a boolean type
+
+    // Check if value is a boolean
     if (typeof value !== 'boolean') {
-      throw new ValidationError([
-        { field: `preferences.promotionsAndSales.${key}`, message: `${key} must be a boolean value` }
-      ]);
+      errors.push({ 
+        field: `preferences.promotionsAndSales.${field}`, 
+        message: `Promotion and sale preference '${field}' must be a boolean` 
+      });
     }
   }
 }
@@ -275,29 +307,24 @@ function validatePromotionsAndSales(promotionsAndSales) {
 /**
  * Validates the update notification preferences data.
  * 
- * This is the main validation function that orchestrates the validation of
- * both the buyer ID and the notification preferences object. It calls the
- * individual validation functions for each component.
+ * This function validates both the buyer ID and the notification preferences object.
+ * It throws a ValidationError if any validation fails.
  * 
  * @param {string} buyerId - The buyer ID
- * @param {Object} preferences - The notification preferences to update
+ * @param {Object} preferences - The notification preferences to validate
  * @throws {ValidationError} If validation fails
  */
 async function validateUpdateNotificationPreferencesData(buyerId, preferences) {
-  // Validate buyer ID first
-  validateBuyerId(buyerId);
-  
-  // Validate notification preferences structure and content
-  validateNotificationPreferences(preferences);
+  const errors = [];
+
+  validateBuyerId(buyerId, errors);
+  validateNotificationPreferences(preferences, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {
-  validateBuyerId,
-  validateNotificationPreferences,
-  validateOrderUpdates,
-  validateLiveShows,
-  validateMessages,
-  validateCommunityActivity,
-  validatePromotionsAndSales,
   validateUpdateNotificationPreferencesData
 }; 

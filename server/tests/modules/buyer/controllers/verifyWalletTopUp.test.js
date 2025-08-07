@@ -2,14 +2,13 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const jwt = require('jsonwebtoken');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
 
 // Mock the service
-jest.mock('../../../../src/modules/buyer/services/verifyWalletTopUp.service');
-const verifyWalletTopUpService = require('../../../../src/modules/buyer/services/verifyWalletTopUp.service');
+jest.mock('@modules/buyer/services/verifyWalletTopUp.service');
+const verifyWalletTopUpService = require('@modules/buyer/services/verifyWalletTopUp.service');
 
 // Import the app
-const { app } = require('../../../../src/app');
+const { app } = require('@/app');
 
 let mongoServer;
 
@@ -43,8 +42,7 @@ describe('verifyWalletTopUp.controller', () => {
   });
 
   beforeEach(async () => {
-    // Clear database
-    await Buyer.deleteMany({});
+    // Clear mocks
     jest.clearAllMocks();
   });
 
@@ -94,7 +92,7 @@ describe('verifyWalletTopUp.controller', () => {
     it('should return 422 when reference is missing', async () => {
       // Arrange
       const buyerId = new mongoose.Types.ObjectId().toString();
-      const ValidationError = require('../../../../src/utils/errors/ValidationError');
+      const ValidationError = require('@utils/errors/ValidationError');
 
       verifyWalletTopUpService.verifyWalletTopUp.mockRejectedValue(
         new ValidationError([
@@ -153,7 +151,7 @@ describe('verifyWalletTopUp.controller', () => {
       // Arrange
       const buyerId = new mongoose.Types.ObjectId().toString();
       const reference = 'TXN_1234567890';
-      const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
+      const NotFoundException = require('@utils/errors/NotFoundException');
 
       verifyWalletTopUpService.verifyWalletTopUp.mockRejectedValue(
         new NotFoundException('Buyer not found')
@@ -176,7 +174,7 @@ describe('verifyWalletTopUp.controller', () => {
       // Arrange
       const buyerId = new mongoose.Types.ObjectId().toString();
       const reference = 'TXN_1234567890';
-      const ValidationError = require('../../../../src/utils/errors/ValidationError');
+      const ValidationError = require('@utils/errors/ValidationError');
 
       verifyWalletTopUpService.verifyWalletTopUp.mockRejectedValue(
         new ValidationError([

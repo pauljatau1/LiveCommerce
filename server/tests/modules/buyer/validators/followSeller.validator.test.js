@@ -110,6 +110,105 @@ describe('Follow Seller Validator', () => {
       ).rejects.toThrow('Validation failed');
     });
 
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        await expect(
+          followSellerValidator.validateFollowSellerData(null, mockSellerId.toString())
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for missing seller ID', async () => {
+        await expect(
+          followSellerValidator.validateFollowSellerData(mockBuyerId.toString(), null)
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'sellerId',
+              message: 'Seller ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid buyer ID format', async () => {
+        await expect(
+          followSellerValidator.validateFollowSellerData('invalid-id', mockSellerId.toString())
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Invalid buyer ID format'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid seller ID format', async () => {
+        await expect(
+          followSellerValidator.validateFollowSellerData(mockBuyerId.toString(), 'invalid-id')
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'sellerId',
+              message: 'Invalid seller ID format'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for buyer not found', async () => {
+        buyerRepository.findById.mockResolvedValue(null);
+
+        await expect(
+          followSellerValidator.validateFollowSellerData(mockBuyerId.toString(), mockSellerId.toString())
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer not found'
+            },
+            {
+              field: 'sellerId',
+              message: 'Seller not found'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for seller not found', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
+
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
+
+        await expect(
+          followSellerValidator.validateFollowSellerData(mockBuyerId.toString(), mockSellerId.toString())
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'sellerId',
+              message: 'Seller not found'
+            }
+          ]
+        });
+      });
+    });
+
     it('should throw validation error when buyer does not exist', async () => {
       // Arrange
       buyerRepository.findById.mockResolvedValue(null);

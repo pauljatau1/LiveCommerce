@@ -10,8 +10,11 @@ const buyerRepository = require('../repositories/buyer.repository');
  * @throws {ValidationError} If validation fails
  */
 async function validateUploadIdentityDocumentData(buyerId, file) {
+  // First validate format
   await validateBuyerId(buyerId);
   await validateFile(file);
+  
+  // If format validation passes, then check existence
   await validateBuyerExists(buyerId);
 }
 

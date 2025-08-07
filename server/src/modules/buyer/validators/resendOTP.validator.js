@@ -12,48 +12,42 @@ const ERROR_MESSAGES = {
  * Validates that email is not empty.
  *
  * @param {string} email - Email to validate
- * @returns {Array} Array of errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateEmailPresence(email) {
-  const errors = [];
+function validateEmailPresence(email, errors) {
   if (!email) {
     errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_REQUIRED });
   }
-  return errors;
 }
 
 /**
  * Validates that email is a string.
  *
  * @param {string} email - Email to validate
- * @returns {Array} Array of errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateEmailType(email) {
-  const errors = [];
+function validateEmailType(email, errors) {
   if (email && typeof email !== 'string') {
     errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_MUST_BE_STRING });
   }
-  return errors;
 }
 
 /**
  * Validates email format structure.
  *
  * @param {string} email - Email to validate
- * @returns {Array} Array of errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateEmailFormat(email) {
-  const errors = [];
-  
+function validateEmailFormat(email, errors) {
   if (!email.includes('@')) {
     errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_INVALID_FORMAT });
-    return errors;
+    return;
   }
   
   const parts = email.split('@');
   if (parts.length !== 2) {
     errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_INVALID_FORMAT });
-    return errors;
+    return;
   }
   
   const [localPart, domain] = parts;
@@ -63,32 +57,24 @@ function validateEmailFormat(email) {
   if (!domain || domain.trim() === '') {
     errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_INVALID_FORMAT });
   }
-  
-  return errors;
 }
 
 /**
  * Validates email field.
  *
  * @param {string} email - Email to validate
- * @throws {ValidationError} If validation fails
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateEmail(email) {
-  const errors = [];
-  
+function validateEmail(email, errors) {
   // Check email presence
-  errors.push(...validateEmailPresence(email));
+  validateEmailPresence(email, errors);
   
   // Check email type
-  errors.push(...validateEmailType(email));
+  validateEmailType(email, errors);
   
   // Check email format (only if email is a string)
   if (email && typeof email === 'string') {
-    errors.push(...validateEmailFormat(email));
-  }
-  
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
+    validateEmailFormat(email, errors);
   }
 }
 
@@ -99,13 +85,17 @@ function validateEmail(email) {
  * @throws {ValidationError} If validation fails
  */
 function validateResendOTPInput(data) {
+  const errors = [];
+
   if (!data || data === null || data === undefined) {
-    throw new ValidationError([
-      { field: 'email', message: ERROR_MESSAGES.EMAIL_REQUIRED }
-    ]);
+    errors.push({ field: 'email', message: ERROR_MESSAGES.EMAIL_REQUIRED });
+  } else {
+    validateEmail(data.email, errors);
   }
 
-  validateEmail(data.email);
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {

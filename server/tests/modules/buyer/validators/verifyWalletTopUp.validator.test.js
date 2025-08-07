@@ -1,221 +1,392 @@
-const verifyWalletTopUpValidator = require('../../../../src/modules/buyer/validators/verifyWalletTopUp.validator');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const verifyWalletTopUpValidator = require('@modules/buyer/validators/verifyWalletTopUp.validator');
+const ValidationError = require('@utils/errors/ValidationError');
 
-describe('verifyWalletTopUp.validator', () => {
+describe('Verify Wallet Top Up Validator', () => {
   describe('validatePaymentReference', () => {
-    it('should pass validation for valid payment reference', () => {
-      const reference = 'TXN_1234567890';
-      
-      // Should not throw any error
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference)).not.toThrow();
+    it('should not throw for valid payment reference', () => {
+      const errors = [];
+      const validReference = 'PAY_REF_123456';
+
+      verifyWalletTopUpValidator.validatePaymentReference(validReference, errors);
+
+      expect(errors).toHaveLength(0);
     });
 
-    it('should throw ValidationError when reference is missing', () => {
-      const reference = null;
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference))
-        .toThrow(ValidationError);
+    it('should add error for null reference', () => {
+      const errors = [];
+      const nullReference = null;
+
+      verifyWalletTopUpValidator.validatePaymentReference(nullReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Payment reference is required'
+      });
     });
 
-    it('should throw ValidationError when reference is undefined', () => {
-      const reference = undefined;
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference))
-        .toThrow(ValidationError);
+    it('should add error for undefined reference', () => {
+      const errors = [];
+      const undefinedReference = undefined;
+
+      verifyWalletTopUpValidator.validatePaymentReference(undefinedReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Payment reference is required'
+      });
     });
 
-    it('should throw ValidationError when reference is not a string', () => {
-      const reference = 123;
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference))
-        .toThrow(ValidationError);
+    it('should add error for non-string reference', () => {
+      const errors = [];
+      const nonStringReference = 123;
+
+      verifyWalletTopUpValidator.validatePaymentReference(nonStringReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Payment reference is required'
+      });
     });
 
-    it('should throw ValidationError when reference is empty string', () => {
-      const reference = '';
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference))
-        .toThrow(ValidationError);
+    it('should add error for empty string reference', () => {
+      const errors = [];
+      const emptyReference = '';
+
+      verifyWalletTopUpValidator.validatePaymentReference(emptyReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Payment reference cannot be empty'
+      });
     });
 
-    it('should throw ValidationError when reference is whitespace only', () => {
-      const reference = '   ';
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentReference(reference))
-        .toThrow(ValidationError);
+    it('should add error for whitespace-only reference', () => {
+      const errors = [];
+      const whitespaceReference = '   ';
+
+      verifyWalletTopUpValidator.validatePaymentReference(whitespaceReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Payment reference cannot be empty'
+      });
+    });
+
+    it('should add error for invalid reference format', () => {
+      const errors = [];
+      const invalidReference = 'invalid@reference#';
+
+      verifyWalletTopUpValidator.validatePaymentReference(invalidReference, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'reference',
+        message: 'Invalid payment reference format'
+      });
     });
   });
 
   describe('validateBuyerId', () => {
-    it('should pass validation for valid buyer ID', () => {
-      const buyerId = '507f1f77bcf86cd799439011';
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId)).not.toThrow();
+    it('should not throw for valid buyer ID', () => {
+      const errors = [];
+      const validBuyerId = '507f1f77bcf86cd799439011';
+
+      verifyWalletTopUpValidator.validateBuyerId(validBuyerId, errors);
+
+      expect(errors).toHaveLength(0);
     });
 
-    it('should throw ValidationError when buyerId is missing', () => {
-      const buyerId = null;
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId))
-        .toThrow(ValidationError);
+    it('should add error for null buyer ID', () => {
+      const errors = [];
+      const nullBuyerId = null;
+
+      verifyWalletTopUpValidator.validateBuyerId(nullBuyerId, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should throw ValidationError when buyerId is undefined', () => {
-      const buyerId = undefined;
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId))
-        .toThrow(ValidationError);
+    it('should add error for undefined buyer ID', () => {
+      const errors = [];
+      const undefinedBuyerId = undefined;
+
+      verifyWalletTopUpValidator.validateBuyerId(undefinedBuyerId, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should throw ValidationError when buyerId is not a string', () => {
-      const buyerId = 123;
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId))
-        .toThrow(ValidationError);
+    it('should add error for non-string buyer ID', () => {
+      const errors = [];
+      const nonStringBuyerId = 123;
+
+      verifyWalletTopUpValidator.validateBuyerId(nonStringBuyerId, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should throw ValidationError when buyerId is empty string', () => {
-      const buyerId = '';
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId))
-        .toThrow(ValidationError);
+    it('should add error for empty string buyer ID', () => {
+      const errors = [];
+      const emptyBuyerId = '';
+
+      verifyWalletTopUpValidator.validateBuyerId(emptyBuyerId, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID cannot be empty'
+      });
     });
 
-    it('should throw ValidationError when buyerId is whitespace only', () => {
-      const buyerId = '   ';
-      
-      expect(() => verifyWalletTopUpValidator.validateBuyerId(buyerId))
-        .toThrow(ValidationError);
+    it('should add error for invalid buyer ID format', () => {
+      const errors = [];
+      const invalidBuyerId = 'invalid-id';
+
+      verifyWalletTopUpValidator.validateBuyerId(invalidBuyerId, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Invalid buyer ID format'
+      });
     });
   });
 
   describe('validatePaystackResponse', () => {
-    it('should pass validation for valid Paystack response', () => {
-      const verificationResponse = {
+    it('should not throw for valid Paystack response', () => {
+      const errors = [];
+      const validResponse = {
         data: {
           status: true,
           data: {
-            status: 'success',
-            reference: 'TXN_1234567890',
-            amount: 500000,
-            metadata: {
-              buyerId: '507f1f77bcf86cd799439011'
-            }
-          }
-        }
-      };
-      
-      expect(() => verifyWalletTopUpValidator.validatePaystackResponse(verificationResponse))
-        .not.toThrow();
-    });
-
-    it('should throw ValidationError when verificationResponse is null', () => {
-      const verificationResponse = null;
-      
-      expect(() => verifyWalletTopUpValidator.validatePaystackResponse(verificationResponse))
-        .toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when verificationResponse.data is missing', () => {
-      const verificationResponse = {};
-      
-      expect(() => verifyWalletTopUpValidator.validatePaystackResponse(verificationResponse))
-        .toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when verificationResponse.data.status is false', () => {
-      const verificationResponse = {
-        data: {
-          status: false,
-          data: {
+            reference: 'PAY_REF_123456',
+            amount: 1000,
             status: 'success'
           }
         }
       };
-      
-      expect(() => verifyWalletTopUpValidator.validatePaystackResponse(verificationResponse))
-        .toThrow(ValidationError);
+
+      verifyWalletTopUpValidator.validatePaystackResponse(validResponse, errors);
+
+      expect(errors).toHaveLength(0);
     });
 
-    it('should throw ValidationError when transaction status is not success', () => {
-      const verificationResponse = {
+    it('should add error for null response', () => {
+      const errors = [];
+      const nullResponse = null;
+
+      verifyWalletTopUpValidator.validatePaystackResponse(nullResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'verificationResponse',
+        message: 'Invalid verification response'
+      });
+    });
+
+    it('should add error for missing data property', () => {
+      const errors = [];
+      const invalidResponse = {};
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'verificationResponse',
+        message: 'Missing response data'
+      });
+    });
+
+    it('should add error for failed status', () => {
+      const errors = [];
+      const failedResponse = {
         data: {
-          status: true,
+          status: false,
           data: {
-            status: 'failed',
-            reference: 'TXN_1234567890'
+            reference: 'PAY_REF_123456',
+            amount: 1000,
+            status: 'success'
           }
         }
       };
-      
-      expect(() => verifyWalletTopUpValidator.validatePaystackResponse(verificationResponse))
-        .toThrow(ValidationError);
+
+      verifyWalletTopUpValidator.validatePaystackResponse(failedResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'verificationResponse',
+        message: 'Payment verification failed'
+      });
+    });
+
+    it('should add error for missing payment data', () => {
+      const errors = [];
+      const invalidResponse = {
+        data: {
+          status: true
+        }
+      };
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'verificationResponse',
+        message: 'Missing payment data in response'
+      });
+    });
+
+    it('should add error for missing reference in payment data', () => {
+      const errors = [];
+      const invalidResponse = {
+        data: {
+          status: true,
+          data: {
+            amount: 1000,
+            status: 'success'
+          }
+        }
+      };
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'paymentData',
+        message: 'Missing payment reference in response'
+      });
+    });
+
+    it('should add error for invalid amount', () => {
+      const errors = [];
+      const invalidResponse = {
+        data: {
+          status: true,
+          data: {
+            reference: 'PAY_REF_123456',
+            amount: 'invalid',
+            status: 'success'
+          }
+        }
+      };
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'paymentData',
+        message: 'Invalid payment amount in response'
+      });
+    });
+
+    it('should add error for zero amount', () => {
+      const errors = [];
+      const invalidResponse = {
+        data: {
+          status: true,
+          data: {
+            reference: 'PAY_REF_123456',
+            amount: 0,
+            status: 'success'
+          }
+        }
+      };
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'paymentData',
+        message: 'Payment amount must be greater than zero'
+      });
+    });
+
+    it('should add error for failed payment status', () => {
+      const errors = [];
+      const invalidResponse = {
+        data: {
+          status: true,
+          data: {
+            reference: 'PAY_REF_123456',
+            amount: 1000,
+            status: 'failed'
+          }
+        }
+      };
+
+      verifyWalletTopUpValidator.validatePaystackResponse(invalidResponse, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'paymentData',
+        message: 'Payment verification failed - payment not successful'
+      });
     });
   });
 
   describe('validatePaymentMetadata', () => {
-    it('should pass validation for valid payment metadata', () => {
-      const metadata = {
-        buyerId: '507f1f77bcf86cd799439011',
-        description: 'Wallet top up'
+    it('should not throw for valid metadata', () => {
+      const errors = [];
+      const validMetadata = {
+        buyerId: '507f1f77bcf86cd799439011'
       };
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentMetadata(metadata))
-        .not.toThrow();
+
+      verifyWalletTopUpValidator.validatePaymentMetadata(validMetadata, errors);
+
+      expect(errors).toHaveLength(0);
     });
 
-    it('should throw ValidationError when metadata is null', () => {
-      const metadata = null;
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentMetadata(metadata))
-        .toThrow(ValidationError);
+    it('should add error for null metadata', () => {
+      const errors = [];
+      const nullMetadata = null;
+
+      verifyWalletTopUpValidator.validatePaymentMetadata(nullMetadata, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'metadata',
+        message: 'Payment metadata is required'
+      });
     });
 
-    it('should throw ValidationError when metadata is not an object', () => {
-      const metadata = 'not an object';
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentMetadata(metadata))
-        .toThrow(ValidationError);
-    });
+    it('should add error for missing buyer ID in metadata', () => {
+      const errors = [];
+      const invalidMetadata = {};
 
-    it('should throw ValidationError when metadata.buyerId is missing', () => {
-      const metadata = {
-        description: 'Wallet top up'
-      };
-      
-      expect(() => verifyWalletTopUpValidator.validatePaymentMetadata(metadata))
-        .toThrow(ValidationError);
+      verifyWalletTopUpValidator.validatePaymentMetadata(invalidMetadata, errors);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'metadata',
+        message: 'Buyer ID is required in payment metadata'
+      });
     });
   });
 
   describe('validateVerifyWalletTopUpData', () => {
-    it('should pass validation for valid data', async () => {
-      const reference = 'TXN_1234567890';
-      const verificationResponse = {
+    it('should not throw for valid data', async () => {
+      const validReference = 'PAY_REF_123456';
+      const validResponse = {
         data: {
           status: true,
           data: {
-            status: 'success',
-            reference: 'TXN_1234567890',
-            amount: 500000,
-            metadata: {
-              buyerId: '507f1f77bcf86cd799439011',
-              description: 'Wallet top up'
-            }
-          }
-        }
-      };
-      
-      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, verificationResponse))
-        .resolves.toBeUndefined();
-    });
-
-    it('should throw ValidationError when reference is missing', async () => {
-      const reference = null;
-      const verificationResponse = {
-        data: {
-          status: true,
-          data: {
+            reference: 'PAY_REF_123456',
+            amount: 1000,
             status: 'success',
             metadata: {
               buyerId: '507f1f77bcf86cd799439011'
@@ -223,63 +394,124 @@ describe('verifyWalletTopUp.validator', () => {
           }
         }
       };
-      
-      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, verificationResponse))
-        .rejects.toThrow(ValidationError);
+
+      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(validReference, validResponse)).resolves.not.toThrow();
     });
 
-    it('should throw ValidationError when Paystack response is invalid', async () => {
-      const reference = 'TXN_1234567890';
-      const verificationResponse = {
-        data: {
-          status: false,
-          data: {
-            status: 'failed'
-          }
-        }
-      };
-      
-      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, verificationResponse))
-        .rejects.toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when metadata is missing', async () => {
-      const reference = 'TXN_1234567890';
-      const verificationResponse = {
+    it('should throw ValidationError for invalid reference', async () => {
+      const invalidReference = null;
+      const validResponse = {
         data: {
           status: true,
           data: {
+            reference: 'PAY_REF_123456',
+            amount: 1000,
             status: 'success',
-            reference: 'TXN_1234567890',
-            amount: 500000
-            // metadata is missing
-          }
-        }
-      };
-      
-      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, verificationResponse))
-        .rejects.toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when buyerId is missing from metadata', async () => {
-      const reference = 'TXN_1234567890';
-      const verificationResponse = {
-        data: {
-          status: true,
-          data: {
-            status: 'success',
-            reference: 'TXN_1234567890',
-            amount: 500000,
             metadata: {
-              description: 'Wallet top up'
-              // buyerId is missing
+              buyerId: '507f1f77bcf86cd799439011'
             }
           }
         }
       };
-      
-      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, verificationResponse))
-        .rejects.toThrow(ValidationError);
+
+      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(invalidReference, validResponse)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'reference',
+            message: 'Payment reference is required'
+          },
+          {
+            field: 'reference',
+            message: 'Payment reference mismatch'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid response', async () => {
+      const validReference = 'PAY_REF_123456';
+      const invalidResponse = null;
+
+      await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(validReference, invalidResponse)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'verificationResponse',
+            message: 'Invalid verification response'
+          }
+        ]
+      });
+    });
+
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing payment reference', async () => {
+        const invalidReference = null;
+        const validResponse = {
+          data: {
+            status: true,
+            data: {
+              reference: 'PAY_REF_123456',
+              amount: 1000,
+              status: 'success',
+              metadata: {
+                buyerId: '507f1f77bcf86cd799439011'
+              }
+            }
+          }
+        };
+
+        await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(invalidReference, validResponse)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'reference',
+              message: 'Payment reference is required'
+            },
+            {
+              field: 'reference',
+              message: 'Payment reference mismatch'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid verification response', async () => {
+        const validReference = 'PAY_REF_123456';
+        const invalidResponse = null;
+
+        await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(validReference, invalidResponse)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'verificationResponse',
+              message: 'Invalid verification response'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for reference mismatch', async () => {
+        const reference = 'PAY_REF_123456';
+        const responseWithDifferentReference = {
+          data: {
+            status: true,
+            data: {
+              reference: 'DIFFERENT_REFERENCE',
+              amount: 1000,
+              status: 'success',
+              metadata: {
+                buyerId: '507f1f77bcf86cd799439011'
+              }
+            }
+          }
+        };
+
+        await expect(verifyWalletTopUpValidator.validateVerifyWalletTopUpData(reference, responseWithDifferentReference)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'reference',
+              message: 'Payment reference mismatch'
+            }
+          ]
+        });
+      });
     });
   });
 }); 

@@ -8,10 +8,6 @@ const { app } = require('@/app');
 // Import the controller directly for unit testing
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
-// Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
-const Product = require('@models/Product');
-
 // Mock the get wishlist service
 jest.mock('@modules/buyer/services/getWishlist.service', () => ({
   getWishlist: jest.fn()
@@ -43,10 +39,6 @@ describe('Buyer Controller - Get Wishlist', () => {
   beforeEach(async () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
-    // Clear database
-    await Buyer.deleteMany({});
-    await Product.deleteMany({});
   });
 
   describe('getWishlist', () => {

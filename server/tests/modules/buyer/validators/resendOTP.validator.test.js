@@ -176,15 +176,11 @@ describe('resendOTP.validator', () => {
       const data = {};
 
       // Act & Assert
-      try {
-        validateResendOTPInput(data);
-        fail('Expected ValidationError to be thrown');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toEqual([
+      expect(() => validateResendOTPInput(data)).toThrow(expect.objectContaining({
+        errors: [
           { field: 'email', message: 'Email is required' }
-        ]);
-      }
+        ]
+      }));
     });
 
     it('should throw ValidationError with correct error format for invalid email', () => {
@@ -192,15 +188,11 @@ describe('resendOTP.validator', () => {
       const data = { email: 'invalid-email' };
 
       // Act & Assert
-      try {
-        validateResendOTPInput(data);
-        fail('Expected ValidationError to be thrown');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toEqual([
+      expect(() => validateResendOTPInput(data)).toThrow(expect.objectContaining({
+        errors: [
           { field: 'email', message: 'Email must be a valid email address' }
-        ]);
-      }
+        ]
+      }));
     });
 
     it('should throw ValidationError with correct error format for non-string email', () => {
@@ -208,15 +200,275 @@ describe('resendOTP.validator', () => {
       const data = { email: 123 };
 
       // Act & Assert
-      try {
-        validateResendOTPInput(data);
-        fail('Expected ValidationError to be thrown');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toEqual([
+      expect(() => validateResendOTPInput(data)).toThrow(expect.objectContaining({
+        errors: [
           { field: 'email', message: 'Email must be a string' }
-        ]);
-      }
+        ]
+      }));
+    });
+  });
+
+  describe('Specific Error Messages', () => {
+    it('should include specific error message for missing email', () => {
+      const data = {};
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for null email', () => {
+      const data = { email: null };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for undefined email', () => {
+      const data = { email: undefined };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for empty string email', () => {
+      const data = { email: '' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for non-string email (number)', () => {
+      const data = { email: 123 };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a string'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for non-string email (boolean)', () => {
+      const data = { email: true };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a string'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for non-string email (object)', () => {
+      const data = { email: {} };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a string'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for non-string email (array)', () => {
+      const data = { email: [] };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a string'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email without @ symbol', () => {
+      const data = { email: 'invalid-email' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email with multiple @ symbols', () => {
+      const data = { email: 'test@@example.com' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email with empty local part', () => {
+      const data = { email: '@example.com' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email with empty domain', () => {
+      const data = { email: 'test@' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email with missing local part', () => {
+      const data = { email: '@example.com' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for email with missing domain', () => {
+      const data = { email: 'test@' };
+
+      expect(() => validateResendOTPInput(data))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email must be a valid email address'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for null data object', () => {
+      expect(() => validateResendOTPInput(null))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for undefined data object', () => {
+      expect(() => validateResendOTPInput(undefined))
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ])
+        }));
+    });
+
+    it('should not throw error for valid email', () => {
+      const data = { email: 'test@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with subdomain', () => {
+      const data = { email: 'test@sub.example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with plus sign', () => {
+      const data = { email: 'test+tag@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with dots', () => {
+      const data = { email: 'test.name@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with numbers', () => {
+      const data = { email: 'test123@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with hyphens', () => {
+      const data = { email: 'test-name@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
+    });
+
+    it('should not throw error for valid email with underscores', () => {
+      const data = { email: 'test_name@example.com' };
+
+      expect(() => validateResendOTPInput(data)).not.toThrow();
     });
   });
 }); 

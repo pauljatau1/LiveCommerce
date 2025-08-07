@@ -97,356 +97,293 @@ describe('Upload Identity Document Validator', () => {
           null,
           mockFile
         )
-      ).rejects.toThrow('Validation failed');
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
     });
 
-    it('should throw validation error for missing file', async () => {
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          null
-        )
-      ).rejects.toThrow('Validation failed');
-    });
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        const mockFile = {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
 
-    it('should throw validation error for invalid buyer ID format', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          'invalid-buyer-id',
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error when buyer does not exist', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      buyerRepository.findById.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error for file without buffer', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        size: 1024
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error for file without originalname', async () => {
-      // Arrange
-      const mockFile = {
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error for file without mimetype', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error for invalid file type', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.exe',
-        mimetype: 'application/x-executable',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should throw validation error for file too large', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 15 * 1024 * 1024 // 15MB
-      };
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
-
-    it('should accept valid PDF file', async () => {
-      // Arrange
-      const buyer = new Buyer({
-        _id: mockBuyerId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'hashedpassword',
-        phoneNumber: '+2348012345678'
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            null,
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
       });
 
-      await buyer.save();
+      it('should include specific error message for invalid buyer ID format', async () => {
+        const mockFile = {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
 
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
-
-      buyerRepository.findById.mockResolvedValue(buyer);
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).resolves.not.toThrow();
-    });
-
-    it('should accept valid JPEG file', async () => {
-      // Arrange
-      const buyer = new Buyer({
-        _id: mockBuyerId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'hashedpassword',
-        phoneNumber: '+2348012345678'
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            'invalid-id',
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Invalid buyer ID format'
+            }
+          ]
+        });
       });
 
-      await buyer.save();
+      it('should include specific error message for missing file', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      const mockFile = {
-        originalname: 'image.jpg',
-        mimetype: 'image/jpeg',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
 
-      buyerRepository.findById.mockResolvedValue(buyer);
-
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).resolves.not.toThrow();
-    });
-
-    it('should accept valid PNG file', async () => {
-      // Arrange
-      const buyer = new Buyer({
-        _id: mockBuyerId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'hashedpassword',
-        phoneNumber: '+2348012345678'
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            null
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'No identity document uploaded'
+            }
+          ]
+        });
       });
 
-      await buyer.save();
+      it('should include specific error message for file without buffer', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      const mockFile = {
-        originalname: 'image.png',
-        mimetype: 'image/png',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
 
-      buyerRepository.findById.mockResolvedValue(buyer);
+        const mockFile = {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          size: 1024
+        };
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).resolves.not.toThrow();
-    });
-
-    it('should accept valid DOC file', async () => {
-      // Arrange
-      const buyer = new Buyer({
-        _id: mockBuyerId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'hashedpassword',
-        phoneNumber: '+2348012345678'
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'Invalid file format'
+            }
+          ]
+        });
       });
 
-      await buyer.save();
+      it('should include specific error message for file without originalname', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      const mockFile = {
-        originalname: 'document.doc',
-        mimetype: 'application/msword',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
 
-      buyerRepository.findById.mockResolvedValue(buyer);
+        const mockFile = {
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).resolves.not.toThrow();
-    });
-
-    it('should accept valid DOCX file', async () => {
-      // Arrange
-      const buyer = new Buyer({
-        _id: mockBuyerId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'hashedpassword',
-        phoneNumber: '+2348012345678'
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'File name is required'
+            }
+          ]
+        });
       });
 
-      await buyer.save();
+      it('should include specific error message for file without mimetype', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      const mockFile = {
-        originalname: 'document.docx',
-        mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
 
-      buyerRepository.findById.mockResolvedValue(buyer);
+        const mockFile = {
+          originalname: 'document.pdf',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
-      ).resolves.not.toThrow();
-    });
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'File type is required'
+            }
+          ]
+        });
+      });
 
-    it('should throw validation error for empty buyer ID string', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+      it('should include specific error message for invalid file type', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          '',
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
 
-    it('should throw validation error for undefined buyer ID', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+        const mockFile = {
+          originalname: 'document.txt',
+          mimetype: 'text/plain',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          undefined,
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
-    });
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'Invalid file type. Allowed types: PDF, JPEG, PNG, GIF, DOC, DOCX'
+            }
+          ]
+        });
+      });
 
-    it('should throw validation error for whitespace buyer ID', async () => {
-      // Arrange
-      const mockFile = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        buffer: Buffer.from('test content'),
-        size: 1024
-      };
+      it('should include specific error message for file too large', async () => {
+        const buyer = new Buyer({
+          _id: mockBuyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe',
+          password: 'hashedpassword',
+          phoneNumber: '+2348012345678'
+        });
 
-      // Act & Assert
-      await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          '   ',
-          mockFile
-        )
-      ).rejects.toThrow('Validation failed');
+        await buyer.save();
+        buyerRepository.findById.mockResolvedValue(buyer);
+
+        const mockFile = {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('test content'),
+          size: 15 * 1024 * 1024 // 15MB
+        };
+
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'file',
+              message: 'File size too large. Maximum size is 10MB'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for buyer not found', async () => {
+        buyerRepository.findById.mockResolvedValue(null);
+
+        const mockFile = {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('test content'),
+          size: 1024
+        };
+
+        await expect(
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
+            mockBuyerId.toString(),
+            mockFile
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer not found'
+            }
+          ]
+        });
+      });
     });
   });
 }); 

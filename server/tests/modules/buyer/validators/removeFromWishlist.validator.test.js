@@ -111,22 +111,93 @@ describe('Remove From Wishlist Validator', () => {
       await expect(
         removeFromWishlistValidator.validateRemoveFromWishlistData(
           mockBuyerId.toString(),
-          'invalid-product-id'
+          'invalid-id'
         )
       ).rejects.toThrow('Validation failed');
     });
 
-    it('should throw validation error when buyer does not exist', async () => {
-      // Arrange
-      buyerRepository.findById.mockResolvedValue(null);
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        await expect(
+          removeFromWishlistValidator.validateRemoveFromWishlistData(
+            null,
+            mockProductId.toString()
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
 
-      // Act & Assert
-      await expect(
-        removeFromWishlistValidator.validateRemoveFromWishlistData(
-          mockBuyerId.toString(),
-          mockProductId.toString()
-        )
-      ).rejects.toThrow('Validation failed');
+      it('should include specific error message for missing product ID', async () => {
+        await expect(
+          removeFromWishlistValidator.validateRemoveFromWishlistData(
+            mockBuyerId.toString(),
+            null
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'productId',
+              message: 'Product ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid buyer ID format', async () => {
+        await expect(
+          removeFromWishlistValidator.validateRemoveFromWishlistData(
+            'invalid-id',
+            mockProductId.toString()
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Invalid buyer ID format'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid product ID format', async () => {
+        await expect(
+          removeFromWishlistValidator.validateRemoveFromWishlistData(
+            mockBuyerId.toString(),
+            'invalid-id'
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'productId',
+              message: 'Invalid product ID format'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for buyer not found', async () => {
+        buyerRepository.findById.mockResolvedValue(null);
+
+        await expect(
+          removeFromWishlistValidator.validateRemoveFromWishlistData(
+            mockBuyerId.toString(),
+            mockProductId.toString()
+          )
+        ).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer not found'
+            }
+          ]
+        });
+      });
     });
 
     it('should throw validation error for empty buyer ID string', async () => {

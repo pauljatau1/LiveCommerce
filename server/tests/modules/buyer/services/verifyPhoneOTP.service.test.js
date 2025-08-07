@@ -1,10 +1,10 @@
-const verifyPhoneOTPService = require('../../../../src/modules/buyer/services/verifyPhoneOTP.service');
-const buyerRepository = require('../../../../src/modules/buyer/repositories/buyer.repository');
-const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const verifyPhoneOTPService = require('@modules/buyer/services/verifyPhoneOTP.service');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const NotFoundException = require('@utils/errors/NotFoundException');
+const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the repository
-jest.mock('../../../../src/modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/buyer.repository');
 
 describe('verifyPhoneOTP.service', () => {
   let mockBuyer;
