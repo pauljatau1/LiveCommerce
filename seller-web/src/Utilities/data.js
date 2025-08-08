@@ -619,7 +619,7 @@ export const liveStreamCardData = [
         title: 'Auctions',
         description: 'Start a live and entertaining bidding on Auqli! Perfect for auctioning off your pre-loved items.',
         link: '/dashboard/live-streams/create-live-auction',
-        available: true
+        available: false
     },
     {
         id: ObjectID().toHexString(),
