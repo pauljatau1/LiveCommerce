@@ -654,6 +654,80 @@ router.get('/sellers', async (req, res) => {
   }
 });
 
+// Generate CSV of sellers in Lagos (placed before /sellers/:id to avoid route conflicts)
+router.get('/sellers/lagos-csv', async (req, res, next) => {
+  try {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=lagos-sellers.csv'
+    );
+
+    const fields = ['Name', 'Email', 'Location', 'Phone_Number'];
+    const csvTransform = new Transform(
+      { fields },
+      { objectMode: true }
+    );
+    csvTransform.pipe(res);
+
+    const lagosRegex = /^lagos(\s+state)?$/i;
+
+    const cursor = Seller.find({
+      isDisabled: false,
+      $or: [
+        { 'businessAddress.state': { $regex: lagosRegex } },
+        { 'sellerAddress.state': { $regex: lagosRegex } },
+        { 'warehouseDetails.address.state': { $regex: lagosRegex } }
+      ]
+    })
+      .select(
+        'firstName lastName storeName businessName email phoneNumber businessAddress sellerAddress warehouseDetails'
+      )
+      .lean()
+      .batchSize(100)
+      .cursor();
+
+    for await (const seller of cursor) {
+      const nameCandidate = [seller.firstName, seller.lastName].filter(Boolean).join(' ').trim();
+      const name = nameCandidate || seller.storeName || seller.businessName || '';
+
+      const addresses = [
+        seller.businessAddress,
+        seller.sellerAddress,
+        seller.warehouseDetails?.address
+      ].filter(Boolean);
+      const preferredAddress =
+        addresses.find(a => a?.state && lagosRegex.test(a.state)) || addresses[0] || null;
+      const locationParts = preferredAddress
+        ? [preferredAddress.city, preferredAddress.state, preferredAddress.country].filter(Boolean)
+        : [];
+      const location = locationParts.length > 0 ? locationParts.join(', ') : 'Unknown';
+
+      const row = {
+        Name: name,
+        Email: seller.email || '',
+        Location: location,
+        Phone_Number: seller.phoneNumber || ''
+      };
+
+      const ok = csvTransform.write(row);
+      if (!ok) await once(csvTransform, 'drain');
+    }
+
+    csvTransform.end();
+
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        cursor.close().catch(() => {});
+        csvTransform.end();
+      }
+    });
+  } catch (err) {
+    console.error('Error generating Lagos sellers CSV:', err);
+    next(err);
+  }
+});
+
 /**
  * @swagger
  * /api/public/buyers:
@@ -1460,6 +1534,79 @@ router.get('/seller-locations', async (req, res, next) => {
     });
   } catch (err) {
     console.error('Error generating seller locations CSV:', err);
+    next(err);
+  }
+});
+
+// Generate CSV of sellers in Lagos
+router.get('/sellers/lagos-csv', async (req, res, next) => {
+  try {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=lagos-sellers.csv'
+    );
+
+    const fields = ['Name', 'Email', 'Location', 'Phone_Number'];
+    const csvTransform = new Transform(
+      { fields },
+      { objectMode: true }
+    );
+    csvTransform.pipe(res);
+
+    const lagosRegex = /^lagos(\s+state)?$/i;
+
+    const cursor = Seller.find({
+      isDisabled: false,
+      $or: [
+        { 'businessAddress.state': { $regex: lagosRegex } },
+        { 'sellerAddress.state': { $regex: lagosRegex } },
+        { 'warehouseDetails.address.state': { $regex: lagosRegex } }
+      ]
+    })
+      .select(
+        'firstName lastName storeName businessName email phoneNumber businessAddress sellerAddress warehouseDetails'
+      )
+      .lean()
+      .batchSize(100)
+      .cursor();
+
+    for await (const seller of cursor) {
+      const nameCandidate = [seller.firstName, seller.lastName].filter(Boolean).join(' ').trim();
+      const name = nameCandidate || seller.storeName || seller.businessName || '';
+
+      const addresses = [
+        seller.businessAddress,
+        seller.sellerAddress,
+        seller.warehouseDetails?.address
+      ].filter(Boolean);
+      const preferredAddress =
+        addresses.find(a => a?.state && lagosRegex.test(a.state)) || addresses[0] || null;
+      const locationParts = preferredAddress
+        ? [preferredAddress.city, preferredAddress.state, preferredAddress.country].filter(Boolean)
+        : [];
+      const location = locationParts.length > 0 ? locationParts.join(', ') : 'Unknown';
+
+      const row = {
+        Name: name,
+        Email: seller.email || '',
+        Location: location,
+        Phone_Number: seller.phoneNumber || ''
+      };
+
+      const ok = csvTransform.write(row);
+      if (!ok) await once(csvTransform, 'drain');
+    }
+
+    csvTransform.end();
+
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        csvTransform.end();
+      }
+    });
+  } catch (err) {
+    console.error('Error generating Lagos sellers CSV:', err);
     next(err);
   }
 });
