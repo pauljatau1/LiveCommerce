@@ -1538,7 +1538,21 @@ router.get('/seller-locations', async (req, res, next) => {
   }
 });
 
-
+function toMetaRow(p) {
+  return {
+    id:          p._id.toString(),
+    title:       p.name,
+    description: stripHtmlTags(p.description),
+    availability: p.stock > 0 ? 'in stock' : 'out of stock',
+    condition:    p.condition || 'new',
+    price:        `${p.price} NGN`,
+    link:         `https://app.auqli.live/s/${p._id}A`,
+    image_link:
+      p.images?.[0]?.url ??
+      'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
+    brand: p.brand || p.seller?.storeName || 'Auqli'
+  };
+}
 
 module.exports = router;
 
