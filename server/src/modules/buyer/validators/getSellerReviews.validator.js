@@ -3,32 +3,28 @@ const ValidationError = require('../../../utils/errors/ValidationError');
 /**
  * Validates seller ID
  * @param {string} sellerId - The seller ID to validate
- * @throws {ValidationError} If sellerId is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSellerId(sellerId) {
+function validateSellerId(sellerId, errors) {
   // Check if sellerId is provided and is a string
   if (!sellerId || typeof sellerId !== 'string') {
-    throw new ValidationError([
-      { field: 'sellerId', message: 'Seller ID is required and must be a string' }
-    ]);
+    errors.push({ field: 'sellerId', message: 'Seller ID is required and must be a string' });
   }
 }
 
 /**
  * Validates sort parameter
  * @param {string} sort - The sort parameter to validate
- * @throws {ValidationError} If sort is invalid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSortParam(sort) {
+function validateSortParam(sort, errors) {
   // Define valid sort options for seller reviews
   const validSortOptions = ['recent', 'rating-high', 'rating-low'];
   
   // Allow empty string (defaults to 'recent' in service)
   // Only validate if sort is provided and not empty
   if (sort && sort !== '' && !validSortOptions.includes(sort)) {
-    throw new ValidationError([
-      { field: 'sort', message: 'Sort must be one of: recent, rating-high, rating-low' }
-    ]);
+    errors.push({ field: 'sort', message: 'Sort must be one of: recent, rating-high, rating-low' });
   }
 }
 
@@ -39,11 +35,17 @@ function validateSortParam(sort) {
  * @throws {ValidationError} If validation fails
  */
 async function validateGetSellerReviewsData(sellerId, params) {
+  const errors = [];
+
   // Validate the seller ID first
-  validateSellerId(sellerId);
+  validateSellerId(sellerId, errors);
   
   // Validate the sort parameter if provided
-  validateSortParam(params.sort);
+  validateSortParam(params.sort, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {

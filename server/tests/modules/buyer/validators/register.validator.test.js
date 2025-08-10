@@ -90,21 +90,42 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'firstName',
+              message: 'firstName is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when firstName is empty string', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'firstName',
+            message: 'firstName is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when firstName is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'firstName',
+            message: 'firstName is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when firstName is undefined', async () => {
@@ -113,19 +134,43 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'firstName',
+              message: 'firstName is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when firstName contains XSS patterns', async () => {
-      validateXSS.mockReturnValue({
-        field: 'firstName',
-        message: 'Invalid characters detected in firstName'
+      // Mock XSS validation to return error only for firstName
+      validateXSS.mockImplementation((value, field) => {
+        if (field === 'firstName') {
+          return {
+            field: 'firstName',
+            message: 'Invalid characters detected in firstName'
+          };
+        }
+        return null;
       });
+      
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: '<script>alert("xss")</script>'
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'firstName',
+            message: 'Invalid characters detected in firstName'
+          }
+        ]
+      });
     });
 
     it('should throw error when firstName exceeds 100 characters', async () => {
@@ -136,7 +181,14 @@ describe('Register Validator', () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: longFirstName
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'firstName',
+            message: 'firstName must not exceed 100 characters'
+          }
+        ]
+      });
     });
 
     it('should pass validation when firstName is exactly 100 characters', async () => {
@@ -171,21 +223,42 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutLastName))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'lastName',
+              message: 'lastName is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when lastName is empty string', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'lastName',
+            message: 'lastName is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when lastName is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'lastName',
+            message: 'lastName is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when lastName is undefined', async () => {
@@ -194,19 +267,43 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutLastName))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'lastName',
+              message: 'lastName is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when lastName contains XSS patterns', async () => {
-      validateXSS.mockReturnValue({
-        field: 'lastName',
-        message: 'Invalid characters detected in lastName'
+      // Mock XSS validation to return error only for lastName
+      validateXSS.mockImplementation((value, field) => {
+        if (field === 'lastName') {
+          return {
+            field: 'lastName',
+            message: 'Invalid characters detected in lastName'
+          };
+        }
+        return null;
       });
+      
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: '<script>alert("xss")</script>'
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'lastName',
+            message: 'Invalid characters detected in lastName'
+          }
+        ]
+      });
     });
 
     it('should throw error when lastName exceeds 100 characters', async () => {
@@ -217,7 +314,14 @@ describe('Register Validator', () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: longLastName
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'lastName',
+            message: 'lastName must not exceed 100 characters'
+          }
+        ]
+      });
     });
 
     it('should pass validation when lastName is exactly 100 characters', async () => {
@@ -258,14 +362,28 @@ describe('Register Validator', () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         email: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'email',
+            message: 'Email is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when email is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         email: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'email',
+            message: 'Email is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when email is undefined', async () => {
@@ -274,7 +392,14 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutEmail))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when email format is invalid', async () => {
@@ -286,16 +411,37 @@ describe('Register Validator', () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         email: 'invalid-email'
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'email',
+            message: 'Invalid email format for email'
+          }
+        ]
+      });
     });
 
     it('should throw error when email already exists', async () => {
-      buyerRepository.findAll.mockResolvedValue([{ email: 'john.doe@example.com' }]);
+      // Mock repository to return existing email
+      buyerRepository.findAll
+        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]) // email check
+        .mockResolvedValueOnce([]) // phoneNumber check
+        .mockResolvedValueOnce([]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
       validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData(validRegistrationData))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is already registered'
+            }
+          ]
+        });
     });
 
     it('should pass validation for various valid email formats', async () => {
@@ -336,21 +482,42 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutPhone))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when phoneNumber is empty string', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         phoneNumber: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'phoneNumber',
+            message: 'Phone number is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when phoneNumber is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         phoneNumber: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'phoneNumber',
+            message: 'Phone number is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when phoneNumber is undefined', async () => {
@@ -359,15 +526,37 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutPhone))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when phoneNumber already exists', async () => {
-      buyerRepository.findAll.mockResolvedValue([{ phoneNumber: '+2348012345678' }]);
+      // Mock repository to return existing phoneNumber
+      buyerRepository.findAll
+        .mockResolvedValueOnce([]) // email check
+        .mockResolvedValueOnce([{ phoneNumber: '+2348012345678' }]) // phoneNumber check
+        .mockResolvedValueOnce([]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData(validRegistrationData))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is already registered'
+            }
+          ]
+        });
     });
 
     it('should pass validation for various phone number formats', async () => {
@@ -406,21 +595,42 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutUsername))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when username is empty string', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         username: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'username',
+            message: 'Username is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when username is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         username: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'username',
+            message: 'Username is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when username is undefined', async () => {
@@ -429,22 +639,51 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutUsername))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when username contains spaces', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         username: 'john doe'
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'username',
+            message: 'Username cannot contain spaces'
+          }
+        ]
+      });
     });
 
     it('should throw error when username already exists', async () => {
-      buyerRepository.findAll.mockResolvedValue([{ username: 'johndoe' }]);
+      // Mock repository to return existing username
+      buyerRepository.findAll
+        .mockResolvedValueOnce([]) // email check
+        .mockResolvedValueOnce([]) // phoneNumber check
+        .mockResolvedValueOnce([{ username: 'johndoe' }]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData(validRegistrationData))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username is already registered'
+            }
+          ]
+        });
     });
 
     it('should pass validation for various valid username formats', async () => {
@@ -485,21 +724,42 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutPassword))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'password',
+              message: 'Password is required'
+            }
+          ]
+        });
     });
 
     it('should throw error when password is empty string', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         password: ''
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'password',
+            message: 'Password is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when password is null', async () => {
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         password: null
-      })).rejects.toThrow(ValidationError);
+      })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'password',
+            message: 'Password is required'
+          }
+        ]
+      });
     });
 
     it('should throw error when password is undefined', async () => {
@@ -508,7 +768,14 @@ describe('Register Validator', () => {
 
       await expect(registerValidator.validateRegisterData(dataWithoutPassword))
         .rejects
-        .toThrow(ValidationError);
+        .toMatchObject({
+          errors: [
+            {
+              field: 'password',
+              message: 'Password is required'
+            }
+          ]
+        });
     });
 
     it('should pass validation for various password formats', async () => {
@@ -546,18 +813,26 @@ describe('Register Validator', () => {
       });
       buyerRepository.findAll.mockResolvedValue([{ username: 'johndoe' }]);
 
-      try {
-        await registerValidator.validateRegisterData({
-          ...validRegistrationData,
-          firstName: '<script>alert("xss")</script>',
-          email: 'invalid-email'
-        });
-        fail('Should have thrown ValidationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toBeDefined();
-        expect(error.errors.length).toBeGreaterThan(0);
-      }
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        firstName: '<script>alert("xss")</script>',
+        email: 'invalid-email'
+      })).rejects.toMatchObject({
+        errors: expect.arrayContaining([
+          {
+            field: 'firstName',
+            message: 'Invalid characters detected in firstName'
+          },
+          {
+            field: 'email',
+            message: 'Invalid email format for email'
+          },
+          {
+            field: 'username',
+            message: 'Username is already registered'
+          }
+        ])
+      });
     });
   });
 
@@ -586,6 +861,354 @@ describe('Register Validator', () => {
       await expect(registerValidator.validateRegisterData(validRegistrationData))
         .rejects
         .toThrow('Database error');
+    });
+  });
+
+  describe('Specific Error Messages', () => {
+    beforeEach(() => {
+      // Mock all validation functions to pass by default
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
+      buyerRepository.findAll.mockResolvedValue([]);
+    });
+
+    it('should include specific error message for missing firstName', async () => {
+      const dataWithoutFirstName = { ...validRegistrationData };
+      delete dataWithoutFirstName.firstName;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'firstName',
+              message: 'firstName is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for missing lastName', async () => {
+      const dataWithoutLastName = { ...validRegistrationData };
+      delete dataWithoutLastName.lastName;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutLastName))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'lastName',
+              message: 'lastName is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for missing email', async () => {
+      const dataWithoutEmail = { ...validRegistrationData };
+      delete dataWithoutEmail.email;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutEmail))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for missing phoneNumber', async () => {
+      const dataWithoutPhone = { ...validRegistrationData };
+      delete dataWithoutPhone.phoneNumber;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutPhone))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for missing username', async () => {
+      const dataWithoutUsername = { ...validRegistrationData };
+      delete dataWithoutUsername.username;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutUsername))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for missing password', async () => {
+      const dataWithoutPassword = { ...validRegistrationData };
+      delete dataWithoutPassword.password;
+
+      await expect(registerValidator.validateRegisterData(dataWithoutPassword))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'password',
+              message: 'Password is required'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for username with spaces', async () => {
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        username: 'john doe'
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username cannot contain spaces'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for existing username', async () => {
+      // Mock repository to return existing username
+      buyerRepository.findAll
+        .mockResolvedValueOnce([]) // email check
+        .mockResolvedValueOnce([]) // phoneNumber check
+        .mockResolvedValueOnce([{ username: 'johndoe' }]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
+
+      await expect(registerValidator.validateRegisterData(validRegistrationData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'username',
+              message: 'Username is already registered'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for existing email', async () => {
+      // Mock repository to return existing email
+      buyerRepository.findAll
+        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]) // email check
+        .mockResolvedValueOnce([]) // phoneNumber check
+        .mockResolvedValueOnce([]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
+
+      await expect(registerValidator.validateRegisterData(validRegistrationData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is already registered'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for existing phone number', async () => {
+      // Mock repository to return existing phoneNumber
+      buyerRepository.findAll
+        .mockResolvedValueOnce([]) // email check
+        .mockResolvedValueOnce([{ phoneNumber: '+2348012345678' }]) // phoneNumber check
+        .mockResolvedValueOnce([]); // username check
+      
+      // Mock validator functions
+      validateXSS.mockReturnValue(null);
+      validateEmailFormat.mockReturnValue(null);
+
+      await expect(registerValidator.validateRegisterData(validRegistrationData))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is already registered'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for firstName with XSS', async () => {
+      // Mock XSS validation to return error only for firstName
+      validateXSS.mockImplementation((value, field) => {
+        if (field === 'firstName') {
+          return {
+            field: 'firstName',
+            message: 'Invalid characters detected in firstName'
+          };
+        }
+        return null;
+      });
+      
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        firstName: '<script>alert("xss")</script>'
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'firstName',
+              message: 'Invalid characters detected in firstName'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for lastName with XSS', async () => {
+      // Mock XSS validation to return error only for lastName
+      validateXSS.mockImplementation((value, field) => {
+        if (field === 'lastName') {
+          return {
+            field: 'lastName',
+            message: 'Invalid characters detected in lastName'
+          };
+        }
+        return null;
+      });
+      
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        lastName: '<script>alert("xss")</script>'
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'lastName',
+              message: 'Invalid characters detected in lastName'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for invalid email format', async () => {
+      validateEmailFormat.mockReturnValue({
+        field: 'email',
+        message: 'Invalid email format for email'
+      });
+
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        email: 'invalid-email'
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'email',
+              message: 'Invalid email format for email'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for firstName exceeding length limit', async () => {
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        firstName: 'A'.repeat(101)
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'firstName',
+              message: 'firstName must not exceed 100 characters'
+            }
+          ]
+        });
+    });
+
+    it('should include specific error message for lastName exceeding length limit', async () => {
+      await expect(registerValidator.validateRegisterData({
+        ...validRegistrationData,
+        lastName: 'A'.repeat(101)
+      }))
+        .rejects
+        .toMatchObject({
+          errors: [
+            {
+              field: 'lastName',
+              message: 'lastName must not exceed 100 characters'
+            }
+          ]
+        });
+    });
+
+    it('should include multiple error messages for multiple validation failures', async () => {
+      const dataWithMultipleErrors = {
+        email: 'invalid-email',
+        username: 'john doe'
+      };
+
+      validateEmailFormat.mockReturnValue({
+        field: 'email',
+        message: 'Invalid email format for email'
+      });
+
+      await expect(registerValidator.validateRegisterData(dataWithMultipleErrors))
+        .rejects
+        .toMatchObject({
+          errors: expect.arrayContaining([
+            {
+              field: 'firstName',
+              message: 'firstName is required'
+            },
+            {
+              field: 'lastName',
+              message: 'lastName is required'
+            },
+            {
+              field: 'email',
+              message: 'Invalid email format for email'
+            },
+            {
+              field: 'phoneNumber',
+              message: 'Phone number is required'
+            },
+            {
+              field: 'username',
+              message: 'Username cannot contain spaces'
+            },
+            {
+              field: 'password',
+              message: 'Password is required'
+            }
+          ])
+        });
     });
   });
 }); 

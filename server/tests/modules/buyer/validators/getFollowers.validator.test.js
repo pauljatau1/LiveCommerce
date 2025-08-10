@@ -1,10 +1,10 @@
-const { 
-  validateGetFollowersData, 
-  validatePaginationParams, 
-  validatePageParam, 
-  validateLimitParam 
-} = require('../../../../src/modules/buyer/validators/getFollowers.validator');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const {
+  validateGetFollowersData,
+  validatePageParam,
+  validateLimitParam,
+  validatePaginationParams
+} = require('@modules/buyer/validators/getFollowers.validator');
+const ValidationError = require('@utils/errors/ValidationError');
 
 describe('getFollowers.validator', () => {
   describe('validatePageParam', () => {
@@ -99,45 +99,34 @@ describe('getFollowers.validator', () => {
     });
 
     it('should throw ValidationError with correct error details for page', () => {
-      try {
-        validatePaginationParams(0, 10);
-        fail('Should have thrown ValidationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'page',
-          message: 'Page must be a positive integer'
-        });
-      }
+      expect(() => validatePaginationParams(0, 10)).toThrow(expect.objectContaining({
+        errors: [
+          {
+            field: 'page',
+            message: 'Page must be a positive integer'
+          }
+        ]
+      }));
     });
 
     it('should throw ValidationError with correct error details for limit', () => {
-      try {
-        validatePaginationParams(1, 101);
-        fail('Should have thrown ValidationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
-          field: 'limit',
-          message: 'Limit must be a positive integer between 1 and 100'
-        });
-      }
+      expect(() => validatePaginationParams(1, 101)).toThrow(expect.objectContaining({
+        errors: [
+          {
+            field: 'limit',
+            message: 'Limit must be a positive integer between 1 and 100'
+          }
+        ]
+      }));
     });
 
     it('should throw ValidationError with multiple errors for invalid page and limit', () => {
-      try {
-        validatePaginationParams(0, 101);
-        fail('Should have thrown ValidationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toHaveLength(2);
-        expect(error.errors).toEqual([
+      expect(() => validatePaginationParams(0, 101)).toThrow(expect.objectContaining({
+        errors: [
           { field: 'page', message: 'Page must be a positive integer' },
           { field: 'limit', message: 'Limit must be a positive integer between 1 and 100' }
-        ]);
-      }
+        ]
+      }));
     });
   });
 
@@ -155,29 +144,66 @@ describe('getFollowers.validator', () => {
     });
 
     it('should throw ValidationError for invalid page', async () => {
-      await expect(validateGetFollowersData({ page: 0 })).rejects.toThrow(ValidationError);
-      await expect(validateGetFollowersData({ page: -1 })).rejects.toThrow(ValidationError);
-      await expect(validateGetFollowersData({ page: 'invalid' })).rejects.toThrow(ValidationError);
+      await expect(validateGetFollowersData({ page: 0 })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'page',
+            message: 'Page must be a positive integer'
+          }
+        ]
+      });
+      await expect(validateGetFollowersData({ page: -1 })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'page',
+            message: 'Page must be a positive integer'
+          }
+        ]
+      });
+      await expect(validateGetFollowersData({ page: 'invalid' })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'page',
+            message: 'Page must be a positive integer'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError for invalid limit', async () => {
-      await expect(validateGetFollowersData({ limit: 0 })).rejects.toThrow(ValidationError);
-      await expect(validateGetFollowersData({ limit: 101 })).rejects.toThrow(ValidationError);
-      await expect(validateGetFollowersData({ limit: 'invalid' })).rejects.toThrow(ValidationError);
+      await expect(validateGetFollowersData({ limit: 0 })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'limit',
+            message: 'Limit must be a positive integer between 1 and 100'
+          }
+        ]
+      });
+      await expect(validateGetFollowersData({ limit: 101 })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'limit',
+            message: 'Limit must be a positive integer between 1 and 100'
+          }
+        ]
+      });
+      await expect(validateGetFollowersData({ limit: 'invalid' })).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'limit',
+            message: 'Limit must be a positive integer between 1 and 100'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError for multiple invalid parameters', async () => {
-      try {
-        await validateGetFollowersData({ page: 0, limit: 101 });
-        fail('Should have thrown ValidationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toHaveLength(2);
-        expect(error.errors).toEqual([
+      await expect(validateGetFollowersData({ page: 0, limit: 101 })).rejects.toMatchObject({
+        errors: [
           { field: 'page', message: 'Page must be a positive integer' },
           { field: 'limit', message: 'Limit must be a positive integer between 1 and 100' }
-        ]);
-      }
+        ]
+      });
     });
 
     it('should use default values when parameters are undefined', async () => {
@@ -188,6 +214,174 @@ describe('getFollowers.validator', () => {
       await expect(validateGetFollowersData({ page: 1, limit: 1 })).resolves.not.toThrow();
       await expect(validateGetFollowersData({ page: 1, limit: 100 })).resolves.not.toThrow();
       await expect(validateGetFollowersData({ page: 999999, limit: 50 })).resolves.not.toThrow();
+    });
+  });
+
+  describe('Specific Error Messages', () => {
+    it('should include specific error message for invalid page (zero)', async () => {
+      await expect(validateGetFollowersData({ page: 0 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid page (negative)', async () => {
+      await expect(validateGetFollowersData({ page: -1 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid page (string)', async () => {
+      await expect(validateGetFollowersData({ page: 'invalid' }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid page (null)', async () => {
+      await expect(validateGetFollowersData({ page: null }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid limit (zero)', async () => {
+      await expect(validateGetFollowersData({ limit: 0 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid limit (negative)', async () => {
+      await expect(validateGetFollowersData({ limit: -1 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid limit (too high)', async () => {
+      await expect(validateGetFollowersData({ limit: 101 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid limit (string)', async () => {
+      await expect(validateGetFollowersData({ limit: 'invalid' }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include specific error message for invalid limit (null)', async () => {
+      await expect(validateGetFollowersData({ limit: null }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include multiple error messages for multiple validation failures', async () => {
+      await expect(validateGetFollowersData({ page: 0, limit: 101 }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            },
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should include multiple error messages for invalid page and limit with strings', async () => {
+      await expect(validateGetFollowersData({ page: 'invalid', limit: 'too-high' }))
+        .rejects
+        .toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            {
+              field: 'page',
+              message: 'Page must be a positive integer'
+            },
+            {
+              field: 'limit',
+              message: 'Limit must be a positive integer between 1 and 100'
+            }
+          ])
+        }));
+    });
+
+    it('should not throw error for valid page and limit', async () => {
+      await expect(validateGetFollowersData({ page: 1, limit: 10 }))
+        .resolves.not.toThrow();
+    });
+
+    it('should not throw error for valid page and limit as strings', async () => {
+      await expect(validateGetFollowersData({ page: '1', limit: '10' }))
+        .resolves.not.toThrow();
+    });
+
+    it('should not throw error for undefined parameters (uses defaults)', async () => {
+      await expect(validateGetFollowersData({ page: undefined, limit: undefined }))
+        .resolves.not.toThrow();
     });
   });
 }); 

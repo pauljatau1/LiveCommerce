@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const getFollowingService = require('../../../../src/modules/buyer/services/getFollowing.service');
-const buyerRepository = require('../../../../src/modules/buyer/repositories/buyer.repository');
+const getFollowingService = require('@modules/buyer/services/getFollowing.service');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
 // Mock the buyer repository
-jest.mock('../../../../src/modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/buyer.repository');
 
 describe('getFollowing.service', () => {
   let mongoServer;

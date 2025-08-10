@@ -752,6 +752,70 @@ async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculate
   );
 }
 
+/**
+ * Find a buyer by ID with wallet transactions.
+ * This function retrieves a buyer document with their wallet information
+ * including transactions and balance.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @returns {Promise<Object|null>} The buyer document with wallet information or null if not found
+ */
+async function findByIdWithWallet(buyerId) {
+  return Buyer.findById(buyerId).select('wallet firstName lastName email');
+}
+
+/**
+ * Update buyer's wallet with new transaction and balance.
+ * This function adds a new transaction to the buyer's wallet and updates the balance.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @param {Object} transaction - The transaction object to add
+ * @param {number} newBalance - The new wallet balance after transaction
+ * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ */
+async function updateWalletWithTransaction(buyerId, transaction, newBalance) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $push: { 'wallet.transactions': transaction },
+      $set: { 'wallet.balance': newBalance }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
+/**
+ * Update an existing wallet transaction status.
+ * This function updates the status of an existing transaction in the buyer's wallet.
+ * 
+ * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
+ * @param {string} paymentReference - The payment reference to find the transaction
+ * @param {string} newStatus - The new status for the transaction
+ * @param {number} newBalance - The new wallet balance after status update
+ * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ */
+async function updateWalletTransactionStatus(buyerId, paymentReference, newStatus, newBalance) {
+  return Buyer.findOneAndUpdate(
+    {
+      _id: buyerId,
+      'wallet.transactions.paymentReference': paymentReference
+    },
+    {
+      $set: {
+        'wallet.transactions.$.status': newStatus,
+        'wallet.balance': newBalance
+      }
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -799,5 +863,8 @@ module.exports = {
   deleteById,
   addReport,
   findByIdWithWalletOnHoldItems,
-  updateWalletOnHoldItems
+  updateWalletOnHoldItems,
+  findByIdWithWallet,
+  updateWalletWithTransaction,
+  updateWalletTransactionStatus
 };

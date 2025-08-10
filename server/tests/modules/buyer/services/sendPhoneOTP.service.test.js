@@ -1,14 +1,14 @@
-const sendPhoneOTPService = require('../../../../src/modules/buyer/services/sendPhoneOTP.service');
-const buyerRepository = require('../../../../src/modules/buyer/repositories/buyer.repository');
-const sendPhoneOTPValidator = require('../../../../src/modules/buyer/validators/sendPhoneOTP.validator');
-const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
-const InternalErrorException = require('../../../../src/utils/errors/InternalErrorException');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
-const Buyer = require('../../../../src/modules/buyer/models/buyer.model');
+const sendPhoneOTPService = require('@modules/buyer/services/sendPhoneOTP.service');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const sendPhoneOTPValidator = require('@modules/buyer/validators/sendPhoneOTP.validator');
+const NotFoundException = require('@utils/errors/NotFoundException');
+const InternalErrorException = require('@utils/errors/InternalErrorException');
+const ValidationError = require('@utils/errors/ValidationError');
+const Buyer = require('@modules/buyer/models/buyer.model');
 
 // Mock dependencies
-jest.mock('../../../../src/modules/buyer/repositories/buyer.repository');
-jest.mock('../../../../src/modules/buyer/validators/sendPhoneOTP.validator');
+jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/validators/sendPhoneOTP.validator');
 jest.mock('@aws-sdk/client-sns');
 
 describe('Send Phone OTP Service', () => {

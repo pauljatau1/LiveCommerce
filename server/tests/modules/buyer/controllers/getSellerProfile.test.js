@@ -1,11 +1,11 @@
 const request = require('supertest');
-const { app } = require('../../../../src/app');
-const getSellerProfileService = require('../../../../src/modules/buyer/services/getSellerProfile.service');
-const NotFoundException = require('../../../../src/utils/errors/NotFoundException');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const { app } = require('@/app');
+const getSellerProfileService = require('@modules/buyer/services/getSellerProfile.service');
+const NotFoundException = require('@utils/errors/NotFoundException');
+const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the service
-jest.mock('../../../../src/modules/buyer/services/getSellerProfile.service');
+jest.mock('@modules/buyer/services/getSellerProfile.service');
 
 describe('Get Seller Profile Controller', () => {
   const mockSellerId = '507f1f77bcf86cd799439011';

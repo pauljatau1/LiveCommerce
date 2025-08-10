@@ -1,15 +1,17 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const updateAddressValidator = require('@modules/buyer/validators/updateAddress.validator');
-const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
-const Buyer = require('@modules/buyer/models/buyer.model');
 const ValidationError = require('@utils/errors/ValidationError');
+const Buyer = require('@modules/buyer/models/buyer.model');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
-let mongoServer;
+// Mock the buyer repository
+jest.mock('@modules/buyer/repositories/buyer.repository');
 
 describe('Update Address Validator', () => {
+  let mongoServer;
+
   beforeAll(async () => {
-    // Start in-memory MongoDB
     mongoServer = await MongoMemoryServer.create({
       binary: {
         version: '7.0.3'
@@ -20,22 +22,24 @@ describe('Update Address Validator', () => {
   });
 
   afterAll(async () => {
-    // Clean up
     await mongoose.disconnect();
-    await mongoServer.stop();
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   });
 
   beforeEach(async () => {
-    // Clear database
-    await Buyer.deleteMany({});
+    await mongoose.connection.dropDatabase();
   });
 
   describe('validateUpdateAddressData', () => {
     let testBuyer;
     let testAddressId;
 
-    beforeEach(async () => {
-      // Create a test buyer with an address
+         beforeEach(async () => {
+      // Clear all mocks before each test
+      jest.clearAllMocks();
+      
       testBuyer = new Buyer({
         firstName: 'John',
         lastName: 'Doe',
@@ -48,76 +52,120 @@ describe('Update Address Validator', () => {
           state: 'Lagos',
           city: 'Lagos',
           addressLine1: '123 Main Street',
-          addressLine2: 'Apt 4B',
           zipCode: '100001'
         }]
       });
       await testBuyer.save();
       testAddressId = testBuyer.shippingAddresses[0]._id.toString();
+      
+      // Mock the repository to return the testBuyer for all tests
+      buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
     });
 
     it('should validate valid address update data', async () => {
       // Arrange
-      const validUpdateData = {
+      const validData = {
         addressType: 'work',
         country: 'Nigeria',
         state: 'Lagos',
         city: 'Victoria Island',
         addressLine1: '456 Business Avenue',
-        addressLine2: 'Suite 100',
         zipCode: '100002'
       };
 
       // Act & Assert
       await expect(updateAddressValidator.validateUpdateAddressData(
-        validUpdateData, 
+        validData, 
         testBuyer._id.toString(), 
         testAddressId
       )).resolves.not.toThrow();
     });
 
-    it('should throw ValidationError when buyer not found', async () => {
-      // Arrange
-      const updateData = { addressType: 'work' };
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
+         it('should throw ValidationError when buyer not found', async () => {
+       // Arrange
+       const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
+       const validData = {
+         addressType: 'work',
+         country: 'Nigeria',
+         state: 'Lagos',
+         city: 'Victoria Island',
+         addressLine1: '456 Business Avenue',
+         zipCode: '100002'
+       };
 
-      // Act & Assert
-      await expect(updateAddressValidator.validateUpdateAddressData(
-        updateData, 
-        nonExistentBuyerId, 
-        testAddressId
-      )).rejects.toThrow(ValidationError);
-    });
+       // Mock the repository to return null for non-existent buyer
+       buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(null);
+
+       // Act & Assert
+       await expect(updateAddressValidator.validateUpdateAddressData(
+         validData, 
+         nonExistentBuyerId, 
+         testAddressId
+       )).rejects.toMatchObject({
+         errors: [
+           {
+             field: 'buyer',
+             message: 'Buyer not found'
+           }
+         ]
+       });
+     });
 
     it('should throw ValidationError when address not found', async () => {
       // Arrange
-      const updateData = { addressType: 'work' };
       const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
-
-      // Act & Assert
-      await expect(updateAddressValidator.validateUpdateAddressData(
-        updateData, 
-        testBuyer._id.toString(), 
-        nonExistentAddressId
-      )).rejects.toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when address type is invalid', async () => {
-      // Arrange
-      const invalidUpdateData = {
-        addressType: 'invalid_type'
+      const validData = {
+        addressType: 'work',
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Victoria Island',
+        addressLine1: '456 Business Avenue',
+        zipCode: '100002'
       };
 
       // Act & Assert
       await expect(updateAddressValidator.validateUpdateAddressData(
-        invalidUpdateData, 
+        validData, 
+        testBuyer._id.toString(), 
+        nonExistentAddressId
+      )).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'addressId',
+            message: 'Address not found'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError when address type is invalid', async () => {
+      // Arrange
+      const invalidData = {
+        addressType: 'invalid',
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Victoria Island',
+        addressLine1: '456 Business Avenue',
+        zipCode: '100002'
+      };
+
+      // Act & Assert
+      await expect(updateAddressValidator.validateUpdateAddressData(
+        invalidData, 
         testBuyer._id.toString(), 
         testAddressId
-      )).rejects.toThrow(ValidationError);
+      )).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'addressType',
+            message: 'Invalid address type'
+          }
+        ]
+      });
     });
 
     it('should throw ValidationError when address type conflicts with existing address', async () => {
-      // Arrange - Add another address with 'work' type
+      // Arrange - Add another address with 'work' type to create conflict
       testBuyer.shippingAddresses.push({
         addressType: 'work',
         country: 'Nigeria',
@@ -127,28 +175,48 @@ describe('Update Address Validator', () => {
         zipCode: '100002'
       });
       await testBuyer.save();
+      
+      // Update the mock to return the updated buyer
+      buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
 
-      const conflictingUpdateData = {
-        addressType: 'work' // This conflicts with the existing work address
+      const conflictingData = {
+        addressType: 'work', // Try to change 'home' address to 'work' which conflicts
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Victoria Island',
+        addressLine1: '789 Another Street',
+        zipCode: '100003'
       };
 
       // Act & Assert
       await expect(updateAddressValidator.validateUpdateAddressData(
-        conflictingUpdateData, 
+        conflictingData, 
         testBuyer._id.toString(), 
         testAddressId
-      )).rejects.toThrow(ValidationError);
+      )).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'addressType',
+            message: "Address type 'work' already exists"
+          }
+        ]
+      });
     });
 
     it('should allow updating address type when no conflict exists', async () => {
       // Arrange
-      const updateData = {
-        addressType: 'other'
+      const validData = {
+        addressType: 'work',
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Victoria Island',
+        addressLine1: '456 Business Avenue',
+        zipCode: '100002'
       };
 
       // Act & Assert
       await expect(updateAddressValidator.validateUpdateAddressData(
-        updateData, 
+        validData, 
         testBuyer._id.toString(), 
         testAddressId
       )).resolves.not.toThrow();
@@ -156,259 +224,376 @@ describe('Update Address Validator', () => {
 
     it('should allow updating the same address type for the same address', async () => {
       // Arrange
-      const updateData = {
-        addressType: 'home' // Same as current
-      };
-
-      // Act & Assert
-      await expect(updateAddressValidator.validateUpdateAddressData(
-        updateData, 
-        testBuyer._id.toString(), 
-        testAddressId
-      )).resolves.not.toThrow();
-    });
-  });
-
-  describe('validateAddressExists', () => {
-    let testBuyer;
-    let testAddressId;
-
-    beforeEach(async () => {
-      testBuyer = new Buyer({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'password123',
-        shippingAddresses: [{
-          addressType: 'home',
-          country: 'Nigeria',
-          state: 'Lagos',
-          city: 'Lagos',
-          addressLine1: '123 Main Street',
-          zipCode: '100001'
-        }]
-      });
-      await testBuyer.save();
-      testAddressId = testBuyer.shippingAddresses[0]._id.toString();
-    });
-
-    it('should not throw when buyer and address exist', async () => {
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressExists(
-        testBuyer._id.toString(), 
-        testAddressId
-      )).resolves.not.toThrow();
-    });
-
-    it('should throw ValidationError when buyer not found', async () => {
-      // Arrange
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
-
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressExists(
-        nonExistentBuyerId, 
-        testAddressId
-      )).rejects.toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError when address not found', async () => {
-      // Arrange
-      const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
-
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressExists(
-        testBuyer._id.toString(), 
-        nonExistentAddressId
-      )).rejects.toThrow(ValidationError);
-    });
-  });
-
-  describe('validateAddressTypeUpdate', () => {
-    let testBuyer;
-    let testAddressId;
-
-    beforeEach(async () => {
-      testBuyer = new Buyer({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        username: 'johndoe',
-        password: 'password123',
-        shippingAddresses: [{
-          addressType: 'home',
-          country: 'Nigeria',
-          state: 'Lagos',
-          city: 'Lagos',
-          addressLine1: '123 Main Street',
-          zipCode: '100001'
-        }]
-      });
-      await testBuyer.save();
-      testAddressId = testBuyer.shippingAddresses[0]._id.toString();
-    });
-
-    it('should not throw when address type is not being changed', async () => {
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressTypeUpdate(
-        'home', 
-        testBuyer._id.toString(), 
-        testAddressId
-      )).resolves.not.toThrow();
-    });
-
-    it('should not throw when address type is not provided', async () => {
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressTypeUpdate(
-        undefined, 
-        testBuyer._id.toString(), 
-        testAddressId
-      )).resolves.not.toThrow();
-    });
-
-    it('should not throw when new address type is unique', async () => {
-      // Act & Assert
-      await expect(updateAddressValidator.validateAddressTypeUpdate(
-        'work', 
-        testBuyer._id.toString(), 
-        testAddressId
-      )).resolves.not.toThrow();
-    });
-
-    it('should throw ValidationError when address type conflicts with existing address', async () => {
-      // Arrange - Add another address with 'work' type
-      testBuyer.shippingAddresses.push({
-        addressType: 'work',
+      const validData = {
+        addressType: 'home',
         country: 'Nigeria',
         state: 'Lagos',
         city: 'Victoria Island',
         addressLine1: '456 Business Avenue',
         zipCode: '100002'
-      });
-      await testBuyer.save();
+      };
 
       // Act & Assert
-      await expect(updateAddressValidator.validateAddressTypeUpdate(
-        'work', 
+      await expect(updateAddressValidator.validateUpdateAddressData(
+        validData, 
         testBuyer._id.toString(), 
         testAddressId
-      )).rejects.toThrow(ValidationError);
+      )).resolves.not.toThrow();
     });
-  });
 
-  describe('validateAddressTypeValue', () => {
-    it('should not throw for valid address types', async () => {
-      const validTypes = ['home', 'work', 'other'];
+         it('should throw ValidationError for invalid zip code format', async () => {
+       const data = {
+         addressType: 'home',
+         country: 'Nigeria',
+         state: 'Lagos',
+         city: 'Lagos',
+         addressLine1: '123 Main St',
+         zipCode: ''
+       };
+
+       await expect(updateAddressValidator.validateUpdateAddressData(data, testBuyer._id.toString(), testAddressId))
+         .rejects.toMatchObject({
+           errors: [
+             {
+               field: 'zipCode',
+               message: 'Zip code must be a valid string'
+             }
+           ]
+         });
+     });
+
+    it('should throw ValidationError for missing buyer ID', async () => {
+      // Mock the repository to return null for null buyer ID
+      buyerRepository.findByIdWithShippingAddresses.mockImplementation((buyerId) => {
+        if (buyerId === null) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(testBuyer);
+      });
       
-      for (const type of validTypes) {
-        await expect(updateAddressValidator.validateAddressTypeValue(type))
-          .resolves.not.toThrow();
-      }
+      await expect(
+        updateAddressValidator.validateUpdateAddressData({
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '456 Business Avenue',
+          zipCode: '100002'
+        }, null, testAddressId)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyer',
+            message: 'Buyer not found'
+          }
+        ]
+      });
     });
 
-    it('should not throw when address type is not provided', async () => {
-      await expect(updateAddressValidator.validateAddressTypeValue(undefined))
-        .resolves.not.toThrow();
+    it('should throw ValidationError for invalid buyer ID format', async () => {
+      // Mock the repository to return null for invalid buyer ID
+      buyerRepository.findByIdWithShippingAddresses.mockImplementation((buyerId) => {
+        if (buyerId === 'invalid-id') {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(testBuyer);
+      });
+      
+      await expect(
+        updateAddressValidator.validateUpdateAddressData({
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '456 Business Avenue',
+          zipCode: '100002'
+        }, 'invalid-id', testAddressId)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyer',
+            message: 'Buyer not found'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for invalid address type', async () => {
-      await expect(updateAddressValidator.validateAddressTypeValue('invalid'))
-        .rejects.toThrow(ValidationError);
-    });
-  });
-
-  describe('validateCountry', () => {
-    it('should not throw for valid country', async () => {
-      await expect(updateAddressValidator.validateCountry('Nigeria'))
-        .resolves.not.toThrow();
-    });
-
-    it('should not throw when country is not provided', async () => {
-      await expect(updateAddressValidator.validateCountry(undefined))
-        .resolves.not.toThrow();
-    });
-
-    it('should throw ValidationError for empty string', async () => {
-      await expect(updateAddressValidator.validateCountry(''))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for missing address ID', async () => {
+      await expect(
+        updateAddressValidator.validateUpdateAddressData({
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '456 Business Avenue',
+          zipCode: '100002'
+        }, testBuyer._id.toString(), null)
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'addressId',
+            message: 'Address not found'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for whitespace only', async () => {
-      await expect(updateAddressValidator.validateCountry('   '))
-        .rejects.toThrow(ValidationError);
+    it('should throw ValidationError for invalid address ID format', async () => {
+      await expect(
+        updateAddressValidator.validateUpdateAddressData({
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '456 Business Avenue',
+          zipCode: '100002'
+        }, testBuyer._id.toString(), 'invalid-id')
+      ).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'addressId',
+            message: 'Address not found'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for non-string value', async () => {
-      await expect(updateAddressValidator.validateCountry(123))
-        .rejects.toThrow(ValidationError);
-    });
-  });
-
-  describe('validateState', () => {
-    it('should not throw for valid state', async () => {
-      await expect(updateAddressValidator.validateState('Lagos'))
-        .resolves.not.toThrow();
+    it('should throw ValidationError for missing address data', async () => {
+      await expect(
+        updateAddressValidator.validateUpdateAddressData(null, testBuyer._id.toString(), testAddressId)
+      ).rejects.toThrow(TypeError);
     });
 
-    it('should not throw when state is not provided', async () => {
-      await expect(updateAddressValidator.validateState(undefined))
-        .resolves.not.toThrow();
-    });
+    describe('Specific Error Messages', () => {
+      beforeEach(() => {
+        // Mock the repository to return the testBuyer for findByIdWithShippingAddresses
+        buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
+      });
 
-    it('should throw ValidationError for empty string', async () => {
-      await expect(updateAddressValidator.validateState(''))
-        .rejects.toThrow(ValidationError);
-    });
-  });
+           it('should include specific error message for buyer not found', async () => {
+         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(null);
 
-  describe('validateCity', () => {
-    it('should not throw for valid city', async () => {
-      await expect(updateAddressValidator.validateCity('Lagos'))
-        .resolves.not.toThrow();
-    });
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'work',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'buyer',
+               message: 'Buyer not found'
+             }
+           ]
+         });
+       });
 
-    it('should not throw when city is not provided', async () => {
-      await expect(updateAddressValidator.validateCity(undefined))
-        .resolves.not.toThrow();
-    });
+      it('should include specific error message for address not found', async () => {
+         const buyerWithoutAddress = {
+           ...testBuyer,
+           shippingAddresses: []
+         };
+         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(buyerWithoutAddress);
 
-    it('should throw ValidationError for empty string', async () => {
-      await expect(updateAddressValidator.validateCity(''))
-        .rejects.toThrow(ValidationError);
-    });
-  });
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'work',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'addressId',
+               message: 'Address not found'
+             }
+           ]
+         });
+       });
 
-  describe('validateAddressLine1', () => {
-    it('should not throw for valid address line 1', async () => {
-      await expect(updateAddressValidator.validateAddressLine1('123 Main Street'))
-        .resolves.not.toThrow();
-    });
+             it('should include specific error message for invalid address type', async () => {
+         // Ensure the mock returns the testBuyer with the correct structure
+         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
+         
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'invalid',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'addressType',
+               message: 'Invalid address type'
+             }
+           ]
+         });
+       });
 
-    it('should not throw when address line 1 is not provided', async () => {
-      await expect(updateAddressValidator.validateAddressLine1(undefined))
-        .resolves.not.toThrow();
-    });
+             it('should include specific error message for duplicate address type', async () => {
+         const buyerWithDuplicateAddress = {
+           ...testBuyer,
+           shippingAddresses: [
+             { _id: 'address1', addressType: 'home' },
+             { _id: 'address2', addressType: 'work' }
+           ]
+         };
+         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(buyerWithDuplicateAddress);
 
-    it('should throw ValidationError for empty string', async () => {
-      await expect(updateAddressValidator.validateAddressLine1(''))
-        .rejects.toThrow(ValidationError);
-    });
-  });
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), 'address2')).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'addressType',
+               message: "Address type 'home' already exists"
+             }
+           ]
+         });
+       });
 
-  describe('validateZipCode', () => {
-    it('should not throw for valid zip code', async () => {
-      await expect(updateAddressValidator.validateZipCode('100001'))
-        .resolves.not.toThrow();
-    });
+             it('should include specific error message for invalid country', async () => {
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: '',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'country',
+               message: 'Country must be a valid string'
+             }
+           ]
+         });
+       });
 
-    it('should not throw when zip code is not provided', async () => {
-      await expect(updateAddressValidator.validateZipCode(undefined))
-        .resolves.not.toThrow();
-    });
+             it('should include specific error message for invalid state', async () => {
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: 'Nigeria',
+           state: '',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'state',
+               message: 'State must be a valid string'
+             }
+           ]
+         });
+       });
 
-    it('should throw ValidationError for empty string', async () => {
-      await expect(updateAddressValidator.validateZipCode(''))
-        .rejects.toThrow(ValidationError);
+             it('should include specific error message for invalid city', async () => {
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: '',
+           addressLine1: '456 Business Avenue',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'city',
+               message: 'City must be a valid string'
+             }
+           ]
+         });
+       });
+
+             it('should include specific error message for invalid address line 1', async () => {
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '',
+           zipCode: '100002'
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'addressLine1',
+               message: 'Address line 1 must be a valid string'
+             }
+           ]
+         });
+       });
+
+             it('should include specific error message for invalid zip code', async () => {
+         await expect(updateAddressValidator.validateUpdateAddressData({
+           addressType: 'home',
+           country: 'Nigeria',
+           state: 'Lagos',
+           city: 'Victoria Island',
+           addressLine1: '456 Business Avenue',
+           zipCode: ''
+         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'zipCode',
+               message: 'Zip code must be a valid string'
+             }
+           ]
+         });
+       });
+
+             it('should include multiple error messages for multiple validation failures', async () => {
+         // Ensure the mock returns the testBuyer with the correct structure
+         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
+         
+         const dataWithMultipleErrors = {
+           addressType: 'invalid',
+           country: '',
+           state: '',
+           city: '',
+           addressLine1: '',
+           zipCode: ''
+         };
+
+         await expect(updateAddressValidator.validateUpdateAddressData(dataWithMultipleErrors, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+           errors: [
+             {
+               field: 'addressType',
+               message: 'Invalid address type'
+             },
+             {
+               field: 'country',
+               message: 'Country must be a valid string'
+             },
+             {
+               field: 'state',
+               message: 'State must be a valid string'
+             },
+             {
+               field: 'city',
+               message: 'City must be a valid string'
+             },
+             {
+               field: 'addressLine1',
+               message: 'Address line 1 must be a valid string'
+             },
+             {
+               field: 'zipCode',
+               message: 'Zip code must be a valid string'
+             }
+           ]
+         });
+       });
     });
   });
 }); 

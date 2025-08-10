@@ -2,364 +2,462 @@ const updateNotificationPreferencesValidator = require('@modules/buyer/validator
 const ValidationError = require('@utils/errors/ValidationError');
 
 describe('Update Notification Preferences Validator', () => {
-  describe('validateBuyerId', () => {
-    it('should pass validation for valid buyer ID', () => {
-      // Test with valid buyer ID
-      const buyerId = '507f1f77bcf86cd799439011';
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId(buyerId);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for null buyer ID', () => {
-      // Test with null buyer ID
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId(null);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for undefined buyer ID', () => {
-      // Test with undefined buyer ID
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId(undefined);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for empty string buyer ID', () => {
-      // Test with empty string buyer ID
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId('');
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for whitespace-only buyer ID', () => {
-      // Test with whitespace-only buyer ID
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId('   ');
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-string buyer ID', () => {
-      // Test with numeric buyer ID
-      expect(() => {
-        updateNotificationPreferencesValidator.validateBuyerId(123);
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validateNotificationPreferences', () => {
-    it('should pass validation for valid preferences object', () => {
-      // Test with valid preferences object
-      const preferences = {
-        orderUpdates: {
-          orderConfirmation: true,
-          shippingAndDelivery: false
-        },
-        liveShows: {
-          allShows: true,
-          followedSellers: false
-        }
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateNotificationPreferences(preferences);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for null preferences', () => {
-      // Test with null preferences
-      expect(() => {
-        updateNotificationPreferencesValidator.validateNotificationPreferences(null);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for undefined preferences', () => {
-      // Test with undefined preferences
-      expect(() => {
-        updateNotificationPreferencesValidator.validateNotificationPreferences(undefined);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for array preferences', () => {
-      // Test with array preferences
-      expect(() => {
-        updateNotificationPreferencesValidator.validateNotificationPreferences([]);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for string preferences', () => {
-      // Test with string preferences
-      expect(() => {
-        updateNotificationPreferencesValidator.validateNotificationPreferences('invalid');
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validateOrderUpdates', () => {
-    it('should pass validation for valid orderUpdates object', () => {
-      // Test with valid orderUpdates object
-      const orderUpdates = {
-        orderConfirmation: true,
-        shippingAndDelivery: false,
-        orderCancellation: true,
-        refundUpdates: false
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateOrderUpdates(orderUpdates);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for invalid field in orderUpdates', () => {
-      // Test with invalid field
-      const orderUpdates = {
-        orderConfirmation: true,
-        invalidField: false
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateOrderUpdates(orderUpdates);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-boolean value in orderUpdates', () => {
-      // Test with non-boolean value
-      const orderUpdates = {
-        orderConfirmation: 'true'
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateOrderUpdates(orderUpdates);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for array orderUpdates', () => {
-      // Test with array orderUpdates
-      expect(() => {
-        updateNotificationPreferencesValidator.validateOrderUpdates([]);
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validateLiveShows', () => {
-    it('should pass validation for valid liveShows object', () => {
-      // Test with valid liveShows object
-      const liveShows = {
-        allShows: true,
-        followedSellers: false,
-        recommendedShows: true
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateLiveShows(liveShows);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for invalid field in liveShows', () => {
-      // Test with invalid field
-      const liveShows = {
-        allShows: true,
-        invalidField: false
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateLiveShows(liveShows);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-boolean value in liveShows', () => {
-      // Test with non-boolean value
-      const liveShows = {
-        allShows: 'true'
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateLiveShows(liveShows);
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validateMessages', () => {
-    it('should pass validation for valid messages object', () => {
-      // Test with valid messages object
-      const messages = {
-        fromSellers: true,
-        fromBuyers: false,
-        chatReplies: true,
-        mentions: false
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateMessages(messages);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for invalid field in messages', () => {
-      // Test with invalid field
-      const messages = {
-        fromSellers: true,
-        invalidField: false
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateMessages(messages);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-boolean value in messages', () => {
-      // Test with non-boolean value
-      const messages = {
-        fromSellers: 'true'
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateMessages(messages);
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validateCommunityActivity', () => {
-    it('should pass validation for valid communityActivity object', () => {
-      // Test with valid communityActivity object
-      const communityActivity = {
-        postComments: true,
-        postLikes: false,
-        repliesAndMentions: true
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validateCommunityActivity(communityActivity);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for invalid field in communityActivity', () => {
-      // Test with invalid field
-      const communityActivity = {
-        postComments: true,
-        invalidField: false
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateCommunityActivity(communityActivity);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-boolean value in communityActivity', () => {
-      // Test with non-boolean value
-      const communityActivity = {
-        postComments: 'true'
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validateCommunityActivity(communityActivity);
-      }).toThrow(ValidationError);
-    });
-  });
-
-  describe('validatePromotionsAndSales', () => {
-    it('should pass validation for valid promotionsAndSales object', () => {
-      // Test with valid promotionsAndSales object
-      const promotionsAndSales = {
-        flashSales: true,
-        couponsAndDeals: false,
-        trendingProducts: true,
-        recommendations: false
-      };
-      
-      // Should not throw any error
-      expect(() => {
-        updateNotificationPreferencesValidator.validatePromotionsAndSales(promotionsAndSales);
-      }).not.toThrow();
-    });
-
-    it('should throw ValidationError for invalid field in promotionsAndSales', () => {
-      // Test with invalid field
-      const promotionsAndSales = {
-        flashSales: true,
-        invalidField: false
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validatePromotionsAndSales(promotionsAndSales);
-      }).toThrow(ValidationError);
-    });
-
-    it('should throw ValidationError for non-boolean value in promotionsAndSales', () => {
-      // Test with non-boolean value
-      const promotionsAndSales = {
-        flashSales: 'true'
-      };
-      
-      expect(() => {
-        updateNotificationPreferencesValidator.validatePromotionsAndSales(promotionsAndSales);
-      }).toThrow(ValidationError);
-    });
-  });
+  const buyerId = '507f1f77bcf86cd799439011';
+  const preferences = {
+    orderUpdates: {
+      orderConfirmation: true,
+      orderShipped: false
+    },
+    liveShows: {
+      liveShowStarted: true
+    },
+    messages: {
+      newMessage: true
+    },
+    communityActivity: {
+      newFollower: true
+    },
+    promotionsAndSales: {
+      newPromotion: true
+    }
+  };
 
   describe('validateUpdateNotificationPreferencesData', () => {
-    it('should pass validation for valid data', async () => {
-      // Test with valid data
-      const buyerId = '507f1f77bcf86cd799439011';
-      const preferences = {
-        orderUpdates: {
-          orderConfirmation: true,
-          shippingAndDelivery: false
-        },
-        liveShows: {
-          allShows: true,
-          followedSellers: false
-        }
+    it('should not throw for valid data', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, preferences)).resolves.not.toThrow();
+    });
+
+    it('should throw ValidationError for null buyer ID', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(null, preferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for undefined buyer ID', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(undefined, preferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for empty string buyer ID', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData('', preferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for whitespace-only buyer ID', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData('   ', preferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID cannot be empty'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-string buyer ID', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(123, preferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'buyerId',
+            message: 'Buyer ID must be a string'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for null preferences', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, null)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences',
+            message: 'Notification preferences are required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for undefined preferences', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, undefined)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences',
+            message: 'Notification preferences are required'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for array preferences', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, [])).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences',
+            message: 'Notification preferences must be an object'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for string preferences', async () => {
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, 'invalid')).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences',
+            message: 'Notification preferences must be an object'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid orderUpdates type', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        orderUpdates: 'invalid'
       };
-      
-      // Should not throw any error
-      await expect(
-        updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, preferences)
-      ).resolves.not.toThrow();
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.orderUpdates',
+            message: 'Order updates must be an object'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for invalid buyer ID', async () => {
-      // Test with invalid buyer ID
-      const buyerId = '';
-      const preferences = {
-        orderUpdates: {
-          orderConfirmation: true
-        }
+    it('should throw ValidationError for invalid liveShows type', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        liveShows: 'invalid'
       };
-      
-      await expect(
-        updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, preferences)
-      ).rejects.toThrow(ValidationError);
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.liveShows',
+            message: 'Live shows must be an object'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for invalid preferences', async () => {
-      // Test with invalid preferences
-      const buyerId = '507f1f77bcf86cd799439011';
-      const preferences = null;
-      
-      await expect(
-        updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, preferences)
-      ).rejects.toThrow(ValidationError);
+    it('should throw ValidationError for invalid messages type', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        messages: 'invalid'
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.messages',
+            message: 'Messages must be an object'
+          }
+        ]
+      });
     });
 
-    it('should throw ValidationError for invalid preferences structure', async () => {
-      // Test with invalid preferences structure
-      const buyerId = '507f1f77bcf86cd799439011';
-      const preferences = {
+    it('should throw ValidationError for invalid communityActivity type', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        communityActivity: 'invalid'
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.communityActivity',
+            message: 'Community activity must be an object'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid promotionsAndSales type', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        promotionsAndSales: 'invalid'
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.promotionsAndSales',
+            message: 'Promotions and sales must be an object'
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid orderUpdates field', async () => {
+      const invalidPreferences = {
+        ...preferences,
         orderUpdates: {
           invalidField: true
         }
       };
-      
-      await expect(
-        updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, preferences)
-      ).rejects.toThrow(ValidationError);
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.orderUpdates.invalidField',
+            message: "Invalid field 'invalidField' in order updates. Allowed fields: orderConfirmation, orderShipped, orderDelivered, orderCancelled, orderRefunded, orderReturned"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid liveShows field', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        liveShows: {
+          invalidField: true
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.liveShows.invalidField',
+            message: "Invalid field 'invalidField' in live shows. Allowed fields: liveShowStarted, liveShowEnded, liveShowReminder, newLiveShow"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid messages field', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        messages: {
+          invalidField: true
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.messages.invalidField',
+            message: "Invalid field 'invalidField' in messages. Allowed fields: newMessage, messageRead, messageReplied"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid communityActivity field', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        communityActivity: {
+          invalidField: true
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.communityActivity.invalidField',
+            message: "Invalid field 'invalidField' in community activity. Allowed fields: newFollower, newFollowing, newReview, newComment, newLike"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for invalid promotionsAndSales field', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        promotionsAndSales: {
+          invalidField: true
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.promotionsAndSales.invalidField',
+            message: "Invalid field 'invalidField' in promotions and sales. Allowed fields: newPromotion, flashSale, discountOffer, seasonalSale, newProduct"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-boolean orderUpdates value', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        orderUpdates: {
+          orderConfirmation: 'not-a-boolean'
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.orderUpdates.orderConfirmation',
+            message: "Order update preference 'orderConfirmation' must be a boolean"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-boolean liveShows value', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        liveShows: {
+          liveShowStarted: 'not-a-boolean'
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.liveShows.liveShowStarted',
+            message: "Live show preference 'liveShowStarted' must be a boolean"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-boolean messages value', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        messages: {
+          newMessage: 'not-a-boolean'
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.messages.newMessage',
+            message: "Message preference 'newMessage' must be a boolean"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-boolean communityActivity value', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        communityActivity: {
+          newFollower: 'not-a-boolean'
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.communityActivity.newFollower',
+            message: "Community activity preference 'newFollower' must be a boolean"
+          }
+        ]
+      });
+    });
+
+    it('should throw ValidationError for non-boolean promotionsAndSales value', async () => {
+      const invalidPreferences = {
+        ...preferences,
+        promotionsAndSales: {
+          newPromotion: 'not-a-boolean'
+        }
+      };
+      await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+        errors: [
+          {
+            field: 'preferences.promotionsAndSales.newPromotion',
+            message: "Promotion and sale preference 'newPromotion' must be a boolean"
+          }
+        ]
+      });
+    });
+
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyer ID', async () => {
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(null, preferences)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for non-string buyer ID', async () => {
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(123, preferences)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID must be a string'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for empty buyer ID', async () => {
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData('', preferences)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'buyerId',
+              message: 'Buyer ID is required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for missing preferences', async () => {
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, null)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'preferences',
+              message: 'Notification preferences are required'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for non-object preferences', async () => {
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, [])).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'preferences',
+              message: 'Notification preferences must be an object'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid orderUpdates type', async () => {
+        const invalidPreferences = {
+          ...preferences,
+          orderUpdates: 'invalid'
+        };
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'preferences.orderUpdates',
+              message: 'Order updates must be an object'
+            }
+          ]
+        });
+      });
+
+      it('should include specific error message for invalid orderUpdates field', async () => {
+        const invalidPreferences = {
+          ...preferences,
+          orderUpdates: {
+            invalidField: true
+          }
+        };
+        await expect(updateNotificationPreferencesValidator.validateUpdateNotificationPreferencesData(buyerId, invalidPreferences)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'preferences.orderUpdates.invalidField',
+              message: expect.stringContaining('Invalid field')
+            }
+          ]
+        });
+      });
     });
   });
 }); 

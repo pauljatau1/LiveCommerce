@@ -250,12 +250,12 @@ async function validateUpdateSelectedCategoriesData(data) {
 
   // Check if data is provided
   if (!data || typeof data !== 'object') {
-    throw new ValidationError([{ field: 'data', message: 'Request data is required' }]);
+    errors.push({ field: 'data', message: 'Request data is required' });
+  } else {
+    // Validate selectedCategories
+    const selectedCategoriesErrors = validateSelectedCategories(data.selectedCategories);
+    errors.push(...selectedCategoriesErrors);
   }
-
-  // Validate selectedCategories
-  const selectedCategoriesErrors = validateSelectedCategories(data.selectedCategories);
-  errors.push(...selectedCategoriesErrors);
 
   if (errors.length > 0) {
     throw new ValidationError(errors);

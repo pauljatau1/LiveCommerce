@@ -4,37 +4,16 @@ const buyerRepository = require('../repositories/buyer.repository');
 const Product = require('../../../models/Product');
 
 /**
- * Validate add to wishlist data.
- * 
- * @param {string} buyerId - The buyer's ID
- * @param {string} productId - The product's ID to add to wishlist
- * @throws {ValidationError} If validation fails
- */
-async function validateAddToWishlistData(buyerId, productId) {
-  await validateBuyerId(buyerId);
-  await validateProductId(productId);
-  await validateBuyerExists(buyerId);
-  await validateProductExists(productId);
-}
-
-/**
  * Validate buyer ID format.
  * 
  * @param {string} buyerId
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateBuyerId(buyerId) {
-  const errors = [];
-  
+async function validateBuyerId(buyerId, errors) {
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
-  }
-
-  if (buyerId && !mongoose.Types.ObjectId.isValid(buyerId)) {
+  } else if (!mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
-  }
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
   }
 }
 
@@ -42,20 +21,13 @@ async function validateBuyerId(buyerId) {
  * Validate product ID format.
  * 
  * @param {string} productId
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateProductId(productId) {
-  const errors = [];
-  
+async function validateProductId(productId, errors) {
   if (!productId) {
     errors.push({ field: 'productId', message: 'Product ID is required' });
-  }
-
-  if (productId && !mongoose.Types.ObjectId.isValid(productId)) {
+  } else if (!mongoose.Types.ObjectId.isValid(productId)) {
     errors.push({ field: 'productId', message: 'Invalid product ID format' });
-  }
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
   }
 }
 
@@ -63,17 +35,12 @@ async function validateProductId(productId) {
  * Validate that buyer exists.
  * 
  * @param {string} buyerId
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateBuyerExists(buyerId) {
-  const errors = [];
-  
+async function validateBuyerExists(buyerId, errors) {
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
-  }
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
   }
 }
 
@@ -81,13 +48,33 @@ async function validateBuyerExists(buyerId) {
  * Validate that product exists.
  * 
  * @param {string} productId
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateProductExists(productId) {
-  const errors = [];
-  
+async function validateProductExists(productId, errors) {
   const product = await Product.findById(productId);
   if (!product) {
     errors.push({ field: 'productId', message: 'Product not found' });
+  }
+}
+
+/**
+ * Validate add to wishlist data.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} productId - The product's ID to add to wishlist
+ * @throws {ValidationError} If validation fails
+ */
+async function validateAddToWishlistData(buyerId, productId) {
+  const errors = [];
+
+  // First validate format
+  await validateBuyerId(buyerId, errors);
+  await validateProductId(productId, errors);
+
+  // If format validation passes, then check existence
+  if (errors.length === 0) {
+    await validateBuyerExists(buyerId, errors);
+    await validateProductExists(productId, errors);
   }
 
   if (errors.length > 0) {
