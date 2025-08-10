@@ -1,9 +1,9 @@
-import {lazy} from 'react';
-import {Navigate} from 'react-router-dom';
-import NotFoundPage from '../Pages/NotFoundPage/NotFoundPage';
+import { lazy } from 'react';
+import { Navigate } from 'react-router-dom';
+//import NotFoundPage from '../Pages/NotFoundPage/NotFoundPage';
 import RouterErrorHandler from '../Components/RouterErrorHandler';
-import {VariantsProvider} from '../Contexts/VariantContext';
-import {LivestreamProvider} from '../Contexts/LivestreamContext';
+import { VariantsProvider } from '../Contexts/VariantContext';
+import { LivestreamProvider } from '../Contexts/LivestreamContext';
 
 const HomePage = lazy(() => import('../Pages/HomePage/HomePage'));
 const Customers = lazy(() => import('../Pages/Customers/Customers'));
@@ -30,34 +30,33 @@ const AnalyticsDashboard = lazy(() => import('../Pages/Analytics/anayltics'));
 const Help = lazy(() => import('../Pages/help/help'));
 const Account = lazy(() => import('../Pages/Account/account'));
 const KycVerificationPage = lazy(() => import('../Pages/KycVerification/KycVerificationPage'));
-
 const LiveStreamLayout = lazy(() => import('../Components/LiveStreamLayout'));
 const LiveStream = lazy(() => import('../Pages/LiveStream/LiveStream'));
-const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
+//const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
 const CreateLiveShow = lazy(() => import('../Pages/LiveStream/CreateLiveShow'));
 const ScheduleShows = lazy(() => import('../Pages/LiveStream/ScheduleShows'));
 const PastShows = lazy(() => import('../Pages/LiveStream/PastShows'));
 const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
-const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
+//const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
 
 export const dashboardRoutes = [
     {
-        errorElement: <RouterErrorHandler/>,
+        errorElement: <RouterErrorHandler />,
         children: [
-            {path: 'home', element: <HomePage/>},
-            {path: 'customers', element: <Customers/>},
-            {path: 'customer/:id', element: <CustomerDetail/>},
-            {path: 'orders', element: <OrdersDashboard/>},
-            {path: 'order/:id', element: <OrderDetails/>},
-            {path: 'returns', element: <Returns/>},
-            {path: 'return/:id', element: <ReturnDetail/>},
-            {path: 'products', element: <ProductsPage/>},
+            { path: 'home', element: <HomePage /> },
+            { path: 'customers', element: <Customers /> },
+            { path: 'customer/:id', element: <CustomerDetail /> },
+            { path: 'orders', element: <OrdersDashboard /> },
+            { path: 'order/:id', element: <OrderDetails /> },
+            { path: 'returns', element: <Returns /> },
+            { path: 'return/:id', element: <ReturnDetail /> },
+            { path: 'products', element: <ProductsPage /> },
             {
                 path: 'add-products',
                 element: (
                     <VariantsProvider>
-                        <AddProduct/>
+                        <AddProduct />
                     </VariantsProvider>
                 ),
             },
@@ -65,55 +64,58 @@ export const dashboardRoutes = [
                 path: 'edit-product/:id',
                 element: (
                     <VariantsProvider>
-                        <EditProduct/>
+                        <EditProduct />
                     </VariantsProvider>
                 ),
             },
-            {path: 'drafts', element: <Drafts/>},
-            {path: 'blips', element: <Blips/>},{path: 'marketing', element: <MarketingPage/>},
+            { path: 'drafts', element: <Drafts /> },
+            { path: 'blips', element: <Blips /> }, { path: 'marketing', element: <MarketingPage /> },
 
             {
                 path: 'coupons',
                 children: [
-                    {index: true, element: <Navigate to="list" replace/>},
-                    {path: 'list', element: <CouponsList/>},
-                    {path: 'create', element: <Coupons/>},
+                    { index: true, element: <Navigate to="list" replace /> },
+                    { path: 'list', element: <CouponsList /> },
+                    { path: 'create', element: <Coupons /> },
                 ],
             },
             {
                 path: 'inbox-campaigns',
                 children: [
-                    {index: true, element: <Navigate to="list" replace/>},
-                    {path: 'list', element: <InboxCampaigns/>},
-                    {path: 'create', element: <CreateCampaign/>},
+                    { index: true, element: <Navigate to="list" replace /> },
+                    { path: 'list', element: <InboxCampaigns /> },
+                    { path: 'create', element: <CreateCampaign /> },
                 ],
             },
-            {path: 'earnings-payouts', element: <Payout/>},
-            {path: 'messages', element: <Messages/>},
-            {path: 'auqli-connect', element: <AuqliConnect/>},
+            { path: 'earnings-payouts', element: <Payout /> },
+            { path: 'messages', element: <Messages /> },
+            { path: 'auqli-connect', element: <AuqliConnect /> },
             {
                 path: 'live-streams',
                 element: (
                     <LivestreamProvider>
-                        <LiveStreamLayout/>
+                        <LiveStreamLayout />
                     </LivestreamProvider>
                 ),
                 children: [
-                    {path: 'live-stream', element: <LiveStream/>},
-                    {path: 'create-live-auction', element: <CreateLiveAuction/>},
-                    {path: 'create-live-show', element: <CreateLiveShow/>},
-                    {path: 'past-shows', element: <PastShows/>},
-                    {path: 'scheduled-shows', element: <ScheduleShows/>},
-                    {path: 'submit-live-show', element: <SubmitLiveShow/>},
-                    {path: 'submit-live-auction', element: <SubmitLiveAuction/>},
-                    {path: 'live-stream-studio/:id', element: <LivestreamStudio/>},
+                    { index: true, element: <Navigate to="live-stream" replace /> },
+                    { path: 'live-stream', element: <LiveStream /> },
+                    {/** commented out create-live-auction and submit-live-auction routes' components and replaced with
+                         NotFoundPage since live auctions is now a coming soon feature per management */},
+                    {/* path: 'create-live-auction', element: <CreateLiveAuction/>}, */ },
+                    { path: 'create-live-show', element: <CreateLiveShow /> },
+                    { path: 'past-shows', element: <PastShows /> },
+                    { path: 'scheduled-shows', element: <ScheduleShows /> },
+                    { path: 'submit-live-show', element: <SubmitLiveShow /> },
+                    {/* path: 'submit-live-auction', element: <SubmitLiveAuction/>}, */ },
+                    { path: 'live-stream-studio/:id', element: <LivestreamStudio /> },
                 ],
             },
-            {path: 'settings', element: <SettingsDashboard/>},
-            {path: 'account', element: <Account/>},
-            {path: 'help', element: <Help/>},
-            {path: 'analytics-insights', element: <AnalyticsDashboard/>},
-            {path: 'kyc-verification', element: <KycVerificationPage/>},
+            { path: 'settings', element: <SettingsDashboard /> },
+            { path: 'account', element: <Account /> },
+            { path: 'help', element: <Help /> },
+            { path: 'analytics-insights', element: <AnalyticsDashboard /> },
+            { path: 'kyc-verification', element: <KycVerificationPage /> },
         ],
     },
 ];

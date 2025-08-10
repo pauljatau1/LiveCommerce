@@ -654,6 +654,7 @@ const ProductsPage = () => {
                                     >
                                         Products
                                     </button>
+                                    {/* offline auction is now disabled and set to coming soon per management request
                                     <button
                                         onClick={() => setActiveTab('auctions')}
                                         className={`px-2 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-base transition-all duration-300 ${activeTab === 'auctions'
@@ -662,7 +663,7 @@ const ProductsPage = () => {
                                             }`}
                                     >
                                         Offline Auctions
-                                    </button>
+                                    </button>*/}
                                     <NavLink
                                         to="/dashboard/blips"
                                         className="px-2 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-base transition-all duration-300 bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]"

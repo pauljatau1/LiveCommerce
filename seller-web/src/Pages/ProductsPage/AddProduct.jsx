@@ -1353,12 +1353,13 @@ const AddProduct = () => {
                                                             Draft
                                                         </div>
                                                     </SelectItem>
+                                                    {/* offline auction is now disabled and set to coming soon per management request
                                                     <SelectItem value="offline_auction">
                                                         <div className="flex items-center gap-2">
                                                             <span className="w-2 h-2 rounded-full bg-purple-500" />
                                                             Offline Auction
                                                         </div>
-                                                    </SelectItem>
+                                                    </SelectItem>*/}
                                                 </SelectContent>
                                             </Select>
                                         </div>
