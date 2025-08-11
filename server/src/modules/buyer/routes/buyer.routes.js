@@ -3767,6 +3767,214 @@ router.get('/wallet/topup/verify', verifyToken, isBuyer, buyerController.verifyW
  */
 router.post('/wallet/topup', verifyToken, isBuyer, buyerController.topUpWallet);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/transactions:
+ *   get:
+ *     summary: Get buyer's wallet transactions
+ *     description: Retrieve a paginated list of wallet transactions for the authenticated buyer. Supports filtering by transaction type and date range.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of transactions per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date (ISO format)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions until this date (ISO format)
+ *     responses:
+ *       200:
+ *         description: Wallet transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet transactions retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [credit, debit]
+ *                             example: "credit"
+ *                           amount:
+ *                             type: number
+ *                             example: 1000
+ *                           paymentReference:
+ *                             type: string
+ *                             example: "TXN_123456789"
+ *                           description:
+ *                             type: string
+ *                             example: "Wallet top up"
+ *                           status:
+ *                             type: string
+ *                             enum: [pending, completed, failed]
+ *                             example: "completed"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of transactions
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *                 pagination:
+ *                   type: "null"
+ *                   nullable: true
+ *                   example: null
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - data
+ *                 - pagination
+ *       400:
+ *         description: Bad request - Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "page"
+ *                       message:
+ *                         type: string
+ *                         example: "Page must be a positive integer"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "type"
+ *                       message:
+ *                         type: string
+ *                         example: "Type must be either \"credit\" or \"debit\""
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+
+// Route: GET /api/v2/buyers/wallet/transactions
+// Purpose: Retrieve buyer's wallet transactions with filtering and pagination
+// Flow: verifyToken -> isBuyer -> buyerController.getWalletTransactions -> service layer
+router.get('/wallet/transactions', verifyToken, isBuyer, buyerController.getWalletTransactions);
+
 
 
 module.exports = router;
