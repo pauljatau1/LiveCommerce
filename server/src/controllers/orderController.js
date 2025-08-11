@@ -143,6 +143,55 @@ const validateFezItems = (items) => {
 
 // Create order with Fez Delivery
 exports.createOrder = async (req, res) => {
+  // Temporary blocker for deprecated v1 order endpoint
+  try {
+    const buyerId = req.user && req.user.id ? req.user.id : null;
+    if (buyerId) {
+      // Fire-and-forget async email sending to avoid delaying the response
+      (async () => {
+        try {
+          const buyerDoc = await Buyer.findById(buyerId).select('email firstName lastName');
+          const buyerEmail = buyerDoc && buyerDoc.email ? buyerDoc.email : null;
+
+          if (buyerEmail) {
+            const buyerName = [buyerDoc.firstName, buyerDoc.lastName].filter(Boolean).join(' ') || 'there';
+            const subject = 'Action required: Update your Auqli app to place orders';
+            const html = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2>Update Required to Place Orders</h2>
+                <p>Hi ${buyerName},</p>
+                <p>We recently released a new version of the Auqli app. To continue placing orders, please update your app to the latest version.</p>
+                <p>You can update directly from your device's app store:</p>
+                <ul>
+                  <li>Apple App Store (iOS)</li>
+                  <li>Google Play Store (Android)</li>
+                </ul>
+                <p>After updating, you will be able to place your order without any issues.</p>
+                <p>If you need help, reply to this email or contact <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
+                <p>Thank you for your understanding.</p>
+                <p>— The Auqli Team</p>
+              </div>
+            `;
+
+            await sgMail.send({
+              to: buyerEmail,
+              from: { email: 'support@auqli.com', name: 'Auqli' },
+              subject,
+              html,
+            });
+            console.log(`Sent app update email to ${buyerEmail}`);
+          }
+        } catch (asyncError) {
+          console.error('Async app update email flow failed:', asyncError && asyncError.message ? asyncError.message : asyncError);
+        }
+      })();
+    }
+  } catch (preBlockError) {
+    console.error('Order endpoint pre-block error:', preBlockError && preBlockError.message ? preBlockError.message : preBlockError);
+  }
+
+  return res.status(400).json({ message: 'Please update your app to the latest version to place an order.' });
+
   const session = await mongoose.startSession();
   session.startTransaction();
   
