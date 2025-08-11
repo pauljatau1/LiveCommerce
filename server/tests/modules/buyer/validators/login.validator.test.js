@@ -199,6 +199,27 @@ describe('Login Validator', () => {
         }).toThrow(ValidationError);
       });
 
+      it('should throw ValidationError when data parameter is empty string', () => {
+        // Act & Assert
+        expect(() => {
+          loginValidator.validateLoginInput('');
+        }).toThrow(ValidationError);
+      });
+
+      it('should throw ValidationError when data parameter is zero', () => {
+        // Act & Assert
+        expect(() => {
+          loginValidator.validateLoginInput(0);
+        }).toThrow(ValidationError);
+      });
+
+      it('should throw ValidationError when data parameter is false', () => {
+        // Act & Assert
+        expect(() => {
+          loginValidator.validateLoginInput(false);
+        }).toThrow(ValidationError);
+      });
+
       it('should throw ValidationError when data parameter is non-object', () => {
         // Act & Assert
         expect(() => {
@@ -284,6 +305,58 @@ describe('Login Validator', () => {
       it('should include specific error message for null data', () => {
         expect(() => {
           loginValidator.validateLoginInput(null);
+        }).toThrow(expect.objectContaining({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        }));
+      });
+
+      it('should include specific error message for undefined data', () => {
+        expect(() => {
+          loginValidator.validateLoginInput(undefined);
+        }).toThrow(expect.objectContaining({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        }));
+      });
+
+      it('should include specific error message for empty string data', () => {
+        expect(() => {
+          loginValidator.validateLoginInput('');
+        }).toThrow(expect.objectContaining({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        }));
+      });
+
+      it('should include specific error message for zero data', () => {
+        expect(() => {
+          loginValidator.validateLoginInput(0);
+        }).toThrow(expect.objectContaining({
+          errors: [
+            {
+              field: 'email',
+              message: 'Email is required'
+            }
+          ]
+        }));
+      });
+
+      it('should include specific error message for false data', () => {
+        expect(() => {
+          loginValidator.validateLoginInput(false);
         }).toThrow(expect.objectContaining({
           errors: [
             {
