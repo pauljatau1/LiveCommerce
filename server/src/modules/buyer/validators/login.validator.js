@@ -47,6 +47,8 @@ function validateLoginInput(data) {
   if (errors.length > 0) {
     throw new ValidationError(errors);
   }
+
+  return errors;
 }
 
 module.exports = {
