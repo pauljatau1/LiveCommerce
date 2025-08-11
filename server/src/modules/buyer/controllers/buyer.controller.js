@@ -38,6 +38,8 @@ const reportUserService = require('../services/reportUser.service');
 const getWalletBalanceService = require('../services/getWalletBalance.service');
 const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service');
 const topUpWalletService = require('../services/topUpWallet.service');
+const getWalletTransactionsService = require('../services/getWalletTransactions.service');
+
 
 
 /**
@@ -1179,6 +1181,49 @@ async function topUpWallet(req, res, next) {
   }
 }
 
+/**
+ * Get buyer's wallet transactions with filtering and pagination.
+ *
+ * This controller handles the wallet transactions retrieval HTTP request.
+ * It extracts the buyer ID from the authenticated user and delegates
+ * the transaction retrieval logic to the service layer. The service
+ * applies filters (type, date range), sorts transactions by creation
+ * date, and returns paginated results.
+ *
+ * @param {Request} req - Express request object containing query parameters for filtering and pagination
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getWalletTransactions(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+
+
+    // Get pagination options from request using service method
+    const pagination = getWalletTransactionsService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getWalletTransactionsService.getFilters(req);
+
+    let response = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      response = await getWalletTransactionsService.getPaginatedWalletTransactions(buyerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      response = await getWalletTransactionsService.getWalletTransactions(buyerId, filters);
+    }
+
+    // Send success response with transactions data
+    res.success(response, 'Wallet transactions retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1219,5 +1264,6 @@ module.exports = {
   reportUser,
   getWalletBalance,
   verifyWalletTopUp,
-  topUpWallet
+  topUpWallet,
+  getWalletTransactions
 };
