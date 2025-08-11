@@ -945,6 +945,20 @@ exports.deleteCategory = async (req, res) => {
       await s3.deleteObject(deleteParams).promise();
     }
 
+    // Draft and clear category fields for all products under this category
+    await Product.updateMany(
+      { category: category.name },
+      {
+        $set: {
+          status: 'draft',
+          category: '',
+          subCategory: '',
+          subSubCategory: '',
+          updatedAt: new Date(),
+        },
+      }
+    );
+
     // Use deleteOne() instead of remove()
     await Category.deleteOne({ _id: id });
     
