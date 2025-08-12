@@ -883,6 +883,63 @@ async function findFollowedSellerIds(buyerId) {
   }).distinct('_id');
 }
 
+/**
+ * Get public profile data for a buyer.
+ * 
+ * This method retrieves the buyer's public profile information including:
+ * - Basic profile information
+ * - Activity feed with recent activities
+ * - Posts count
+ * - Followers and following counts
+ * - Selected categories
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} Buyer's public profile data or null if not found
+ */
+async function getPublicProfileData(buyerId) {
+  const Post = require('../../../models/Post');
+  
+  // Get post count for public posts
+  const postCount = await Post.countDocuments({
+    'author.userId': buyerId,
+    'author.userModel': 'Buyer',
+    visibility: 'public'
+  });
+
+  // Find buyer with populated fields
+  const buyer = await Buyer.findById(buyerId)
+    .select([
+      'firstName',
+      'lastName', 
+      'username',
+      'profileImage',
+      'bio',
+      'country',
+      'createdAt',
+      'isIdentityVerified',
+      'selectedCategories',
+      'activityFeed',
+      'posts',
+      'followers'
+    ])
+    .populate([
+      {
+        path: 'posts',
+        match: { visibility: 'public' }
+      }
+    ])
+    .lean();
+
+  if (!buyer) {
+    return null;
+  }
+
+  return {
+    buyer,
+    postCount
+  };
+}
+
 module.exports = {
   findAll,
   save,
@@ -936,5 +993,6 @@ module.exports = {
   updateWalletTransactionStatus,
   findSellersToFollow,
   countSellersToFollow,
-  findFollowedSellerIds
+  findFollowedSellerIds,
+  getPublicProfileData
 };

@@ -1,5 +1,5 @@
-const { validateGetSellersToFollowData } = require('../../../../src/modules/buyer/validators/getSellersToFollow.validator');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const { validateGetSellersToFollowData } = require('@modules/buyer/validators/getSellersToFollow.validator');
+const ValidationError = require('@utils/errors/ValidationError');
 
 describe('getSellersToFollow.validator', () => {
   describe('validateGetSellersToFollowData', () => {
