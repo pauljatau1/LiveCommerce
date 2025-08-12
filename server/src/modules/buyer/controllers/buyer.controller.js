@@ -41,6 +41,8 @@ const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service'
 const topUpWalletService = require('../services/topUpWallet.service');
 const getWalletTransactionsService = require('../services/getWalletTransactions.service');
 const getPublicProfileService = require('../services/getPublicProfile.service');
+const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
+const getActivityStatusService = require('../services/getActivityStatus.service');
 
 
 
@@ -1294,6 +1296,60 @@ async function getPublicProfile(req, res, next) {
   }
 }
 
+/**
+ * Toggle the activity status of a buyer.
+ *
+ * This controller handles the activity status toggle HTTP request.
+ * It delegates the toggle logic to the service layer and returns the updated status.
+ * The service toggles the buyer's isActive status between true and false.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function toggleActivityStatus(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle activity status toggle logic
+    const response = await toggleActivityStatusService.toggleActivityStatus(buyerId);
+
+    // Send success response with updated status
+    res.success(response, response.message);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get the activity status of a buyer.
+ *
+ * This controller handles the activity status retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the current status.
+ * The service retrieves the buyer's current isActive status.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getActivityStatus(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle activity status retrieval logic
+    const response = await getActivityStatusService.getActivityStatus(buyerId);
+
+    // Send success response with current status
+    res.success(response, 'Activity status retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1337,5 +1393,7 @@ module.exports = {
   verifyWalletTopUp,
   topUpWallet,
   getWalletTransactions,
-  getPublicProfile
+  getPublicProfile,
+  toggleActivityStatus,
+  getActivityStatus
 };

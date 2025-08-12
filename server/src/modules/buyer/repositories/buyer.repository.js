@@ -940,6 +940,54 @@ async function getPublicProfileData(buyerId) {
   };
 }
 
+/**
+ * Toggle the activity status of a buyer.
+ * 
+ * This function toggles the buyer's isActive status between true and false.
+ * It first finds the buyer by ID, then toggles the isActive field and saves the changes.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} Updated buyer object with isActive status, or null if buyer not found
+ */
+async function toggleActivityStatus(buyerId) {
+  const buyer = await Buyer.findById(buyerId);
+  
+  if (!buyer) {
+    return null;
+  }
+
+  // Toggle the isActive status
+  buyer.isActive = !buyer.isActive;
+  
+  // Save the updated buyer
+  const updatedBuyer = await buyer.save();
+  
+  return {
+    isActive: updatedBuyer.isActive,
+    message: `Account successfully ${updatedBuyer.isActive ? 'activated' : 'deactivated'}`
+  };
+}
+
+/**
+ * Get the activity status of a buyer.
+ * 
+ * This function retrieves only the isActive field for a buyer.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} Buyer object with isActive status, or null if buyer not found
+ */
+async function getActivityStatus(buyerId) {
+  const buyer = await Buyer.findById(buyerId).select('isActive');
+  
+  if (!buyer) {
+    return null;
+  }
+
+  return {
+    isActive: buyer.isActive
+  };
+}
+
 module.exports = {
   findAll,
   save,
@@ -994,5 +1042,7 @@ module.exports = {
   findSellersToFollow,
   countSellersToFollow,
   findFollowedSellerIds,
-  getPublicProfileData
+  getPublicProfileData,
+  toggleActivityStatus,
+  getActivityStatus
 };
