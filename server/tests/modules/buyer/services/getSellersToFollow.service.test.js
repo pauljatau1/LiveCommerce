@@ -1,9 +1,9 @@
-const { getSellersToFollow, getPaginatedSellersToFollow } = require('../../../../src/modules/buyer/services/getSellersToFollow.service');
-const buyerRepository = require('../../../../src/modules/buyer/repositories/buyer.repository');
-const ValidationError = require('../../../../src/utils/errors/ValidationError');
+const { getSellersToFollow, getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the repository
-jest.mock('../../../../src/modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/buyer.repository');
 
 describe('getSellersToFollow.service', () => {
   beforeEach(() => {

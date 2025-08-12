@@ -40,6 +40,7 @@ const getWalletBalanceService = require('../services/getWalletBalance.service');
 const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service');
 const topUpWalletService = require('../services/topUpWallet.service');
 const getWalletTransactionsService = require('../services/getWalletTransactions.service');
+const getPublicProfileService = require('../services/getPublicProfile.service');
 
 
 
@@ -1265,6 +1266,34 @@ async function getSellersToFollow(req, res, next) {
   }
 }
 
+/**
+ * Get public profile information for a buyer.
+ *
+ * This controller handles the public profile retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted public profile data.
+ * The service fetches comprehensive public profile information including basic info, statistics,
+ * recent activity, and selected categories.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.params.buyerId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getPublicProfile(req, res, next) {
+  try {
+    // Extract buyer ID from request parameters
+    const { buyerId } = req.params;
+
+    // Call the service layer to handle public profile retrieval logic
+    const response = await getPublicProfileService.getPublicProfile(buyerId);
+
+    // Send success response with public profile data
+    res.success(response, 'Public profile retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1307,5 +1336,6 @@ module.exports = {
   getWalletBalance,
   verifyWalletTopUp,
   topUpWallet,
-  getWalletTransactions
+  getWalletTransactions,
+  getPublicProfile
 };

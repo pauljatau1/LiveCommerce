@@ -5359,5 +5359,238 @@ describe('Buyer Repository', () => {
         expect(result).toHaveLength(0);
       });
     });
+
+    describe('getPublicProfileData', () => {
+      it('should return public profile data for valid buyer ID', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          bio: 'Passionate shopper and reviewer',
+          profileImage: { url: 'https://example.com/profile.jpg' },
+          selectedCategories: [
+            {
+              name: 'Electronics',
+              subCategories: [{ name: 'Smartphones' }]
+            }
+          ],
+          activityFeed: [
+            {
+              type: 'product_review',
+              content: 'Great product, highly recommended!',
+              createdAt: new Date('2023-12-01T15:30:00Z')
+            },
+            {
+              type: 'follow',
+              content: 'Started following a seller',
+              createdAt: new Date('2023-11-30T12:00:00Z')
+            }
+          ],
+          followers: [{ _id: new mongoose.Types.ObjectId() }, { _id: new mongoose.Types.ObjectId() }],
+          following: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create some posts for the buyer
+        const post1 = new Post({
+          title: 'Test Post 1',
+          body: 'Test post 1 content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const post2 = new Post({
+          title: 'Test Post 2',
+          body: 'Test post 2 content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const privatePost = new Post({
+          title: 'Private Post',
+          body: 'Private post content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'private',
+          createdAt: new Date()
+        });
+
+        await Promise.all([post1.save(), post2.save(), privatePost.save()]);
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeDefined();
+        expect(result.postCount).toBe(2); // Only public posts
+
+        // Verify buyer data
+        expect(result.buyer._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.buyer.firstName).toBe('John');
+        expect(result.buyer.lastName).toBe('Doe');
+        expect(result.buyer.username).toBe('johndoe');
+        expect(result.buyer.bio).toBe('Passionate shopper and reviewer');
+        expect(result.buyer.profileImage).toEqual({ url: 'https://example.com/profile.jpg' });
+        expect(result.buyer.country).toBe('NG');
+        expect(result.buyer.isIdentityVerified).toBe(false);
+
+        // Verify populated fields
+        expect(result.buyer.activityFeed).toHaveLength(2);
+        expect(result.buyer.activityFeed[0].type).toBe('product_review');
+        expect(result.buyer.activityFeed[1].type).toBe('follow');
+
+        expect(result.buyer.selectedCategories).toHaveLength(1);
+        expect(result.buyer.selectedCategories[0].name).toBe('Electronics');
+        expect(result.buyer.selectedCategories[0].subCategories).toHaveLength(1);
+        expect(result.buyer.selectedCategories[0].subCategories[0].name).toBe('Smartphones');
+
+        expect(result.buyer.followers).toHaveLength(2);
+        expect(result.buyer.following || []).toHaveLength(0);
+      });
+
+      it('should return null for non-existent buyer ID', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with no posts', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          bio: null,
+          profileImage: null,
+          selectedCategories: [],
+          activityFeed: [],
+          followers: [],
+          following: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeDefined();
+        expect(result.postCount).toBe(0);
+        expect(result.buyer.bio).toBeNull();
+        expect(result.buyer.profileImage).toBeNull();
+        expect(result.buyer.selectedCategories).toHaveLength(0);
+        expect(result.buyer.activityFeed).toHaveLength(0);
+        expect(result.buyer.followers).toHaveLength(0);
+        expect(result.buyer.following || []).toHaveLength(0);
+      });
+
+      it('should only count public posts', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Create public and private posts
+        const publicPost = new Post({
+          title: 'Public Post',
+          body: 'Public post content',
+          author: {
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            userId: savedBuyer._id,
+            userModel: 'Buyer'
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const privatePost = new Post({
+          title: 'Private Post',
+          body: 'Private post content',
+          author: {
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            userId: savedBuyer._id,
+            userModel: 'Buyer'
+          },
+          visibility: 'private',
+          createdAt: new Date()
+        });
+
+        await Promise.all([publicPost.save(), privatePost.save()]);
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result.postCount).toBe(1); // Only public post
+      });
+
+      it('should handle buyer with complex activity feed', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          activityFeed: [
+            {
+              type: 'product_review',
+              content: 'Review 1',
+              createdAt: new Date('2023-12-01T15:30:00Z')
+            },
+            {
+              type: 'product_review',
+              content: 'Review 2',
+              createdAt: new Date('2023-12-02T15:30:00Z')
+            },
+            {
+              type: 'follow',
+              content: 'Follow 1',
+              createdAt: new Date('2023-12-03T15:30:00Z')
+            },
+            {
+              type: 'product_purchase',
+              content: 'Purchase 1',
+              createdAt: new Date('2023-12-04T15:30:00Z')
+            }
+          ],
+          followers: [
+            { _id: new mongoose.Types.ObjectId() },
+            { _id: new mongoose.Types.ObjectId() },
+            { _id: new mongoose.Types.ObjectId() }
+          ]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result.buyer.activityFeed).toHaveLength(4);
+        expect(result.buyer.followers).toHaveLength(3);
+
+        // Verify activity feed contains the expected activities (order doesn't matter for repository test)
+        const activityTypes = result.buyer.activityFeed.map(activity => activity.type);
+        expect(activityTypes).toContain('product_review');
+        expect(activityTypes).toContain('follow');
+        expect(activityTypes).toContain('product_purchase');
+      });
+    });
   });
 }); 
