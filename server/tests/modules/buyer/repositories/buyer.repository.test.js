@@ -5592,5 +5592,123 @@ describe('Buyer Repository', () => {
         expect(activityTypes).toContain('product_purchase');
       });
     });
+
+    describe('toggleActivityStatus', () => {
+      it('should toggle activity status from true to false', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(false);
+        expect(result.message).toBe('Account successfully deactivated');
+
+        // Verify the buyer was actually updated in the database
+        const updatedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(updatedBuyer.isActive).toBe(false);
+      });
+
+      it('should toggle activity status from false to true', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: false
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+        expect(result.message).toBe('Account successfully activated');
+
+        // Verify the buyer was actually updated in the database
+        const updatedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(updatedBuyer.isActive).toBe(true);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getActivityStatus', () => {
+      it('should return activity status for active buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+      });
+
+      it('should return activity status for inactive buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: false
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(false);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should only return isActive field', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+        expect(Object.keys(result)).toHaveLength(1);
+        expect(result).toHaveProperty('isActive');
+      });
+    });
   });
 }); 
