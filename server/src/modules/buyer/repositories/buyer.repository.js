@@ -816,6 +816,73 @@ async function updateWalletTransactionStatus(buyerId, paymentReference, newStatu
   );
 }
 
+/**
+ * Find sellers that can be followed with filtering and pagination.
+ * 
+ * @param {Object} options - Query options
+ * @param {Object} options.query - MongoDB query filters
+ * @param {Object} options.sortOptions - Sort options
+ * @param {number} options.skip - Number of documents to skip
+ * @param {number} options.limit - Number of documents to return
+ * @param {boolean} options.shouldRandomize - Whether to randomize results
+ * @returns {Promise<Array>} Array of sellers that can be followed
+ */
+async function findSellersToFollow({ query, sortOptions, skip, limit, shouldRandomize }) {
+  const Seller = require('../../../models/Seller');
+  
+  if (shouldRandomize) {
+    // Get total count for randomization
+    const total = await Seller.countDocuments(query);
+    const maxSkip = total - limit;
+    const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
+    
+    return await Seller.find(query)
+      .select(`
+        storeName businessName aboutStore storeAvatar 
+        categories stats followers isVerified isFeatured 
+        createdAt
+      `)
+      .skip(randomSkip)
+      .limit(limit)
+      .lean();
+  } else {
+    return await Seller.find(query)
+      .select(`
+        storeName businessName aboutStore storeAvatar 
+        categories stats followers isVerified isFeatured 
+        createdAt
+      `)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limit)
+      .lean();
+  }
+}
+
+/**
+ * Count sellers that match the given query.
+ * 
+ * @param {Object} query - MongoDB query filters
+ * @returns {Promise<number>} Count of matching sellers
+ */
+async function countSellersToFollow(query) {
+  const Seller = require('../../../models/Seller');
+  return await Seller.countDocuments(query);
+}
+
+/**
+ * Find seller IDs that a buyer is already following.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of seller IDs that the buyer follows
+ */
+async function findFollowedSellerIds(buyerId) {
+  const Seller = require('../../../models/Seller');
+  return await Seller.find({
+    'followers.buyerId': buyerId
+  }).distinct('_id');
+}
+
 module.exports = {
   findAll,
   save,
@@ -866,5 +933,8 @@ module.exports = {
   updateWalletOnHoldItems,
   findByIdWithWallet,
   updateWalletWithTransaction,
-  updateWalletTransactionStatus
+  updateWalletTransactionStatus,
+  findSellersToFollow,
+  countSellersToFollow,
+  findFollowedSellerIds
 };

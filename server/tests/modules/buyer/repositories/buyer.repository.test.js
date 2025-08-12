@@ -5053,5 +5053,311 @@ describe('Buyer Repository', () => {
         });
       });
     });
+
+    describe('findSellersToFollow', () => {
+      it('should find sellers with randomization when shouldRandomize is true', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 20; i++) {
+          sellers.push(new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            stats: { averageRating: 4.0, totalReviews: 50 },
+            followers: [],
+            categories: [{ name: 'Fashion' }]
+          }));
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { 'stats.averageRating': -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: true
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(10);
+        expect(result[0]).toHaveProperty('_id');
+        expect(result[0]).toHaveProperty('businessName');
+        expect(result[0]).toHaveProperty('stats');
+        expect(result[0]).toHaveProperty('followers');
+        expect(result[0]).toHaveProperty('categories');
+      });
+
+      it('should find sellers without randomization when shouldRandomize is false', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 5; i++) {
+          const seller = new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            followers: [],
+            categories: [{ name: 'Fashion' }],
+            createdAt: new Date(Date.now() + i * 1000) // Add 1 second delay between each seller
+          });
+          // Set stats after creation to ensure it's properly saved
+          seller.stats = {
+            averageRating: 4.5 - i * 0.1,
+            totalReviews: 50,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          };
+          // Mark the stats field as modified
+          seller.markModified('stats');
+          sellers.push(seller);
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { createdAt: -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(5);
+        // Should be sorted by createdAt (newest first)
+        expect(new Date(result[0].createdAt).getTime()).toBeGreaterThan(new Date(result[1].createdAt).getTime());
+      });
+
+      it('should handle pagination correctly', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 15; i++) {
+          sellers.push(new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            stats: { averageRating: 4.0, totalReviews: 50 },
+            followers: [],
+            categories: [{ name: 'Fashion' }]
+          }));
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { createdAt: -1 },
+          skip: 10,
+          limit: 5,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(5);
+      });
+
+      it('should apply search filters correctly', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Fashion Store',
+          storeName: 'Fashion Store',
+          isDisabled: false
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Electronics Store',
+          storeName: 'Electronics Store',
+          isDisabled: false
+        });
+
+        await Promise.all([seller1.save(), seller2.save()]);
+
+        const options = {
+          query: {
+            isDisabled: false,
+            $or: [
+              { storeName: { $regex: 'fashion', $options: 'i' } },
+              { businessName: { $regex: 'fashion', $options: 'i' } }
+            ]
+          },
+          sortOptions: { createdAt: -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(1);
+        expect(result[0].businessName).toBe('Fashion Store');
+      });
+    });
+
+    describe('countSellersToFollow', () => {
+      it('should count sellers matching the query', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Fashion Store',
+          isDisabled: false
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Electronics Store',
+          isDisabled: false
+        });
+
+        const seller3 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          phoneNumber: '+1234567892',
+          password: 'hashedPassword123',
+          businessName: 'Disabled Store',
+          isDisabled: true
+        });
+
+        await Promise.all([seller1.save(), seller2.save(), seller3.save()]);
+
+        // Act
+        const result = await buyerRepository.countSellersToFollow({ isDisabled: false });
+
+        // Assert
+        expect(result).toBe(2);
+      });
+
+      it('should return 0 for no matching sellers', async () => {
+        // Act
+        const result = await buyerRepository.countSellersToFollow({ isDisabled: false });
+
+        // Assert
+        expect(result).toBe(0);
+      });
+    });
+
+    describe('findFollowedSellerIds', () => {
+      it('should return seller IDs that a buyer is following', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Store 1',
+          followers: [{ buyerId: savedBuyer._id, followDate: new Date() }]
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Store 2',
+          followers: [{ buyerId: savedBuyer._id, followDate: new Date() }]
+        });
+
+        const seller3 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          phoneNumber: '+1234567892',
+          password: 'hashedPassword123',
+          businessName: 'Store 3',
+          followers: []
+        });
+
+        await Promise.all([seller1.save(), seller2.save(), seller3.save()]);
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(savedBuyer._id);
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result).toEqual(
+          expect.arrayContaining([
+            expect.any(mongoose.Types.ObjectId),
+            expect.any(mongoose.Types.ObjectId)
+          ])
+        );
+      });
+
+      it('should return empty array when buyer is not following any sellers', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Store 1',
+          followers: []
+        });
+
+        await seller.save();
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(savedBuyer._id);
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should handle non-existent buyer ID', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(nonExistentId);
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+    });
   });
 }); 

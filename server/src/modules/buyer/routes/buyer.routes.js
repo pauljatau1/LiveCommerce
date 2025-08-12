@@ -3975,6 +3975,201 @@ router.post('/wallet/topup', verifyToken, isBuyer, buyerController.topUpWallet);
 // Flow: verifyToken -> isBuyer -> buyerController.getWalletTransactions -> service layer
 router.get('/wallet/transactions', verifyToken, isBuyer, buyerController.getWalletTransactions);
 
+/**
+ * @swagger
+ * /api/v2/buyers/sellers:
+ *   get:
+ *     summary: Get list of sellers that can be followed
+ *     description: Returns a list of sellers with filtering, pagination, and sorting options. If authenticated, excludes already followed sellers.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of sellers per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for store name or business name
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category name
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [rating, followers, newest]
+ *           default: rating
+ *         description: Sort criteria for sellers
+ *     responses:
+ *       200:
+ *         description: List of sellers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Sellers retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sellers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           storeName:
+ *                             type: string
+ *                             example: "Fashion Store"
+ *                           businessName:
+ *                             type: string
+ *                             example: "Fashion Store Ltd"
+ *                           aboutStore:
+ *                             type: string
+ *                             example: "Premium fashion items for everyone"
+ *                           storeAvatar:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                                 example: "https://example.com/avatar.jpg"
+ *                           categories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Fashion"
+ *                           stats:
+ *                             type: object
+ *                             properties:
+ *                               averageRating:
+ *                                 type: number
+ *                                 example: 4.5
+ *                               totalReviews:
+ *                                 type: number
+ *                                 example: 150
+ *                           followerCount:
+ *                             type: number
+ *                             example: 1200
+ *                           isVerified:
+ *                             type: boolean
+ *                             example: true
+ *                           isFeatured:
+ *                             type: boolean
+ *                             example: false
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2023-01-15T10:30:00Z"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 150
+ *                     pages:
+ *                       type: integer
+ *                       example: 15
+ *                     current:
+ *                       type: integer
+ *                       example: 1
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Bad request - Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "page"
+ *                       message:
+ *                         type: string
+ *                         example: "Page must be a positive integer"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sort"
+ *                       message:
+ *                         type: string
+ *                         example: "Sort must be one of: rating, followers, newest"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+
+// Route: GET /api/v2/buyers/sellers
+// Purpose: Get sellers that can be followed with filtering and pagination
+// Flow: verifyToken -> isBuyer -> buyerController.getSellersToFollow -> service layer
+router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow);
+
 
 
 module.exports = router;

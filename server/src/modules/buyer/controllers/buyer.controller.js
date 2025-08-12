@@ -26,6 +26,7 @@ const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
 const getSellerProfileService = require('../services/getSellerProfile.service');
 const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
+const getSellersToFollowService = require('../services/getSellersToFollow.service');
 const reviewSellerService = require('../services/reviewSeller.service');
 const getSellerReviewsService = require('../services/getSellerReviews.service');
 const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
@@ -1224,6 +1225,46 @@ async function getWalletTransactions(req, res, next) {
   }
 }
 
+/**
+ * Get sellers that can be followed with filtering and pagination.
+ *
+ * This controller handles the sellers retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted sellers data.
+ * The service applies filters (search, category), excludes sellers
+ * the buyer is already following, and returns paginated results with randomization for better discovery.
+ *
+ * @param {Request} req - Express request object containing query parameters for filtering, pagination, and sorting
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellersToFollow(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Get pagination options from request using service method
+    const pagination = getSellersToFollowService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getSellersToFollowService.getFilters(req);
+
+    let response = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      response = await getSellersToFollowService.getPaginatedSellersToFollow(buyerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      response = await getSellersToFollowService.getSellersToFollow(buyerId, filters);
+    }
+
+    // Send success response with sellers data
+    res.success(response, 'Sellers retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1253,6 +1294,7 @@ module.exports = {
   getSellerProfile,
   getFollowers,
   getFollowing,
+  getSellersToFollow,
   reviewSeller,
   getSellerReviews,
   getNotificationPreferences,
