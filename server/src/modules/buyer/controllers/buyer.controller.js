@@ -26,6 +26,7 @@ const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
 const getSellerProfileService = require('../services/getSellerProfile.service');
 const getFollowersService = require('../services/getFollowers.service');
 const getFollowingService = require('../services/getFollowing.service');
+const getSellersToFollowService = require('../services/getSellersToFollow.service');
 const reviewSellerService = require('../services/reviewSeller.service');
 const getSellerReviewsService = require('../services/getSellerReviews.service');
 const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
@@ -38,6 +39,11 @@ const reportUserService = require('../services/reportUser.service');
 const getWalletBalanceService = require('../services/getWalletBalance.service');
 const verifyWalletTopUpService = require('../services/verifyWalletTopUp.service');
 const topUpWalletService = require('../services/topUpWallet.service');
+const getWalletTransactionsService = require('../services/getWalletTransactions.service');
+const getPublicProfileService = require('../services/getPublicProfile.service');
+const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
+const getActivityStatusService = require('../services/getActivityStatus.service');
+
 
 
 /**
@@ -1179,6 +1185,171 @@ async function topUpWallet(req, res, next) {
   }
 }
 
+/**
+ * Get buyer's wallet transactions with filtering and pagination.
+ *
+ * This controller handles the wallet transactions retrieval HTTP request.
+ * It extracts the buyer ID from the authenticated user and delegates
+ * the transaction retrieval logic to the service layer. The service
+ * applies filters (type, date range), sorts transactions by creation
+ * date, and returns paginated results.
+ *
+ * @param {Request} req - Express request object containing query parameters for filtering and pagination
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getWalletTransactions(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+
+
+    // Get pagination options from request using service method
+    const pagination = getWalletTransactionsService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getWalletTransactionsService.getFilters(req);
+
+    let response = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      response = await getWalletTransactionsService.getPaginatedWalletTransactions(buyerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      response = await getWalletTransactionsService.getWalletTransactions(buyerId, filters);
+    }
+
+    // Send success response with transactions data
+    res.success(response, 'Wallet transactions retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get sellers that can be followed with filtering and pagination.
+ *
+ * This controller handles the sellers retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted sellers data.
+ * The service applies filters (search, category), excludes sellers
+ * the buyer is already following, and returns paginated results with randomization for better discovery.
+ *
+ * @param {Request} req - Express request object containing query parameters for filtering, pagination, and sorting
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSellersToFollow(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Get pagination options from request using service method
+    const pagination = getSellersToFollowService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getSellersToFollowService.getFilters(req);
+
+    let response = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      response = await getSellersToFollowService.getPaginatedSellersToFollow(buyerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      response = await getSellersToFollowService.getSellersToFollow(buyerId, filters);
+    }
+
+    // Send success response with sellers data
+    res.success(response, 'Sellers retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get public profile information for a buyer.
+ *
+ * This controller handles the public profile retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the formatted public profile data.
+ * The service fetches comprehensive public profile information including basic info, statistics,
+ * recent activity, and selected categories.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.params.buyerId`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getPublicProfile(req, res, next) {
+  try {
+    // Extract buyer ID from request parameters
+    const { buyerId } = req.params;
+
+    // Call the service layer to handle public profile retrieval logic
+    const response = await getPublicProfileService.getPublicProfile(buyerId);
+
+    // Send success response with public profile data
+    res.success(response, 'Public profile retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Toggle the activity status of a buyer.
+ *
+ * This controller handles the activity status toggle HTTP request.
+ * It delegates the toggle logic to the service layer and returns the updated status.
+ * The service toggles the buyer's isActive status between true and false.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function toggleActivityStatus(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle activity status toggle logic
+    const response = await toggleActivityStatusService.toggleActivityStatus(buyerId);
+
+    // Send success response with updated status
+    res.success(response, response.message);
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get the activity status of a buyer.
+ *
+ * This controller handles the activity status retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the current status.
+ * The service retrieves the buyer's current isActive status.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getActivityStatus(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle activity status retrieval logic
+    const response = await getActivityStatusService.getActivityStatus(buyerId);
+
+    // Send success response with current status
+    res.success(response, 'Activity status retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1208,6 +1379,7 @@ module.exports = {
   getSellerProfile,
   getFollowers,
   getFollowing,
+  getSellersToFollow,
   reviewSeller,
   getSellerReviews,
   getNotificationPreferences,
@@ -1219,5 +1391,9 @@ module.exports = {
   reportUser,
   getWalletBalance,
   verifyWalletTopUp,
-  topUpWallet
+  topUpWallet,
+  getWalletTransactions,
+  getPublicProfile,
+  toggleActivityStatus,
+  getActivityStatus
 };

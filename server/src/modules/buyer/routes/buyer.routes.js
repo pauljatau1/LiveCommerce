@@ -3767,6 +3767,657 @@ router.get('/wallet/topup/verify', verifyToken, isBuyer, buyerController.verifyW
  */
 router.post('/wallet/topup', verifyToken, isBuyer, buyerController.topUpWallet);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wallet/transactions:
+ *   get:
+ *     summary: Get buyer's wallet transactions
+ *     description: Retrieve a paginated list of wallet transactions for the authenticated buyer. Supports filtering by transaction type and date range.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of transactions per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date (ISO format)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions until this date (ISO format)
+ *     responses:
+ *       200:
+ *         description: Wallet transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet transactions retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     transactions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [credit, debit]
+ *                             example: "credit"
+ *                           amount:
+ *                             type: number
+ *                             example: 1000
+ *                           paymentReference:
+ *                             type: string
+ *                             example: "TXN_123456789"
+ *                           description:
+ *                             type: string
+ *                             example: "Wallet top up"
+ *                           status:
+ *                             type: string
+ *                             enum: [pending, completed, failed]
+ *                             example: "completed"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                           description: Total number of transactions
+ *                           example: 25
+ *                         pages:
+ *                           type: integer
+ *                           description: Total number of pages
+ *                           example: 3
+ *                         current:
+ *                           type: integer
+ *                           description: Current page number
+ *                           example: 1
+ *                         hasMore:
+ *                           type: boolean
+ *                           description: Whether there are more pages
+ *                           example: true
+ *                 pagination:
+ *                   type: "null"
+ *                   nullable: true
+ *                   example: null
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - data
+ *                 - pagination
+ *       400:
+ *         description: Bad request - Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "page"
+ *                       message:
+ *                         type: string
+ *                         example: "Page must be a positive integer"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied!"
+ *       404:
+ *         description: Not found - Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "type"
+ *                       message:
+ *                         type: string
+ *                         example: "Type must be either \"credit\" or \"debit\""
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+
+// Route: GET /api/v2/buyers/wallet/transactions
+// Purpose: Retrieve buyer's wallet transactions with filtering and pagination
+// Flow: verifyToken -> isBuyer -> buyerController.getWalletTransactions -> service layer
+router.get('/wallet/transactions', verifyToken, isBuyer, buyerController.getWalletTransactions);
+
+/**
+ * @swagger
+ * /api/v2/buyers/sellers:
+ *   get:
+ *     summary: Get list of sellers that can be followed
+ *     description: Returns a list of sellers with filtering, pagination, and sorting options. If authenticated, excludes already followed sellers.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of sellers per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for store name or business name
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category name
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [rating, followers, newest]
+ *           default: rating
+ *         description: Sort criteria for sellers
+ *     responses:
+ *       200:
+ *         description: List of sellers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Sellers retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sellers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           storeName:
+ *                             type: string
+ *                             example: "Fashion Store"
+ *                           businessName:
+ *                             type: string
+ *                             example: "Fashion Store Ltd"
+ *                           aboutStore:
+ *                             type: string
+ *                             example: "Premium fashion items for everyone"
+ *                           storeAvatar:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                                 example: "https://example.com/avatar.jpg"
+ *                           categories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Fashion"
+ *                           stats:
+ *                             type: object
+ *                             properties:
+ *                               averageRating:
+ *                                 type: number
+ *                                 example: 4.5
+ *                               totalReviews:
+ *                                 type: number
+ *                                 example: 150
+ *                           followerCount:
+ *                             type: number
+ *                             example: 1200
+ *                           isVerified:
+ *                             type: boolean
+ *                             example: true
+ *                           isFeatured:
+ *                             type: boolean
+ *                             example: false
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2023-01-15T10:30:00Z"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 150
+ *                     pages:
+ *                       type: integer
+ *                       example: 15
+ *                     current:
+ *                       type: integer
+ *                       example: 1
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Bad request - Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "page"
+ *                       message:
+ *                         type: string
+ *                         example: "Page must be a positive integer"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sort"
+ *                       message:
+ *                         type: string
+ *                         example: "Sort must be one of: rating, followers, newest"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+
+// Route: GET /api/v2/buyers/sellers
+// Purpose: Get sellers that can be followed with filtering and pagination
+// Flow: verifyToken -> isBuyer -> buyerController.getSellersToFollow -> service layer
+router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow);
+
+/**
+ * @swagger
+ * /api/v2/buyers/public-profile/{buyerId}:
+ *   get:
+ *     summary: Get public profile information for a buyer
+ *     tags: [Buyer V2]
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The buyer's ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Public profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Public profile retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     basicInfo:
+ *                       type: object
+ *                       properties:
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         username:
+ *                           type: string
+ *                           example: "johndoe"
+ *                         profileImage:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                               example: "https://example.com/profile.jpg"
+ *                         bio:
+ *                           type: string
+ *                           example: "Passionate shopper and reviewer"
+ *                         country:
+ *                           type: string
+ *                           example: "Nigeria"
+ *                         joinedDate:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-01-15T10:30:00Z"
+ *                         isIdentityVerified:
+ *                           type: boolean
+ *                           example: true
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         totalPosts:
+ *                           type: number
+ *                           example: 25
+ *                         totalReviews:
+ *                           type: number
+ *                           example: 15
+ *                         totalFollowers:
+ *                           type: number
+ *                           example: 120
+ *                         totalFollowing:
+ *                           type: number
+ *                           example: 45
+ *                     recentActivity:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             example: "product_review"
+ *                           content:
+ *                             type: string
+ *                             example: "Great product, highly recommended!"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2023-12-01T15:30:00Z"
+ *                     selectedCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *       404:
+ *         description: Buyer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Buyer not found"
+ *       422:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "buyerId"
+ *                       message:
+ *                         type: string
+ *                         example: "Invalid buyer ID format"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ */
+
+// Route: GET /api/v2/buyers/public-profile/{buyerId}
+// Purpose: Get public profile information for a buyer
+// Flow: buyerController.getPublicProfile -> service layer
+router.get('/public-profile/:buyerId', buyerController.getPublicProfile);
+
+/**
+ * @swagger
+ * /api/v2/buyers/toggle-activity:
+ *   post:
+ *     summary: Toggle buyer's activity status
+ *     description: Toggles the buyer's account between active and inactive states
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Activity status toggled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Account successfully deactivated"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isActive:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "Account successfully deactivated"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/toggle-activity', verifyToken, isBuyer, buyerController.toggleActivityStatus);
+
+/**
+ * @swagger
+ * /api/v2/buyers/activity-status:
+ *   get:
+ *     summary: Get buyer's activity status
+ *     description: Retrieves the current activity status of the buyer's account
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved activity status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Activity status retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/activity-status', verifyToken, isBuyer, buyerController.getActivityStatus);
+
 
 
 module.exports = router;

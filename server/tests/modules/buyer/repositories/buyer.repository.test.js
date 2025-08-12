@@ -5053,5 +5053,662 @@ describe('Buyer Repository', () => {
         });
       });
     });
+
+    describe('findSellersToFollow', () => {
+      it('should find sellers with randomization when shouldRandomize is true', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 20; i++) {
+          sellers.push(new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            stats: { averageRating: 4.0, totalReviews: 50 },
+            followers: [],
+            categories: [{ name: 'Fashion' }]
+          }));
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { 'stats.averageRating': -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: true
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(10);
+        expect(result[0]).toHaveProperty('_id');
+        expect(result[0]).toHaveProperty('businessName');
+        expect(result[0]).toHaveProperty('stats');
+        expect(result[0]).toHaveProperty('followers');
+        expect(result[0]).toHaveProperty('categories');
+      });
+
+      it('should find sellers without randomization when shouldRandomize is false', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 5; i++) {
+          const seller = new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            followers: [],
+            categories: [{ name: 'Fashion' }],
+            createdAt: new Date(Date.now() + i * 1000) // Add 1 second delay between each seller
+          });
+          // Set stats after creation to ensure it's properly saved
+          seller.stats = {
+            averageRating: 4.5 - i * 0.1,
+            totalReviews: 50,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          };
+          // Mark the stats field as modified
+          seller.markModified('stats');
+          sellers.push(seller);
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { createdAt: -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(5);
+        // Should be sorted by createdAt (newest first)
+        expect(new Date(result[0].createdAt).getTime()).toBeGreaterThan(new Date(result[1].createdAt).getTime());
+      });
+
+      it('should handle pagination correctly', async () => {
+        // Arrange
+        const sellers = [];
+        for (let i = 0; i < 15; i++) {
+          sellers.push(new Seller({
+            firstName: `John${i}`,
+            lastName: 'Smith',
+            email: `john${i}@example.com`,
+            phoneNumber: `+123456789${i}`,
+            password: 'hashedPassword123',
+            businessName: `Store ${i}`,
+            isDisabled: false,
+            stats: { averageRating: 4.0, totalReviews: 50 },
+            followers: [],
+            categories: [{ name: 'Fashion' }]
+          }));
+        }
+        await Promise.all(sellers.map(seller => seller.save()));
+
+        const options = {
+          query: { isDisabled: false },
+          sortOptions: { createdAt: -1 },
+          skip: 10,
+          limit: 5,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(5);
+      });
+
+      it('should apply search filters correctly', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Fashion Store',
+          storeName: 'Fashion Store',
+          isDisabled: false
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Electronics Store',
+          storeName: 'Electronics Store',
+          isDisabled: false
+        });
+
+        await Promise.all([seller1.save(), seller2.save()]);
+
+        const options = {
+          query: {
+            isDisabled: false,
+            $or: [
+              { storeName: { $regex: 'fashion', $options: 'i' } },
+              { businessName: { $regex: 'fashion', $options: 'i' } }
+            ]
+          },
+          sortOptions: { createdAt: -1 },
+          skip: 0,
+          limit: 10,
+          shouldRandomize: false
+        };
+
+        // Act
+        const result = await buyerRepository.findSellersToFollow(options);
+
+        // Assert
+        expect(result).toHaveLength(1);
+        expect(result[0].businessName).toBe('Fashion Store');
+      });
+    });
+
+    describe('countSellersToFollow', () => {
+      it('should count sellers matching the query', async () => {
+        // Arrange
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Fashion Store',
+          isDisabled: false
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Electronics Store',
+          isDisabled: false
+        });
+
+        const seller3 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          phoneNumber: '+1234567892',
+          password: 'hashedPassword123',
+          businessName: 'Disabled Store',
+          isDisabled: true
+        });
+
+        await Promise.all([seller1.save(), seller2.save(), seller3.save()]);
+
+        // Act
+        const result = await buyerRepository.countSellersToFollow({ isDisabled: false });
+
+        // Assert
+        expect(result).toBe(2);
+      });
+
+      it('should return 0 for no matching sellers', async () => {
+        // Act
+        const result = await buyerRepository.countSellersToFollow({ isDisabled: false });
+
+        // Assert
+        expect(result).toBe(0);
+      });
+    });
+
+    describe('findFollowedSellerIds', () => {
+      it('should return seller IDs that a buyer is following', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const seller1 = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Store 1',
+          followers: [{ buyerId: savedBuyer._id, followDate: new Date() }]
+        });
+
+        const seller2 = new Seller({
+          firstName: 'Mary',
+          lastName: 'Johnson',
+          email: 'mary@example.com',
+          phoneNumber: '+1234567891',
+          password: 'hashedPassword123',
+          businessName: 'Store 2',
+          followers: [{ buyerId: savedBuyer._id, followDate: new Date() }]
+        });
+
+        const seller3 = new Seller({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          phoneNumber: '+1234567892',
+          password: 'hashedPassword123',
+          businessName: 'Store 3',
+          followers: []
+        });
+
+        await Promise.all([seller1.save(), seller2.save(), seller3.save()]);
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(savedBuyer._id);
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result).toEqual(
+          expect.arrayContaining([
+            expect.any(mongoose.Types.ObjectId),
+            expect.any(mongoose.Types.ObjectId)
+          ])
+        );
+      });
+
+      it('should return empty array when buyer is not following any sellers', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        const seller = new Seller({
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john@example.com',
+          phoneNumber: '+1234567890',
+          password: 'hashedPassword123',
+          businessName: 'Store 1',
+          followers: []
+        });
+
+        await seller.save();
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(savedBuyer._id);
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should handle non-existent buyer ID', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.findFollowedSellerIds(nonExistentId);
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('getPublicProfileData', () => {
+      it('should return public profile data for valid buyer ID', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          bio: 'Passionate shopper and reviewer',
+          profileImage: { url: 'https://example.com/profile.jpg' },
+          selectedCategories: [
+            {
+              name: 'Electronics',
+              subCategories: [{ name: 'Smartphones' }]
+            }
+          ],
+          activityFeed: [
+            {
+              type: 'product_review',
+              content: 'Great product, highly recommended!',
+              createdAt: new Date('2023-12-01T15:30:00Z')
+            },
+            {
+              type: 'follow',
+              content: 'Started following a seller',
+              createdAt: new Date('2023-11-30T12:00:00Z')
+            }
+          ],
+          followers: [{ _id: new mongoose.Types.ObjectId() }, { _id: new mongoose.Types.ObjectId() }],
+          following: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create some posts for the buyer
+        const post1 = new Post({
+          title: 'Test Post 1',
+          body: 'Test post 1 content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const post2 = new Post({
+          title: 'Test Post 2',
+          body: 'Test post 2 content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const privatePost = new Post({
+          title: 'Private Post',
+          body: 'Private post content',
+          author: {
+            userId: savedBuyer._id,
+            userModel: 'Buyer',
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName
+          },
+          visibility: 'private',
+          createdAt: new Date()
+        });
+
+        await Promise.all([post1.save(), post2.save(), privatePost.save()]);
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeDefined();
+        expect(result.postCount).toBe(2); // Only public posts
+
+        // Verify buyer data
+        expect(result.buyer._id.toString()).toBe(savedBuyer._id.toString());
+        expect(result.buyer.firstName).toBe('John');
+        expect(result.buyer.lastName).toBe('Doe');
+        expect(result.buyer.username).toBe('johndoe');
+        expect(result.buyer.bio).toBe('Passionate shopper and reviewer');
+        expect(result.buyer.profileImage).toEqual({ url: 'https://example.com/profile.jpg' });
+        expect(result.buyer.country).toBe('NG');
+        expect(result.buyer.isIdentityVerified).toBe(false);
+
+        // Verify populated fields
+        expect(result.buyer.activityFeed).toHaveLength(2);
+        expect(result.buyer.activityFeed[0].type).toBe('product_review');
+        expect(result.buyer.activityFeed[1].type).toBe('follow');
+
+        expect(result.buyer.selectedCategories).toHaveLength(1);
+        expect(result.buyer.selectedCategories[0].name).toBe('Electronics');
+        expect(result.buyer.selectedCategories[0].subCategories).toHaveLength(1);
+        expect(result.buyer.selectedCategories[0].subCategories[0].name).toBe('Smartphones');
+
+        expect(result.buyer.followers).toHaveLength(2);
+        expect(result.buyer.following || []).toHaveLength(0);
+      });
+
+      it('should return null for non-existent buyer ID', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should handle buyer with no posts', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          bio: null,
+          profileImage: null,
+          selectedCategories: [],
+          activityFeed: [],
+          followers: [],
+          following: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeDefined();
+        expect(result.postCount).toBe(0);
+        expect(result.buyer.bio).toBeNull();
+        expect(result.buyer.profileImage).toBeNull();
+        expect(result.buyer.selectedCategories).toHaveLength(0);
+        expect(result.buyer.activityFeed).toHaveLength(0);
+        expect(result.buyer.followers).toHaveLength(0);
+        expect(result.buyer.following || []).toHaveLength(0);
+      });
+
+      it('should only count public posts', async () => {
+        // Arrange
+        const buyer = new Buyer(mockBuyerData);
+        const savedBuyer = await buyer.save();
+
+        // Create public and private posts
+        const publicPost = new Post({
+          title: 'Public Post',
+          body: 'Public post content',
+          author: {
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            userId: savedBuyer._id,
+            userModel: 'Buyer'
+          },
+          visibility: 'public',
+          createdAt: new Date()
+        });
+
+        const privatePost = new Post({
+          title: 'Private Post',
+          body: 'Private post content',
+          author: {
+            firstName: savedBuyer.firstName,
+            lastName: savedBuyer.lastName,
+            userId: savedBuyer._id,
+            userModel: 'Buyer'
+          },
+          visibility: 'private',
+          createdAt: new Date()
+        });
+
+        await Promise.all([publicPost.save(), privatePost.save()]);
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result.postCount).toBe(1); // Only public post
+      });
+
+      it('should handle buyer with complex activity feed', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          activityFeed: [
+            {
+              type: 'product_review',
+              content: 'Review 1',
+              createdAt: new Date('2023-12-01T15:30:00Z')
+            },
+            {
+              type: 'product_review',
+              content: 'Review 2',
+              createdAt: new Date('2023-12-02T15:30:00Z')
+            },
+            {
+              type: 'follow',
+              content: 'Follow 1',
+              createdAt: new Date('2023-12-03T15:30:00Z')
+            },
+            {
+              type: 'product_purchase',
+              content: 'Purchase 1',
+              createdAt: new Date('2023-12-04T15:30:00Z')
+            }
+          ],
+          followers: [
+            { _id: new mongoose.Types.ObjectId() },
+            { _id: new mongoose.Types.ObjectId() },
+            { _id: new mongoose.Types.ObjectId() }
+          ]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
+
+        // Assert
+        expect(result.buyer.activityFeed).toHaveLength(4);
+        expect(result.buyer.followers).toHaveLength(3);
+
+        // Verify activity feed contains the expected activities (order doesn't matter for repository test)
+        const activityTypes = result.buyer.activityFeed.map(activity => activity.type);
+        expect(activityTypes).toContain('product_review');
+        expect(activityTypes).toContain('follow');
+        expect(activityTypes).toContain('product_purchase');
+      });
+    });
+
+    describe('toggleActivityStatus', () => {
+      it('should toggle activity status from true to false', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(false);
+        expect(result.message).toBe('Account successfully deactivated');
+
+        // Verify the buyer was actually updated in the database
+        const updatedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(updatedBuyer.isActive).toBe(false);
+      });
+
+      it('should toggle activity status from false to true', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: false
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+        expect(result.message).toBe('Account successfully activated');
+
+        // Verify the buyer was actually updated in the database
+        const updatedBuyer = await Buyer.findById(savedBuyer._id);
+        expect(updatedBuyer.isActive).toBe(true);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.toggleActivityStatus(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getActivityStatus', () => {
+      it('should return activity status for active buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+      });
+
+      it('should return activity status for inactive buyer', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: false
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(false);
+      });
+
+      it('should return null for non-existent buyer', async () => {
+        // Arrange
+        const nonExistentId = new mongoose.Types.ObjectId();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(nonExistentId);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should only return isActive field', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          isActive: true
+        });
+        const savedBuyer = await buyer.save();
+
+        // Act
+        const result = await buyerRepository.getActivityStatus(savedBuyer._id);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.isActive).toBe(true);
+        expect(Object.keys(result)).toHaveLength(1);
+        expect(result).toHaveProperty('isActive');
+      });
+    });
   });
 }); 
