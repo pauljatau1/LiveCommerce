@@ -5,6 +5,15 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const bankService = require('../services/bankService');
+const rateLimit = require('express-rate-limit');
+
+// Per-route rate limiter for login to mitigate brute-force and injection probing
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // max attempts per IP in window
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 
 /**
@@ -59,7 +68,7 @@ router.post('/register', adminController.register);
  *       500:
  *         description: Internal server error
  */
-router.post('/login', adminController.login);
+router.post('/login', adminLoginLimiter, adminController.login);
 
 /**
  * @swagger
