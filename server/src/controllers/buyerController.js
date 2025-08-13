@@ -232,19 +232,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // Only save token if provided
-    if (expoPushToken) {
-      await saveToken(buyer._id, expoPushToken);
-    }
-
-    const userToken = await getToken(buyer._id);
-    if (userToken) {
-      await expo.sendPushNotificationsAsync([{
-        to: userToken.token,
-        title: `Welcome to Auqli`,
-        body: `You have successfully logged in to your account`
-      }]);
-    }
+    // Push notifications are not sent on login and we do not update the device token here
 
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
