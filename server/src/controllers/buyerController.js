@@ -10,7 +10,7 @@ const Seller = require('../models/Seller')
 const Product = require('../models/Product');
 const Post = require('../models/Post');
 const Stream = require('../models/Stream');
-const { saveToken, getToken } = require('../../Firebase');
+const { saveToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
@@ -232,7 +232,14 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // Push notifications are not sent on login and we do not update the device token here
+    // Save the device token if provided; do not block login on failure
+    if (expoPushToken) {
+      try {
+        await saveToken(buyer._id, expoPushToken);
+      } catch (tokenErr) {
+        console.error('Failed to save Expo token on login:', tokenErr);
+      }
+    }
 
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
