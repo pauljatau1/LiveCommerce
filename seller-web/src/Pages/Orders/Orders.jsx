@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/Components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/Components/ui/popover";
-import { CalendarIcon, ShoppingBag, Video, Gavel, Radio, Tv, FilterX, Filter, ChevronDown } from "lucide-react";
+import { CalendarIcon, ShoppingBag, Video, Gavel, Radio, Tv, FilterX, Filter, ChevronDown, Search as SearchIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -151,9 +151,7 @@ export default function OrdersDashboard() {
   const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [allOrders, setAllOrders] = useState([]); // Store all orders
-  const [filteredOrders, setFilteredOrders] = useState([]); // Store filtered orders
-  const [displayedOrders, setDisplayedOrders] = useState([]); // Store paginated orders to display
+  const [displayedOrders, setDisplayedOrders] = useState([]); // Orders returned from server
   const [loading, setLoading] = useState(true);
   const [sellerId, setSellerId] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
@@ -162,6 +160,7 @@ export default function OrdersDashboard() {
   const [totalPages, setTotalPages] = useState(1);
   const [date, setDate] = useState();
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState("-createdAt");
@@ -175,9 +174,10 @@ export default function OrdersDashboard() {
   const fetchOrders = async (id, token) => {
     try {
       setLoading(true);
-      // Fetch all orders at once with a large limit
+      // Server-side pagination & filtering
       const queryParams = new URLSearchParams({
-        limit: 1000, // Fetch a large number of orders
+        page: currentPage.toString(),
+        limit: ordersPerPage.toString(),
         ...(date?.from && date?.to && {
           startDate: date.from.toISOString(),
           endDate: date.to.toISOString()
@@ -185,6 +185,7 @@ export default function OrdersDashboard() {
         ...(searchTerm && { search: searchTerm }),
         ...(paymentFilter !== "all" && { paymentStatus: paymentFilter }),
         ...(channelFilter !== "all" && { channel: channelFilter }),
+        ...(activeTab && { tab: activeTab }),
         sort: sortConfig
       });
 
@@ -195,62 +196,14 @@ export default function OrdersDashboard() {
       });
       const data = await response.json();
 
-      // Store all orders
-      setAllOrders(data.orders || []);
-
-      // Apply filters based on active tab
-      applyFilters(data.orders || []);
+      setDisplayedOrders(data.orders || []);
+      const pages = data?.pagination?.pages || 1;
+      setTotalPages(Math.max(1, pages));
     } catch (error) {
       console.error("Error fetching orders:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Apply filters based on active tab and other filter criteria
-  const applyFilters = (orders) => {
-    let filtered = [...orders];
-
-    // Apply tab-specific filters
-    if (activeTab === "abandoned") {
-      // Only show abandoned orders (isStale=true)
-      filtered = filtered.filter(order => order.isStale === true);
-    } else {
-      // For all other tabs, exclude abandoned orders
-      filtered = filtered.filter(order => !order.isStale);
-
-      // Further filter based on shipping status for specific tabs
-      if (activeTab === "process") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "pending");
-      } else if (activeTab === "transit") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "picked_up" || order.shipping.tracking.status === "picked-up");
-      } else if (activeTab === "delivered") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "delivered" || order.shipping.tracking.status === "Delivered");
-      } else if (activeTab === "cancelled") {
-        filtered = filtered.filter(order => order.shipping.tracking.status === "cancelled");
-      }
-      // "all" tab shows all non-abandoned orders, no additional filtering needed
-    }
-
-    // Store filtered orders
-    setFilteredOrders(filtered);
-
-    // Calculate total pages
-    const pages = Math.max(1, Math.ceil(filtered.length / ordersPerPage));
-    setTotalPages(pages);
-
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
-
-    // Update displayed orders for page 1
-    updateDisplayedOrders(filtered, 1);
-  };
-
-  // Update displayed orders based on current page
-  const updateDisplayedOrders = (orders, page) => {
-    const startIndex = (page - 1) * ordersPerPage;
-    const endIndex = startIndex + ordersPerPage;
-    setDisplayedOrders(orders.slice(startIndex, endIndex));
   };
 
   useEffect(() => {
@@ -278,25 +231,20 @@ export default function OrdersDashboard() {
     fetchSellerProfile();
   }, []);
 
-  // Re-apply filters when any filter criteria changes
+  // Reset page when non-pagination filters change
   useEffect(() => {
-    if (allOrders.length > 0) {
-      applyFilters(allOrders);
-    }
+    setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, date, searchTerm, paymentFilter, channelFilter]);
 
-  // Update displayed orders when page or ordersPerPage changes
-  useEffect(() => {
-    updateDisplayedOrders(filteredOrders, currentPage);
-  }, [currentPage, ordersPerPage, filteredOrders]);
-
-  // Re-fetch orders only when date, search, payment, channel, or sort changes
+  // Refetch orders when filters, pagination, or sorting changes
   useEffect(() => {
     if (sellerId) {
       const sellerToken = JSON.parse(localStorage.getItem("sellerToken"));
       fetchOrders(sellerId, sellerToken.data);
     }
-  }, [date, searchTerm, paymentFilter, channelFilter, sortConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellerId, currentPage, ordersPerPage, activeTab, date, searchTerm, paymentFilter, channelFilter, sortConfig]);
 
   const handleOrdersPerPageChange = (e) => {
     setOrdersPerPage(Number.parseInt(e, 10));
@@ -309,6 +257,22 @@ export default function OrdersDashboard() {
 
   const handleNextPage = () => {
     setCurrentPage((prevPage) => Math.min(totalPages, prevPage + 1));
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchTerm(searchInput.trim());
+  };
+
+  const handleResetFilters = () => {
+    setDate(null);
+    setSearchTerm("");
+    setSearchInput("");
+    setPaymentFilter("all");
+    setChannelFilter("all");
+    setActiveTab("all");
+    setSortConfig("-createdAt");
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -362,52 +326,23 @@ export default function OrdersDashboard() {
             <DrawerTitle>Filter Orders</DrawerTitle>
           </DrawerHeader>
           <div className="space-y-4 p-1">
-            <div>
-              <p className="text-sm font-medium mb-2">Date Range</p>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start bg-[#0BB24817] hover:bg-[#DEFFEE] transition-all duration-300 text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                      date.to ? (
-                        <>
-                          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(date.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Pick a date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={1}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
 
             <div>
-              <p className="text-sm font-medium mb-2">Search</p>
-              <Input
-                placeholder="Search orders..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
+              <p className="text-sm font-medium mb-2">Search by Order ID</p>
+              <div className="flex items-center gap-2 w-full">
+                <Input
+                  placeholder="Enter order ID"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch();
+                  }}
+                  className="w-full"
+                />
+                <Button variant="outline" onClick={handleSearch} className="shrink-0">
+                  <SearchIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div>
@@ -424,29 +359,30 @@ export default function OrdersDashboard() {
               </Select>
             </div>
 
-            <div>
+              <div>
               <p className="text-sm font-medium mb-2">Channel</p>
-              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <Select value={channelFilter} onValueChange={setChannelFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Channel" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Channels</SelectItem>
                   <SelectItem value="marketplace">Marketplace</SelectItem>
-                  <SelectItem value="live">liveshow</SelectItem>
-                  <SelectItem value="auction">auction</SelectItem>
+                    <SelectItem value="liveshow">Liveshow</SelectItem>
+                    <SelectItem value="auction">Auction</SelectItem>
                   <SelectItem value="blips">Blips</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DrawerFooter className="pt-2">
-            <Button
+              <Button
               variant="outline"
               className="w-full border-slate-300 hover:bg-slate-100"
               onClick={() => {
                 setDate(null);
-                setSearchTerm("");
+                  setSearchTerm("");
+                  setSearchInput("");
                 setPaymentFilter("all");
                 setChannelFilter("all");
               }}
@@ -455,7 +391,7 @@ export default function OrdersDashboard() {
               Clear Filters
             </Button>
             <DrawerClose asChild>
-              <Button className="w-full bg-green-600 hover:bg-green-700">Apply Filters</Button>
+              <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleSearch}>Apply Filters</Button>
             </DrawerClose>
           </DrawerFooter>
         </DrawerContent>
@@ -563,47 +499,21 @@ export default function OrdersDashboard() {
 
               {/* Desktop Filters */}
               <div className="hidden sm:flex flex-wrap gap-4">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[240px] justify-start bg-[#0BB24817] hover:bg-[#DEFFEE] transition-all duration-300 text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date?.from ? (
-                        date.to ? (
-                          <>
-                            {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(date.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={date?.from}
-                      selected={date}
-                      onSelect={setDate}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
+                
 
-                <Input
-                  placeholder="Search orders..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-[240px]"
-                />
+                <div className="flex items-center gap-2 w-[240px]">
+                  <Input
+                    placeholder="Search by Order ID"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch();
+                    }}
+                  />
+                  <Button variant="outline" onClick={handleSearch} className="shrink-0">
+                    <SearchIcon className="h-4 w-4" />
+                  </Button>
+                </div>
 
                 <Select value={paymentFilter} onValueChange={setPaymentFilter}>
                   <SelectTrigger className="w-[180px]">
@@ -623,11 +533,20 @@ export default function OrdersDashboard() {
                   <SelectContent>
                     <SelectItem value="all">All Channels</SelectItem>
                     <SelectItem value="marketplace">Marketplace</SelectItem>
-                    <SelectItem value="live">liveshow</SelectItem>
-                    <SelectItem value="auction">auction</SelectItem>
+                    <SelectItem value="liveshow">Liveshow</SelectItem>
+                    <SelectItem value="auction">Auction</SelectItem>
                     <SelectItem value="blips">Blips</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Button
+                  variant="outline"
+                  className="border-slate-300 hover:bg-slate-100"
+                  onClick={handleResetFilters}
+                >
+                  <FilterX className="w-4 h-4 mr-2" />
+                  Reset All Filters
+                </Button>
               </div>
             </div>
 
