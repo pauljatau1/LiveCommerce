@@ -185,9 +185,6 @@ async function preparePaginatedParams(buyerId, { page, limit, filters }) {
  * @returns {Array} Array of seller IDs to exclude
  */
 async function getExcludeSellerIds(buyerId) {
-  if (!buyerId) {
-    return [];
-  }
   return await buyerRepository.findFollowedSellerIds(buyerId);
 }
 

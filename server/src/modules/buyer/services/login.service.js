@@ -4,7 +4,7 @@ const { generateToken } = require('../../../utils/helpers');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 const UnauthorizedException = require('../../../utils/errors/UnauthorizedException');
-const { validateLoginInput } = require('../validators/login.validator');
+const { validateLoginData } = require('../validators/login.validator');
 const expo = require('expo-server-sdk').Expo; // Ensure `expo-server-sdk` is installed
 const { findByEmail } = require('../repositories/buyer.repository');
 const expoInstance = new expo();
@@ -20,11 +20,8 @@ const expoInstance = new expo();
  * @returns {Promise<Object>} - Authenticated user and token
  */
 async function login(data) {
-  // Validate email/password presence
-  const errors = validateLoginInput(data);
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
-  }
+  // Validate input data
+  await validateLoginData(data);
 
   const { email, password, expoPushToken, googleToken } = data;
 

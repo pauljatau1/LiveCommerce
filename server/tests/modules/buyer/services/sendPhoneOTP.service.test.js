@@ -54,13 +54,13 @@ describe('Send Phone OTP Service', () => {
 
       buyerRepository.findById.mockResolvedValue(mockBuyer);
       buyerRepository.updatePhoneVerification.mockResolvedValue(mockBuyer);
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
 
       // Act
       const result = await sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber);
 
       // Assert
-      expect(sendPhoneOTPValidator.validatePhoneNumberFormat).toHaveBeenCalledWith(phoneNumber);
+      expect(sendPhoneOTPValidator.validateSendPhoneOTPData).toHaveBeenCalledWith({ phoneNumber });
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
       expect(buyerRepository.updatePhoneVerification).toHaveBeenCalledWith(buyerId, {
         otp: expect.any(String),
@@ -79,7 +79,7 @@ describe('Send Phone OTP Service', () => {
       const buyerId = '507f1f77bcf86cd799439011';
       const phoneNumber = 'invalid-phone';
 
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockRejectedValue(
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockRejectedValue(
         new ValidationError([{ field: 'phoneNumber', message: 'Invalid phone number format' }])
       );
 
@@ -88,7 +88,7 @@ describe('Send Phone OTP Service', () => {
         sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber)
       ).rejects.toThrow(ValidationError);
 
-      expect(sendPhoneOTPValidator.validatePhoneNumberFormat).toHaveBeenCalledWith(phoneNumber);
+      expect(sendPhoneOTPValidator.validateSendPhoneOTPData).toHaveBeenCalledWith({ phoneNumber });
       expect(buyerRepository.findById).not.toHaveBeenCalled();
     });
 
@@ -98,14 +98,14 @@ describe('Send Phone OTP Service', () => {
       const phoneNumber = '+2348012345678';
 
       buyerRepository.findById.mockResolvedValue(null);
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
 
       // Act & Assert
       await expect(
         sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber)
       ).rejects.toThrow(NotFoundException);
 
-      expect(sendPhoneOTPValidator.validatePhoneNumberFormat).toHaveBeenCalledWith(phoneNumber);
+      expect(sendPhoneOTPValidator.validateSendPhoneOTPData).toHaveBeenCalledWith({ phoneNumber });
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
       expect(buyerRepository.updatePhoneVerification).not.toHaveBeenCalled();
     });
@@ -117,7 +117,7 @@ describe('Send Phone OTP Service', () => {
 
       buyerRepository.findById.mockResolvedValue(mockBuyer);
       buyerRepository.updatePhoneVerification.mockResolvedValue(mockBuyer);
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
       mockSNSClient.send.mockRejectedValue(new Error('SMS sending failed'));
 
       // Act & Assert
@@ -125,7 +125,7 @@ describe('Send Phone OTP Service', () => {
         sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber)
       ).rejects.toThrow(InternalErrorException);
 
-      expect(sendPhoneOTPValidator.validatePhoneNumberFormat).toHaveBeenCalledWith(phoneNumber);
+      expect(sendPhoneOTPValidator.validateSendPhoneOTPData).toHaveBeenCalledWith({ phoneNumber });
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
       expect(buyerRepository.updatePhoneVerification).toHaveBeenCalled();
       expect(mockSNSClient.send).toHaveBeenCalled();
@@ -141,7 +141,7 @@ describe('Send Phone OTP Service', () => {
         expect(data.otp).toMatch(/^\d{6}$/);
         return mockBuyer;
       });
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
 
       // Act
       await sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber);
@@ -166,7 +166,7 @@ describe('Send Phone OTP Service', () => {
         expect(data.expiresAt.getTime()).toBeCloseTo(expectedExpiry.getTime(), -2);
         return mockBuyer;
       });
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
 
       // Act
       await sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber);
@@ -186,7 +186,7 @@ describe('Send Phone OTP Service', () => {
 
       buyerRepository.findById.mockResolvedValue(mockBuyer);
       buyerRepository.updatePhoneVerification.mockResolvedValue(mockBuyer);
-      sendPhoneOTPValidator.validatePhoneNumberFormat.mockResolvedValue();
+      sendPhoneOTPValidator.validateSendPhoneOTPData.mockResolvedValue();
 
       // Act
       await sendPhoneOTPService.sendPhoneOTP(buyerId, phoneNumber);

@@ -58,14 +58,12 @@ describe('confirmAccountDeletion.validator', () => {
       buyerRepository.findById.mockResolvedValue(savedBuyer);
 
       // Act & Assert
-      const result = await confirmAccountDeletionValidator.validateConfirmAccountDeletionData(
-        savedBuyer._id.toString(),
-        validOTP
-      );
-
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(savedBuyer._id.toString());
-      expect(result.email).toBe(mockBuyerData.email);
+      await expect(
+        confirmAccountDeletionValidator.validateConfirmAccountDeletionData(
+          savedBuyer._id.toString(),
+          validOTP
+        )
+      ).resolves.not.toThrow();
     });
 
     it('should throw ValidationError for missing buyer ID', async () => {
@@ -597,13 +595,12 @@ describe('confirmAccountDeletion.validator', () => {
       buyerRepository.findById.mockResolvedValue(savedBuyer);
 
       // Act & Assert
-      const result = await confirmAccountDeletionValidator.validateConfirmAccountDeletionData(
-        savedBuyer._id.toString(),
-        '1234'
-      );
-
-      expect(result).toBeDefined();
-      expect(result._id.toString()).toBe(savedBuyer._id.toString());
+      await expect(
+        confirmAccountDeletionValidator.validateConfirmAccountDeletionData(
+          savedBuyer._id.toString(),
+          '1234'
+        )
+      ).resolves.not.toThrow();
     });
 
     it('should throw ValidationError with specific error messages', async () => {

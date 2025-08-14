@@ -5710,5 +5710,234 @@ describe('Buyer Repository', () => {
         expect(result).toHaveProperty('isActive');
       });
     });
+
+    describe('selectMajorCategories', () => {
+      let MajorCategory, Category;
+
+      beforeEach(async () => {
+        // Use existing models
+        MajorCategory = require('@models/MajorCategory');
+        Category = require('@models/Category');
+
+        // Clear collections
+        await MajorCategory.deleteMany({});
+        await Category.deleteMany({});
+      });
+
+      afterEach(async () => {
+        // Clean up
+        await MajorCategory.deleteMany({});
+        await Category.deleteMany({});
+      });
+
+      it('should successfully select major categories and add their child categories', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          selectedCategories: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create categories
+        const category1 = new Category({
+          name: 'Electronics',
+          subCategories: [{ name: 'Smartphones' }, { name: 'Laptops' }]
+        });
+        const category2 = new Category({
+          name: 'Clothing',
+          subCategories: [{ name: 'T-Shirts' }, { name: 'Jeans' }]
+        });
+        const savedCategory1 = await category1.save();
+        const savedCategory2 = await category2.save();
+
+        // Create major categories
+        const majorCategory1 = new MajorCategory({
+          name: 'Tech',
+          isActive: true,
+          categories: [savedCategory1._id]
+        });
+        const majorCategory2 = new MajorCategory({
+          name: 'Fashion',
+          isActive: true,
+          categories: [savedCategory2._id]
+        });
+        const savedMajorCategory1 = await majorCategory1.save();
+        const savedMajorCategory2 = await majorCategory2.save();
+
+        const majorCategoryIds = [savedMajorCategory1._id, savedMajorCategory2._id];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(savedBuyer._id, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeDefined();
+        expect(result.selectedCategories).toBeDefined();
+        expect(result.addedCategories).toBeDefined();
+        expect(result.selectedCategories).toHaveLength(2);
+        expect(result.addedCategories).toHaveLength(2);
+
+        // Verify categories were added correctly
+        const categoryNames = result.selectedCategories.map(cat => cat.name);
+        expect(categoryNames).toContain('Electronics');
+        expect(categoryNames).toContain('Clothing');
+
+        // Verify subcategories were added correctly
+        const electronicsCategory = result.selectedCategories.find(cat => cat.name === 'Electronics');
+        expect(electronicsCategory.subCategories).toHaveLength(2);
+        expect(electronicsCategory.subCategories.map(sub => sub.name)).toContain('Smartphones');
+        expect(electronicsCategory.subCategories.map(sub => sub.name)).toContain('Laptops');
+      });
+
+      it('should merge with existing categories and avoid duplicates', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          selectedCategories: [
+            {
+              name: 'Electronics',
+              subCategories: [{ name: 'Smartphones' }]
+            }
+          ]
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create category
+        const category = new Category({
+          name: 'Electronics',
+          subCategories: [{ name: 'Smartphones' }, { name: 'Laptops' }]
+        });
+        const savedCategory = await category.save();
+
+        // Create major category
+        const majorCategory = new MajorCategory({
+          name: 'Tech',
+          isActive: true,
+          categories: [savedCategory._id]
+        });
+        const savedMajorCategory = await majorCategory.save();
+
+        const majorCategoryIds = [savedMajorCategory._id];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(savedBuyer._id, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.selectedCategories).toHaveLength(1); // Should not duplicate Electronics
+        expect(result.addedCategories).toHaveLength(0); // Should not add duplicate category
+
+        // Verify the existing category remains
+        const electronicsCategory = result.selectedCategories.find(cat => cat.name === 'Electronics');
+        expect(electronicsCategory).toBeDefined();
+        expect(electronicsCategory.subCategories).toHaveLength(1); // Should keep original subcategories
+      });
+
+      it('should return null when buyer is not found', async () => {
+        // Arrange
+        const nonExistentBuyerId = new mongoose.Types.ObjectId();
+        const majorCategoryIds = [new mongoose.Types.ObjectId()];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(nonExistentBuyerId, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeNull();
+      });
+
+      it('should return error when no active major categories found', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          selectedCategories: []
+        });
+        const savedBuyer = await buyer.save();
+
+        const majorCategoryIds = [new mongoose.Types.ObjectId()];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(savedBuyer._id, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.error).toBe('No active major categories found with the provided IDs');
+      });
+
+      it('should handle inactive major categories', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          selectedCategories: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create category
+        const category = new Category({
+          name: 'Electronics',
+          subCategories: [{ name: 'Smartphones' }]
+        });
+        const savedCategory = await category.save();
+
+        // Create inactive major category
+        const majorCategory = new MajorCategory({
+          name: 'Tech',
+          isActive: false,
+          categories: [savedCategory._id]
+        });
+        const savedMajorCategory = await majorCategory.save();
+
+        const majorCategoryIds = [savedMajorCategory._id];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(savedBuyer._id, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.error).toBe('No active major categories found with the provided IDs');
+      });
+
+      it('should handle multiple categories from single major category', async () => {
+        // Arrange
+        const buyer = new Buyer({
+          ...mockBuyerData,
+          selectedCategories: []
+        });
+        const savedBuyer = await buyer.save();
+
+        // Create multiple categories
+        const category1 = new Category({
+          name: 'Electronics',
+          subCategories: [{ name: 'Smartphones' }]
+        });
+        const category2 = new Category({
+          name: 'Computers',
+          subCategories: [{ name: 'Laptops' }]
+        });
+        const savedCategory1 = await category1.save();
+        const savedCategory2 = await category2.save();
+
+        // Create major category with multiple categories
+        const majorCategory = new MajorCategory({
+          name: 'Tech',
+          isActive: true,
+          categories: [savedCategory1._id, savedCategory2._id]
+        });
+        const savedMajorCategory = await majorCategory.save();
+
+        const majorCategoryIds = [savedMajorCategory._id];
+
+        // Act
+        const result = await buyerRepository.selectMajorCategories(savedBuyer._id, majorCategoryIds);
+
+        // Assert
+        expect(result).toBeDefined();
+        expect(result.selectedCategories).toHaveLength(2);
+        expect(result.addedCategories).toHaveLength(2);
+
+        const categoryNames = result.selectedCategories.map(cat => cat.name);
+        expect(categoryNames).toContain('Electronics');
+        expect(categoryNames).toContain('Computers');
+      });
+    });
   });
 }); 

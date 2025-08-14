@@ -69,8 +69,8 @@ function updateBuyerIdentityDocument(buyer, uploadResult) {
  * @returns {Promise<Object>} An object containing the uploaded document information
  */
 async function uploadIdentityDocument(buyerId, file) {
-  // Validate the upload request
-  await uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(buyerId, file);
+  // Validate input data
+  await uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({ buyerId, file });
 
   // Get buyer data
   const buyer = await buyerRepository.findById(buyerId);

@@ -11,10 +11,7 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  */
 async function getActivityStatus(buyerId) {
   // Validate input data
-  const validationResult = validateGetActivityStatusData({ buyerId });
-  if (validationResult.errors.length > 0) {
-    throw new ValidationError(validationResult.errors);
-  }
+  await validateGetActivityStatusData({ buyerId });
 
   // Get activity status from repository
   const isActive = await buyerRepository.getActivityStatus(buyerId);

@@ -11,8 +11,7 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  */
 function validateFieldIfProvided(data, fieldName, validator, errors) {
   if (data[fieldName] !== undefined) {
-    const error = validator(data[fieldName]);
-    if (error) errors.push(error);
+    validator(data[fieldName], errors);
   }
 }
 
@@ -20,11 +19,9 @@ function validateFieldIfProvided(data, fieldName, validator, errors) {
  * Validates all fields in the profile update data.
  * 
  * @param {Object} data - Profile update data.
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateAllFields(data) {
-  const errors = [];
-  
+function validateAllFields(data, errors) {
   const fieldValidators = [
     { field: 'firstName', validator: validateFirstName },
     { field: 'lastName', validator: validateLastName },
@@ -39,8 +36,6 @@ function validateAllFields(data) {
   fieldValidators.forEach(({ field, validator }) => {
     validateFieldIfProvided(data, field, validator, errors);
   });
-
-  return errors;
 }
 
 /**
@@ -50,7 +45,8 @@ function validateAllFields(data) {
  * @throws {ValidationError} If validation fails.
  */
 async function validateUpdateProfileData(data) {
-  const errors = validateAllFields(data);
+  const errors = [];
+  validateAllFields(data, errors);
 
   if (errors.length > 0) {
     throw new ValidationError(errors);
@@ -60,203 +56,185 @@ async function validateUpdateProfileData(data) {
 /**
  * Validate the firstName field.
  * 
- * @param {string} firstName
- * @returns {Object|null} Error object or null
+ * @param {string} firstName - The first name to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateFirstName(firstName) {
+function validateFirstName(firstName, errors) {
   if (firstName === null || firstName === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(firstName, 'firstName');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (firstName.length > 100) {
-    return { field: 'firstName', message: 'First name must not exceed 100 characters' };
+    errors.push({ field: 'firstName', message: 'First name must not exceed 100 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the lastName field.
  * 
- * @param {string} lastName
- * @returns {Object|null} Error object or null
+ * @param {string} lastName - The last name to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateLastName(lastName) {
+function validateLastName(lastName, errors) {
   if (lastName === null || lastName === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(lastName, 'lastName');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (lastName.length > 100) {
-    return { field: 'lastName', message: 'Last name must not exceed 100 characters' };
+    errors.push({ field: 'lastName', message: 'Last name must not exceed 100 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the username field.
  * 
- * @param {string} username
- * @returns {Object|null} Error object or null
+ * @param {string} username - The username to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateUsername(username) {
+function validateUsername(username, errors) {
   if (username === null || username === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check if username contains spaces
   if (username.includes(' ')) {
-    return { field: 'username', message: 'Username cannot contain spaces' };
+    errors.push({ field: 'username', message: 'Username cannot contain spaces' });
   }
 
   // Check minimum length
   if (username.length < 3) {
-    return { field: 'username', message: 'Username must be at least 3 characters long' };
+    errors.push({ field: 'username', message: 'Username must be at least 3 characters long' });
   }
 
   // Check maximum length
   if (username.length > 30) {
-    return { field: 'username', message: 'Username must not exceed 30 characters' };
+    errors.push({ field: 'username', message: 'Username must not exceed 30 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the country field.
  * 
- * @param {string} country
- * @returns {Object|null} Error object or null
+ * @param {string} country - The country to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateCountry(country) {
+function validateCountry(country, errors) {
   if (country === null || country === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(country, 'country');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (country.length > 100) {
-    return { field: 'country', message: 'Country must not exceed 100 characters' };
+    errors.push({ field: 'country', message: 'Country must not exceed 100 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the phoneNumber field.
  * 
- * @param {string} phoneNumber
- * @returns {Object|null} Error object or null
+ * @param {string} phoneNumber - The phone number to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validatePhoneNumber(phoneNumber) {
+function validatePhoneNumber(phoneNumber, errors) {
   if (phoneNumber === null || phoneNumber === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Basic phone number validation (can be enhanced based on requirements)
   if (phoneNumber.length < 10 || phoneNumber.length > 15) {
-    return { field: 'phoneNumber', message: 'Phone number must be between 10 and 15 characters' };
+    errors.push({ field: 'phoneNumber', message: 'Phone number must be between 10 and 15 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the bio field.
  * 
- * @param {string} bio
- * @returns {Object|null} Error object or null
+ * @param {string} bio - The bio to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBio(bio) {
+function validateBio(bio, errors) {
   if (bio === null || bio === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(bio, 'bio');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (bio.length > 500) {
-    return { field: 'bio', message: 'Bio must not exceed 500 characters' };
+    errors.push({ field: 'bio', message: 'Bio must not exceed 500 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the preferredLanguage field.
  * 
- * @param {string} preferredLanguage
- * @returns {Object|null} Error object or null
+ * @param {string} preferredLanguage - The preferred language to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validatePreferredLanguage(preferredLanguage) {
+function validatePreferredLanguage(preferredLanguage, errors) {
   if (preferredLanguage === null || preferredLanguage === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(preferredLanguage, 'preferredLanguage');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (preferredLanguage.length > 10) {
-    return { field: 'preferredLanguage', message: 'Preferred language must not exceed 10 characters' };
+    errors.push({ field: 'preferredLanguage', message: 'Preferred language must not exceed 10 characters' });
   }
-
-  return null;
 }
 
 /**
  * Validate the preferredCurrency field.
  * 
- * @param {string} preferredCurrency
- * @returns {Object|null} Error object or null
+ * @param {string} preferredCurrency - The preferred currency to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validatePreferredCurrency(preferredCurrency) {
+function validatePreferredCurrency(preferredCurrency, errors) {
   if (preferredCurrency === null || preferredCurrency === undefined) {
-    return null; // Allow empty values for updates
+    return; // Allow empty values for updates
   }
 
   // Check for XSS patterns
   const xssError = validateXSS(preferredCurrency, 'preferredCurrency');
   if (xssError) {
-    return xssError;
+    errors.push(xssError);
   }
 
   // Check maximum length
   if (preferredCurrency.length > 3) {
-    return { field: 'preferredCurrency', message: 'Preferred currency must not exceed 3 characters' };
+    errors.push({ field: 'preferredCurrency', message: 'Preferred currency must not exceed 3 characters' });
   }
-
-  return null;
 }
 
 module.exports = {
-  validateUpdateProfileData,
-  validateFieldIfProvided,
-  validateAllFields,
+  validateUpdateProfileData
 }; 

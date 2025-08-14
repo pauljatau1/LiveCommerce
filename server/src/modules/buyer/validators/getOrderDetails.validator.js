@@ -23,9 +23,10 @@ function validateOrderId(orderId, errors) {
  * Validates the order ID parameter for getOrderDetails.
  *
  * @param {Object} data - The request parameters
- * @returns {Array} Array of validation errors
+ * @param {string} data.id - The order ID to validate
+ * @throws {ValidationError} If validation fails
  */
-function validateGetOrderDetailsInput(data) {
+async function validateGetOrderDetailsData(data) {
   const errors = [];
 
   if (!data || data === null || data === undefined) {
@@ -34,9 +35,11 @@ function validateGetOrderDetailsInput(data) {
     validateOrderId(data.id, errors);
   }
 
-  return errors;
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {
-  validateGetOrderDetailsInput
+  validateGetOrderDetailsData
 }; 

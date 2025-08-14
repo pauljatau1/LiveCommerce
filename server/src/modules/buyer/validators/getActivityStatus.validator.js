@@ -1,109 +1,62 @@
-const { ObjectId } = require('mongodb');
+const ValidationError = require('../../../utils/errors/ValidationError');
 
 /**
- * Check if buyer ID is provided (not null or undefined)
- * @param {string} buyerId - The buyer ID to check
- * @returns {string|null} Error message or null if valid
- */
-function checkBuyerIdProvided(buyerId) {
-  if (buyerId === null || buyerId === undefined) {
-    return 'Buyer ID is required';
-  }
-  return null;
-}
-
-/**
- * Check if buyer ID is a string
- * @param {string} buyerId - The buyer ID to check
- * @returns {string|null} Error message or null if valid
- */
-function checkBuyerIdIsString(buyerId) {
-  if (typeof buyerId !== 'string') {
-    return 'Buyer ID must be a string';
-  }
-  return null;
-}
-
-/**
- * Check if buyer ID is not empty
- * @param {string} buyerId - The buyer ID to check
- * @returns {string|null} Error message or null if valid
- */
-function checkBuyerIdNotEmpty(buyerId) {
-  if (buyerId.trim() === '') {
-    return 'Buyer ID cannot be empty';
-  }
-  return null;
-}
-
-/**
- * Check if buyer ID is a valid ObjectId
- * @param {string} buyerId - The buyer ID to check
- * @returns {string|null} Error message or null if valid
- */
-function checkBuyerIdIsValidObjectId(buyerId) {
-  if (!ObjectId.isValid(buyerId)) {
-    return 'Buyer ID must be a valid ObjectId';
-  }
-  return null;
-}
-
-/**
- * Validate buyer ID for activity status operations
+ * Validate buyer ID from request.
+ * 
  * @param {string} buyerId - The buyer ID to validate
- * @returns {Object} Validation result with errors array
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBuyerId(buyerId) {
-  const errors = [];
-
-  // Check if buyerId is provided
-  const providedError = checkBuyerIdProvided(buyerId);
-  if (providedError) {
-    errors.push(providedError);
-    return { errors };
+function validateBuyerId(buyerId, errors) {
+  if (!buyerId) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID is required'
+    });
+    return;
   }
 
-  // Check if buyerId is a string
-  const stringError = checkBuyerIdIsString(buyerId);
-  if (stringError) {
-    errors.push(stringError);
-    return { errors };
+  if (typeof buyerId !== 'string') {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID must be a string'
+    });
+    return;
   }
 
-  // Check if buyerId is not empty
-  const emptyError = checkBuyerIdNotEmpty(buyerId);
-  if (emptyError) {
-    errors.push(emptyError);
-    return { errors };
+  // Check if it's a valid ObjectId format
+  const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+  if (!objectIdRegex.test(buyerId)) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Invalid buyer ID format'
+    });
   }
-
-  // Check if buyerId is a valid ObjectId
-  const objectIdError = checkBuyerIdIsValidObjectId(buyerId);
-  if (objectIdError) {
-    errors.push(objectIdError);
-    return { errors };
-  }
-
-  return { errors };
 }
 
 /**
- * Validate get activity status data
- * @param {Object} data - The data to validate
- * @param {string} data.buyerId - The buyer ID to validate
- * @returns {Object} Validation result with errors array
+ * Validate get activity status data.
+ * 
+ * This function validates the buyer ID from the request.
+ * Since getActivityStatus doesn't require any body parameters,
+ * we only validate the buyer ID from the authenticated user.
+ * 
+ * @param {Object} data - Data object containing buyerId
+ * @returns {Promise<void>}
+ * @throws {ValidationError} If validation fails
  */
-function validateGetActivityStatusData(data) {
+async function validateGetActivityStatusData(data) {
   const errors = [];
 
-  // Validate buyerId
-  const buyerIdValidation = validateBuyerId(data.buyerId);
-  errors.push(...buyerIdValidation.errors);
+  // Validate buyer ID
+  validateBuyerId(data.buyerId, errors);
 
-  return { errors };
+  // If there are validation errors, throw ValidationError
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {
-  validateBuyerId,
-  validateGetActivityStatusData
+  validateGetActivityStatusData,
+  validateBuyerId
 };

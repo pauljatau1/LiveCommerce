@@ -1,14 +1,13 @@
-const { validateGetPublicProfileData, validateBuyerId } = require('@modules/buyer/validators/getPublicProfile.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 const mongoose = require('mongoose');
+const { validateBuyerId, validateGetPublicProfileData } = require('@modules/buyer/validators/getPublicProfile.validator');
+const ValidationError = require('@utils/errors/ValidationError');
 
-describe('getPublicProfile.validator', () => {
+describe('Get Public Profile Validator', () => {
   describe('validateBuyerId', () => {
-    it('should not add error for valid buyer ID', () => {
+    it('should not add error for valid ObjectId string', () => {
       const errors = [];
-      const validBuyerId = new mongoose.Types.ObjectId().toString();
       
-      validateBuyerId(validBuyerId, errors);
+      validateBuyerId(new mongoose.Types.ObjectId().toString(), errors);
       
       expect(errors).toHaveLength(0);
     });
@@ -122,17 +121,12 @@ describe('getPublicProfile.validator', () => {
     it('should include correct error details in ValidationError', async () => {
       const invalidData = { buyerId: 'invalid-id' };
       
-      try {
-        await validateGetPublicProfileData(invalidData);
-        fail('Expected ValidationError to be thrown');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toHaveLength(1);
-        expect(error.errors[0]).toEqual({
+      await expect(validateGetPublicProfileData(invalidData)).rejects.toMatchObject({
+        errors: [{
           field: 'buyerId',
           message: 'Invalid buyer ID format'
-        });
-      }
+        }]
+      });
     });
   });
 });

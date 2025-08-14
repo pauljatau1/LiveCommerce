@@ -34,12 +34,14 @@ function validateOTP(otp, errors) {
 }
 
 /**
- * Validates verifyOTP input manually.
+ * Validates verifyOTP data.
  *
- * @param {Object} data
+ * @param {Object} data - Data to validate
+ * @param {string} data.email - The email to validate
+ * @param {string|number} data.otp - The OTP to validate
  * @throws {ValidationError} If validation fails
  */
-function validateVerifyOTPInput(data) {
+async function validateVerifyOTPData(data) {
   const errors = [];
 
   if (!data || data === null || data === undefined) {
@@ -56,5 +58,5 @@ function validateVerifyOTPInput(data) {
 }
 
 module.exports = {
-  validateVerifyOTPInput,
+  validateVerifyOTPData,
 }; 

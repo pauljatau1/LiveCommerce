@@ -2,7 +2,7 @@ const Buyer = require('../models/buyer.model');
 const { agenda } = require('../../../config/agenda');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const { validateVerifyOTPInput } = require('../validators/verifyOTP.validator');
+const { validateVerifyOTPData } = require('../validators/verifyOTP.validator');
 
 /**
  * Schedules welcome bonus for the buyer.
@@ -51,8 +51,8 @@ function createVerificationResponse() {
  * @returns {Promise<Object>} - Verification result with bonus information
  */
 async function verifyOTP(email, otp) {
-  // Validate input
--  validateVerifyOTPInput({ email, otp });
+  // Validate input data
+  await validateVerifyOTPData({ email, otp });
 
   // Find buyer by email
   const buyer = await Buyer.findOne({ email });

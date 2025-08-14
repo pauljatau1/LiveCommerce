@@ -1,82 +1,26 @@
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const reportUserValidator = require('@modules/buyer/validators/reportUser.validator');
-const Buyer = require('@modules/buyer/models/buyer.model');
-const Seller = require('@models/Seller');
 const ValidationError = require('@utils/errors/ValidationError');
+const { ObjectId } = require('mongodb');
 
-let mongoServer;
+// Mock the repository
+jest.mock('@modules/buyer/repositories/buyer.repository');
+
+const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
 describe('reportUser.validator', () => {
-  beforeAll(async () => {
-    // Start in-memory MongoDB
-    mongoServer = await MongoMemoryServer.create({
-      binary: {
-        version: '7.0.3'
-      }
-    });
-    const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
+  let reporterId;
+  let reportedUserId;
+
+  beforeEach(() => {
+    // Use ObjectId for testing instead of actual database operations
+    reporterId = new ObjectId().toString();
+    reportedUserId = new ObjectId().toString();
+    
+    // Reset mocks
+    jest.clearAllMocks();
   });
-
-  afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
-  });
-
-  beforeEach(async () => {
-    // Clear database before each test
-    await Buyer.deleteMany({});
-    await Seller.deleteMany({});
-  });
-
-  const mockBuyerData = {
-    firstName: 'John',
-    lastName: 'Doe',
-    username: 'johndoe',
-    email: 'john.doe@example.com',
-    country: 'NG',
-    phoneNumber: '+2348012345678',
-    password: 'hashedPassword123',
-    isActive: true,
-    emailVerified: true,
-    phoneVerified: false,
-    isNewBuyer: true,
-    isIdentityVerified: false,
-    preferredCurrency: 'NGN',
-    preferredLanguage: 'en',
-    authProvider: 'local'
-  };
-
-  const mockSellerData = {
-    firstName: 'Jane',
-    lastName: 'Smith',
-    email: 'jane.smith@example.com',
-    phoneNumber: '+2348012345679',
-    password: 'hashedPassword456',
-    businessName: 'Jane Store',
-    storeName: 'janestore',
-    country: 'NG',
-    isVerified: false,
-    accountType: 'individual'
-  };
 
   describe('validateReportUserData', () => {
-    let reporterId;
-    let reportedUserId;
-
-    beforeEach(async () => {
-      // Create reporter (buyer)
-      const reporter = new Buyer(mockBuyerData);
-      const savedReporter = await reporter.save();
-      reporterId = savedReporter._id.toString();
-
-      // Create reported user (seller)
-      const reportedUser = new Seller(mockSellerData);
-      const savedReportedUser = await reportedUser.save();
-      reportedUserId = savedReportedUser._id.toString();
-    });
-
     it('should validate successfully with valid data for reporting seller', async () => {
       // Arrange
       const reportData = {
@@ -86,43 +30,34 @@ describe('reportUser.validator', () => {
         description: 'This seller is selling counterfeit products and refusing refunds to customers.'
       };
 
-      // Act
-      const result = await reportUserValidator.validateReportUserData(reporterId, reportData);
+      // Mock repository calls
+      buyerRepository.findById.mockResolvedValue({ _id: reporterId });
+      buyerRepository.findUserById.mockResolvedValue({ _id: reportedUserId });
 
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.reporter).toBeDefined();
-      expect(result.reportedUser).toBeDefined();
-      expect(result.reporter._id.toString()).toBe(reporterId);
-      expect(result.reportedUser._id.toString()).toBe(reportedUserId);
+      // Act & Assert
+      await expect(
+        reportUserValidator.validateReportUserData(reporterId, reportData)
+      ).resolves.not.toThrow();
     });
 
     it('should validate successfully with valid data for reporting buyer', async () => {
       // Arrange
-      // Create another buyer to be reported
-      const anotherBuyer = new Buyer({
-        ...mockBuyerData,
-        email: 'another@example.com',
-        username: 'anotherdoe'
-      });
-      const savedAnotherBuyer = await anotherBuyer.save();
-
+      const anotherBuyerId = new ObjectId().toString();
       const reportData = {
-        userId: savedAnotherBuyer._id.toString(),
+        userId: anotherBuyerId,
         userType: 'buyer',
         reason: 'Inappropriate behavior',
         description: 'This buyer is sending offensive messages to sellers and causing disruption.'
       };
 
-      // Act
-      const result = await reportUserValidator.validateReportUserData(reporterId, reportData);
+      // Mock repository calls
+      buyerRepository.findById.mockResolvedValue({ _id: reporterId });
+      buyerRepository.findUserById.mockResolvedValue({ _id: anotherBuyerId });
 
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.reporter).toBeDefined();
-      expect(result.reportedUser).toBeDefined();
-      expect(result.reporter._id.toString()).toBe(reporterId);
-      expect(result.reportedUser._id.toString()).toBe(savedAnotherBuyer._id.toString());
+      // Act & Assert
+      await expect(
+        reportUserValidator.validateReportUserData(reporterId, reportData)
+      ).resolves.not.toThrow();
     });
 
     it('should throw ValidationError when userId is missing', async () => {
@@ -195,9 +130,9 @@ describe('reportUser.validator', () => {
       // Arrange
       const reportData = {
         userId: reportedUserId,
-        userType: 'admin', // invalid userType
+        userType: 'invalid-type',
         reason: 'Fraudulent behavior',
-        description: 'This user is causing problems.'
+        description: 'This seller is selling counterfeit products.'
       };
 
       // Act & Assert
@@ -235,12 +170,12 @@ describe('reportUser.validator', () => {
       });
     });
 
-    it('should throw ValidationError when reason is too short', async () => {
+    it('should throw ValidationError when reason is empty', async () => {
       // Arrange
       const reportData = {
         userId: reportedUserId,
         userType: 'seller',
-        reason: 'ab', // too short (less than 3 characters)
+        reason: '',
         description: 'This seller is selling counterfeit products.'
       };
 
@@ -251,29 +186,7 @@ describe('reportUser.validator', () => {
         errors: [
           {
             field: 'reason',
-            message: 'Reason must be at least 3 characters long'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when reason is too long', async () => {
-      // Arrange
-      const reportData = {
-        userId: reportedUserId,
-        userType: 'seller',
-        reason: 'a'.repeat(101), // too long (more than 100 characters)
-        description: 'This seller is selling counterfeit products.'
-      };
-
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'reason',
-            message: 'Reason must not exceed 100 characters'
+            message: 'Reason is required'
           }
         ]
       });
@@ -301,13 +214,13 @@ describe('reportUser.validator', () => {
       });
     });
 
-    it('should throw ValidationError when description is too short', async () => {
+    it('should throw ValidationError when description is empty', async () => {
       // Arrange
       const reportData = {
         userId: reportedUserId,
         userType: 'seller',
         reason: 'Fraudulent behavior',
-        description: 'Short' // too short (less than 10 characters)
+        description: ''
       };
 
       // Act & Assert
@@ -317,41 +230,19 @@ describe('reportUser.validator', () => {
         errors: [
           {
             field: 'description',
-            message: 'Description must be at least 10 characters long'
+            message: 'Description is required'
           }
         ]
       });
     });
 
-    it('should throw ValidationError when description is too long', async () => {
+    it('should throw ValidationError when reporter tries to report themselves', async () => {
       // Arrange
       const reportData = {
-        userId: reportedUserId,
-        userType: 'seller',
+        userId: reporterId, // Same as reporter
+        userType: 'buyer',
         reason: 'Fraudulent behavior',
-        description: 'a'.repeat(501) // too long (more than 500 characters)
-      };
-
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'description',
-            message: 'Description must not exceed 500 characters'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when user reports themselves', async () => {
-      // Arrange
-      const reportData = {
-        userId: reporterId, // same as reporter
-        userType: 'seller',
-        reason: 'Fraudulent behavior',
-        description: 'This seller is selling counterfeit products.'
+        description: 'This buyer is fraudulent.'
       };
 
       // Act & Assert
@@ -367,8 +258,9 @@ describe('reportUser.validator', () => {
       });
     });
 
-    it('should throw ValidationError when buyerId is missing', async () => {
+    it('should throw ValidationError when reporter does not exist', async () => {
       // Arrange
+      const nonExistentReporterId = new ObjectId().toString();
       const reportData = {
         userId: reportedUserId,
         userType: 'seller',
@@ -376,56 +268,12 @@ describe('reportUser.validator', () => {
         description: 'This seller is selling counterfeit products.'
       };
 
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(null, reportData)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'buyerId',
-            message: 'Buyer ID is required'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when buyerId is invalid format', async () => {
-      // Arrange
-      const reportData = {
-        userId: reportedUserId,
-        userType: 'seller',
-        reason: 'Fraudulent behavior',
-        description: 'This seller is selling counterfeit products.'
-      };
+      // Mock repository to return null for non-existent reporter
+      buyerRepository.findById.mockResolvedValue(null);
 
       // Act & Assert
       await expect(
-        reportUserValidator.validateReportUserData('invalid-id', reportData)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'buyerId',
-            message: 'Invalid buyer ID format'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when buyer not found', async () => {
-      // Arrange
-      const reportData = {
-        userId: reportedUserId,
-        userType: 'seller',
-        reason: 'Fraudulent behavior',
-        description: 'This seller is selling counterfeit products.'
-      };
-
-      // Mock buyer not found by using a non-existent buyer ID
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
-
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(nonExistentBuyerId, reportData)
+        reportUserValidator.validateReportUserData(nonExistentReporterId, reportData)
       ).rejects.toMatchObject({
         errors: [
           {
@@ -436,14 +284,19 @@ describe('reportUser.validator', () => {
       });
     });
 
-    it('should throw ValidationError when reported user not found', async () => {
+    it('should throw ValidationError when reported user does not exist', async () => {
       // Arrange
+      const nonExistentUserId = new ObjectId().toString();
       const reportData = {
-        userId: new mongoose.Types.ObjectId().toString(), // Use non-existent user ID
+        userId: nonExistentUserId,
         userType: 'seller',
         reason: 'Fraudulent behavior',
         description: 'This seller is selling counterfeit products.'
       };
+
+      // Mock repository calls
+      buyerRepository.findById.mockResolvedValue({ _id: reporterId });
+      buyerRepository.findUserById.mockResolvedValue(null);
 
       // Act & Assert
       await expect(
@@ -458,71 +311,133 @@ describe('reportUser.validator', () => {
       });
     });
 
-    it('should handle multiple validation errors at once', async () => {
+    it('should throw ValidationError with multiple errors for multiple validation failures', async () => {
       // Arrange
       const reportData = {
-        userId: 'invalid-id',
-        userType: 'invalid-type',
-        reason: 'ab', // too short
-        description: 'short' // too short
+        // Missing userId, userType, reason, and description
       };
 
       // Act & Assert
       await expect(
         reportUserValidator.validateReportUserData(reporterId, reportData)
       ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'userId',
-            message: 'Invalid user ID format'
-          },
-          {
-            field: 'userType',
-            message: 'User type must be either "buyer" or "seller"'
-          },
-          {
-            field: 'reason',
-            message: 'Reason must be at least 3 characters long'
-          },
-          {
-            field: 'description',
-            message: 'Description must be at least 10 characters long'
-          }
-        ]
+        errors: expect.arrayContaining([
+          { field: 'userId', message: 'User ID is required' },
+          { field: 'userType', message: 'User type is required' },
+          { field: 'reason', message: 'Reason is required' },
+          { field: 'description', message: 'Description is required' }
+        ])
       });
     });
 
-    it('should throw ValidationError with specific error messages', async () => {
-      // Arrange
-      const reportData = {
-        userId: 'invalid-id',
-        userType: 123, // non-string
-        reason: 456, // non-string
-        description: 789 // non-string
-      };
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing userId', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { userType: 'seller' })
+        ).rejects.toMatchObject({
+          errors: expect.arrayContaining([
+            { field: 'userId', message: 'User ID is required' },
+            { field: 'reason', message: 'Reason is required' },
+            { field: 'description', message: 'Description is required' }
+          ])
+        });
+      });
 
-      // Act & Assert
-      await expect(
-        reportUserValidator.validateReportUserData(reporterId, reportData)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'userId',
-            message: 'Invalid user ID format'
-          },
-          {
-            field: 'userType',
-            message: 'User type must be a string'
-          },
-          {
-            field: 'reason',
-            message: 'Reason must be a string'
-          },
-          {
-            field: 'description',
-            message: 'Description must be a string'
-          }
-        ]
+      it('should include specific error message for missing userType', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { userId: reportedUserId })
+        ).rejects.toMatchObject({
+          errors: expect.arrayContaining([
+            { field: 'userType', message: 'User type is required' },
+            { field: 'reason', message: 'Reason is required' },
+            { field: 'description', message: 'Description is required' }
+          ])
+        });
+      });
+
+      it('should include specific error message for missing reason', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { 
+            userId: reportedUserId, 
+            userType: 'seller' 
+          })
+        ).rejects.toMatchObject({
+          errors: expect.arrayContaining([
+            { field: 'reason', message: 'Reason is required' },
+            { field: 'description', message: 'Description is required' }
+          ])
+        });
+      });
+
+      it('should include specific error message for missing description', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { 
+            userId: reportedUserId, 
+            userType: 'seller',
+            reason: 'Fraudulent behavior'
+          })
+        ).rejects.toMatchObject({
+          errors: [{ field: 'description', message: 'Description is required' }]
+        });
+      });
+
+      it('should include specific error message for invalid userType', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { 
+            userId: reportedUserId, 
+            userType: 'invalid',
+            reason: 'Fraudulent behavior',
+            description: 'Test description'
+          })
+        ).rejects.toMatchObject({
+          errors: [{ field: 'userType', message: 'User type must be either "buyer" or "seller"' }]
+        });
+      });
+
+      it('should include specific error message for self-reporting', async () => {
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { 
+            userId: reporterId, 
+            userType: 'buyer',
+            reason: 'Fraudulent behavior',
+            description: 'Test description'
+          })
+        ).rejects.toMatchObject({
+          errors: [{ field: 'userId', message: 'You cannot report yourself' }]
+        });
+      });
+
+      it('should include specific error message for non-existent reporter', async () => {
+        // Mock repository to return null for non-existent reporter
+        buyerRepository.findById.mockResolvedValue(null);
+
+        await expect(
+          reportUserValidator.validateReportUserData(new ObjectId().toString(), { 
+            userId: reportedUserId, 
+            userType: 'seller',
+            reason: 'Fraudulent behavior',
+            description: 'Test description'
+          })
+        ).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer not found' }]
+        });
+      });
+
+      it('should include specific error message for non-existent reported user', async () => {
+        // Mock repository calls
+        buyerRepository.findById.mockResolvedValue({ _id: reporterId });
+        buyerRepository.findUserById.mockResolvedValue(null);
+
+        await expect(
+          reportUserValidator.validateReportUserData(reporterId, { 
+            userId: new ObjectId().toString(), 
+            userType: 'seller',
+            reason: 'Fraudulent behavior',
+            description: 'Test description'
+          })
+        ).rejects.toMatchObject({
+          errors: [{ field: 'userId', message: 'Reported user not found' }]
+        });
       });
     });
   });

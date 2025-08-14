@@ -943,6 +943,93 @@ router.put('/selected-categories', verifyToken, buyerController.updateSelectedCa
 
 /**
  * @swagger
+ * /api/v2/buyers/select-major-categories:
+ *   post:
+ *     summary: Select major categories and add their child categories to buyer's selected categories
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - majorCategoryIds
+ *             properties:
+ *               majorCategoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of major category IDs to select
+ *                 example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *     responses:
+ *       200:
+ *         description: Major categories selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Major categories selected successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     selectedCategories:
+ *                       type: array
+ *                       description: All selected categories (from major categories and manual selections)
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *                     addedCategories:
+ *                       type: array
+ *                       description: Categories that were added from the selected major categories
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *       400:
+ *         description: Invalid request - majorCategoryIds array is required
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or major categories not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/select-major-categories', verifyToken, buyerController.selectMajorCategories);
+
+/**
+ * @swagger
  * /api/v2/buyers/analytics:
  *   get:
  *     summary: Get purchase analytics for a buyer

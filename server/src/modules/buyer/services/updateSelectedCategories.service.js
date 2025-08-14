@@ -37,13 +37,8 @@ function formatCategories(selectedCategories) {
  * @returns {Promise<Object>} Updated buyer data
  */
 async function updateSelectedCategories(buyerId, selectedCategories) {
-  // Validate buyer ID
-  if (!buyerId) {
-    throw new NotFoundException('Buyer ID is required');
-  }
-
   // Validate the input data
-  await validateUpdateSelectedCategoriesData({ selectedCategories });
+  await validateUpdateSelectedCategoriesData({ buyerId, selectedCategories });
 
   // Get buyer to check if exists
   const buyer = await buyerRepository.findById(buyerId);

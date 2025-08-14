@@ -43,6 +43,7 @@ const getWalletTransactionsService = require('../services/getWalletTransactions.
 const getPublicProfileService = require('../services/getPublicProfile.service');
 const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
 const getActivityStatusService = require('../services/getActivityStatus.service');
+const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
 
 
 
@@ -1350,6 +1351,34 @@ async function getActivityStatus(req, res, next) {
   }
 }
 
+/**
+ * Select major categories and add their child categories to buyer's selected categories.
+ *
+ * This controller handles the major categories selection HTTP request.
+ * It delegates the selection logic to the service layer and returns the updated categories.
+ * The service validates the major category IDs, finds the categories, and merges them with existing selections.
+ *
+ * @param {Request} req - Express request object containing majorCategoryIds in `req.body` and buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function selectMajorCategories(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user and major category IDs from request body
+    const buyerId = req.user.id;
+    const { majorCategoryIds } = req.body;
+
+    // Call the service layer to handle major categories selection logic
+    const response = await selectMajorCategoriesService.selectMajorCategories(buyerId, majorCategoryIds);
+
+    // Send success response with updated categories
+    res.success(response, 'Major categories selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1395,5 +1424,6 @@ module.exports = {
   getWalletTransactions,
   getPublicProfile,
   toggleActivityStatus,
-  getActivityStatus
+  getActivityStatus,
+  selectMajorCategories
 };

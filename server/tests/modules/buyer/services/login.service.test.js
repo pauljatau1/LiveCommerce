@@ -35,7 +35,7 @@ describe('Login Service', () => {
     mockBuyer.comparePassword.mockReset();
     
     // Ensure validator mock is properly reset
-    loginValidator.validateLoginInput.mockReset();
+    loginValidator.validateLoginData.mockReset();
   });
 
   describe('login', () => {
@@ -46,13 +46,13 @@ describe('Login Service', () => {
           password: 'password123'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(mockBuyer);
         mockBuyer.comparePassword.mockResolvedValue(true);
 
         const result = await loginService.login(loginData);
 
-        expect(loginValidator.validateLoginInput).toHaveBeenCalledWith(loginData);
+        expect(loginValidator.validateLoginData).toHaveBeenCalledWith(loginData);
         expect(buyerRepository.findByEmail).toHaveBeenCalledWith(loginData.email);
         expect(mockBuyer.comparePassword).toHaveBeenCalledWith(loginData.password);
         expect(result).toEqual({
@@ -68,7 +68,7 @@ describe('Login Service', () => {
         };
 
         const validationErrors = [{ field: 'email', message: 'Email is required' }];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
         await expect(loginService.login(loginData)).rejects.toThrow('Validation failed');
@@ -80,7 +80,7 @@ describe('Login Service', () => {
         };
 
         const validationErrors = [{ field: 'password', message: 'Password is required' }];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
         await expect(loginService.login(loginData)).rejects.toThrow('Validation failed');
@@ -93,7 +93,7 @@ describe('Login Service', () => {
           { field: 'email', message: 'Email is required' },
           { field: 'password', message: 'Password is required' }
         ];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
       });
@@ -106,7 +106,7 @@ describe('Login Service', () => {
           password: 'password123'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(null);
 
         await expect(loginService.login(loginData)).rejects.toThrow(NotFoundException);
@@ -119,7 +119,7 @@ describe('Login Service', () => {
           password: 'wrongpassword'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(mockBuyer);
         mockBuyer.comparePassword.mockResolvedValue(false);
 
@@ -136,7 +136,7 @@ describe('Login Service', () => {
           googleToken: 'google-token'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(mockBuyer);
         mockBuyer.comparePassword.mockResolvedValue(true);
 
@@ -144,7 +144,7 @@ describe('Login Service', () => {
 
         // Should still validate and find buyer, but the actual Google login logic
         // would be handled in googleLoginMobile (which is not exported)
-        expect(loginValidator.validateLoginInput).toHaveBeenCalledWith(loginData);
+        expect(loginValidator.validateLoginData).toHaveBeenCalledWith(loginData);
         expect(buyerRepository.findByEmail).toHaveBeenCalledWith(loginData.email);
       });
     });
@@ -156,7 +156,7 @@ describe('Login Service', () => {
           password: 'password123'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(mockBuyer);
         mockBuyer.comparePassword.mockRejectedValue(new Error('Password comparison error'));
 
@@ -169,7 +169,7 @@ describe('Login Service', () => {
           password: 'password123'
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockRejectedValue(new Error('Database error'));
 
         await expect(loginService.login(loginData)).rejects.toThrow('Database error');
@@ -184,7 +184,7 @@ describe('Login Service', () => {
         };
 
         const validationErrors = [{ field: 'email', message: 'Email is required' }];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
       });
@@ -196,7 +196,7 @@ describe('Login Service', () => {
         };
 
         const validationErrors = [{ field: 'password', message: 'Password is required' }];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
       });
@@ -211,7 +211,7 @@ describe('Login Service', () => {
           { field: 'email', message: 'Email is required' },
           { field: 'password', message: 'Password is required' }
         ];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
       });
@@ -224,9 +224,9 @@ describe('Login Service', () => {
 
         const validationErrors = [
           { field: 'email', message: 'Email is required' },
-          { field: 'password', message: 'Password is required' }
+          {field: 'password', message: 'Password is required' }
         ];
-        loginValidator.validateLoginInput.mockReturnValue(validationErrors);
+        loginValidator.validateLoginData.mockRejectedValue(new ValidationError(validationErrors));
 
         await expect(loginService.login(loginData)).rejects.toThrow(ValidationError);
       });
@@ -242,7 +242,7 @@ describe('Login Service', () => {
           comparePassword: null
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(buyerWithoutComparePassword);
 
         await expect(loginService.login(loginData)).rejects.toThrow();
@@ -259,7 +259,7 @@ describe('Login Service', () => {
           comparePassword: undefined
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(buyerWithoutComparePassword);
 
         await expect(loginService.login(loginData)).rejects.toThrow();
@@ -297,7 +297,7 @@ describe('Login Service', () => {
           isActive: true
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(extendedBuyer);
         mockBuyer.comparePassword.mockResolvedValue(true);
 
@@ -318,7 +318,7 @@ describe('Login Service', () => {
           comparePassword: jest.fn().mockResolvedValue(true)
         };
 
-        loginValidator.validateLoginInput.mockReturnValue([]);
+        loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(minimalBuyer);
 
         const result = await loginService.login(loginData);

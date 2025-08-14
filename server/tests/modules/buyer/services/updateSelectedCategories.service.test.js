@@ -1,6 +1,7 @@
 const updateSelectedCategoriesService = require('@modules/buyer/services/updateSelectedCategories.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const NotFoundException = require('@utils/errors/NotFoundException');
+const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository', () => ({
@@ -307,7 +308,7 @@ describe('updateSelectedCategoriesService', () => {
       await expect(updateSelectedCategoriesService.updateSelectedCategories(
         null, 
         mockSelectedCategories
-      )).rejects.toThrow('Buyer ID is required');
+      )).rejects.toThrow(ValidationError);
 
       expect(buyerRepository.findById).not.toHaveBeenCalled();
       expect(buyerRepository.updateById).not.toHaveBeenCalled();
@@ -317,7 +318,7 @@ describe('updateSelectedCategoriesService', () => {
       await expect(updateSelectedCategoriesService.updateSelectedCategories(
         undefined,
         mockSelectedCategories
-      )).rejects.toThrow('Buyer ID is required');
+      )).rejects.toThrow(ValidationError);
 
       expect(buyerRepository.findById).not.toHaveBeenCalled();
       expect(buyerRepository.updateById).not.toHaveBeenCalled();
@@ -326,18 +327,12 @@ describe('updateSelectedCategoriesService', () => {
     it('should handle invalid buyer ID format', async () => {
       const invalidBuyerId = 'invalid-id-format';
 
-      buyerRepository.findById.mockResolvedValue(null);
-
       await expect(updateSelectedCategoriesService.updateSelectedCategories(
         invalidBuyerId, 
         mockSelectedCategories
-      )).rejects.toThrow(NotFoundException);
-      await expect(updateSelectedCategoriesService.updateSelectedCategories(
-        invalidBuyerId, 
-        mockSelectedCategories
-      )).rejects.toThrow('Buyer not found');
+      )).rejects.toThrow(ValidationError);
 
-      expect(buyerRepository.findById).toHaveBeenCalledWith(invalidBuyerId);
+      expect(buyerRepository.findById).not.toHaveBeenCalled();
       expect(buyerRepository.updateById).not.toHaveBeenCalled();
     });
 

@@ -339,6 +339,22 @@ async function updatePhoneVerification(buyerId, phoneVerificationData) {
 }
 
 /**
+ * Find a user by ID based on userType.
+ * 
+ * @param {string} userId - The user ID to find
+ * @param {string} userType - The type of user ('buyer' or 'seller')
+ * @returns {Promise<Object|null>} The found user or null
+ */
+async function findUserById(userId, userType) {
+  if (userType === 'seller') {
+    return await Seller.findById(userId);
+  } else if (userType === 'buyer') {
+    return await Buyer.findById(userId);
+  }
+  return null;
+}
+
+/**
  * Find a seller by ID with selected fields.
  * @param {string} sellerId - The seller's ID
  * @returns {Promise<Seller|null>} Seller with selected fields or null if not found
@@ -988,6 +1004,107 @@ async function getActivityStatus(buyerId) {
   };
 }
 
+/**
+ * Select major categories and add their child categories to buyer's selected categories.
+ * 
+ * This function:
+ * - Finds the specified major categories with their populated categories
+ * - Extracts all category IDs from the major categories
+ * - Finds all categories with their subcategories
+ * - Formats categories for storage
+ * - Merges with existing categories to avoid duplicates
+ * - Updates the buyer's selectedCategories
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Array} majorCategoryIds - Array of major category IDs to select
+ * @returns {Promise<Object>} Updated buyer with selected categories and added categories info
+ */
+/**
+ * Find active major categories with populated categories
+ * @param {Array} majorCategoryIds - Array of major category IDs
+ * @returns {Promise<Array>} Array of major categories with populated categories
+ */
+async function findActiveMajorCategories(majorCategoryIds) {
+  const MajorCategory = require('../../../models/MajorCategory');
+  return await MajorCategory.find({
+    _id: { $in: majorCategoryIds },
+    isActive: true
+  }).populate('categories');
+}
+
+/**
+ * Extract category IDs from major categories
+ * @param {Array} majorCategories - Array of major categories with populated categories
+ * @returns {Array} Array of category IDs
+ */
+function extractCategoryIds(majorCategories) {
+  const categoryIds = [];
+  majorCategories.forEach(majorCategory => {
+    majorCategory.categories.forEach(category => {
+      categoryIds.push(category._id);
+    });
+  });
+  return categoryIds;
+}
+
+/**
+ * Format categories for buyer's selectedCategories field
+ * @param {Array} categories - Array of categories with subcategories
+ * @returns {Array} Formatted categories
+ */
+function formatCategories(categories) {
+  return categories.map(category => ({
+    name: category.name,
+    subCategories: category.subCategories.map(subCategory => ({
+      name: subCategory.name
+    }))
+  }));
+}
+
+/**
+ * Filter out duplicate categories
+ * @param {Array} formattedCategories - Array of formatted categories
+ * @param {Array} existingCategories - Array of existing selected categories
+ * @returns {Array} Array of new categories (non-duplicates)
+ */
+function filterNewCategories(formattedCategories, existingCategories) {
+  const existingCategoryNames = existingCategories.map(cat => cat.name);
+  return formattedCategories.filter(cat => !existingCategoryNames.includes(cat.name));
+}
+
+async function selectMajorCategories(buyerId, majorCategoryIds) {
+  // Find the buyer
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    return null;
+  }
+
+  // Find active major categories
+  const majorCategories = await findActiveMajorCategories(majorCategoryIds);
+  if (majorCategories.length === 0) {
+    return { error: 'No active major categories found with the provided IDs' };
+  }
+
+  // Extract category IDs and find categories
+  const categoryIds = extractCategoryIds(majorCategories);
+  const Category = require('../../../models/Category');
+  const categories = await Category.find({ _id: { $in: categoryIds } });
+
+  // Format categories and filter duplicates
+  const formattedCategories = formatCategories(categories);
+  const newCategories = filterNewCategories(formattedCategories, buyer.selectedCategories);
+  
+  // Update buyer's selected categories
+  buyer.selectedCategories = [...buyer.selectedCategories, ...newCategories];
+  const updatedBuyer = await buyer.save();
+
+  return {
+    buyer: updatedBuyer,
+    selectedCategories: updatedBuyer.selectedCategories,
+    addedCategories: newCategories
+  };
+}
+
 module.exports = {
   findAll,
   save,
@@ -1013,6 +1130,7 @@ module.exports = {
   deleteShippingAddress,
   findByIdWithPopulatedWishlist,
   updatePhoneVerification,
+  findUserById,
   findSellerById,
   findOrdersBySeller,
   countStreamsBySeller,
@@ -1044,5 +1162,6 @@ module.exports = {
   findFollowedSellerIds,
   getPublicProfileData,
   toggleActivityStatus,
-  getActivityStatus
+  getActivityStatus,
+  selectMajorCategories
 };

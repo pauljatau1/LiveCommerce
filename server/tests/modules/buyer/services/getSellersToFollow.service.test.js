@@ -1,13 +1,18 @@
 const { getSellersToFollow, getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const ValidationError = require('@utils/errors/ValidationError');
+const getSellersToFollowValidator = require('@modules/buyer/validators/getSellersToFollow.validator');
 
 // Mock the repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/validators/getSellersToFollow.validator', () => ({
+  validateGetSellersToFollowData: jest.fn()
+}));
 
 describe('getSellersToFollow.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getSellersToFollowValidator.validateGetSellersToFollowData.mockResolvedValue();
   });
 
   describe('getSellersToFollow', () => {
@@ -397,7 +402,16 @@ describe('getSellersToFollow.service', () => {
         sort: 'invalid'
       };
 
-      await expect(getPaginatedSellersToFollow(null, {
+      // Mock validator to throw ValidationError for invalid parameters
+      getSellersToFollowValidator.validateGetSellersToFollowData.mockRejectedValue(
+        new ValidationError([
+          { field: 'page', message: 'Page must be a positive integer' },
+          { field: 'limit', message: 'Limit must be a positive integer between 1 and 100' },
+          { field: 'sort', message: 'Sort must be one of: rating, followers, newest' }
+        ])
+      );
+
+      await expect(getPaginatedSellersToFollow('valid-buyer-id', {
         page: -1,
         limit: 101,
         filters: {

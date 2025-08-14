@@ -1,5 +1,5 @@
 const buyerRepository = require('../repositories/buyer.repository');
-const { validateGetOrderDetailsInput } = require('../validators/getOrderDetails.validator');
+const { validateGetOrderDetailsData } = require('../validators/getOrderDetails.validator');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -14,11 +14,8 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  * @returns {Promise<Object>} Detailed order information
  */
 async function getOrderDetails(buyerId, orderId) {
-  // Validate input parameters
-  const validationErrors = validateGetOrderDetailsInput({ id: orderId });
-  if (validationErrors.length > 0) {
-    throw new ValidationError(validationErrors);
-  }
+  // Validate input data
+  await validateGetOrderDetailsData({ id: orderId });
 
   // Find the order that belongs to the buyer
   const order = await buyerRepository.findOrderByIdAndBuyer(orderId, buyerId);

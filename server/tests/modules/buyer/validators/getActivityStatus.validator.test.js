@@ -1,162 +1,175 @@
+const mongoose = require('mongoose');
 const { validateBuyerId, validateGetActivityStatusData } = require('@modules/buyer/validators/getActivityStatus.validator');
+const ValidationError = require('@utils/errors/ValidationError');
 
-describe('getActivityStatus.validator', () => {
+describe('Get Activity Status Validator', () => {
   describe('validateBuyerId', () => {
-    it('should return no errors for valid buyer ID', () => {
-      // Arrange
-      const validBuyerId = '507f1f77bcf86cd799439011';
-
-      // Act
-      const result = validateBuyerId(validBuyerId);
-
-      // Assert
-      expect(result.errors).toEqual([]);
+    it('should not add error for valid ObjectId string', () => {
+      const errors = [];
+      
+      validateBuyerId(new mongoose.Types.ObjectId().toString(), errors);
+      
+      expect(errors).toHaveLength(0);
     });
 
-    it('should return error for missing buyer ID', () => {
-      // Arrange
-      const missingBuyerId = null;
-
-      // Act
-      const result = validateBuyerId(missingBuyerId);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID is required');
+    it('should add error for missing buyer ID', () => {
+      const errors = [];
+      
+      validateBuyerId(null, errors);
+      
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should return error for undefined buyer ID', () => {
-      // Arrange
-      const undefinedBuyerId = undefined;
-
-      // Act
-      const result = validateBuyerId(undefinedBuyerId);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID is required');
+    it('should add error for undefined buyer ID', () => {
+      const errors = [];
+      
+      validateBuyerId(undefined, errors);
+      
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should return error for empty string buyer ID', () => {
-      // Arrange
-      const emptyBuyerId = '';
-
-      // Act
-      const result = validateBuyerId(emptyBuyerId);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID cannot be empty');
+    it('should add error for empty string buyer ID', () => {
+      const errors = [];
+      
+      validateBuyerId('', errors);
+      
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID is required'
+      });
     });
 
-    it('should return error for non-string buyer ID', () => {
-      // Arrange
-      const nonStringBuyerId = 123;
-
-      // Act
-      const result = validateBuyerId(nonStringBuyerId);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID must be a string');
+    it('should add error for non-string buyer ID', () => {
+      const errors = [];
+      
+      validateBuyerId(123, errors);
+      
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Buyer ID must be a string'
+      });
     });
 
-    it('should return error for invalid ObjectId format', () => {
-      // Arrange
-      const invalidBuyerId = 'invalid-id';
-
-      // Act
-      const result = validateBuyerId(invalidBuyerId);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID must be a valid ObjectId');
+    it('should add error for invalid ObjectId format', () => {
+      const errors = [];
+      
+      validateBuyerId('invalid-id', errors);
+      
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual({
+        field: 'buyerId',
+        message: 'Invalid buyer ID format'
+      });
     });
   });
 
   describe('validateGetActivityStatusData', () => {
-    it('should return no errors for valid data', () => {
-      // Arrange
+    it('should not throw error for valid data', async () => {
       const validData = {
         buyerId: '507f1f77bcf86cd799439011'
       };
 
-      // Act
-      const result = validateGetActivityStatusData(validData);
-
-      // Assert
-      expect(result.errors).toEqual([]);
+      await expect(validateGetActivityStatusData(validData)).resolves.not.toThrow();
     });
 
-    it('should return error for missing buyerId', () => {
-      // Arrange
+    it('should throw ValidationError for missing buyerId', async () => {
       const invalidData = {};
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID is required');
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
     });
 
-    it('should return error for null buyerId', () => {
-      // Arrange
+    it('should throw ValidationError for null buyerId', async () => {
       const invalidData = {
         buyerId: null
       };
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID is required');
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
     });
 
-    it('should return error for undefined buyerId', () => {
-      // Arrange
+    it('should throw ValidationError for undefined buyerId', async () => {
       const invalidData = {
         buyerId: undefined
       };
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID is required');
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
     });
 
-    it('should return error for empty string buyerId', () => {
-      // Arrange
+    it('should throw ValidationError for empty string buyerId', async () => {
       const invalidData = {
         buyerId: ''
       };
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID cannot be empty');
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
     });
 
-    it('should return error for non-string buyerId', () => {
-      // Arrange
+    it('should throw ValidationError for non-string buyerId', async () => {
       const invalidData = {
         buyerId: 123
       };
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
-
-      // Assert
-      expect(result.errors).toContain('Buyer ID must be a string');
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
     });
 
-    it('should return error for invalid ObjectId format', () => {
-      // Arrange
+    it('should throw ValidationError for invalid ObjectId format buyerId', async () => {
       const invalidData = {
         buyerId: 'invalid-id'
       };
 
-      // Act
-      const result = validateGetActivityStatusData(invalidData);
+      await expect(validateGetActivityStatusData(invalidData))
+        .rejects.toThrow(ValidationError);
+    });
 
-      // Assert
-      expect(result.errors).toContain('Buyer ID must be a valid ObjectId');
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing buyerId', async () => {
+        await expect(validateGetActivityStatusData({})).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer ID is required' }]
+        });
+      });
+
+      it('should include specific error message for null buyerId', async () => {
+        await expect(validateGetActivityStatusData({ buyerId: null })).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer ID is required' }]
+        });
+      });
+
+      it('should include specific error message for undefined buyerId', async () => {
+        await expect(validateGetActivityStatusData({ buyerId: undefined })).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer ID is required' }]
+        });
+      });
+
+      it('should include specific error message for empty string buyerId', async () => {
+        await expect(validateGetActivityStatusData({ buyerId: '' })).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer ID is required' }]
+        });
+      });
+
+      it('should include specific error message for non-string buyerId', async () => {
+        await expect(validateGetActivityStatusData({ buyerId: 123 })).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Buyer ID must be a string' }]
+        });
+      });
+
+      it('should include specific error message for invalid ObjectId format buyerId', async () => {
+        await expect(validateGetActivityStatusData({ buyerId: 'invalid-id' })).rejects.toMatchObject({
+          errors: [{ field: 'buyerId', message: 'Invalid buyer ID format' }]
+        });
+      });
     });
   });
 });

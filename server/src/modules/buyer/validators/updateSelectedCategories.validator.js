@@ -5,57 +5,46 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * Validates the basic structure of selectedCategories array.
  * 
  * @param {Array} selectedCategories - Array of category objects
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSelectedCategoriesStructure(selectedCategories) {
-  const errors = [];
-
+function validateSelectedCategoriesStructure(selectedCategories, errors) {
   // Check if selectedCategories is provided
   if (selectedCategories === null || selectedCategories === undefined) {
     errors.push({ field: 'selectedCategories', message: 'selectedCategories is required' });
-    return errors;
+    return;
   }
 
   // Check if selectedCategories is an array
   if (!Array.isArray(selectedCategories)) {
     errors.push({ field: 'selectedCategories', message: 'selectedCategories must be an array' });
-    return errors;
+    return;
   }
 
   // Check maximum number of categories
   if (selectedCategories.length > 50) {
     errors.push({ field: 'selectedCategories', message: 'Cannot select more than 50 categories' });
-    return errors;
   }
-
-  return errors;
 }
 
 /**
  * Validates the selectedCategories array structure.
  * 
  * @param {Array} selectedCategories - Array of category objects
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSelectedCategories(selectedCategories) {
-  const errors = [];
-
+function validateSelectedCategories(selectedCategories, errors) {
   // Validate basic structure
-  const structureErrors = validateSelectedCategoriesStructure(selectedCategories);
-  errors.push(...structureErrors);
+  validateSelectedCategoriesStructure(selectedCategories, errors);
 
   // If there are structure errors, don't validate individual categories
-  if (structureErrors.length > 0) {
-    return errors;
+  if (errors.length > 0) {
+    return;
   }
 
   // Validate each category
   selectedCategories.forEach((category, index) => {
-    const categoryErrors = validateCategory(category, index);
-    errors.push(...categoryErrors);
+    validateCategory(category, index, errors);
   });
-
-  return errors;
 }
 
 /**
@@ -63,11 +52,9 @@ function validateSelectedCategories(selectedCategories) {
  * 
  * @param {string} name - Category name to validate
  * @param {string} fieldPath - Field path for error messages
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateCategoryName(name, fieldPath) {
-  const errors = [];
-
+function validateCategoryName(name, fieldPath, errors) {
   // Check for XSS patterns
   const xssError = validateXSS(name, fieldPath);
   if (xssError) {
@@ -88,8 +75,6 @@ function validateCategoryName(name, fieldPath) {
       message: 'Category name must not exceed 100 characters' 
     });
   }
-
-  return errors;
 }
 
 /**
@@ -97,14 +82,12 @@ function validateCategoryName(name, fieldPath) {
  * 
  * @param {Array} subCategories - Subcategories array to validate
  * @param {number} categoryIndex - Index of the parent category
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSubCategoriesArray(subCategories, categoryIndex) {
-  const errors = [];
-
+function validateSubCategoriesArray(subCategories, categoryIndex, errors) {
   // Allow null/undefined subCategories (will be converted to empty array)
   if (subCategories === null || subCategories === undefined) {
-    return errors;
+    return;
   }
 
   if (!Array.isArray(subCategories)) {
@@ -112,7 +95,7 @@ function validateSubCategoriesArray(subCategories, categoryIndex) {
       field: `selectedCategories[${categoryIndex}].subCategories`, 
       message: 'Subcategories must be an array' 
     });
-    return errors;
+    return;
   }
 
   // Check maximum number of subcategories per category
@@ -121,16 +104,13 @@ function validateSubCategoriesArray(subCategories, categoryIndex) {
       field: `selectedCategories[${categoryIndex}].subCategories`, 
       message: 'Cannot have more than 20 subcategories per category' 
     });
-    return errors;
+    return;
   }
 
   // Validate each subcategory
   subCategories.forEach((subCategory, subIndex) => {
-    const subCategoryErrors = validateSubCategory(subCategory, categoryIndex, subIndex);
-    errors.push(...subCategoryErrors);
+    validateSubCategory(subCategory, categoryIndex, subIndex, errors);
   });
-
-  return errors;
 }
 
 /**
@@ -138,18 +118,16 @@ function validateSubCategoriesArray(subCategories, categoryIndex) {
  * 
  * @param {Object} category - Category object
  * @param {number} index - Index of the category in the array
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateCategory(category, index) {
-  const errors = [];
-
+function validateCategory(category, index, errors) {
   // Check if category is an object
   if (!category || typeof category !== 'object') {
     errors.push({ 
       field: `selectedCategories[${index}]`, 
       message: 'Category must be an object' 
     });
-    return errors;
+    return;
   }
 
   // Validate category name
@@ -159,15 +137,11 @@ function validateCategory(category, index) {
       message: 'Category name is required and must be a string' 
     });
   } else {
-    const nameErrors = validateCategoryName(category.name, `selectedCategories[${index}].name`);
-    errors.push(...nameErrors);
+    validateCategoryName(category.name, `selectedCategories[${index}].name`, errors);
   }
 
   // Validate subCategories
-  const subCategoriesErrors = validateSubCategoriesArray(category.subCategories, index);
-  errors.push(...subCategoriesErrors);
-
-  return errors;
+  validateSubCategoriesArray(category.subCategories, index, errors);
 }
 
 /**
@@ -175,11 +149,9 @@ function validateCategory(category, index) {
  * 
  * @param {string} name - Subcategory name to validate
  * @param {string} fieldPath - Field path for error messages
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSubCategoryName(name, fieldPath) {
-  const errors = [];
-
+function validateSubCategoryName(name, fieldPath, errors) {
   // Check for XSS patterns
   const xssError = validateXSS(name, fieldPath);
   if (xssError) {
@@ -200,8 +172,6 @@ function validateSubCategoryName(name, fieldPath) {
       message: 'Subcategory name must not exceed 100 characters' 
     });
   }
-
-  return errors;
 }
 
 /**
@@ -210,10 +180,9 @@ function validateSubCategoryName(name, fieldPath) {
  * @param {Object} subCategory - Subcategory object
  * @param {number} categoryIndex - Index of the parent category
  * @param {number} subCategoryIndex - Index of the subcategory
- * @returns {Array} Array of validation errors
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateSubCategory(subCategory, categoryIndex, subCategoryIndex) {
-  const errors = [];
+function validateSubCategory(subCategory, categoryIndex, subCategoryIndex, errors) {
   const fieldPath = `selectedCategories[${categoryIndex}].subCategories[${subCategoryIndex}]`;
 
   // Check if subCategory is an object
@@ -222,7 +191,7 @@ function validateSubCategory(subCategory, categoryIndex, subCategoryIndex) {
       field: fieldPath, 
       message: 'Subcategory must be an object' 
     });
-    return errors;
+    return;
   }
 
   // Validate subcategory name
@@ -232,17 +201,49 @@ function validateSubCategory(subCategory, categoryIndex, subCategoryIndex) {
       message: 'Subcategory name is required and must be a string' 
     });
   } else {
-    const nameErrors = validateSubCategoryName(subCategory.name, `${fieldPath}.name`);
-    errors.push(...nameErrors);
+    validateSubCategoryName(subCategory.name, `${fieldPath}.name`, errors);
+  }
+}
+
+/**
+ * Validate buyer ID from request.
+ * 
+ * @param {string} buyerId - The buyer ID to validate
+ * @param {Array} errors - Array to collect validation errors
+ */
+function validateBuyerId(buyerId, errors) {
+  if (!buyerId) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID is required'
+    });
+    return;
   }
 
-  return errors;
+  if (typeof buyerId !== 'string') {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID must be a string'
+    });
+    return;
+  }
+
+  // Check if it's a valid ObjectId format
+  const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+  if (!objectIdRegex.test(buyerId)) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Invalid buyer ID format'
+    });
+  }
 }
 
 /**
  * Validates the complete updateSelectedCategories request data.
  * 
- * @param {Object} data - Request data containing selectedCategories
+ * @param {Object} data - Request data containing buyerId and selectedCategories
+ * @param {string} data.buyerId - The buyer ID to validate
+ * @param {Array} data.selectedCategories - The selected categories to validate
  * @throws {ValidationError} If validation fails
  */
 async function validateUpdateSelectedCategoriesData(data) {
@@ -252,9 +253,11 @@ async function validateUpdateSelectedCategoriesData(data) {
   if (!data || typeof data !== 'object') {
     errors.push({ field: 'data', message: 'Request data is required' });
   } else {
+    // Validate buyer ID
+    validateBuyerId(data.buyerId, errors);
+    
     // Validate selectedCategories
-    const selectedCategoriesErrors = validateSelectedCategories(data.selectedCategories);
-    errors.push(...selectedCategoriesErrors);
+    validateSelectedCategories(data.selectedCategories, errors);
   }
 
   if (errors.length > 0) {
@@ -263,12 +266,5 @@ async function validateUpdateSelectedCategoriesData(data) {
 }
 
 module.exports = {
-  validateUpdateSelectedCategoriesData,
-  validateSelectedCategories,
-  validateCategory,
-  validateSubCategory,
-  validateSubCategoryName,
-  validateCategoryName,
-  validateSubCategoriesArray,
-  validateSelectedCategoriesStructure
+  validateUpdateSelectedCategoriesData
 }; 
