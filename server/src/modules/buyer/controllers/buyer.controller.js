@@ -45,6 +45,7 @@ const toggleActivityStatusService = require('../services/toggleActivityStatus.se
 const getActivityStatusService = require('../services/getActivityStatus.service');
 const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
 const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
+const getSelectedMajorCategoriesService = require('../services/getSelectedMajorCategories.service');
 
 
 
@@ -1409,6 +1410,34 @@ async function updateMajorCategoriesSelection(req, res, next) {
   }
 }
 
+/**
+ * Get buyer's selected major categories.
+ *
+ * This controller handles the selected major categories retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the selected major categories.
+ * The service analyzes the buyer's selected categories and identifies which major categories
+ * have all their associated categories selected by the buyer.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSelectedMajorCategories(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle selected major categories retrieval logic
+    const response = await getSelectedMajorCategoriesService.getSelectedMajorCategories(buyerId);
+
+    // Send success response with selected major categories
+    res.success(response, 'Selected major categories retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1456,5 +1485,6 @@ module.exports = {
   toggleActivityStatus,
   getActivityStatus,
   selectMajorCategories,
-  updateMajorCategoriesSelection
+  updateMajorCategoriesSelection,
+  getSelectedMajorCategories
 };

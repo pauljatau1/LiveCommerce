@@ -1134,6 +1134,75 @@ router.put('/update-major-categories', verifyToken, buyerController.updateMajorC
 
 /**
  * @swagger
+ * /api/v2/buyers/selected-major-categories:
+ *   get:
+ *     summary: Get buyer's selected major categories
+ *     description: Retrieves the major categories that have all their associated categories selected by the buyer
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Selected major categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Selected major categories retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     selectedMajorCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           image:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                                 example: "https://example.com/image.jpg"
+ *                               public_id:
+ *                                 type: string
+ *                                 example: "image_public_id"
+ *                           categoryCount:
+ *                             type: integer
+ *                             example: 3
+ *                           categories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 _id:
+ *                                   type: string
+ *                                   example: "507f1f77bcf86cd799439012"
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/selected-major-categories', verifyToken, isBuyer, buyerController.getSelectedMajorCategories);
+
+/**
+ * @swagger
  * /api/v2/buyers/analytics:
  *   get:
  *     summary: Get purchase analytics for a buyer

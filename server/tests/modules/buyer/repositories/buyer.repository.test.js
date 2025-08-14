@@ -5708,5 +5708,163 @@ describe('Buyer Repository', () => {
         expect(result).toHaveProperty('isActive');
       });
     });
+
+    describe('findAllActiveMajorCategories', () => {
+      let MajorCategory;
+      let Category;
+
+      beforeAll(() => {
+        // Use existing models instead of creating new ones
+        MajorCategory = require('@/models/MajorCategory');
+        Category = require('@/models/Category');
+      });
+
+      beforeEach(async () => {
+        await MajorCategory.deleteMany({});
+        await Category.deleteMany({});
+      });
+
+      it('should return all active major categories with populated categories', async () => {
+        // Arrange
+        const category1 = new Category({ name: 'Electronics' });
+        const category2 = new Category({ name: 'Computers' });
+        const category3 = new Category({ name: 'Clothing' });
+        
+        await category1.save();
+        await category2.save();
+        await category3.save();
+
+        const majorCategory1 = new MajorCategory({
+          name: 'Electronics',
+          isActive: true,
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category1._id, category2._id]
+        });
+
+        const majorCategory2 = new MajorCategory({
+          name: 'Fashion',
+          isActive: true,
+          image: { url: 'fashion.jpg', public_id: 'fashion_id' },
+          categories: [category3._id]
+        });
+
+        const majorCategory3 = new MajorCategory({
+          name: 'Sports',
+          isActive: false, // Inactive
+          image: { url: 'sports.jpg', public_id: 'sports_id' },
+          categories: []
+        });
+
+        await majorCategory1.save();
+        await majorCategory2.save();
+        await majorCategory3.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result[0].name).toBe('Electronics');
+        expect(result[0].isActive).toBe(true);
+        expect(result[0].categories).toHaveLength(2);
+        expect(result[1].name).toBe('Fashion');
+        expect(result[1].isActive).toBe(true);
+        expect(result[1].categories).toHaveLength(1);
+      });
+
+      it('should return empty array when no active major categories exist', async () => {
+        // Arrange
+        const category = new Category({ name: 'Electronics' });
+        await category.save();
+
+        const majorCategory = new MajorCategory({
+          name: 'Electronics',
+          isActive: false, // Inactive
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category._id]
+        });
+
+        await majorCategory.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should populate categories correctly', async () => {
+        // Arrange
+        const category = new Category({ name: 'Electronics' });
+        await category.save();
+
+        const majorCategory = new MajorCategory({
+          name: 'Electronics',
+          isActive: true,
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category._id]
+        });
+
+        await majorCategory.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(1);
+        expect(result[0].categories[0]).toHaveProperty('name', 'Electronics');
+        expect(result[0].categories[0]).toHaveProperty('_id');
+      });
+    });
+
+    describe('extractSelectedCategoryNames', () => {
+      it('should extract category names from buyer selected categories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: [
+            { name: 'Electronics', subCategories: [] },
+            { name: 'Computers', subCategories: [] },
+            { name: 'Clothing', subCategories: [] }
+          ]
+        };
+
+        // Act
+        const result = buyerRepository.extractSelectedCategoryNames(buyer);
+
+        // Assert
+        expect(result).toEqual(['Electronics', 'Computers', 'Clothing']);
+      });
+
+      it('should return empty array when buyer has no selected categories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: []
+        };
+
+        // Act
+        const result = buyerRepository.extractSelectedCategoryNames(buyer);
+
+        // Assert
+        expect(result).toEqual([]);
+      });
+
+      it('should throw error when buyer has undefined selectedCategories', () => {
+        // Arrange
+        const buyer = {};
+
+        // Act & Assert
+        expect(() => buyerRepository.extractSelectedCategoryNames(buyer)).toThrow();
+      });
+
+      it('should throw error when buyer has null selectedCategories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: null
+        };
+
+        // Act & Assert
+        expect(() => buyerRepository.extractSelectedCategoryNames(buyer)).toThrow();
+      });
+    });
   });
 }); 

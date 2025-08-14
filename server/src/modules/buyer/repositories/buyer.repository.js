@@ -940,6 +940,24 @@ async function findActiveMajorCategories(majorCategoryIds) {
 }
 
 /**
+ * Find all active major categories with populated categories
+ * @returns {Promise<Array>} Array of all active major categories with populated categories
+ */
+async function findAllActiveMajorCategories() {
+  const MajorCategory = require('../../../models/MajorCategory');
+  return await MajorCategory.find({ isActive: true }).populate('categories');
+}
+
+/**
+ * Extract selected category names from buyer's selected categories
+ * @param {Object} buyer - The buyer object with selectedCategories
+ * @returns {Array} Array of selected category names
+ */
+function extractSelectedCategoryNames(buyer) {
+  return buyer.selectedCategories.map(cat => cat.name);
+}
+
+/**
  * Find categories by IDs
  * @param {Array} categoryIds - Array of category IDs
  * @returns {Promise<Array>} Array of categories
@@ -1025,6 +1043,8 @@ module.exports = {
   toggleActivityStatus,
   getActivityStatus,
   findActiveMajorCategories,
+  findAllActiveMajorCategories,
+  extractSelectedCategoryNames,
   findCategoriesByIds,
   updateBuyerSelectedCategories
 };
