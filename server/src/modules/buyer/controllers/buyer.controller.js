@@ -44,6 +44,7 @@ const getPublicProfileService = require('../services/getPublicProfile.service');
 const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
 const getActivityStatusService = require('../services/getActivityStatus.service');
 const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
+const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
 
 
 
@@ -1379,6 +1380,35 @@ async function selectMajorCategories(req, res, next) {
   }
 }
 
+/**
+ * Update major categories selection (replaces categories from selected major categories).
+ *
+ * This controller handles the major categories selection update HTTP request.
+ * It delegates the update logic to the service layer and returns the updated categories.
+ * The service validates the major category IDs, finds the categories, and replaces existing major category selections
+ * while preserving manually selected categories that are not part of any major category.
+ *
+ * @param {Request} req - Express request object containing majorCategoryIds in `req.body` and buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateMajorCategoriesSelection(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user and major category IDs from request body
+    const buyerId = req.user.id;
+    const { majorCategoryIds } = req.body;
+
+    // Call the service layer to handle major categories selection update logic
+    const response = await updateMajorCategoriesSelectionService.updateMajorCategoriesSelection(buyerId, majorCategoryIds);
+
+    // Send success response with updated categories
+    res.success(response, 'Major categories selection updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1425,5 +1455,6 @@ module.exports = {
   getPublicProfile,
   toggleActivityStatus,
   getActivityStatus,
-  selectMajorCategories
+  selectMajorCategories,
+  updateMajorCategoriesSelection
 };

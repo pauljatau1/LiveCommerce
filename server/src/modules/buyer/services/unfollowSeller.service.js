@@ -47,18 +47,7 @@ function removeFollowActivity(buyer, sellerId) {
   }
 }
 
-/**
- * Get the count of sellers the buyer is following.
- *
- * @param {Object} buyer - The buyer object
- * @returns {number} Following count
- */
-function getFollowingCount(buyer) {
-  return buyer.activityFeed?.filter(activity =>
-    activity.type === 'follow' &&
-    activity.referenceModel === 'Seller'
-  ).length || 0;
-}
+
 
 /**
  * Ensure verificationDocuments is properly structured before saving.
@@ -120,7 +109,7 @@ async function unfollowSeller(buyerId, sellerId) {
   await Promise.all([seller.save(), buyer.save()]);
 
   // Get accurate following count after unfollow
-  const followingCount = getFollowingCount(buyer);
+  const followingCount = await buyerRepository.getFollowingCount(buyerId).catch(() => 0);
 
   return {
     sellerFollowCount: seller.followers.length,

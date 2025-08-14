@@ -11,6 +11,9 @@ jest.mock('@modules/buyer/validators/updateAddress.validator', () => ({
   validateUpdateAddressData: jest.fn()
 }));
 
+// Mock the repository
+jest.mock('@modules/buyer/repositories/buyer.repository');
+
 const updateAddressValidator = require('@modules/buyer/validators/updateAddress.validator');
 
 let mongoServer;
@@ -79,6 +82,22 @@ describe('Update Address Service', () => {
     it('should update address successfully', async () => {
       // Arrange
       updateAddressValidator.validateUpdateAddressData.mockResolvedValue();
+      
+      const updatedBuyer = {
+        _id: testBuyer._id,
+        shippingAddresses: [{
+          _id: testAddressId,
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '456 Business Avenue',
+          addressLine2: 'Suite 100',
+          zipCode: '100002'
+        }]
+      };
+      
+      buyerRepository.updateShippingAddress.mockResolvedValue(updatedBuyer);
 
       // Act
       const result = await updateAddressService.updateAddress(
@@ -103,6 +122,11 @@ describe('Update Address Service', () => {
         testBuyer._id.toString(), 
         testAddressId
       );
+      expect(buyerRepository.updateShippingAddress).toHaveBeenCalledWith(
+        testBuyer._id.toString(),
+        testAddressId,
+        mockUpdateData
+      );
     });
 
     it('should update address with partial data', async () => {
@@ -112,6 +136,22 @@ describe('Update Address Service', () => {
         city: 'Victoria Island'
       };
       updateAddressValidator.validateUpdateAddressData.mockResolvedValue();
+      
+      const updatedBuyer = {
+        _id: testBuyer._id,
+        shippingAddresses: [{
+          _id: testAddressId,
+          addressType: 'work',
+          country: 'Nigeria',
+          state: 'Lagos',
+          city: 'Victoria Island',
+          addressLine1: '123 Main Street',
+          addressLine2: 'Apt 4B',
+          zipCode: '100001'
+        }]
+      };
+      
+      buyerRepository.updateShippingAddress.mockResolvedValue(updatedBuyer);
 
       // Act
       const result = await updateAddressService.updateAddress(

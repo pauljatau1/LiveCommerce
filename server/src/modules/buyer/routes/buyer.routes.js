@@ -1030,6 +1030,110 @@ router.post('/select-major-categories', verifyToken, buyerController.selectMajor
 
 /**
  * @swagger
+ * /api/v2/buyers/update-major-categories:
+ *   put:
+ *     summary: Update major categories selection (replaces categories from selected major categories)
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - majorCategoryIds
+ *             properties:
+ *               majorCategoryIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of major category IDs to select
+ *                 example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ *     responses:
+ *       200:
+ *         description: Major categories selection updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Major categories selection updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     selectedCategories:
+ *                       type: array
+ *                       description: All selected categories (from major categories and manual selections)
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *                     majorCategorySelections:
+ *                       type: array
+ *                       description: Categories from selected major categories
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Electronics"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Smartphones"
+ *                     manualSelections:
+ *                       type: array
+ *                       description: Categories that were manually selected (not from major categories)
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: "Custom Category"
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                   example: "Custom Subcategory"
+ *       400:
+ *         description: Invalid request - majorCategoryIds array is required
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or major categories not found
+ *       422:
+ *         description: Validation error - Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/update-major-categories', verifyToken, buyerController.updateMajorCategoriesSelection);
+
+/**
+ * @swagger
  * /api/v2/buyers/analytics:
  *   get:
  *     summary: Get purchase analytics for a buyer

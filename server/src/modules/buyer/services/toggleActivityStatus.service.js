@@ -7,6 +7,7 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  *
  * This function:
  * - Validates the buyer ID
+ * - Gets the current activity status
  * - Toggles the buyer's isActive status
  * - Returns the updated status and a success message
  *
@@ -19,17 +20,27 @@ async function toggleActivityStatus(buyerId) {
   // Validate input parameters
   await validateToggleActivityStatusData({ buyerId });
 
-  // Toggle activity status using repository
-  const result = await buyerRepository.toggleActivityStatus(buyerId);
-
-  if (!result) {
+  // Get current activity status
+  const currentBuyer = await buyerRepository.getActivityStatus(buyerId);
+  if (!currentBuyer) {
     throw new NotFoundException('Buyer not found');
   }
 
-  return result;
+  // Toggle the status
+  const newStatus = !currentBuyer.isActive;
+
+  // Update activity status using repository
+  const updatedBuyer = await buyerRepository.toggleActivityStatus(buyerId, newStatus);
+
+  if (!updatedBuyer) {
+    throw new NotFoundException('Buyer not found');
+  }
+
+  return {
+    isActive: updatedBuyer.isActive,
+    message: `Account successfully ${updatedBuyer.isActive ? 'activated' : 'deactivated'}`
+  };
 }
-
-
 
 module.exports = {
   toggleActivityStatus

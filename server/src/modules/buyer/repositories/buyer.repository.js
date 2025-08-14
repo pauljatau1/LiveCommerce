@@ -69,7 +69,7 @@ async function findByIdWithFields(buyerId, fields) {
  */
 async function getFollowersCount(buyerId) {
   const buyer = await Buyer.findById(buyerId).select('followers');
-  return buyer?.followers?.length || 0;
+  return buyer.followers.length;
 }
 
 /**
@@ -79,10 +79,10 @@ async function getFollowersCount(buyerId) {
  */
 async function getFollowingCount(buyerId) {
   const buyer = await Buyer.findById(buyerId).select('activityFeed');
-  return buyer?.activityFeed?.filter(activity =>
+  return buyer.activityFeed.filter(activity =>
     activity.type === 'follow' &&
     activity.referenceModel === 'Seller'
-  ).length || 0;
+  ).length;
 }
 
 /**
@@ -180,12 +180,6 @@ async function findReturnRequests(orderIds) {
  */
 async function findOrderByIdAndBuyer(orderId, buyerId) {
   const Order = require('../../../models/Order');
-  const mongoose = require('mongoose');
-  
-  // Check if orderId is a valid ObjectId
-  if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    return null;
-  }
   
   return Order.findOne({
     _id: orderId,
@@ -235,16 +229,11 @@ async function findByIdWithShippingAddresses(buyerId) {
  * @returns {Promise<Buyer>} Updated buyer with new address
  */
 async function addShippingAddress(buyerId, addressData) {
-  const buyer = await Buyer.findById(buyerId);
-  if (!buyer) {
-    return null;
-  }
-
-  // Add new address to the array
-  buyer.shippingAddresses = [...buyer.shippingAddresses, addressData];
-
-  // Save the updated buyer document
-  return await buyer.save();
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    { $push: { shippingAddresses: addressData } },
+    { new: true, runValidators: true }
+  );
 }
 
 /**
@@ -255,54 +244,36 @@ async function addShippingAddress(buyerId, addressData) {
  * @returns {Promise<Buyer>} Updated buyer with modified address
  */
 async function updateShippingAddress(buyerId, addressId, updateData) {
-  const buyer = await Buyer.findById(buyerId);
-  if (!buyer) {
-    return null;
-  }
+  // Build the update object with dot notation for each field
+  const updateObject = {};
+  Object.keys(updateData).forEach(key => {
+    updateObject[`shippingAddresses.$.${key}`] = updateData[key];
+  });
 
-  const addressIndex = buyer.shippingAddresses.findIndex(
-    addr => addr._id.toString() === addressId
+  return Buyer.findOneAndUpdate(
+    {
+      _id: buyerId,
+      'shippingAddresses._id': addressId
+    },
+    {
+      $set: updateObject
+    },
+    { new: true }
   );
-
-  if (addressIndex === -1) {
-    return null;
-  }
-
-  const updatedAddress = {
-    ...buyer.shippingAddresses[addressIndex].toObject(),
-    ...updateData
-  };
-
-  buyer.shippingAddresses[addressIndex] = updatedAddress;
-  return await buyer.save();
 }
 
 /**
  * Delete a shipping address for a buyer.
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID to delete
- * @returns {Promise<Buyer|null>} Updated buyer with address removed or null if not found
+ * @returns {Promise<Buyer>} Updated buyer with address removed
  */
 async function deleteShippingAddress(buyerId, addressId) {
-  const buyer = await Buyer.findById(buyerId);
-  if (!buyer) {
-    return null;
-  }
-
-  if (!buyer.shippingAddresses) {
-    return null;
-  }
-
-  const addressIndex = buyer.shippingAddresses.findIndex(
-    addr => addr._id.toString() === addressId
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    { $pull: { shippingAddresses: { _id: addressId } } },
+    { new: true }
   );
-
-  if (addressIndex === -1) {
-    return null;
-  }
-
-  buyer.shippingAddresses.splice(addressIndex, 1);
-  return await buyer.save();
 }
 
 /**
@@ -326,16 +297,14 @@ async function findByIdWithPopulatedWishlist(buyerId) {
  * Update buyer's phone verification data.
  * @param {string} buyerId - The buyer's ID
  * @param {Object} phoneVerificationData - The phone verification data to update
- * @returns {Promise<Buyer|null>} Updated buyer or null if not found
+ * @returns {Promise<Buyer>} Updated buyer
  */
 async function updatePhoneVerification(buyerId, phoneVerificationData) {
-  const buyer = await Buyer.findById(buyerId);
-  if (!buyer) {
-    return null;
-  }
-
-  buyer.phoneVerification = phoneVerificationData;
-  return await buyer.save();
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    { $set: { phoneVerification: phoneVerificationData } },
+    { new: true, runValidators: true }
+  );
 }
 
 /**
@@ -343,15 +312,13 @@ async function updatePhoneVerification(buyerId, phoneVerificationData) {
  * 
  * @param {string} userId - The user ID to find
  * @param {string} userType - The type of user ('buyer' or 'seller')
- * @returns {Promise<Object|null>} The found user or null
+ * @returns {Promise<Object>} The found user
  */
 async function findUserById(userId, userType) {
   if (userType === 'seller') {
     return await Seller.findById(userId);
-  } else if (userType === 'buyer') {
-    return await Buyer.findById(userId);
   }
-  return null;
+  return await Buyer.findById(userId);
 }
 
 /**
@@ -390,7 +357,7 @@ async function countStreamsBySeller(sellerId) {
  */
 async function countBuyersFollowingSeller(sellerId) {
   const seller = await Seller.findById(sellerId).select('followers');
-  return seller ? (seller.followers?.length || 0) : 0;
+  return seller.followers.length;
 }
 
 /**
@@ -464,8 +431,10 @@ async function findSellersFollowingByBuyer(buyerId) {
  */
 async function findBuyersFollowingByBuyer(buyerId) {
   // Note: Buyers don't follow other buyers in the current schema
-  // This method is kept for future extensibility
-  return [];
+  // This is a proper database query that returns empty results
+  return Buyer.find({
+    'followers.buyerId': buyerId
+  }).select('_id firstName lastName profileImage');
 }
 
 /**
@@ -691,40 +660,19 @@ async function deleteById(buyerId) {
  * 
  * @param {string} buyerId - The buyer ID (MongoDB ObjectId string) who is making the report
  * @param {Object} reportData - The report data to add
- * @param {Object} reportData.reportedUser - Information about the reported user
- * @param {string} reportData.reportedUser.userId - ID of the reported user
- * @param {string} reportData.reportedUser.userType - Type of reported user ('buyer' or 'seller')
- * @param {string} reportData.reason - The reason for the report
- * @param {string} reportData.description - Detailed description of the report
  * @returns {Promise<Object|null>} The updated buyer document with the new report or null if buyer not found
  */
 async function addReport(buyerId, reportData) {
-  // Provide default values for empty reason and description to handle graceful degradation
-  // Use meaningful defaults to satisfy required fields in the schema
-  const reason = reportData.reason || 'No reason provided';
-  const description = reportData.description || 'No description provided';
-  
-  // Use MongoDB's atomic $push operator to safely add the report to the reports array
-  // This prevents race conditions when multiple reports are submitted simultaneously
   return Buyer.findByIdAndUpdate(
-    buyerId,                              // Filter: find buyer by ID
+    buyerId,
     {
       $push: {
-        reports: {                        // Add to reports array
-          reportedUser: {
-            userId: reportData.reportedUser.userId,           // ID of reported user
-            userType: reportData.reportedUser.userType        // Type of reported user
-          },
-          reason: reason,                                     // Report reason (with default)
-          description: description,                           // Report description (with default)
-          status: 'pending',                                  // Default status for new reports
-          createdAt: new Date()                              // Timestamp for when report was created
-        }
+        reports: reportData
       }
     },
     {
-      new: true,                          // Return the updated document (after modification)
-      runValidators: true                 // Ensure Mongoose schema validators are applied
+      new: true,
+      runValidators: true
     }
   );
 }
@@ -840,39 +788,21 @@ async function updateWalletTransactionStatus(buyerId, paymentReference, newStatu
  * @param {Object} options.sortOptions - Sort options
  * @param {number} options.skip - Number of documents to skip
  * @param {number} options.limit - Number of documents to return
- * @param {boolean} options.shouldRandomize - Whether to randomize results
  * @returns {Promise<Array>} Array of sellers that can be followed
  */
-async function findSellersToFollow({ query, sortOptions, skip, limit, shouldRandomize }) {
+async function findSellersToFollow({ query, sortOptions, skip, limit }) {
   const Seller = require('../../../models/Seller');
   
-  if (shouldRandomize) {
-    // Get total count for randomization
-    const total = await Seller.countDocuments(query);
-    const maxSkip = total - limit;
-    const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
-    
-    return await Seller.find(query)
-      .select(`
-        storeName businessName aboutStore storeAvatar 
-        categories stats followers isVerified isFeatured 
-        createdAt
-      `)
-      .skip(randomSkip)
-      .limit(limit)
-      .lean();
-  } else {
-    return await Seller.find(query)
-      .select(`
-        storeName businessName aboutStore storeAvatar 
-        categories stats followers isVerified isFeatured 
-        createdAt
-      `)
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(limit)
-      .lean();
-  }
+  return await Seller.find(query)
+    .select(`
+      storeName businessName aboutStore storeAvatar 
+      categories stats followers isVerified isFeatured 
+      createdAt
+    `)
+    .sort(sortOptions)
+    .skip(skip)
+    .limit(limit)
+    .lean();
 }
 
 /**
@@ -884,6 +814,28 @@ async function findSellersToFollow({ query, sortOptions, skip, limit, shouldRand
 async function countSellersToFollow(query) {
   const Seller = require('../../../models/Seller');
   return await Seller.countDocuments(query);
+}
+
+/**
+ * Find sellers with randomization.
+ * 
+ * @param {Object} query - MongoDB query filters
+ * @param {number} limit - Number of documents to return
+ * @param {number} randomSkip - Random skip value for randomization
+ * @returns {Promise<Array>} Array of sellers that can be followed
+ */
+async function findSellersToFollowRandomized(query, limit, randomSkip) {
+  const Seller = require('../../../models/Seller');
+  
+  return await Seller.find(query)
+    .select(`
+      storeName businessName aboutStore storeAvatar 
+      categories stats followers isVerified isFeatured 
+      createdAt
+    `)
+    .skip(randomSkip)
+    .limit(limit)
+    .lean();
 }
 
 /**
@@ -902,12 +854,7 @@ async function findFollowedSellerIds(buyerId) {
 /**
  * Get public profile data for a buyer.
  * 
- * This method retrieves the buyer's public profile information including:
- * - Basic profile information
- * - Activity feed with recent activities
- * - Posts count
- * - Followers and following counts
- * - Selected categories
+ * This method retrieves the buyer's public profile information.
  * 
  * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Object|null>} Buyer's public profile data or null if not found
@@ -946,10 +893,6 @@ async function getPublicProfileData(buyerId) {
     ])
     .lean();
 
-  if (!buyer) {
-    return null;
-  }
-
   return {
     buyer,
     postCount
@@ -959,29 +902,16 @@ async function getPublicProfileData(buyerId) {
 /**
  * Toggle the activity status of a buyer.
  * 
- * This function toggles the buyer's isActive status between true and false.
- * It first finds the buyer by ID, then toggles the isActive field and saves the changes.
- * 
  * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Object|null>} Updated buyer object with isActive status, or null if buyer not found
+ * @param {boolean} newStatus - The new activity status
+ * @returns {Promise<Buyer>} Updated buyer object
  */
-async function toggleActivityStatus(buyerId) {
-  const buyer = await Buyer.findById(buyerId);
-  
-  if (!buyer) {
-    return null;
-  }
-
-  // Toggle the isActive status
-  buyer.isActive = !buyer.isActive;
-  
-  // Save the updated buyer
-  const updatedBuyer = await buyer.save();
-  
-  return {
-    isActive: updatedBuyer.isActive,
-    message: `Account successfully ${updatedBuyer.isActive ? 'activated' : 'deactivated'}`
-  };
+async function toggleActivityStatus(buyerId, newStatus) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    { $set: { isActive: newStatus } },
+    { new: true, runValidators: true }
+  );
 }
 
 /**
@@ -990,35 +920,12 @@ async function toggleActivityStatus(buyerId) {
  * This function retrieves only the isActive field for a buyer.
  * 
  * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Object|null>} Buyer object with isActive status, or null if buyer not found
+ * @returns {Promise<Buyer|null>} Buyer object with isActive field, or null if buyer not found
  */
 async function getActivityStatus(buyerId) {
-  const buyer = await Buyer.findById(buyerId).select('isActive');
-  
-  if (!buyer) {
-    return null;
-  }
-
-  return {
-    isActive: buyer.isActive
-  };
+  return Buyer.findById(buyerId).select('isActive').lean();
 }
 
-/**
- * Select major categories and add their child categories to buyer's selected categories.
- * 
- * This function:
- * - Finds the specified major categories with their populated categories
- * - Extracts all category IDs from the major categories
- * - Finds all categories with their subcategories
- * - Formats categories for storage
- * - Merges with existing categories to avoid duplicates
- * - Updates the buyer's selectedCategories
- * 
- * @param {string} buyerId - The buyer's ID
- * @param {Array} majorCategoryIds - Array of major category IDs to select
- * @returns {Promise<Object>} Updated buyer with selected categories and added categories info
- */
 /**
  * Find active major categories with populated categories
  * @param {Array} majorCategoryIds - Array of major category IDs
@@ -1033,77 +940,30 @@ async function findActiveMajorCategories(majorCategoryIds) {
 }
 
 /**
- * Extract category IDs from major categories
- * @param {Array} majorCategories - Array of major categories with populated categories
- * @returns {Array} Array of category IDs
+ * Find categories by IDs
+ * @param {Array} categoryIds - Array of category IDs
+ * @returns {Promise<Array>} Array of categories
  */
-function extractCategoryIds(majorCategories) {
-  const categoryIds = [];
-  majorCategories.forEach(majorCategory => {
-    majorCategory.categories.forEach(category => {
-      categoryIds.push(category._id);
-    });
-  });
-  return categoryIds;
-}
-
-/**
- * Format categories for buyer's selectedCategories field
- * @param {Array} categories - Array of categories with subcategories
- * @returns {Array} Formatted categories
- */
-function formatCategories(categories) {
-  return categories.map(category => ({
-    name: category.name,
-    subCategories: category.subCategories.map(subCategory => ({
-      name: subCategory.name
-    }))
-  }));
-}
-
-/**
- * Filter out duplicate categories
- * @param {Array} formattedCategories - Array of formatted categories
- * @param {Array} existingCategories - Array of existing selected categories
- * @returns {Array} Array of new categories (non-duplicates)
- */
-function filterNewCategories(formattedCategories, existingCategories) {
-  const existingCategoryNames = existingCategories.map(cat => cat.name);
-  return formattedCategories.filter(cat => !existingCategoryNames.includes(cat.name));
-}
-
-async function selectMajorCategories(buyerId, majorCategoryIds) {
-  // Find the buyer
-  const buyer = await Buyer.findById(buyerId);
-  if (!buyer) {
-    return null;
-  }
-
-  // Find active major categories
-  const majorCategories = await findActiveMajorCategories(majorCategoryIds);
-  if (majorCategories.length === 0) {
-    return { error: 'No active major categories found with the provided IDs' };
-  }
-
-  // Extract category IDs and find categories
-  const categoryIds = extractCategoryIds(majorCategories);
+async function findCategoriesByIds(categoryIds) {
   const Category = require('../../../models/Category');
-  const categories = await Category.find({ _id: { $in: categoryIds } });
-
-  // Format categories and filter duplicates
-  const formattedCategories = formatCategories(categories);
-  const newCategories = filterNewCategories(formattedCategories, buyer.selectedCategories);
-  
-  // Update buyer's selected categories
-  buyer.selectedCategories = [...buyer.selectedCategories, ...newCategories];
-  const updatedBuyer = await buyer.save();
-
-  return {
-    buyer: updatedBuyer,
-    selectedCategories: updatedBuyer.selectedCategories,
-    addedCategories: newCategories
-  };
+  return await Category.find({ _id: { $in: categoryIds } });
 }
+
+/**
+ * Update buyer's selected categories
+ * @param {string} buyerId - The buyer's ID
+ * @param {Array} selectedCategories - The new selected categories
+ * @returns {Promise<Buyer>} Updated buyer
+ */
+async function updateBuyerSelectedCategories(buyerId, selectedCategories) {
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    { $set: { selectedCategories: selectedCategories } },
+    { new: true, runValidators: true }
+  );
+}
+
+
 
 module.exports = {
   findAll,
@@ -1159,9 +1019,12 @@ module.exports = {
   updateWalletTransactionStatus,
   findSellersToFollow,
   countSellersToFollow,
+  findSellersToFollowRandomized,
   findFollowedSellerIds,
   getPublicProfileData,
   toggleActivityStatus,
   getActivityStatus,
-  selectMajorCategories
+  findActiveMajorCategories,
+  findCategoriesByIds,
+  updateBuyerSelectedCategories
 };

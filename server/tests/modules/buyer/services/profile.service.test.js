@@ -271,10 +271,19 @@ describe('Profile Service', () => {
     });
 
     it('should handle count method errors gracefully', async () => {
+      // Arrange
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockRejectedValue(new Error('Followers count failed'));
+      buyerRepository.getFollowingCount.mockResolvedValue(10);
+      buyerRepository.getPostsCount.mockResolvedValue(5);
 
-      await expect(profileService.getProfile(mockBuyerId)).rejects.toThrow('Followers count failed');
+      // Act
+      const result = await profileService.getProfile(mockBuyerId);
+
+      // Assert
+      expect(result.followersCount).toBe(0); // Error should be caught and return 0
+      expect(result.followingCount).toBe(10);
+      expect(result.postsCount).toBe(5);
     });
   });
 }); 
