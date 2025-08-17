@@ -483,7 +483,7 @@ const Blips = () => {
               onClick={() => handleViewBlipDetails(blip)}
             />
           ) : (
-            <div 
+            <div
               className="h-16 w-16 bg-gray-200 rounded mr-3 flex items-center justify-center cursor-pointer"
               onClick={() => handleViewBlipDetails(blip)}
             >
@@ -847,7 +847,9 @@ const Blips = () => {
             {/* Video Upload */}
             <div>
               <label className="block text-sm font-medium mb-2">Upload Blip Videos (Max 5)</label>
-
+              <p className="text-xs text-gray-500">
+                You can add up to 5 blips per product and each blip must be less than 50MB
+              </p>
               <div
                 className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all
                   ${!selectedProduct ? 'opacity-50 pointer-events-none' : ''} 

@@ -352,8 +352,8 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bid.status === 'won' ? 'bg-green-100 text-green-800' :
-                                                                    bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' :
-                                                                        'bg-gray-100 text-gray-800'
+                                                                bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' :
+                                                                    'bg-gray-100 text-gray-800'
                                                                 }`}>
                                                                 {bid.status === 'won' ? 'Won' :
                                                                     bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
@@ -483,8 +483,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     <button
                                         onClick={handleStockIncreaseButton}
                                         className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'add'
-                                                ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]'
-                                                : 'bg-gray-100 text-gray-600'
+                                            ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]'
+                                            : 'bg-gray-100 text-gray-600'
                                             }`}
                                     >
                                         Add Stock
@@ -492,8 +492,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     <button
                                         onClick={handleStockDecreaseButton}
                                         className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'subtract'
-                                                ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]'
-                                                : 'bg-gray-100 text-gray-600'
+                                            ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]'
+                                            : 'bg-gray-100 text-gray-600'
                                             }`}
                                     >
                                         Remove Stock
@@ -534,8 +534,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                         <button
                                             onClick={() => setStockChange(prev => prev + 1)}
                                             className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
-                                                    ? 'bg-[#0BB248] text-white'
-                                                    : 'bg-[#DF0707] text-white'
+                                                ? 'bg-[#0BB248] text-white'
+                                                : 'bg-[#DF0707] text-white'
                                                 }`}
                                         >
                                             <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
@@ -543,8 +543,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                         <button
                                             onClick={() => setStockChange(prev => Math.max(0, prev - 1))}
                                             className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
-                                                    ? 'bg-[#0BB248] text-white'
-                                                    : 'bg-[#DF0707] text-white'
+                                                ? 'bg-[#0BB248] text-white'
+                                                : 'bg-[#DF0707] text-white'
                                                 }`}
                                             disabled={stockChange <= 0}
                                         >
@@ -564,8 +564,8 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                             </button>
                             <button
                                 className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${operation === 'add'
-                                        ? 'bg-[#0BB248] hover:bg-[#0BB248]/80'
-                                        : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
+                                    ? 'bg-[#0BB248] hover:bg-[#0BB248]/80'
+                                    : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
                                     }`}
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || stockChange <= 0}
@@ -701,8 +701,8 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                     <h2 className="text-xl font-semibold">{productData.name}</h2>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className={`px-2 py-1 rounded-full text-xs ${productData.status === 'active'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-yellow-100 text-yellow-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-yellow-100 text-yellow-800'
                                             }`}>
                                             {productData.status.charAt(0).toUpperCase() + productData.status.slice(1)}
                                         </span>
@@ -1433,7 +1433,12 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
 
                 {/* Add New Blips Section */}
                 <div className="space-y-6 mt-6">
-                    <h4 className="font-medium text-lg">Add New Blips {blipVideos.length > 0 ? `(${blipVideos.length})` : ''}</h4>
+                    <div>
+                        <h4 className="font-medium text-lg">Add New Blips {blipVideos.length > 0 ? `(${blipVideos.length})` : ''}</h4>
+                        <p className="text-xs text-gray-500">
+                            You can add up to 5 blips per product and each blip must be less than 50MB
+                        </p>
+                    </div>
 
                     {/* Only show upload area if not at max capacity */}
                     {existingBlips.length < 5 ? (
@@ -1774,8 +1779,8 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     <button
                         onClick={() => setOpenBlipUploadModal(true)}
                         className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${item?.blips?.length > 0
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-100 text-red-600 hover:bg-red-200'
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-red-100 text-red-600 hover:bg-red-200'
                             }`}
                         title="Blips are short promotional videos that showcase your product in action"
                     >
