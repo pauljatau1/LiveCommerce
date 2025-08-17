@@ -315,6 +315,10 @@ export default function ChatInterface() {
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  
+  // Add state to track messages by conversation ID for persistence
+  const [messagesByConversation, setMessagesByConversation] = useState({});
 
     // Hide the Intercom launcher for this component - high priority
   // This should run before any other effects
@@ -588,6 +592,71 @@ export default function ChatInterface() {
     fetchConversations();
   }, []);
 
+  // Handle location state to open chat with specific customer
+  useEffect(() => {
+    const handleLocationState = async () => {
+      if (!location.state?.openChatWithCustomer || !location.state?.customerId) {
+        return;
+      }
+
+      const { customerId, customerName } = location.state;
+      
+      // Check if there's already a conversation with this customer
+      const existingConversation = conversations.find(conv => 
+        conv.participant.id === customerId
+      );
+
+      if (existingConversation) {
+        // Open existing conversation
+        setCurrentConversation(existingConversation);
+        setShowChatList(false); // Hide chat list on mobile
+        
+        // Don't mark as loaded - let the normal message fetching handle it
+        // This ensures messages are properly fetched when returning to the conversation
+      } else {
+        // Create new conversation without sending a default message
+        setIsCreatingConversation(true);
+        try {
+          // Create a conversation object without sending a message
+          const newConversation = {
+            _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
+            participant: {
+              id: customerId,
+              name: customerName,
+              model: 'Buyer'
+            },
+            lastMessage: {
+              content: '',
+              createdAt: new Date().toISOString()
+            },
+            unreadCount: 0,
+            isNew: true // Flag to indicate this is a new conversation
+          };
+
+          // Update conversations list and set current
+          setConversations(prev => [newConversation, ...prev]);
+          setCurrentConversation(newConversation);
+          setShowChatList(false); // Hide chat list on mobile
+          
+          toast.success('Chat opened with customer');
+        } catch (error) {
+          console.error('Error opening chat:', error);
+          toast.error('Failed to open chat with customer');
+        } finally {
+          setIsCreatingConversation(false);
+        }
+      }
+
+      // Clear the location state to prevent re-triggering
+      navigate('/dashboard/messages', { replace: true });
+    };
+
+    // Only run after conversations are loaded
+    if (!isLoadingConversations && conversations.length >= 0) {
+      handleLocationState();
+    }
+  }, [location.state, conversations, isLoadingConversations]);
+
   // Add a state to track if initial messages are loaded for a conversation
   const [initialMessagesLoaded, setInitialMessagesLoaded] = useState({});
   
@@ -596,8 +665,17 @@ export default function ChatInterface() {
     if (!currentConversation) return;
     console.log('Conversation changed, fetching messages');
     
+    const conversationId = currentConversation._id;
+    
+    // Check if we have cached messages for this conversation
+    if (messagesByConversation[conversationId]) {
+      console.log('Using cached messages for conversation:', conversationId);
+      setMessages(messagesByConversation[conversationId]);
+      return;
+    }
+    
     // Check if we already loaded messages for this conversation
-    if (initialMessagesLoaded[currentConversation._id]) {
+    if (initialMessagesLoaded[conversationId]) {
       console.log('Messages already loaded for this conversation, skipping fetch');
       return;
     }
@@ -607,7 +685,7 @@ export default function ChatInterface() {
     setHasMoreMessages(true);
     setMessages([]);
     fetchMessages(1);
-  }, [currentConversation?._id]); // Only depend on the conversation ID, not the entire object
+  }, [currentConversation?._id, messagesByConversation]); // Only depend on the conversation ID, not the entire object
 
   // Create a more robust scrollToBottom function with direct DOM manipulation
   const scrollToBottom = (immediate = true) => {
@@ -641,6 +719,13 @@ export default function ChatInterface() {
     
     const conversationId = currentConversation._id;
     
+    // Skip fetching if this is a temporary conversation (new conversation without messages yet)
+    if (conversationId.startsWith('temp_')) {
+      console.log('Skipping fetch for temporary conversation:', conversationId);
+      setIsLoadingMessages(false);
+      return;
+    }
+    
     // Only show loading state for the first page AND when no messages are loaded yet
     if (page === 1 && messages.length === 0) {
       setIsLoadingMessages(true);
@@ -672,6 +757,12 @@ export default function ChatInterface() {
           const uniqueMessages = data.messages || [];
           setMessages(uniqueMessages);
           
+          // Store messages in persistent state
+          setMessagesByConversation(prev => ({
+            ...prev,
+            [conversationId]: uniqueMessages
+          }));
+          
           // Mark this conversation as having loaded messages
           setInitialMessagesLoaded(prev => ({
             ...prev,
@@ -683,7 +774,15 @@ export default function ChatInterface() {
           setMessages(prevMessages => {
             const existingIds = new Set(prevMessages.map(msg => msg._id));
             const newMessages = (data.messages || []).filter(msg => !existingIds.has(msg._id));
-            return [...prevMessages, ...newMessages];
+            const updatedMessages = [...prevMessages, ...newMessages];
+            
+            // Update persistent state
+            setMessagesByConversation(prev => ({
+              ...prev,
+              [conversationId]: updatedMessages
+            }));
+            
+            return updatedMessages;
           });
         }
         
@@ -795,7 +894,15 @@ export default function ChatInterface() {
           if (messageExists) {
             return prev;
           }
-          return [messageData, ...prev];
+          const updatedMessages = [messageData, ...prev];
+          
+          // Update persistent state
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [messageData.conversation]: updatedMessages
+          }));
+          
+          return updatedMessages;
         });
         
         // Force immediate scroll to bottom for new messages
@@ -805,7 +912,11 @@ export default function ChatInterface() {
       // Update conversations list without triggering message reload
       setConversations(prev =>
         prev.map(conv => {
-          if (conv._id === messageData.conversation) {
+          // Handle both real conversation IDs and temporary conversations
+          const isTargetConv = conv._id === messageData.conversation || 
+                              (conv.isNew && messageData.conversation === currentConversation?._id);
+          
+          if (isTargetConv) {
             return {
               ...conv,
               lastMessage: {
@@ -910,7 +1021,19 @@ export default function ChatInterface() {
     console.log('Adding temporary message:', tempMessage);
 
     // Add temporary message at the beginning of the array (newest first)
-    setMessages(prev => [tempMessage, ...prev]);
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...prev];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
 
     // Force immediate scroll to bottom after adding temp message
     scrollToBottom(true);
@@ -944,24 +1067,106 @@ export default function ChatInterface() {
       // Extract the actual message from the response
       const serverMessage = serverResponse.message;
 
-      // Update messages by replacing temp message
-      setMessages(prev => prev.map(msg =>
-        msg._id === tempId ? serverMessage : msg
-      ));
+      // Check if this was a temporary conversation and update it with the real conversation ID
+      if (currentConversation._id.startsWith('temp_')) {
+        const realConversationId = serverMessage.conversation;
+        
+        // Update the current conversation with the real ID
+        const updatedConversation = {
+          ...currentConversation,
+          _id: realConversationId,
+          isNew: false
+        };
+        
+        setCurrentConversation(updatedConversation);
+        
+        // Update the conversations list to replace the temporary conversation
+        setConversations(prev => 
+          prev.map(conv => 
+            conv._id === currentConversation._id ? updatedConversation : conv
+          )
+        );
+        
+        // Update messages with the real conversation ID
+        setMessages(prev => {
+          const updatedMessages = prev.map(msg =>
+            msg._id === tempId ? serverMessage : msg
+          );
+          
+          // Update persistent state with the real conversation ID
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [realConversationId]: updatedMessages
+          }));
+          
+          return updatedMessages;
+        });
+        
+        // Refetch conversations list to get the proper conversation data from server
+        const refetchConversations = async () => {
+          try {
+            const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+            const response = await fetch(`${BASE_URL}/conversations`, {
+              headers: {
+                'Authorization': `Bearer ${sellerToken}`
+              }
+            });
+            const data = await response.json();
+            
+            // Update conversations list with fresh data from server
+            setConversations(data.conversations);
+            
+            // Update current conversation with the fresh data
+            const freshConversation = data.conversations.find(conv => 
+              conv._id === realConversationId
+            );
+            if (freshConversation) {
+              setCurrentConversation(freshConversation);
+            }
+          } catch (error) {
+            console.error('Error refetching conversations:', error);
+          }
+        };
+        
+        // Refetch after a short delay to ensure server has processed the new conversation
+        setTimeout(refetchConversations, 500);
+      } else {
+        // Normal case - just update messages
+        setMessages(prev => {
+          const updatedMessages = prev.map(msg =>
+            msg._id === tempId ? serverMessage : msg
+          );
+          
+          // Update persistent state
+          if (currentConversation?._id) {
+            setMessagesByConversation(prevState => ({
+              ...prevState,
+              [currentConversation._id]: updatedMessages
+            }));
+          }
+          
+          return updatedMessages;
+        });
+      }
 
       // Update conversations list
       setConversations(prev =>
-        prev.map(conv =>
-          conv._id === currentConversation._id
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: newMessageContent,
-                  createdAt: new Date().toISOString()
-                }
+        prev.map(conv => {
+          // Handle both temporary and real conversation IDs
+          const isCurrentConv = conv._id === currentConversation._id || 
+                               (currentConversation._id.startsWith('temp_') && conv.isNew);
+          
+          if (isCurrentConv) {
+            return {
+              ...conv,
+              lastMessage: {
+                content: newMessageContent,
+                createdAt: new Date().toISOString()
               }
-            : conv
-        )
+            };
+          }
+          return conv;
+        })
       );
 
       console.log('Emitting socket event for new message');
@@ -977,9 +1182,19 @@ export default function ChatInterface() {
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       // Remove temporary message if send failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
       setMessageInput(newMessageContent); // Restore message input
       toast.error(error.message || "Failed to send message. Please try again.");
     } finally {
@@ -1021,7 +1236,19 @@ export default function ChatInterface() {
     };
 
     // Add message to UI immediately at the beginning (newest first)
-    setMessages(prev => [tempMessage, ...(prev || [])]);
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...(prev || [])];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
     
     // Force immediate scroll to bottom
     scrollToBottom(true);
@@ -1093,9 +1320,19 @@ export default function ChatInterface() {
       toast.success("Image sent successfully");
     } catch (error) {
       // Remove temporary message if upload failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
       console.error('Error uploading image:', error);
       toast.error("Failed to send image. Please try again.");
     }
@@ -1124,7 +1361,19 @@ export default function ChatInterface() {
     };
 
     // Add message to UI immediately at the beginning (newest first)
-    setMessages(prev => [tempMessage, ...(prev || [])]);
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...(prev || [])];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
     
     // Force immediate scroll to bottom
     scrollToBottom(true);
@@ -1192,9 +1441,19 @@ export default function ChatInterface() {
       toast.success("Product shared successfully");
     } catch (error) {
       // Remove temporary message if send failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
       console.error('Error sending product message:', error);
       toast.error("Failed to share product. Please try again.");
     }
@@ -1301,9 +1560,25 @@ export default function ChatInterface() {
   // Empty state component
   const EmptyState = () => (
     <div className="flex-1 flex flex-col items-center justify-center bg-white">
-      <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversation Selected</h3>
-      <p className="text-gray-500">Select a conversation from the list to start messaging</p>
+      {isCreatingConversation ? (
+        <>
+          <Loader2 className="h-16 w-16 animate-spin text-green-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Opening Chat...</h3>
+          <p className="text-gray-500">Setting up your chat with the customer</p>
+        </>
+      ) : currentConversation?.isNew ? (
+        <>
+          <MessageSquare className="h-16 w-16 text-green-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">New Chat</h3>
+          <p className="text-gray-500">Start the conversation by sending a message</p>
+        </>
+      ) : (
+        <>
+          <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversation Selected</h3>
+          <p className="text-gray-500">Select a conversation from the list to start messaging</p>
+        </>
+      )}
     </div>
   );
 
