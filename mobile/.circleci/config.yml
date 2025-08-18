@@ -139,6 +139,8 @@ commands:
                     },
                     "staging": {
                         "channel": "staging",
+                        "environment": "development",
+                        "autoIncrement": true,
                         "distribution": "internal",
                         "pnpm": "8.15.4",
                         "ios": {
