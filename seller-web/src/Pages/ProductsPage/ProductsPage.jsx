@@ -37,6 +37,7 @@ import axios from 'axios';
 import { toast } from "sonner";
 import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import { Switch } from "../../Components/ui/switch";
+import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 
 
 // Import all icons directly
@@ -115,6 +116,10 @@ const ProductsPage = () => {
     // Add state for mobile drawers
     const [showBlipsDrawer, setShowBlipsDrawer] = useState(false);
     const [showStockDrawer, setShowStockDrawer] = useState(false);
+
+    // Hide the Intercom launcher for this component - high priority
+    // This should run before any other effects
+    useIntercomVisibility(true);
 
     useEffect(() => {
         setHeaderName('Products')

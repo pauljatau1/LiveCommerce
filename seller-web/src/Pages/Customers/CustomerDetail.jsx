@@ -117,6 +117,7 @@ function CustomerDetail() {
         customerId: id,
         customerName: customerData.name,
         customerEmail: customerData.email,
+        openChatWithCustomer: true // Flag to indicate we want to open a chat with this customer
       }
     });
   };

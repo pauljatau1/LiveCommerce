@@ -30,6 +30,7 @@ import { Checkbox } from "../../Components/ui/checkbox";
 import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import SimpleEditor from '../../Components/ui/SimpleEditor';
+import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -106,6 +107,10 @@ const AddProduct = () => {
         setHeaderName('Products')
         setNavName(productStatus === 'offline_auction' ? 'Add Offline Auction' : 'Add Product')
     }, [productStatus])
+
+    // Hide the Intercom launcher for this component - high priority
+    // This should run before any other effects
+    useIntercomVisibility(true);
 
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);

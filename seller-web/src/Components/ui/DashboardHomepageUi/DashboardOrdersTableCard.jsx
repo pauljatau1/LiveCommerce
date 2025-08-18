@@ -9,15 +9,7 @@ import {
   TableRow,
 } from "@/Components/ui/table";
 import { Button } from "@/Components/ui/button";
-import { format } from "date-fns";
-import { CalendarIcon, ShoppingBag, ExternalLink, FilterX } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/Components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/Components/ui/popover";
+import { ShoppingBag, ExternalLink } from "lucide-react";
 import { Badge } from "@/Components/ui/badge";
 import axios from "axios";
 import { BASE_URL } from "@/Constants/Server";
@@ -31,6 +23,7 @@ function getStatusColor(status) {
     in_transit: "bg-purple-100 hover:bg-purple-200 text-purple-700",
     delivered: "bg-green-100 hover:bg-green-200 text-green-700",
     failed: "bg-red-100 hover:bg-red-200 text-red-700",
+    confirmed: "bg-cyan-100 hover:bg-cyan-200 text-cyan-700",
     cancelled: "bg-red-100 hover:bg-red-200 text-red-700",
     abandoned: "bg-orange-100 hover:bg-orange-200 text-orange-800",
   };
@@ -41,7 +34,6 @@ function getStatusColor(status) {
 export default function DashboardOrdersTableCard() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [date, setDate] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -49,16 +41,8 @@ export default function DashboardOrdersTableCard() {
       try {
         const response = await axios.get(`${BASE_URL}/seller/orders`);
         if (response.status === 200) {
-          const filteredOrders = response.data.orders.filter((order) => {
-            const orderDate = new Date(order.createdAt);
-            const dateInRange =
-              date?.from && date?.to
-                ? orderDate >= date.from && orderDate <= date.to
-                : true;
-            // Filter out abandoned orders (orders with isStale=true)
-            return dateInRange && !order.isStale;
-          });
-
+          // Only filter out abandoned orders (orders with isStale=true)
+          const filteredOrders = response.data.orders.filter((order) => !order.isStale);
           setOrders(filteredOrders);
         }
       } catch (error) {
@@ -84,51 +68,6 @@ export default function DashboardOrdersTableCard() {
           </p>
         </div>
         <div className="flex flex-wrap w-full sm:w-auto gap-2 md:gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full sm:w-[240px] justify-start text-left font-normal text-xs md:text-sm",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-3 w-3 md:h-4 md:w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "LLL dd, y")} -{" "}
-                      {format(date.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(date.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={1}
-                className="md:hidden"
-              />
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-                className="hidden md:block"
-              />
-            </PopoverContent>
-          </Popover>
           <Button className="bg-green-600 text-white hover:bg-green-700 text-xs md:text-sm w-full sm:w-auto">
             <Link to="/dashboard/orders" className="flex items-center">
               View All Orders
@@ -296,17 +235,9 @@ export default function DashboardOrdersTableCard() {
                           No Orders Found
                         </h3>
                         <p className="text-slate-500 text-sm max-w-md mb-4">
-                          There are no orders matching your current filters. Try
-                          adjusting your search criteria or date range.
+                          There are no orders to display at this time.
                         </p>
                         <div className="flex gap-3">
-                          <Button
-                            variant="outline"
-                            className="border-slate-300 hover:bg-slate-100"
-                            onClick={() => setDate(null)}
-                          >
-                            Clear Filters
-                          </Button>
                           <Button
                             variant="default"
                             className="bg-green-600 hover:bg-green-700 text-white ml-3"
@@ -460,17 +391,8 @@ export default function DashboardOrdersTableCard() {
                     No Orders Found
                   </h3>
                   <p className="text-slate-500 text-xs mb-4">
-                    There are no orders matching your filters. Try adjusting
-                    your search criteria.
+                    There are no orders to display at this time.
                   </p>
-                  <Button
-                    variant="outline"
-                    className="border-slate-300 hover:bg-slate-100 text-xs"
-                    onClick={() => setDate(null)}
-                  >
-                    <FilterX className="w-3 h-3 mr-2" />
-                    Clear Filters
-                  </Button>
                   <Button
                     variant="default"
                     className="bg-green-600 hover:bg-green-700 text-white text-xs mt-2"
@@ -492,3 +414,4 @@ export default function DashboardOrdersTableCard() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle, Loader2, MessageSquare } from 'lucide-react'
 import { Badge } from "@/Components/ui/badge"
 import { Hash } from 'lucide-react'
 import { Button } from "@/Components/ui/button"
@@ -463,6 +463,20 @@ export default function OrderDetails() {
     }
   };
 
+  // Handle message customer click
+  const handleMessageClick = () => {
+    if (!orderData?.buyer) return;
+    
+    navigate('/dashboard/messages', {
+      state: {
+        customerId: orderData.buyer._id,
+        customerName: `${orderData.buyer.firstName} ${orderData.buyer.lastName}`,
+        customerEmail: orderData.buyer.email,
+        openChatWithCustomer: true // Flag to indicate we want to open a chat with this customer
+      }
+    });
+  };
+
   if (loading) return <Loader />
   
   if (orderNotFound) {
@@ -625,6 +639,18 @@ export default function OrderDetails() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                {/* Message Customer Button - Always show if order is not stale */}
+                {!order?.isStale && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full sm:w-auto bg-green-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-green-700"
+                    onClick={handleMessageClick}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Message Customer
+                  </Button>
+                )}
+                
                 {/* {!order?.isStale && !order?.isStorePickup && order?.paymentInfo?.status === 'paid' && (
                   <Button
                     variant="outline"

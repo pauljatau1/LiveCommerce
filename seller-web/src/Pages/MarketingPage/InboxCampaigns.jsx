@@ -1,5 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/Components/ui/dropdown-menu"
 import { Calendar, ChevronDown, Download, Users, Mail, DollarSign, Filter, Zap, LineChart, ShoppingCart } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
@@ -47,7 +57,21 @@ StatsCard.propTypes = {
   icon: PropTypes.func.isRequired,
 };
 
-function CampaignsTable({ campaigns }) {
+function CampaignsTable({ campaigns, statusFilter, period, onStatusChange, onPeriodChange, onCreateClick }) {
+  const periodLabelMap = {
+    'all': 'All time',
+    '7': 'Last 7 days',
+    '30': 'Last 30 days',
+    '90': 'Last 90 days',
+    '180': 'Last 6 months',
+  }
+  const statusLabelMap = {
+    all: 'All',
+    sent: 'Sent',
+    scheduled: 'Scheduled',
+    draft: 'Draft',
+    failed: 'Failed',
+  }
   return (
     <Card className="col-span-3 overflow-hidden border-none -lg">
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 bg-gradient-to-r from-slate-50 to-white p-6">
@@ -56,18 +80,63 @@ function CampaignsTable({ campaigns }) {
           <p className="text-sm text-muted-foreground mt-1">Detailed view of your campaign performance</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="bg-white rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <Calendar className="mr-2 h-4 w-4 text-primary" />
-            Filter by date
-          </Button>
-          <Button variant="outline" className="bg-white rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <Filter className="mr-2 h-4 w-4 text-primary" />
-            Status
-            <ChevronDown className="ml-2 h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-white rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <Calendar className="mr-2 h-4 w-4 text-primary" />
+                {periodLabelMap[period] || 'Filter by date'}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Date range</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={period} onValueChange={onPeriodChange}>
+                <DropdownMenuRadioItem value="all">All time</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="7">Last 7 days</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="30">Last 30 days</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="90">Last 90 days</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="180">Last 6 months</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-white rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <Filter className="mr-2 h-4 w-4 text-primary" />
+                {statusLabelMap[statusFilter] || 'Status'}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={statusFilter} onValueChange={onStatusChange}>
+                <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="sent">Sent</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="scheduled">Scheduled</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="draft">Draft</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        {campaigns.length === 0 ? (
+          <div className="p-10 flex flex-col items-center justify-center text-center gap-3">
+            <div className="p-4 rounded-full bg-primary/10">
+              <Mail className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-slate-800">No campaigns Returned</p>
+              {/* <p className="text-sm text-slate-500">Create your first campaign to reach your audience.</p> */}
+            </div>
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl -md" onClick={onCreateClick}>
+              Create Campaign
+            </Button>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px]">
             <thead>
@@ -134,6 +203,7 @@ function CampaignsTable({ campaigns }) {
             </tbody>
           </table>
         </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -141,6 +211,11 @@ function CampaignsTable({ campaigns }) {
 
 CampaignsTable.propTypes = {
   campaigns: PropTypes.array.isRequired,
+  statusFilter: PropTypes.string.isRequired,
+  period: PropTypes.string.isRequired,
+  onStatusChange: PropTypes.func.isRequired,
+  onPeriodChange: PropTypes.func.isRequired,
+  onCreateClick: PropTypes.func.isRequired,
 };
 
 function InboxCampaigns() {
@@ -155,7 +230,8 @@ function InboxCampaigns() {
   })
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState('30')
+  const [period, setPeriod] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   
   useEffect(() => {
     const fetchData = async () => {
@@ -164,8 +240,12 @@ function InboxCampaigns() {
         const headers = { Authorization: `Bearer ${sellerToken}` }
 
         // Use the new performance endpoint for better metrics
+        const perfUrl = period === 'all'
+          ? `${BASE_URL}/campaigns/performance`
+          : `${BASE_URL}/campaigns/performance?period=${period}`
+
         const [performanceRes, campaignsRes] = await Promise.all([
-          axios.get(`${BASE_URL}/campaigns/performance?period=${period}`, { headers }),
+          axios.get(perfUrl, { headers }),
           axios.get(`${BASE_URL}/campaigns`, { headers })
         ])
 
@@ -195,6 +275,22 @@ function InboxCampaigns() {
 
     fetchData()
   }, [period])
+
+  const isWithinPeriod = (createdAt, periodDays) => {
+    if (periodDays === 'all') return true
+    const days = parseInt(periodDays, 10)
+    if (Number.isNaN(days)) return true
+    const created = new Date(createdAt)
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    return created >= cutoff
+  }
+
+  const filteredCampaigns = campaigns.filter((c) => {
+    const statusMatch = statusFilter === 'all' || c.status === statusFilter
+    const dateMatch = isWithinPeriod(c.createdAt, period)
+    return statusMatch && dateMatch
+  })
 
   if (loading) {
     return (
@@ -294,7 +390,14 @@ function InboxCampaigns() {
         </Card>
       )}
 
-      <CampaignsTable campaigns={campaigns} />
+      <CampaignsTable
+        campaigns={filteredCampaigns}
+        statusFilter={statusFilter}
+        period={period}
+        onStatusChange={setStatusFilter}
+        onPeriodChange={setPeriod}
+        onCreateClick={() => navigate('/dashboard/inbox-campaigns/create')}
+      />
     </div>
   )
 }
