@@ -64,13 +64,17 @@ async function hashPassword(password) {
 async function resetPassword(data) {
   // Step 1: Validate input data using the validator
   // This ensures email format is correct, OTP is valid, and password meets requirements
-  const buyer = await resetPasswordValidator.validateResetPasswordData(data);
+  await resetPasswordValidator.validateResetPasswordData(data);
   
-  // Step 2: Hash the new password for secure storage
+  // Step 2: Get the buyer object for password update
+  // Since validation passed, we know the buyer exists
+  const buyer = await buyerRepository.findByEmail(data.email);
+  
+  // Step 3: Hash the new password for secure storage
   // This converts the plain text password to a secure hash
   const hashedPassword = await hashPassword(data.newPassword);
   
-  // Step 3: Update the buyer record with new password and clear reset fields
+  // Step 4: Update the buyer record with new password and clear reset fields
   // This atomically updates the password and removes the OTP fields
   const updatedBuyer = await buyerRepository.resetPassword(buyer._id, hashedPassword);
   
@@ -79,7 +83,7 @@ async function resetPassword(data) {
     throw new Error('Failed to update buyer password');
   }
   
-  // Step 4: Return success response
+  // Step 5: Return success response
   // Note: We don't return the password in the response for security reasons
   return {
     message: 'Password reset successfully'

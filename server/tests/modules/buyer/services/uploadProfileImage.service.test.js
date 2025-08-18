@@ -13,11 +13,11 @@ jest.mock('@config/awsConfig', () => ({
   }
 }));
 jest.mock('@modules/buyer/validators/uploadProfileImage.validator', () => ({
-  validateUploadedFile: jest.fn()
+  validateUploadProfileImageData: jest.fn()
 }));
 
 const { s3 } = require('@config/awsConfig');
-const { validateUploadedFile } = require('@modules/buyer/validators/uploadProfileImage.validator');
+const { validateUploadProfileImageData } = require('@modules/buyer/validators/uploadProfileImage.validator');
 
 describe('uploadProfileImageService', () => {
   const mockFile = {
@@ -103,7 +103,7 @@ describe('uploadProfileImageService', () => {
         Key: 'new-key'
       };
 
-      validateUploadedFile.mockImplementation(() => {});
+      validateUploadProfileImageData.mockResolvedValue();
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       s3.upload().promise.mockResolvedValue(mockUploadResult);
       buyerRepository.updateById.mockResolvedValue({
@@ -116,7 +116,7 @@ describe('uploadProfileImageService', () => {
 
       const result = await uploadProfileImageService.uploadProfileImage(mockBuyerId, mockFile);
 
-      expect(validateUploadedFile).toHaveBeenCalledWith(mockFile);
+      expect(validateUploadProfileImageData).toHaveBeenCalledWith({ file: mockFile });
       expect(buyerRepository.findByIdWithFields).toHaveBeenCalledWith(mockBuyerId, {
         firstName: 1,
         lastName: 1,
@@ -139,9 +139,7 @@ describe('uploadProfileImageService', () => {
         { field: 'avatar', message: 'No file provided. Please upload an image file.' }
       ]);
 
-      validateUploadedFile.mockImplementation(() => {
-        throw validationError;
-      });
+      validateUploadProfileImageData.mockRejectedValue(validationError);
 
       await expect(uploadProfileImageService.uploadProfileImage(mockBuyerId, null))
         .rejects.toThrow(ValidationError);
@@ -159,7 +157,7 @@ describe('uploadProfileImageService', () => {
     });
 
     it('should throw NotFoundException when buyer not found', async () => {
-      validateUploadedFile.mockImplementation(() => {}); // Reset mock
+      validateUploadProfileImageData.mockResolvedValue(); // Reset mock
       buyerRepository.findByIdWithFields.mockResolvedValue(null);
 
       await expect(uploadProfileImageService.uploadProfileImage(mockBuyerId, mockFile))
@@ -169,7 +167,7 @@ describe('uploadProfileImageService', () => {
     });
 
     it('should handle S3 upload errors', async () => {
-      validateUploadedFile.mockImplementation(() => {}); // Reset mock
+      validateUploadProfileImageData.mockResolvedValue(); // Reset mock
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       s3.upload().promise.mockRejectedValue(new Error('S3 upload failed'));
 
@@ -190,9 +188,7 @@ describe('uploadProfileImageService', () => {
         { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' }
       ]);
 
-      validateUploadedFile.mockImplementation(() => {
-        throw validationError;
-      });
+      validateUploadProfileImageData.mockRejectedValue(validationError);
 
       await expect(uploadProfileImageService.uploadProfileImage(mockBuyerId, mockFile))
         .rejects.toThrow(ValidationError);

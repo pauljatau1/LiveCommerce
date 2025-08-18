@@ -176,12 +176,12 @@ describe('Get Order Details Service', () => {
     });
 
     it('should handle invalid ObjectId format', async () => {
-      const result = await buyerRepository.findOrderByIdAndBuyer(
-        'invalid-id',
-        testBuyer._id.toString()
-      );
-
-      expect(result).toBeNull();
+      await expect(
+        buyerRepository.findOrderByIdAndBuyer(
+          'invalid-id',
+          testBuyer._id.toString()
+        )
+      ).rejects.toThrow('Cast to ObjectId failed');
     });
 
     it('should throw CastError for invalid ObjectId format in service', async () => {

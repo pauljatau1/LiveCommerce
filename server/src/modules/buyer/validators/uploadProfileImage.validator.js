@@ -50,24 +50,25 @@ function validateFileExtension(file, errors) {
 }
 
 /**
- * Validates the uploaded file for profile image.
+ * Validates upload profile image data.
  * 
- * @param {Object} file - The uploaded file object
+ * @param {Object} data - Data to validate
+ * @param {Object} data.file - The uploaded file object to validate
  * @throws {ValidationError} If validation fails
  */
-function validateUploadedFile(file) {
+async function validateUploadProfileImageData(data) {
   const errors = [];
 
   // Validate file presence
-  if (!file) {
+  if (!data.file) {
     errors.push({ 
       field: 'avatar', 
       message: 'No file provided. Please upload an image file.' 
     });
   } else {
-    validateFileSize(file, errors);
-    validateFileType(file, errors);
-    validateFileExtension(file, errors);
+    validateFileSize(data.file, errors);
+    validateFileType(data.file, errors);
+    validateFileExtension(data.file, errors);
   }
 
   if (errors.length > 0) {
@@ -76,7 +77,7 @@ function validateUploadedFile(file) {
 }
 
 module.exports = {
-  validateUploadedFile,
+  validateUploadProfileImageData,
   validateFileSize,
   validateFileType,
   validateFileExtension,

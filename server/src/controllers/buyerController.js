@@ -10,7 +10,7 @@ const Seller = require('../models/Seller')
 const Product = require('../models/Product');
 const Post = require('../models/Post');
 const Stream = require('../models/Stream');
-const { saveToken, getToken } = require('../../Firebase');
+const { saveToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
@@ -232,18 +232,13 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // Only save token if provided
+    // Save the device token if provided; do not block login on failure
     if (expoPushToken) {
-      await saveToken(buyer._id, expoPushToken);
-    }
-
-    const userToken = await getToken(buyer._id);
-    if (userToken) {
-      await expo.sendPushNotificationsAsync([{
-        to: userToken.token,
-        title: `Welcome to Auqli`,
-        body: `You have successfully logged in to your account`
-      }]);
+      try {
+        await saveToken(buyer._id, expoPushToken);
+      } catch (tokenErr) {
+        console.error('Failed to save Expo token on login:', tokenErr);
+      }
     }
 
     const token = generateToken(buyer._id);

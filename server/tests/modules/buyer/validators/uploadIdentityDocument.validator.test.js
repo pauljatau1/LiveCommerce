@@ -75,10 +75,10 @@ describe('Upload Identity Document Validator', () => {
 
       // Act & Assert
       await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          mockBuyerId.toString(),
-          mockFile
-        )
+        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+          buyerId: mockBuyerId.toString(),
+          file: mockFile
+        })
       ).resolves.not.toThrow();
     });
 
@@ -93,10 +93,10 @@ describe('Upload Identity Document Validator', () => {
 
       // Act & Assert
       await expect(
-        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-          null,
-          mockFile
-        )
+        uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+          buyerId: null,
+          file: mockFile
+        })
       ).rejects.toMatchObject({
         errors: [
           {
@@ -117,10 +117,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            null,
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: null,
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -140,10 +140,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            'invalid-id',
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: 'invalid-id',
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -169,10 +169,10 @@ describe('Upload Identity Document Validator', () => {
         buyerRepository.findById.mockResolvedValue(buyer);
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            null
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: null
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -204,10 +204,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -239,10 +239,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -274,10 +274,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -310,10 +310,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -346,10 +346,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {
@@ -371,10 +371,10 @@ describe('Upload Identity Document Validator', () => {
         };
 
         await expect(
-          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData(
-            mockBuyerId.toString(),
-            mockFile
-          )
+          uploadIdentityDocumentValidator.validateUploadIdentityDocumentData({
+            buyerId: mockBuyerId.toString(),
+            file: mockFile
+          })
         ).rejects.toMatchObject({
           errors: [
             {

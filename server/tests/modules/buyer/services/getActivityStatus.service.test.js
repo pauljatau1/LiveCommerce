@@ -1,6 +1,7 @@
 const getActivityStatusService = require('@modules/buyer/services/getActivityStatus.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const ValidationError = require('@utils/errors/ValidationError');
+const NotFoundException = require('@utils/errors/NotFoundException');
 
 // Mock the buyer repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
@@ -14,28 +15,41 @@ describe('getActivityStatus.service', () => {
     it('should return activity status when buyer exists', async () => {
       // Arrange
       const buyerId = '507f1f77bcf86cd799439011';
-      const mockIsActive = true;
-      buyerRepository.getActivityStatus.mockResolvedValue(mockIsActive);
+      const mockBuyer = { isActive: true };
+      buyerRepository.getActivityStatus.mockResolvedValue(mockBuyer);
 
       // Act
       const result = await getActivityStatusService.getActivityStatus(buyerId);
 
       // Assert
-      expect(result).toBe(mockIsActive);
+      expect(result).toEqual({ isActive: true });
       expect(buyerRepository.getActivityStatus).toHaveBeenCalledWith(buyerId);
     });
 
     it('should return false when buyer is inactive', async () => {
       // Arrange
       const buyerId = '507f1f77bcf86cd799439011';
-      const mockIsActive = false;
-      buyerRepository.getActivityStatus.mockResolvedValue(mockIsActive);
+      const mockBuyer = { isActive: false };
+      buyerRepository.getActivityStatus.mockResolvedValue(mockBuyer);
 
       // Act
       const result = await getActivityStatusService.getActivityStatus(buyerId);
 
       // Assert
-      expect(result).toBe(mockIsActive);
+      expect(result).toEqual({ isActive: false });
+      expect(buyerRepository.getActivityStatus).toHaveBeenCalledWith(buyerId);
+    });
+
+    it('should throw NotFoundException when buyer is not found', async () => {
+      // Arrange
+      const buyerId = '507f1f77bcf86cd799439011';
+      buyerRepository.getActivityStatus.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(getActivityStatusService.getActivityStatus(buyerId))
+        .rejects
+        .toThrow(NotFoundException);
+      
       expect(buyerRepository.getActivityStatus).toHaveBeenCalledWith(buyerId);
     });
 
@@ -97,6 +111,19 @@ describe('getActivityStatus.service', () => {
         .toThrow(ValidationError);
       
       expect(buyerRepository.getActivityStatus).not.toHaveBeenCalled();
+    });
+
+    it('should handle repository errors gracefully', async () => {
+      // Arrange
+      const buyerId = '507f1f77bcf86cd799439011';
+      buyerRepository.getActivityStatus.mockRejectedValue(new Error('Database error'));
+
+      // Act & Assert
+      await expect(getActivityStatusService.getActivityStatus(buyerId))
+        .rejects
+        .toThrow('Database error');
+      
+      expect(buyerRepository.getActivityStatus).toHaveBeenCalledWith(buyerId);
     });
   });
 });

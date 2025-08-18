@@ -79,12 +79,13 @@ function validateEmail(email, errors) {
 }
 
 /**
- * Validates resendOTP input manually.
+ * Validates resendOTP data.
  *
- * @param {Object} data
+ * @param {Object} data - Data to validate
+ * @param {string} data.email - The email to validate
  * @throws {ValidationError} If validation fails
  */
-function validateResendOTPInput(data) {
+async function validateResendOTPData(data) {
   const errors = [];
 
   if (!data || data === null || data === undefined) {
@@ -99,5 +100,5 @@ function validateResendOTPInput(data) {
 }
 
 module.exports = {
-  validateResendOTPInput,
+  validateResendOTPData,
 }; 

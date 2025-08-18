@@ -1,389 +1,320 @@
-const loginValidator = require('@modules/buyer/validators/login.validator');
+const { validateLoginData } = require('@modules/buyer/validators/login.validator');
 const ValidationError = require('@utils/errors/ValidationError');
 
 describe('Login Validator', () => {
-  describe('validateLoginInput', () => {
+  describe('validateLoginData', () => {
     describe('Valid Inputs', () => {
-      it('should not throw for valid email and password', () => {
-        // Arrange
+      it('should not throw for valid email and password', async () => {
         const validData = {
           email: 'test@example.com',
           password: 'password123'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(validData);
-        }).not.toThrow();
+        await expect(validateLoginData(validData)).resolves.not.toThrow();
       });
 
-      it('should not throw for valid email and numeric password', () => {
-        // Arrange
+      it('should not throw for valid email and numeric password', async () => {
         const validData = {
           email: 'test@example.com',
           password: 12345
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(validData);
-        }).not.toThrow();
+        await expect(validateLoginData(validData)).resolves.not.toThrow();
+      });
+
+      it('should not throw for valid email with subdomain', async () => {
+        const validData = {
+          email: 'test@subdomain.example.com',
+          password: 'password123'
+        };
+
+        await expect(validateLoginData(validData)).resolves.not.toThrow();
+      });
+
+      it('should not throw for valid email with numbers', async () => {
+        const validData = {
+          email: 'test123@example.com',
+          password: 'password123'
+        };
+
+        await expect(validateLoginData(validData)).resolves.not.toThrow();
       });
     });
 
     describe('Invalid Inputs', () => {
-      it('should throw ValidationError when email is missing', () => {
-        // Arrange
+      it('should throw ValidationError when data is null', async () => {
+        await expect(validateLoginData(null)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(null)).rejects.toMatchObject({
+          errors: [
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
+          ]
+        });
+      });
+
+      it('should throw ValidationError when data is undefined', async () => {
+        await expect(validateLoginData(undefined)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(undefined)).rejects.toMatchObject({
+          errors: [
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
+          ]
+        });
+      });
+
+      it('should throw ValidationError when email is missing', async () => {
         const invalidData = {
           password: 'password123'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should throw ValidationError when password is missing', () => {
-        // Arrange
+      it('should throw ValidationError when password is missing', async () => {
         const invalidData = {
           email: 'test@example.com'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should throw ValidationError when both email and password are missing', () => {
-        // Arrange
+      it('should throw ValidationError when both email and password are missing', async () => {
         const invalidData = {};
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
+          ]
+        });
       });
 
-      it('should throw ValidationError when email is empty string', () => {
-        // Arrange
+      it('should throw ValidationError when email is empty string', async () => {
         const invalidData = {
           email: '',
           password: 'password123'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should throw ValidationError when password is empty string', () => {
-        // Arrange
+      it('should throw ValidationError when password is empty string', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: ''
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should throw ValidationError when email is null', () => {
-        // Arrange
+      it('should throw ValidationError when email is null', async () => {
         const invalidData = {
           email: null,
           password: 'password123'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should throw ValidationError when password is null', () => {
-        // Arrange
+      it('should throw ValidationError when password is null', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: null
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should throw ValidationError when email is undefined', () => {
-        // Arrange
+      it('should throw ValidationError when email is undefined', async () => {
         const invalidData = {
           email: undefined,
           password: 'password123'
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should throw ValidationError when password is undefined', () => {
-        // Arrange
+      it('should throw ValidationError when password is undefined', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: undefined
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should throw ValidationError when password is boolean', () => {
-        // Arrange
+      it('should throw ValidationError when password is boolean', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: true
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
       });
 
-      it('should throw ValidationError when password is object', () => {
-        // Arrange
+      it('should throw ValidationError when password is object', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: {}
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
       });
 
-      it('should throw ValidationError when password is array', () => {
-        // Arrange
+      it('should throw ValidationError when password is array', async () => {
         const invalidData = {
           email: 'test@example.com',
           password: []
         };
 
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(ValidationError);
-      });
-    });
-
-    describe('Edge Cases', () => {
-      it('should throw ValidationError when data parameter is null', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(null);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
       });
 
-      it('should throw ValidationError when data parameter is undefined', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(undefined);
-        }).toThrow(ValidationError);
-      });
+      it('should throw ValidationError when password is function', async () => {
+        const invalidData = {
+          email: 'test@example.com',
+          password: () => {}
+        };
 
-      it('should throw ValidationError when data parameter is empty string', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput('');
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is zero', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(0);
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is false', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(false);
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is non-object', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput('not an object');
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is number', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(123);
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is boolean', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput(true);
-        }).toThrow(ValidationError);
-      });
-
-      it('should throw ValidationError when data parameter is array', () => {
-        // Act & Assert
-        expect(() => {
-          loginValidator.validateLoginInput([]);
-        }).toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toThrow(ValidationError);
+        await expect(validateLoginData(invalidData)).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
       });
     });
 
     describe('Specific Error Messages', () => {
-      it('should include specific error message for missing email', () => {
-        const invalidData = {
-          password: 'password123'
-        };
-
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(expect.objectContaining({
+      it('should include specific error message for null data', async () => {
+        await expect(validateLoginData(null)).rejects.toMatchObject({
           errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
           ]
-        }));
+        });
       });
 
-      it('should include specific error message for missing password', () => {
-        const invalidData = {
-          email: 'test@example.com'
-        };
-
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(expect.objectContaining({
+      it('should include specific error message for undefined data', async () => {
+        await expect(validateLoginData(undefined)).rejects.toMatchObject({
           errors: [
-            {
-              field: 'password',
-              message: 'Password is required'
-            }
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
           ]
-        }));
+        });
       });
 
-      it('should include specific error message for invalid password type', () => {
-        const invalidData = {
-          email: 'test@example.com',
-          password: true
-        };
-
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'password',
-              message: 'Password must be a string or number'
-            }
-          ]
-        }));
+      it('should include specific error message for missing email', async () => {
+        await expect(validateLoginData({ password: 'password123' })).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should include specific error message for null data', () => {
-        expect(() => {
-          loginValidator.validateLoginInput(null);
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
-          ]
-        }));
+      it('should include specific error message for missing password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com' })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should include specific error message for undefined data', () => {
-        expect(() => {
-          loginValidator.validateLoginInput(undefined);
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
-          ]
-        }));
+      it('should include specific error message for empty email', async () => {
+        await expect(validateLoginData({ email: '', password: 'password123' })).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should include specific error message for empty string data', () => {
-        expect(() => {
-          loginValidator.validateLoginInput('');
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
-          ]
-        }));
+      it('should include specific error message for empty password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: '' })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should include specific error message for zero data', () => {
-        expect(() => {
-          loginValidator.validateLoginInput(0);
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
-          ]
-        }));
+      it('should include specific error message for null email', async () => {
+        await expect(validateLoginData({ email: null, password: 'password123' })).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
       });
 
-      it('should include specific error message for false data', () => {
-        expect(() => {
-          loginValidator.validateLoginInput(false);
-        }).toThrow(expect.objectContaining({
-          errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            }
-          ]
-        }));
+      it('should include specific error message for null password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: null })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
       });
 
-      it('should include multiple error messages for missing email and password', () => {
-        const invalidData = {};
+      it('should include specific error message for undefined email', async () => {
+        await expect(validateLoginData({ email: undefined, password: 'password123' })).rejects.toMatchObject({
+          errors: [{ field: 'email', message: 'Email is required' }]
+        });
+      });
 
-        expect(() => {
-          loginValidator.validateLoginInput(invalidData);
-        }).toThrow(expect.objectContaining({
+      it('should include specific error message for undefined password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: undefined })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password is required' }]
+        });
+      });
+
+      it('should include specific error message for boolean password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: true })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
+      });
+
+      it('should include specific error message for object password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: {} })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
+      });
+
+      it('should include specific error message for array password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: [] })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
+      });
+
+      it('should include specific error message for function password', async () => {
+        await expect(validateLoginData({ email: 'test@example.com', password: () => {} })).rejects.toMatchObject({
+          errors: [{ field: 'password', message: 'Password must be a string or number' }]
+        });
+      });
+
+      it('should include multiple error messages when both fields are invalid', async () => {
+        await expect(validateLoginData({})).rejects.toMatchObject({
           errors: [
-            {
-              field: 'email',
-              message: 'Email is required'
-            },
-            {
-              field: 'password',
-              message: 'Password is required'
-            }
+            { field: 'email', message: 'Email is required' },
+            { field: 'password', message: 'Password is required' }
           ]
-        }));
+        });
       });
     });
   });

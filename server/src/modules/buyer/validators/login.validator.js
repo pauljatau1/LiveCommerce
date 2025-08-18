@@ -29,16 +29,19 @@ function validatePassword(password, errors) {
 }
 
 /**
- * Validates login input manually.
+ * Validates login data.
  *
- * @param {Object} data
+ * @param {Object} data - Login data to validate
+ * @param {string} data.email - The email to validate
+ * @param {string|number} data.password - The password to validate
  * @throws {ValidationError} If validation fails
  */
-function validateLoginInput(data) {
+async function validateLoginData(data) {
   const errors = [];
 
   if (!data || data === null || data === undefined) {
     errors.push({ field: 'email', message: 'Email is required' });
+    errors.push({ field: 'password', message: 'Password is required' });
   } else {
     validateEmail(data.email, errors);
     validatePassword(data.password, errors);
@@ -47,10 +50,8 @@ function validateLoginInput(data) {
   if (errors.length > 0) {
     throw new ValidationError(errors);
   }
-
-  return errors;
 }
 
 module.exports = {
-  validateLoginInput,
+  validateLoginData,
 };

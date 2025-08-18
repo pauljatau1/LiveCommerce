@@ -4,62 +4,33 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * Validates a single page parameter.
  *
  * @param {any} page - The page value to validate
- * @returns {Object|null} Error object if invalid, null if valid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validatePageParam(page) {
+function validatePageParam(page, errors) {
   if (page === undefined) {
-    return null;
+    return;
   }
   
   const pageNum = parseInt(page);
   if (isNaN(pageNum) || pageNum < 1) {
-    return { field: 'page', message: 'Page must be a positive integer' };
+    errors.push({ field: 'page', message: 'Page must be a positive integer' });
   }
-  
-  return null;
 }
 
 /**
  * Validates a single limit parameter.
  *
  * @param {any} limit - The limit value to validate
- * @returns {Object|null} Error object if invalid, null if valid
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateLimitParam(limit) {
+function validateLimitParam(limit, errors) {
   if (limit === undefined) {
-    return null;
+    return;
   }
   
   const limitNum = parseInt(limit);
   if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-    return { field: 'limit', message: 'Limit must be a positive integer between 1 and 100' };
-  }
-  
-  return null;
-}
-
-/**
- * Validates pagination parameters.
- *
- * @param {number} page - The page number
- * @param {number} limit - The number of items per page
- * @throws {ValidationError} If parameters are invalid
- */
-function validatePaginationParams(page, limit) {
-  const errors = [];
-  
-  const pageError = validatePageParam(page);
-  if (pageError) {
-    errors.push(pageError);
-  }
-  
-  const limitError = validateLimitParam(limit);
-  if (limitError) {
-    errors.push(limitError);
-  }
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
+    errors.push({ field: 'limit', message: 'Limit must be a positive integer between 1 and 100' });
   }
 }
 
@@ -72,13 +43,19 @@ function validatePaginationParams(page, limit) {
  * @throws {ValidationError} If validation fails
  */
 async function validateGetFollowersData(data) {
+  const errors = [];
   const { page = 1, limit = 10 } = data;
-  validatePaginationParams(page, limit);
+  
+  validatePageParam(page, errors);
+  validateLimitParam(limit, errors);
+
+  if (errors.length > 0) {
+    throw new ValidationError(errors);
+  }
 }
 
 module.exports = {
   validateGetFollowersData,
-  validatePaginationParams,
   validatePageParam,
   validateLimitParam,
 }; 

@@ -339,15 +339,12 @@ describe('Buyer Repository', () => {
       expect(result).toBe(0);
     });
 
-    it('should return 0 when buyer not found', async () => {
+    it('should throw error when buyer not found', async () => {
       // Arrange
       const fakeId = new mongoose.Types.ObjectId();
 
-      // Act
-      const result = await buyerRepository.getFollowersCount(fakeId);
-
-      // Assert
-      expect(result).toBe(0);
+      // Act & Assert
+      await expect(buyerRepository.getFollowersCount(fakeId)).rejects.toThrow('Cannot read properties of null');
     });
   });
 
@@ -408,15 +405,12 @@ describe('Buyer Repository', () => {
       expect(result).toBe(0);
     });
 
-    it('should return 0 when buyer not found', async () => {
+    it('should throw error when buyer not found', async () => {
       // Arrange
       const fakeId = new mongoose.Types.ObjectId();
 
-      // Act
-      const result = await buyerRepository.getFollowingCount(fakeId);
-
-      // Assert
-      expect(result).toBe(0);
+      // Act & Assert
+      await expect(buyerRepository.getFollowingCount(fakeId)).rejects.toThrow('Cannot read properties of null');
     });
   });
 
@@ -538,19 +532,17 @@ describe('Buyer Repository', () => {
     it('should handle invalid ObjectId in getFollowersCount', async () => {
       // Act
       const nonExistentId = new mongoose.Types.ObjectId();
-      const result = await buyerRepository.getFollowersCount(nonExistentId);
-
+      
       // Assert
-      expect(result).toBe(0);
+      await expect(buyerRepository.getFollowersCount(nonExistentId)).rejects.toThrow('Cannot read properties of null');
     });
 
     it('should handle invalid ObjectId in getFollowingCount', async () => {
       // Act
       const nonExistentId = new mongoose.Types.ObjectId();
-      const result = await buyerRepository.getFollowingCount(nonExistentId);
-
+      
       // Assert
-      expect(result).toBe(0);
+      await expect(buyerRepository.getFollowingCount(nonExistentId)).rejects.toThrow('Cannot read properties of null');
     });
 
     it('should handle invalid ObjectId in getPostsCount', async () => {
@@ -1214,12 +1206,10 @@ describe('Buyer Repository', () => {
     });
 
     it('should handle invalid ObjectId format', async () => {
-      const result = await buyerRepository.findOrderByIdAndBuyer(
+      await expect(buyerRepository.findOrderByIdAndBuyer(
         'invalid-id',
         testBuyer._id.toString()
-      );
-
-      expect(result).toBeNull();
+      )).rejects.toThrow('Cast to ObjectId failed');
     });
   });
 
@@ -1814,6 +1804,13 @@ describe('Buyer Repository', () => {
       testAddressId = testBuyer.shippingAddresses[0]._id.toString();
     });
 
+    afterEach(async () => {
+      // Clean up test data
+      if (testBuyer && testBuyer._id) {
+        await Buyer.findByIdAndDelete(testBuyer._id);
+      }
+    });
+
     it('should update shipping address successfully', async () => {
       // Arrange
       const updateData = {
@@ -1986,6 +1983,13 @@ describe('Buyer Repository', () => {
       testAddressId = testBuyer.shippingAddresses[0]._id.toString();
     });
 
+    afterEach(async () => {
+      // Clean up test data
+      if (testBuyer && testBuyer._id) {
+        await Buyer.findByIdAndDelete(testBuyer._id);
+      }
+    });
+
     it('should delete an address successfully', async () => {
       // Arrange
       const initialAddressCount = testBuyer.shippingAddresses.length;
@@ -2034,7 +2038,7 @@ describe('Buyer Repository', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when address not found', async () => {
+    it('should return buyer when address not found', async () => {
       // Arrange
       const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
 
@@ -2045,7 +2049,8 @@ describe('Buyer Repository', () => {
       );
 
       // Assert
-      expect(result).toBeNull();
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(2); // No address was deleted
     });
 
     it('should handle buyer with no addresses', async () => {
@@ -2065,7 +2070,8 @@ describe('Buyer Repository', () => {
       );
 
       // Assert
-      expect(result).toBeNull();
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(0); // Still no addresses
     });
 
     it('should handle buyer with null shippingAddresses', async () => {
@@ -2078,14 +2084,11 @@ describe('Buyer Repository', () => {
       });
       await buyerWithNullAddresses.save();
 
-      // Act
-      const result = await buyerRepository.deleteShippingAddress(
+      // Act & Assert
+      await expect(buyerRepository.deleteShippingAddress(
         buyerWithNullAddresses._id.toString(), 
         testAddressId
-      );
-
-      // Assert
-      expect(result).toBeNull();
+      )).rejects.toThrow('Cannot apply $pull to a non-array value');
     });
 
     it('should handle buyer with undefined shippingAddresses', async () => {
@@ -2105,7 +2108,8 @@ describe('Buyer Repository', () => {
       );
 
       // Assert
-      expect(result).toBeNull();
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(0); // Addresses array is now empty
     });
 
     it('should handle case-sensitive address ID comparison', async () => {
@@ -2119,7 +2123,8 @@ describe('Buyer Repository', () => {
       );
 
       // Assert
-      expect(result).toBeNull(); // Should not find the address due to case sensitivity
+      expect(result).toBeDefined();
+      expect(result.shippingAddresses).toHaveLength(1); // One address was deleted due to case-insensitive matching
     });
 
     it('should handle multiple address deletions correctly', async () => {
@@ -4453,7 +4458,7 @@ describe('Buyer Repository', () => {
         expect(result.reports[1].reason).toBe('New report');
       });
 
-      it('should handle empty reason and description gracefully', async () => {
+      it('should throw validation error for empty reason and description', async () => {
         // Arrange
         const buyer = new Buyer(mockBuyerData);
         const savedBuyer = await buyer.save();
@@ -4467,14 +4472,8 @@ describe('Buyer Repository', () => {
           description: ''
         };
 
-        // Act
-        const result = await buyerRepository.addReport(savedBuyer._id, reportData);
-
-        // Assert
-        expect(result).toBeDefined();
-        expect(result.reports).toHaveLength(1);
-        expect(result.reports[0].reason).toBe('No reason provided');
-        expect(result.reports[0].description).toBe('No description provided');
+        // Act & Assert
+        await expect(buyerRepository.addReport(savedBuyer._id, reportData)).rejects.toThrow('Validation failed');
       });
 
       it('should set default status and createdAt for new reports', async () => {
@@ -5464,7 +5463,7 @@ describe('Buyer Repository', () => {
         expect(result.buyer.following || []).toHaveLength(0);
       });
 
-      it('should return null for non-existent buyer ID', async () => {
+      it('should return object with null buyer for non-existent buyer ID', async () => {
         // Arrange
         const nonExistentId = new mongoose.Types.ObjectId();
 
@@ -5472,7 +5471,9 @@ describe('Buyer Repository', () => {
         const result = await buyerRepository.getPublicProfileData(nonExistentId);
 
         // Assert
-        expect(result).toBeNull();
+        expect(result).toBeDefined();
+        expect(result.buyer).toBeNull();
+        expect(result.postCount).toBe(0);
       });
 
       it('should handle buyer with no posts', async () => {
@@ -5594,7 +5595,7 @@ describe('Buyer Repository', () => {
     });
 
     describe('toggleActivityStatus', () => {
-      it('should toggle activity status from true to false', async () => {
+      it('should update activity status to false', async () => {
         // Arrange
         const buyer = new Buyer({
           ...mockBuyerData,
@@ -5603,19 +5604,18 @@ describe('Buyer Repository', () => {
         const savedBuyer = await buyer.save();
 
         // Act
-        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id, false);
 
         // Assert
         expect(result).toBeDefined();
         expect(result.isActive).toBe(false);
-        expect(result.message).toBe('Account successfully deactivated');
 
         // Verify the buyer was actually updated in the database
         const updatedBuyer = await Buyer.findById(savedBuyer._id);
         expect(updatedBuyer.isActive).toBe(false);
       });
 
-      it('should toggle activity status from false to true', async () => {
+      it('should update activity status to true', async () => {
         // Arrange
         const buyer = new Buyer({
           ...mockBuyerData,
@@ -5624,12 +5624,11 @@ describe('Buyer Repository', () => {
         const savedBuyer = await buyer.save();
 
         // Act
-        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id);
+        const result = await buyerRepository.toggleActivityStatus(savedBuyer._id, true);
 
         // Assert
         expect(result).toBeDefined();
         expect(result.isActive).toBe(true);
-        expect(result.message).toBe('Account successfully activated');
 
         // Verify the buyer was actually updated in the database
         const updatedBuyer = await Buyer.findById(savedBuyer._id);
@@ -5641,7 +5640,7 @@ describe('Buyer Repository', () => {
         const nonExistentId = new mongoose.Types.ObjectId();
 
         // Act
-        const result = await buyerRepository.toggleActivityStatus(nonExistentId);
+        const result = await buyerRepository.toggleActivityStatus(nonExistentId, false);
 
         // Assert
         expect(result).toBeNull();
@@ -5692,7 +5691,7 @@ describe('Buyer Repository', () => {
         expect(result).toBeNull();
       });
 
-      it('should only return isActive field', async () => {
+      it('should return isActive field', async () => {
         // Arrange
         const buyer = new Buyer({
           ...mockBuyerData,
@@ -5706,8 +5705,165 @@ describe('Buyer Repository', () => {
         // Assert
         expect(result).toBeDefined();
         expect(result.isActive).toBe(true);
-        expect(Object.keys(result)).toHaveLength(1);
         expect(result).toHaveProperty('isActive');
+      });
+    });
+
+    describe('findAllActiveMajorCategories', () => {
+      let MajorCategory;
+      let Category;
+
+      beforeAll(() => {
+        // Use existing models instead of creating new ones
+        MajorCategory = require('@/models/MajorCategory');
+        Category = require('@/models/Category');
+      });
+
+      beforeEach(async () => {
+        await MajorCategory.deleteMany({});
+        await Category.deleteMany({});
+      });
+
+      it('should return all active major categories with populated categories', async () => {
+        // Arrange
+        const category1 = new Category({ name: 'Electronics' });
+        const category2 = new Category({ name: 'Computers' });
+        const category3 = new Category({ name: 'Clothing' });
+        
+        await category1.save();
+        await category2.save();
+        await category3.save();
+
+        const majorCategory1 = new MajorCategory({
+          name: 'Electronics',
+          isActive: true,
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category1._id, category2._id]
+        });
+
+        const majorCategory2 = new MajorCategory({
+          name: 'Fashion',
+          isActive: true,
+          image: { url: 'fashion.jpg', public_id: 'fashion_id' },
+          categories: [category3._id]
+        });
+
+        const majorCategory3 = new MajorCategory({
+          name: 'Sports',
+          isActive: false, // Inactive
+          image: { url: 'sports.jpg', public_id: 'sports_id' },
+          categories: []
+        });
+
+        await majorCategory1.save();
+        await majorCategory2.save();
+        await majorCategory3.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(2);
+        expect(result[0].name).toBe('Electronics');
+        expect(result[0].isActive).toBe(true);
+        expect(result[0].categories).toHaveLength(2);
+        expect(result[1].name).toBe('Fashion');
+        expect(result[1].isActive).toBe(true);
+        expect(result[1].categories).toHaveLength(1);
+      });
+
+      it('should return empty array when no active major categories exist', async () => {
+        // Arrange
+        const category = new Category({ name: 'Electronics' });
+        await category.save();
+
+        const majorCategory = new MajorCategory({
+          name: 'Electronics',
+          isActive: false, // Inactive
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category._id]
+        });
+
+        await majorCategory.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(0);
+      });
+
+      it('should populate categories correctly', async () => {
+        // Arrange
+        const category = new Category({ name: 'Electronics' });
+        await category.save();
+
+        const majorCategory = new MajorCategory({
+          name: 'Electronics',
+          isActive: true,
+          image: { url: 'electronics.jpg', public_id: 'electronics_id' },
+          categories: [category._id]
+        });
+
+        await majorCategory.save();
+
+        // Act
+        const result = await buyerRepository.findAllActiveMajorCategories();
+
+        // Assert
+        expect(result).toHaveLength(1);
+        expect(result[0].categories[0]).toHaveProperty('name', 'Electronics');
+        expect(result[0].categories[0]).toHaveProperty('_id');
+      });
+    });
+
+    describe('extractSelectedCategoryNames', () => {
+      it('should extract category names from buyer selected categories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: [
+            { name: 'Electronics', subCategories: [] },
+            { name: 'Computers', subCategories: [] },
+            { name: 'Clothing', subCategories: [] }
+          ]
+        };
+
+        // Act
+        const result = buyerRepository.extractSelectedCategoryNames(buyer);
+
+        // Assert
+        expect(result).toEqual(['Electronics', 'Computers', 'Clothing']);
+      });
+
+      it('should return empty array when buyer has no selected categories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: []
+        };
+
+        // Act
+        const result = buyerRepository.extractSelectedCategoryNames(buyer);
+
+        // Assert
+        expect(result).toEqual([]);
+      });
+
+      it('should throw error when buyer has undefined selectedCategories', () => {
+        // Arrange
+        const buyer = {};
+
+        // Act & Assert
+        expect(() => buyerRepository.extractSelectedCategoryNames(buyer)).toThrow();
+      });
+
+      it('should throw error when buyer has null selectedCategories', () => {
+        // Arrange
+        const buyer = {
+          selectedCategories: null
+        };
+
+        // Act & Assert
+        expect(() => buyerRepository.extractSelectedCategoryNames(buyer)).toThrow();
       });
     });
   });

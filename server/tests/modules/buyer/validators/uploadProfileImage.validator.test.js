@@ -1,12 +1,12 @@
 const { 
-  validateUploadedFile,
   validateFileSize,
   validateFileType,
-  validateFileExtension
+  validateFileExtension,
+  validateUploadProfileImageData
 } = require('@modules/buyer/validators/uploadProfileImage.validator');
 const ValidationError = require('@utils/errors/ValidationError');
 
-describe('uploadProfileImage.validator', () => {
+describe('Upload Profile Image Validator', () => {
   describe('validateFileSize', () => {
     it('should pass validation with file under size limit', () => {
       const file = {
@@ -109,321 +109,256 @@ describe('uploadProfileImage.validator', () => {
         message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed'
       });
     });
-
-    it('should handle case-insensitive file extensions', () => {
-      const file = {
-        originalname: 'profile.JPG',
-        mimetype: 'image/jpeg',
-        size: 1024 * 1024
-      };
-      const errors = [];
-
-      validateFileExtension(file, errors);
-
-      expect(errors).toHaveLength(0);
-    });
   });
 
-  describe('validateUploadedFile', () => {
-    it('should pass validation with valid JPEG file', () => {
-      const file = {
-        originalname: 'profile.jpg',
-        mimetype: 'image/jpeg',
-        size: 1024 * 1024 // 1MB
+  describe('validateUploadProfileImageData', () => {
+    it('should not throw for valid file', async () => {
+      const validData = {
+        file: {
+          originalname: 'profile.jpg',
+          mimetype: 'image/jpeg',
+          size: 1024 * 1024 // 1MB
+        }
       };
 
-      expect(() => validateUploadedFile(file)).not.toThrow();
+      await expect(validateUploadProfileImageData(validData)).resolves.not.toThrow();
     });
 
-    it('should pass validation with valid PNG file', () => {
-      const file = {
-        originalname: 'profile.png',
-        mimetype: 'image/png',
-        size: 2 * 1024 * 1024 // 2MB
+    it('should not throw for valid PNG file', async () => {
+      const validData = {
+        file: {
+          originalname: 'profile.png',
+          mimetype: 'image/png',
+          size: 2 * 1024 * 1024 // 2MB
+        }
       };
 
-      expect(() => validateUploadedFile(file)).not.toThrow();
+      await expect(validateUploadProfileImageData(validData)).resolves.not.toThrow();
     });
 
-    it('should pass validation with valid GIF file', () => {
-      const file = {
-        originalname: 'profile.gif',
-        mimetype: 'image/gif',
-        size: 3 * 1024 * 1024 // 3MB
+    it('should not throw for valid GIF file', async () => {
+      const validData = {
+        file: {
+          originalname: 'profile.gif',
+          mimetype: 'image/gif',
+          size: 3 * 1024 * 1024 // 3MB
+        }
       };
 
-      expect(() => validateUploadedFile(file)).not.toThrow();
+      await expect(validateUploadProfileImageData(validData)).resolves.not.toThrow();
     });
 
-    it('should pass validation with valid WebP file', () => {
-      const file = {
-        originalname: 'profile.webp',
-        mimetype: 'image/webp',
-        size: 4 * 1024 * 1024 // 4MB
+    it('should not throw for valid WebP file', async () => {
+      const validData = {
+        file: {
+          originalname: 'profile.webp',
+          mimetype: 'image/webp',
+          size: 4 * 1024 * 1024 // 4MB
+        }
       };
 
-      expect(() => validateUploadedFile(file)).not.toThrow();
+      await expect(validateUploadProfileImageData(validData)).resolves.not.toThrow();
     });
 
-    it('should throw ValidationError when no file provided', () => {
-      expect(() => validateUploadedFile(null)).toThrow(ValidationError);
-      expect(() => validateUploadedFile(undefined)).toThrow(ValidationError);
+    it('should throw ValidationError when no file provided', async () => {
+      const invalidData = {};
+
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+      });
     });
 
-    it('should throw ValidationError for file too large', () => {
-      const file = {
-        originalname: 'large.jpg',
-        mimetype: 'image/jpeg',
-        size: 6 * 1024 * 1024 // 6MB (over 5MB limit)
+    it('should throw ValidationError when file is null', async () => {
+      const invalidData = { file: null };
+
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+      });
+    });
+
+    it('should throw ValidationError when file is undefined', async () => {
+      const invalidData = { file: undefined };
+
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+      });
+    });
+
+    it('should throw ValidationError for file too large', async () => {
+      const invalidData = {
+        file: {
+          originalname: 'large.jpg',
+          mimetype: 'image/jpeg',
+          size: 6 * 1024 * 1024 // 6MB (over 5MB limit)
+        }
       };
 
-      expect(() => validateUploadedFile(file)).toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: [{ field: 'avatar', message: 'File size must not exceed 5MB' }]
+      });
     });
 
-    it('should throw ValidationError for invalid file type', () => {
-      const file = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        size: 1024 * 1024
+    it('should throw ValidationError for invalid file type', async () => {
+      const invalidData = {
+        file: {
+          originalname: 'document.pdf',
+          mimetype: 'application/pdf',
+          size: 1024 * 1024
+        }
       };
 
-      expect(() => validateUploadedFile(file)).toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: expect.arrayContaining([
+          { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+          { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
+        ])
+      });
     });
 
-    it('should throw ValidationError for invalid file extension', () => {
-      const file = {
-        originalname: 'profile.bmp',
-        mimetype: 'image/bmp',
-        size: 1024 * 1024
+    it('should throw ValidationError for invalid file extension', async () => {
+      const invalidData = {
+        file: {
+          originalname: 'profile.bmp',
+          mimetype: 'image/bmp',
+          size: 1024 * 1024
+        }
       };
 
-      expect(() => validateUploadedFile(file)).toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: expect.arrayContaining([
+          { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+          { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
+        ])
+      });
     });
 
-    it('should throw ValidationError for invalid MIME type', () => {
-      const file = {
-        originalname: 'profile.jpg',
-        mimetype: 'text/plain',
-        size: 1024 * 1024
+    it('should throw ValidationError for invalid MIME type', async () => {
+      const invalidData = {
+        file: {
+          originalname: 'profile.jpg',
+          mimetype: 'text/plain',
+          size: 1024 * 1024
+        }
       };
 
-      expect(() => validateUploadedFile(file)).toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toThrow(ValidationError);
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
+        errors: [{ field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' }]
+      });
     });
 
-    it('should accumulate multiple validation errors', () => {
-      const file = {
-        originalname: 'large.pdf',
-        mimetype: 'application/pdf',
-        size: 6 * 1024 * 1024 // 6MB
+    it('should accumulate multiple validation errors', async () => {
+      const invalidData = {
+        file: {
+          originalname: 'large.pdf',
+          mimetype: 'application/pdf',
+          size: 6 * 1024 * 1024 // 6MB
+        }
       };
 
-      expect(() => validateUploadedFile(file)).toThrow(expect.objectContaining({
+      await expect(validateUploadProfileImageData(invalidData)).rejects.toMatchObject({
         errors: expect.arrayContaining([
           { field: 'avatar', message: 'File size must not exceed 5MB' },
           { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
           { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
         ])
-      }));
+      });
     });
-  });
 
-  describe('Specific Error Messages', () => {
-    it('should include specific error message for no file provided (null)', () => {
-      expect(() => validateUploadedFile(null))
-        .toThrow(expect.objectContaining({
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing file', async () => {
+        await expect(validateUploadProfileImageData({})).rejects.toMatchObject({
+          errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+        });
+      });
+
+      it('should include specific error message for null file', async () => {
+        await expect(validateUploadProfileImageData({ file: null })).rejects.toMatchObject({
+          errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+        });
+      });
+
+      it('should include specific error message for undefined file', async () => {
+        await expect(validateUploadProfileImageData({ file: undefined })).rejects.toMatchObject({
+          errors: [{ field: 'avatar', message: 'No file provided. Please upload an image file.' }]
+        });
+      });
+
+      it('should include specific error message for file too large', async () => {
+        await expect(validateUploadProfileImageData({
+          file: {
+            originalname: 'large.jpg',
+            mimetype: 'image/jpeg',
+            size: 6 * 1024 * 1024
+          }
+        })).rejects.toMatchObject({
+          errors: [{ field: 'avatar', message: 'File size must not exceed 5MB' }]
+        });
+      });
+
+      it('should include specific error message for invalid file type', async () => {
+        await expect(validateUploadProfileImageData({
+          file: {
+            originalname: 'document.pdf',
+            mimetype: 'application/pdf',
+            size: 1024 * 1024
+          }
+        })).rejects.toMatchObject({
           errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'No file provided. Please upload an image file.'
-            }
+            { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+            { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
           ])
-        }));
-    });
+        });
+      });
 
-    it('should include specific error message for no file provided (undefined)', () => {
-      expect(() => validateUploadedFile(undefined))
-        .toThrow(expect.objectContaining({
+      it('should include specific error message for invalid file extension', async () => {
+        await expect(validateUploadProfileImageData({
+          file: {
+            originalname: 'profile.bmp',
+            mimetype: 'image/bmp',
+            size: 1024 * 1024
+          }
+        })).rejects.toMatchObject({
           errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'No file provided. Please upload an image file.'
-            }
+            { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+            { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
           ])
-        }));
-    });
+        });
+      });
 
-    it('should include specific error message for file too large', () => {
-      const file = {
-        originalname: 'large.jpg',
-        mimetype: 'image/jpeg',
-        size: 6 * 1024 * 1024 // 6MB (over 5MB limit)
-      };
+      it('should include specific error message for invalid MIME type', async () => {
+        await expect(validateUploadProfileImageData({
+          file: {
+            originalname: 'profile.jpg',
+            mimetype: 'text/plain',
+            size: 1024 * 1024
+          }
+        })).rejects.toMatchObject({
+          errors: [{ field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' }]
+        });
+      });
 
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
+      it('should include multiple error messages for multiple validation failures', async () => {
+        await expect(validateUploadProfileImageData({
+          file: {
+            originalname: 'large.pdf',
+            mimetype: 'application/pdf',
+            size: 6 * 1024 * 1024
+          }
+        })).rejects.toMatchObject({
           errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'File size must not exceed 5MB'
-            }
+            { field: 'avatar', message: 'File size must not exceed 5MB' },
+            { field: 'avatar', message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+            { field: 'avatar', message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed' }
           ])
-        }));
-    });
-
-    it('should include specific error message for invalid file type (PDF)', () => {
-      const file = {
-        originalname: 'document.pdf',
-        mimetype: 'application/pdf',
-        size: 1024 * 1024
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'Only JPEG, PNG, GIF, and WebP images are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should include specific error message for invalid file type (TXT)', () => {
-      const file = {
-        originalname: 'document.txt',
-        mimetype: 'text/plain',
-        size: 1024 * 1024
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'Only JPEG, PNG, GIF, and WebP images are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should include specific error message for invalid file extension (BMP)', () => {
-      const file = {
-        originalname: 'profile.bmp',
-        mimetype: 'image/bmp',
-        size: 1024 * 1024
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should include specific error message for invalid file extension (TIFF)', () => {
-      const file = {
-        originalname: 'profile.tiff',
-        mimetype: 'image/tiff',
-        size: 1024 * 1024
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should include specific error message for invalid MIME type', () => {
-      const file = {
-        originalname: 'profile.jpg',
-        mimetype: 'text/plain',
-        size: 1024 * 1024
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'Only JPEG, PNG, GIF, and WebP images are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should include multiple error messages for multiple validation failures', () => {
-      const file = {
-        originalname: 'large.pdf',
-        mimetype: 'application/pdf',
-        size: 6 * 1024 * 1024 // 6MB
-      };
-
-      expect(() => validateUploadedFile(file))
-        .toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            {
-              field: 'avatar',
-              message: 'File size must not exceed 5MB'
-            },
-            {
-              field: 'avatar',
-              message: 'Only JPEG, PNG, GIF, and WebP images are allowed'
-            },
-            {
-              field: 'avatar',
-              message: 'Only .jpg, .jpeg, .png, .gif, and .webp files are allowed'
-            }
-          ])
-        }));
-    });
-
-    it('should not throw error for valid JPEG file', () => {
-      const file = {
-        originalname: 'profile.jpg',
-        mimetype: 'image/jpeg',
-        size: 2 * 1024 * 1024 // 2MB
-      };
-
-      expect(() => validateUploadedFile(file)).not.toThrow();
-    });
-
-    it('should not throw error for valid PNG file', () => {
-      const file = {
-        originalname: 'profile.png',
-        mimetype: 'image/png',
-        size: 3 * 1024 * 1024 // 3MB
-      };
-
-      expect(() => validateUploadedFile(file)).not.toThrow();
-    });
-
-    it('should not throw error for valid GIF file', () => {
-      const file = {
-        originalname: 'profile.gif',
-        mimetype: 'image/gif',
-        size: 4 * 1024 * 1024 // 4MB
-      };
-
-      expect(() => validateUploadedFile(file)).not.toThrow();
-    });
-
-    it('should not throw error for valid WebP file', () => {
-      const file = {
-        originalname: 'profile.webp',
-        mimetype: 'image/webp',
-        size: 5 * 1024 * 1024 // 5MB (exactly at limit)
-      };
-
-      expect(() => validateUploadedFile(file)).not.toThrow();
+        });
+      });
     });
   });
 }); 

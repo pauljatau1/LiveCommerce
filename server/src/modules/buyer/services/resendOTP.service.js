@@ -2,7 +2,7 @@ const Buyer = require('../models/buyer.model');
 const sgMail = require('@sendgrid/mail');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const { validateResendOTPInput } = require('../validators/resendOTP.validator');
+const { validateResendOTPData } = require('../validators/resendOTP.validator');
 const fs = require('fs');
 const path = require('path');
 
@@ -71,8 +71,8 @@ async function updateBuyerOTP(buyer, otp) {
  * @returns {Promise<Object>} - Resend result
  */
 async function resendOTP(email) {
-  // Validate input
-  validateResendOTPInput({ email });
+  // Validate input data
+  await validateResendOTPData({ email });
 
   // Find buyer by email
   const buyer = await Buyer.findOne({ email });

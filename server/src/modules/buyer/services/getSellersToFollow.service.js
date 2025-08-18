@@ -139,8 +139,7 @@ async function getSellersToFollow(buyerId, filters = {}) {
     query,
     sortOptions,
     skip: 0,
-    limit: 0, // No limit for unpaginated results
-    shouldRandomize: false
+    limit: 0 // No limit for unpaginated results
   });
 
   // Transform seller data
@@ -185,9 +184,6 @@ async function preparePaginatedParams(buyerId, { page, limit, filters }) {
  * @returns {Array} Array of seller IDs to exclude
  */
 async function getExcludeSellerIds(buyerId) {
-  if (!buyerId) {
-    return [];
-  }
   return await buyerRepository.findFollowedSellerIds(buyerId);
 }
 
@@ -202,13 +198,28 @@ async function getExcludeSellerIds(buyerId) {
  * @returns {Array} Array of seller documents
  */
 async function retrieveSellersWithPagination({ query, sortOptions, skip, limit, shouldRandomize }) {
-  const sellers = await buyerRepository.findSellersToFollow({
-    query,
-    sortOptions,
-    skip,
-    limit,
-    shouldRandomize
-  });
+  let sellers;
+  
+  if (shouldRandomize) {
+    // Calculate randomization values
+    const total = await buyerRepository.countSellersToFollow(query);
+    const maxSkip = total - limit;
+    const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
+    
+    sellers = await buyerRepository.findSellersToFollowRandomized(query, limit, randomSkip);
+  } else {
+    sellers = await buyerRepository.findSellersToFollow({
+      query,
+      sortOptions,
+      skip,
+      limit
+    });
+  }
+
+  // Ensure sellers is an array
+  if (!sellers || !Array.isArray(sellers)) {
+    sellers = [];
+  }
 
   // Shuffle sellers for additional randomization
   return [...sellers].sort(() => 0.5 - Math.random());

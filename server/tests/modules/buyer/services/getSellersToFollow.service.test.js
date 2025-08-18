@@ -1,13 +1,18 @@
 const { getSellersToFollow, getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const ValidationError = require('@utils/errors/ValidationError');
+const getSellersToFollowValidator = require('@modules/buyer/validators/getSellersToFollow.validator');
 
 // Mock the repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/validators/getSellersToFollow.validator', () => ({
+  validateGetSellersToFollowData: jest.fn()
+}));
 
 describe('getSellersToFollow.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getSellersToFollowValidator.validateGetSellersToFollowData.mockResolvedValue();
   });
 
   describe('getSellersToFollow', () => {
@@ -48,15 +53,9 @@ describe('getSellersToFollow.service', () => {
       buyerRepository.findFollowedSellerIds.mockResolvedValue(mockFollowedSellerIds);
       buyerRepository.countSellersToFollow.mockResolvedValue(50);
       buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
       // Test parameters
-      const query = {
-        page: '1',
-        limit: '10',
-        search: 'fashion',
-        category: 'clothing',
-        sort: 'rating'
-      };
       const buyerId = 'buyer123';
 
       // Execute service
@@ -83,14 +82,10 @@ describe('getSellersToFollow.service', () => {
           _id: { $nin: mockFollowedSellerIds }
         })
       );
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.any(Object),
-          sortOptions: { 'stats.averageRating': -1 },
-          skip: 0,
-          limit: 10,
-          shouldRandomize: true
-        })
+      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+        expect.any(Object),
+        10,
+        expect.any(Number)
       );
 
       // Verify response structure
@@ -156,191 +151,151 @@ describe('getSellersToFollow.service', () => {
         }
       ];
 
+      // Mock repository methods
       buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      buyerRepository.countSellersToFollow.mockResolvedValue(1);
       buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
-      const buyerId = null;
-
-      const result = await getSellersToFollow(buyerId, {
-        search: '',
-        category: '',
-        sort: 'rating'
+      // Execute service without buyer ID
+      const result = await getPaginatedSellersToFollow(null, {
+        page: 1,
+        limit: 0,
+        filters: {}
       });
 
-      expect(buyerRepository.findFollowedSellerIds).not.toHaveBeenCalled();
+      expect(buyerRepository.findFollowedSellerIds).toHaveBeenCalledWith(null);
+      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+        expect.any(Object),
+        0,
+        expect.any(Number)
+      );
+
+      expect(result.data.sellers).toHaveLength(1);
+    });
+
+    it('should handle pagination correctly', async () => {
+      const mockSellers = [
+        {
+          _id: 'seller1',
+          storeName: 'Fashion Store',
+          businessName: 'Fashion Store Ltd',
+          aboutStore: 'Premium fashion items',
+          storeAvatar: { url: 'https://example.com/avatar1.jpg' },
+          categories: [{ name: 'Fashion' }],
+          stats: { averageRating: 4.5, totalReviews: 100 },
+          followers: [{}, {}, {}],
+          isVerified: true,
+          isFeatured: false,
+          createdAt: new Date('2023-01-15')
+        }
+      ];
+
+      // Mock repository methods
+      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      buyerRepository.countSellersToFollow.mockResolvedValue(25);
+      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+
+      // Execute service with pagination
+      const result = await getPaginatedSellersToFollow('buyer123', {
+        page: 2,
+        limit: 10,
+        filters: {}
+      });
+
+      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+        expect.any(Object),
+        10,
+        expect.any(Number)
+      );
+
+      expect(result.pagination).toEqual({
+        totalSellers: 25,
+        totalPages: 3,
+        currentPage: 2,
+        hasMore: true,
+        hasPrevious: true
+      });
+    });
+
+    it('should handle randomization when total > limit', async () => {
+      const mockSellers = [
+        {
+          _id: 'seller1',
+          storeName: 'Fashion Store',
+          businessName: 'Fashion Store Ltd',
+          aboutStore: 'Premium fashion items',
+          storeAvatar: { url: 'https://example.com/avatar1.jpg' },
+          categories: [{ name: 'Fashion' }],
+          stats: { averageRating: 4.5, totalReviews: 100 },
+          followers: [{}, {}, {}],
+          isVerified: true,
+          isFeatured: false,
+          createdAt: new Date('2023-01-15')
+        }
+      ];
+
+      // Mock repository methods
+      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      buyerRepository.countSellersToFollow.mockResolvedValue(50);
+      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+
+      // Execute service with randomization
+      const result = await getPaginatedSellersToFollow('buyer123', {
+        page: 1,
+        limit: 10,
+        filters: {}
+      });
+
+      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+        expect.any(Object),
+        10,
+        expect.any(Number)
+      );
+
+      expect(result.data.sellers).toHaveLength(1);
+    });
+
+    it('should not randomize when total <= limit', async () => {
+      const mockSellers = [
+        {
+          _id: 'seller1',
+          storeName: 'Fashion Store',
+          businessName: 'Fashion Store Ltd',
+          aboutStore: 'Premium fashion items',
+          storeAvatar: { url: 'https://example.com/avatar1.jpg' },
+          categories: [{ name: 'Fashion' }],
+          stats: { averageRating: 4.5, totalReviews: 100 },
+          followers: [{}, {}, {}],
+          isVerified: true,
+          isFeatured: false,
+          createdAt: new Date('2023-01-15')
+        }
+      ];
+
+      // Mock repository methods
+      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      buyerRepository.countSellersToFollow.mockResolvedValue(10);
+      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+
+      // Execute service without randomization
+      const result = await getPaginatedSellersToFollow('buyer123', {
+        page: 1,
+        limit: 10,
+        filters: {}
+      });
+
       expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
-          query: expect.objectContaining({
-            isDisabled: false
-          }),
-          sortOptions: { 'stats.averageRating': -1 },
+          query: expect.any(Object),
+          sortOptions: expect.any(Object),
           skip: 0,
-          limit: 0,
-          shouldRandomize: false
+          limit: 10
         })
       );
 
       expect(result.data.sellers).toHaveLength(1);
-      expect(result.pagination).toEqual({}); // No pagination info for non-paginated results
-    });
-
-    it('should handle different sort options correctly', async () => {
-      // Test followers sort
-      jest.clearAllMocks();
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue([]);
-      
-      await getPaginatedSellersToFollow(null, {
-        page: 1,
-        limit: 10,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'followers'
-        }
-      });
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sortOptions: { 'followers': -1 }
-        })
-      );
-
-      // Test newest sort
-      jest.clearAllMocks();
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue([]);
-      
-      await getPaginatedSellersToFollow(null, {
-        page: 1,
-        limit: 10,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'newest'
-        }
-      });
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sortOptions: { createdAt: -1 }
-        })
-      );
-
-      // Test default sort (rating)
-      jest.clearAllMocks();
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue([]);
-      
-      await getPaginatedSellersToFollow(null, {
-        page: 1,
-        limit: 10,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'rating'
-        }
-      });
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sortOptions: { 'stats.averageRating': -1 }
-        })
-      );
-    });
-
-    it('should handle pagination correctly', async () => {
-      const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(100);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-
-      const query = {
-        page: '3',
-        limit: '20',
-        search: '',
-        category: '',
-        sort: 'rating'
-      };
-
-      await getPaginatedSellersToFollow(null, {
-        page: 3,
-        limit: 20,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'rating'
-        }
-      });
-
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          skip: 40, // (3-1) * 20
-          limit: 20
-        })
-      );
-    });
-
-    it('should handle randomization when total > limit', async () => {
-      const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(50); // More than limit
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-
-      const params = {
-        page: '1',
-        limit: '10',
-        search: '',
-        category: '',
-        sort: 'rating'
-      };
-
-      await getPaginatedSellersToFollow(null, {
-        page: 1,
-        limit: 10,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'rating'
-        }
-      });
-
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          shouldRandomize: true
-        })
-      );
-    });
-
-    it('should not randomize when total <= limit', async () => {
-      const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(5); // Less than limit
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-
-      const params = {
-        page: '1',
-        limit: '10',
-        search: '',
-        category: '',
-        sort: 'rating'
-      };
-
-      await getPaginatedSellersToFollow(null, {
-        page: 1,
-        limit: 10,
-        filters: {
-          search: '',
-          category: '',
-          sort: 'rating'
-        }
-      });
-
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          shouldRandomize: false
-        })
-      );
     });
 
     it('should handle sellers without store names', async () => {
@@ -397,7 +352,16 @@ describe('getSellersToFollow.service', () => {
         sort: 'invalid'
       };
 
-      await expect(getPaginatedSellersToFollow(null, {
+      // Mock validator to throw ValidationError for invalid parameters
+      getSellersToFollowValidator.validateGetSellersToFollowData.mockRejectedValue(
+        new ValidationError([
+          { field: 'page', message: 'Page must be a positive integer' },
+          { field: 'limit', message: 'Limit must be a positive integer between 1 and 100' },
+          { field: 'sort', message: 'Sort must be one of: rating, followers, newest' }
+        ])
+      );
+
+      await expect(getPaginatedSellersToFollow('valid-buyer-id', {
         page: -1,
         limit: 101,
         filters: {

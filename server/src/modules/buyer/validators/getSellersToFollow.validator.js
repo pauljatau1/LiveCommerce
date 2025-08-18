@@ -70,13 +70,50 @@ function validateSort(sort, errors) {
 }
 
 /**
+ * Validate buyer ID from request.
+ * 
+ * @param {string} buyerId - The buyer ID to validate
+ * @param {Array} errors - Array to collect validation errors
+ */
+function validateBuyerId(buyerId, errors) {
+  if (!buyerId) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID is required'
+    });
+    return;
+  }
+
+  if (typeof buyerId !== 'string') {
+    errors.push({
+      field: 'buyerId',
+      message: 'Buyer ID must be a string'
+    });
+    return;
+  }
+
+  // Check if it's a valid ObjectId format
+  const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+  if (!objectIdRegex.test(buyerId)) {
+    errors.push({
+      field: 'buyerId',
+      message: 'Invalid buyer ID format'
+    });
+  }
+}
+
+/**
  * Validate all query parameters for getSellersToFollow.
  * 
  * @param {Object} data - Query parameters to validate
+ * @param {string} data.buyerId - The buyer ID to validate
  * @throws {ValidationError} If validation fails
  */
 async function validateGetSellersToFollowData(data) {
   const errors = [];
+
+  // Validate buyer ID
+  validateBuyerId(data.buyerId, errors);
 
   // Validate each parameter
   validatePage(data.page, errors);
@@ -92,5 +129,6 @@ async function validateGetSellersToFollowData(data) {
 }
 
 module.exports = {
-  validateGetSellersToFollowData
+  validateGetSellersToFollowData,
+  validateBuyerId
 };

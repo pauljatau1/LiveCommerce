@@ -137,16 +137,20 @@ async function sendDeletionEmail(email, deletionOTP) {
 async function requestAccountDeletion(buyerId) {
   // Step 1: Validate input data using the validator
   // This ensures buyer exists and is not already in deletion process
-  const buyer = await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
+  await requestAccountDeletionValidator.validateRequestAccountDeletionData(buyerId);
 
-  // Step 2: Generate a secure 4-digit OTP for account deletion
+  // Step 2: Get the buyer object for email and database operations
+  // Since validation passed, we know the buyer exists
+  const buyer = await buyerRepository.findById(buyerId);
+
+  // Step 3: Generate a secure 4-digit OTP for account deletion
   const deletionOTP = generateDeletionOTP();
 
-  // Step 3: Calculate expiry time (10 minutes from current time)
+  // Step 4: Calculate expiry time (10 minutes from current time)
   // This provides a reasonable balance between security and user convenience
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  // Step 4: Update the buyer record with deletion OTP and expiry information
+  // Step 5: Update the buyer record with deletion OTP and expiry information
   // This stores the OTP securely in the database for later verification
   const updatedBuyer = await buyerRepository.updateAccountDeletionOTP(
     buyer._id,
@@ -159,11 +163,11 @@ async function requestAccountDeletion(buyerId) {
     throw new Error('Failed to update buyer with deletion OTP');
   }
 
-  // Step 5: Send account deletion email with the generated OTP
+  // Step 6: Send account deletion email with the generated OTP
   // If email sending fails, the error will propagate to the controller
   await sendDeletionEmail(buyer.email, deletionOTP);
 
-  // Step 6: Return success response
+  // Step 7: Return success response
   // Note: We don't return the OTP in the response for security reasons
   return {
     message: 'Account deletion verification code sent to your email',

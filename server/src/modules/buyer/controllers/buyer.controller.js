@@ -43,6 +43,9 @@ const getWalletTransactionsService = require('../services/getWalletTransactions.
 const getPublicProfileService = require('../services/getPublicProfile.service');
 const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
 const getActivityStatusService = require('../services/getActivityStatus.service');
+const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
+const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
+const getSelectedMajorCategoriesService = require('../services/getSelectedMajorCategories.service');
 
 
 
@@ -1350,6 +1353,91 @@ async function getActivityStatus(req, res, next) {
   }
 }
 
+/**
+ * Select major categories and add their child categories to buyer's selected categories.
+ *
+ * This controller handles the major categories selection HTTP request.
+ * It delegates the selection logic to the service layer and returns the updated categories.
+ * The service validates the major category IDs, finds the categories, and merges them with existing selections.
+ *
+ * @param {Request} req - Express request object containing majorCategoryIds in `req.body` and buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function selectMajorCategories(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user and major category IDs from request body
+    const buyerId = req.user.id;
+    const { majorCategoryIds } = req.body;
+
+    // Call the service layer to handle major categories selection logic
+    const response = await selectMajorCategoriesService.selectMajorCategories(buyerId, majorCategoryIds);
+
+    // Send success response with updated categories
+    res.success(response, 'Major categories selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Update major categories selection (replaces categories from selected major categories).
+ *
+ * This controller handles the major categories selection update HTTP request.
+ * It delegates the update logic to the service layer and returns the updated categories.
+ * The service validates the major category IDs, finds the categories, and replaces existing major category selections
+ * while preserving manually selected categories that are not part of any major category.
+ *
+ * @param {Request} req - Express request object containing majorCategoryIds in `req.body` and buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateMajorCategoriesSelection(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user and major category IDs from request body
+    const buyerId = req.user.id;
+    const { majorCategoryIds } = req.body;
+
+    // Call the service layer to handle major categories selection update logic
+    const response = await updateMajorCategoriesSelectionService.updateMajorCategoriesSelection(buyerId, majorCategoryIds);
+
+    // Send success response with updated categories
+    res.success(response, 'Major categories selection updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Get buyer's selected major categories.
+ *
+ * This controller handles the selected major categories retrieval HTTP request.
+ * It delegates the retrieval logic to the service layer and returns the selected major categories.
+ * The service analyzes the buyer's selected categories and identifies which major categories
+ * have all their associated categories selected by the buyer.
+ *
+ * @param {Request} req - Express request object containing the buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getSelectedMajorCategories(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle selected major categories retrieval logic
+    const response = await getSelectedMajorCategoriesService.getSelectedMajorCategories(buyerId);
+
+    // Send success response with selected major categories
+    res.success(response, 'Selected major categories retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1395,5 +1483,8 @@ module.exports = {
   getWalletTransactions,
   getPublicProfile,
   toggleActivityStatus,
-  getActivityStatus
+  getActivityStatus,
+  selectMajorCategories,
+  updateMajorCategoriesSelection,
+  getSelectedMajorCategories
 };

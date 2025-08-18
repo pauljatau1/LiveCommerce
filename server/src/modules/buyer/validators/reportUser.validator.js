@@ -9,55 +9,31 @@ const buyerRepository = require('../repositories/buyer.repository');
 const Seller = require('../../../models/Seller');
 
 /**
- * Validates buyer ID format and returns any validation errors.
+ * Validates buyer ID format and adds any validation errors to the errors array.
  * 
  * @param {string} buyerId - The buyer ID to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateBuyerIdFormat(buyerId) {
-  const errors = [];
-  
+function validateBuyerIdFormat(buyerId, errors) {
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
   } else if (!mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
   }
-  
-  return errors;
 }
 
 /**
- * Validates user ID format and returns any validation errors.
+ * Validates user ID format and adds any validation errors to the errors array.
  * 
  * @param {string} userId - The user ID to validate
- * @returns {Array} Array of validation errors (empty if no errors)
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateUserIdFormat(userId) {
-  const errors = [];
-  
+function validateUserIdFormat(userId, errors) {
   if (!userId) {
     errors.push({ field: 'userId', message: 'User ID is required' });
   } else if (!mongoose.Types.ObjectId.isValid(userId)) {
     errors.push({ field: 'userId', message: 'Invalid user ID format' });
   }
-  
-  return errors;
-}
-
-/**
- * Finds a user by ID based on userType.
- * 
- * @param {string} userId - The user ID to find
- * @param {string} userType - The type of user ('buyer' or 'seller')
- * @returns {Promise<Object|null>} The found user or null
- */
-async function findUserById(userId, userType) {
-  if (userType === 'seller') {
-    return await Seller.findById(userId);
-  } else if (userType === 'buyer') {
-    return await buyerRepository.findById(userId);
-  }
-  return null;
 }
 
 /**
@@ -66,25 +42,19 @@ async function findUserById(userId, userType) {
  * 
  * @param {string} buyerId - The buyer ID to validate
  * @param {Array} errors - Array to collect validation errors
- * @returns {Promise<Object|null>} The buyer object if validation passes, null if errors
- * @throws {ValidationError} If buyer ID is invalid or buyer doesn't exist
  */
 async function validateBuyerId(buyerId, errors) {
   // Validate format first
-  const formatErrors = validateBuyerIdFormat(buyerId);
-  if (formatErrors.length > 0) {
-    errors.push(...formatErrors);
-    return null;
+  validateBuyerIdFormat(buyerId, errors);
+  if (errors.length > 0) {
+    return;
   }
   
   // Check if buyer exists
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
-    return null;
   }
-  
-  return buyer;
 }
 
 /**
@@ -94,24 +64,19 @@ async function validateBuyerId(buyerId, errors) {
  * @param {string} userId - The reported user ID to validate
  * @param {string} userType - The type of user ('buyer' or 'seller')
  * @param {Array} errors - Array to collect validation errors
- * @returns {Promise<Object|null>} The reported user object if validation passes, null if errors
  */
 async function validateReportedUser(userId, userType, errors) {
   // Validate format first
-  const formatErrors = validateUserIdFormat(userId);
-  if (formatErrors.length > 0) {
-    errors.push(...formatErrors);
-    return null;
+  validateUserIdFormat(userId, errors);
+  if (errors.length > 0) {
+    return;
   }
   
-  // Find the reported user based on userType
-  const reportedUser = await findUserById(userId, userType);
+  // Find the reported user based on userType using repository
+  const reportedUser = await buyerRepository.findUserById(userId, userType);
   if (!reportedUser) {
     errors.push({ field: 'userId', message: 'Reported user not found' });
-    return null;
   }
-  
-  return reportedUser;
 }
 
 /**
@@ -221,7 +186,6 @@ function validateSelfReport(reporterId, reportedUserId, userType, errors) {
  * 
  * @param {string} reporterId - The ID of the user making the report
  * @param {Object} reportData - The report data containing userId, userType, reason, description
- * @returns {Promise<Object>} Object containing validated reporter and reported user
  * @throws {ValidationError} If validation fails
  */
 async function validateReportUserData(reporterId, reportData) {
@@ -236,21 +200,10 @@ async function validateReportUserData(reporterId, reportData) {
   // If basic validation passes, validate existence
   if (errors.length === 0) {
     // Validate reporter (buyer) exists
-    const reporter = await validateBuyerId(reporterId, errors);
+    await validateBuyerId(reporterId, errors);
     
     // Validate reported user exists
-    let reportedUser = null;
-    if (reporter) {
-      reportedUser = await validateReportedUser(reportData.userId, reportData.userType, errors);
-    }
-
-    // If all validations pass, return the objects
-    if (errors.length === 0) {
-      return {
-        reporter,
-        reportedUser
-      };
-    }
+    await validateReportedUser(reportData.userId, reportData.userType, errors);
   }
 
   if (errors.length > 0) {

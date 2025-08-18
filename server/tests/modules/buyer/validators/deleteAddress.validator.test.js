@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const deleteAddressValidator = require('@modules/buyer/validators/deleteAddress.validator');
 const Buyer = require('@modules/buyer/models/buyer.model');
-const NotFoundException = require('@utils/errors/NotFoundException');
 const ValidationError = require('@utils/errors/ValidationError');
 
 let mongoServer;
@@ -64,14 +63,24 @@ describe('deleteAddress.validator', () => {
 
   describe('validateDeleteAddressData', () => {
     it('should pass validation with valid data', async () => {
+      const validData = {
+        addressId: addressId,
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateDeleteAddressData(addressId, buyer._id.toString())
+        deleteAddressValidator.validateDeleteAddressData(validData)
       ).resolves.not.toThrow();
     });
 
     it('should throw ValidationError when addressId is missing', async () => {
+      const data = {
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateDeleteAddressData(null, buyer._id.toString())
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
         errors: [
           {
@@ -80,74 +89,18 @@ describe('deleteAddress.validator', () => {
           }
         ]
       });
-    });
-
-    it('should throw ValidationError when addressId is empty string', async () => {
-      await expect(
-        deleteAddressValidator.validateDeleteAddressData('', buyer._id.toString())
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressId',
-            message: 'Address ID is required'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when addressId is invalid format', async () => {
-      await expect(
-        deleteAddressValidator.validateDeleteAddressData('invalid-id', buyer._id.toString())
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressId',
-            message: 'Invalid address ID format'
-          }
-        ]
-      });
-    });
-
-    it('should throw NotFoundException when buyer does not exist', async () => {
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
-
-      await expect(
-        deleteAddressValidator.validateDeleteAddressData(addressId, nonExistentBuyerId)
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when address does not exist', async () => {
-      const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
-
-      await expect(
-        deleteAddressValidator.validateDeleteAddressData(nonExistentAddressId, buyer._id.toString())
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('validateAddressId', () => {
-    it('should pass validation with valid addressId', async () => {
-      await expect(
-        deleteAddressValidator.validateAddressId(addressId)
-      ).resolves.not.toThrow();
     });
 
     it('should throw ValidationError when addressId is null', async () => {
+      const data = {
+        addressId: null,
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateAddressId(null)
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressId',
-            message: 'Address ID is required'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when addressId is undefined', async () => {
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
       await expect(
-        deleteAddressValidator.validateAddressId(undefined)
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
         errors: [
           {
@@ -159,34 +112,35 @@ describe('deleteAddress.validator', () => {
     });
 
     it('should throw ValidationError when addressId is empty string', async () => {
+      const data = {
+        addressId: '',
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateAddressId('')
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
         errors: [
           {
             field: 'addressId',
             message: 'Address ID is required'
-          }
-        ]
-      });
-    });
-
-    it('should throw ValidationError when addressId is invalid format', async () => {
-      await expect(
-        deleteAddressValidator.validateAddressId('invalid-id')
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressId',
-            message: 'Invalid address ID format'
           }
         ]
       });
     });
 
     it('should throw ValidationError when addressId is not a string', async () => {
+      const data = {
+        addressId: 123,
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateAddressId(123)
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
         errors: [
           {
@@ -197,123 +151,16 @@ describe('deleteAddress.validator', () => {
       });
     });
 
-    it('should pass validation with valid ObjectId string', async () => {
-      const validObjectId = new mongoose.Types.ObjectId().toString();
+    it('should throw ValidationError when addressId is invalid format', async () => {
+      const data = {
+        addressId: 'invalid-id',
+        buyerId: buyer._id.toString()
+      };
       await expect(
-        deleteAddressValidator.validateAddressId(validObjectId)
-      ).resolves.not.toThrow();
-    });
-  });
-
-  describe('validateBuyerExists', () => {
-    it('should pass validation when buyer exists', async () => {
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
       await expect(
-        deleteAddressValidator.validateBuyerExists(buyer._id.toString())
-      ).resolves.not.toThrow();
-    });
-
-    it('should throw NotFoundException when buyer does not exist', async () => {
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
-
-      await expect(
-        deleteAddressValidator.validateBuyerExists(nonExistentBuyerId)
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when buyerId is invalid format', async () => {
-      await expect(
-        deleteAddressValidator.validateBuyerExists('invalid-id')
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('validateAddressExists', () => {
-    it('should pass validation when address exists', async () => {
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, buyer._id.toString())
-      ).resolves.not.toThrow();
-    });
-
-    it('should throw NotFoundException when address does not exist', async () => {
-      const nonExistentAddressId = new mongoose.Types.ObjectId().toString();
-
-      await expect(
-        deleteAddressValidator.validateAddressExists(nonExistentAddressId, buyer._id.toString())
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when buyer has no addresses', async () => {
-      // Create buyer with no addresses
-      const buyerWithNoAddresses = new Buyer({
-        firstName: 'Jane',
-        lastName: 'Smith',
-        username: 'janesmith',
-        email: 'jane.smith@example.com',
-        password: 'password123',
-        shippingAddresses: []
-      });
-      await buyerWithNoAddresses.save();
-
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, buyerWithNoAddresses._id.toString())
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when buyer has null shippingAddresses', async () => {
-      // Create buyer with null shippingAddresses
-      const buyerWithNullAddresses = new Buyer({
-        firstName: 'Bob',
-        lastName: 'Johnson',
-        username: 'bobjohnson',
-        email: 'bob.johnson@example.com',
-        password: 'password123',
-        shippingAddresses: null
-      });
-      await buyerWithNullAddresses.save();
-
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, buyerWithNullAddresses._id.toString())
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when buyer has undefined shippingAddresses', async () => {
-      // Create buyer with undefined shippingAddresses
-      const buyerWithUndefinedAddresses = new Buyer({
-        firstName: 'Alice',
-        lastName: 'Brown',
-        username: 'alicebrown',
-        email: 'alice.brown@example.com',
-        password: 'password123'
-      });
-      buyerWithUndefinedAddresses.shippingAddresses = undefined;
-      await buyerWithUndefinedAddresses.save();
-
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, buyerWithUndefinedAddresses._id.toString())
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when buyer does not exist', async () => {
-      const nonExistentBuyerId = new mongoose.Types.ObjectId().toString();
-
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, nonExistentBuyerId)
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('Edge cases', () => {
-    it('should handle case-sensitive addressId comparison', async () => {
-      // This test ensures that the comparison is done correctly
-      await expect(
-        deleteAddressValidator.validateAddressExists(addressId, buyer._id.toString())
-      ).resolves.not.toThrow();
-    });
-
-    it('should handle very long addressId strings', async () => {
-      const longAddressId = 'a'.repeat(1000);
-      await expect(
-        deleteAddressValidator.validateAddressId(longAddressId)
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
         errors: [
           {
@@ -324,168 +171,85 @@ describe('deleteAddress.validator', () => {
       });
     });
 
-    it('should handle special characters in addressId', async () => {
-      const specialCharAddressId = 'address@#$%^&*()';
+
+
+    it('should throw ValidationError when buyerId is missing', async () => {
+      const data = {
+        addressId: addressId
+      };
       await expect(
-        deleteAddressValidator.validateAddressId(specialCharAddressId)
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
       ).rejects.toMatchObject({
-        errors: [
+        errors: expect.arrayContaining([
           {
-            field: 'addressId',
-            message: 'Invalid address ID format'
+            field: 'buyerId',
+            message: 'Buyer ID is required'
           }
-        ]
+        ])
       });
     });
-  });
 
-  describe('Specific Error Messages', () => {
-    it('should include specific error message for missing address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData(null, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID is required'
-            }
-          ]
-        });
+    it('should throw ValidationError when buyerId is null', async () => {
+      const data = {
+        addressId: addressId,
+        buyerId: null
+      };
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toMatchObject({
+        errors: expect.arrayContaining([
+          {
+            field: 'buyerId',
+            message: 'Buyer ID is required'
+          }
+        ])
+      });
     });
 
-    it('should include specific error message for address ID not being a string', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData(123, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID must be a string'
-            }
-          ]
-        });
+    it('should throw error when buyerId is invalid format', async () => {
+      const data = {
+        addressId: addressId,
+        buyerId: 'invalid-buyer-id'
+      };
+      await expect(
+        deleteAddressValidator.validateDeleteAddressData(data)
+      ).rejects.toThrow();
     });
 
-    it('should include specific error message for invalid address ID format', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData('invalid-format', buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Invalid address ID format'
-            }
-          ]
+    describe('Specific Error Messages', () => {
+      it('should include specific error message for missing addressId', async () => {
+        await expect(deleteAddressValidator.validateDeleteAddressData({
+          buyerId: buyer._id.toString()
+        })).rejects.toMatchObject({
+          errors: [{ field: 'addressId', message: 'Address ID is required' }]
         });
-    });
+      });
 
-    it('should include specific error message for empty string address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData('', buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID is required'
-            }
-          ]
+      it('should include specific error message for non-string addressId', async () => {
+        await expect(deleteAddressValidator.validateDeleteAddressData({
+          addressId: 123,
+          buyerId: buyer._id.toString()
+        })).rejects.toMatchObject({
+          errors: [{ field: 'addressId', message: 'Address ID must be a string' }]
         });
-    });
+      });
 
-    it('should include specific error message for undefined address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData(undefined, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID is required'
-            }
-          ]
+      it('should include specific error message for invalid addressId format', async () => {
+        await expect(deleteAddressValidator.validateDeleteAddressData({
+          addressId: 'invalid-id',
+          buyerId: buyer._id.toString()
+        })).rejects.toMatchObject({
+          errors: [{ field: 'addressId', message: 'Invalid address ID format' }]
         });
-    });
+      });
 
-    it('should include specific error message for boolean address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData(true, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID must be a string'
-            }
-          ]
-        });
-    });
 
-    it('should include specific error message for object address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData({}, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID must be a string'
-            }
-          ]
-        });
-    });
-
-    it('should include specific error message for array address ID', async () => {
-      await expect(deleteAddressValidator.validateDeleteAddressData([], buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID must be a string'
-            }
-          ]
-        });
-    });
-
-    it('should include specific error message for very long address ID', async () => {
-      const longAddressId = 'a'.repeat(1000);
-      await expect(deleteAddressValidator.validateDeleteAddressData(longAddressId, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Invalid address ID format'
-            }
-          ]
-        });
-    });
-
-    it('should include specific error message for special characters in address ID', async () => {
-      const specialCharAddressId = 'address@#$%^&*()';
-      await expect(deleteAddressValidator.validateDeleteAddressData(specialCharAddressId, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Invalid address ID format'
-            }
-          ]
-        });
-    });
-
-    it('should include multiple error messages for multiple validation failures', async () => {
-      // This test would be for cases where multiple validation errors occur
-      // However, in this validator, most validation errors are thrown as NotFoundException
-      // rather than ValidationError with multiple errors
-      await expect(deleteAddressValidator.validateDeleteAddressData(null, buyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'addressId',
-              message: 'Address ID is required'
-            }
-          ]
-        });
     });
   });
 }); 

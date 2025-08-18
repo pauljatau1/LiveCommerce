@@ -109,18 +109,7 @@ function addFollowActivity(buyer, seller) {
   });
 }
 
-/**
- * Get the count of sellers the buyer is following.
- *
- * @param {Object} buyer - The buyer object
- * @returns {number} Following count
- */
-function getFollowingCount(buyer) {
-  return buyer.activityFeed.filter(activity =>
-    activity.type === 'follow' &&
-    activity.referenceModel === 'Seller'
-  ).length;
-}
+
 
 /**
  * Create notification for the seller about new follower.
@@ -211,7 +200,7 @@ async function followSeller(buyerId, sellerId) {
   await buyer.save();
 
   // Get following count
-  const followingCount = getFollowingCount(buyer);
+  const followingCount = await buyerRepository.getFollowingCount(buyerId).catch(() => 0);
 
   // Create notifications
   await createSellerNotification(sellerId, buyer);

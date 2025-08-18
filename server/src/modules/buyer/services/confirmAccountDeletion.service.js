@@ -115,21 +115,25 @@ function calculateRemainingAttempts(currentAttempts) {
  * @throws {ValidationError} If validation fails or OTP is invalid
  */
 async function confirmAccountDeletion(buyerId, otp) {
-  // Step 1: Validate input data and retrieve buyer from database
+  // Step 1: Validate input data
   // This includes OTP format, buyer existence, and deletion request status validation
-  const buyer = await confirmAccountDeletionValidator.validateConfirmAccountDeletionData(buyerId, otp);
+  await confirmAccountDeletionValidator.validateConfirmAccountDeletionData(buyerId, otp);
   
-  // Step 2: Verify the provided OTP matches the stored OTP
+  // Step 2: Get the buyer object for OTP verification
+  // Since validation passed, we know the buyer exists
+  const buyer = await buyerRepository.findById(buyerId);
+  
+  // Step 3: Verify the provided OTP matches the stored OTP
   if (!isValidOTP(buyer, otp)) {
-    // Step 2a: Increment failed attempts counter for security tracking
+    // Step 3a: Increment failed attempts counter for security tracking
     // This helps prevent brute force attacks on the OTP
     await buyerRepository.incrementAccountDeletionAttempts(buyerId);
     
-    // Step 2b: Calculate remaining attempts for user feedback
+    // Step 3b: Calculate remaining attempts for user feedback
     // Adding 1 because we just incremented the attempts above
     const remainingAttempts = calculateRemainingAttempts(buyer.accountDeletion.attempts + 1);
     
-    // Step 2c: Throw validation error with detailed feedback
+    // Step 3c: Throw validation error with detailed feedback
     // Including remaining attempts helps user understand their current status
     throw new ValidationError([{
       field: 'otp',
@@ -138,15 +142,15 @@ async function confirmAccountDeletion(buyerId, otp) {
     }]);
   }
   
-  // Step 3: Send confirmation email before deletion
+  // Step 4: Send confirmation email before deletion
   // This provides documentation and professional closure
   await sendConfirmationEmail(buyer.email);
   
-  // Step 4: Permanently delete the buyer account from database
+  // Step 5: Permanently delete the buyer account from database
   // This is the final irreversible step in the process
   await buyerRepository.deleteById(buyerId);
   
-  // Step 5: Return success confirmation to controller
+  // Step 6: Return success confirmation to controller
   return {
     message: 'Account deleted successfully'
   };

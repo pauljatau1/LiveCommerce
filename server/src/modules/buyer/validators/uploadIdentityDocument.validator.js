@@ -3,29 +3,12 @@ const ValidationError = require('../../../utils/errors/ValidationError');
 const buyerRepository = require('../repositories/buyer.repository');
 
 /**
- * Validate upload identity document data.
- * 
- * @param {string} buyerId - The buyer's ID
- * @param {Object} file - The uploaded file object
- * @throws {ValidationError} If validation fails
- */
-async function validateUploadIdentityDocumentData(buyerId, file) {
-  // First validate format
-  await validateBuyerId(buyerId);
-  await validateFile(file);
-  
-  // If format validation passes, then check existence
-  await validateBuyerExists(buyerId);
-}
-
-/**
  * Validate buyer ID format.
  * 
- * @param {string} buyerId
+ * @param {string} buyerId - The buyer ID to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateBuyerId(buyerId) {
-  const errors = [];
-  
+function validateBuyerId(buyerId, errors) {
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
   }
@@ -33,24 +16,18 @@ async function validateBuyerId(buyerId) {
   if (buyerId && !mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
   }
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
-  }
 }
 
 /**
  * Validate file existence and basic properties.
  * 
- * @param {Object} file
- * @returns {Array} Array of validation errors
+ * @param {Object} file - The file to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateFileExistence(file) {
-  const errors = [];
-  
+function validateFileExistence(file, errors) {
   if (!file) {
     errors.push({ field: 'file', message: 'No identity document uploaded' });
-    return errors;
+    return;
   }
 
   if (!file.buffer) {
@@ -64,21 +41,17 @@ function validateFileExistence(file) {
   if (!file.mimetype) {
     errors.push({ field: 'file', message: 'File type is required' });
   }
-
-  return errors;
 }
 
 /**
  * Validate file type.
  * 
- * @param {Object} file
- * @returns {Array} Array of validation errors
+ * @param {Object} file - The file to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateFileType(file) {
-  const errors = [];
-  
+function validateFileType(file, errors) {
   if (!file || !file.mimetype) {
-    return errors;
+    return;
   }
 
   const allowedTypes = [
@@ -94,59 +67,70 @@ function validateFileType(file) {
   if (!allowedTypes.includes(file.mimetype)) {
     errors.push({ field: 'file', message: 'Invalid file type. Allowed types: PDF, JPEG, PNG, GIF, DOC, DOCX' });
   }
-
-  return errors;
 }
 
 /**
  * Validate file size.
  * 
- * @param {Object} file
- * @returns {Array} Array of validation errors
+ * @param {Object} file - The file to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-function validateFileSize(file) {
-  const errors = [];
-  
+function validateFileSize(file, errors) {
   if (!file || !file.size) {
-    return errors;
+    return;
   }
 
   const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
     errors.push({ field: 'file', message: 'File size too large. Maximum size is 10MB' });
   }
-
-  return errors;
 }
 
 /**
  * Validate uploaded file.
  * 
- * @param {Object} file
+ * @param {Object} file - The file to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateFile(file) {
-  const errors = [
-    ...validateFileExistence(file),
-    ...validateFileType(file),
-    ...validateFileSize(file)
-  ];
-
-  if (errors.length > 0) {
-    throw new ValidationError(errors);
-  }
+function validateFile(file, errors) {
+  validateFileExistence(file, errors);
+  validateFileType(file, errors);
+  validateFileSize(file, errors);
 }
 
 /**
  * Validate that buyer exists.
  * 
- * @param {string} buyerId
+ * @param {string} buyerId - The buyer ID to validate
+ * @param {Array} errors - Array to collect validation errors
  */
-async function validateBuyerExists(buyerId) {
-  const errors = [];
-  
+async function validateBuyerExists(buyerId, errors) {
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
+  }
+}
+
+/**
+ * Validate upload identity document data.
+ * 
+ * @param {Object} data - Data to validate
+ * @param {string} data.buyerId - The buyer's ID
+ * @param {Object} data.file - The uploaded file object
+ * @throws {ValidationError} If validation fails
+ */
+async function validateUploadIdentityDocumentData(data) {
+  const errors = [];
+
+  // Validate buyer ID format
+  validateBuyerId(data.buyerId, errors);
+
+  // Validate file
+  validateFile(data.file, errors);
+
+  // If format validation passes, then check existence
+  if (errors.length === 0) {
+    await validateBuyerExists(data.buyerId, errors);
   }
 
   if (errors.length > 0) {

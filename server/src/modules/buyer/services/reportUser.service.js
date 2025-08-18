@@ -146,11 +146,16 @@ function prepareReportData(reportedUserId, reportedUserType, reason, description
  * @throws {ValidationError} If validation fails
  */
 async function reportUser(reporterId, reportData) {
-  // Step 1: Validate input data and retrieve validated users
+  // Step 1: Validate input data
   // This includes input validation, user existence checks, and self-report prevention
-  const { reporter, reportedUser } = await reportUserValidator.validateReportUserData(reporterId, reportData);
+  await reportUserValidator.validateReportUserData(reporterId, reportData);
   
-  // Step 2: Prepare the report data for database storage
+  // Step 2: Get the validated users for email and database operations
+  // Since validation passed, we know both users exist
+  const reporter = await buyerRepository.findById(reporterId);
+  const reportedUser = await buyerRepository.findUserById(reportData.userId, reportData.userType);
+  
+  // Step 3: Prepare the report data for database storage
   // Format data according to schema requirements
   const formattedReportData = prepareReportData(
     reportData.userId,
@@ -159,18 +164,18 @@ async function reportUser(reporterId, reportData) {
     reportData.description
   );
   
-  // Step 3: Save the report to the reporter's account
+  // Step 4: Save the report to the reporter's account
   // Use repository method to atomically add report to buyer's reports array
   const updatedBuyer = await buyerRepository.addReport(reporterId, formattedReportData);
   
-  // Step 4: Generate unique report ID for tracking and reference
+  // Step 5: Generate unique report ID for tracking and reference
   const reportId = generateReportId();
   
-  // Step 5: Get the newly added report from the updated buyer document
+  // Step 6: Get the newly added report from the updated buyer document
   // The last report in the array is the one we just added
   const newReport = updatedBuyer.reports[updatedBuyer.reports.length - 1];
   
-  // Step 6: Prepare email notification data
+  // Step 7: Prepare email notification data
   const emailNotificationData = {
     reporter: {
       firstName: reporter.firstName,
@@ -184,11 +189,11 @@ async function reportUser(reporterId, reportData) {
     reportId: reportId
   };
   
-  // Step 7: Send notification email to administrators
+  // Step 8: Send notification email to administrators
   // This ensures admins are immediately aware of new reports
   await sendReportNotificationEmail(emailNotificationData);
   
-  // Step 8: Return success response with report information
+  // Step 9: Return success response with report information
   // Match the original API response structure
   return {
     message: 'Report submitted successfully',

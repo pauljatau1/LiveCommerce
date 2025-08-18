@@ -1909,14 +1909,43 @@ exports.getOrdersForSeller = async (req, res) => {
       endDate,
       isOpen,
       channel,
+      paymentStatus,
+      search,
+      trackingStatus,
+      includeStale,
+      tab,
       sort = '-createdAt'  // Default sort by newest first
     } = req.query;
 
     // Build query
     const query = { 
       seller: sellerId,
-      
+      // By default, hide stale/abandoned orders unless explicitly requested via tab or query
     };
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+
+    // Default behavior: exclude stale orders from regular listings unless includeStale=true
+    const shouldIncludeStale = String(includeStale).toLowerCase() === 'true';
+    if (!shouldIncludeStale && !('isStale' in req.query) && tab !== 'abandoned') {
+      query.isStale = false;
+    }
+
+    // Handle tab-based filtering (server-side mirrors frontend tabs)
+    if (tab) {
+      if (tab === 'abandoned') {
+        query.isStale = true;
+      } else if (tab === 'process') {
+        query['shipping.tracking.status'] = 'pending';
+      } else if (tab === 'transit') {
+        query['shipping.tracking.status'] = { $in: ['picked_up', 'picked-up', 'in_transit', 'in-transit', 'pickup_arranged'] };
+      } else if (tab === 'delivered') {
+        query['shipping.tracking.status'] = { $in: ['delivered', 'Delivered'] };
+      } else if (tab === 'cancelled') {
+        query['shipping.tracking.status'] = 'cancelled';
+      }
+    }
 
     // Add filters if provided
     if (status) {
@@ -1926,7 +1955,30 @@ exports.getOrdersForSeller = async (req, res) => {
       query.isOpen = isOpen === 'true' || isOpen === true;
     }
     if (channel) {
-      query.channel = channel;
+      // Normalize channel values case-insensitively and support both live/liveshow
+      const normalizedChannel = String(channel).toLowerCase();
+      if (normalizedChannel === 'live' || normalizedChannel === 'liveshow') {
+        query.channel = { $in: ['live', 'liveshow'] };
+      } else if (normalizedChannel === 'marketplace' || normalizedChannel === 'auction' || normalizedChannel === 'blips') {
+        query.channel = normalizedChannel;
+      } else {
+        // Fallback to case-insensitive match
+        query.channel = { $regex: new RegExp(`^${normalizedChannel}$`, 'i') };
+      }
+    }
+    if (paymentStatus) {
+      query['paymentInfo.status'] = paymentStatus;
+    }
+    if (trackingStatus && !tab) {
+      const normalized = String(trackingStatus).toLowerCase();
+      if (normalized === 'transit') {
+        query['shipping.tracking.status'] = { $in: ['picked_up', 'picked-up', 'in_transit', 'in-transit', 'pickup_arranged'] };
+      } else if (normalized === 'delivered') {
+        query['shipping.tracking.status'] = { $in: ['delivered', 'Delivered'] };
+      } else {
+        // direct match for pending/cancelled/etc
+        query['shipping.tracking.status'] = trackingStatus;
+      }
     }
     if (startDate || endDate) {
       query.createdAt = {};
@@ -1937,14 +1989,22 @@ exports.getOrdersForSeller = async (req, res) => {
         query.createdAt.$lte = new Date(endDate);
       }
     }
+    if (req.query.isStale !== undefined) {
+      // Allow explicit override if caller passes isStale=true/false
+      query.isStale = req.query.isStale === 'true' || req.query.isStale === true;
+    }
+    if (search) {
+      // Search by order_id only (case-insensitive, partial match)
+      query.order_id = { $regex: new RegExp(search, 'i') };
+    }
 
     // Execute query with pagination
     const orders = await Order.find(query)
       .populate('buyer', 'firstName lastName email phoneNumber')
       .populate('items.product', 'name images price')
       .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
 
     // Get total count for pagination
     const total = await Order.countDocuments(query);
@@ -1953,9 +2013,9 @@ exports.getOrdersForSeller = async (req, res) => {
       orders,
       pagination: {
         total,
-        pages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        limit: parseInt(limit)
+        pages: Math.ceil(total / limitNum),
+        currentPage: pageNum,
+        limit: limitNum
       }
     });
   } catch (error) {

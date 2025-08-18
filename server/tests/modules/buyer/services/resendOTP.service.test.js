@@ -15,7 +15,7 @@ jest.mock('path', () => ({
   join: jest.fn()
 }));
 jest.mock('@modules/buyer/validators/resendOTP.validator', () => ({
-  validateResendOTPInput: jest.fn()
+  validateResendOTPData: jest.fn()
 }));
 
 const { resendOTP } = require('@modules/buyer/services/resendOTP.service');
@@ -79,7 +79,7 @@ describe('resendOTP.service', () => {
 
     // Mock validator
     const validator = require('@modules/buyer/validators/resendOTP.validator');
-    validator.validateResendOTPInput.mockImplementation(() => {});
+    validator.validateResendOTPData.mockImplementation(() => {});
   });
 
   describe('resendOTP', () => {
@@ -87,7 +87,7 @@ describe('resendOTP.service', () => {
       // Arrange
       const email = 'test@example.com';
       const validator = require('@modules/buyer/validators/resendOTP.validator');
-      validator.validateResendOTPInput.mockImplementation(() => {
+      validator.validateResendOTPData.mockImplementation(() => {
         // Don't throw error for valid email
       });
 
@@ -119,9 +119,7 @@ describe('resendOTP.service', () => {
       // Arrange
       const email = '';
       const validator = require('@modules/buyer/validators/resendOTP.validator');
-      validator.validateResendOTPInput.mockImplementation(() => {
-        throw new ValidationError([{ field: 'email', message: 'Email is required' }]);
-      });
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email is required' }]));
 
       // Act & Assert
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
@@ -134,9 +132,7 @@ describe('resendOTP.service', () => {
       // Arrange
       const email = 'invalid-email';
       const validator = require('@modules/buyer/validators/resendOTP.validator');
-      validator.validateResendOTPInput.mockImplementation(() => {
-        throw new ValidationError([{ field: 'email', message: 'Email must be a valid email address' }]);
-      });
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email must be a valid email address' }]));
 
       // Act & Assert
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
@@ -149,9 +145,7 @@ describe('resendOTP.service', () => {
       // Arrange
       const email = 123;
       const validator = require('@modules/buyer/validators/resendOTP.validator');
-      validator.validateResendOTPInput.mockImplementation(() => {
-        throw new ValidationError([{ field: 'email', message: 'Email must be a string' }]);
-      });
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email must be a string' }]));
 
       // Act & Assert
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
@@ -204,9 +198,7 @@ describe('resendOTP.service', () => {
       const email = 'test@example.com';
       const originalOTP = mockBuyer.otp;
       const validator = require('@modules/buyer/validators/resendOTP.validator');
-      validator.validateResendOTPInput.mockImplementation(() => {
-        // Don't throw error for valid email
-      });
+      validator.validateResendOTPData.mockResolvedValue();
 
       // Act
       await resendOTP(email);

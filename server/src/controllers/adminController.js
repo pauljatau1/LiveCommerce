@@ -146,11 +146,22 @@ exports.register = async (req, res) => {
 
 
 exports.login = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
   const clientIP = req.ip || req.connection.remoteAddress;
   const userAgent = req.headers['user-agent'] || 'Unknown';
 
   try {
+    // Basic input validation to prevent NoSQL injection via crafted JSON
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Reject suspicious values containing $ or dots which can be used in NoSQL operator injection
+    const suspiciousPattern = /[$.]/;
+    if (suspiciousPattern.test(username)) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+
     // Check if the IP is currently locked out
     const ipKey = `ip_${clientIP}`;
     const ipAttempts = loginAttempts.get(ipKey) || { count: 0, lockUntil: 0 };
@@ -163,10 +174,12 @@ exports.login = async (req, res) => {
     }
 
     // Find the admin by username or email
+    const normalizedUsername = username.trim();
+    const normalizedEmail = normalizedUsername.toLowerCase();
     const admin = await Admin.findOne({
       $or: [
-        { username: username },
-        { email: username.toLowerCase() } // Allow login with email too
+        { username: normalizedUsername },
+        { email: normalizedEmail } // Allow login with email too
       ]
     });
 
@@ -6690,11 +6703,18 @@ exports.getPlatformMetrics = async (req, res) => {
       BankChangeRequest.countDocuments()
     ]);
 
-    // Get active/inactive users
-    const [activeBuyers, activeSellers] = await Promise.all([
-      Buyer.countDocuments({ isActive: true }),
-      Seller.countDocuments({ isDisabled: false })
+    // Get active/inactive users based on actual activity
+    const [buyersWithOrders, sellersWithProducts] = await Promise.all([
+      Order.distinct('buyer', {
+        buyer: { $ne: null },
+        paid: true,
+        isStale: { $ne: true },
+        items: { $not: { $elemMatch: { status: 'cancelled' } } }
+      }),
+      Product.distinct('seller', { seller: { $ne: null } })
     ]);
+    const activeBuyers = buyersWithOrders.length;
+    const activeSellers = await Seller.countDocuments({ _id: { $in: sellersWithProducts }, isDisabled: false });
 
     // Get verification stats
     const [
@@ -6765,7 +6785,7 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Get financial metrics
     const totalOrderAmount = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true } } },
+      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
 
@@ -6797,8 +6817,7 @@ exports.getPlatformMetrics = async (req, res) => {
     // --- EXTRA METRICS ---
     // Top performing sellers by revenue (exclude stale orders)
     const topPerformers = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true } } },
-      { $unwind: '$items' },
+      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
       { $group: {
         _id: '$seller',
         totalRevenue: { $sum: '$totalAmount' },
@@ -6813,6 +6832,7 @@ exports.getPlatformMetrics = async (req, res) => {
     const topProducts = await Order.aggregate([
       { $match: { paid: true, isStale: { $ne: true } } },
       { $unwind: '$items' },
+      { $match: { 'items.status': { $ne: 'cancelled' } } },
       { $group: {
         _id: '$items.product',
         totalSold: { $sum: '$items.quantity' },
@@ -6825,7 +6845,7 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Top buyers by spend (exclude stale orders)
     const topBuyers = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true } } },
+      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
       { $group: {
         _id: '$buyer',
         totalSpent: { $sum: '$totalAmount' },
@@ -6847,6 +6867,7 @@ exports.getPlatformMetrics = async (req, res) => {
     const topCategories = await Order.aggregate([
       { $match: { paid: true, isStale: { $ne: true } } },
       { $unwind: '$items' },
+      { $match: { 'items.status': { $ne: 'cancelled' } } },
       { $group: {
         _id: '$items.product',
         count: { $sum: 1 }

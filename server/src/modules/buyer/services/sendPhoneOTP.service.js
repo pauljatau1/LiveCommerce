@@ -1,5 +1,5 @@
 const buyerRepository = require('../repositories/buyer.repository');
-const sendPhoneOTPValidator = require('../validators/sendPhoneOTP.validator');
+const { validateSendPhoneOTPData } = require('../validators/sendPhoneOTP.validator');
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 const InternalErrorException = require('../../../utils/errors/InternalErrorException');
@@ -55,8 +55,8 @@ function createSNSClient() {
  * @returns {Promise<Object>} Response object with success message and validity period
  */
 async function sendPhoneOTP(buyerId, phoneNumber) {
-  // Validate phone number format
-  await sendPhoneOTPValidator.validatePhoneNumberFormat(phoneNumber);
+  // Validate input data
+  await validateSendPhoneOTPData({ phoneNumber });
 
   // Check if buyer exists
   const buyer = await buyerRepository.findById(buyerId);

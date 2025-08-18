@@ -14,20 +14,19 @@ const buyerRepository = require('../repositories/buyer.repository');
  * 
  * @param {string} buyerId - The buyer ID to validate (should be a valid ObjectId string)
  * @param {Array} errors - Array to collect validation errors
- * @returns {Promise<Object|null>} The buyer object if validation passes, null if errors
  */
 async function validateBuyerId(buyerId, errors) {
   // Step 1: Check if buyerId is provided and not empty
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
-    return null;
+    return;
   }
   
   // Step 2: Validate buyerId format using Mongoose ObjectId validation
   // This ensures the ID can be used safely in database queries
   if (!mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
-    return null;
+    return;
   }
   
   // Step 3: Verify that the buyer actually exists in the database
@@ -35,11 +34,7 @@ async function validateBuyerId(buyerId, errors) {
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
-    return null;
   }
-  
-  // Return the buyer object for use in subsequent validation steps
-  return buyer;
 }
 
 /**
@@ -119,7 +114,6 @@ function validateAccountDeletionRequest(buyer, errors) {
  * 
  * @param {string} buyerId - The buyer ID to validate
  * @param {string} otp - The OTP to validate
- * @returns {Promise<Object>} The validated buyer object if validation passes
  * @throws {ValidationError} If validation fails
  */
 async function validateConfirmAccountDeletionData(buyerId, otp) {
@@ -128,20 +122,18 @@ async function validateConfirmAccountDeletionData(buyerId, otp) {
   // Validate OTP format first (fail fast approach)
   validateOTP(otp, errors);
   
-  // Validate buyer ID and get buyer object
-  const buyer = await validateBuyerId(buyerId, errors);
+  // Validate buyer ID format and existence
+  await validateBuyerId(buyerId, errors);
   
-  // If buyer validation passed, validate account deletion request
-  if (buyer) {
+  // If no format errors, validate account deletion request
+  if (errors.length === 0) {
+    const buyer = await buyerRepository.findById(buyerId);
     validateAccountDeletionRequest(buyer, errors);
   }
 
   if (errors.length > 0) {
     throw new ValidationError(errors);
   }
-
-  // Return the buyer object for use in the service layer
-  return buyer;
 }
 
 module.exports = {

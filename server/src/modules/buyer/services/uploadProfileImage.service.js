@@ -2,7 +2,7 @@ const buyerRepository = require('../repositories/buyer.repository');
 const { s3 } = require('../../../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const { validateUploadedFile } = require('../validators/uploadProfileImage.validator');
+const { validateUploadProfileImageData } = require('../validators/uploadProfileImage.validator');
 
 /**
  * Uploads a file to S3 and returns the upload data.
@@ -61,8 +61,8 @@ function createProfileImageObject(uploadData) {
  * @returns {Promise<Object>} Updated buyer data
  */
 async function uploadProfileImage(buyerId, file) {
-  // Validate uploaded file
-  validateUploadedFile(file);
+  // Validate input data
+  await validateUploadProfileImageData({ file });
 
   // Get buyer with selected fields
   const buyer = await buyerRepository.findByIdWithFields(buyerId, {

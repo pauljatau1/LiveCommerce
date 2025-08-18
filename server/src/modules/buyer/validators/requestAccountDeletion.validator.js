@@ -27,35 +27,31 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  *
  * @param {string} buyerId - The buyer's ID to validate
  * @param {Array} errors - Array to collect validation errors
- * @returns {Promise<Object|null>} The buyer object if validation passes, null if errors
  */
 async function validateBuyerId(buyerId, errors) {
   // Check if buyerId is provided
   if (!buyerId) {
     errors.push({ field: 'buyerId', message: 'Buyer ID is required' });
-    return null;
+    return;
   }
 
   // Validate buyerId format (MongoDB ObjectId)
   if (!mongoose.Types.ObjectId.isValid(buyerId)) {
     errors.push({ field: 'buyerId', message: 'Invalid buyer ID format' });
-    return null;
+    return;
   }
 
   // Check if buyer exists with this ID
   const buyer = await buyerRepository.findById(buyerId);
   if (!buyer) {
     errors.push({ field: 'buyerId', message: 'Buyer not found' });
-    return null;
+    return;
   }
 
   // Check if buyer is already in deletion process
   if (buyer.accountDeletion && buyer.accountDeletion.otp) {
     errors.push({ field: 'buyerId', message: 'Account deletion request already in progress' });
-    return null;
   }
-
-  return buyer;
 }
 
 /**
@@ -69,22 +65,17 @@ async function validateBuyerId(buyerId, errors) {
  * It ensures all input data is valid before proceeding with the account deletion request.
  *
  * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Object>} The buyer object if all validations pass
  * @throws {ValidationError} If any validation fails (invalid buyerId, buyer not found, or already in deletion process)
  */
 async function validateRequestAccountDeletionData(buyerId) {
   const errors = [];
 
-  // Validate buyer ID and get buyer object
-  const buyer = await validateBuyerId(buyerId, errors);
+  // Validate buyer ID
+  await validateBuyerId(buyerId, errors);
 
   if (errors.length > 0) {
     throw new ValidationError(errors);
   }
-
-  // All validations passed, return the buyer object
-  // The service layer can now proceed with account deletion request
-  return buyer;
 }
 
 module.exports = {

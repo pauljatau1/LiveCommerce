@@ -6,7 +6,7 @@ const ValidationError = require('../../../utils/errors/ValidationError');
  * @param {string} phoneNumber - The phone number to validate
  * @param {Array} errors - Array to collect validation errors
  */
-async function validatePhoneNumberFormat(phoneNumber, errors) {
+function validatePhoneNumberFormat(phoneNumber, errors) {
   if (!phoneNumber) {
     errors.push({ field: 'phoneNumber', message: 'Phone number is required' });
   } else {
@@ -22,15 +22,16 @@ async function validatePhoneNumberFormat(phoneNumber, errors) {
 }
 
 /**
- * Validate phone number format for OTP sending.
+ * Validate sendPhoneOTP data.
  * 
- * @param {string} phoneNumber - The phone number to validate
+ * @param {Object} data - Data to validate
+ * @param {string} data.phoneNumber - The phone number to validate
  * @throws {ValidationError} If validation fails
  */
-async function validatePhoneNumberFormatAndThrow(phoneNumber) {
+async function validateSendPhoneOTPData(data) {
   const errors = [];
-  
-  await validatePhoneNumberFormat(phoneNumber, errors);
+
+  validatePhoneNumberFormat(data.phoneNumber, errors);
 
   if (errors.length > 0) {
     throw new ValidationError(errors);
@@ -39,5 +40,5 @@ async function validatePhoneNumberFormatAndThrow(phoneNumber) {
 
 module.exports = {
   validatePhoneNumberFormat,
-  validatePhoneNumberFormatAndThrow
+  validateSendPhoneOTPData
 }; 

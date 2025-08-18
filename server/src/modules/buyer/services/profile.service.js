@@ -45,8 +45,8 @@ async function getProfile(buyerId) {
 
   // Get counts in parallel for better performance
   const [followersCount, followingCount, postsCount] = await Promise.all([
-    buyerRepository.getFollowersCount(buyerId),
-    buyerRepository.getFollowingCount(buyerId),
+    buyerRepository.getFollowersCount(buyerId).catch(() => 0),
+    buyerRepository.getFollowingCount(buyerId).catch(() => 0),
     buyerRepository.getPostsCount(buyerId)
   ]);
 

@@ -1,25 +1,29 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const { validateGetActivityStatusData } = require('../validators/getActivityStatus.validator');
 const ValidationError = require('../../../utils/errors/ValidationError');
+const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**
  * Get the current activity status of a buyer
  * @param {string} buyerId - The ID of the buyer
- * @returns {Promise<boolean>} The current activity status (true for active, false for inactive)
+ * @returns {Promise<Object>} Object containing isActive status
  * @throws {ValidationError} If buyerId is invalid
  * @throws {NotFoundException} If buyer is not found
  */
 async function getActivityStatus(buyerId) {
   // Validate input data
-  const validationResult = validateGetActivityStatusData({ buyerId });
-  if (validationResult.errors.length > 0) {
-    throw new ValidationError(validationResult.errors);
-  }
+  await validateGetActivityStatusData({ buyerId });
 
   // Get activity status from repository
-  const isActive = await buyerRepository.getActivityStatus(buyerId);
+  const buyer = await buyerRepository.getActivityStatus(buyerId);
   
-  return isActive;
+  if (!buyer) {
+    throw new NotFoundException('Buyer not found');
+  }
+
+  return {
+    isActive: buyer.isActive
+  };
 }
 
 module.exports = {

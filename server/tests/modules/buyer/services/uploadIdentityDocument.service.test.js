@@ -95,10 +95,10 @@ describe('Upload Identity Document Service', () => {
       );
 
       // Assert
-      expect(uploadIdentityDocumentValidator.validateUploadIdentityDocumentData).toHaveBeenCalledWith(
-        mockBuyerId.toString(),
-        mockFile
-      );
+      expect(uploadIdentityDocumentValidator.validateUploadIdentityDocumentData).toHaveBeenCalledWith({
+        buyerId: mockBuyerId.toString(),
+        file: mockFile
+      });
 
       expect(result).toHaveProperty('document');
       expect(result.document).toHaveProperty('url');
