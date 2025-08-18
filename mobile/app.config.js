@@ -25,7 +25,7 @@ module.exports = ({ config }) => {
       ios: {
         supportsTablet: true,
         bundleIdentifier: "com.auqli.auqliapp",
-        googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? './GoogleService-Info.plist',
+        googleServicesFile: process.env.GOOGLE_SERVICE_INFO_PLIST ?? "./GoogleService-Info.plist",
         infoPlist: {
           ITSAppUsesNonExemptEncryption: false,
           NSPhotoLibraryUsageDescription:
@@ -60,7 +60,7 @@ module.exports = ({ config }) => {
             category: ["BROWSABLE", "DEFAULT"],
           },
         ],
-        googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+        googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
         permissions: ["INTERNET", "RECORD_AUDIO"],
       },
       web: {
@@ -95,7 +95,7 @@ module.exports = ({ config }) => {
           "customerio-expo-plugin",
           {
             android: {
-              googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+              googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
             }
           },
         ],
