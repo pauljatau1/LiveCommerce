@@ -134,7 +134,7 @@ const orderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'pending_payment', 'processing', 'shipped', 'delivered', 'cancelled', 'failed'],
+    enum: ['draft', 'pending_payment', 'processing', 'shipped', 'delivered', 'cancelled', 'failed', 'confirmed', 'in-transit', 'in_transit', 'picked-up'],
     default: 'draft'
   },
   items: [orderItemSchema],
