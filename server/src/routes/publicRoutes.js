@@ -1300,6 +1300,7 @@ router.get('/meta-product-feed', async (req, res, next) => {
       'condition',
       'price',
       'link',
+      'blip_link',
       'image_link',
       'brand'
     ];
@@ -1312,7 +1313,7 @@ router.get('/meta-product-feed', async (req, res, next) => {
 
     const cursor = Product.find({ status: 'active' })
       .select(
-        'name description stock condition price images brand seller' // fetch only needed fields
+        'name description stock condition price images brand seller blips' // fetch only needed fields including blips
       )
       .populate('seller', 'storeName')
       .lean()
@@ -1539,6 +1540,9 @@ router.get('/seller-locations', async (req, res, next) => {
 });
 
 function toMetaRow(p) {
+  // Get the first blip if available
+  const firstBlip = p.blips && p.blips.length > 0 ? p.blips[0] : null;
+  
   return {
     id:          p._id.toString(),
     title:       p.name,
@@ -1546,7 +1550,8 @@ function toMetaRow(p) {
     availability: p.stock > 0 ? 'in stock' : 'out of stock',
     condition:    p.condition || 'new',
     price:        `${p.price} NGN`,
-    link:         `https://app.auqli.live/s/${p._id}A`,
+    link:         `https://app.auqli.live/products/${p._id}`,
+    blip_link:    firstBlip ? `https://app.auqli.live/products/${p._id}/blips/${firstBlip._id}` : '',
     image_link:
       p.images?.[0]?.url ??
       'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
