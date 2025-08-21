@@ -1543,6 +1543,9 @@ function toMetaRow(p) {
   // Get the first blip if available
   const firstBlip = p.blips && p.blips.length > 0 ? p.blips[0] : null;
   
+  
+  const baseUrl = process.env.DEEPLINK_URL;
+  
   return {
     id:          p._id.toString(),
     title:       p.name,
@@ -1550,8 +1553,8 @@ function toMetaRow(p) {
     availability: p.stock > 0 ? 'in stock' : 'out of stock',
     condition:    p.condition || 'new',
     price:        `${p.price} NGN`,
-    link:         `https://app.auqli.live/products/${p._id}`,
-    blip_link:    firstBlip ? `https://app.auqli.live/products/${p._id}/blips/${firstBlip._id}` : '',
+    link:         `${baseUrl}/products/${p._id}`,
+    blip_link:    firstBlip ? `${baseUrl}/products/${p._id}/blips/${firstBlip._id}` : '',
     image_link:
       p.images?.[0]?.url ??
       'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
