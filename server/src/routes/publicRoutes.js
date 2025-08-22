@@ -941,6 +941,40 @@ router.get('/sellers/:id', async (req, res) => {
         }
       }
     ]);
+
+    // Get top 5 selling products and their categories
+    const topSellingProducts = await Product.aggregate([
+      {
+        $match: {
+          seller: seller._id,
+          'stats.soldCount': { $gt: 0 }
+        }
+      },
+      {
+        $sort: {
+          'stats.soldCount': -1
+        }
+      },
+      {
+        $limit: 5
+      },
+      {
+        $project: {
+          category: 1,
+          subCategory: 1,
+          subSubCategory: 1,
+          name: 1,
+          'stats.soldCount': 1
+        }
+      }
+    ]);
+
+    // Extract unique categories from top selling products, filtering out empty strings
+    const topSellingCategories = [...new Set(
+      topSellingProducts
+        .map(product => product.category)
+        .filter(category => category && category.trim() !== '')
+    )];
     
     console.log('Initial aggregation result:', JSON.stringify(productRatingsStats, null, 2));
 
@@ -1052,6 +1086,8 @@ router.get('/sellers/:id', async (req, res) => {
         storeBanner: seller.storeBanner
       },
       categories: seller.categories,
+      selectedCategories: seller.categories ? seller.categories.map(cat => cat.name) : [],
+      topSellingCategories: topSellingCategories,
       location: {
         country: seller.businessAddress?.country || seller.sellerAddress?.country,
         state: seller.businessAddress?.state || seller.sellerAddress?.state,
