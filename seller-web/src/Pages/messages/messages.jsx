@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
@@ -316,6 +316,7 @@ export default function ChatInterface() {
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [showTypingIndicator, setShowTypingIndicator] = useState(false);
   
   // Add state to track messages by conversation ID for persistence
   const [messagesByConversation, setMessagesByConversation] = useState({});
@@ -2153,156 +2154,7 @@ export default function ChatInterface() {
     fetchBuyerDetails();
   }, [currentConversation?.participant?.id]);
 
-  // Update UserDetailsHeader component to handle immediate name display
-  const UserDetailsHeader = () => {
-    if (!currentConversation?.participant) return null;
-    
-    // Format total spent
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN'
-      }).format(amount);
-    };
 
-    // Get primary address
-    const primaryAddress = buyerDetails?.shippingAddresses?.[0];
-    
-    // Use the participant name from the client-side data if buyerDetails is still loading
-    const displayName = buyerDetails ? 
-      `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` : 
-      currentConversation.participant.name;
-    
-    // Add state for typing indicator
-    const [showTypingIndicator, setShowTypingIndicator] = useState(false);
-    
-    // Listen for typing events
-    useEffect(() => {
-      if (!socket || !currentConversation) return;
-      
-      const handleTypingStarted = (data) => {
-        if (data.conversationId === currentConversation._id && 
-            data.senderId !== sellerId) {
-          setShowTypingIndicator(true);
-        }
-      };
-      
-      const handleTypingStopped = (data) => {
-        if (data.conversationId === currentConversation._id && 
-            data.senderId !== sellerId) {
-          setShowTypingIndicator(false);
-        }
-      };
-      
-      socket.on('typing_started', handleTypingStarted);
-      socket.on('typing_stopped', handleTypingStopped);
-      
-      return () => {
-        socket.off('typing_started', handleTypingStarted);
-        socket.off('typing_stopped', handleTypingStopped);
-      };
-    }, [socket, currentConversation, sellerId]);
-    
-    return (
-      <div className="bg-white border-b p-3">
-        {/* Add mobile back button */}
-        <div className="flex items-center gap-2 mb-3 md:hidden">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0 hover:bg-transparent"
-            onClick={() => {
-              setShowChatList(true);
-              setCurrentConversation(null);
-            }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium">Back to chats</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Avatar className="h-12 w-12 md:h-16 md:w-16">
-              <AvatarImage 
-                src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
-                alt={displayName}
-              />
-              <AvatarFallback>
-                {displayName[0]}
-              </AvatarFallback>
-            </Avatar>
-            {/* Online status indicator */}
-            <span className={`absolute bottom-0 right-0 h-3 w-3 md:h-4 md-w-4 rounded-full border-2 border-white ${
-              currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
-            }`} />
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-center gap-1">
-              <h2 className="text-base md:text-xl font-semibold truncate max-w-[180px] md:max-w-none">
-                {displayName}
-              </h2>
-              {/* Show typing indicator instead of status when typing */}
-              {showTypingIndicator ? (
-                <span className="text-xs md:text-sm text-green-500 flex items-center">
-                  typing
-                  <span className="ml-1 flex">
-                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '0ms' }}></span>
-                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '200ms' }}></span>
-                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '400ms' }}></span>
-                  </span>
-                </span>
-              ) : (
-                /* Online/Offline status text */
-                <span className={`text-xs md:text-sm ${
-                  currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
-                }`}>
-                  {currentConversation.participant.isOnline ? 'Online' : 
-                    currentConversation.participant.lastActive ? 
-                      `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
-                      'Offline'
-                  }
-                </span>
-              )}
-            </div>
-            
-            {/* Show loading indicator for buyer details */}
-            {!buyerDetails && (
-              <div className="flex items-center text-xs text-gray-500 mt-1">
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                <span>Loading details...</span>
-              </div>
-            )}
-            
-            {/* Show buyer details once loaded */}
-            {buyerDetails && (
-              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-600 mt-1">
-                {primaryAddress && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    <span>{primaryAddress.state}, {primaryAddress.country}</span>
-                  </div>
-                )}
-                {buyerDetails?.orderStats?.withSeller && (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <ShoppingBag className="h-3 w-3" />
-                      <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Banknote className="h-3 w-3" />
-                      <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Add emoji handler
   const handleEmojiSelect = (emoji) => {
@@ -2468,6 +2320,31 @@ export default function ChatInterface() {
     };
   }, [socket, currentConversation]);
 
+  // Centralized typing indicator listener at parent level
+  useEffect(() => {
+    if (!socket || !currentConversation?._id) return;
+
+    const handleTypingStarted = (data) => {
+      if (data.conversationId === currentConversation._id && data.senderId !== sellerId) {
+        setShowTypingIndicator(true);
+      }
+    };
+
+    const handleTypingStopped = (data) => {
+      if (data.conversationId === currentConversation._id && data.senderId !== sellerId) {
+        setShowTypingIndicator(false);
+      }
+    };
+
+    socket.on('typing_started', handleTypingStarted);
+    socket.on('typing_stopped', handleTypingStopped);
+
+    return () => {
+      socket.off('typing_started', handleTypingStarted);
+      socket.off('typing_stopped', handleTypingStopped);
+    };
+  }, [socket, currentConversation?._id, sellerId]);
+
   // Add this helper function for formatting last active time
   const formatLastActive = (lastActive) => {
     if (!lastActive) return '';
@@ -2488,6 +2365,116 @@ export default function ChatInterface() {
     
     return date.toLocaleDateString();
   };
+
+  const renderUserDetailsHeader = useMemo(() => {
+    if (!currentConversation?.participant) return null;
+
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN'
+      }).format(amount);
+    };
+
+    const primaryAddress = buyerDetails?.shippingAddresses?.[0];
+    const displayName = buyerDetails ? 
+      `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` : 
+      currentConversation.participant.name;
+
+    return (
+      <div className="bg-white border-b p-3">
+        <div className="flex items-center gap-2 mb-3 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-0 hover:bg-transparent"
+            onClick={() => {
+              setShowChatList(true);
+              setCurrentConversation(null);
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs font-medium">Back to chats</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Avatar className="h-12 w-12 md:h-16 md:w-16">
+              <AvatarImage 
+                src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
+                alt={displayName}
+              />
+              <AvatarFallback>
+                {displayName[0]}
+              </AvatarFallback>
+            </Avatar>
+            <span className={`absolute bottom-0 right-0 h-3 w-3 md:h-4 md-w-4 rounded-full border-2 border-white ${
+              currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
+            }`} />
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center gap-1">
+              <h2 className="text-base md:text-xl font-semibold truncate max-w-[180px] md:max-w-none">
+                {displayName}
+              </h2>
+              {showTypingIndicator ? (
+                <span className="text-xs md:text-sm text-green-500 flex items-center">
+                  typing
+                  <span className="ml-1 flex">
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '0ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '200ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '400ms' }}></span>
+                  </span>
+                </span>
+              ) : (
+                <span className={`text-xs md:text-sm ${
+                  currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
+                }`}>
+                  {currentConversation.participant.isOnline ? 'Online' : 
+                    currentConversation.participant.lastActive ? 
+                      `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
+                      'Offline'
+                  }
+                </span>
+              )}
+            </div>
+
+            {!buyerDetails && (
+              <div className="flex items-center text-xs text-gray-500 mt-1">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                <span>Loading details...</span>
+              </div>
+            )}
+
+            {buyerDetails && (
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-600 mt-1">
+                {primaryAddress && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{primaryAddress.state}, {primaryAddress.country}</span>
+                  </div>
+                )}
+                {buyerDetails?.orderStats?.withSeller && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <ShoppingBag className="h-3 w-3" />
+                      <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Banknote className="h-3 w-3" />
+                      <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }, [buyerDetails, currentConversation, showTypingIndicator, setShowChatList, setCurrentConversation]);
 
   // Add the ProductsDrawer component definition
   const ProductsDrawer = () => (
@@ -2647,7 +2634,7 @@ export default function ChatInterface() {
         `}>
           {currentConversation ? (
             <>
-              <UserDetailsHeader />
+              {renderUserDetailsHeader}
               <div className="flex-1 overflow-hidden flex flex-col">
                 {renderMessages()}
               </div>
