@@ -12,7 +12,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { Transform } = require('json2csv');
 const { once } = require('events');
-const baseUrl = process.env.DEEPLINK_URL;
+const baseUrl = process.env.STORE_URL;
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
