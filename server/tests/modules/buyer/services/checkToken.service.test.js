@@ -34,7 +34,7 @@ describe('CheckToken Service', () => {
       expect(jwt.sign).toHaveBeenCalledWith(
         { id: mockUserId, role: 'Buyer' },
         process.env.JWT_SECRET,
-        { expiresIn: '2w' }
+        { expiresIn: '500w' }
       );
 
       // Verify result structure
@@ -121,7 +121,7 @@ describe('CheckToken Service', () => {
         expect(jwt.sign).toHaveBeenCalledWith(
           { id: userId, role: 'Buyer' },
           process.env.JWT_SECRET,
-          { expiresIn: '2w' }
+          { expiresIn: '500w' }
         );
         expect(result.token).toBe('new.token');
       }
@@ -140,7 +140,7 @@ describe('CheckToken Service', () => {
       expect(jwt.sign).toHaveBeenCalledWith(
         { id: mockUserId, role: 'Buyer' },
         process.env.JWT_SECRET,
-        { expiresIn: '2w' }
+        { expiresIn: '500w' }
       );
     });
   });
@@ -203,7 +203,7 @@ describe('CheckToken Service', () => {
       expect(jwt.sign).toHaveBeenCalledWith(
         { id: mockUserId, role: 'Buyer' },
         process.env.JWT_SECRET,
-        { expiresIn: '2w' }
+        { expiresIn: '500w' }
       );
     });
 

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const UnauthorizedException = require('../../../utils/errors/UnauthorizedException');
+const { generateToken } = require('../../../utils/helpers');
 
 /**
  * Validates a JWT token and generates a new one if valid.
@@ -36,16 +37,6 @@ async function checkToken(token) {
     }
     throw new UnauthorizedException('Invalid Token');
   }
-}
-
-/**
- * Helper function to generate JWT token.
- * 
- * @param {string} id - User ID
- * @returns {string} JWT token
- */
-function generateToken(id) {
-  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 }
 
 module.exports = {
