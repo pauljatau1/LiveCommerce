@@ -2466,6 +2466,7 @@ exports.getBlipDetails = async (req, res) => {
           },
           productId: '$_id',
           productName: '$name',
+          description: '$description',
           price: '$price',
           stock: '$stock',
           status: '$status',
