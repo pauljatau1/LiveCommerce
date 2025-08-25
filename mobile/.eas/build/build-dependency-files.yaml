@@ -1,0 +1,11 @@
+build:
+  name: Create Google Services files
+  steps:
+    - eas/checkout
+    - run:
+        name: Create google services
+        command: echo $GOOGLE_SERVICES_JSON > google-services.json
+    - run:
+        name: Create google service plist
+        command: echo $GOOGLE_SERVICE_INFO_PLIST > GoogleService-Info.plist
+

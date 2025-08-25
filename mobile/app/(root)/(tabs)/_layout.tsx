@@ -26,7 +26,6 @@ const TabsLayout = () => {
 
   const handleGetConversations = async () => {
     try {
-      console.log("trying ", token);
 
       if (!token) {
         return;

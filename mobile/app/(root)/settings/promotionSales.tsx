@@ -53,7 +53,7 @@ const PromotionSales = () => {
         method: "PUT",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -79,7 +79,7 @@ const PromotionSales = () => {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           Authorization: "Bearer " + token,
         },
@@ -87,12 +87,12 @@ const PromotionSales = () => {
       };
 
       const response = await axios(config);
-      setFlashSales(response.data?.preferences?.promotionsAndSales?.flashSales);
+      setFlashSales(response.data?.data?.preferences?.promotionsAndSales?.flashSales);
       setCouponsAndDeals(
-        response.data?.preferences?.promotionsAndSales?.couponsAndDeals,
+        response.data?.data?.preferences?.promotionsAndSales?.couponsAndDeals,
       );
       setTrendingProducts(
-        response.data?.preferences?.promotionsAndSales?.trendingProducts,
+        response.data?.data?.preferences?.promotionsAndSales?.trendingProducts,
       );
       console.log("get notification update response", response.data);
     } catch (e) {

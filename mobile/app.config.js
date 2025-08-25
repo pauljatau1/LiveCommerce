@@ -5,15 +5,18 @@ module.exports = ({ config }) => {
   const expoConfig = config.expo || {};
   const existingPlugins = expoConfig.plugins || [];
 
+  const IS_STAGING =
+    process.env.EXPO_PUBLIC_API_URL === "https://api.staging.auqli.live/";
+
   return {
     expo: {
       name: "auqli",
       slug: "auqli-app",
       // slug: "auqli-mobile",
-      version: "1.2.0",
+      version: "1.2.1",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
-      scheme: "myapp",
+      scheme: IS_STAGING ? "auqlistaging" : "auqli",
       userInterfaceStyle: "automatic",
       newArchEnabled: true,
       splash: {
@@ -25,7 +28,8 @@ module.exports = ({ config }) => {
       ios: {
         supportsTablet: true,
         bundleIdentifier: "com.auqli.auqliapp",
-        googleServicesFile: "./GoogleService-Info.plist",
+        googleServicesFile:
+          process.env.GOOGLE_SERVICE_INFO_PLIST ?? "./GoogleService-Info.plist",
         infoPlist: {
           ITSAppUsesNonExemptEncryption: false,
           NSPhotoLibraryUsageDescription:
@@ -34,7 +38,10 @@ module.exports = ({ config }) => {
         entitlements: {
           "aps-environment": "production",
         },
-        associatedDomains: ["applinks:app.auqli.live"],
+        associatedDomains: [
+          "applinks:app.auqli.live",
+          "applinks:app.staging.auqli.live",
+        ],
       },
       android: {
         // edgeToEdgeEnabled: false,
@@ -56,11 +63,17 @@ module.exports = ({ config }) => {
                 host: "app.auqli.live",
                 pathPrefix: "/",
               },
+              IS_STAGING && {
+                scheme: "https",
+                host: "app.staging.auqli.live",
+                pathPrefix: "/",
+              },
             ],
             category: ["BROWSABLE", "DEFAULT"],
           },
         ],
-        googleServicesFile: "./google-services.json",
+        googleServicesFile:
+          process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
         permissions: ["INTERNET", "RECORD_AUDIO"],
       },
       web: {
@@ -95,8 +108,9 @@ module.exports = ({ config }) => {
           "customerio-expo-plugin",
           {
             android: {
-              googleServicesFile: "./google-services.json",
-            }
+              googleServicesFile:
+                process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+            },
           },
         ],
         // [

@@ -49,68 +49,6 @@ commands:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
-  google-services_plist:
-    description: Create google-services.plist
-    steps:
-      - run:
-          name: Create google-services_plist
-          command: |
-            cat \<<EOF > GoogleService-Info.plist
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>API_KEY</key>
-                <string>AIza_REDACTED</string>
-                <key>GCM_SENDER_ID</key>
-                <string>558100397953</string>
-                <key>PLIST_VERSION</key>
-                <string>1</string>
-                <key>BUNDLE_ID</key>
-                <string>com.auqli.auqliapp</string>
-                <key>PROJECT_ID</key>
-                <string>auqli-app</string>
-                <key>STORAGE_BUCKET</key>
-                <string>auqli-app.firebasestorage.app</string>
-                <key>IS_ADS_ENABLED</key>
-                <false></false>
-                <key>IS_ANALYTICS_ENABLED</key>
-                <false></false>
-                <key>IS_APPINVITE_ENABLED</key>
-                <true></true>
-                <key>IS_GCM_ENABLED</key>
-                <true></true>
-                <key>IS_SIGNIN_ENABLED</key>
-                <true></true>
-                <key>GOOGLE_APP_ID</key>
-                <string>1:558100397953:ios:3ec14f7baff83956933280</string>
-                <key>DATABASE_URL</key>
-                <string>https://auqli-app-default-rtdb.europe-west1.firebasedatabase.app</string>
-                <key>CFBundleURLTypes</key>
-                <array>
-                <dict>
-                <key>CFBundleURLSchemes</key>
-                <array>
-                    <string>fb1749317145848990</string>
-                </array>
-                </dict>
-                </array>
-                <key>FacebookAppID</key>
-                <string>1749317145848990</string>
-                <key>FacebookClientToken</key>
-                <string>c8a0d269dd90129965fa4dc2107dff62</string>
-                <key>FacebookDisplayName</key>
-                <string>Auqli</string>
-                <key>FacebookAutoLogAppEventsEnabled</key>
-                <string>true</string>
-                <key>LSApplicationQueriesSchemes</key>
-                <array>
-                <string>fbapi</string>
-                <string>fb-messenger-share-api</string>
-                </array>
-            </dict>
-            </plist>
-            EOF
   eas_profile_json:
     description: Create eas.json
     steps:
@@ -139,6 +77,8 @@ commands:
                     },
                     "staging": {
                         "channel": "staging",
+                        "environment": "development",
+                        "autoIncrement": true,
                         "distribution": "internal",
                         "pnpm": "8.15.4",
                         "ios": {
@@ -181,44 +121,6 @@ commands:
                 }
             }
             EOF
-  google_services_json:
-    description: Create google-services.json
-    steps:
-      - run:
-          name: Create google-services.json
-          command: |
-            cat \<<EOF >google-services.json
-            {
-                "project_info": {
-                    "project_number": "558100397953",
-                    "firebase_url": "https://auqli-app-default-rtdb.europe-west1.firebasedatabase.app",
-                    "project_id": "auqli-app",
-                    "storage_bucket": "auqli-app.firebasestorage.app"
-                },
-                "client": [
-                    {
-                        "client_info": {
-                            "mobilesdk_app_id": "1:558100397953:android:4876a76a886655dd933280",
-                            "android_client_info": {
-                                "package_name": "com.auqli.auqliapp"
-                            }
-                        },
-                        "oauth_client": [],
-                        "api_key": [
-                            {
-                                "current_key": "AIza_REDACTED"
-                            }
-                        ],
-                        "services": {
-                            "appinvite_service": {
-                                "other_platform_oauth_client": []
-                            }
-                        }
-                    }
-                ],
-                "configuration_version": "1"
-            }
-            EOF
   build_development_package:
     description: Build Android package for internal preview
     parameters:
@@ -228,8 +130,6 @@ commands:
     steps:
       - expo_restore_cache
       - eas_profile_json
-      - google_services_json
-      - google-services_plist
       - run:
           name: Install eas-cli
           command: npm install -g eas-cli --prefer-offline --no-audit
@@ -249,8 +149,6 @@ commands:
     steps:
       - expo_restore_cache
       - eas_profile_json
-      - google_services_json
-      - google-services_plist
       - run:
           name: Install eas-cli
           command: npm install -g eas-cli --prefer-offline --no-audit

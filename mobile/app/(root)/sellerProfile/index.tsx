@@ -468,14 +468,14 @@ const SellerProfile = () => {
     const token = await getToken();
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/seller/${sellerId}`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setSeller(response.data);
+      setSeller(response.data.data);
     } catch (error) {
       console.error("Error fetching blips:", error);
     }

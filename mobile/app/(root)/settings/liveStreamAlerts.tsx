@@ -43,7 +43,7 @@ const LiveStreamAlerts = () => {
         method: "PUT",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -69,7 +69,7 @@ const LiveStreamAlerts = () => {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           Authorization: "Bearer " + token,
         },
@@ -78,10 +78,10 @@ const LiveStreamAlerts = () => {
 
       const response = await axios(config);
       setFollowedSellers(
-        response.data?.preferences?.liveShows?.followedSellers,
+        response.data?.data?.preferences?.liveShows?.followedSellers,
       );
       setRecommendedShows(
-        response.data?.preferences?.liveShows?.recommendedShows,
+        response.data?.data?.preferences?.liveShows?.recommendedShows,
       );
       console.log("get notification update response", response.data);
     } catch (e) {

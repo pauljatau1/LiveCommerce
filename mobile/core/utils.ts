@@ -85,6 +85,14 @@ export function formatNumber(number: number): string {
   return scaled.toFixed() + suffix;
 }
 
+export function generateDeepLinkUrl(path:string)
+{
+  const IS_STAGING = process.env.EXPO_PUBLIC_API_URL === "https://api.staging.auqli.live/"
+  const hostname = IS_STAGING ? "app.staging.auqli.live" : "app.auqli.live"
+  
+  return `https://${hostname}/${path}`
+}
+
 type WithSelectors<S> = S extends { getState: () => infer T }
   ? S & { use: { [K in keyof T]: () => T[K] } }
   : never;

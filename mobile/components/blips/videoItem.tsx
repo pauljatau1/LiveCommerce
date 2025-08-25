@@ -67,6 +67,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent, useEventListener } from "expo";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { generateDeepLinkUrl } from "@/core";
 
 const { height, width } = Dimensions.get("screen");
 const VideoItem = ({
@@ -150,10 +151,12 @@ const VideoItem = ({
       const result = await Share.share(
         Platform.OS == "ios"
           ? {
-              url: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
+              url: generateDeepLinkUrl(`products/${product?.id}/blips/${id}`) 
+              // `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
             }
           : {
-              message: `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
+              message: generateDeepLinkUrl(`products/${product?.id}/blips/${id}`) 
+              // `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
             },
       );
       if (result.action === Share.sharedAction) {
@@ -534,9 +537,7 @@ const VideoItem = ({
               <Pressable
                 // onPress={() => router.replace("/blips")}
                 onPress={() => {
-                  shared
-                    ? router.replace("/(root)/(tabs)/blips")
-                    : router.back();
+                    router?.canGoBack() ? router?.back() : router.replace("/(root)/(tabs)/blips")
                 }}
                 style={styles.buttonShadow}
               >

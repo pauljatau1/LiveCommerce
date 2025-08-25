@@ -54,7 +54,7 @@ const OrderUpdates = () => {
         method: "PUT",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -80,7 +80,7 @@ const OrderUpdates = () => {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/notification-preferences`,
+          `api/v2/buyers/notification-preferences`,
         headers: {
           Authorization: "Bearer " + token,
         },
@@ -88,12 +88,12 @@ const OrderUpdates = () => {
       };
 
       const response = await axios(config);
-      setIsEnabled(response.data?.preferences?.orderUpdates?.orderConfirmation);
+      setIsEnabled(response.data?.data?.preferences?.orderUpdates?.orderConfirmation);
       setIsEnabledShipping(
-        response.data?.preferences?.orderUpdates?.shippingAndDelivery,
+        response.data?.data?.preferences?.orderUpdates?.shippingAndDelivery,
       );
       setIsEnabledRefund(
-        response.data?.preferences?.orderUpdates?.orderCancellation,
+        response.data?.data?.preferences?.orderUpdates?.orderCancellation,
       );
       console.log("get notification update response", response.data);
     } catch (e) {
