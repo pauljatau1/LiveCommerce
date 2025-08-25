@@ -86,9 +86,6 @@ const Marketplace = () => {
   }, [allCategories]);
 
   const renderContent = useCallback(() => {
-    console.log("changing tabs ", {
-      selected,
-    });
 
     // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
     if (selected == "For You") {

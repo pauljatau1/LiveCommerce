@@ -233,7 +233,7 @@ const Layout = () => {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="livestream/livestreamStudio"
         options={{
           headerShown: false,
@@ -244,7 +244,7 @@ const Layout = () => {
         options={{
           headerShown: false,
         }}
-      />
+      /> */}
       <Stack.Screen
         name="sellerProfile/index"
         options={{
