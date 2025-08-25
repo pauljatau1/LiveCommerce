@@ -58,11 +58,11 @@ export const auth = createApi({
     }),
     requestDelete: builder.mutation<any, any>({
       query: (credentials) =>
-        postRequest("/buyer/delete-account/request", credentials),
+        postRequest("/v2/buyers/request-account-deletion", credentials),
     }),
     confirmDelete: builder.mutation<any, any>({
       query: (credentials) =>
-        postRequest("/buyer/delete-account/confirm", credentials),
+        postRequest("/v2/buyers/confirm-account-deletion", credentials),
     }),
   }),
 });

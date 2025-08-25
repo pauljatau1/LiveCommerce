@@ -89,7 +89,7 @@ const Transactions = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/wallet/transactions?page=${page}&limit=10&startDate=${date ? new Date(date)?.toDateString() : ""}&endDate=${endDate ? new Date(endDate)?.toDateString() : ""}`,
+          `api/v2/buyers/wallet/transactions?page=${page}&limit=10&startDate=${date ? new Date(date)?.toDateString() : ""}&endDate=${endDate ? new Date(endDate)?.toDateString() : ""}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -97,15 +97,12 @@ const Transactions = () => {
         },
       );
       if (page == 1) {
-        setWalletTransactions(response.data?.transactions);
+        setWalletTransactions(response.data?.data);
       } else {
-        setWalletTransactions([
-          ...walletTransactions,
-          ...response.data?.transactions,
-        ]);
+        setWalletTransactions([...walletTransactions, ...response.data?.data]);
       }
 
-      if (response.data.pagination.hasMore) {
+      if (response.data.pagination?.hasMore) {
         setPage((prevPage) => prevPage + 1);
       } else {
         setHasReachedEnd(true);

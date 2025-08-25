@@ -270,7 +270,7 @@ const Checkout = () => {
   const getWalletBalance = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/wallet/balance`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -280,9 +280,9 @@ const Checkout = () => {
       console.log("wallet ", response.data);
 
       setWalletBalance(
-        response.data?.availableBalance || response.data?.balance,
+        response.data?.data?.availableBalance || response.data?.data?.balance,
       );
-      setTotalWalletBalance(response.data?.balance);
+      setTotalWalletBalance(response.data?.data?.balance);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     }
@@ -839,7 +839,6 @@ const Checkout = () => {
                     _valueToSum: itemTotal,
                     num_items: orderItem.quantity,
                     fb_currency: "NGN",
-
                   });
                 }
               });

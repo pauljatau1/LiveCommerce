@@ -221,14 +221,14 @@ const CheckoutNow = ({
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/wallet/balance`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setWalletBalance(response.data?.balance);
+      setWalletBalance(response.data?.data?.balance);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     }

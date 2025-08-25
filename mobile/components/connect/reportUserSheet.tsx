@@ -36,7 +36,7 @@ const ReportUserSheet = ({
     try {
       const token = await getToken();
       const response = await axios.post(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/report",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/report-user",
         {
           userId,
           userType: userType.toLowerCase(),
@@ -51,8 +51,10 @@ const ReportUserSheet = ({
       );
       toast.success("Report has been submitted");
       closeSheet();
-    } catch (e) {
-      toast.error("could not report user");
+    } catch (e: any) {
+      toast.error(
+        e?.response?.data?.errors?.[0]?.message || "could not report user",
+      );
       console.log("error reporting user ", e);
     } finally {
       setLoading(false);

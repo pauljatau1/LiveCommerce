@@ -25,8 +25,8 @@ const DeleteSheet = memo(({ closeSheet }: { closeSheet: any }) => {
       const result = await deleteConfirm({
         otp,
       });
-      if (result.error) {
-        console.log(result.error);
+      if (result.data.data.success === false) {
+        console.log(result.data.data.errors);
 
         return toast.error("Could not delete account");
       }
