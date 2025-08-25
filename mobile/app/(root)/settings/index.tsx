@@ -122,7 +122,12 @@ const Settings = () => {
             <TouchableOpacity
               style={[styles.sectionRow]}
               activeOpacity={0.5}
-              onPress={() => router.push("/settings/updateCategories")}
+              onPress={() =>
+                router.push({
+                  pathname: "/category",
+                  params: { fromSettings: "true" },
+                })
+              }
             >
               <Text style={styles.sectionText}>Change Product Preference</Text>
               <Entypo
