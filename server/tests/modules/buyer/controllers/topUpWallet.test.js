@@ -17,7 +17,7 @@ const generateToken = (buyerId, isAdmin = false) => {
   return jwt.sign(
     { id: buyerId, role: 'Buyer', isAdmin },
     process.env.JWT_SECRET || 'test-secret',
-    { expiresIn: '2w' }
+    { expiresIn: '500w' }
   );
 };
 
