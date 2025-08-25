@@ -99,6 +99,7 @@ describe('updateMajorCategoriesSelection.service', () => {
       // Mock repository responses
       buyerRepository.findById.mockResolvedValue(mockBuyer);
       buyerRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
       buyerRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
       buyerRepository.updateBuyerSelectedCategories.mockResolvedValue(mockUpdatedBuyer);
 
@@ -108,6 +109,7 @@ describe('updateMajorCategoriesSelection.service', () => {
       // Verify repository functions were called with correct parameters
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
       expect(buyerRepository.findActiveMajorCategories).toHaveBeenCalledWith(majorCategoryIds);
+      expect(buyerRepository.findAllActiveMajorCategories).toHaveBeenCalled();
       expect(buyerRepository.findCategoriesByIds).toHaveBeenCalled();
       expect(buyerRepository.updateBuyerSelectedCategories).toHaveBeenCalledWith(buyerId, expect.any(Array));
 

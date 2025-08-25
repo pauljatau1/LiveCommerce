@@ -3501,16 +3501,21 @@ exports.updateMajorCategoriesSelection = async (req, res) => {
       }))
     }));
 
-    // Get categories that are manually selected (not from major categories)
-    const existingCategoryNames = buyer.selectedCategories.map(cat => cat.name);
-    const majorCategoryNames = formattedCategories.map(cat => cat.name);
-    
-    // Keep only categories that are not part of any major category
+    // Get all category names from all major categories (to identify which categories come from major categories)
+    const allMajorCategories = await MajorCategory.find({ isActive: true }).populate('categories');
+    const allMajorCategoryNames = new Set();
+    allMajorCategories.forEach(majorCategory => {
+      majorCategory.categories.forEach(category => {
+        allMajorCategoryNames.add(category.name);
+      });
+    });
+
+    // Separate manually selected categories from major category categories
     const manuallySelectedCategories = buyer.selectedCategories.filter(
-      cat => !majorCategoryNames.includes(cat.name)
+      cat => !allMajorCategoryNames.has(cat.name)
     );
     
-    // Replace the buyer's selectedCategories with the combination
+    // Replace the buyer's selectedCategories with manually selected + new major category selections
     buyer.selectedCategories = [...manuallySelectedCategories, ...formattedCategories];
     await buyer.save();
 
