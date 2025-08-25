@@ -12,6 +12,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { Transform } = require('json2csv');
 const { once } = require('events');
+const baseUrl = process.env.STORE_URL;
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
@@ -940,6 +941,40 @@ router.get('/sellers/:id', async (req, res) => {
         }
       }
     ]);
+
+    // Get top 5 selling products and their categories
+    const topSellingProducts = await Product.aggregate([
+      {
+        $match: {
+          seller: seller._id,
+          'stats.soldCount': { $gt: 0 }
+        }
+      },
+      {
+        $sort: {
+          'stats.soldCount': -1
+        }
+      },
+      {
+        $limit: 5
+      },
+      {
+        $project: {
+          category: 1,
+          subCategory: 1,
+          subSubCategory: 1,
+          name: 1,
+          'stats.soldCount': 1
+        }
+      }
+    ]);
+
+    // Extract unique categories from top selling products, filtering out empty strings
+    const topSellingCategories = [...new Set(
+      topSellingProducts
+        .map(product => product.category)
+        .filter(category => category && category.trim() !== '')
+    )];
     
     console.log('Initial aggregation result:', JSON.stringify(productRatingsStats, null, 2));
 
@@ -1051,6 +1086,8 @@ router.get('/sellers/:id', async (req, res) => {
         storeBanner: seller.storeBanner
       },
       categories: seller.categories,
+      selectedCategories: seller.categories ? seller.categories.map(cat => cat.name) : [],
+      topSellingCategories: topSellingCategories,
       location: {
         country: seller.businessAddress?.country || seller.sellerAddress?.country,
         state: seller.businessAddress?.state || seller.sellerAddress?.state,
@@ -1300,6 +1337,7 @@ router.get('/meta-product-feed', async (req, res, next) => {
       'condition',
       'price',
       'link',
+      'blip_link',
       'image_link',
       'brand'
     ];
@@ -1312,7 +1350,7 @@ router.get('/meta-product-feed', async (req, res, next) => {
 
     const cursor = Product.find({ status: 'active' })
       .select(
-        'name description stock condition price images brand seller' // fetch only needed fields
+        'name description stock condition price images brand seller blips' // fetch only needed fields including blips
       )
       .populate('seller', 'storeName')
       .lean()
@@ -1539,6 +1577,12 @@ router.get('/seller-locations', async (req, res, next) => {
 });
 
 function toMetaRow(p) {
+  // Get the first blip if available
+  const firstBlip = p.blips && p.blips.length > 0 ? p.blips[0] : null;
+  
+  
+  
+  
   return {
     id:          p._id.toString(),
     title:       p.name,
@@ -1546,7 +1590,8 @@ function toMetaRow(p) {
     availability: p.stock > 0 ? 'in stock' : 'out of stock',
     condition:    p.condition || 'new',
     price:        `${p.price} NGN`,
-    link:         `https://app.auqli.live/s/${p._id}A`,
+    link:         `${baseUrl}/products/${p._id}`,
+    blip_link:    firstBlip ? `${baseUrl}/products/${p._id}/blips/${firstBlip._id}` : '',
     image_link:
       p.images?.[0]?.url ??
       'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',
