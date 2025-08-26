@@ -1,7 +1,7 @@
 // repositories/order.repository.js
 const Order = require('../models/order.model');
 const Product = require('../../../models/Product');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
 
 exports.findProductsByIds = async (productIds, session) => {

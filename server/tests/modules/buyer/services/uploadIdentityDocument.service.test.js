@@ -6,7 +6,7 @@ const AWS = require('aws-sdk');
 const uploadIdentityDocumentService = require('@modules/buyer/services/uploadIdentityDocument.service');
 
 // Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 const Seller = require('@models/Seller');
 

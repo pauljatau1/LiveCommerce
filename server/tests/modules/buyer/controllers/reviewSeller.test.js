@@ -34,7 +34,7 @@ describe('POST /api/v2/buyers/seller/:sellerId/review', () => {
 
   beforeEach(async () => {
     // Clear collections before each test
-    const Buyer = require('@modules/buyer/models/buyer.model');
+    const Buyer = require('@models/Buyer');
     const Seller = require('@/models/Seller');
     const Order = require('@/models/Order');
     await Buyer.deleteMany({});
@@ -331,7 +331,7 @@ describe('POST /api/v2/buyers/seller/:sellerId/review', () => {
 
     test('should create review successfully when buyer is a follower', async () => {
       // Make buyer a follower of seller
-      const Buyer = require('@modules/buyer/models/buyer.model');
+      const Buyer = require('@models/Buyer');
       const buyer = await Buyer.findById(testBuyerId);
       buyer.followers.push({
         sellerId: testSellerId,

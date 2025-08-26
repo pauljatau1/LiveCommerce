@@ -1,4 +1,4 @@
-const Buyer = require('../models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const { saveToken, getToken } = require('../../../../Firebase');
 const { generateToken } = require('../../../utils/helpers');
 const ValidationError = require('../../../utils/errors/ValidationError');

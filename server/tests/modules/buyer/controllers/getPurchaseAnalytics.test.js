@@ -42,7 +42,7 @@ describe('Get Purchase Analytics Controller', () => {
     
     // Clear database
     const Order = require('@models/Order');
-    const Buyer = require('@modules/buyer/models/buyer.model');
+    const Buyer = require('@models/Buyer');
     const Product = require('@models/Product');
     const Seller = require('@models/Seller');
     await Order.deleteMany({});
@@ -57,7 +57,7 @@ describe('Get Purchase Analytics Controller', () => {
 
     beforeEach(async () => {
       // Create a test buyer
-      testBuyer = new (require('@modules/buyer/models/buyer.model'))({
+      testBuyer = new (require('@models/Buyer'))({
         firstName: 'Test',
         lastName: 'User',
         email: 'test@example.com',

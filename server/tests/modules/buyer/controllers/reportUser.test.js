@@ -3,7 +3,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('@/app').app;
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
 const ValidationError = require('@utils/errors/ValidationError');
 

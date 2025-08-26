@@ -4,7 +4,7 @@ const sendPhoneOTPValidator = require('@modules/buyer/validators/sendPhoneOTP.va
 const NotFoundException = require('@utils/errors/NotFoundException');
 const InternalErrorException = require('@utils/errors/InternalErrorException');
 const ValidationError = require('@utils/errors/ValidationError');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');

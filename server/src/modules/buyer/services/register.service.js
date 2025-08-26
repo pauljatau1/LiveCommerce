@@ -1,7 +1,7 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const buyerValidator = require('../validators/register.validator');
 const { generateOTP, generateToken } = require('../../../utils/helpers');
-const Buyer = require('../models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const { saveToken, getToken } = require('../../../../Firebase');
 const sgMail = require('@sendgrid/mail');
 const InternalErrorException = require('../../../utils/errors/InternalErrorException');

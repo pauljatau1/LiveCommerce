@@ -5,7 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const getWalletTransactionsService = require('@modules/buyer/services/getWalletTransactions.service');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');

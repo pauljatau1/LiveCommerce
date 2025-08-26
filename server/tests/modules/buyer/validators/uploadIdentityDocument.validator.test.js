@@ -5,7 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const uploadIdentityDocumentValidator = require('@modules/buyer/validators/uploadIdentityDocument.validator');
 
 // Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 const Seller = require('@models/Seller');
 

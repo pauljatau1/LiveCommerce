@@ -5,7 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const getSelectedCategoriesService = require('@modules/buyer/services/getSelectedCategories.service');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Import the repository
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');

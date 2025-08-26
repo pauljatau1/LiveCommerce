@@ -6,7 +6,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const { app } = require('@/app');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the resetPassword service

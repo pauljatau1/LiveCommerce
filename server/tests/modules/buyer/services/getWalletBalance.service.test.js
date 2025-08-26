@@ -2,7 +2,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 const getWalletBalanceService = require('@modules/buyer/services/getWalletBalance.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 const Seller = require('@models/Seller');
 

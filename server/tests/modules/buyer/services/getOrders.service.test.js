@@ -5,7 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const getOrdersService = require('@modules/buyer/services/getOrders.service');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Order = require('@models/Order');
 const Return = require('@models/Return');
 const Product = require('@models/Product');

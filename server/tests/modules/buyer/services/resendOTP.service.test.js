@@ -1,7 +1,7 @@
 // We'll read the template file in beforeEach instead
 
 // Mock dependencies before importing the service
-jest.mock('@modules/buyer/models/buyer.model', () => ({
+jest.mock('@models/Buyer', () => ({
   findOne: jest.fn()
 }));
 jest.mock('@sendgrid/mail', () => ({
@@ -38,7 +38,7 @@ describe('resendOTP.service', () => {
     jest.clearAllMocks();
 
     // Get the mocked modules
-    Buyer = require('@modules/buyer/models/buyer.model');
+    Buyer = require('@models/Buyer');
     fs = require('fs');
     path = require('path');
 

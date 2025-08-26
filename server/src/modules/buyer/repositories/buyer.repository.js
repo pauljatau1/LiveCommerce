@@ -1,4 +1,4 @@
-const Buyer = require('../models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const Post = require('../../../models/Post');
 const Seller = require('../../../models/Seller');
 const Order = require('../../../models/Order');

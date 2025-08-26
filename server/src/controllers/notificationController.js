@@ -1598,7 +1598,7 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
     // Populate sender information if not already populated
     let sender;
     if (message.sender.model === 'Buyer') {
-      const Buyer = require('../modules/buyer/models/buyer.model');
+      const Buyer = require('../models/Buyer');
       sender = await Buyer.findById(message.sender.id).select('firstName lastName');
       if (!sender) {
         console.error('Buyer not found:', message.sender.id);
