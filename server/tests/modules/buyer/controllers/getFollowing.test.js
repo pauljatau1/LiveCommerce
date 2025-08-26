@@ -34,7 +34,7 @@ describe('GET /api/v2/buyers/following', () => {
 
   beforeEach(async () => {
     // Clear collections before each test
-    const Buyer = require('@modules/buyer/models/buyer.model');
+    const Buyer = require('@models/Buyer');
     const Seller = require('@/models/Seller');
     await Buyer.deleteMany({});
     await Seller.deleteMany({});
@@ -133,7 +133,7 @@ describe('GET /api/v2/buyers/following', () => {
 
     test('should return 200 with following list when buyer follows sellers', async () => {
       // Add seller to buyer's following
-      const Buyer = require('@modules/buyer/models/buyer.model');
+      const Buyer = require('@models/Buyer');
       const Seller = require('@/models/Seller');
       
       const buyer = await Buyer.findById(testBuyerId);
@@ -183,7 +183,7 @@ describe('GET /api/v2/buyers/following', () => {
       }
       
       // Add all sellers to buyer's following
-      const Buyer = require('@modules/buyer/models/buyer.model');
+      const Buyer = require('@models/Buyer');
       const buyer = await Buyer.findById(testBuyerId);
       
       for (const seller of sellers) {

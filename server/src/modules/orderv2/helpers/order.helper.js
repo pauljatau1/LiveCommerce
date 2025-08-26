@@ -4,7 +4,7 @@ const terminalAPI = require('../../../config/terminalAPI');
 const Order = require('../models/order.model');
 const Product = require('../../../models/Product');
 const Seller = require('../../../models/Seller');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const sgMail = require('@sendgrid/mail');
 const axios = require('axios');
 

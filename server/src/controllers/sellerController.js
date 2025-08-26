@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailService');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Withdrawal = require('../models/Withdrawal');
 const Campaign = require('../models/Campaign');
 const Stream = require('../models/Stream');
@@ -4550,7 +4550,7 @@ exports.getSellerProductReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../modules/buyer/models/buyer.model');
+    const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     
@@ -4629,7 +4629,7 @@ exports.getPublicProductReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../modules/buyer/models/buyer.model');
+    const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     
@@ -4754,7 +4754,7 @@ exports.searchSellers = async (req, res) => {
     // Get buyer document if authenticated
     let buyer = null;
     if (isBuyer && buyerId) {
-      const Buyer = require('../modules/buyer/models/buyer.model');
+      const Buyer = require('../models/Buyer');
       buyer = await Buyer.findById(buyerId).select('followers').lean();
       console.log('Buyer followers found:', buyer?.followers?.length || 0);
     }

@@ -5,7 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const followSellerValidator = require('@modules/buyer/validators/followSeller.validator');
 
 // Import the Buyer and Seller models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
 
 // Mock the buyer repository

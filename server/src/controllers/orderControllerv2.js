@@ -1,7 +1,7 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');

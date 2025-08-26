@@ -2,7 +2,7 @@
 const orderRepository = require('../repositories/order.repository');
 const { verifyPaystackTransaction, updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
 const agenda = require('../../../config/agenda');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 
 exports.markOrderAsPaid = async (id, transactionId, paymentReference, manualNote) => {
   try {

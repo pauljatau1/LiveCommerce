@@ -1,7 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const verifyPhoneOTPService = require('@modules/buyer/services/verifyPhoneOTP.service');
 
 // Mock the service

@@ -1,7 +1,7 @@
 // services/orderService.js
 const orderRepository = require('../repositories/order.repository');
 const { verifyPaystackTransaction, updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 
 exports.verifyPaymentByReference = async (reference, orderId) => {
   try {

@@ -9,7 +9,7 @@ const { app } = require('@/app');
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock the OTP services
 jest.mock('@modules/buyer/services/verifyOTP.service', () => ({

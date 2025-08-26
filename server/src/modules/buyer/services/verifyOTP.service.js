@@ -1,4 +1,4 @@
-const Buyer = require('../models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const { agenda } = require('../../../config/agenda');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');

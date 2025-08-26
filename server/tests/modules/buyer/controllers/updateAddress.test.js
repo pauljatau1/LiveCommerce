@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
 

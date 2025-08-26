@@ -6,7 +6,7 @@ const ValidationError = require('@utils/errors/ValidationError');
 const registerService = require('@modules/buyer/services/register.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const buyerValidator = require('@modules/buyer/validators/register.validator');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const jwt = require('jsonwebtoken');
 const app = require('@/app').app;
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 const confirmAccountDeletionService = require('@modules/buyer/services/confirmAccountDeletion.service');
 

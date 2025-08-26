@@ -9,7 +9,7 @@ const { app } = require('@/app');
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
 // Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 
 // Mock the upload identity document service

@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -4965,7 +4965,7 @@ exports.getReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../modules/buyer/models/buyer.model');
+    const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     

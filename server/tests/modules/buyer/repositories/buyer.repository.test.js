@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Post = require('@models/Post');
 const Order = require('@models/Order');
 const Return = require('@models/Return');

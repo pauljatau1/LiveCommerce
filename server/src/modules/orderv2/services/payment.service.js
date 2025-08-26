@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const orderRepository = require('../repositories/order.repository');
 const arrangeShipmentHelper = require('../helpers/order.helper');
 const Product = require('../../../models/Product');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
 
 // Set this to true to enable free shipping promo, false to disable
