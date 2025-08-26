@@ -1,3 +1,21 @@
+/**
+ * Confirm Account Deletion Validator
+ *
+ * This validator handles input validation for confirming account deletion requests.
+ * It provides functionality to:
+ * - Validate buyer ID format and existence in database
+ * - Validate OTP format and security requirements
+ * - Validate account deletion request status and expiration
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that account deletion confirmation requests are properly
+ * formatted and contain valid data to prevent unauthorized deletions and maintain
+ * security standards.
+ *
+ * @module confirmAccountDeletionValidator
+ */
+
 // External dependencies
 const mongoose = require('mongoose');
 
@@ -7,11 +25,21 @@ const buyerRepository = require('../repositories/buyer.repository');
 
 /**
  * Validates the buyer ID format and existence in the database.
- * This function performs comprehensive validation of the buyer ID including:
- * - Presence validation (required field)
- * - Format validation (valid MongoDB ObjectId)
- * - Existence validation (buyer exists in database)
- * 
+ *
+ * This function performs comprehensive validation of the buyer ID including
+ * presence, format, and existence checks to ensure data integrity.
+ *
+ * Business Logic Flow:
+ * 1. Check if buyerId is provided and not empty
+ * 2. Validate buyerId format using Mongoose ObjectId validation
+ * 3. Verify that the buyer actually exists in the database
+ *
+ * Security Considerations:
+ * - Presence validation prevents null operations
+ * - Format validation ensures safe database queries
+ * - Existence validation prevents operations on non-existent accounts
+ * - Database query validation maintains data integrity
+ *
  * @param {string} buyerId - The buyer ID to validate (should be a valid ObjectId string)
  * @param {Array} errors - Array to collect validation errors
  */
@@ -39,12 +67,28 @@ async function validateBuyerId(buyerId, errors) {
 
 /**
  * Validates the OTP (One-Time Password) format and presence.
- * This function ensures the OTP meets security requirements:
+ *
+ * This function ensures the OTP meets security requirements for account
+ * deletion confirmation, preventing unauthorized access and ensuring
+ * proper authentication.
+ *
+ * Business Logic Flow:
+ * 1. Check if OTP is provided (required field validation)
+ * 2. Ensure OTP is a string type to prevent type confusion attacks
+ * 3. Validate OTP format when provided and is a string
+ *
+ * Security Requirements:
  * - Must be present (required field)
  * - Must be a string type
  * - Must contain only numeric digits
  * - Must be exactly 4 characters long
- * 
+ *
+ * Security Considerations:
+ * - Type validation prevents injection attacks
+ * - Format validation ensures consistent security standards
+ * - Length validation maintains OTP security requirements
+ * - Required field validation prevents null operations
+ *
  * @param {string} otp - The OTP to validate (expected format: "1234")
  * @param {Array} errors - Array to collect validation errors
  */
@@ -109,9 +153,23 @@ function validateAccountDeletionRequest(buyer, errors) {
 
 /**
  * Validates the complete confirm account deletion data.
+ *
  * This function orchestrates the validation of both buyer ID and OTP,
  * ensuring all security requirements are met before allowing account deletion.
- * 
+ *
+ * Business Logic Flow:
+ * 1. Validate OTP format first (fail fast approach)
+ * 2. Validate buyer ID format and existence
+ * 3. If no format errors, validate account deletion request
+ * 4. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - OTP validation prevents unauthorized access
+ * - Buyer ID validation ensures data integrity
+ * - Account deletion request validation maintains security
+ * - Fail-fast approach improves performance and security
+ * - Comprehensive error collection provides detailed feedback
+ *
  * @param {string} buyerId - The buyer ID to validate
  * @param {string} otp - The OTP to validate
  * @throws {ValidationError} If validation fails

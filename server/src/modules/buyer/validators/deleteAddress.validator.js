@@ -1,3 +1,19 @@
+/**
+ * Delete Address Validator
+ *
+ * This validator handles input validation for deleting addresses from a buyer's profile.
+ * It provides functionality to:
+ * - Validate address ID format and structure
+ * - Validate buyer ID format and structure
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that address deletion requests are properly formatted
+ * and contain valid data to prevent unauthorized deletions and maintain data integrity.
+ *
+ * @module deleteAddressValidator
+ */
+
 const ValidationError = require('../../../utils/errors/ValidationError');
 const buyerRepository = require('../repositories/buyer.repository');
 
@@ -99,7 +115,22 @@ function validateBuyerId(buyerId, errors) {
 
 /**
  * Validate address deletion data.
- * 
+ *
+ * This function orchestrates the complete validation process for address
+ * deletion requests, ensuring all parameters meet validation requirements.
+ *
+ * Business Logic Flow:
+ * 1. Initialize error collection array
+ * 2. Validate address ID format and structure
+ * 3. Validate buyer ID format and structure
+ * 4. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - Address ID validation prevents unauthorized deletions
+ * - Buyer ID validation ensures data integrity
+ * - Format validation prevents injection attacks
+ * - Error collection provides comprehensive feedback
+ *
  * @param {Object} data - Data to validate
  * @param {string} data.addressId - The address ID to delete
  * @param {string} data.buyerId - The buyer's ID

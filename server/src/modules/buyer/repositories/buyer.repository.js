@@ -295,47 +295,80 @@ async function findByIdWithPopulatedWishlist(buyerId) {
 
 /**
  * Update buyer's phone verification data.
- * @param {string} buyerId - The buyer's ID
+ * 
+ * This function updates the phone verification information for a buyer.
+ * It uses findByIdAndUpdate to ensure atomic updates and returns the updated document.
+ * The runValidators option ensures that any schema validations are applied during the update.
+ *
+ * @param {string} buyerId - The buyer's ID to update
  * @param {Object} phoneVerificationData - The phone verification data to update
- * @returns {Promise<Buyer>} Updated buyer
+ * @param {string} phoneVerificationData.otp - The OTP code for phone verification
+ * @param {Date} phoneVerificationData.expiresAt - When the OTP expires
+ * @param {boolean} phoneVerificationData.verified - Whether the phone is verified
+ * @returns {Promise<Buyer>} Updated buyer document with new phone verification data
  */
 async function updatePhoneVerification(buyerId, phoneVerificationData) {
   return Buyer.findByIdAndUpdate(
     buyerId,
-    { $set: { phoneVerification: phoneVerificationData } },
-    { new: true, runValidators: true }
+    { $set: { phoneVerification: phoneVerificationData } }, // Use $set to update the entire phoneVerification object
+    { new: true, runValidators: true } // Return updated document and run schema validations
   );
 }
 
 /**
  * Find a user by ID based on userType.
  * 
+ * This function provides a generic way to find either a buyer or seller
+ * based on the userType parameter. It routes the query to the appropriate
+ * model (Buyer or Seller) based on the userType.
+ *
  * @param {string} userId - The user ID to find
  * @param {string} userType - The type of user ('buyer' or 'seller')
- * @returns {Promise<Object>} The found user
+ * @returns {Promise<Object>} The found user document (Buyer or Seller)
+ * @throws {Error} If userType is not 'buyer' or 'seller'
  */
 async function findUserById(userId, userType) {
   if (userType === 'seller') {
-    return await Seller.findById(userId);
+    return await Seller.findById(userId); // Query the Seller collection
   }
-  return await Buyer.findById(userId);
+  return await Buyer.findById(userId); // Query the Buyer collection
 }
 
 /**
- * Find a seller by ID with selected fields.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Seller|null>} Seller with selected fields or null if not found
+ * Find a seller by ID with selected fields for public profile display.
+ * 
+ * This function retrieves a seller with carefully selected fields that are
+ * appropriate for public display. It excludes sensitive information like
+ * passwords, internal IDs, and private business details while including
+ * all necessary information for store display and user interaction.
+ *
+ * Selected Fields Include:
+ * - Basic Info: firstName, lastName, email
+ * - Business Info: businessName, businessType, businessEmail, businessNumber
+ * - Store Info: storeName, aboutStore, storeAvatar, storeBanner
+ * - Verification: isVerified, verificationDocuments, smileIdVerification
+ * - Categories: categories (for store categorization)
+ * - Social: socialMedia, followers
+ * - Stats: reviews, stats (for store performance metrics)
+ * - Settings: vacationMode, shippingOptions, warehouseDetails
+ *
+ * @param {string} sellerId - The seller's ID to retrieve
+ * @returns {Promise<Seller|null>} Seller document with selected fields or null if not found
  */
 async function findSellerById(sellerId) {
   return Seller.findById(sellerId)
     .select('firstName lastName email businessName businessType taxInformation businessEmail businessNumber accountPending businessAddress accountType isVerified isInternational verificationDocuments smileIdVerification cancelledStreamCount lastStreamCancellation categories shippingOptions warehouseDetails storeName aboutStore storeAvatar storeBanner socialMedia vacationMode createdAt updatedAt followers reviews stats')
-    .populate('reviews');
+    .populate('reviews'); // Populate reviews for immediate access to review data
 }
 
 /**
  * Find orders for a seller.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Array>} Array of orders
+ * 
+ * This function retrieves all orders that belong to a specific seller.
+ * It's used for seller dashboard and order management functionality.
+ *
+ * @param {string} sellerId - The seller's ID to find orders for
+ * @returns {Promise<Array>} Array of order documents belonging to the seller
  */
 async function findOrdersBySeller(sellerId) {
   return Order.find({ seller: sellerId });
@@ -343,8 +376,12 @@ async function findOrdersBySeller(sellerId) {
 
 /**
  * Count streams for a seller.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<number>} Number of streams
+ * 
+ * This function counts the total number of streams created by a seller.
+ * It's used for seller statistics and profile information.
+ *
+ * @param {string} sellerId - The seller's ID to count streams for
+ * @returns {Promise<number>} Number of streams created by the seller
  */
 async function countStreamsBySeller(sellerId) {
   return Stream.countDocuments({ seller: sellerId });
@@ -352,40 +389,75 @@ async function countStreamsBySeller(sellerId) {
 
 /**
  * Count buyers following a seller.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<number>} Number of followers
+ * 
+ * This function counts the number of buyers who are following a specific seller.
+ * It retrieves only the followers field to optimize performance and then
+ * returns the length of the followers array.
+ *
+ * @param {string} sellerId - The seller's ID to count followers for
+ * @returns {Promise<number>} Number of buyers following the seller
  */
 async function countBuyersFollowingSeller(sellerId) {
-  const seller = await Seller.findById(sellerId).select('followers');
-  return seller.followers.length;
+  const seller = await Seller.findById(sellerId).select('followers'); // Only retrieve followers field
+  return seller.followers.length; // Return the count of followers
 }
 
 /**
- * Get review statistics for a seller.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Object>} Review statistics
+ * Get review statistics for a seller using MongoDB aggregation.
+ * 
+ * This function performs a complex aggregation pipeline to calculate
+ * review statistics for a seller's products. It:
+ * 1. Matches orders for the specific seller
+ * 2. Unwinds order items to process each product individually
+ * 3. Looks up product data to get review information
+ * 4. Unwinds product reviews to process each review
+ * 5. Groups and calculates total reviews and average rating
+ *
+ * Aggregation Pipeline Steps:
+ * - $match: Filters orders by seller ID
+ * - $unwind: Expands order items array
+ * - $lookup: Joins with products collection to get review data
+ * - $unwind: Expands product data array (should only have one element)
+ * - $unwind: Expands reviews array to process each review individually
+ * - $group: Calculates statistics (total reviews, average rating)
+ *
+ * @param {string} sellerId - The seller's ID to get review stats for
+ * @returns {Promise<Array>} Array containing review statistics object
+ *   - totalReviews: {number} - Total number of reviews
+ *   - averageRating: {number} - Average rating across all reviews
  */
 async function getSellerReviewStats(sellerId) {
   const mongoose = require('mongoose');
   
   return Order.aggregate([
+    // Step 1: Match orders for the specific seller
     { $match: { seller: new mongoose.Types.ObjectId(sellerId) } },
+    
+    // Step 2: Unwind order items to process each product individually
     { $unwind: '$items' },
+    
+    // Step 3: Lookup product data to get review information
     {
       $lookup: {
-        from: 'products',
-        localField: 'items.product',
-        foreignField: '_id',
-        as: 'productData'
+        from: 'products', // Collection to join with
+        localField: 'items.product', // Field from orders collection
+        foreignField: '_id', // Field from products collection
+        as: 'productData' // Output array name
       }
     },
+    
+    // Step 4: Unwind product data array (should only have one element)
     { $unwind: '$productData' },
+    
+    // Step 5: Unwind reviews array to process each review individually
     { $unwind: '$productData.reviews' },
+    
+    // Step 6: Group and calculate statistics
     {
       $group: {
-        _id: null,
-        totalReviews: { $sum: 1 },
-        averageRating: { $avg: '$productData.reviews.rating' }
+        _id: null, // Group all documents together
+        totalReviews: { $sum: 1 }, // Count total reviews
+        averageRating: { $avg: '$productData.reviews.rating' } // Calculate average rating
       }
     }
   ]);
@@ -393,16 +465,36 @@ async function getSellerReviewStats(sellerId) {
 
 /**
  * Increment store visits for a seller.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Seller|null>} Updated seller or null if not found
+ * 
+ * This function atomically increments the storeVisits counter for a seller.
+ * It uses the $inc operator to ensure thread-safe increment operations
+ * and returns the updated seller document.
+ *
+ * @param {string} sellerId - The seller's ID to increment visits for
+ * @returns {Promise<Seller|null>} Updated seller document with incremented storeVisits or null if not found
  */
 async function incrementSellerStoreVisits(sellerId) {
-  return Seller.findByIdAndUpdate(sellerId, { $inc: { storeVisits: 1 } }, { new: true });
+  return Seller.findByIdAndUpdate(
+    sellerId, 
+    { $inc: { storeVisits: 1 } }, // Atomically increment storeVisits by 1
+    { new: true } // Return the updated document
+  );
 }
 
 /**
  * Find buyer with populated followers.
- * @param {string} buyerId - The buyer's ID
+ * 
+ * This function retrieves a buyer with their followers list populated with
+ * seller information. It's used for displaying buyer's following relationships
+ * with detailed seller information.
+ *
+ * Populated Fields:
+ * - sellerId: Full seller object with basic information
+ * - firstName, lastName: Seller's name
+ * - storeName, businessName: Store information
+ * - profileImage, storeAvatar: Visual elements
+ *
+ * @param {string} buyerId - The buyer's ID to retrieve followers for
  * @returns {Promise<Buyer|null>} Buyer with populated followers or null if not found
  */
 async function findByIdWithPopulatedFollowers(buyerId) {
@@ -415,7 +507,17 @@ async function findByIdWithPopulatedFollowers(buyerId) {
 
 /**
  * Find sellers that a buyer follows.
- * @param {string} buyerId - The buyer's ID
+ * 
+ * This function retrieves all sellers that a specific buyer is following.
+ * It queries the Seller collection to find sellers who have the buyer
+ * in their followers list.
+ *
+ * Query Strategy:
+ * - Searches Seller collection for sellers with buyer in followers array
+ * - Selects essential fields for display
+ * - Returns array of seller objects with follower information
+ *
+ * @param {string} buyerId - The buyer's ID to find followed sellers for
  * @returns {Promise<Array>} Array of sellers that the buyer follows
  */
 async function findSellersFollowingByBuyer(buyerId) {
@@ -426,8 +528,16 @@ async function findSellersFollowingByBuyer(buyerId) {
 
 /**
  * Find buyers that a buyer follows.
- * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Array>} Array of buyers that the buyer follows
+ * 
+ * This function is a placeholder for potential future functionality where
+ * buyers might follow other buyers. Currently, the schema doesn't support
+ * buyer-to-buyer following, so this returns empty results.
+ *
+ * Note: This query is intentionally designed to return empty results
+ * as the current schema doesn't support buyer-to-buyer following.
+ *
+ * @param {string} buyerId - The buyer's ID to find followed buyers for
+ * @returns {Promise<Array>} Array of buyers that the buyer follows (currently empty)
  */
 async function findBuyersFollowingByBuyer(buyerId) {
   // Note: Buyers don't follow other buyers in the current schema
@@ -439,24 +549,38 @@ async function findBuyersFollowingByBuyer(buyerId) {
 
 /**
  * Check if buyer has made a verified purchase from seller.
- * @param {string} buyerId - The buyer's ID
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<boolean>} True if buyer has made a verified purchase
+ * 
+ * This function verifies whether a buyer has completed a purchase from
+ * a specific seller by checking for orders that meet specific criteria.
+ *
+ * Verification Criteria:
+ * - Order belongs to the specified buyer and seller
+ * - Payment status is 'completed'
+ * - Shipping tracking status is 'delivered'
+ * - This ensures only fully completed transactions are considered
+ *
+ * @param {string} buyerId - The buyer's ID to check purchase history for
+ * @param {string} sellerId - The seller's ID to check against
+ * @returns {Promise<boolean>} True if buyer has made a verified purchase from this seller
  */
 async function hasVerifiedPurchase(buyerId, sellerId) {
   const completedOrder = await Order.findOne({
     buyer: buyerId,
     seller: sellerId,
-    'paymentInfo.status': 'completed',
-    'shipping.tracking.status': 'delivered'
+    'paymentInfo.status': 'completed', // Payment must be completed
+    'shipping.tracking.status': 'delivered' // Order must be delivered
   });
-  return !!completedOrder;
+  return !!completedOrder; // Convert to boolean
 }
 
 /**
  * Save a seller instance.
+ * 
+ * This function saves a seller document to the database. It's used when
+ * seller data has been modified and needs to be persisted.
+ *
  * @param {Object} seller - The seller instance to save
- * @returns {Promise<Seller>} The saved seller
+ * @returns {Promise<Seller>} The saved seller document
  */
 async function saveSeller(seller) {
   return seller.save();
@@ -464,7 +588,18 @@ async function saveSeller(seller) {
 
 /**
  * Find seller with reviews and stats.
- * @param {string} sellerId - The seller's ID
+ * 
+ * This function retrieves a seller with their review statistics and
+ * rating information. It's optimized to only fetch the fields needed
+ * for review-related functionality.
+ *
+ * Selected Fields:
+ * - reviews: Array of review objects
+ * - stats.averageRating: Average rating across all reviews
+ * - stats.totalReviews: Total number of reviews
+ * - stats.ratingDistribution: Breakdown of ratings by level
+ *
+ * @param {string} sellerId - The seller's ID to retrieve reviews for
  * @returns {Promise<Seller|null>} Seller with reviews and stats or null if not found
  */
 async function findSellerWithReviews(sellerId) {
@@ -475,7 +610,16 @@ async function findSellerWithReviews(sellerId) {
 
 /**
  * Find buyer by ID with selected fields.
- * @param {string} buyerId - The buyer's ID
+ * 
+ * This function retrieves a buyer with only the fields needed for
+ * review population. It's optimized for performance when only basic
+ * buyer information is required.
+ *
+ * Selected Fields:
+ * - firstName, lastName: Buyer's name for review display
+ * - profileImage: Buyer's profile image for review display
+ *
+ * @param {string} buyerId - The buyer's ID to retrieve
  * @returns {Promise<Buyer|null>} Buyer with selected fields or null if not found
  */
 async function findBuyerByIdWithFields(buyerId) {
@@ -489,9 +633,14 @@ async function findBuyerByIdWithFields(buyerId) {
  * 
  * This method retrieves a buyer from the database and selects only the
  * notificationPreferences field to optimize performance when only preferences
- * are needed.
+ * are needed. It's used for notification preference management.
  * 
- * @param {string} buyerId - The buyer's ID
+ * Performance Optimization:
+ * - Only retrieves notificationPreferences field
+ * - Reduces data transfer and memory usage
+ * - Optimized for preference-only operations
+ * 
+ * @param {string} buyerId - The buyer's ID to retrieve preferences for
  * @returns {Promise<Object|null>} The buyer with notification preferences or null if not found
  */
 async function findBuyerWithNotificationPreferences(buyerId) {
@@ -507,8 +656,14 @@ async function findBuyerWithNotificationPreferences(buyerId) {
  * using findByIdAndUpdate with optimistic concurrency control.
  * The method returns the updated document with the new preferences.
  * 
- * @param {string} buyerId - The buyer's ID
- * @param {Object} preferences - The notification preferences to update
+ * Update Strategy:
+ * - Uses $set operator for atomic updates
+ * - Returns updated document for confirmation
+ * - Handles concurrent updates safely
+ * - Optimized for preference-only updates
+ * 
+ * @param {string} buyerId - The buyer's ID to update preferences for
+ * @param {Object} preferences - The notification preferences object to update
  * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function updateNotificationPreferences(buyerId, preferences) {
@@ -517,14 +672,9 @@ async function updateNotificationPreferences(buyerId, preferences) {
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
-      $set: {
-        notificationPreferences: preferences
-      }
+      $set: { notificationPreferences: preferences }
     },
-    {
-      new: true,        // Return the updated document
-      runValidators: true  // Run Mongoose validators on the update
-    }
+    { new: true } // Return the updated document
   );
 }
 

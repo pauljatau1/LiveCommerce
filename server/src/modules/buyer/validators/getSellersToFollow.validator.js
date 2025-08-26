@@ -1,3 +1,21 @@
+/**
+ * Get Sellers To Follow Validator
+ *
+ * This validator handles input validation for retrieving sellers that a buyer can follow.
+ * It provides functionality to:
+ * - Validate buyer ID format and structure
+ * - Validate pagination parameters (page, limit)
+ * - Validate search and filter parameters
+ * - Validate sorting options
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that seller discovery requests are properly formatted
+ * and contain valid data to prevent unauthorized access and maintain data integrity.
+ *
+ * @module getSellersToFollowValidator
+ */
+
 const ValidationError = require('../../../utils/errors/ValidationError');
 
 /**
@@ -104,9 +122,31 @@ function validateBuyerId(buyerId, errors) {
 
 /**
  * Validate all query parameters for getSellersToFollow.
- * 
+ *
+ * This function orchestrates the complete validation process for seller
+ * discovery requests, ensuring all parameters meet validation requirements.
+ *
+ * Business Logic Flow:
+ * 1. Initialize error collection array
+ * 2. Validate buyer ID format and structure
+ * 3. Validate pagination parameters (page, limit)
+ * 4. Validate search and filter parameters
+ * 5. Validate sorting options
+ * 6. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - Buyer ID validation prevents unauthorized access
+ * - Pagination validation prevents excessive data exposure
+ * - Parameter validation prevents injection attacks
+ * - Error collection provides comprehensive feedback
+ *
  * @param {Object} data - Query parameters to validate
  * @param {string} data.buyerId - The buyer ID to validate
+ * @param {string|number} [data.page] - Page number for pagination
+ * @param {string|number} [data.limit] - Number of items per page (1-100)
+ * @param {string} [data.search] - Search term for seller names
+ * @param {string} [data.category] - Category filter
+ * @param {string} [data.sort] - Sort criteria (rating, followers, newest)
  * @throws {ValidationError} If validation fails
  */
 async function validateGetSellersToFollowData(data) {

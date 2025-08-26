@@ -1,12 +1,52 @@
+/**
+ * Update Address Validator
+ *
+ * This validator handles input validation for updating addresses in a buyer's profile.
+ * It provides functionality to:
+ * - Validate address existence and ownership
+ * - Validate address type uniqueness and format
+ * - Validate address field formats and content
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that address update requests are properly formatted
+ * and contain valid data to prevent unauthorized modifications and maintain data integrity.
+ *
+ * @module updateAddressValidator
+ */
+
 const ValidationError = require('../../../utils/errors/ValidationError');
 const buyerRepository = require('../repositories/buyer.repository');
 
 /**
  * Validate address update data.
- * 
+ *
+ * This function orchestrates the complete validation process for address
+ * update requests, ensuring all parameters meet validation requirements.
+ *
+ * Business Logic Flow:
+ * 1. Initialize error collection array
+ * 2. Validate address existence and ownership
+ * 3. Validate address type update for uniqueness
+ * 4. Validate address type value format
+ * 5. Validate all address field formats and content
+ * 6. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - Address existence validation prevents unauthorized modifications
+ * - Address type uniqueness validation maintains data integrity
+ * - Field validation prevents injection attacks
+ * - Error collection provides comprehensive feedback
+ *
  * @param {Object} data - Address update data
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID to update
+ * @param {string} [data.addressType] - The address type (home, work, other)
+ * @param {string} [data.country] - The country
+ * @param {string} [data.state] - The state
+ * @param {string} [data.city] - The city
+ * @param {string} [data.addressLine1] - The address line 1
+ * @param {string} [data.zipCode] - The zip code
  * @throws {ValidationError} If validation fails
  */
 async function validateUpdateAddressData(data, buyerId, addressId) {

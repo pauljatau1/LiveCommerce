@@ -1,3 +1,22 @@
+/**
+ * Verify Wallet Top Up Validator
+ *
+ * This validator handles input validation for wallet top-up verification operations.
+ * It provides functionality to:
+ * - Validate payment reference format and presence
+ * - Validate buyer ID format and structure
+ * - Validate Paystack API response structure and status
+ * - Validate payment metadata structure and content
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that wallet top-up verification requests are properly
+ * formatted and contain valid data to prevent unauthorized operations and maintain
+ * payment security.
+ *
+ * @module verifyWalletTopUpValidator
+ */
+
 const ValidationError = require('../../../utils/errors/ValidationError');
 
 /**
@@ -111,8 +130,25 @@ function validatePaymentMetadata(metadata, errors) {
 
 /**
  * Validate the complete wallet top-up verification data.
- * This function validates the payment reference and Paystack verification response.
- * 
+ *
+ * This function validates the payment reference and Paystack verification response
+ * to ensure secure and accurate wallet top-up operations.
+ *
+ * Business Logic Flow:
+ * 1. Initialize error collection array
+ * 2. Validate payment reference format and presence
+ * 3. Validate Paystack API response structure and status
+ * 4. Validate payment metadata structure and content
+ * 5. Validate reference consistency between request and response
+ * 6. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - Payment reference validation prevents unauthorized operations
+ * - Paystack response validation ensures payment integrity
+ * - Metadata validation maintains data consistency
+ * - Reference consistency validation prevents payment mismatches
+ * - Error collection provides comprehensive feedback
+ *
  * @param {string} reference - The payment reference from the request
  * @param {Object} verificationResponse - The response from Paystack API
  * @throws {ValidationError} When validation fails
