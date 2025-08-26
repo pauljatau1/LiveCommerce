@@ -44,6 +44,7 @@ const listingRoutes = require('./modules/listing/routes/listing.route');
 const buyerRoutesV2 = require('./modules/buyer/routes/buyer.routes');
 const orderRoutesV2 = require('./modules/orderv2/routes/order.routes');
 const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
+const blipsRoutesV2 = require('./modules/blipsv2/routes/blips.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
@@ -165,6 +166,7 @@ app.use('/api/users/:userId/listings', listingRoutes);
 app.use('/api/v2/buyers', buyerRoutesV2);
 app.use('/api/v2/orders', orderRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
+app.use('/api/v2/blips', blipsRoutesV2);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
