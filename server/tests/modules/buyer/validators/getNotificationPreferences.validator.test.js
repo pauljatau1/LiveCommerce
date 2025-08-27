@@ -1,5 +1,4 @@
 const getNotificationPreferencesValidator = require('@modules/buyer/validators/getNotificationPreferences.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 
 describe('Get Notification Preferences Validator', () => {
   describe('validateGetNotificationPreferencesData', () => {

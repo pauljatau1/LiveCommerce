@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const Buyer = require('@models/Buyer');
-const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the buyerRepository before importing the validator
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');

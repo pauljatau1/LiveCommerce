@@ -36,7 +36,6 @@
 
 const Buyer = require('../../../models/Buyer');
 const sgMail = require('@sendgrid/mail');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 const { validateResendOTPData } = require('../validators/resendOTP.validator');
 const fs = require('fs');
@@ -201,7 +200,7 @@ async function updateBuyerOTP(buyer, otp) {
  * @param {string} email - Buyer's email address
  * @returns {Promise<Object>} Success response object with message
  *   - message: {string} - Success message confirming OTP sent
- * @throws {ValidationError} If input validation fails (invalid email)
+ * @throws {Error} If input validation fails (invalid email)
  * @throws {NotFoundException} If buyer is not found
  * @throws {Error} If database operations or email sending fails
  *

@@ -36,7 +36,6 @@
 
 const buyerRepository = require('../repositories/buyer.repository');
 const { validateGetOrderDetailsData } = require('../validators/getOrderDetails.validator');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**

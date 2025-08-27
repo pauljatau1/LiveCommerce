@@ -37,10 +37,8 @@
  * @module loginService
  */
 
-const Buyer = require('../../../models/Buyer');
 const { saveToken, getToken } = require('../../../../Firebase');
 const { generateToken } = require('../../../utils/helpers');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 const UnauthorizedException = require('../../../utils/errors/UnauthorizedException');
 const { validateLoginData } = require('../validators/login.validator');
@@ -84,7 +82,7 @@ const expoInstance = new expo();
  * @returns {Promise<Object>} Authenticated user data and JWT token
  *   - user: {Object} - The authenticated buyer object
  *   - token: {string} - JWT authentication token
- * @throws {ValidationError} If input validation fails
+ * @throws {Error} If input validation fails
  * @throws {NotFoundException} If user not found or invalid credentials
  * @throws {UnauthorizedException} If Google authentication fails
  * @throws {Error} If database operations or notification sending fails

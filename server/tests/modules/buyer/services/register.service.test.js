@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const ValidationError = require('@utils/errors/ValidationError');
 
 // Import the service
 const registerService = require('@modules/buyer/services/register.service');

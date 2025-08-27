@@ -2,8 +2,6 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
-const confirmAccountDeletionValidator = require('@modules/buyer/validators/confirmAccountDeletion.validator');
-const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
 // Mock SendGrid
 jest.mock('@sendgrid/mail', () => ({

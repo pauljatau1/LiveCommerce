@@ -21,7 +21,6 @@
 
 const buyerRepository = require('../repositories/buyer.repository');
 const { validateSelectMajorCategoriesData } = require('../validators/selectMajorCategories.validator');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**
@@ -196,7 +195,7 @@ function filterNewCategories(formattedCategories, existingCategories) {
  * @returns {Promise<Object>} Object containing selected categories and added categories info
  *   - selectedCategories: {Array} - Complete updated list of buyer's selected categories
  *   - addedCategories: {Array} - New categories that were added (non-duplicates)
- * @throws {ValidationError} If majorCategoryIds is invalid
+ * @throws {Error} If majorCategoryIds is invalid
  * @throws {NotFoundException} If buyer is not found or no active major categories found
  * @throws {Error} If database operations fail
  * @example

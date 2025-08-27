@@ -35,7 +35,6 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
-const Post = require('../../../models/Post');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**

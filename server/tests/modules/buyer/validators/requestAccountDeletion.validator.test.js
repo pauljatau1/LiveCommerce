@@ -1,5 +1,4 @@
 const requestAccountDeletionValidator = require('@modules/buyer/validators/requestAccountDeletion.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 const mongoose = require('mongoose');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 

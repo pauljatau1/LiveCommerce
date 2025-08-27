@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const getPurchaseAnalyticsService = require('@modules/buyer/services/getPurchaseAnalytics.service');
-const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 
 let mongoServer;
 

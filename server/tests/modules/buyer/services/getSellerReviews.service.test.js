@@ -1,9 +1,6 @@
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const getSellerReviewsService = require('@modules/buyer/services/getSellerReviews.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const NotFoundException = require('@utils/errors/NotFoundException');
-const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the repository
 jest.mock('@modules/buyer/repositories/buyer.repository');

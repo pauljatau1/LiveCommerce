@@ -18,9 +18,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const validateGetFollowersData = require('../validators/getFollowers.validator');
 const queryParser = require('../../../utils/queryParser');
 
 /**

@@ -16,7 +16,6 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
-const NotFoundException = require('../../../utils/errors/NotFoundException');
 const queryParser = require('../../../utils/queryParser');
 
 /**
