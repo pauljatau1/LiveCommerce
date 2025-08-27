@@ -1,7 +1,5 @@
 const request = require('supertest');
 const { app } = require('@/app');
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const getSellerReviewsService = require('@modules/buyer/services/getSellerReviews.service');
 const NotFoundException = require('@utils/errors/NotFoundException');
 const ValidationError = require('@utils/errors/ValidationError');

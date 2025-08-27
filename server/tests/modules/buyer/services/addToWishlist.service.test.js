@@ -7,7 +7,6 @@ const addToWishlistService = require('@modules/buyer/services/addToWishlist.serv
 // Import the Buyer and Product models
 const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
-const Seller = require('@models/Seller');
 
 // Mock the validator
 jest.mock('@modules/buyer/validators/addToWishlist.validator', () => ({

@@ -15,7 +15,6 @@
  */
 
 const ValidationError = require('../../../utils/errors/ValidationError');
-const buyerRepository = require('../repositories/buyer.repository');
 
 /**
  * Validate that address ID is required.

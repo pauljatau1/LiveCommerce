@@ -1,5 +1,4 @@
 const reportUserValidator = require('@modules/buyer/validators/reportUser.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 const { ObjectId } = require('mongodb');
 
 // Mock the repository

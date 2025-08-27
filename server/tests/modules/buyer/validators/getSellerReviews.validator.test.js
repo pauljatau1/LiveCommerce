@@ -1,5 +1,4 @@
 const getSellerReviewsValidator = require('@modules/buyer/validators/getSellerReviews.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 
 describe('Get Seller Reviews Validator', () => {
   describe('validateGetSellerReviewsData', () => {

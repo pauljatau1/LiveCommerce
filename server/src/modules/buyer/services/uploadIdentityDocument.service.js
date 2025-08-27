@@ -40,7 +40,6 @@
 const AWS = require('aws-sdk');
 const buyerRepository = require('../repositories/buyer.repository');
 const uploadIdentityDocumentValidator = require('../validators/uploadIdentityDocument.validator');
-const InternalErrorException = require('../../../utils/errors/InternalErrorException');
 
 // Initialize S3 client for identity document management
 // This enables secure document storage and retrieval
@@ -219,7 +218,7 @@ function updateBuyerIdentityDocument(buyer, uploadResult) {
  *     - public_id: {string} - S3 object key
  *     - uploadedAt: {Date} - Upload timestamp
  *     - status: {string} - Document status (pending)
- * @throws {ValidationError} If document validation fails
+ * @throws {Error} If document validation fails
  * @throws {NotFoundException} If buyer is not found
  * @throws {Error} If S3 upload or database operations fail
  *

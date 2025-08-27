@@ -5,7 +5,6 @@ const jwt = require('jsonwebtoken');
 const { app } = require('@/app');
 const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
-const NotFoundException = require('@utils/errors/NotFoundException');
 
 let mongoServer;
 

@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const { validateGetOrderDetailsData } = require('@modules/buyer/validators/getOrderDetails.validator');
 const ValidationError = require('@utils/errors/ValidationError');
 

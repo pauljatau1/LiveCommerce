@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const AWS = require('aws-sdk');
 
 // Import the service
 const uploadIdentityDocumentService = require('@modules/buyer/services/uploadIdentityDocument.service');

@@ -1,5 +1,4 @@
 const getSellerProfileValidator = require('@modules/buyer/validators/getSellerProfile.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 
 describe('getSellerProfile.validator', () => {
   describe('validateGetSellerProfileData', () => {

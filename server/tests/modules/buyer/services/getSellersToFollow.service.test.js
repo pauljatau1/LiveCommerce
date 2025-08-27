@@ -1,4 +1,4 @@
-const { getSellersToFollow, getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
+const { getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const ValidationError = require('@utils/errors/ValidationError');
 const getSellersToFollowValidator = require('@modules/buyer/validators/getSellersToFollow.validator');

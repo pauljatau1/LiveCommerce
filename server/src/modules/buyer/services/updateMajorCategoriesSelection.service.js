@@ -18,7 +18,6 @@
 
 const buyerRepository = require('../repositories/buyer.repository');
 const { validateUpdateMajorCategoriesSelectionData } = require('../validators/updateMajorCategoriesSelection.validator');
-const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**
@@ -114,7 +113,7 @@ function formatCategories(categories) {
  * @param {Array} majorCategoryIds - Array of major category IDs to select
  * @param {string} majorCategoryIds[] - Major category unique identifier
  * @returns {Promise<Object>} Object containing selected categories and selection info
- * @throws {ValidationError} If majorCategoryIds is invalid
+ * @throws {Error} If majorCategoryIds is invalid
  * @throws {NotFoundException} If buyer is not found or no active major categories found
  * @throws {Error} If database operation fails
  * @example
