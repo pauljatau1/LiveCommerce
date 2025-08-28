@@ -13,6 +13,7 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
+const baseUrl = process.env.DEEPLINK_URL;
 
 
 // Get all product blips
@@ -555,10 +556,17 @@ exports.getSellerBlips = async (req, res) => {
       isFollowing
     };
 
+    // Add product and blip links to each blip
+    const blipsWithLinks = blips.map(blip => ({
+      ...blip,
+      productLink: `${baseUrl}/products/${blip.productId}`,
+      blipLink: `${baseUrl}/products/${blip.productId}/blips/${blip.blipId}`
+    }));
+
     res.json({
       seller: sellerResponse,
       processedFilterApplied: Object.keys(processedFilter).length > 0,
-      blips,
+      blips: blipsWithLinks,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
@@ -2612,8 +2620,15 @@ exports.getBlipDetails = async (req, res) => {
     // Get the single blip
     const processedBlip = blips[0];
 
+    // Add product and blip links
+    const blipWithLinks = {
+      ...processedBlip,
+      productLink: `${baseUrl}/products/${processedBlip.productId}`,
+      blipLink: `${baseUrl}/products/${processedBlip.productId}/blips/${processedBlip.blipId}`
+    };
+
     res.json({
-      blips: [processedBlip]
+      blips: [blipWithLinks]
     });
   } catch (error) {
     console.error('Error in getBlipDetails:', error);
