@@ -13,6 +13,7 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
+const baseUrl = process.env.DEEPLINK_URL;
 
 
 // Create a new product
@@ -2013,27 +2014,41 @@ exports.getSellerProducts = async (req, res) => {
     const isSellerOnVacation = seller?.vacationMode?.isOn === true;
 
     res.json({
-      products: products.map(product => ({
-        ...product.toObject(),
-        isLowStock: product.stock <= product.inventory.lowStockThreshold,
-        hasDiscount: product.discount?.isActive || false,
-        discountedPrice: product.discountedPrice,
-        blips: product.blips,
-        stock: product.stock,
-        // Add additional product information
-        productInfo: {
+      products: products.map(product => {
+        // Get the first blip if available
+        const firstBlip = product.blips && product.blips.length > 0 ? product.blips[0] : null;
+        
+        // Add blip links to each blip in the array
+        const blipsWithLinks = product.blips ? product.blips.map(blip => ({
+          ...blip.toObject(),
+          blipLink: `${baseUrl}/products/${product._id}/blips/${blip._id}`
+        })) : [];
+
+        return {
+          ...product.toObject(),
+          isLowStock: product.stock <= product.inventory.lowStockThreshold,
+          hasDiscount: product.discount?.isActive || false,
+          discountedPrice: product.discountedPrice,
+          blips: blipsWithLinks,
           stock: product.stock,
-          sku: product.inventory.sku,
-          lowStockThreshold: product.inventory.lowStockThreshold,
-          isOutOfStock: product.stock === 0,
-          variantsInfo: product.variants?.map(variant => ({
-            ...variant.toObject(),
-            stock: variant.totalStock,
-            isOutOfStock: variant.totalStock === 0,
-            isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
-          })) || []
-        }
-      })),
+          // Add product and blip links
+          productLink: `${baseUrl}/products/${product._id}`,
+          blipLink: firstBlip ? `${baseUrl}/products/${product._id}/blips/${firstBlip._id}` : null,
+          // Add additional product information
+          productInfo: {
+            stock: product.stock,
+            sku: product.inventory.sku,
+            lowStockThreshold: product.inventory.lowStockThreshold,
+            isOutOfStock: product.stock === 0,
+            variantsInfo: product.variants?.map(variant => ({
+              ...variant.toObject(),
+              stock: variant.totalStock,
+              isOutOfStock: variant.totalStock === 0,
+              isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
+            })) || []
+          }
+        };
+      }),
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: parseInt(page),
       totalProducts,
