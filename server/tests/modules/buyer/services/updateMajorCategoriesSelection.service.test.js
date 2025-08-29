@@ -2,11 +2,15 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const updateMajorCategoriesSelectionService = require('@modules/buyer/services/updateMajorCategoriesSelection.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const majorCategoryRepository = require('@modules/buyer/repositories/majorCategory.repository');
+const categoryRepository = require('@modules/buyer/repositories/category.repository');
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
 
-// Mock the repository
+// Mock the repositories
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/majorCategory.repository');
+jest.mock('@modules/buyer/repositories/category.repository');
 
 let mongoServer;
 
@@ -98,9 +102,9 @@ describe('updateMajorCategoriesSelection.service', () => {
     it('should successfully update major categories selection', async () => {
       // Mock repository responses
       buyerRepository.findById.mockResolvedValue(mockBuyer);
-      buyerRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
-      buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
-      buyerRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
+      majorCategoryRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      categoryRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
       buyerRepository.updateBuyerSelectedCategories.mockResolvedValue(mockUpdatedBuyer);
 
       // Call the service
@@ -108,9 +112,9 @@ describe('updateMajorCategoriesSelection.service', () => {
 
       // Verify repository functions were called with correct parameters
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
-      expect(buyerRepository.findActiveMajorCategories).toHaveBeenCalledWith(majorCategoryIds);
-      expect(buyerRepository.findAllActiveMajorCategories).toHaveBeenCalled();
-      expect(buyerRepository.findCategoriesByIds).toHaveBeenCalled();
+      expect(majorCategoryRepository.findActiveMajorCategories).toHaveBeenCalledWith(majorCategoryIds);
+      expect(majorCategoryRepository.findAllActiveMajorCategories).toHaveBeenCalled();
+      expect(categoryRepository.findCategoriesByIds).toHaveBeenCalled();
       expect(buyerRepository.updateBuyerSelectedCategories).toHaveBeenCalledWith(buyerId, expect.any(Array));
 
       // Verify the result
@@ -137,7 +141,7 @@ describe('updateMajorCategoriesSelection.service', () => {
     it('should throw NotFoundException when no active major categories found', async () => {
       // Mock repository to return empty array for major categories
       buyerRepository.findById.mockResolvedValue(mockBuyer);
-      buyerRepository.findActiveMajorCategories.mockResolvedValue([]);
+      majorCategoryRepository.findActiveMajorCategories.mockResolvedValue([]);
 
       // Call the service and expect NotFoundException
       await expect(
@@ -146,7 +150,7 @@ describe('updateMajorCategoriesSelection.service', () => {
 
       // Verify repository was called
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
-      expect(buyerRepository.findActiveMajorCategories).toHaveBeenCalledWith(majorCategoryIds);
+      expect(majorCategoryRepository.findActiveMajorCategories).toHaveBeenCalledWith(majorCategoryIds);
     });
 
     it('should throw ValidationError when buyerId is invalid', async () => {
@@ -230,8 +234,8 @@ describe('updateMajorCategoriesSelection.service', () => {
       };
 
       buyerRepository.findById.mockResolvedValue(buyerWithNoManualSelections);
-      buyerRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
-      buyerRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
+      majorCategoryRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      categoryRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
       buyerRepository.updateBuyerSelectedCategories.mockResolvedValue({
         ...buyerWithNoManualSelections,
         selectedCategories: mockCategories.map(cat => ({
@@ -263,7 +267,7 @@ describe('updateMajorCategoriesSelection.service', () => {
       };
 
       buyerRepository.findById.mockResolvedValue(buyerWithOnlyManualSelections);
-      buyerRepository.findActiveMajorCategories.mockResolvedValue([]);
+      majorCategoryRepository.findActiveMajorCategories.mockResolvedValue([]);
 
       // Call the service and expect NotFoundException
       await expect(
@@ -279,8 +283,8 @@ describe('updateMajorCategoriesSelection.service', () => {
       };
 
       buyerRepository.findById.mockResolvedValue(buyerWithEmptyCategories);
-      buyerRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
-      buyerRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
+      majorCategoryRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      categoryRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
       buyerRepository.updateBuyerSelectedCategories.mockResolvedValue({
         ...buyerWithEmptyCategories,
         selectedCategories: mockCategories.map(cat => ({

@@ -20,6 +20,8 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const majorCategoryRepository = require('../repositories/majorCategory.repository');
+const categoryRepository = require('../repositories/category.repository');
 const { validateSelectMajorCategoriesData } = require('../validators/selectMajorCategories.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -219,7 +221,7 @@ async function selectMajorCategories(buyerId, majorCategoryIds) {
 
   // Step 3: Find active major categories with populated child categories
   // This retrieves only active major categories to prevent selection of inactive ones
-  const majorCategories = await buyerRepository.findActiveMajorCategories(majorCategoryIds);
+      const majorCategories = await majorCategoryRepository.findActiveMajorCategories(majorCategoryIds);
   if (majorCategories.length === 0) {
     throw new NotFoundException('No active major categories found with the provided IDs');
   }
@@ -230,7 +232,7 @@ async function selectMajorCategories(buyerId, majorCategoryIds) {
   
   // Step 5: Retrieve detailed category information with subcategories
   // This fetches complete category data including subcategory information
-  const categories = await buyerRepository.findCategoriesByIds(categoryIds);
+      const categories = await categoryRepository.findCategoriesByIds(categoryIds);
 
   // Step 6: Format categories for buyer profile storage
   // This transforms raw category data into storage-optimized format

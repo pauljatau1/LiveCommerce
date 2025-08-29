@@ -5,6 +5,14 @@ const NotFoundException = require('@utils/errors/NotFoundException');
 // Mock the buyer repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
 
+// Mock the post repository that is required by buyer repository
+jest.mock('@modules/buyer/repositories/post.repository', () => ({
+  getPostsCount: jest.fn()
+}));
+
+// Import the mocked post repository
+const postRepository = require('@modules/buyer/repositories/post.repository');
+
 describe('Profile Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -56,7 +64,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockResolvedValue(25);
       buyerRepository.getFollowingCount.mockResolvedValue(10);
-      buyerRepository.getPostsCount.mockResolvedValue(5);
+      postRepository.getPostsCount.mockResolvedValue(5);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -87,7 +95,7 @@ describe('Profile Service', () => {
 
       expect(buyerRepository.getFollowersCount).toHaveBeenCalledWith(mockBuyerId);
       expect(buyerRepository.getFollowingCount).toHaveBeenCalledWith(mockBuyerId);
-      expect(buyerRepository.getPostsCount).toHaveBeenCalledWith(mockBuyerId);
+      expect(postRepository.getPostsCount).toHaveBeenCalledWith(mockBuyerId);
 
       // Verify result structure
       expect(result).toEqual({
@@ -109,7 +117,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(buyerWithoutImage);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -125,7 +133,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(buyerWithoutBio);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -141,7 +149,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(buyerWithEmptyBio);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -157,7 +165,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(buyerWithUndefinedBio);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -173,7 +181,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(buyerWithImageWithoutUrl);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -189,14 +197,14 @@ describe('Profile Service', () => {
       // Verify that count methods are not called when buyer is not found
       expect(buyerRepository.getFollowersCount).not.toHaveBeenCalled();
       expect(buyerRepository.getFollowingCount).not.toHaveBeenCalled();
-      expect(buyerRepository.getPostsCount).not.toHaveBeenCalled();
+      expect(postRepository.getPostsCount).not.toHaveBeenCalled();
     });
 
     it('should handle zero counts correctly', async () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockResolvedValue(0);
       buyerRepository.getFollowingCount.mockResolvedValue(0);
-      buyerRepository.getPostsCount.mockResolvedValue(0);
+      postRepository.getPostsCount.mockResolvedValue(0);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -209,7 +217,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockResolvedValue(999999);
       buyerRepository.getFollowingCount.mockResolvedValue(5000);
-      buyerRepository.getPostsCount.mockResolvedValue(1000);
+      postRepository.getPostsCount.mockResolvedValue(1000);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -222,21 +230,21 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockResolvedValue(25);
       buyerRepository.getFollowingCount.mockResolvedValue(10);
-      buyerRepository.getPostsCount.mockResolvedValue(5);
+      postRepository.getPostsCount.mockResolvedValue(5);
 
       await profileService.getProfile(mockBuyerId);
 
       // Verify all count methods were called
       expect(buyerRepository.getFollowersCount).toHaveBeenCalledWith(mockBuyerId);
       expect(buyerRepository.getFollowingCount).toHaveBeenCalledWith(mockBuyerId);
-      expect(buyerRepository.getPostsCount).toHaveBeenCalledWith(mockBuyerId);
+      expect(postRepository.getPostsCount).toHaveBeenCalledWith(mockBuyerId);
     });
 
     it('should preserve all original buyer fields in result', async () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockResolvedValue(25);
       buyerRepository.getFollowingCount.mockResolvedValue(10);
-      buyerRepository.getPostsCount.mockResolvedValue(5);
+      postRepository.getPostsCount.mockResolvedValue(5);
 
       const result = await profileService.getProfile(mockBuyerId);
 
@@ -275,7 +283,7 @@ describe('Profile Service', () => {
       buyerRepository.findByIdWithFields.mockResolvedValue(mockBuyer);
       buyerRepository.getFollowersCount.mockRejectedValue(new Error('Followers count failed'));
       buyerRepository.getFollowingCount.mockResolvedValue(10);
-      buyerRepository.getPostsCount.mockResolvedValue(5);
+      postRepository.getPostsCount.mockResolvedValue(5);
 
       // Act
       const result = await profileService.getProfile(mockBuyerId);

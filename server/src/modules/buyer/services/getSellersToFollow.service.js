@@ -23,6 +23,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const sellerRepository = require('../repositories/seller.repository');
 const { validateGetSellersToFollowData } = require('../validators/getSellersToFollow.validator');
 const queryParser = require('../../../utils/queryParser');
 
@@ -220,7 +221,7 @@ async function getSellersToFollow(buyerId, filters = {}) {
   // This prevents showing already-followed sellers
   let excludeSellerIds = [];
   if (buyerId) {
-    excludeSellerIds = await buyerRepository.findFollowedSellerIds(buyerId);
+    excludeSellerIds = await sellerRepository.findFollowedSellerIds(buyerId);
   }
 
   // Step 2: Build query and sort options
@@ -234,7 +235,7 @@ async function getSellersToFollow(buyerId, filters = {}) {
 
   // Step 3: Get sellers from repository
   // Retrieve all matching sellers without pagination limits
-  const sellers = await buyerRepository.findSellersToFollow({
+      const sellers = await sellerRepository.findSellersToFollow({
     query,
     sortOptions,
     skip: 0,
@@ -299,7 +300,7 @@ async function preparePaginatedParams(buyerId, { page, limit, filters }) {
  * @returns {Array} Array of seller IDs to exclude from recommendations
  */
 async function getExcludeSellerIds(buyerId) {
-  return await buyerRepository.findFollowedSellerIds(buyerId);
+      return await sellerRepository.findFollowedSellerIds(buyerId);
 }
 
 /**
@@ -328,15 +329,15 @@ async function retrieveSellersWithPagination({ query, sortOptions, skip, limit, 
   if (shouldRandomize) {
     // Step 1: Calculate randomization values
     // Get total count to determine randomization range
-    const total = await buyerRepository.countSellersToFollow(query);
+    const total = await sellerRepository.countSellersToFollow(query);
     const maxSkip = total - limit; // Maximum skip value for randomization
     const randomSkip = Math.floor(Math.random() * (maxSkip + 1)); // Random skip value
     
     // Step 2: Retrieve sellers with randomization
-    sellers = await buyerRepository.findSellersToFollowRandomized(query, limit, randomSkip);
+          sellers = await sellerRepository.findSellersToFollowRandomized(query, limit, randomSkip);
   } else {
     // Step 3: Retrieve sellers with standard pagination
-    sellers = await buyerRepository.findSellersToFollow({
+          sellers = await sellerRepository.findSellersToFollow({
       query,
       sortOptions,
       skip,
@@ -473,7 +474,7 @@ async function getPaginatedSellersToFollow(buyerId, { page, limit, filters }) {
 
   // Step 4: Get total count and determine randomization
   // Calculate total sellers and decide whether to apply randomization
-  const total = await buyerRepository.countSellersToFollow(query);
+      const total = await sellerRepository.countSellersToFollow(query);
   const shouldRandomize = total > limit; // Randomize if we have more sellers than the limit
   const skip = (page - 1) * limit; // Calculate skip value for pagination
 

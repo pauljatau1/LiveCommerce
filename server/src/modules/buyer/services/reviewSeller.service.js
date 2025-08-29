@@ -21,6 +21,8 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const sellerRepository = require('../repositories/seller.repository');
+const orderRepository = require('../repositories/order.repository');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -319,7 +321,7 @@ async function reviewSeller(buyerId, sellerId, reviewData) {
   // Step 2: Fetch seller and buyer data concurrently
   // Using Promise.all for better performance
   const [seller, buyer] = await Promise.all([
-    buyerRepository.findSellerById(sellerId),
+    sellerRepository.findById(sellerId),
     buyerRepository.findById(buyerId)
   ]);
 
@@ -332,7 +334,7 @@ async function reviewSeller(buyerId, sellerId, reviewData) {
   }
 
   // Step 5: Verify buyer's purchase history with the seller
-  const hasPurchase = await buyerRepository.hasVerifiedPurchase(buyerId, sellerId);
+      const hasPurchase = await orderRepository.hasVerifiedPurchase(buyerId, sellerId);
   
   // Step 6: Validate buyer's eligibility to review
   validateReviewEligibility(buyer, sellerId, hasPurchase);
@@ -347,7 +349,7 @@ async function reviewSeller(buyerId, sellerId, reviewData) {
   updateSellerRatingStats(seller);
   
   // Step 10: Save the updated seller data
-  await buyerRepository.saveSeller(seller);
+  await sellerRepository.save(seller);
 
   // Step 11: Return the created review
   return review;

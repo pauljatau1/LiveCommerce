@@ -37,6 +37,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const orderRepository = require('../repositories/order.repository');
 
 /**
  * Calculate basic order statistics for purchase analytics.
@@ -224,7 +225,7 @@ function countOrdersByStatus(orders) {
 async function getPurchaseAnalytics(buyerId) {
   // Step 1: Get all orders for the buyer
   // This retrieves the complete order history for analytics processing
-  const orders = await buyerRepository.findBuyerOrders(buyerId);
+      const orders = await orderRepository.findBuyerOrders(buyerId);
   
   // Step 2: Calculate basic statistics
   // This provides fundamental metrics like total orders and spending
@@ -236,7 +237,7 @@ async function getPurchaseAnalytics(buyerId) {
   
   // Step 4: Get recent orders with populated data
   // This retrieves the 5 most recent orders with complete details
-  const recentOrders = await buyerRepository.findRecentOrders(buyerId, 5);
+      const recentOrders = await orderRepository.findRecentOrders(buyerId, 5);
   
   // Step 5: Return comprehensive analytics data
   // This compiles all analytics information into a single response

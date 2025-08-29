@@ -18,6 +18,8 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const orderRepository = require('../repositories/order.repository');
+const returnRepository = require('../repositories/return.repository');
 const queryParser = require('../../../utils/queryParser');
 
 /**
@@ -312,14 +314,14 @@ async function getOrders(buyerId, filters = {}) {
   const sort = '-createdAt'; // Sort by creation date, newest first
   
   // Step 2: Retrieve orders from database (no pagination limits)
-  const orders = await buyerRepository.findOrders(query, {
+  const orders = await orderRepository.findOrders(query, {
     sort,
     skip: 0,
     limit: 0 // No limit for unpaginated results
   });
 
   // Step 3: Fetch return request information for all orders
-  const returnRequests = await buyerRepository.findReturnRequests(
+  const returnRequests = await returnRepository.findReturnRequests(
     orders.map(order => order._id)
   );
   
@@ -386,21 +388,21 @@ async function getPaginatedOrders(buyerId, { page, limit, filters }) {
   const query = buildQuery(buyerId, filters);
   
   // Step 2: Get total count for pagination calculation
-  const total = await buyerRepository.countOrders(query);
+  const total = await orderRepository.countOrders(query);
   
   // Step 3: Calculate pagination parameters
   const skip = (page - 1) * limit; // Calculate how many documents to skip
   const sort = '-createdAt'; // Sort by creation date, newest first
 
   // Step 4: Retrieve orders with pagination limits
-  const orders = await buyerRepository.findOrders(query, {
+  const orders = await orderRepository.findOrders(query, {
     sort,
     skip,
     limit
   });
 
   // Step 5: Fetch return request information for retrieved orders
-  const returnRequests = await buyerRepository.findReturnRequests(
+  const returnRequests = await returnRepository.findReturnRequests(
     orders.map(order => order._id)
   );
 

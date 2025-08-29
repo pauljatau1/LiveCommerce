@@ -4,9 +4,10 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 // Import the service
 const addToWishlistService = require('@modules/buyer/services/addToWishlist.service');
 
-// Import the Buyer and Product models
+// Import the Buyer, Product, and Seller models
 const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
+const Seller = require('@models/Seller');
 
 // Mock the validator
 jest.mock('@modules/buyer/validators/addToWishlist.validator', () => ({

@@ -48,7 +48,11 @@ const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
 const server = http.createServer(app);
-socketManager.initializeSocket(server);
+
+// Only initialize socket manager if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  socketManager.initializeSocket(server);
+}
 
 // add reponse formatter
 app.use(responseFormatter);

@@ -1,11 +1,17 @@
 const getSellerProfileService = require('@modules/buyer/services/getSellerProfile.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const sellerRepository = require('@modules/buyer/repositories/seller.repository');
+const streamRepository = require('@modules/buyer/repositories/stream.repository');
+const orderRepository = require('@modules/buyer/repositories/order.repository');
 const getSellerProfileValidator = require('@modules/buyer/validators/getSellerProfile.validator');
 const NotFoundException = require('@utils/errors/NotFoundException');
 const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock the dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/seller.repository');
+jest.mock('@modules/buyer/repositories/stream.repository');
+jest.mock('@modules/buyer/repositories/order.repository');
 jest.mock('@modules/buyer/validators/getSellerProfile.validator');
 
 describe('getSellerProfile.service', () => {
@@ -88,13 +94,13 @@ describe('getSellerProfile.service', () => {
 
       // Mock repository methods
       buyerRepository.findSellerById.mockResolvedValue(mockSeller);
-      buyerRepository.findOrdersBySeller.mockResolvedValue(mockOrders);
-      buyerRepository.countStreamsBySeller.mockResolvedValue(5);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
-      buyerRepository.getSellerReviewStats.mockResolvedValue([
+      orderRepository.findOrdersBySeller.mockResolvedValue(mockOrders);
+      streamRepository.countStreamsBySeller.mockResolvedValue(5);
+      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
+      orderRepository.getReviewStats.mockResolvedValue([
         { totalReviews: 100, averageRating: 4.5 }
       ]);
-      buyerRepository.incrementSellerStoreVisits.mockResolvedValue(mockSeller);
+      sellerRepository.incrementStoreVisits.mockResolvedValue(mockSeller);
 
       const result = await getSellerProfileService.getSellerProfile(mockSellerId, mockBuyerId);
 
@@ -105,11 +111,11 @@ describe('getSellerProfile.service', () => {
 
       // Verify repository methods were called
       expect(buyerRepository.findSellerById).toHaveBeenCalledWith(mockSellerId);
-      expect(buyerRepository.findOrdersBySeller).toHaveBeenCalledWith(mockSellerId);
-      expect(buyerRepository.countStreamsBySeller).toHaveBeenCalledWith(mockSellerId);
-      expect(buyerRepository.countBuyersFollowingSeller).toHaveBeenCalledWith(mockSellerId);
-      expect(buyerRepository.getSellerReviewStats).toHaveBeenCalledWith(mockSellerId);
-      expect(buyerRepository.incrementSellerStoreVisits).toHaveBeenCalledWith(mockSellerId);
+      expect(orderRepository.findOrdersBySeller).toHaveBeenCalledWith(mockSellerId);
+      expect(streamRepository.countStreamsBySeller).toHaveBeenCalledWith(mockSellerId);
+      expect(sellerRepository.countBuyersFollowingSeller).toHaveBeenCalledWith(mockSellerId);
+      expect(orderRepository.getReviewStats).toHaveBeenCalledWith(mockSellerId);
+      expect(sellerRepository.incrementStoreVisits).toHaveBeenCalledWith(mockSellerId);
 
       // Verify response structure
       expect(result).toHaveProperty('personalInfo');
@@ -183,11 +189,11 @@ describe('getSellerProfile.service', () => {
       
       getSellerProfileValidator.validateGetSellerProfileData.mockResolvedValue();
       buyerRepository.findSellerById.mockResolvedValue(sellerWithoutFollowers);
-      buyerRepository.findOrdersBySeller.mockResolvedValue([]);
-      buyerRepository.countStreamsBySeller.mockResolvedValue(0);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
-      buyerRepository.getSellerReviewStats.mockResolvedValue([]);
-      buyerRepository.incrementSellerStoreVisits.mockResolvedValue(sellerWithoutFollowers);
+      orderRepository.findOrdersBySeller.mockResolvedValue([]);
+      streamRepository.countStreamsBySeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      orderRepository.getReviewStats.mockResolvedValue([]);
+      sellerRepository.incrementStoreVisits.mockResolvedValue(sellerWithoutFollowers);
 
       const result = await getSellerProfileService.getSellerProfile(mockSellerId, mockBuyerId);
 
@@ -204,11 +210,11 @@ describe('getSellerProfile.service', () => {
       
       getSellerProfileValidator.validateGetSellerProfileData.mockResolvedValue();
       buyerRepository.findSellerById.mockResolvedValue(sellerWithoutReviews);
-      buyerRepository.findOrdersBySeller.mockResolvedValue([]);
-      buyerRepository.countStreamsBySeller.mockResolvedValue(0);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
-      buyerRepository.getSellerReviewStats.mockResolvedValue([]);
-      buyerRepository.incrementSellerStoreVisits.mockResolvedValue(sellerWithoutReviews);
+      orderRepository.findOrdersBySeller.mockResolvedValue([]);
+      streamRepository.countStreamsBySeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      orderRepository.getReviewStats.mockResolvedValue([]);
+      sellerRepository.incrementStoreVisits.mockResolvedValue(sellerWithoutReviews);
 
       const result = await getSellerProfileService.getSellerProfile(mockSellerId, mockBuyerId);
 
@@ -233,11 +239,11 @@ describe('getSellerProfile.service', () => {
       
       getSellerProfileValidator.validateGetSellerProfileData.mockResolvedValue();
       buyerRepository.findSellerById.mockResolvedValue(minimalSeller);
-      buyerRepository.findOrdersBySeller.mockResolvedValue([]);
-      buyerRepository.countStreamsBySeller.mockResolvedValue(0);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
-      buyerRepository.getSellerReviewStats.mockResolvedValue([]);
-      buyerRepository.incrementSellerStoreVisits.mockResolvedValue(minimalSeller);
+      orderRepository.findOrdersBySeller.mockResolvedValue([]);
+      streamRepository.countStreamsBySeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      orderRepository.getReviewStats.mockResolvedValue([]);
+      sellerRepository.incrementStoreVisits.mockResolvedValue(minimalSeller);
 
       const result = await getSellerProfileService.getSellerProfile(mockSellerId, mockBuyerId);
 
@@ -282,13 +288,13 @@ describe('getSellerProfile.service', () => {
       
       getSellerProfileValidator.validateGetSellerProfileData.mockResolvedValue();
       buyerRepository.findSellerById.mockResolvedValue(mockSeller);
-      buyerRepository.findOrdersBySeller.mockResolvedValue(ordersWithDeliveredItems);
-      buyerRepository.countStreamsBySeller.mockResolvedValue(5);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
-      buyerRepository.getSellerReviewStats.mockResolvedValue([
+      orderRepository.findOrdersBySeller.mockResolvedValue(ordersWithDeliveredItems);
+      streamRepository.countStreamsBySeller.mockResolvedValue(5);
+      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
+      orderRepository.getReviewStats.mockResolvedValue([
         { totalReviews: 100, averageRating: 4.5 }
       ]);
-      buyerRepository.incrementSellerStoreVisits.mockResolvedValue(mockSeller);
+      sellerRepository.incrementStoreVisits.mockResolvedValue(mockSeller);
 
       const result = await getSellerProfileService.getSellerProfile(mockSellerId, mockBuyerId);
 

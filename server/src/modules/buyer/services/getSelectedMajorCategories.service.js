@@ -18,6 +18,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const majorCategoryRepository = require('../repositories/majorCategory.repository');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**
@@ -136,7 +137,7 @@ async function getSelectedMajorCategories(buyerId) {
   
   // Step 3: Get all active major categories from repository
   // This fetches the complete list of available major categories
-  const allMajorCategories = await buyerRepository.findAllActiveMajorCategories();
+      const allMajorCategories = await majorCategoryRepository.findAllActiveMajorCategories();
   
   // Step 4: Filter major categories that are fully selected
   // This determines which major categories have all subcategories selected
