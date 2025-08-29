@@ -35,6 +35,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const postRepository = require('../repositories/post.repository');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
 /**
@@ -152,7 +153,7 @@ async function getProfile(buyerId) {
   const [followersCount, followingCount, postsCount] = await Promise.all([
     buyerRepository.getFollowersCount(buyerId).catch(() => 0),
     buyerRepository.getFollowingCount(buyerId).catch(() => 0),
-    buyerRepository.getPostsCount(buyerId)
+    postRepository.getPostsCount(buyerId)
   ]);
 
   // Step 4: Enhance buyer data with counts and formatted fields

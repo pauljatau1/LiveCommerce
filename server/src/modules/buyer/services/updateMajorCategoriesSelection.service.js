@@ -17,6 +17,8 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const majorCategoryRepository = require('../repositories/majorCategory.repository');
+const categoryRepository = require('../repositories/category.repository');
 const { validateUpdateMajorCategoriesSelectionData } = require('../validators/updateMajorCategoriesSelection.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -137,7 +139,7 @@ async function updateMajorCategoriesSelection(buyerId, majorCategoryIds) {
 
   // Step 3: Find active major categories
   // This retrieves major categories with populated category data
-  const majorCategories = await buyerRepository.findActiveMajorCategories(majorCategoryIds);
+      const majorCategories = await majorCategoryRepository.findActiveMajorCategories(majorCategoryIds);
   if (majorCategories.length === 0) {
     throw new NotFoundException('No active major categories found with the provided IDs');
   }
@@ -145,7 +147,7 @@ async function updateMajorCategoriesSelection(buyerId, majorCategoryIds) {
   // Step 4: Extract category IDs and find categories
   // This processes major categories to get individual category data
   const categoryIds = extractCategoryIds(majorCategories);
-  const categories = await buyerRepository.findCategoriesByIds(categoryIds);
+      const categories = await categoryRepository.findCategoriesByIds(categoryIds);
 
   // Step 5: Format categories for buyer's selectedCategories field
   // This transforms category data into the required storage format
@@ -153,7 +155,7 @@ async function updateMajorCategoriesSelection(buyerId, majorCategoryIds) {
 
   // Step 6: Get all category names from all major categories
   // This identifies which categories come from major categories
-  const allMajorCategories = await buyerRepository.findAllActiveMajorCategories();
+      const allMajorCategories = await majorCategoryRepository.findAllActiveMajorCategories();
   const allMajorCategoryNames = new Set();
   allMajorCategories.forEach(majorCategory => {
     majorCategory.categories.forEach(category => {

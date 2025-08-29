@@ -2,9 +2,13 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const reviewSellerService = require('@modules/buyer/services/reviewSeller.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const sellerRepository = require('@modules/buyer/repositories/seller.repository');
+const orderRepository = require('@modules/buyer/repositories/order.repository');
 
-// Mock the repository
+// Mock the repositories
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/seller.repository');
+jest.mock('@modules/buyer/repositories/order.repository');
 
 describe('reviewSeller.service', () => {
   let mongoServer;
@@ -246,10 +250,10 @@ describe('reviewSeller.service', () => {
     };
 
     beforeEach(() => {
-      buyerRepository.findSellerById.mockResolvedValue(mockSeller);
+      sellerRepository.findById.mockResolvedValue(mockSeller);
       buyerRepository.findById.mockResolvedValue(mockBuyer);
-      buyerRepository.hasVerifiedPurchase.mockResolvedValue(true);
-      buyerRepository.saveSeller.mockResolvedValue(mockSeller);
+      orderRepository.hasVerifiedPurchase.mockResolvedValue(true);
+      sellerRepository.save.mockResolvedValue(mockSeller);
     });
 
     it('should create review successfully', async () => {
@@ -269,10 +273,10 @@ describe('reviewSeller.service', () => {
         isVerifiedPurchase: true
       });
 
-      expect(buyerRepository.findSellerById).toHaveBeenCalledWith(sellerId);
+      expect(sellerRepository.findById).toHaveBeenCalledWith(sellerId);
       expect(buyerRepository.findById).toHaveBeenCalledWith(buyerId);
-      expect(buyerRepository.hasVerifiedPurchase).toHaveBeenCalledWith(buyerId, sellerId);
-      expect(buyerRepository.saveSeller).toHaveBeenCalledWith(mockSeller);
+      expect(orderRepository.hasVerifiedPurchase).toHaveBeenCalledWith(buyerId, sellerId);
+      expect(sellerRepository.save).toHaveBeenCalledWith(mockSeller);
       expect(mockSeller.reviews).toHaveLength(1);
     });
 
@@ -295,7 +299,7 @@ describe('reviewSeller.service', () => {
     });
 
     it('should throw NotFoundException when seller not found', async () => {
-      buyerRepository.findSellerById.mockResolvedValue(null);
+      sellerRepository.findById.mockResolvedValue(null);
 
       const buyerId = '507f1f77bcf86cd799439012';
       const sellerId = '507f1f77bcf86cd799439011';
@@ -321,7 +325,7 @@ describe('reviewSeller.service', () => {
         ...mockSeller,
         reviews: [{ buyer: new mongoose.Types.ObjectId('507f1f77bcf86cd799439012') }]
       };
-      buyerRepository.findSellerById.mockResolvedValue(sellerWithReview);
+      sellerRepository.findById.mockResolvedValue(sellerWithReview);
 
       const buyerId = '507f1f77bcf86cd799439012';
       const sellerId = '507f1f77bcf86cd799439011';
@@ -332,7 +336,7 @@ describe('reviewSeller.service', () => {
     });
 
     it('should throw ValidationError when buyer has no purchase and is not follower', async () => {
-      buyerRepository.hasVerifiedPurchase.mockResolvedValue(false);
+      orderRepository.hasVerifiedPurchase.mockResolvedValue(false);
 
       const buyerId = '507f1f77bcf86cd799439012';
       const sellerId = '507f1f77bcf86cd799439011';

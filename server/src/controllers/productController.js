@@ -4552,19 +4552,22 @@ const MAX_SESSIONS = 1000;
 const MAX_SEEN_BLIPS_PER_SESSION = 100;
 
 // Clean up old sessions (run periodically)
-setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
-  for (const [sessionId, data] of sessionBlipStore.entries()) {
-    if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
-      sessionBlipStore.delete(sessionId);
-      cleanedCount++;
+// Only start the interval if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [sessionId, data] of sessionBlipStore.entries()) {
+      if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+        sessionBlipStore.delete(sessionId);
+        cleanedCount++;
+      }
     }
-  }
-  if (cleanedCount > 0) {
-    console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
-  }
-}, 30 * 1000); // Clean every 30 seconds
+    if (cleanedCount > 0) {
+      console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
+    }
+  }, 30 * 1000); // Clean every 30 seconds
+}
 
 
 

@@ -21,6 +21,9 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const sellerRepository = require('../repositories/seller.repository');
+const streamRepository = require('../repositories/stream.repository');
+const orderRepository = require('../repositories/order.repository');
 const getSellerProfileValidator = require('../validators/getSellerProfile.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -436,10 +439,10 @@ async function getSellerProfile(sellerId, buyerId) {
   // Step 3: Get counts and data using Promise.all for better performance
   // Fetch all related data concurrently to minimize response time
   const [orders, streamCount, followingCount, reviews] = await Promise.all([
-    buyerRepository.findOrdersBySeller(sellerId),
-    buyerRepository.countStreamsBySeller(sellerId),
-    buyerRepository.countBuyersFollowingSeller(sellerId),
-    buyerRepository.getSellerReviewStats(sellerId)
+    orderRepository.findOrdersBySeller(sellerId),
+          streamRepository.countStreamsBySeller(sellerId),
+      sellerRepository.countBuyersFollowingSeller(sellerId),
+          orderRepository.getReviewStats(sellerId)
   ]);
 
   // Step 4: Calculate delivered orders count
@@ -464,7 +467,7 @@ async function getSellerProfile(sellerId, buyerId) {
 
   // Step 7: Increment store visits for analytics
   // Track profile views for engagement metrics
-  await buyerRepository.incrementSellerStoreVisits(sellerId);
+  await sellerRepository.incrementStoreVisits(sellerId);
 
   return sellerProfile;
 }

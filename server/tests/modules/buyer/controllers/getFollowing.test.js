@@ -139,12 +139,14 @@ describe('GET /api/v2/buyers/following', () => {
       const buyer = await Buyer.findById(testBuyerId);
       const seller = await Seller.findById(testSellerId);
       
-      // Add follower to seller
-      seller.followers.push({
-        buyerId: testBuyerId,
-        followDate: new Date()
+      // Add activity feed entry to buyer (this is what the repository methods expect)
+      buyer.activityFeed.push({
+        type: 'follow',
+        reference: testSellerId,
+        referenceModel: 'Seller',
+        createdAt: new Date()
       });
-      await seller.save();
+      await buyer.save();
       
       const token = generateToken(testBuyerId);
       
@@ -187,12 +189,14 @@ describe('GET /api/v2/buyers/following', () => {
       const buyer = await Buyer.findById(testBuyerId);
       
       for (const seller of sellers) {
-        seller.followers.push({
-          buyerId: testBuyerId,
-          followDate: new Date()
+        buyer.activityFeed.push({
+          type: 'follow',
+          reference: seller._id,
+          referenceModel: 'Seller',
+          createdAt: new Date()
         });
-        await seller.save();
       }
+      await buyer.save();
       
       const token = generateToken(testBuyerId);
       
@@ -244,17 +248,22 @@ describe('GET /api/v2/buyers/following', () => {
       await seller2.save();
       
       // Add followers with different dates
-      seller1.followers.push({
-        buyerId: testBuyerId,
-        followDate: new Date('2024-01-01')
+      const Buyer = require('@models/Buyer');
+      const buyer = await Buyer.findById(testBuyerId);
+      buyer.activityFeed.push({
+        type: 'follow',
+        reference: seller1._id,
+        referenceModel: 'Seller',
+        createdAt: new Date('2024-01-01')
       });
-      await seller1.save();
       
-      seller2.followers.push({
-        buyerId: testBuyerId,
-        followDate: new Date('2024-01-15')
+      buyer.activityFeed.push({
+        type: 'follow',
+        reference: seller2._id,
+        referenceModel: 'Seller',
+        createdAt: new Date('2024-01-15')
       });
-      await seller2.save();
+      await buyer.save();
       
       const token = generateToken(testBuyerId);
       
@@ -284,11 +293,15 @@ describe('GET /api/v2/buyers/following', () => {
       });
       await seller.save();
       
-      seller.followers.push({
-        buyerId: testBuyerId,
-        followDate: new Date()
+      const Buyer = require('@models/Buyer');
+      const buyer = await Buyer.findById(testBuyerId);
+      buyer.activityFeed.push({
+        type: 'follow',
+        reference: seller._id,
+        referenceModel: 'Seller',
+        createdAt: new Date()
       });
-      await seller.save();
+      await buyer.save();
       
       const token = generateToken(testBuyerId);
       
@@ -314,11 +327,15 @@ describe('GET /api/v2/buyers/following', () => {
       });
       await seller.save();
       
-      seller.followers.push({
-        buyerId: testBuyerId,
-        followDate: new Date()
+      const Buyer = require('@models/Buyer');
+      const buyer = await Buyer.findById(testBuyerId);
+      buyer.activityFeed.push({
+        type: 'follow',
+        reference: seller._id,
+        referenceModel: 'Seller',
+        createdAt: new Date()
       });
-      await seller.save();
+      await buyer.save();
       
       const token = generateToken(testBuyerId);
       

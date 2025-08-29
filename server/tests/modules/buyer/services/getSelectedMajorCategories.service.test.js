@@ -1,9 +1,13 @@
 const { getSelectedMajorCategories } = require('@modules/buyer/services/getSelectedMajorCategories.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const majorCategoryRepository = require('@modules/buyer/repositories/majorCategory.repository');
 const NotFoundException = require('@utils/errors/NotFoundException');
 
 // Mock the buyer repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
+
+// Mock the major category repository
+jest.mock('@modules/buyer/repositories/majorCategory.repository');
 
 describe('getSelectedMajorCategories', () => {
   beforeEach(() => {
@@ -56,13 +60,13 @@ describe('getSelectedMajorCategories', () => {
     // Mock repository methods
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue(['Electronics', 'Computers', 'Clothing', 'Shoes']);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 
     expect(buyerRepository.findByIdWithSelectedCategories).toHaveBeenCalledWith('buyer123');
     expect(buyerRepository.extractSelectedCategoryNames).toHaveBeenCalledWith(mockBuyer);
-    expect(buyerRepository.findAllActiveMajorCategories).toHaveBeenCalled();
+    expect(majorCategoryRepository.findAllActiveMajorCategories).toHaveBeenCalled();
 
     expect(result).toEqual({
       selectedMajorCategories: [
@@ -110,7 +114,7 @@ describe('getSelectedMajorCategories', () => {
 
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue([]);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 
@@ -141,7 +145,7 @@ describe('getSelectedMajorCategories', () => {
 
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue(['Electronics']);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 
@@ -195,7 +199,7 @@ describe('getSelectedMajorCategories', () => {
 
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue(['Electronics', 'Computers', 'Clothing', 'Shoes', 'Football', 'Basketball']);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 
@@ -229,7 +233,7 @@ describe('getSelectedMajorCategories', () => {
 
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue(['Electronics', 'Computers']);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 
@@ -261,7 +265,7 @@ describe('getSelectedMajorCategories', () => {
 
     buyerRepository.findByIdWithSelectedCategories.mockResolvedValue(mockBuyer);
     buyerRepository.extractSelectedCategoryNames.mockReturnValue([]);
-    buyerRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+    majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories);
 
     const result = await getSelectedMajorCategories('buyer123');
 

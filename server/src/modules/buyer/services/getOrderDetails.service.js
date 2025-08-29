@@ -35,6 +35,7 @@
  */
 
 const buyerRepository = require('../repositories/buyer.repository');
+const orderRepository = require('../repositories/order.repository');
 const { validateGetOrderDetailsData } = require('../validators/getOrderDetails.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
@@ -123,7 +124,7 @@ async function getOrderDetails(buyerId, orderId) {
 
   // Step 2: Find the order that belongs to the buyer
   // This ensures the order exists and belongs to the requesting buyer
-  const order = await buyerRepository.findOrderByIdAndBuyer(orderId, buyerId);
+  const order = await orderRepository.findByIdAndBuyer(orderId, buyerId);
   
   // Step 3: Check if order exists and belongs to buyer
   // This prevents unauthorized access to other buyers' orders

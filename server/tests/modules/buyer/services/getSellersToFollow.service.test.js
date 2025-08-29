@@ -1,10 +1,12 @@
 const { getPaginatedSellersToFollow } = require('@modules/buyer/services/getSellersToFollow.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
+const sellerRepository = require('@modules/buyer/repositories/seller.repository');
 const ValidationError = require('@utils/errors/ValidationError');
 const getSellersToFollowValidator = require('@modules/buyer/validators/getSellersToFollow.validator');
 
-// Mock the repository
+// Mock the repositories
 jest.mock('@modules/buyer/repositories/buyer.repository');
+jest.mock('@modules/buyer/repositories/seller.repository');
 jest.mock('@modules/buyer/validators/getSellersToFollow.validator', () => ({
   validateGetSellersToFollowData: jest.fn()
 }));
@@ -50,10 +52,10 @@ describe('getSellersToFollow.service', () => {
       const mockFollowedSellerIds = ['seller3', 'seller4'];
 
       // Mock repository methods
-      buyerRepository.findFollowedSellerIds.mockResolvedValue(mockFollowedSellerIds);
-      buyerRepository.countSellersToFollow.mockResolvedValue(50);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue(mockFollowedSellerIds);
+      sellerRepository.countSellersToFollow.mockResolvedValue(50);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
       // Test parameters
       const buyerId = 'buyer123';
@@ -70,8 +72,8 @@ describe('getSellersToFollow.service', () => {
       });
 
       // Verify repository calls
-      expect(buyerRepository.findFollowedSellerIds).toHaveBeenCalledWith('buyer123');
-      expect(buyerRepository.countSellersToFollow).toHaveBeenCalledWith(
+      expect(sellerRepository.findFollowedSellerIds).toHaveBeenCalledWith('buyer123');
+      expect(sellerRepository.countSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
           isDisabled: false,
           $or: [
@@ -82,7 +84,7 @@ describe('getSellersToFollow.service', () => {
           _id: { $nin: mockFollowedSellerIds }
         })
       );
-      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+      expect(sellerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
         expect.any(Object),
         10,
         expect.any(Number)
@@ -152,10 +154,10 @@ describe('getSellersToFollow.service', () => {
       ];
 
       // Mock repository methods
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(1);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(1);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
       // Execute service without buyer ID
       const result = await getPaginatedSellersToFollow(null, {
@@ -164,8 +166,8 @@ describe('getSellersToFollow.service', () => {
         filters: {}
       });
 
-      expect(buyerRepository.findFollowedSellerIds).toHaveBeenCalledWith(null);
-      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+      expect(sellerRepository.findFollowedSellerIds).toHaveBeenCalledWith(null);
+      expect(sellerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
         expect.any(Object),
         0,
         expect.any(Number)
@@ -192,10 +194,10 @@ describe('getSellersToFollow.service', () => {
       ];
 
       // Mock repository methods
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(25);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
-      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(25);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
       // Execute service with pagination
       const result = await getPaginatedSellersToFollow('buyer123', {
@@ -204,7 +206,7 @@ describe('getSellersToFollow.service', () => {
         filters: {}
       });
 
-      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+      expect(sellerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
         expect.any(Object),
         10,
         expect.any(Number)
@@ -237,9 +239,9 @@ describe('getSellersToFollow.service', () => {
       ];
 
       // Mock repository methods
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(50);
-      buyerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(50);
+      sellerRepository.findSellersToFollowRandomized.mockResolvedValue(mockSellers);
 
       // Execute service with randomization
       const result = await getPaginatedSellersToFollow('buyer123', {
@@ -248,7 +250,7 @@ describe('getSellersToFollow.service', () => {
         filters: {}
       });
 
-      expect(buyerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
+      expect(sellerRepository.findSellersToFollowRandomized).toHaveBeenCalledWith(
         expect.any(Object),
         10,
         expect.any(Number)
@@ -275,9 +277,9 @@ describe('getSellersToFollow.service', () => {
       ];
 
       // Mock repository methods
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(10);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(10);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
 
       // Execute service without randomization
       const result = await getPaginatedSellersToFollow('buyer123', {
@@ -286,7 +288,7 @@ describe('getSellersToFollow.service', () => {
         filters: {}
       });
 
-      expect(buyerRepository.findSellersToFollow).toHaveBeenCalledWith(
+      expect(sellerRepository.findSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
           query: expect.any(Object),
           sortOptions: expect.any(Object),
@@ -315,9 +317,9 @@ describe('getSellersToFollow.service', () => {
         }
       ];
 
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(1);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(1);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
 
       const query = {
         page: '1',
@@ -374,9 +376,9 @@ describe('getSellersToFollow.service', () => {
 
     it('should handle empty search and category filters', async () => {
       const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(0);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
 
       const query = {
         page: '1',
@@ -396,7 +398,7 @@ describe('getSellersToFollow.service', () => {
         }
       });
 
-      expect(buyerRepository.countSellersToFollow).toHaveBeenCalledWith(
+      expect(sellerRepository.countSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
           isDisabled: false
         })
@@ -405,9 +407,9 @@ describe('getSellersToFollow.service', () => {
 
     it('should handle search filter correctly', async () => {
       const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(0);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
 
       const query = {
         page: '1',
@@ -427,7 +429,7 @@ describe('getSellersToFollow.service', () => {
         }
       });
 
-      expect(buyerRepository.countSellersToFollow).toHaveBeenCalledWith(
+      expect(sellerRepository.countSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
           $or: [
             { storeName: { $regex: 'fashion store', $options: 'i' } },
@@ -439,9 +441,9 @@ describe('getSellersToFollow.service', () => {
 
     it('should handle category filter correctly', async () => {
       const mockSellers = [];
-      buyerRepository.findFollowedSellerIds.mockResolvedValue([]);
-      buyerRepository.countSellersToFollow.mockResolvedValue(0);
-      buyerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
+      sellerRepository.findFollowedSellerIds.mockResolvedValue([]);
+      sellerRepository.countSellersToFollow.mockResolvedValue(0);
+      sellerRepository.findSellersToFollow.mockResolvedValue(mockSellers);
 
       const query = {
         page: '1',
@@ -461,7 +463,7 @@ describe('getSellersToFollow.service', () => {
         }
       });
 
-      expect(buyerRepository.countSellersToFollow).toHaveBeenCalledWith(
+      expect(sellerRepository.countSellersToFollow).toHaveBeenCalledWith(
         expect.objectContaining({
           'categories.name': { $regex: 'electronics', $options: 'i' }
         })

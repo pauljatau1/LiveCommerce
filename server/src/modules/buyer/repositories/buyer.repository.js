@@ -1,8 +1,13 @@
+/**
+ * Buyer Repository
+ *
+ * This repository contains all database operations related to the Buyer model.
+ * It provides methods for finding, updating, and managing buyer data.
+ *
+ * @module buyerRepository
+ */
+
 const Buyer = require('../../../models/Buyer');
-const Post = require('../../../models/Post');
-const Seller = require('../../../models/Seller');
-const Order = require('../../../models/Order');
-const Stream = require('../../../models/Stream');
 
 /**
  * Retrieves all buyers that match the given filters.
@@ -86,18 +91,6 @@ async function getFollowingCount(buyerId) {
 }
 
 /**
- * Get the count of posts by a buyer.
- * @param {string} buyerId - The buyer's ID
- * @returns {Promise<number>} Number of posts
- */
-async function getPostsCount(buyerId) {
-  return Post.countDocuments({ 
-    'author.userId': buyerId, 
-    'author.userModel': 'Buyer' 
-  });
-}
-
-/**
  * Find a buyer by username.
  * @param {string} username - The username to search for
  * @returns {Promise<Buyer|null>}
@@ -135,85 +128,6 @@ async function findByIdWithSelectedCategories(buyerId) {
 }
 
 /**
- * Count orders for a buyer with optional filters.
- * @param {Object} query - Query object with filters
- * @returns {Promise<number>}
- */
-async function countOrders(query) {
-  const Order = require('../../../models/Order');
-  return Order.countDocuments(query);
-}
-
-/**
- * Find orders for a buyer with pagination and filters.
- * @param {Object} query - Query object with filters
- * @param {Object} options - Pagination and sorting options
- * @returns {Promise<Array>}
- */
-async function findOrders(query, options) {
-  const Order = require('../../../models/Order');
-  return Order.find(query)
-    .sort(options.sort)
-    .skip(options.skip)
-    .limit(options.limit)
-    .populate('items.product', 'name images price')
-    .populate('items.seller', 'storeName');
-}
-
-/**
- * Find return requests for orders.
- * @param {Array} orderIds - Array of order IDs
- * @returns {Promise<Array>}
- */
-async function findReturnRequests(orderIds) {
-  const Return = require('../../../models/Return');
-  return Return.find({
-    order: { $in: orderIds }
-  }, '_id order status');
-}
-
-/**
- * Find a specific order by ID that belongs to a buyer.
- * @param {string} orderId - The order's ID
- * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Object|null>} Order with populated data or null if not found
- */
-async function findOrderByIdAndBuyer(orderId, buyerId) {
-  const Order = require('../../../models/Order');
-  
-  return Order.findOne({
-    _id: orderId,
-    buyer: buyerId
-  })
-    .populate('items.product')
-    .populate('items.seller', 'storeName email phoneNumber');
-}
-
-/**
- * Find all orders for a buyer.
- * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Array>} Array of orders
- */
-async function findBuyerOrders(buyerId) {
-  const Order = require('../../../models/Order');
-  return Order.find({ buyer: buyerId });
-}
-
-/**
- * Find recent orders for a buyer with populated data.
- * @param {string} buyerId - The buyer's ID
- * @param {number} limit - Number of recent orders to retrieve
- * @returns {Promise<Array>} Array of recent orders with populated data
- */
-async function findRecentOrders(buyerId, limit = 5) {
-  const Order = require('../../../models/Order');
-  return Order.find({ buyer: buyerId })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .populate('items.product', 'name images price');
-}
-
-/**
  * Find buyer by ID and select only shipping addresses.
  * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Buyer|null>} Buyer with shipping addresses or null if not found
@@ -244,26 +158,27 @@ async function addShippingAddress(buyerId, addressData) {
  * @returns {Promise<Buyer>} Updated buyer with modified address
  */
 async function updateShippingAddress(buyerId, addressId, updateData) {
-  // Build the update object with dot notation for each field
-  const updateObject = {};
-  Object.keys(updateData).forEach(key => {
-    updateObject[`shippingAddresses.$.${key}`] = updateData[key];
-  });
-
-  return Buyer.findOneAndUpdate(
+  return Buyer.findByIdAndUpdate(
+    buyerId,
     {
-      _id: buyerId,
-      'shippingAddresses._id': addressId
+      $set: {
+        'shippingAddresses.$[address]': {
+          ...updateData,
+          _id: addressId,
+          updatedAt: new Date()
+        }
+      }
     },
     {
-      $set: updateObject
-    },
-    { new: true }
+      new: true,
+      runValidators: true,
+      arrayFilters: [{ 'address._id': addressId }]
+    }
   );
 }
 
 /**
- * Delete a shipping address for a buyer.
+ * Delete a shipping address from a buyer.
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID to delete
  * @returns {Promise<Buyer>} Updated buyer with address removed
@@ -272,340 +187,150 @@ async function deleteShippingAddress(buyerId, addressId) {
   return Buyer.findByIdAndUpdate(
     buyerId,
     { $pull: { shippingAddresses: { _id: addressId } } },
-    { new: true }
+    { new: true, runValidators: true }
   );
 }
 
 /**
- * Find a buyer by ID with populated wishlist data.
+ * Find buyer by ID with populated wishlist.
  * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Buyer|null>} Buyer with populated wishlist or null if not found
  */
 async function findByIdWithPopulatedWishlist(buyerId) {
   return Buyer.findById(buyerId)
+    .select('wishlist')
     .populate({
       path: 'wishlist.product',
-      select: 'name description price images category brand stock',
+      select: 'name images price description category stock seller',
       populate: {
         path: 'seller',
-        select: 'storeName businessName'
+        select: 'storeName'
       }
     });
 }
 
 /**
- * Update buyer's phone verification data.
- * 
- * This function updates the phone verification information for a buyer.
- * It uses findByIdAndUpdate to ensure atomic updates and returns the updated document.
- * The runValidators option ensures that any schema validations are applied during the update.
- *
- * @param {string} buyerId - The buyer's ID to update
- * @param {Object} phoneVerificationData - The phone verification data to update
- * @param {string} phoneVerificationData.otp - The OTP code for phone verification
- * @param {Date} phoneVerificationData.expiresAt - When the OTP expires
- * @param {boolean} phoneVerificationData.verified - Whether the phone is verified
- * @returns {Promise<Buyer>} Updated buyer document with new phone verification data
+ * Update phone verification for a buyer.
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} phoneVerificationData - Phone verification data
+ * @returns {Promise<Buyer>} Updated buyer with phone verification
  */
 async function updatePhoneVerification(buyerId, phoneVerificationData) {
   return Buyer.findByIdAndUpdate(
     buyerId,
-    { $set: { phoneVerification: phoneVerificationData } }, // Use $set to update the entire phoneVerification object
-    { new: true, runValidators: true } // Return updated document and run schema validations
-  );
-}
-
-/**
- * Find a user by ID based on userType.
- * 
- * This function provides a generic way to find either a buyer or seller
- * based on the userType parameter. It routes the query to the appropriate
- * model (Buyer or Seller) based on the userType.
- *
- * @param {string} userId - The user ID to find
- * @param {string} userType - The type of user ('buyer' or 'seller')
- * @returns {Promise<Object>} The found user document (Buyer or Seller)
- * @throws {Error} If userType is not 'buyer' or 'seller'
- */
-async function findUserById(userId, userType) {
-  if (userType === 'seller') {
-    return await Seller.findById(userId); // Query the Seller collection
-  }
-  return await Buyer.findById(userId); // Query the Buyer collection
-}
-
-/**
- * Find a seller by ID with selected fields for public profile display.
- * 
- * This function retrieves a seller with carefully selected fields that are
- * appropriate for public display. It excludes sensitive information like
- * passwords, internal IDs, and private business details while including
- * all necessary information for store display and user interaction.
- *
- * Selected Fields Include:
- * - Basic Info: firstName, lastName, email
- * - Business Info: businessName, businessType, businessEmail, businessNumber
- * - Store Info: storeName, aboutStore, storeAvatar, storeBanner
- * - Verification: isVerified, verificationDocuments, smileIdVerification
- * - Categories: categories (for store categorization)
- * - Social: socialMedia, followers
- * - Stats: reviews, stats (for store performance metrics)
- * - Settings: vacationMode, shippingOptions, warehouseDetails
- *
- * @param {string} sellerId - The seller's ID to retrieve
- * @returns {Promise<Seller|null>} Seller document with selected fields or null if not found
- */
-async function findSellerById(sellerId) {
-  return Seller.findById(sellerId)
-    .select('firstName lastName email businessName businessType taxInformation businessEmail businessNumber accountPending businessAddress accountType isVerified isInternational verificationDocuments smileIdVerification cancelledStreamCount lastStreamCancellation categories shippingOptions warehouseDetails storeName aboutStore storeAvatar storeBanner socialMedia vacationMode createdAt updatedAt followers reviews stats')
-    .populate('reviews'); // Populate reviews for immediate access to review data
-}
-
-/**
- * Find orders for a seller.
- * 
- * This function retrieves all orders that belong to a specific seller.
- * It's used for seller dashboard and order management functionality.
- *
- * @param {string} sellerId - The seller's ID to find orders for
- * @returns {Promise<Array>} Array of order documents belonging to the seller
- */
-async function findOrdersBySeller(sellerId) {
-  return Order.find({ seller: sellerId });
-}
-
-/**
- * Count streams for a seller.
- * 
- * This function counts the total number of streams created by a seller.
- * It's used for seller statistics and profile information.
- *
- * @param {string} sellerId - The seller's ID to count streams for
- * @returns {Promise<number>} Number of streams created by the seller
- */
-async function countStreamsBySeller(sellerId) {
-  return Stream.countDocuments({ seller: sellerId });
-}
-
-/**
- * Count buyers following a seller.
- * 
- * This function counts the number of buyers who are following a specific seller.
- * It retrieves only the followers field to optimize performance and then
- * returns the length of the followers array.
- *
- * @param {string} sellerId - The seller's ID to count followers for
- * @returns {Promise<number>} Number of buyers following the seller
- */
-async function countBuyersFollowingSeller(sellerId) {
-  const seller = await Seller.findById(sellerId).select('followers'); // Only retrieve followers field
-  return seller.followers.length; // Return the count of followers
-}
-
-/**
- * Get review statistics for a seller using MongoDB aggregation.
- * 
- * This function performs a complex aggregation pipeline to calculate
- * review statistics for a seller's products. It:
- * 1. Matches orders for the specific seller
- * 2. Unwinds order items to process each product individually
- * 3. Looks up product data to get review information
- * 4. Unwinds product reviews to process each review
- * 5. Groups and calculates total reviews and average rating
- *
- * Aggregation Pipeline Steps:
- * - $match: Filters orders by seller ID
- * - $unwind: Expands order items array
- * - $lookup: Joins with products collection to get review data
- * - $unwind: Expands product data array (should only have one element)
- * - $unwind: Expands reviews array to process each review individually
- * - $group: Calculates statistics (total reviews, average rating)
- *
- * @param {string} sellerId - The seller's ID to get review stats for
- * @returns {Promise<Array>} Array containing review statistics object
- *   - totalReviews: {number} - Total number of reviews
- *   - averageRating: {number} - Average rating across all reviews
- */
-async function getSellerReviewStats(sellerId) {
-  const mongoose = require('mongoose');
-  
-  return Order.aggregate([
-    // Step 1: Match orders for the specific seller
-    { $match: { seller: new mongoose.Types.ObjectId(sellerId) } },
-    
-    // Step 2: Unwind order items to process each product individually
-    { $unwind: '$items' },
-    
-    // Step 3: Lookup product data to get review information
     {
-      $lookup: {
-        from: 'products', // Collection to join with
-        localField: 'items.product', // Field from orders collection
-        foreignField: '_id', // Field from products collection
-        as: 'productData' // Output array name
+      $set: {
+        phoneVerification: {
+          ...phoneVerificationData,
+          updatedAt: new Date()
+        }
       }
     },
-    
-    // Step 4: Unwind product data array (should only have one element)
-    { $unwind: '$productData' },
-    
-    // Step 5: Unwind reviews array to process each review individually
-    { $unwind: '$productData.reviews' },
-    
-    // Step 6: Group and calculate statistics
-    {
-      $group: {
-        _id: null, // Group all documents together
-        totalReviews: { $sum: 1 }, // Count total reviews
-        averageRating: { $avg: '$productData.reviews.rating' } // Calculate average rating
-      }
-    }
-  ]);
-}
-
-/**
- * Increment store visits for a seller.
- * 
- * This function atomically increments the storeVisits counter for a seller.
- * It uses the $inc operator to ensure thread-safe increment operations
- * and returns the updated seller document.
- *
- * @param {string} sellerId - The seller's ID to increment visits for
- * @returns {Promise<Seller|null>} Updated seller document with incremented storeVisits or null if not found
- */
-async function incrementSellerStoreVisits(sellerId) {
-  return Seller.findByIdAndUpdate(
-    sellerId, 
-    { $inc: { storeVisits: 1 } }, // Atomically increment storeVisits by 1
-    { new: true } // Return the updated document
+    { new: true, runValidators: true }
   );
 }
 
 /**
- * Find buyer with populated followers.
- * 
- * This function retrieves a buyer with their followers list populated with
- * seller information. It's used for displaying buyer's following relationships
- * with detailed seller information.
- *
- * Populated Fields:
- * - sellerId: Full seller object with basic information
- * - firstName, lastName: Seller's name
- * - storeName, businessName: Store information
- * - profileImage, storeAvatar: Visual elements
- *
- * @param {string} buyerId - The buyer's ID to retrieve followers for
+ * Find user by ID and type (Buyer or Seller).
+ * @param {string} userId - The user's ID
+ * @param {string} userType - The user type ('Buyer' or 'Seller')
+ * @returns {Promise<Object|null>} User object or null if not found
+ */
+async function findUserById(userId, userType) {
+  // Handle both capitalized and lowercase user types
+  const normalizedUserType = userType?.toLowerCase();
+  
+  if (normalizedUserType === 'buyer') {
+    return Buyer.findById(userId).select('firstName lastName profileImage');
+  } else if (normalizedUserType === 'seller') {
+    const Seller = require('../../../models/Seller');
+    return Seller.findById(userId).select('storeName storeAvatar');
+  }
+  return null;
+}
+
+/**
+ * Find buyer by ID with populated followers.
+ * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Buyer|null>} Buyer with populated followers or null if not found
  */
 async function findByIdWithPopulatedFollowers(buyerId) {
   return Buyer.findById(buyerId)
+    .select('followers')
     .populate({
       path: 'followers.sellerId',
-      select: 'firstName lastName storeName businessName profileImage storeAvatar'
+      select: 'firstName lastName storeName businessName storeAvatar profileImage'
     });
 }
 
 /**
- * Find sellers that a buyer follows.
- * 
- * This function retrieves all sellers that a specific buyer is following.
- * It queries the Seller collection to find sellers who have the buyer
- * in their followers list.
- *
- * Query Strategy:
- * - Searches Seller collection for sellers with buyer in followers array
- * - Selects essential fields for display
- * - Returns array of seller objects with follower information
- *
- * @param {string} buyerId - The buyer's ID to find followed sellers for
- * @returns {Promise<Array>} Array of sellers that the buyer follows
+ * Find sellers that a buyer is following.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of sellers the buyer is following
  */
 async function findSellersFollowingByBuyer(buyerId) {
-  return Seller.find({
-    'followers.buyerId': buyerId
-  }).select('_id firstName lastName storeName businessName storeAvatar profileImage followers');
+  const buyer = await Buyer.findById(buyerId)
+    .select('activityFeed');
+
+  if (!buyer || !buyer.activityFeed) {
+    return [];
+  }
+
+  // Get all follow activities for sellers
+  const followActivities = buyer.activityFeed.filter(
+    activity => activity.type === 'follow' && activity.referenceModel === 'Seller'
+  );
+
+  if (followActivities.length === 0) {
+    return [];
+  }
+
+  // Get seller IDs from activities
+  const sellerIds = followActivities.map(activity => activity.reference);
+
+  // Fetch sellers separately
+  const Seller = require('../../../models/Seller');
+  const sellers = await Seller.find({
+    _id: { $in: sellerIds }
+  }).select('firstName lastName storeName businessName storeAvatar profileImage');
+
+  // Create a map of activity creation dates
+  const activityDates = {};
+  followActivities.forEach(activity => {
+    activityDates[activity.reference.toString()] = activity.createdAt;
+  });
+
+  // Add followers array to each seller to match what the service expects
+  return sellers.map(seller => ({
+    ...seller.toObject(),
+    followers: [{
+      buyerId: buyerId,
+      followDate: activityDates[seller._id.toString()] || new Date()
+    }]
+  }));
 }
 
 /**
- * Find buyers that a buyer follows.
- * 
- * This function is a placeholder for potential future functionality where
- * buyers might follow other buyers. Currently, the schema doesn't support
- * buyer-to-buyer following, so this returns empty results.
- *
- * Note: This query is intentionally designed to return empty results
- * as the current schema doesn't support buyer-to-buyer following.
- *
- * @param {string} buyerId - The buyer's ID to find followed buyers for
- * @returns {Promise<Array>} Array of buyers that the buyer follows (currently empty)
+ * Find buyers that a buyer is following.
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Array>} Array of buyers the buyer is following
  */
 async function findBuyersFollowingByBuyer(buyerId) {
-  // Note: Buyers don't follow other buyers in the current schema
-  // This is a proper database query that returns empty results
-  return Buyer.find({
-    'followers.buyerId': buyerId
-  }).select('_id firstName lastName profileImage');
-}
+  const buyer = await Buyer.findById(buyerId)
+    .select('activityFeed')
+    .populate({
+      path: 'activityFeed.reference',
+      select: 'firstName lastName username profileImage',
+      match: { 'activityFeed.type': 'follow', 'activityFeed.referenceModel': 'Buyer' }
+    });
 
-/**
- * Check if buyer has made a verified purchase from seller.
- * 
- * This function verifies whether a buyer has completed a purchase from
- * a specific seller by checking for orders that meet specific criteria.
- *
- * Verification Criteria:
- * - Order belongs to the specified buyer and seller
- * - Payment status is 'completed'
- * - Shipping tracking status is 'delivered'
- * - This ensures only fully completed transactions are considered
- *
- * @param {string} buyerId - The buyer's ID to check purchase history for
- * @param {string} sellerId - The seller's ID to check against
- * @returns {Promise<boolean>} True if buyer has made a verified purchase from this seller
- */
-async function hasVerifiedPurchase(buyerId, sellerId) {
-  const completedOrder = await Order.findOne({
-    buyer: buyerId,
-    seller: sellerId,
-    'paymentInfo.status': 'completed', // Payment must be completed
-    'shipping.tracking.status': 'delivered' // Order must be delivered
-  });
-  return !!completedOrder; // Convert to boolean
-}
+  if (!buyer || !buyer.activityFeed) {
+    return [];
+  }
 
-/**
- * Save a seller instance.
- * 
- * This function saves a seller document to the database. It's used when
- * seller data has been modified and needs to be persisted.
- *
- * @param {Object} seller - The seller instance to save
- * @returns {Promise<Seller>} The saved seller document
- */
-async function saveSeller(seller) {
-  return seller.save();
-}
-
-/**
- * Find seller with reviews and stats.
- * 
- * This function retrieves a seller with their review statistics and
- * rating information. It's optimized to only fetch the fields needed
- * for review-related functionality.
- *
- * Selected Fields:
- * - reviews: Array of review objects
- * - stats.averageRating: Average rating across all reviews
- * - stats.totalReviews: Total number of reviews
- * - stats.ratingDistribution: Breakdown of ratings by level
- *
- * @param {string} sellerId - The seller's ID to retrieve reviews for
- * @returns {Promise<Seller|null>} Seller with reviews and stats or null if not found
- */
-async function findSellerWithReviews(sellerId) {
-  // Query seller by ID and select only the fields needed for reviews functionality
-  return Seller.findById(sellerId)
-    .select('reviews stats.averageRating stats.totalReviews stats.ratingDistribution');
+  return buyer.activityFeed
+    .filter(activity => activity.type === 'follow' && activity.referenceModel === 'Buyer' && activity.reference)
+    .map(activity => activity.reference);
 }
 
 /**
@@ -679,17 +404,25 @@ async function updateNotificationPreferences(buyerId, preferences) {
 }
 
 /**
- * Update buyer with reset password OTP and expiry.
+ * Update reset password OTP for a buyer.
  * 
- * This method updates the reset password OTP fields for a specific buyer
- * using findByIdAndUpdate to ensure atomic updates.
+ * This method updates the reset password OTP for a specific buyer.
+ * It stores the OTP hash and expiration time for secure password reset functionality.
  * 
- * @param {string} buyerId - The buyer's ID
- * @param {string} resetOTP - The reset OTP to set
- * @param {Date} expiresAt - The expiry date for the OTP
+ * Security Features:
+ * - Stores OTP hash instead of plain text
+ * - Includes expiration time for security
+ * - Uses atomic update operations
+ * - Returns updated document for confirmation
+ * 
+ * @param {string} buyerId - The buyer's ID to update OTP for
+ * @param {string} resetOTP - The hashed reset OTP
+ * @param {Date} expiresAt - The expiration time for the OTP
  * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function updateResetPasswordOTP(buyerId, resetOTP, expiresAt) {
+  // Use findByIdAndUpdate to update reset password OTP fields
+  // This ensures atomic updates and returns the updated document
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
@@ -698,24 +431,29 @@ async function updateResetPasswordOTP(buyerId, resetOTP, expiresAt) {
         resetPasswordOTPExpires: expiresAt
       }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true } // Return the updated document
   );
 }
 
 /**
- * Reset buyer password and clear reset OTP fields.
+ * Reset password for a buyer.
  * 
- * This method updates the buyer's password and clears the reset OTP fields
- * using findByIdAndUpdate to ensure atomic updates.
+ * This method resets the password for a specific buyer and clears the OTP fields.
+ * It's used after successful OTP verification during password reset process.
  * 
- * @param {string} buyerId - The buyer's ID
+ * Security Features:
+ * - Clears OTP fields after successful reset
+ * - Updates password with new hash
+ * - Uses atomic update operations
+ * - Returns updated document for confirmation
+ * 
+ * @param {string} buyerId - The buyer's ID to reset password for
  * @param {string} newPassword - The new hashed password
  * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function resetPassword(buyerId, newPassword) {
+  // Use findByIdAndUpdate to reset password and clear OTP fields
+  // This ensures atomic updates and returns the updated document
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
@@ -727,128 +465,152 @@ async function resetPassword(buyerId, newPassword) {
         resetPasswordOTPExpires: 1
       }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true } // Return the updated document
   );
 }
 
 /**
- * Update buyer with account deletion OTP and expiry.
+ * Update account deletion OTP for a buyer.
  * 
- * This method updates the account deletion OTP fields for a specific buyer
- * using findByIdAndUpdate to ensure atomic updates.
+ * This method updates the account deletion OTP for a specific buyer.
+ * It stores the OTP hash and expiration time for secure account deletion functionality.
  * 
- * @param {string} buyerId - The buyer's ID
- * @param {string} deletionOTP - The deletion OTP to set
- * @param {Date} expiresAt - The expiry date for the OTP
+ * Security Features:
+ * - Stores OTP hash instead of plain text
+ * - Includes expiration time for security
+ * - Uses atomic update operations
+ * - Returns updated document for confirmation
+ * 
+ * @param {string} buyerId - The buyer's ID to update OTP for
+ * @param {string} deletionOTP - The hashed deletion OTP
+ * @param {Date} expiresAt - The expiration time for the OTP
  * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function updateAccountDeletionOTP(buyerId, deletionOTP, expiresAt) {
+  // Use findByIdAndUpdate to update account deletion OTP fields
+  // This ensures atomic updates and returns the updated document
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
       $set: {
         'accountDeletion.otp': deletionOTP,
-        'accountDeletion.expiresAt': expiresAt,
-        'accountDeletion.attempts': 0
+        'accountDeletion.expiresAt': expiresAt
       }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true } // Return the updated document
   );
 }
 
 /**
- * Increments the account deletion OTP verification attempts for a buyer.
- * This function is used for security tracking and brute force prevention.
- * It atomically increments the failed attempt counter to ensure data consistency
- * even in concurrent scenarios.
+ * Increment account deletion attempts for a buyer.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @returns {Promise<Object|null>} The updated buyer document with incremented attempts or null if buyer not found
+ * This method increments the account deletion attempts counter for a specific buyer.
+ * It's used for rate limiting and security monitoring during account deletion process.
+ * 
+ * Security Features:
+ * - Tracks deletion attempts for rate limiting
+ * - Uses atomic increment operations
+ * - Returns updated document for monitoring
+ * - Helps prevent abuse of deletion functionality
+ * 
+ * @param {string} buyerId - The buyer's ID to increment attempts for
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function incrementAccountDeletionAttempts(buyerId) {
-  // Use MongoDB's atomic $inc operator to safely increment the attempts counter
-  // This prevents race conditions when multiple requests occur simultaneously
+  // Use findByIdAndUpdate with $inc to atomically increment deletion attempts
+  // This ensures thread-safe increment operations
   return Buyer.findByIdAndUpdate(
-    buyerId,                          // Filter: find buyer by ID
+    buyerId,
     {
-      $inc: {
-        'accountDeletion.attempts': 1  // Increment attempts by 1 using atomic operation
-      }
+      $inc: { 'accountDeletion.attempts': 1 }
     },
-    {
-      new: true,                      // Return the updated document (after modification)
-      runValidators: true             // Ensure Mongoose schema validators are applied
-    }
+    { new: true } // Return the updated document
   );
 }
 
 /**
- * Permanently deletes a buyer account by ID.
- * This is an irreversible operation that completely removes the buyer document
- * from the database. Use with extreme caution as this cannot be undone.
- * All associated data should be handled by cascade operations or cleanup processes.
+ * Delete a buyer by ID.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @returns {Promise<Object|null>} The deleted buyer document or null if buyer not found
+ * This method permanently deletes a buyer from the database.
+ * It's used for account deletion functionality after proper verification.
+ * 
+ * Security Features:
+ * - Requires proper authentication and authorization
+ * - Should be used only after OTP verification
+ * - Permanently removes buyer data
+ * - Returns confirmation of deletion
+ * 
+ * @param {string} buyerId - The buyer's ID to delete
+ * @returns {Promise<Object|null>} The deleted buyer document or null if not found
  */
 async function deleteById(buyerId) {
-  // Permanently remove the buyer document from the database
-  // This is the final step in account deletion process
+  // Use findByIdAndDelete to permanently remove the buyer
+  // This ensures the buyer exists before deletion and returns the deleted document
   return Buyer.findByIdAndDelete(buyerId);
 }
 
 /**
- * Adds a new report to a buyer's reports array.
- * This function safely adds a report document to the buyer's reports collection
- * using MongoDB's $push operator for atomic array operations.
+ * Add a report to a buyer.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string) who is making the report
+ * This method adds a report to a buyer's account for moderation purposes.
+ * It stores report details including reason, timestamp, and reporter information.
+ * 
+ * Moderation Features:
+ * - Stores report details for review
+ * - Includes timestamp for tracking
+ * - Supports multiple report types
+ * - Returns updated document for confirmation
+ * 
+ * @param {string} buyerId - The buyer's ID to add report to
  * @param {Object} reportData - The report data to add
- * @returns {Promise<Object|null>} The updated buyer document with the new report or null if buyer not found
+ * @returns {Promise<Object|null>} The updated buyer document or null if not found
  */
 async function addReport(buyerId, reportData) {
+  // Use findByIdAndUpdate to add report to buyer's reports array
+  // This ensures atomic updates and returns the updated document
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
       $push: {
-        reports: reportData
+        reports: {
+          ...reportData,
+          reportedAt: new Date()
+        }
       }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true } // Return the updated document
   );
 }
 
 /**
- * Find buyer by ID with populated wallet on-hold items.
- * This function retrieves a buyer document with their wallet on-hold items
- * populated with product information including auction status and images.
+ * Find buyer by ID with wallet on-hold items.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @returns {Promise<Object|null>} The buyer document with populated wallet on-hold items or null if not found
+ * This method retrieves a buyer with their wallet on-hold items for
+ * order processing and payment management.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with wallet on-hold items or null if not found
  */
 async function findByIdWithWalletOnHoldItems(buyerId) {
   return Buyer.findById(buyerId)
-    .populate('wallet.onHoldItems.productId', 'name images auction.status auction.endDate');
+    .select('wallet.balance wallet.onHoldAmount wallet.onHoldItems wallet.currency')
+    .populate({
+      path: 'wallet.onHoldItems.productId',
+      select: 'name images auction'
+    })
+    .lean();
 }
 
 /**
- * Update buyer's wallet on-hold items and recalculated on-hold amount.
- * This function atomically updates the buyer's wallet with filtered on-hold items
- * and the recalculated on-hold amount when ended auctions are released.
+ * Update wallet on-hold items for a buyer.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @param {Array} filteredOnHoldItems - The filtered on-hold items (ended auctions removed)
- * @param {number} recalculatedOnHoldAmount - The recalculated total on-hold amount
- * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ * This method updates the wallet on-hold items and amount for a buyer.
+ * It's used during order processing to manage payment holds.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Array} filteredOnHoldItems - The filtered on-hold items
+ * @param {number} recalculatedOnHoldAmount - The recalculated on-hold amount
+ * @returns {Promise<Buyer>} Updated buyer with modified wallet
  */
 async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculatedOnHoldAmount) {
   return Buyer.findByIdAndUpdate(
@@ -859,33 +621,33 @@ async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculate
         'wallet.onHoldAmount': recalculatedOnHoldAmount
       }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true, runValidators: true }
   );
 }
 
 /**
- * Find a buyer by ID with wallet transactions.
- * This function retrieves a buyer document with their wallet information
- * including transactions and balance.
+ * Find buyer by ID with wallet information.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @returns {Promise<Object|null>} The buyer document with wallet information or null if not found
+ * This method retrieves a buyer with their wallet information for
+ * balance checking and transaction management.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Buyer|null>} Buyer with wallet information or null if not found
  */
 async function findByIdWithWallet(buyerId) {
-  return Buyer.findById(buyerId).select('wallet firstName lastName email');
+  return Buyer.findById(buyerId).select('wallet');
 }
 
 /**
- * Update buyer's wallet with new transaction and balance.
- * This function adds a new transaction to the buyer's wallet and updates the balance.
+ * Update wallet with a new transaction.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @param {Object} transaction - The transaction object to add
- * @param {number} newBalance - The new wallet balance after transaction
- * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ * This method adds a new transaction to a buyer's wallet and updates the balance.
+ * It's used for payment processing and balance management.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {Object} transaction - The transaction to add
+ * @param {number} newBalance - The new wallet balance
+ * @returns {Promise<Buyer>} Updated buyer with new transaction
  */
 async function updateWalletWithTransaction(buyerId, transaction, newBalance) {
   return Buyer.findByIdAndUpdate(
@@ -894,111 +656,37 @@ async function updateWalletWithTransaction(buyerId, transaction, newBalance) {
       $push: { 'wallet.transactions': transaction },
       $set: { 'wallet.balance': newBalance }
     },
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true, runValidators: true }
   );
 }
 
 /**
- * Update an existing wallet transaction status.
- * This function updates the status of an existing transaction in the buyer's wallet.
+ * Update wallet transaction status.
  * 
- * @param {string} buyerId - The buyer ID (MongoDB ObjectId string)
- * @param {string} paymentReference - The payment reference to find the transaction
- * @param {string} newStatus - The new status for the transaction
- * @param {number} newBalance - The new wallet balance after status update
- * @returns {Promise<Object|null>} The updated buyer document or null if buyer not found
+ * This method updates the status of a specific transaction in a buyer's wallet.
+ * It's used for payment status updates and transaction management.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} paymentReference - The payment reference to update
+ * @param {string} newStatus - The new transaction status
+ * @param {number} newBalance - The new wallet balance
+ * @returns {Promise<Buyer>} Updated buyer with modified transaction
  */
 async function updateWalletTransactionStatus(buyerId, paymentReference, newStatus, newBalance) {
-  return Buyer.findOneAndUpdate(
-    {
-      _id: buyerId,
-      'wallet.transactions.paymentReference': paymentReference
-    },
+  return Buyer.findByIdAndUpdate(
+    buyerId,
     {
       $set: {
-        'wallet.transactions.$.status': newStatus,
+        'wallet.transactions.$[transaction].status': newStatus,
         'wallet.balance': newBalance
       }
     },
     {
       new: true,
-      runValidators: true
+      runValidators: true,
+      arrayFilters: [{ 'transaction.paymentReference': paymentReference }]
     }
   );
-}
-
-/**
- * Find sellers that can be followed with filtering and pagination.
- * 
- * @param {Object} options - Query options
- * @param {Object} options.query - MongoDB query filters
- * @param {Object} options.sortOptions - Sort options
- * @param {number} options.skip - Number of documents to skip
- * @param {number} options.limit - Number of documents to return
- * @returns {Promise<Array>} Array of sellers that can be followed
- */
-async function findSellersToFollow({ query, sortOptions, skip, limit }) {
-  const Seller = require('../../../models/Seller');
-  
-  return await Seller.find(query)
-    .select(`
-      storeName businessName aboutStore storeAvatar 
-      categories stats followers isVerified isFeatured 
-      createdAt
-    `)
-    .sort(sortOptions)
-    .skip(skip)
-    .limit(limit)
-    .lean();
-}
-
-/**
- * Count sellers that match the given query.
- * 
- * @param {Object} query - MongoDB query filters
- * @returns {Promise<number>} Count of matching sellers
- */
-async function countSellersToFollow(query) {
-  const Seller = require('../../../models/Seller');
-  return await Seller.countDocuments(query);
-}
-
-/**
- * Find sellers with randomization.
- * 
- * @param {Object} query - MongoDB query filters
- * @param {number} limit - Number of documents to return
- * @param {number} randomSkip - Random skip value for randomization
- * @returns {Promise<Array>} Array of sellers that can be followed
- */
-async function findSellersToFollowRandomized(query, limit, randomSkip) {
-  const Seller = require('../../../models/Seller');
-  
-  return await Seller.find(query)
-    .select(`
-      storeName businessName aboutStore storeAvatar 
-      categories stats followers isVerified isFeatured 
-      createdAt
-    `)
-    .skip(randomSkip)
-    .limit(limit)
-    .lean();
-}
-
-/**
- * Find seller IDs that a buyer is already following.
- * 
- * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Array>} Array of seller IDs that the buyer follows
- */
-async function findFollowedSellerIds(buyerId) {
-  const Seller = require('../../../models/Seller');
-  return await Seller.find({
-    'followers.buyerId': buyerId
-  }).distinct('_id');
 }
 
 /**
@@ -1010,14 +698,10 @@ async function findFollowedSellerIds(buyerId) {
  * @returns {Promise<Object|null>} Buyer's public profile data or null if not found
  */
 async function getPublicProfileData(buyerId) {
-  const Post = require('../../../models/Post');
+  const postRepository = require('./post.repository');
   
   // Get post count for public posts
-  const postCount = await Post.countDocuments({
-    'author.userId': buyerId,
-    'author.userModel': 'Buyer',
-    visibility: 'public'
-  });
+  const postCount = await postRepository.countPublicPosts(buyerId);
 
   // Find buyer with populated fields
   const buyer = await Buyer.findById(buyerId)
@@ -1037,24 +721,34 @@ async function getPublicProfileData(buyerId) {
     ])
     .populate([
       {
-        path: 'posts',
-        match: { visibility: 'public' }
+        path: 'selectedCategories',
+        select: 'name'
+      },
+      {
+        path: 'followers',
+        select: 'firstName lastName username profileImage'
       }
-    ])
-    .lean();
+    ]);
+
+  if (!buyer) {
+    return null;
+  }
 
   return {
-    buyer,
+    ...buyer.toObject(),
     postCount
   };
 }
 
 /**
- * Toggle the activity status of a buyer.
+ * Toggle activity status for a buyer.
+ * 
+ * This method toggles the activity status of a buyer between active and inactive.
+ * It's used for account management and activity tracking.
  * 
  * @param {string} buyerId - The buyer's ID
  * @param {boolean} newStatus - The new activity status
- * @returns {Promise<Buyer>} Updated buyer object
+ * @returns {Promise<Buyer>} Updated buyer with new activity status
  */
 async function toggleActivityStatus(buyerId, newStatus) {
   return Buyer.findByIdAndUpdate(
@@ -1065,37 +759,16 @@ async function toggleActivityStatus(buyerId, newStatus) {
 }
 
 /**
- * Get the activity status of a buyer.
+ * Get activity status for a buyer.
  * 
- * This function retrieves only the isActive field for a buyer.
+ * This method retrieves the current activity status of a buyer.
  * 
  * @param {string} buyerId - The buyer's ID
- * @returns {Promise<Buyer|null>} Buyer object with isActive field, or null if buyer not found
+ * @returns {Promise<boolean>} Current activity status
  */
 async function getActivityStatus(buyerId) {
-  return Buyer.findById(buyerId).select('isActive').lean();
-}
-
-/**
- * Find active major categories with populated categories
- * @param {Array} majorCategoryIds - Array of major category IDs
- * @returns {Promise<Array>} Array of major categories with populated categories
- */
-async function findActiveMajorCategories(majorCategoryIds) {
-  const MajorCategory = require('../../../models/MajorCategory');
-  return await MajorCategory.find({
-    _id: { $in: majorCategoryIds },
-    isActive: true
-  }).populate('categories');
-}
-
-/**
- * Find all active major categories with populated categories
- * @returns {Promise<Array>} Array of all active major categories with populated categories
- */
-async function findAllActiveMajorCategories() {
-  const MajorCategory = require('../../../models/MajorCategory');
-  return await MajorCategory.find({ isActive: true }).populate('categories');
+  const buyer = await Buyer.findById(buyerId).select('isActive');
+  return buyer ? buyer.isActive : false;
 }
 
 /**
@@ -1108,13 +781,145 @@ function extractSelectedCategoryNames(buyer) {
 }
 
 /**
- * Find categories by IDs
+ * Get posts count for a buyer.
+ * 
+ * This method retrieves the count of posts for a specific buyer.
+ * It delegates to the post repository for the actual count operation.
+ * 
+ * @param {string} buyerId - The buyer's ID to get posts count for
+ * @returns {Promise<number>} The number of posts for the buyer
+ */
+async function getPostsCount(buyerId) {
+  const postRepository = require('./post.repository');
+  return await postRepository.getPostsCount(buyerId);
+}
+
+/**
+ * Find active major categories by IDs.
+ * 
+ * This method retrieves active major categories by their IDs.
+ * It delegates to the major category repository for the actual operation.
+ * 
+ * @param {Array} majorCategoryIds - Array of major category IDs
+ * @returns {Promise<Array>} Array of active major categories
+ */
+async function findActiveMajorCategories(majorCategoryIds) {
+  const majorCategoryRepository = require('./majorCategory.repository');
+  return await majorCategoryRepository.findActiveMajorCategories(majorCategoryIds);
+}
+
+/**
+ * Find all active major categories.
+ * 
+ * This method retrieves all active major categories.
+ * It delegates to the major category repository for the actual operation.
+ * 
+ * @param {Array} majorCategoryIds - Array of major category IDs
+ * @returns {Promise<Array>} Array of all active major categories
+ */
+async function findAllActiveMajorCategories() {
+  const majorCategoryRepository = require('./majorCategory.repository');
+  return await majorCategoryRepository.findAllActiveMajorCategories();
+}
+
+/**
+ * Find categories by IDs.
+ * 
+ * This method retrieves categories by their IDs.
+ * It delegates to the category repository for the actual operation.
+ * 
  * @param {Array} categoryIds - Array of category IDs
  * @returns {Promise<Array>} Array of categories
  */
 async function findCategoriesByIds(categoryIds) {
-  const Category = require('../../../models/Category');
-  return await Category.find({ _id: { $in: categoryIds } });
+  const categoryRepository = require('./category.repository');
+  return await categoryRepository.findCategoriesByIds(categoryIds);
+}
+
+/**
+ * Find order by ID and buyer.
+ * 
+ * This method retrieves a specific order that belongs to a buyer.
+ * It delegates to the order repository for the actual operation.
+ * 
+ * @param {string} orderId - The order's ID
+ * @param {string} buyerId - The buyer's ID
+ * @returns {Promise<Object|null>} Order with populated data or null if not found
+ */
+async function findOrderByIdAndBuyer(orderId, buyerId) {
+  const orderRepository = require('./order.repository');
+  return await orderRepository.findByIdAndBuyer(orderId, buyerId);
+}
+
+/**
+ * Find seller by ID.
+ * 
+ * This method retrieves a seller by their ID.
+ * It delegates to the seller repository for the actual operation.
+ * 
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Object|null>} Seller document or null if not found
+ */
+async function findSellerById(sellerId) {
+  const sellerRepository = require('./seller.repository');
+  return await sellerRepository.findById(sellerId);
+}
+
+/**
+ * Find seller with reviews.
+ * 
+ * This method retrieves a seller with their review statistics.
+ * It delegates to the seller repository for the actual operation.
+ * 
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Object|null>} Seller with reviews and stats or null if not found
+ */
+async function findSellerWithReviews(sellerId) {
+  const sellerRepository = require('./seller.repository');
+  return await sellerRepository.findWithReviews(sellerId);
+}
+
+/**
+ * Check if buyer has verified purchase from seller.
+ * 
+ * This method checks if a buyer has made a verified purchase from a specific seller.
+ * It delegates to the order repository for the actual operation.
+ * 
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<boolean>} True if buyer has verified purchase, false otherwise
+ */
+async function hasVerifiedPurchase(buyerId, sellerId) {
+  const orderRepository = require('./order.repository');
+  return await orderRepository.hasVerifiedPurchase(buyerId, sellerId);
+}
+
+/**
+ * Find orders by seller.
+ * 
+ * This method retrieves all orders that belong to a specific seller.
+ * It delegates to the order repository for the actual operation.
+ * 
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Array>} Array of order documents belonging to the seller
+ */
+async function findOrdersBySeller(sellerId) {
+  const orderRepository = require('./order.repository');
+  return await orderRepository.findOrdersBySeller(sellerId);
+}
+
+/**
+ * Count streams by seller.
+ * 
+ * This method counts the number of streams for a specific seller.
+ * It delegates to the stream repository for the actual operation.
+ * 
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<number>} Number of streams for the seller
+ */
+async function countStreamsBySeller(sellerId) {
+  const streamRepository = require('./stream.repository');
+  return await streamRepository.countStreamsBySeller(sellerId);
 }
 
 /**
@@ -1131,8 +936,6 @@ async function updateBuyerSelectedCategories(buyerId, selectedCategories) {
   );
 }
 
-
-
 module.exports = {
   findAll,
   save,
@@ -1142,16 +945,9 @@ module.exports = {
   findByIdWithFields,
   getFollowersCount,
   getFollowingCount,
-  getPostsCount,
   findByUsername,
   updateById,
   findByIdWithSelectedCategories,
-  countOrders,
-  findOrders,
-  findReturnRequests,
-  findOrderByIdAndBuyer,
-  findBuyerOrders,
-  findRecentOrders,
   findByIdWithShippingAddresses,
   addShippingAddress,
   updateShippingAddress,
@@ -1159,18 +955,9 @@ module.exports = {
   findByIdWithPopulatedWishlist,
   updatePhoneVerification,
   findUserById,
-  findSellerById,
-  findOrdersBySeller,
-  countStreamsBySeller,
-  countBuyersFollowingSeller,
-  getSellerReviewStats,
-  incrementSellerStoreVisits,
   findByIdWithPopulatedFollowers,
   findSellersFollowingByBuyer,
   findBuyersFollowingByBuyer,
-  hasVerifiedPurchase,
-  saveSeller,
-  findSellerWithReviews,
   findBuyerByIdWithFields,
   findBuyerWithNotificationPreferences,
   updateNotificationPreferences,
@@ -1185,16 +972,19 @@ module.exports = {
   findByIdWithWallet,
   updateWalletWithTransaction,
   updateWalletTransactionStatus,
-  findSellersToFollow,
-  countSellersToFollow,
-  findSellersToFollowRandomized,
-  findFollowedSellerIds,
   getPublicProfileData,
   toggleActivityStatus,
   getActivityStatus,
+  extractSelectedCategoryNames,
+  updateBuyerSelectedCategories,
+  getPostsCount,
   findActiveMajorCategories,
   findAllActiveMajorCategories,
-  extractSelectedCategoryNames,
   findCategoriesByIds,
-  updateBuyerSelectedCategories
+  findOrderByIdAndBuyer,
+  findSellerById,
+  findSellerWithReviews,
+  hasVerifiedPurchase,
+  findOrdersBySeller,
+  countStreamsBySeller
 };
