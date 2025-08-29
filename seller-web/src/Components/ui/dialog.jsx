@@ -13,6 +13,7 @@ const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
+import PropTypes from 'prop-types';
 
 const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
@@ -23,9 +24,16 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
     )}
     {...props} />
 ))
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+DialogOverlay.propTypes = {
+  className: PropTypes.string,
+}
+
+
+
+const DialogContent = React.forwardRef(({ className, children, showCloseButton = true, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -36,15 +44,23 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
       )}
       {...props}>
       {children}
-      <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-100 data-[state=open]:text-zinc-500 dark:ring-offset-zinc-950 dark:focus:ring-zinc-300 dark:data-[state=open]:bg-zinc-800 dark:data-[state=open]:text-zinc-400">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {showCloseButton && (
+        <DialogPrimitive.Close
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-100 data-[state=open]:text-zinc-500 dark:ring-offset-zinc-950 dark:focus:ring-zinc-300 dark:data-[state=open]:bg-zinc-800 dark:data-[state=open]:text-zinc-400">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
+DialogContent.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node,
+  showCloseButton: PropTypes.bool,
+}
+
 
 const DialogHeader = ({
   className,
@@ -54,6 +70,12 @@ const DialogHeader = ({
     className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}
     {...props} />
 )
+DialogHeader.propTypes = {
+  className: PropTypes.string,
+}
+
+
+
 DialogHeader.displayName = "DialogHeader"
 
 const DialogFooter = ({
@@ -65,6 +87,10 @@ const DialogFooter = ({
     {...props} />
 )
 DialogFooter.displayName = "DialogFooter"
+DialogFooter.propTypes = {
+  className: PropTypes.string,
+}
+
 
 const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
@@ -73,6 +99,9 @@ const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
     {...props} />
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
+DialogTitle.propTypes = {
+  className: PropTypes.string,
+}
 
 const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
@@ -81,6 +110,10 @@ const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
     {...props} />
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
+DialogDescription.propTypes = {
+  className: PropTypes.string,
+}
+
 
 export {
   Dialog,
