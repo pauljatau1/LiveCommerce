@@ -1,5 +1,5 @@
 import { createContext, useReducer } from "react";
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -226,7 +226,7 @@ function AuthProvider({ children }) {
         try {
             shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/register`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/register`, {
                 firstName,
                 lastName,
                 email,
@@ -239,19 +239,19 @@ function AuthProvider({ children }) {
                 console.log("create seller response", response);
                 // Store token and user data
                 localStorage.setItem('sellerToken', JSON.stringify({
-                    data: response.data.token,
+                    data: response.data.data.token,
                     isVerified: false // Email verification still needed
                 }));
 
                 // Store user data
-                localStorage.setItem('seller', JSON.stringify(response.data.user));
+                localStorage.setItem('seller', JSON.stringify(response.data.data.user));
 
-                dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
+                dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.data.user });
 
                 // Set the user as authenticated but with unverified email
                 dispatch({
                     type: 'SET_TOKEN', payload: {
-                        data: response.data.token,
+                        data: response.data.data.token,
                         isVerified: false // Email verification still needed
                     }
                 });
@@ -269,27 +269,27 @@ function AuthProvider({ children }) {
                 // Track signup event
                 try {
                     const userData = {
-                        "Seller ID": response.data.user._id,
+                        "Seller ID": response.data.data.user._id,
                         "$email": email,                           // Use reserved property
                         "$name": `${firstName} ${lastName}`,       // Use reserved property
                         "Seller Phone Number": phoneNumber,
                         "Seller Store Name": storeName,
                         "Signup Method": "Email",
-                        "Referral Used": response.data.referralUsed ? "Yes" : "No",
-                        "Referrer ID": response.data.referrerId || "None",
+                        "Referral Used": response.data.data.referralUsed ? "Yes" : "No",
+                        "Referrer ID": response.data.data.referrerId || "None",
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     };
 
-                    await identifyUserMixpanel(response.data.user._id, userData);
+                    await identifyUserMixpanel(response.data.data.user._id, userData);
                     await trackEvent("Seller Signed Up", userData);
 
                     // Track seller account creation with Customer.io
                     if (window.cioanalytics) {
                         const clientIP = await getClientIP().catch(() => 'unknown');
                         // First identify the user
-                        window.cioanalytics.identify(response.data.user._id, {
-                            seller_id: response.data.user._id,
+                        window.cioanalytics.identify(response.data.data.user._id, {
+                            seller_id: response.data.data.user._id,
                             email: email,
                             first_name: firstName,
                             last_name: lastName,
@@ -302,7 +302,7 @@ function AuthProvider({ children }) {
                         // Then track events after a small delay
                         setTimeout(() => {
                             window.cioanalytics.track('seller_account_created', {
-                                seller_id: response.data.user._id,
+                                seller_id: response.data.data.user._id,
                                 email: email,
                                 first_name: firstName,
                                 last_name: lastName,
