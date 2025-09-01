@@ -18,6 +18,7 @@ const InvalidObjectIdException = require('./utils/errors/InvalidObjectIdExceptio
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
+const sellerRoutesV2 = require('./modules/seller/routes/seller.routes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 // const orderRoutesv2 = require('./routes/orderRoutesv2');
@@ -171,6 +172,7 @@ app.use('/api/users/:userId/listings', listingRoutes);
 app.use('/api/v2/buyers', buyerRoutesV2);
 app.use('/api/v2/orders', orderRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
+app.use('/api/v2/sellers', sellerRoutesV2);
 app.use('/api/v2/blips', blipsRoutesV2);
 app.use('/api/v2/products', productRoutesV2);
 
