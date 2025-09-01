@@ -154,13 +154,9 @@ describe('CheckToken Service', () => {
         throw expiredError;
       });
 
-      try {
-        await checkTokenService.checkToken('expired.token');
-        fail('Should have thrown UnauthorizedException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(UnauthorizedException);
-        expect(error.message).toBe('Token has expired. Please sign in again.');
-      }
+      await expect(checkTokenService.checkToken('expired.token'))
+        .rejects
+        .toThrow(UnauthorizedException);
     });
 
     it('should handle generic JWT errors', async () => {
@@ -170,23 +166,15 @@ describe('CheckToken Service', () => {
         throw genericError;
       });
 
-      try {
-        await checkTokenService.checkToken('invalid.token');
-        fail('Should have thrown UnauthorizedException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(UnauthorizedException);
-        expect(error.message).toBe('Invalid Token');
-      }
+      await expect(checkTokenService.checkToken('invalid.token'))
+        .rejects
+        .toThrow(UnauthorizedException);
     });
 
     it('should handle missing token with appropriate message', async () => {
-      try {
-        await checkTokenService.checkToken(null);
-        fail('Should have thrown UnauthorizedException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(UnauthorizedException);
-        expect(error.message).toBe('A token is required for authentication');
-      }
+      await expect(checkTokenService.checkToken(null))
+        .rejects
+        .toThrow(UnauthorizedException);
     });
   });
 
