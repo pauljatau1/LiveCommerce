@@ -264,11 +264,34 @@ async function getNewBuyerObject(data, otp) {
     },
     // Step 4: Set default notification preferences
     notificationPreferences: {
-      orderUpdates: true,
-      liveShows: true,
-      messages: true,
-      communityActivity: true,
-      promotionsAndSales: true
+      orderUpdates: {
+        orderConfirmation: true,
+        shippingAndDelivery: true,
+        orderCancellation: true,
+        refundUpdates: true
+      },
+      liveShows: {
+        allShows: true,
+        followedSellers: true,
+        recommendedShows: true
+      },
+      messages: {
+        fromSellers: true,
+        fromBuyers: true,
+        chatReplies: true,
+        mentions: true
+      },
+      communityActivity: {
+        postComments: true,
+        postLikes: true,
+        repliesAndMentions: true
+      },
+      promotionsAndSales: {
+        flashSales: true,
+        couponsAndDeals: true,
+        trendingProducts: true,
+        recommendations: true
+      }
     }
   });
 
