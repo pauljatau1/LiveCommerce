@@ -12,43 +12,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/register:
- *   post:
- *     summary: Register a new seller
- *     tags: [Seller]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               firstName:
- *                 type: string
- *               lastName:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *               phoneNumber:
- *                 type: string
- *               storeName:
- *                 type: string
- *     responses:
- *       201:
- *         description: Seller registered successfully
- *       400:
- *         description: Bad request
- *       409:
- *         description: Email is already in use
- *       500:
- *         description: Internal server error
- */
-router.post('/register', sellerController.register);
-
-/**
- * @swagger
  * /api/seller/login:
  *   post:
  *     summary: Login a seller
