@@ -1998,7 +1998,7 @@ const LiveAuctionStudio = memo(
                   await checkIfSellerIsFollowedFromSellerProfile(
                     sellerData._id,
                   );
-                console.log("Seller profile data:", sellerProfileData);
+                // console.log("Seller profile data:", sellerProfileData);
                 setIsFollowing(
                   sellerProfileData?.storeInfo?.isFollowing || false,
                 );
@@ -2029,7 +2029,7 @@ const LiveAuctionStudio = memo(
                   await checkIfSellerIsFollowedFromSellerProfile(
                     sellerData._id,
                   );
-                console.log("Seller profile data:", sellerProfileData);
+                // console.log("Seller profile data:", sellerProfileData);
                 setIsFollowing(
                   sellerProfileData?.storeInfo?.isFollowing || false,
                 );
