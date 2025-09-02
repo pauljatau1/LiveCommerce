@@ -559,18 +559,18 @@ function AuthProvider({ children }) {
             shutdown()
             dispatch({ type: "RESET" })
             dispatch({ type: 'SET_LOADING', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/login`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/login`, {
                 email,
                 password
             });
             dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
                 // Check if account is disabled
-                if (response.data.user.isDisabled === true) {
+                if (response.data.data.user.isDisabled === true) {
                     dispatch({ type: 'ACCOUNT_DISABLED' });
 
                     // Store minimal data needed for the disabled dialog
-                    localStorage.setItem('seller', JSON.stringify(response.data.user));
+                    localStorage.setItem('seller', JSON.stringify(response.data.data.user));
                     localStorage.setItem('sellerToken', JSON.stringify({
                         data: response.data.token,
                         isVerified: false
@@ -588,22 +588,22 @@ function AuthProvider({ children }) {
                 }
 
                 // Check if email is verified before setting authenticated state
-                const isEmailVerified = response.data.user.emailVerified === true || response.data.user.isVerified === true;
+                const isEmailVerified = response.data.data.user.emailVerified === true || response.data.data.user.isVerified === true;
 
-                dispatch({ type: 'STORE_SELLER', payload: response.data.user });
+                dispatch({ type: 'STORE_SELLER', payload: response.data.data.user });
 
                 // Set token but respect verification status
                 dispatch({
                     type: 'STORE_TOKEN', payload: {
-                        data: response.data.token,
-                        isVerified: response.data.user.isVerified && isEmailVerified
+                        data: response.data.data.token,
+                        isVerified: response.data.data.user.isVerified && isEmailVerified
                     }
                 });
 
-                localStorage.setItem('seller', JSON.stringify(response.data.user));
+                localStorage.setItem('seller', JSON.stringify(response.data.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
-                    data: response.data.token,
-                    isVerified: response.data.user.isVerified && isEmailVerified
+                    data: response.data.data.token,
+                    isVerified: response.data.data.user.isVerified && isEmailVerified
                 }));
 
 
@@ -616,39 +616,39 @@ function AuthProvider({ children }) {
                     console.error('IP tracking failed:', e);
                 }
 
-                const isPickupAddressRequired = response?.data?.user?.accountType === 'individual' ? response?.data?.user?.hasFilledAddress === false : response?.data?.user?.hasFilledBusinessAddress === false;
-                const onboardingCompletionStatus = response?.data?.user?.emailVerified && !isPickupAddressRequired ? "Completed" : "Not Completed";
+                const isPickupAddressRequired = response?.data?.data?.user?.accountType === 'individual' ? response?.data?.data?.user?.hasFilledAddress === false : response?.data?.data?.user?.hasFilledBusinessAddress === false;
+                const onboardingCompletionStatus = response?.data?.data?.user?.emailVerified && !isPickupAddressRequired ? "Completed" : "Not Completed";
 
                 // Track analytics using our utility
                 try {
                     // User properties for identification
                     const userTraits = {
-                        "$email": response?.data?.user?.email,
-                        "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                        "Store Name": response?.data?.user?.storeName,
+                        "$email": response?.data?.data?.user?.email,
+                        "$name": `${response?.data?.data?.user?.firstName} ${response?.data?.data?.user?.lastName}`,
+                        "Store Name": response?.data?.data?.user?.storeName,
                         "User Type": "Seller",
-                        "Seller Account Type": response?.data?.user?.accountType,
-                        "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                        "Email Verification Status": response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                        "Seller Account Type": response?.data?.data?.user?.accountType,
+                        "Signup Date": new Date(response?.data?.data?.user?.createdAt).toISOString().split('T')[0],
+                        "Email Verification Status": response?.data?.data?.user?.emailVerified ? "Verified" : "Not Verified",
                         "Onboarding Completion Status": onboardingCompletionStatus,
-                        "Onboarding Steps Remaining": `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
-                        "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
-                        "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
-                        "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                        "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
-                        "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                        "Total Wallet Balance": response?.data?.user?.walletBalance,
+                        "Onboarding Steps Remaining": `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
+                        "Primary Payment Account Number": response?.data?.data?.user?.bankDetails?.accountNumber || "None",
+                        "Primary Payment Account Name": response?.data?.data?.user?.bankDetails?.accountName || "None",
+                        "Primary Payment Account Bank": response?.data?.data?.user?.bankDetails?.bankName || "None",
+                        "Primary Payment Account Currency": response?.data?.data?.user?.bankDetails?.accountCurrency || "None",
+                        "Location": `${response?.data?.data?.user?.businessAddress?.country || ''}, ${response?.data?.data?.user?.businessAddress?.city || ''}, ${response?.data?.data?.user?.businessAddress?.state || ''}, ${response?.data?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                        "Total Wallet Balance": response?.data?.data?.user?.walletBalance,
                         "IP Address": clientIP,
                     };
 
                     // Identify user
-                    await identifyUserMixpanel(response?.data?.user?._id, userTraits);
+                    await identifyUserMixpanel(response?.data?.data?.user?._id, userTraits);
 
                     // Track login event with device context and IP
                     await trackEvent("Seller Login", {
                         ...userTraits,
-                        "seller id": response?.data?.user?._id,
-                        "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                        "seller id": response?.data?.data?.user?._id,
+                        "seller full name": `${response?.data?.data?.user?.firstName} ${response?.data?.data?.user?.lastName}`,
                         "Device Type": getDeviceType(),
                         "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                     });
@@ -660,10 +660,10 @@ function AuthProvider({ children }) {
                 if (window.initClarity) {
                     // If clarity isn't directly available but initClarity is, use that
                     window.initClarity({
-                        id: response?.data?.user?._id,
-                        email: response?.data?.user?.email,
-                        firstName: response?.data?.user?.firstName,
-                        lastName: response?.data?.user?.lastName
+                        id: response?.data?.data?.user?._id,
+                        email: response?.data?.data?.user?.email,
+                        firstName: response?.data?.data?.user?.firstName,
+                        lastName: response?.data?.data?.user?.lastName
                     });
                 }
 
@@ -685,21 +685,21 @@ function AuthProvider({ children }) {
                 try {
                     if (window.cioanalytics) {
                         // Always use _id consistently (appears to be your MongoDB ID)
-                        window.cioanalytics.identify(response?.data?.user?._id, {
-                            seller_id: response?.data?.user?._id,
-                            email: response?.data?.user?.email,
-                            email_verification_status: response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                        window.cioanalytics.identify(response?.data?.data?.user?._id, {
+                            seller_id: response?.data?.data?.user?._id,
+                            email: response?.data?.data?.user?.email,
+                            email_verification_status: response?.data?.data?.user?.emailVerified ? "Verified" : "Not Verified",
                             onboarding_completion_status: onboardingCompletionStatus,
-                            onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
-                            first_name: response?.data?.user?.firstName,
-                            last_name: response?.data?.user?.lastName,
-                            phone: response?.data?.user?.phoneNumber,
-                            created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
+                            onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
+                            first_name: response?.data?.data?.user?.firstName,
+                            last_name: response?.data?.data?.user?.lastName,
+                            phone: response?.data?.data?.user?.phoneNumber,
+                            created_at: Math.floor(new Date(response?.data?.data?.user?.createdAt).getTime() / 1000),
                             user_type: 'seller',
-                            account_type: response?.data?.user?.accountType,
-                            store_name: response?.data?.user?.storeName,
-                            location: `${response?.data?.user?.sellerAddress?.country || ''}, ${response?.data?.user?.sellerAddress?.city || ''}, ${response?.data?.user?.sellerAddress?.state || ''}, ${response?.data?.user?.sellerAddress?.addressLine1 || 'pending onboarding completion'}`,
-                            total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                            account_type: response?.data?.data?.user?.accountType,
+                            store_name: response?.data?.data?.user?.storeName,
+                            location: `${response?.data?.data?.user?.sellerAddress?.country || ''}, ${response?.data?.data?.user?.sellerAddress?.city || ''}, ${response?.data?.data?.user?.sellerAddress?.state || ''}, ${response?.data?.data?.user?.sellerAddress?.addressLine1 || 'pending onboarding completion'}`,
+                            total_wallet_balance: `₦${response?.data?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                             ip_address: clientIP,
                             device_type: getDeviceType(),
                             approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
@@ -708,11 +708,11 @@ function AuthProvider({ children }) {
                         // Use setTimeout to ensure identification is processed before tracking events
                         setTimeout(() => {
                             window.cioanalytics.track('seller_account_login', {
-                                seller_id: response?.data?.user?._id,
-                                email: response?.data?.user?.email,
-                                first_name: response?.data?.user?.firstName,
-                                last_name: response?.data?.user?.lastName,
-                                phone: response?.data?.user?.phoneNumber,
+                                seller_id: response?.data?.data?.user?._id,
+                                email: response?.data?.data?.user?.email,
+                                first_name: response?.data?.data?.user?.firstName,
+                                last_name: response?.data?.data?.user?.lastName,
+                                phone: response?.data?.data?.user?.phoneNumber,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
                             });
