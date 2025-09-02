@@ -30,7 +30,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when firstName is not a string', () => {
@@ -43,7 +43,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when firstName is too short', () => {
@@ -56,7 +56,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when firstName is too long', () => {
@@ -69,7 +69,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
     });
 
@@ -83,7 +83,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when lastName is not a string', () => {
@@ -96,7 +96,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when lastName is too short', () => {
@@ -109,7 +109,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when lastName is too long', () => {
@@ -122,7 +122,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
     });
 
@@ -136,7 +136,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when email is not a string', () => {
@@ -149,7 +149,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when email is too short', () => {
@@ -162,7 +162,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when email is too long', () => {
@@ -175,7 +175,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when email format is invalid', () => {
@@ -188,7 +188,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should pass validation with valid email formats', () => {
@@ -223,7 +223,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when password is not a string', () => {
@@ -236,7 +236,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when password is too short', () => {
@@ -249,7 +249,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
     });
 
@@ -263,7 +263,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when phoneNumber is not a string', () => {
@@ -276,7 +276,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when phoneNumber is too short', () => {
@@ -289,7 +289,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when phoneNumber is too long', () => {
@@ -302,7 +302,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
     });
 
@@ -316,7 +316,7 @@ describe('Seller Registration Validator', () => {
           phoneNumber: '1234567890'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when storeName is not a string', () => {
@@ -329,7 +329,7 @@ describe('Seller Registration Validator', () => {
           storeName: 123
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when storeName is too short', () => {
@@ -342,7 +342,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'A'
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should throw error when storeName is too long', () => {
@@ -355,7 +355,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'A'.repeat(101)
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+         expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
     });
 
@@ -370,7 +370,7 @@ describe('Seller Registration Validator', () => {
           storeName: ''
         };
 
-                 expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
 
       it('should include all validation errors in the thrown object', () => {
@@ -383,19 +383,246 @@ describe('Seller Registration Validator', () => {
           storeName: ''
         };
 
-        try {
-          sellerValidator.validateRegisterData(invalidData);
-        } catch (error) {
-          expect(error.errors).toBeDefined();
-          expect(Array.isArray(error.errors)).toBe(true);
-          expect(error.errors.length).toBeGreaterThan(0);
-          
-          // Check that each error has field and message properties
-          error.errors.forEach(err => {
-            expect(err.field).toBeDefined();
-            expect(err.message).toBeDefined();
-          });
-        }
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow();
+      });
+    });
+
+    describe('specific error messages', () => {
+      it('should include correct error message for missing firstName', () => {
+        const invalidData = {
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        
+        // Test specific error message
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'firstName',
+              message: 'firstName is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for missing lastName', () => {
+        const invalidData = {
+          firstName: 'John',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'lastName',
+              message: 'lastName is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for missing email', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'email',
+              message: 'Email is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for missing password', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'password',
+              message: 'Password is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for missing phoneNumber', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'phoneNumber',
+              message: 'Phone number is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for missing storeName', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'storeName',
+              message: 'Store name is required'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for invalid email format', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'invalid-email',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'email',
+              message: 'Please provide a valid email address'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for short password', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: '12345',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'password',
+              message: 'Password must be at least 6 characters long'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for short firstName', () => {
+        const invalidData = {
+          firstName: 'J',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'firstName',
+              message: 'firstName must be at least 2 characters long'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for short lastName', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'D',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'lastName',
+              message: 'lastName must be at least 2 characters long'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for short phoneNumber', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '123',
+          storeName: 'John Store'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'phoneNumber',
+              message: 'Phone number must be at least 10 characters long'
+            })
+          ])
+        }));
+      });
+
+      it('should include correct error message for short storeName', () => {
+        const invalidData = {
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'J'
+        };
+
+        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({
+              field: 'storeName',
+              message: 'Store name must be at least 2 characters long'
+            })
+          ])
+        }));
       });
     });
 

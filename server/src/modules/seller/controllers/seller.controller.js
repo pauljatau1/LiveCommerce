@@ -1,4 +1,5 @@
 const registerService = require('../services/register.service');
+const loginService = require('../services/login.service');
 
 /**
  * Register a seller user.
@@ -26,6 +27,33 @@ async function register(req, res, next) {
   }
 }
 
+/**
+ * Login a seller user.
+ *
+ * This controller handles the login HTTP request.
+ * It delegates the authentication logic to the service layer, and sends a success response.
+ *
+ * @param {Request} req - Express request object containing the seller's login credentials in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function login(req, res, next) {
+  try {
+    // Extract login credentials from request body
+    const loginData = req.body;
+
+    // Call the service layer to handle seller authentication
+    const response = await loginService.login(loginData);
+
+    // Send success response with user data and token
+    res.success(response, 'Login successful');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
-  register
+  register,
+  login
 };
