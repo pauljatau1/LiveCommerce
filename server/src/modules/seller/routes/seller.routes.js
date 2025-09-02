@@ -373,4 +373,107 @@ router.post('/login', sellerController.login);
  */
 router.get('/check-token', sellerController.checkToken);
 
+/**
+ * @swagger
+ * /api/v2/sellers/resend-otp:
+ *   post:
+ *     summary: Resend OTP to seller's email for verification
+ *     description: Sends a new OTP code to the seller's email address for email verification
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Seller's email address
+ *                 example: "john.doe@example.com"
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: true
+ *               message:
+ *                 type: string
+ *                 example: "OTP resent successfully"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "OTP resent successfully"
+ *               pagination:
+ *                 type: null
+ *                 example: null
+ *       400:
+ *         description: Bad request - Invalid email format or email already verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Email is already verified"
+ *               errors:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     field:
+ *                       type: string
+ *                       example: "email"
+ *                     message:
+ *                       type: string
+ *                       example: "Email must be a valid email address"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Seller not found"
+ *               errors:
+ *                 type: null
+ *                 example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Something went wrong!"
+ *               errors:
+ *                 type: null
+ *                 example: null
+ */
+router.post('/resend-otp', sellerController.resendOTP);
+
 module.exports = router;
