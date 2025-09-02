@@ -2,7 +2,7 @@ import { useAuthContext } from '../Hooks/useAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 import axios from 'axios';
 import DisabledAccountDialog from './DisabledAccountDialog';
 import PropTypes from 'prop-types';
@@ -90,7 +90,7 @@ const ProtectedRoute = ({ children }) => {
         }
 
         // For non-auth pages, validate token
-        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+        const response = await axios.get(`${BASE_URL_V2}/sellers/check-token`, {
           headers: {
             Authorization: `Bearer ${tokenData.data}`
           },

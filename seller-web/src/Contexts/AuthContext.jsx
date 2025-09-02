@@ -384,7 +384,7 @@ function AuthProvider({ children }) {
 
             const tokenData = JSON.parse(storedToken);
             console.log('tokenData', tokenData)
-            const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+            const response = await axios.get(`${BASE_URL_V2}/sellers/check-token`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
@@ -395,7 +395,7 @@ function AuthProvider({ children }) {
             if (response.status === 200) {
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
-                    data: response.data.token,
+                    data: response.data.data.token,
                 }));
                 dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
                 return true;
