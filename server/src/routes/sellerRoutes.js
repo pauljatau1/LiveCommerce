@@ -12,53 +12,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/login:
- *   post:
- *     summary: Login a seller
- *     tags: [Seller]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Successful login
- *       400:
- *         description: Bad request
- *       401:
- *         description: Invalid credentials
- *       500:
- *         description: Internal server error
- */
-router.post('/login', sellerController.login);
-
-/**
- * @swagger
- * /api/seller/check-token:
- *   get:
- *     summary: Check if the token is still valid
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Token is still valid
- *       401:
- *         description: Token has expired or is invalid
- *       403:
- *         description: Token is required for authentication
- */
-router.get('/check-token', sellerController.checkToken);
-
-/**
- * @swagger
  * /api/seller/resend-otp:
  *   post:
  *     summary: Resend OTP

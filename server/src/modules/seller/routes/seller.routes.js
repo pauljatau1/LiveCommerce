@@ -166,6 +166,7 @@ router.post('/register', sellerController.register);
  * /api/v2/sellers/login:
  *   post:
  *     summary: Login a seller
+ *     description: Authenticate a seller with email and password
  *     tags: [Seller V2]
  *     requestBody:
  *       required: true
@@ -188,7 +189,7 @@ router.post('/register', sellerController.register);
  *                 example: "password123"
  *     responses:
  *       200:
- *         description: Seller logged in successfully
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
@@ -218,22 +219,9 @@ router.post('/register', sellerController.register);
  *                         email:
  *                           type: string
  *                           example: "john.doe@example.com"
- *                         phoneNumber:
- *                           type: string
- *                           example: "+2348012345678"
  *                         storeName:
  *                           type: string
  *                           example: "John's Store"
- *                         agoraUid:
- *                           type: number
- *                           example: 123456789
- *                         emailVerified:
- *                           type: boolean
- *                           example: true
- *                         createdAt:
- *                           type: string
- *                           format: date-time
- *                           example: "2024-01-01T00:00:00.000Z"
  *                     token:
  *                       type: string
  *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -265,7 +253,7 @@ router.post('/register', sellerController.register);
  *                         type: string
  *                         example: "Email is required"
  *       404:
- *         description: Invalid credentials
+ *         description: Seller not found or invalid credentials
  *         content:
  *           application/json:
  *             schema:
@@ -298,5 +286,91 @@ router.post('/register', sellerController.register);
  *                   example: null
  */
 router.post('/login', sellerController.login);
+
+/**
+ * @swagger
+ * /api/v2/sellers/check-token:
+ *   get:
+ *     summary: Check and validate JWT token for seller authentication
+ *     description: Validates the provided JWT token and returns a new token if valid
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token validated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token validated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Token is valid"
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token has expired. Please sign in again."
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *       403:
+ *         description: Forbidden - No token provided
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "A token is required for authentication"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+router.get('/check-token', sellerController.checkToken);
 
 module.exports = router;
