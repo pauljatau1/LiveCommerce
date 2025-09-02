@@ -1,5 +1,6 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
+const checkTokenService = require('../services/checkToken.service');
 
 /**
  * Register a seller user.
@@ -53,7 +54,34 @@ async function login(req, res, next) {
   }
 }
 
+/**
+ * Check and validate JWT token for seller authentication.
+ *
+ * This controller handles the token validation HTTP request.
+ * It delegates the token validation logic to the service layer and returns a new token.
+ *
+ * @param {Request} req - Express request object containing the token in `req.headers.authorization`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function checkToken(req, res, next) {
+  try {
+    // Extract token from authorization header
+    const token = req.headers['authorization']?.split(' ')[1];
+    
+    // Call the service layer to handle token validation logic
+    const response = await checkTokenService.checkToken(token);
+
+    // Send success response with new token
+    res.success(response, 'Token renewed successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
-  login
+  login,
+  checkToken
 };

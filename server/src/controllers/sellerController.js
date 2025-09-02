@@ -60,29 +60,6 @@ const generateToken = (id) => {
 // Helper function to generate OTP
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
-// Login a seller
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
-
-  // Basic input validation
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required.' });
-  }
-
-  try {
-    const seller = await Seller.findOne({ email });
-    if (!seller || !(await seller.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials.' });
-    }
-
-    const token = generateToken(seller._id);
-    
-    res.json({ user: seller, token });
-  } catch (error) {
-    res.status(500).json({ message: 'Login failed', error: error.message });
-  }
-};
-
 // Resend OTP
 exports.resendOTP = async (req, res) => {
   const { email } = req.body;
@@ -142,25 +119,6 @@ exports.resendOTP = async (req, res) => {
     res.status(500).json({ message: 'Failed to resend OTP', error: error.message });
   }
 };
-
-
-exports.checkToken = async (req, res) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-
-  if (!token) return res.status(403).json({ message: "A token is required for authentication" });
-
-  try {
-    const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
-    const newToken = generateToken(decodedUserData.id);
-    res.json({ token: newToken });
-  } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: "Token has expired. Please sign in again." });
-    }
-    return res.status(401).json({ message: "Invalid Token" });
-  }
-};
-
 
 // Get seller profile
 exports.getProfile = async (req, res) => {
