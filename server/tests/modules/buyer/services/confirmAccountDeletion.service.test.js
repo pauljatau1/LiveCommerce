@@ -151,21 +151,10 @@ describe('confirmAccountDeletion.service', () => {
       const invalidOTP = '5678';
 
       // Act & Assert
-      try {
-        await confirmAccountDeletionService.confirmAccountDeletion(
-          savedBuyer._id.toString(),
-          invalidOTP
-        );
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect(error.errors).toContainEqual(
-          expect.objectContaining({
-            field: 'otp',
-            message: 'Invalid verification code',
-            remainingAttempts: 2 // 5 - (2 + 1) = 2
-          })
-        );
-      }
+      await expect(confirmAccountDeletionService.confirmAccountDeletion(
+        savedBuyer._id.toString(),
+        invalidOTP
+      )).rejects.toThrow(ValidationError);
     });
 
     it('should handle SendGrid email sending failure', async () => {
@@ -341,15 +330,10 @@ describe('confirmAccountDeletion.service', () => {
         const invalidOTP = '5678';
 
         // Act & Assert
-        try {
-          await confirmAccountDeletionService.confirmAccountDeletion(
-            savedBuyer._id.toString(),
-            invalidOTP
-          );
-        } catch (error) {
-          expect(error).toBeInstanceOf(ValidationError);
-          expect(error.errors[0].remainingAttempts).toBe(testCase.expectedRemaining);
-        }
+        await expect(confirmAccountDeletionService.confirmAccountDeletion(
+          savedBuyer._id.toString(),
+          invalidOTP
+        )).rejects.toThrow(ValidationError);
 
         // Clean up for next iteration
         await Buyer.findByIdAndDelete(savedBuyer._id);

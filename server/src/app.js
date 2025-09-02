@@ -13,6 +13,7 @@ const mixpanelClient = require('./config/mixpanel');
 const responseFormatter = require('./middlewares/response.middleware');
 const ValidationError = require('./utils/errors/ValidationError');
 const InvalidObjectIdException = require('./utils/errors/InvalidObjectIdException');
+const BadRequestException = require('./utils/errors/BadRequestException');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -203,6 +204,13 @@ app.use((err, req, res, next) => {
 
   if (err instanceof NotFoundException) {
     return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  if (err instanceof BadRequestException) {
+    return res.status(err.statusCode).json({
       success: false,
       message: err.message,
     });
