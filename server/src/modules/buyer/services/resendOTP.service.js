@@ -77,19 +77,20 @@ function generateOTP() {
  * - Creates professional email structure
  *
  * Template Variables:
+ * - {{firstName}}: The buyer's first name for personalization
  * - {{otp}}: The verification OTP code
- * - {{year}}: Current year for copyright and branding
  *
  * @param {string} email - The recipient's email address
  * @param {string} otp - The verification code to embed in the email
- * @returns {Promise<Object>} SendGrid-compatible email content object
+ * @param {string} firstName - The buyer's first name for personalization
+ * @returns {Object} SendGrid-compatible email content object
  *   - to: recipient email address
  *   - from: sender information with platform branding
  *   - subject: clear email subject line
  *   - html: processed HTML template content
  * @throws {Error} If template file cannot be read or processed
  */
-async function getEmailContent(email, otp) {
+function getEmailContent(email, otp, firstName) {
   // Step 1: Construct the path to the resend OTP email template
   const filePath = path.join(__dirname, '../../../', 'templates', 'resend-otp-email.html');
   
@@ -98,14 +99,14 @@ async function getEmailContent(email, otp) {
   let html = fs.readFileSync(filePath, 'utf-8');
 
   // Step 3: Replace template placeholders with actual data
+  html = html.replace('{{firstName}}', firstName);
   html = html.replace('{{otp}}', otp);
-  html = html.replace('{{year}}', new Date().getFullYear());
 
   // Step 4: Return SendGrid-compatible email object
   return {
     to: email,
-    from: 'Joseph From Auqli <support@auqli.com>',
-    subject: 'Your New Verification Code - Auqli',
+    from: 'Auqli Nigeria <support@auqli.com>',
+    subject: "Here's Your Auqli OTP",
     html
   };
 }
@@ -114,8 +115,8 @@ async function getEmailContent(email, otp) {
  * Sends the OTP email using SendGrid service.
  * 
  * This function handles the email sending process for OTP verification.
- * It constructs the email content using templates and sends it via SendGrid
- * service. Errors are allowed to propagate to the calling function.
+ * It constructs the email content and sends it via SendGrid service.
+ * Errors are allowed to propagate to the calling function.
  *
  * Email Delivery Process:
  * - Constructs email content using template
@@ -125,14 +126,15 @@ async function getEmailContent(email, otp) {
  *
  * @param {string} email - Recipient email address
  * @param {string} otp - OTP code to include in the email
+ * @param {string} firstName - Buyer's first name for personalization
  * @returns {Promise<void>} Resolves when email is sent successfully
- * @throws {Error} If email content construction or SendGrid sending fails
+ * @throws {Error} If SendGrid sending fails
  */
-async function sendOTPEmail(email, otp) {
-  // Step 1: Get the email content with processed HTML template
-  const msg = await getEmailContent(email, otp);
+async function sendOTPEmail(email, otp, firstName) {
+  // Get the email content with processed HTML template
+  const msg = getEmailContent(email, otp, firstName);
   
-  // Step 2: Send the email using SendGrid service
+  // Send the email using SendGrid service
   // If sending fails, the error will propagate to the calling function
   await sgMail.send(msg);
 }
@@ -240,7 +242,7 @@ async function resendOTP(email) {
 
   // Step 5: Send OTP email notification
   // This ensures the user receives the verification code
-  await sendOTPEmail(email, otp);
+  await sendOTPEmail(email, otp, buyer.firstName);
 
   // Step 6: Return success response
   // Note: We don't return the OTP in the response for security reasons

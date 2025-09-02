@@ -161,4 +161,319 @@ const router = express.Router();
  */
 router.post('/register', sellerController.register);
 
+/**
+ * @swagger
+ * /api/v2/sellers/login:
+ *   post:
+ *     summary: Login a seller
+ *     description: Authenticate a seller with email and password
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Seller's email address
+ *                 example: "john.doe@example.com"
+ *               password:
+ *                 type: string
+ *                 description: Seller's password
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "john.doe@example.com"
+ *                         storeName:
+ *                           type: string
+ *                           example: "John's Store"
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation error - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "email"
+ *                       message:
+ *                         type: string
+ *                         example: "Email is required"
+ *       404:
+ *         description: Seller not found or invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid credentials"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+router.post('/login', sellerController.login);
+
+/**
+ * @swagger
+ * /api/v2/sellers/check-token:
+ *   get:
+ *     summary: Check and validate JWT token for seller authentication
+ *     description: Validates the provided JWT token and returns a new token if valid
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token validated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token validated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Token is valid"
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Token has expired. Please sign in again."
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *       403:
+ *         description: Forbidden - No token provided
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "A token is required for authentication"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Something went wrong!"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+router.get('/check-token', sellerController.checkToken);
+
+/**
+ * @swagger
+ * /api/v2/sellers/resend-otp:
+ *   post:
+ *     summary: Resend OTP to seller's email for verification
+ *     description: Sends a new OTP code to the seller's email address for email verification
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Seller's email address
+ *                 example: "john.doe@example.com"
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: true
+ *               message:
+ *                 type: string
+ *                 example: "OTP resent successfully"
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "OTP resent successfully"
+ *               pagination:
+ *                 type: null
+ *                 example: null
+ *       400:
+ *         description: Bad request - Invalid email format or email already verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Email is already verified"
+ *               errors:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     field:
+ *                       type: string
+ *                       example: "email"
+ *                     message:
+ *                       type: string
+ *                       example: "Email must be a valid email address"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Seller not found"
+ *               errors:
+ *                 type: null
+ *                 example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: false
+ *               message:
+ *                 type: string
+ *                 example: "Something went wrong!"
+ *               errors:
+ *                 type: null
+ *                 example: null
+ */
+router.post('/resend-otp', sellerController.resendOTP);
+
 module.exports = router;
