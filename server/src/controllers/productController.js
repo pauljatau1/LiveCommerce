@@ -13,7 +13,7 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
-const baseUrl = process.env.DEEPLINK_URL;
+const baseUrl = process.env.STORE_URL;
 
 
 // Create a new product
