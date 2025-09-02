@@ -523,7 +523,7 @@ function AuthProvider({ children }) {
     const requestNewOtp = async (email) => {
         try {
             dispatch({ type: 'SET_RESENDING_OTP', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/resend-otp`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/resend-otp`, {
                 email
             });
 
