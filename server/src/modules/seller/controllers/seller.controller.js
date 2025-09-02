@@ -1,6 +1,7 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
 const checkTokenService = require('../services/checkToken.service');
+const resendOTPService = require('../services/resendOTP.service');
 
 /**
  * Register a seller user.
@@ -80,8 +81,35 @@ async function checkToken(req, res, next) {
   }
 }
 
+/**
+ * Resend OTP to seller's email for verification.
+ *
+ * This controller handles the OTP resend HTTP request.
+ * It delegates the OTP resend logic to the service layer and returns a success response.
+ *
+ * @param {Request} req - Express request object containing the seller's email in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function resendOTP(req, res, next) {
+  try {
+    // Extract email from request body
+    const { email } = req.body;
+
+    // Call the service layer to handle OTP resend logic
+    const response = await resendOTPService.resendOTP(email);
+
+    // Send success response
+    res.success(response, 'OTP resent successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
-  checkToken
+  checkToken,
+  resendOTP
 };

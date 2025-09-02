@@ -127,7 +127,7 @@ function validateStoreNameField(storeName, errors) {
  * @param {string} data.password - Seller's password
  * @param {string} data.phoneNumber - Seller's phone number
  * @param {string} data.storeName - Seller's store name
- * @throws {ValidationError} If validation fails
+ * @throws {ValidationError} If validation fails (contains all validation errors)
  */
 function validateRegisterData(data) {
   const errors = [];

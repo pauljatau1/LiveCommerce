@@ -135,25 +135,17 @@ function validatePassword(password, errors) {
  *
  * @example
  * // Invalid login data - missing email
- * try {
- *   validateLoginData({
- *     password: 'sellerPassword123'
- *   });
- * } catch (error) {
- *   // error instanceof ValidationError
- *   // error.errors contains validation error details
- * }
+ * validateLoginData({
+ *   password: 'sellerPassword123'
+ * });
+ * // Throws: ValidationError with errors array containing validation details
  *
  * @example
  * // Invalid login data - missing password
- * try {
- *   validateLoginData({
- *     email: 'seller@example.com'
- *   });
- * } catch (error) {
- *   // error instanceof ValidationError
- *   // error.errors contains validation error details
- * }
+ * validateLoginData({
+ *   email: 'seller@example.com'
+ * });
+ * // Throws: ValidationError with errors array containing validation details
  */
 function validateLoginData(data) {
   const errors = [];

@@ -73,6 +73,7 @@ const { generateToken } = require('../../../utils/helpers');
  * - Invalid token errors
  * - JWT verification errors
  * - Clear error messages for users
+ * - Errors are propagated to controller for handling
  *
  * @param {string} token - The JWT token to validate
  * @returns {Object} Object containing validation result and new token
@@ -86,21 +87,13 @@ const { generateToken } = require('../../../utils/helpers');
  *
  * @example
  * // Missing token
- * try {
- *   checkToken();
- * } catch (error) {
- *   // error instanceof UnauthorizedException
- *   // error.message: 'A token is required for authentication'
- * }
+ * const result = checkToken();
+ * // Throws: UnauthorizedException with message 'A token is required for authentication'
  *
  * @example
  * // Expired token
- * try {
- *   checkToken('expired_jwt_token');
- * } catch (error) {
- *   // error instanceof UnauthorizedException
- *   // error.message: 'Token has expired. Please sign in again.'
- * }
+ * const result = checkToken('expired_jwt_token');
+ * // Throws: UnauthorizedException with message 'Token has expired. Please sign in again.'
  */
 function checkToken(token) {
   // Step 1: Validate token presence
@@ -118,7 +111,7 @@ function checkToken(token) {
   // Step 3: Verify the token and decode user data
   // This validates the JWT signature and extracts user information
   // Note: jwt.verify will throw errors for invalid/expired tokens
-  // These errors will be caught by the controller's try/catch and handled by app.js
+  // These errors will be propagated to the controller and handled by app.js error middleware
   const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
   
   // Step 4: Generate a new token with extended expiration
