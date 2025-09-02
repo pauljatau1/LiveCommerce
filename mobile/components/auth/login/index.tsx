@@ -4,8 +4,8 @@ import CheckBox from "@/components/global/check-box";
 import Input from "@/components/global/textInput";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { icons } from "@/constants";
-import { Link, router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Link, router, useLocalSearchParams, useNavigation } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   Image,
@@ -38,6 +38,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { debugAnalytics } from "@/utils/analytics";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { useNavigationState, useRoute } from "@react-navigation/native";
 // import {
 //   GoogleSignin,
 //   isErrorWithCode,
@@ -56,6 +57,7 @@ const statusCodes = {
 };
 
 const Login = () => {
+  const { prevRoute, prevRouteParams } = useLocalSearchParams();
   const { expoPushToken } = usePushNotifications();
   const [state, setState] = useState<any>({});
   const dispatch = useDispatch();
@@ -77,6 +79,37 @@ const Login = () => {
 
   const [login, { isLoading }] = useLoginMutation();
 
+  const [prevRouteLocal, setPrevRouteLocal] = useState<any>();
+
+  const handleAuthReferrer = useCallback(async () => {
+    if (
+      prevRoute &&
+      prevRoute !== "undefined" &&
+      prevRoute !== "/undefined" &&
+      prevRoute !== null
+    ) {
+      await AsyncStorage.setItem(
+        "authReferrer",
+        JSON.stringify({
+          pathname: prevRoute,
+          params: JSON.parse(prevRouteParams?.toString()),
+        }),
+      );
+      setPrevRouteLocal({
+        pathname: prevRoute as any,
+        params: JSON.parse(prevRouteParams?.toString()),
+      });
+    }
+    let local = await AsyncStorage.getItem("authReferrer");
+    if (local) {
+      setPrevRouteLocal(JSON.parse(local));
+    }
+  }, [prevRoute]);
+
+  useEffect(() => {
+    handleAuthReferrer();
+  }, [prevRoute]);
+
   const onSubmit = async () => {
     try {
       const { email, password } = data;
@@ -86,7 +119,10 @@ const Login = () => {
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
       if (!result?.data?.user?.emailVerified) {
-        await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
+        await AsyncStorage.setItem(
+          "registerPayload",
+          JSON.stringify(result?.data),
+        );
         return router.push({
           pathname: "/(root)/(auth)/verify-code",
           params: {
@@ -104,8 +140,11 @@ const Login = () => {
         if (result) {
           // Identify the user directly
           identifyUser(result?.data?.user?._id, {
-            "$email": email,
-            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            $email: email,
+            $name:
+              result?.data?.user?.firstName +
+              " " +
+              result?.data?.user?.lastName,
             firstName: result?.data?.user?.firstName,
             lastName: result?.data?.user?.lastName,
             username: result?.data?.user?.username,
@@ -124,8 +163,11 @@ const Login = () => {
 
           trackEvent("buyer_login", {
             userId: result?.data?.user?._id,
-            "$email": email,
-            "$name": result?.data?.user?.firstName + " " + result?.data?.user?.lastName,
+            $email: email,
+            $name:
+              result?.data?.user?.firstName +
+              " " +
+              result?.data?.user?.lastName,
             firstName: result?.data?.user?.firstName,
             lastName: result?.data?.user?.lastName,
             username: result?.data?.user?.username,
@@ -148,11 +190,22 @@ const Login = () => {
       }
 
       if (result?.data?.user?.selectedCategories?.length! > 0) {
-        router.replace("/(root)/(tabs)/blips");
+        if (prevRouteLocal) {
+          // return console.log("referrer object", prevRouteLocal);
+
+          router.replace(prevRouteLocal);
+          await AsyncStorage.removeItem("authReferrer");
+          return;
+        }
+        router.replace(`/blips`);
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
       console.log(error?.data?.message);
-      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Error Logging in. Please try Again!");
+      toast.error(
+        error.data?.errors?.[0]?.message ||
+          error?.data?.message ||
+          "Error Logging in. Please try Again!",
+      );
     }
   };
 

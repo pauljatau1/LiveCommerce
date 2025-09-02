@@ -49,9 +49,8 @@ const VerifyCodeOtp = () => {
   const [verify, { isLoading }] = useVerifyEmailMutation();
 
   const resendOtp = async (actioned: boolean) => {
-    if(!actioned && !params?.fromLogin)
-    {
-      return
+    if (!actioned && !params?.fromLogin) {
+      return;
     }
     try {
       const response = await axios.post(
@@ -61,18 +60,19 @@ const VerifyCodeOtp = () => {
         },
       );
       if (actioned) {
-        if(response.data?.success)
-        {
+        if (response.data?.success) {
           toast.success("OTP has been Resent");
-        }
-        else
-        {
-          toast.error(response.data?.data?.message)
+        } else {
+          toast.error(response.data?.data?.message);
         }
       }
     } catch (error: any) {
       console.log(error);
-      toast.error(error.data?.errors?.[0]?.message || error?.data?.message || "Could not Resend OTP");
+      toast.error(
+        error.data?.errors?.[0]?.message ||
+          error?.data?.message ||
+          "Could not Resend OTP",
+      );
     }
   };
 
@@ -83,17 +83,13 @@ const VerifyCodeOtp = () => {
         email,
         otp,
       }).unwrap();
-      if(result?.success)
-      {
-
-      toast.success("success");
-      await AsyncStorage.setItem("fromVerify", JSON.stringify(result?.data));
-      router.replace("/(root)/(categories)/category");
-    }
-else
-{
-  toast.error(result?.message)
-}
+      if (result?.success) {
+        toast.success("success");
+        await AsyncStorage.setItem("fromVerify", JSON.stringify(result?.data));
+        router.replace("/(root)/(categories)/category");
+      } else {
+        toast.error(result?.message);
+      }
     } catch (error: any) {
       console.log(error);
       toast.error(error.data.message);
@@ -113,7 +109,7 @@ else
             <Pressable
               onPress={() => {
                 console.log("logging");
-                router.back();
+                router.dismissTo("/sign-up");
               }}
               className="absolute"
               style={{
@@ -189,6 +185,7 @@ else
           <CustomButton
             title="Verify Code"
             onPress={onSubmit}
+            // onPress={() => router.replace("/category")}
             className="mb-4 mt-[18px] !rounded-[40px] py-4 !text-white text-sm font-LexendDecaBold"
             disabled={data.otp.length !== 4 || isLoading}
           />

@@ -1570,7 +1570,10 @@ const ProductDescription = () => {
         onRequestClose={() => setShowAuthSheet(false)}
         keyboardBehavior="interactive"
       >
-        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+        <AuthSheet
+          closeSheet={() => setShowAuthSheet(false)}
+          currentRoute={`product/${id}`}
+        />
       </BottomSheet>
 
       <BottomSheet

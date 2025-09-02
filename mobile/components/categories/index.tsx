@@ -33,6 +33,18 @@ const Categories = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [prevRouteLocal, setPrevRouteLocal] = useState<any>();
+
+  const handleAuthReferrer = useCallback(async () => {
+    let local = await AsyncStorage.getItem("authReferrer");
+    if (local) {
+      setPrevRouteLocal(JSON.parse(local));
+    }
+  }, []);
+
+  useEffect(() => {
+    handleAuthReferrer();
+  }, []);
 
   const canSubmit = useMemo(
     () => !isLoading && !pageLoading && selectedCategories?.length > 0,
@@ -95,6 +107,12 @@ const Categories = () => {
   };
 
   const submitCategories = useCallback(async () => {
+    console.log({ prevRouteLocal });
+    // return fromSettings
+    //   ? router.back()
+    //   : prevRouteLocal
+    //     ? router.dismissTo(prevRouteLocal)
+    //     : router.replace("/(root)/(tabs)/blips");
     const registerPayload = await AsyncStorage.getItem("registerPayload");
     const token = fromSettings
       ? await getToken()
@@ -143,7 +161,9 @@ const Categories = () => {
         if (fromSettings) toast.success("Successfully Updated Interest!");
         return fromSettings
           ? router.back()
-          : router.replace("/(root)/(tabs)/blips");
+          : prevRouteLocal
+            ? router.dismissTo(prevRouteLocal)
+            : router.replace("/(root)/(tabs)/blips");
       }
       toast.error(
         response?.data?.errors?.[0]?.message ||
@@ -160,7 +180,7 @@ const Categories = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCategories, fromSettings]);
+  }, [selectedCategories, fromSettings, prevRouteLocal]);
 
   const renderCategory = useCallback(
     ({ item, index }: any) => {
@@ -187,7 +207,10 @@ const Categories = () => {
             });
           }}
         >
-          <Text className="text-white tracking-[-0.22px] leading-[19.6px]  text-[14px] font-LexendDecaMedium text-center shrink">
+          <Text
+            className="text-white tracking-[-0.22px] leading-[19.6px]  text-[14px] font-LexendDecaMedium text-center shrink"
+            numberOfLines={1}
+          >
             {categoryEmojis[item?.name?.replaceAll("'", "")] || ""} {item?.name}
           </Text>
 
