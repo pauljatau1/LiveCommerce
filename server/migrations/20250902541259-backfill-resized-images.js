@@ -49,6 +49,38 @@ async function checkResizedImagesExist(basePath, fileName) {
 }
 
 /**
+ * Check if image URL is accessible and valid
+ * @param {string} imageUrl - Image URL to check
+ * @returns {Promise<boolean>} - True if image is accessible and valid
+ */
+async function isImageAccessible(imageUrl) {
+  try {
+    // Only check CDN URLs
+    if (!shouldProcessImage(imageUrl)) {
+      return false;
+    }
+    
+    // Extract key from CDN URL
+    const key = extractS3Key(imageUrl);
+    
+    // Check if object exists in S3
+    await s3.headObject({
+      Bucket: process.env.CDN_S3_BUCKET,
+      Key: key
+    }).promise();
+    
+    return true;
+  } catch (error) {
+    if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+      console.log(`Image not found in S3: ${imageUrl}`);
+      return false;
+    }
+    console.warn(`Error checking image accessibility: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Check if URL is a CDN image that should be processed
  * @param {string} imageUrl - Image URL
  * @returns {boolean} - True if it's a CDN image that should be processed
@@ -101,7 +133,26 @@ async function downloadImage(imageUrl) {
       Key: key
     }).promise();
     
-    return response.Body;
+    // Validate the downloaded buffer
+    if (!response.Body || !Buffer.isBuffer(response.Body)) {
+      throw new Error('Invalid response body from S3');
+    }
+    
+    const buffer = response.Body;
+    
+    // Check if buffer is empty
+    if (buffer.length === 0) {
+      throw new Error('Downloaded image buffer is empty');
+    }
+    
+    // Validate that it's actually an image by trying to get metadata
+    try {
+      await sharp(buffer).metadata();
+    } catch (sharpError) {
+      throw new Error(`Invalid image format: ${sharpError.message}`);
+    }
+    
+    return buffer;
   } catch (error) {
     console.error(`Error downloading image from ${imageUrl}:`, error.message);
     throw error;
@@ -153,13 +204,30 @@ async function resizeImage(buffer, maxWidth, format = 'jpeg') {
  */
 async function uploadResizedImages(originalBuffer, basePath, fileName) {
   try {
+    // Validate input buffer
+    if (!originalBuffer || !Buffer.isBuffer(originalBuffer)) {
+      throw new Error('Invalid original buffer provided');
+    }
+    
+    if (originalBuffer.length === 0) {
+      throw new Error('Original buffer is empty');
+    }
+    
     const uploadPromises = [];
 
-    // Detect original image format
-    const metadata = await sharp(originalBuffer).metadata();
+    // Detect original image format with better error handling
+    let metadata;
+    try {
+      metadata = await sharp(originalBuffer).metadata();
+    } catch (sharpError) {
+      throw new Error(`Failed to read image metadata: ${sharpError.message}`);
+    }
+    
     const originalFormat = metadata.format || 'jpeg';
     const extension = originalFormat === 'jpeg' ? 'jpg' : originalFormat;
     const contentType = `image/${originalFormat}`;
+
+    console.log(`Processing image: ${fileName}.${extension} (${metadata.width}x${metadata.height}, ${originalFormat})`);
 
     // Upload original image with original format
     const originalKey = `${basePath}/${fileName}.${extension}`;
@@ -176,7 +244,13 @@ async function uploadResizedImages(originalBuffer, basePath, fileName) {
 
     // Upload resized versions (keeping original format)
     for (const width of RESIZE_DIMENSIONS) {
-      let resizedBuffer = await resizeImage(originalBuffer, width, originalFormat);
+      let resizedBuffer;
+      try {
+        resizedBuffer = await resizeImage(originalBuffer, width, originalFormat);
+      } catch (resizeError) {
+        throw new Error(`Failed to resize image to ${width}w: ${resizeError.message}`);
+      }
+      
       const resizedKey = `${basePath}/resized/${fileName}_${width}w.${extension}`;
 
       uploadPromises.push(
@@ -271,6 +345,14 @@ async function processMainProductImages(product) {
         continue;
       }
       
+      // Check if image is accessible in S3
+      const isAccessible = await isImageAccessible(image.url);
+      if (!isAccessible) {
+        console.log(`Skipping image ${i + 1} - image not accessible in S3: ${image.url}`);
+        updatedImages.push(image);
+        continue;
+      }
+      
       // Generate filename and base path
       const fileName = extractFilenameFromUrl(image.url);
       const basePath = `sellers/${product.seller}/products/${product._id}/images`;
@@ -295,7 +377,7 @@ async function processMainProductImages(product) {
       }
       
       // Download original image
-      const imageBuffer = await downloadImage(image.url);
+      let imageBuffer = await downloadImage(image.url);
       
       // Upload to new location with resized versions
       const uploadResults = await uploadResizedImages(imageBuffer, basePath, fileName);
@@ -369,6 +451,14 @@ async function processVariantImages(variants, productId, sellerId) {
               continue;
             }
             
+            // Check if image is accessible in S3
+            const isAccessible = await isImageAccessible(image.data);
+            if (!isAccessible) {
+              console.log(`  Skipping variant image ${j + 1} - image not accessible in S3: ${image.data}`);
+              updatedImages.push(image);
+              continue;
+            }
+            
             // Generate filename and base path
             const fileName = extractFilenameFromUrl(image.data);
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${variant._id}/images`;
@@ -393,7 +483,7 @@ async function processVariantImages(variants, productId, sellerId) {
             }
             
             // Download original image
-            const imageBuffer = await downloadImage(image.data);
+            let imageBuffer = await downloadImage(image.data);
             
             // Upload to new location with resized versions
             const uploadResults = await uploadResizedImages(imageBuffer, basePath, fileName);
@@ -491,6 +581,14 @@ async function processSubvariantImages(subvariants, productId, sellerId, variant
               continue;
             }
             
+            // Check if image is accessible in S3
+            const isAccessible = await isImageAccessible(image.data);
+            if (!isAccessible) {
+              console.log(`  Skipping subvariant image ${j + 1} - image not accessible in S3: ${image.data}`);
+              updatedImages.push(image);
+              continue;
+            }
+            
             // Generate filename and base path
             const fileName = extractFilenameFromUrl(image.data);
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${subvariant._id}/images`;
@@ -515,7 +613,7 @@ async function processSubvariantImages(subvariants, productId, sellerId, variant
             }
             
             // Download original image
-            const imageBuffer = await downloadImage(image.data);
+            let imageBuffer = await downloadImage(image.data);
             
             // Upload to new location with resized versions
             const uploadResults = await uploadResizedImages(imageBuffer, basePath, fileName);
@@ -613,6 +711,14 @@ async function processSubsubvariantImages(subsubvariants, productId, sellerId, s
               continue;
             }
             
+            // Check if image is accessible in S3
+            const isAccessible = await isImageAccessible(image.data);
+            if (!isAccessible) {
+              console.log(`  Skipping subsubvariant image ${j + 1} - image not accessible in S3: ${image.data}`);
+              updatedImages.push(image);
+              continue;
+            }
+            
             // Generate filename and base path
             const fileName = extractFilenameFromUrl(image.data);
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${subsubvariant._id}/images`;
@@ -637,7 +743,7 @@ async function processSubsubvariantImages(subsubvariants, productId, sellerId, s
             }
             
             // Download original image
-            const imageBuffer = await downloadImage(image.data);
+            let imageBuffer = await downloadImage(image.data);
             
             // Upload to new location with resized versions
             const uploadResults = await uploadResizedImages(imageBuffer, basePath, fileName);
@@ -692,7 +798,7 @@ module.exports = {
       
       let processedCount = 0;
       let errorCount = 0;
-      const batchSize = 10; // Process 10 products at a time
+      const batchSize = 50; // Process 10 products at a time
       let batch = [];
       
       // Process products in batches to manage memory
