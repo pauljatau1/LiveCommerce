@@ -233,6 +233,7 @@ const Checkout = () => {
 
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
+      _id: address?._id,
       first_name: user?.firstName,
       last_name: user?.lastName,
       email: user?.email,
@@ -301,6 +302,7 @@ const Checkout = () => {
       setAddresses(response.data);
       if (response.data.length > 0) {
         const delivery_address = {
+          _id: response.data[0]?._id,
           first_name: user?.firstName,
           last_name: user?.lastName,
           email: user?.email,
@@ -1644,6 +1646,7 @@ const Checkout = () => {
               addresses={addresses}
               closeSheet={() => setShowAddressSheet(false)}
               selectAddress={handleSelectAddress}
+              activeAddress={selectedAddress?._id}
             />
           </BottomSheet>
 

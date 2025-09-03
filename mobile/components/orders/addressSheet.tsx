@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Pressable } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { router } from "expo-router";
 import AntDesign from "@expo/vector-icons/AntDesign";
 
@@ -7,9 +7,11 @@ const AddressSheet = ({
   addresses,
   closeSheet,
   selectAddress,
+  activeAddress,
 }: {
   addresses: any;
-  closeSheet: () => void;
+  activeAddress?: string;
+  closeSheet: (closeParent?: boolean) => void;
   selectAddress: (address: any) => void;
 }) => {
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -37,7 +39,7 @@ const AddressSheet = ({
           </Text>
         </View>
         <Pressable
-          onPress={closeSheet}
+          onPress={() => closeSheet()}
           className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%] absolute"
           style={{
             right: 8,
@@ -92,10 +94,10 @@ const AddressSheet = ({
                 </View>
               </View>
               <View
-                className={`border-[1px] ${checked == index ? "border-[#16783A]" : "border-[#ccc]"} rounded-[20px] w-[20px] h-[20px] justify-center items-center`}
+                className={`border-[1px] ${checked == index || (checked === -1 && activeAddress === address?._id) ? "border-[#16783A]" : "border-[#ccc]"} rounded-[20px] w-[20px] h-[20px] justify-center items-center`}
               >
                 <View
-                  className={` ${checked == index ? "bg-[#16783A]" : ""} rounded-[12px] w-[12px] h-[12px] justify-center items-center`}
+                  className={` ${checked == index || (checked === -1 && activeAddress === address?._id) ? "bg-[#16783A]" : ""} rounded-[12px] w-[12px] h-[12px] justify-center items-center`}
                 ></View>
               </View>
             </TouchableOpacity>
@@ -111,7 +113,7 @@ const AddressSheet = ({
         className="px-[20px] py-[12px] self-center mb-[20px] rounded-[8px] border-dashed border-[1px] border-[#ccc] max-w-[200px] items-center justify-center"
         style={{ backgroundColor: "rgba(255, 255, 255, 0.20)" }}
         onPress={() => {
-          closeSheet();
+          closeSheet(true);
           router.push("/addresses/addAddress");
         }}
       >
@@ -130,4 +132,4 @@ const AddressSheet = ({
   );
 };
 
-export default AddressSheet;
+export default memo(AddressSheet);
