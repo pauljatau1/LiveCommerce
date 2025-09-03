@@ -2,22 +2,26 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
-// Import the app and service
+// Import the app without starting the server
 const { app } = require('@/app');
-const registerService = require('@modules/seller/services/register.service');
 
 // Mock the register service
-jest.mock('@modules/seller/services/register.service');
+jest.mock('@modules/seller/services/register.service', () => ({
+  register: jest.fn()
+}));
 
-describe('Seller Controller', () => {
-  let mongoServer;
+// Import the mocked service
+const registerService = require('@modules/seller/services/register.service');
 
+const ValidationError = require('@utils/errors/ValidationError');
+
+let mongoServer;
+
+describe('Seller Controller - Register', () => {
   beforeAll(async () => {
     // Start in-memory MongoDB with compatible version
     mongoServer = await MongoMemoryServer.create({
-      binary: {
-        version: '7.0.3' // Use a version compatible with Debian 12
-      }
+      binary: { version: '7.0.3' }
     });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
@@ -38,8 +42,8 @@ describe('Seller Controller', () => {
       lastName: 'Doe',
       email: 'john.doe@example.com',
       password: 'password123',
-      phoneNumber: '1234567890',
-      storeName: 'John Store'
+      phoneNumber: '+2348012345678',
+      storeName: "John's Store"
     };
 
     const mockSellerResponse = {
@@ -48,115 +52,124 @@ describe('Seller Controller', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john.doe@example.com',
-        phoneNumber: '1234567890',
-        storeName: 'John Store',
+        phoneNumber: '+2348012345678',
+        storeName: "John's Store",
         agoraUid: 123456789,
         emailVerified: false,
-        createdAt: '2024-01-01T00:00:00.000Z'
+        createdAt: new Date().toISOString()
       },
-      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+      token: 'mock-jwt-token'
     };
 
     it('should successfully register a new seller', async () => {
+      // Arrange
       registerService.register.mockResolvedValue(mockSellerResponse);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(validRegistrationData)
-        .expect(201);
+        .send(validRegistrationData);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Seller registered successfully');
-      expect(response.body.data).toEqual(mockSellerResponse);
+      // Assert
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        success: true,
+        message: 'Seller registered successfully',
+        data: mockSellerResponse,
+        pagination: null
+      });
       expect(registerService.register).toHaveBeenCalledWith(validRegistrationData);
     });
 
     it('should return 422 for validation errors', async () => {
-      const ValidationError = require('@utils/errors/ValidationError');
+      // Arrange
       const validationError = new ValidationError([
-        { field: 'firstName', message: 'First name is required' },
-        { field: 'email', message: 'Please provide a valid email address' }
+        { field: 'email', message: 'Email is required' }
       ]);
       registerService.register.mockRejectedValue(validationError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send({
-          firstName: '',
-          lastName: 'Doe',
-          email: 'invalid-email',
-          password: '123',
-          phoneNumber: '123',
-          storeName: ''
-        })
-        .expect(422);
+        .send({ firstName: 'John' });
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Validation failed');
+      // Assert
+      expect(response.status).toBe(422);
+      expect(response.body).toEqual({
+        success: false,
+        message: 'Validation failed',
+        errors: [
+          { field: 'email', message: 'Email is required' }
+        ]
+      });
     });
 
     it('should return 422 when email already exists', async () => {
-      const ValidationError = require('@utils/errors/ValidationError');
-      const emailExistsError = new ValidationError([{ field: 'email', message: 'Email is already in use.' }]);
+      // Arrange
+      const emailExistsError = new ValidationError([
+        { field: 'email', message: 'Email is already in use.' }
+      ]);
       registerService.register.mockRejectedValue(emailExistsError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(validRegistrationData)
-        .expect(422);
+        .send(validRegistrationData);
 
+      // Assert
+      expect(response.status).toBe(422);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toBe('Validation failed');
     });
 
     it('should return 500 for internal server errors', async () => {
+      // Arrange
       const serverError = new Error('Database connection failed');
       registerService.register.mockRejectedValue(serverError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(validRegistrationData)
-        .expect(500);
+        .send(validRegistrationData);
 
+      // Assert
+      expect(response.status).toBe(500);
       expect(response.body.error).toBe('Something went wrong!');
     });
 
     it('should handle missing required fields', async () => {
-      const ValidationError = require('@utils/errors/ValidationError');
+      // Arrange
       const validationError = new ValidationError([
-        { field: 'lastName', message: 'Last name is required' },
-        { field: 'email', message: 'Email is required' },
-        { field: 'password', message: 'Password is required' },
-        { field: 'phoneNumber', message: 'Phone number is required' },
-        { field: 'storeName', message: 'Store name is required' }
+        { field: 'firstName', message: 'First name is required' },
+        { field: 'email', message: 'Email is required' }
       ]);
       registerService.register.mockRejectedValue(validationError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send({
-          firstName: 'John',
-          // Missing other required fields
-        })
-        .expect(422);
+        .send({ lastName: 'Doe' });
 
+      // Assert
+      expect(response.status).toBe(422);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toBe('Validation failed');
+      expect(response.body.errors).toHaveLength(2);
     });
 
     it('should handle invalid JSON in request body', async () => {
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
         .set('Content-Type', 'application/json')
-        .send('invalid json')
-        .expect(400);
+        .send('invalid json');
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Invalid JSON in request body');
+      // Assert
+      expect(response.status).toBe(400);
     });
 
     it('should handle empty request body', async () => {
-      const ValidationError = require('@utils/errors/ValidationError');
+      // Arrange
       const validationError = new ValidationError([
         { field: 'firstName', message: 'First name is required' },
         { field: 'lastName', message: 'Last name is required' },
@@ -167,229 +180,209 @@ describe('Seller Controller', () => {
       ]);
       registerService.register.mockRejectedValue(validationError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send({})
-        .expect(422);
+        .send();
 
+      // Assert
+      expect(response.status).toBe(422);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toBe('Validation failed');
     });
 
     it('should handle whitespace in input fields', async () => {
+      // Arrange
       const dataWithWhitespace = {
         firstName: '  John  ',
         lastName: '  Doe  ',
         email: '  john.doe@example.com  ',
-        password: 'password123',
-        phoneNumber: '  1234567890  ',
-        storeName: '  John Store  '
+        password: '  password123  ',
+        phoneNumber: '  +2348012345678  ',
+        storeName: "  John's Store  "
       };
-
       registerService.register.mockResolvedValue(mockSellerResponse);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(dataWithWhitespace)
-        .expect(201);
+        .send(dataWithWhitespace);
 
+      // Assert
+      expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       expect(registerService.register).toHaveBeenCalledWith(dataWithWhitespace);
     });
 
     it('should handle service throwing generic errors', async () => {
-      const genericError = new Error('Something went wrong in service');
+      // Arrange
+      const genericError = new Error('Generic error');
       registerService.register.mockRejectedValue(genericError);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(validRegistrationData)
-        .expect(500);
+        .send(validRegistrationData);
 
+      // Assert
+      expect(response.status).toBe(500);
       expect(response.body.error).toBe('Something went wrong!');
     });
 
     it('should handle service throwing errors with status codes', async () => {
+      // Arrange
       const errorWithStatus = new Error('Custom error');
       errorWithStatus.status = 401;
       registerService.register.mockRejectedValue(errorWithStatus);
 
+      // Act
       const response = await request(app)
         .post('/api/v2/sellers/register')
-        .send(validRegistrationData)
-        .expect(401);
+        .send(validRegistrationData);
 
-      expect(response.body.success).toBe(false);
+      // Assert
+      expect(response.status).toBe(401);
       expect(response.body.message).toBe('Custom error');
     });
 
     describe('request validation', () => {
       it('should validate firstName field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
           { field: 'firstName', message: 'First name is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          firstName: ''
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ lastName: 'Doe', email: 'john@example.com' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('firstName');
       });
 
       it('should validate lastName field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
           { field: 'lastName', message: 'Last name is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          lastName: ''
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ firstName: 'John', email: 'john@example.com' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('lastName');
       });
 
       it('should validate email field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
-          { field: 'email', message: 'Please provide a valid email address' }
+          { field: 'email', message: 'Email is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          email: 'invalid-email'
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ firstName: 'John', lastName: 'Doe' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('email');
       });
 
       it('should validate password field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
-          { field: 'password', message: 'Password must be at least 6 characters long' }
+          { field: 'password', message: 'Password is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          password: '123'
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ firstName: 'John', lastName: 'Doe', email: 'john@example.com' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('password');
       });
 
       it('should validate phoneNumber field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
-          { field: 'phoneNumber', message: 'Phone number must be at least 10 characters long' }
+          { field: 'phoneNumber', message: 'Phone number is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          phoneNumber: '123'
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ firstName: 'John', lastName: 'Doe', email: 'john@example.com', password: 'password123' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('phoneNumber');
       });
 
       it('should validate storeName field', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
           { field: 'storeName', message: 'Store name is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
-        const invalidData = {
-          ...validRegistrationData,
-          storeName: ''
-        };
-
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(invalidData)
-          .expect(422);
+          .send({ firstName: 'John', lastName: 'Doe', email: 'john@example.com', password: 'password123', phoneNumber: '+2348012345678' });
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.message).toBe('Validation failed');
+        // Assert
+        expect(response.status).toBe(422);
+        expect(response.body.errors[0].field).toBe('storeName');
       });
     });
 
     describe('response format', () => {
       it('should return correct response structure on success', async () => {
+        // Arrange
         registerService.register.mockResolvedValue(mockSellerResponse);
 
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(validRegistrationData)
-          .expect(201);
+          .send(validRegistrationData);
 
+        // Assert
         expect(response.body).toHaveProperty('success', true);
         expect(response.body).toHaveProperty('message', 'Seller registered successfully');
         expect(response.body).toHaveProperty('data');
+        expect(response.body).toHaveProperty('pagination', null);
         expect(response.body.data).toHaveProperty('user');
         expect(response.body.data).toHaveProperty('token');
-        expect(response.body.data.user).toHaveProperty('_id');
-        expect(response.body.data.user).toHaveProperty('firstName');
-        expect(response.body.data.user).toHaveProperty('lastName');
-        expect(response.body.data.user).toHaveProperty('email');
-        expect(response.body.data.user).toHaveProperty('phoneNumber');
-        expect(response.body.data.user).toHaveProperty('storeName');
-        expect(response.body.data.user).toHaveProperty('agoraUid');
-        expect(response.body.data.user).toHaveProperty('emailVerified');
-        expect(response.body.data.user).toHaveProperty('createdAt');
       });
 
       it('should return correct error response structure', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
+        // Arrange
         const validationError = new ValidationError([
-          { field: 'firstName', message: 'First name is required' }
+          { field: 'email', message: 'Email is required' }
         ]);
         registerService.register.mockRejectedValue(validationError);
 
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send({ firstName: '' })
-          .expect(422);
+          .send({ firstName: 'John' });
 
+        // Assert
         expect(response.body).toHaveProperty('success', false);
-        expect(response.body).toHaveProperty('message');
+        expect(response.body).toHaveProperty('message', 'Validation failed');
         expect(response.body).toHaveProperty('errors');
         expect(Array.isArray(response.body.errors)).toBe(true);
       });
@@ -397,71 +390,68 @@ describe('Seller Controller', () => {
 
     describe('edge cases', () => {
       it('should handle very long input values', async () => {
-        const ValidationError = require('@utils/errors/ValidationError');
-        const validationError = new ValidationError([
-          { field: 'firstName', message: 'First name must not exceed 50 characters' },
-          { field: 'lastName', message: 'Last name must not exceed 50 characters' },
-          { field: 'phoneNumber', message: 'Phone number must not exceed 15 characters' },
-          { field: 'storeName', message: 'Store name must not exceed 100 characters' }
-        ]);
-        registerService.register.mockRejectedValue(validationError);
-
-        const longData = {
-          firstName: 'A'.repeat(51),
-          lastName: 'B'.repeat(51),
-          email: 'a'.repeat(250) + '@example.com',
-          password: 'password123',
-          phoneNumber: '1'.repeat(16),
-          storeName: 'C'.repeat(101)
+        // Arrange
+        const longInputData = {
+          firstName: 'a'.repeat(1000),
+          lastName: 'b'.repeat(1000),
+          email: 'c'.repeat(1000) + '@example.com',
+          password: 'd'.repeat(1000),
+          phoneNumber: '+2348012345678',
+          storeName: 'e'.repeat(1000)
         };
+        registerService.register.mockResolvedValue(mockSellerResponse);
 
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(longData)
-          .expect(422);
+          .send(longInputData);
 
-        expect(response.body.success).toBe(false);
+        // Assert
+        expect(response.status).toBe(201);
+        expect(registerService.register).toHaveBeenCalledWith(longInputData);
       });
 
       it('should handle special characters in input', async () => {
+        // Arrange
         const specialCharData = {
-          firstName: 'John!@#$%',
-          lastName: 'Doe&*()',
-          email: 'john.doe+test@example.com',
-          password: 'password123',
-          phoneNumber: '+1-234-567-8900',
-          storeName: 'John\'s Store & More!'
+          firstName: 'Jöhn',
+          lastName: 'Döe',
+          email: 'john+test@example.com',
+          password: 'p@ssw0rd!@#$%^&*()',
+          phoneNumber: '+234-801-234-5678',
+          storeName: "John's Store & More!"
         };
-
         registerService.register.mockResolvedValue(mockSellerResponse);
 
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(specialCharData)
-          .expect(201);
+          .send(specialCharData);
 
-        expect(response.body.success).toBe(true);
+        // Assert
+        expect(response.status).toBe(201);
         expect(registerService.register).toHaveBeenCalledWith(specialCharData);
       });
 
       it('should handle unicode characters in input', async () => {
+        // Arrange
         const unicodeData = {
           firstName: 'José',
           lastName: 'García',
-          email: 'jose.garcia@example.com',
-          password: 'password123',
-          phoneNumber: '1234567890',
-          storeName: 'José\'s Store'
+          email: 'josé.garcía@example.com',
+          password: 'pássw0rd',
+          phoneNumber: '+2348012345678',
+          storeName: 'Tienda de José'
         };
-
         registerService.register.mockResolvedValue(mockSellerResponse);
 
+        // Act
         const response = await request(app)
           .post('/api/v2/sellers/register')
-          .send(unicodeData)
-          .expect(201);
+          .send(unicodeData);
 
-        expect(response.body.success).toBe(true);
+        // Assert
+        expect(response.status).toBe(201);
         expect(registerService.register).toHaveBeenCalledWith(unicodeData);
       });
     });

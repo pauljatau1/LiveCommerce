@@ -14,7 +14,7 @@ const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/va
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
 const { uploadResizedImages } = require('../utils/imageProcessor');
-const baseUrl = process.env.DEEPLINK_URL;
+const baseUrl = process.env.STORE_URL;
 
 // Create a new product
 exports.createProduct = async (req, res) => {

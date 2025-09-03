@@ -45,6 +45,7 @@ describe('resendOTP.service', () => {
     // Mock buyer data
     mockBuyer = {
       _id: 'buyer123',
+      firstName: 'John',
       email: 'test@example.com',
       otp: '1234',
       save: jest.fn().mockResolvedValue(true)

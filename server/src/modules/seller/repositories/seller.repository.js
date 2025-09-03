@@ -2,7 +2,8 @@
  * Seller Repository
  *
  * This repository contains all database operations related to the Seller model.
- * It provides methods for finding, updating, and managing seller data.
+ * It provides a clean interface for database interactions and ensures
+ * consistent data handling across the application.
  *
  * @module sellerRepository
  */
@@ -10,89 +11,95 @@
 const Seller = require('../../../models/Seller');
 
 /**
- * Retrieves all sellers that match the given filters.
- *
- * @param {Object} options
- * @param {Object} [options.filters={}] - MongoDB query filters
- * @returns {Promise<Array>} List of sellers excluding sensitive fields
+ * Retrieve all sellers with sensitive fields excluded.
+ * @returns {Promise<Array>} Array of sellers without sensitive data
  */
-async function findAll(filters = {}) {
-  return await Seller.find(filters).select('-__v -password'); // Exclude sensitive or unneeded fields
+async function findAll() {
+  return Seller.find({}).select('-password -__v').lean();
 }
 
 /**
- * Create a new seller.
- *
- * @param {Object} seller - new seller object
- * @returns {Promise<Seller>} The saved seller
+ * Save a new seller instance.
+ * @param {Object} seller - Seller instance to save
+ * @returns {Promise<Object>} Saved seller data
  */
-async function save(newSeller) {
-  return await newSeller.save();
+async function save(seller) {
+  return seller.save();
 }
 
 /**
- * Find a Seller by email.
- * @param {string} email 
- * @returns {Promise<Seller|null>}
+ * Find seller by email (case insensitive).
+ * @param {string} email - Email to search for
+ * @returns {Promise<Object|null>} Seller data or null if not found
  */
 async function findByEmail(email) {
   return Seller.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
 }
 
 /**
- * Save a new Seller.
- * @param {Seller} sellerInstance
- * @returns {Promise<Seller>}
+ * Save a seller instance.
+ * @param {Object} seller - Seller instance to save
+ * @returns {Promise<Object>} Saved seller data
  */
-async function saveSeller(sellerInstance) {
-  return sellerInstance.save();
+async function saveSeller(seller) {
+  return seller.save();
 }
 
 /**
- * Find a seller by ID.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Seller|null>}
+ * Find seller by ID.
+ * @param {string} id - Seller ID
+ * @returns {Promise<Object|null>} Seller data or null if not found
  */
-async function findById(sellerId) {
-  return Seller.findById(sellerId);
+async function findById(id) {
+  return Seller.findById(id);
 }
 
 /**
- * Find a seller by ID with specific fields selected.
- * @param {string} sellerId - The seller's ID
- * @param {Object} fields - Object specifying which fields to include/exclude
- * @returns {Promise<Seller|null>}
+ * Find seller by ID with specific fields selected.
+ * @param {string} id - Seller ID
+ * @param {Object} fields - Fields to select (1 for include, 0 for exclude)
+ * @returns {Promise<Object|null>} Seller data with selected fields or null if not found
  */
-async function findByIdWithFields(sellerId, fields) {
-  return Seller.findById(sellerId).select(fields).lean();
+async function findByIdWithFields(id, fields) {
+  return Seller.findById(id).select(fields).lean();
 }
 
 /**
- * Find a seller by Agora UID.
- * @param {number} agoraUid - The Agora UID to search for
- * @returns {Promise<Seller|null>}
+ * Find seller by Agora UID.
+ * @param {number} agoraUid - Agora user ID
+ * @returns {Promise<Object|null>} Seller data or null if not found
  */
 async function findByAgoraUid(agoraUid) {
   return Seller.findOne({ agoraUid });
 }
 
 /**
- * Update a seller by ID.
- * @param {string} sellerId - The seller's ID
- * @param {Object} updateData - The data to update
- * @returns {Promise<Seller|null>}
+ * Update seller by ID.
+ * @param {string} id - Seller ID
+ * @param {Object} updateData - Data to update
+ * @returns {Promise<Object|null>} Updated seller data or null if not found
  */
-async function findByIdAndUpdate(sellerId, updateData) {
-  return Seller.findByIdAndUpdate(sellerId, updateData, { new: true });
+async function findByIdAndUpdate(id, updateData) {
+  return Seller.findByIdAndUpdate(id, updateData, { new: true });
 }
 
 /**
- * Delete a seller by ID.
- * @param {string} sellerId - The seller's ID
- * @returns {Promise<Seller|null>}
+ * Delete seller by ID.
+ * @param {string} id - Seller ID
+ * @returns {Promise<Object|null>} Deleted seller data or null if not found
  */
-async function findByIdAndDelete(sellerId) {
-  return Seller.findByIdAndDelete(sellerId);
+async function findByIdAndDelete(id) {
+  return Seller.findByIdAndDelete(id);
+}
+
+/**
+ * Get the count of categories for a seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<number>} Number of categories for the seller
+ */
+async function getCategoriesCount(sellerId) {
+  const seller = await Seller.findById(sellerId).select('categories');
+  return seller?.categories?.length || 0;
 }
 
 module.exports = {
@@ -104,5 +111,6 @@ module.exports = {
   findByIdWithFields,
   findByAgoraUid,
   findByIdAndUpdate,
-  findByIdAndDelete
+  findByIdAndDelete,
+  getCategoriesCount
 };

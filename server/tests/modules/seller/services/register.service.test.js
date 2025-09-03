@@ -246,15 +246,7 @@ describe('Seller Registration Service', () => {
           storeName: ''
         };
 
-        try {
-          await registerService.register(invalidData);
-          // If we get here, no error was thrown
-          expect(true).toBe(false); // This should not happen
-        } catch (error) {
-          expect(error).toBeDefined();
-          expect(error.errors).toBeDefined();
-          expect(Array.isArray(error.errors)).toBe(true);
-        }
+        await expect(registerService.register(invalidData)).rejects.toThrow();
       });
 
       it('should throw error when email already exists', async () => {

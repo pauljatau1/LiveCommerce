@@ -1,18 +1,25 @@
+/**
+ * Seller Repository Tests
+ *
+ * This test suite covers all functionality of the seller repository
+ * including the new methods for profile functionality.
+ *
+ * @module sellerRepositoryTests
+ */
+
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-
-// Import the repository
 const sellerRepository = require('@modules/seller/repositories/seller.repository');
 const Seller = require('@models/Seller');
+const Buyer = require('@models/Buyer');
+
+let mongoServer;
 
 describe('Seller Repository', () => {
-  let mongoServer;
-
   beforeAll(async () => {
-    // Start in-memory MongoDB with compatible version
     mongoServer = await MongoMemoryServer.create({
       binary: {
-        version: '7.0.3' // Use a version compatible with Debian 12
+        version: '7.0.3'
       }
     });
     const mongoUri = mongoServer.getUri();
@@ -26,275 +33,249 @@ describe('Seller Repository', () => {
 
   beforeEach(async () => {
     await Seller.deleteMany({});
+    await Buyer.deleteMany({});
   });
 
-  describe('findAll', () => {
-    it('should return all sellers when no filters provided', async () => {
-      // Create test sellers
-      const seller1 = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const seller2 = new Seller({
-        firstName: 'Jane',
-        lastName: 'Smith',
-        email: 'jane@example.com',
-        password: 'password456',
-        phoneNumber: '0987654321',
-        storeName: 'Jane Store'
-      });
+  const mockSellerData = {
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    password: 'hashedPassword123',
+    phoneNumber: '+2348012345678',
+    businessName: 'John\'s Store Ltd',
+    businessType: 'Retail',
+    accountType: 'business',
+    categories: [
+      { name: 'Electronics' },
+      { name: 'Clothing' },
+      { name: 'Books' }
+    ],
+    followers: [
+      { buyerId: '507f1f77bcf86cd799439011', firstName: 'Alice', lastName: 'Smith' },
+      { buyerId: '507f1f77bcf86cd799439012', firstName: 'Bob', lastName: 'Johnson' }
+    ]
+  };
 
+  const mockBuyerData = {
+    firstName: 'Alice',
+    lastName: 'Smith',
+    email: 'alice.smith@example.com',
+    password: 'hashedPassword123',
+    phoneNumber: '+2348012345679',
+    followers: [
+      { sellerId: '507f1f77bcf86cd799439013', firstName: 'John', lastName: 'Doe' }
+    ]
+  };
+
+  describe('findAll', () => {
+    it('should retrieve all sellers excluding sensitive fields', async () => {
+      const seller1 = new Seller(mockSellerData);
+      const seller2 = new Seller({
+        ...mockSellerData,
+        email: 'jane.doe@example.com',
+        businessName: 'Jane\'s Store',
+        firstName: 'Jane',
+        lastName: 'Smith'
+      });
+      
       await seller1.save();
       await seller2.save();
 
       const result = await sellerRepository.findAll();
-
+      
       expect(result).toHaveLength(2);
-      expect(result[0].firstName).toBe('John');
-      expect(result[1].firstName).toBe('Jane');
-      // Should exclude password field
       expect(result[0].password).toBeUndefined();
-      expect(result[1].password).toBeUndefined();
-    });
-
-    it('should return filtered sellers when filters provided', async () => {
-      // Create test sellers
-      const seller1 = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const seller2 = new Seller({
-        firstName: 'Jane',
-        lastName: 'Smith',
-        email: 'jane@example.com',
-        password: 'password456',
-        phoneNumber: '0987654321',
-        storeName: 'Jane Store'
-      });
-
-      await seller1.save();
-      await seller2.save();
-
-      const result = await sellerRepository.findAll({ firstName: 'John' });
-
-      expect(result).toHaveLength(1);
-      expect(result[0].firstName).toBe('John');
+      expect(result[0].__v).toBeUndefined();
+      expect(result[0]).toHaveProperty('firstName');
+      expect(result[0]).toHaveProperty('email');
     });
 
     it('should return empty array when no sellers exist', async () => {
       const result = await sellerRepository.findAll();
-
       expect(result).toHaveLength(0);
     });
   });
 
   describe('save', () => {
     it('should save a new seller', async () => {
-      const newSeller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-
+      const newSeller = new Seller(mockSellerData);
       const result = await sellerRepository.save(newSeller);
-
-      expect(result._id).toBeDefined();
+      
+      expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
       expect(result.lastName).toBe('Doe');
-      expect(result.email).toBe('john@example.com');
+      expect(result.email).toBe('john.doe@example.com');
+      expect(result._id).toBeDefined();
     });
   });
 
   describe('findByEmail', () => {
     it('should find seller by email (case insensitive)', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
+      const seller = new Seller(mockSellerData);
       await seller.save();
 
-      const result = await sellerRepository.findByEmail('JOHN@EXAMPLE.COM');
-
+      const result = await sellerRepository.findByEmail('JOHN.DOE@EXAMPLE.COM');
+      
       expect(result).toBeDefined();
-      expect(result.email).toBe('john@example.com');
+      expect(result.firstName).toBe('John');
+      expect(result.lastName).toBe('Doe');
+      expect(result.email).toBe('john.doe@example.com');
     });
 
-    it('should return null when email not found', async () => {
+    it('should return null when seller email not found', async () => {
       const result = await sellerRepository.findByEmail('nonexistent@example.com');
-
       expect(result).toBeNull();
     });
   });
 
   describe('saveSeller', () => {
     it('should save a seller instance', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-
-      const result = await sellerRepository.saveSeller(seller);
-
-      expect(result._id).toBeDefined();
+      const sellerInstance = new Seller(mockSellerData);
+      const result = await sellerRepository.saveSeller(sellerInstance);
+      
+      expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
+      expect(result.lastName).toBe('Doe');
+      expect(result._id).toBeDefined();
     });
   });
 
   describe('findById', () => {
     it('should find seller by ID', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const savedSeller = await seller.save();
+      const seller = new Seller(mockSellerData);
+      await seller.save();
 
-      const result = await sellerRepository.findById(savedSeller._id);
-
+      const result = await sellerRepository.findById(seller._id);
+      
       expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
+      expect(result.lastName).toBe('Doe');
+      expect(result.email).toBe('john.doe@example.com');
     });
 
-    it('should return null when ID not found', async () => {
-      const fakeId = new mongoose.Types.ObjectId();
-      const result = await sellerRepository.findById(fakeId);
-
+    it('should return null when seller ID not found', async () => {
+      const nonExistentId = '507f1f77bcf86cd799439014';
+      const result = await sellerRepository.findById(nonExistentId);
       expect(result).toBeNull();
     });
   });
 
   describe('findByIdWithFields', () => {
-    it('should find seller by ID with specific fields', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const savedSeller = await seller.save();
+    it('should find seller by ID with specific fields selected', async () => {
+      const seller = new Seller(mockSellerData);
+      await seller.save();
 
-      const result = await sellerRepository.findByIdWithFields(savedSeller._id, 'firstName lastName');
-
+      const fields = { firstName: 1, lastName: 1, email: 1 };
+      const result = await sellerRepository.findByIdWithFields(seller._id, fields);
+      
       expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
       expect(result.lastName).toBe('Doe');
-      expect(result.email).toBeUndefined();
+      expect(result.email).toBe('john.doe@example.com');
+      expect(result.phoneNumber).toBeUndefined();
       expect(result.password).toBeUndefined();
     });
 
-    it('should return null when ID not found', async () => {
-      const fakeId = new mongoose.Types.ObjectId();
-      const result = await sellerRepository.findByIdWithFields(fakeId, 'firstName');
-
+    it('should return null when seller ID not found with fields', async () => {
+      const nonExistentId = '507f1f77bcf86cd799439015';
+      const fields = { firstName: 1, lastName: 1 };
+      const result = await sellerRepository.findByIdWithFields(nonExistentId, fields);
       expect(result).toBeNull();
     });
   });
 
   describe('findByAgoraUid', () => {
     it('should find seller by Agora UID', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store',
-        agoraUid: 123456789
+      const agoraUid = 123456789;
+      const sellerWithAgora = new Seller({
+        ...mockSellerData,
+        agoraUid: agoraUid
       });
-      await seller.save();
+      await sellerWithAgora.save();
 
-      const result = await sellerRepository.findByAgoraUid(123456789);
-
+      const result = await sellerRepository.findByAgoraUid(agoraUid);
+      
       expect(result).toBeDefined();
-      expect(result.agoraUid).toBe(123456789);
+      expect(result.firstName).toBe('John');
+      expect(result.lastName).toBe('Doe');
+      expect(result.agoraUid).toBe(agoraUid);
     });
 
     it('should return null when Agora UID not found', async () => {
       const result = await sellerRepository.findByAgoraUid(999999999);
-
       expect(result).toBeNull();
     });
   });
 
   describe('findByIdAndUpdate', () => {
     it('should update seller by ID', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const savedSeller = await seller.save();
+      const seller = new Seller(mockSellerData);
+      await seller.save();
 
-      const updateData = { firstName: 'Jane' };
-      const result = await sellerRepository.findByIdAndUpdate(savedSeller._id, updateData);
-
+      const updateData = { businessName: 'Updated Store Name' };
+      const result = await sellerRepository.findByIdAndUpdate(seller._id, updateData);
+      
       expect(result).toBeDefined();
-      expect(result.firstName).toBe('Jane');
-      expect(result.lastName).toBe('Doe'); // Should remain unchanged
+      expect(result.businessName).toBe('Updated Store Name');
+      expect(result.firstName).toBe('John'); // Other fields should remain unchanged
+      expect(result.lastName).toBe('Doe');
     });
 
-    it('should return null when ID not found', async () => {
-      const fakeId = new mongoose.Types.ObjectId();
-      const result = await sellerRepository.findByIdAndUpdate(fakeId, { firstName: 'Jane' });
-
+    it('should return null when updating non-existent seller', async () => {
+      const nonExistentId = '507f1f77bcf86cd799439016';
+      const updateData = { businessName: 'Updated Store Name' };
+      const result = await sellerRepository.findByIdAndUpdate(nonExistentId, updateData);
       expect(result).toBeNull();
     });
   });
 
   describe('findByIdAndDelete', () => {
     it('should delete seller by ID', async () => {
-      const seller = new Seller({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phoneNumber: '1234567890',
-        storeName: 'John Store'
-      });
-      const savedSeller = await seller.save();
+      const seller = new Seller(mockSellerData);
+      await seller.save();
 
-      const result = await sellerRepository.findByIdAndDelete(savedSeller._id);
-
+      const result = await sellerRepository.findByIdAndDelete(seller._id);
+      
       expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
+      expect(result.lastName).toBe('Doe');
 
-      // Verify seller is deleted
-      const deletedSeller = await Seller.findById(savedSeller._id);
+      // Verify seller was deleted
+      const deletedSeller = await Seller.findById(seller._id);
       expect(deletedSeller).toBeNull();
     });
 
-    it('should return null when ID not found', async () => {
-      const fakeId = new mongoose.Types.ObjectId();
-      const result = await sellerRepository.findByIdAndDelete(fakeId);
-
+    it('should return null when deleting non-existent seller', async () => {
+      const nonExistentId = '507f1f77bcf86cd799439017';
+      const result = await sellerRepository.findByIdAndDelete(nonExistentId);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getCategoriesCount', () => {
+    it('should return correct count of categories', async () => {
+      const seller = new Seller(mockSellerData);
+      await seller.save();
+
+      const result = await sellerRepository.getCategoriesCount(seller._id);
+      expect(result).toBe(3);
+    });
+
+    it('should return 0 when seller has no categories', async () => {
+      const sellerWithoutCategories = new Seller({
+        ...mockSellerData,
+        categories: []
+      });
+      await sellerWithoutCategories.save();
+
+      const result = await sellerRepository.getCategoriesCount(sellerWithoutCategories._id);
+      expect(result).toBe(0);
+    });
+
+    it('should return 0 when seller not found', async () => {
+      const nonExistentId = '507f1f77bcf86cd799439018';
+      const result = await sellerRepository.getCategoriesCount(nonExistentId);
+      expect(result).toBe(0);
     });
   });
 });
