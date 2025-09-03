@@ -391,7 +391,7 @@ export default function StoreSettings() {
     setUpdatingSection(prev => ({ ...prev, accountType: true }));
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile/account-type`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/account-type`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
