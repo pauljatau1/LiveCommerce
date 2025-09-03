@@ -479,6 +479,79 @@ router.post('/resend-otp', sellerController.resendOTP);
 
 /**
  * @swagger
+ * /api/v2/sellers/profile/account-type:
+ *   put:
+ *     summary: Select account type for seller
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - accountType
+ *             properties:
+ *               accountType:
+ *                 type: string
+ *                 enum: [individual, business]
+ *                 description: The account type to select
+ *                 example: "business"
+ *     responses:
+ *       200:
+ *         description: Account type selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Account type selected successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     accountType:
+ *                       type: string
+ *                       example: "business"
+ *                     isProfileComplete:
+ *                       type: boolean
+ *                       example: false
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     storeName:
+ *                       type: string
+ *                       example: "John's Store"
+ *       400:
+ *         description: Bad request - Invalid account type
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+
+// Select account type route
+router.put('/profile/account-type', verifyToken, sellerController.selectAccountType);
+
+/**
+ * @swagger
  * /api/v2/sellers/profile:
  *   get:
  *     summary: Get seller profile information
