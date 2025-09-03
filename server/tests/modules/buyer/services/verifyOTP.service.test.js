@@ -1,5 +1,5 @@
 const verifyOTPService = require('@modules/buyer/services/verifyOTP.service');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
 
@@ -11,7 +11,7 @@ jest.mock('@config/agenda', () => ({
 }));
 
 // Mock the Buyer model
-jest.mock('@modules/buyer/models/buyer.model');
+jest.mock('@models/Buyer');
 
 describe('verifyOTP Service', () => {
   let mockBuyer;

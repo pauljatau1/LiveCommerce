@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const ValidationError = require('@utils/errors/ValidationError');
 
 // Import the service
 const registerService = require('@modules/buyer/services/register.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const buyerValidator = require('@modules/buyer/validators/register.validator');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');
@@ -524,6 +523,117 @@ describe('Register Service', () => {
       expect(result.user).toHaveProperty('lastName');
       expect(result.user).toHaveProperty('email');
       expect(result.user).toHaveProperty('username');
+    });
+
+    it('should create notificationPreferences with correct object structure', async () => {
+      // Mock the repository save to capture the buyer object being saved
+      let savedBuyer;
+      buyerRepository.save.mockImplementation((buyer) => {
+        savedBuyer = buyer;
+        return Promise.resolve({
+          _id: new mongoose.Types.ObjectId(),
+          ...buyer.toObject()
+        });
+      });
+
+      buyerValidator.validateRegisterData.mockResolvedValue();
+      
+      const { saveToken } = require('@firebase');
+      saveToken.mockResolvedValue();
+      
+      const sgMail = require('@sendgrid/mail');
+      sgMail.send.mockResolvedValue();
+      
+      const { generateOTP, generateToken } = require('@utils/helpers');
+      generateOTP.mockReturnValue('1234');
+      generateToken.mockReturnValue('mock-jwt-token');
+
+      await registerService.register(validRegistrationData);
+
+      // Verify that notificationPreferences are objects, not booleans
+      expect(savedBuyer.notificationPreferences).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences).toBe('object');
+      
+      // Test orderUpdates structure
+      expect(savedBuyer.notificationPreferences.orderUpdates).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences.orderUpdates).toBe('object');
+      expect(savedBuyer.notificationPreferences.orderUpdates.orderConfirmation).toBe(true);
+      expect(savedBuyer.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(true);
+      expect(savedBuyer.notificationPreferences.orderUpdates.orderCancellation).toBe(true);
+      expect(savedBuyer.notificationPreferences.orderUpdates.refundUpdates).toBe(true);
+      
+      // Test liveShows structure
+      expect(savedBuyer.notificationPreferences.liveShows).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences.liveShows).toBe('object');
+      expect(savedBuyer.notificationPreferences.liveShows.allShows).toBe(true);
+      expect(savedBuyer.notificationPreferences.liveShows.followedSellers).toBe(true);
+      expect(savedBuyer.notificationPreferences.liveShows.recommendedShows).toBe(true);
+      
+      // Test messages structure
+      expect(savedBuyer.notificationPreferences.messages).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences.messages).toBe('object');
+      expect(savedBuyer.notificationPreferences.messages.fromSellers).toBe(true);
+      expect(savedBuyer.notificationPreferences.messages.fromBuyers).toBe(true);
+      expect(savedBuyer.notificationPreferences.messages.chatReplies).toBe(true);
+      expect(savedBuyer.notificationPreferences.messages.mentions).toBe(true);
+      
+      // Test communityActivity structure
+      expect(savedBuyer.notificationPreferences.communityActivity).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences.communityActivity).toBe('object');
+      expect(savedBuyer.notificationPreferences.communityActivity.postComments).toBe(true);
+      expect(savedBuyer.notificationPreferences.communityActivity.postLikes).toBe(true);
+      expect(savedBuyer.notificationPreferences.communityActivity.repliesAndMentions).toBe(true);
+      
+      // Test promotionsAndSales structure
+      expect(savedBuyer.notificationPreferences.promotionsAndSales).toBeDefined();
+      expect(typeof savedBuyer.notificationPreferences.promotionsAndSales).toBe('object');
+      expect(savedBuyer.notificationPreferences.promotionsAndSales.flashSales).toBe(true);
+      expect(savedBuyer.notificationPreferences.promotionsAndSales.couponsAndDeals).toBe(true);
+      expect(savedBuyer.notificationPreferences.promotionsAndSales.trendingProducts).toBe(true);
+      expect(savedBuyer.notificationPreferences.promotionsAndSales.recommendations).toBe(true);
+    });
+
+    it('should prevent the original boolean type error by ensuring objects are not booleans', async () => {
+      // Mock the repository save to capture the buyer object being saved
+      let savedBuyer;
+      buyerRepository.save.mockImplementation((buyer) => {
+        savedBuyer = buyer;
+        return Promise.resolve({
+          _id: new mongoose.Types.ObjectId(),
+          ...buyer.toObject()
+        });
+      });
+
+      buyerValidator.validateRegisterData.mockResolvedValue();
+      
+      const { saveToken } = require('@firebase');
+      saveToken.mockResolvedValue();
+      
+      const sgMail = require('@sendgrid/mail');
+      sgMail.send.mockResolvedValue();
+      
+      const { generateOTP, generateToken } = require('@utils/helpers');
+      generateOTP.mockReturnValue('1234');
+      generateToken.mockReturnValue('mock-jwt-token');
+
+      await registerService.register(validRegistrationData);
+
+      // This test specifically verifies that the original error would not occur
+      // The original error was: "Cast to Object failed for value "true" (type boolean)"
+      // These assertions ensure that the values are objects, not booleans
+      
+      expect(typeof savedBuyer.notificationPreferences.orderUpdates).not.toBe('boolean');
+      expect(typeof savedBuyer.notificationPreferences.liveShows).not.toBe('boolean');
+      expect(typeof savedBuyer.notificationPreferences.messages).not.toBe('boolean');
+      expect(typeof savedBuyer.notificationPreferences.communityActivity).not.toBe('boolean');
+      expect(typeof savedBuyer.notificationPreferences.promotionsAndSales).not.toBe('boolean');
+      
+      // Ensure they are objects (which is what the schema expects)
+      expect(typeof savedBuyer.notificationPreferences.orderUpdates).toBe('object');
+      expect(typeof savedBuyer.notificationPreferences.liveShows).toBe('object');
+      expect(typeof savedBuyer.notificationPreferences.messages).toBe('object');
+      expect(typeof savedBuyer.notificationPreferences.communityActivity).toBe('object');
+      expect(typeof savedBuyer.notificationPreferences.promotionsAndSales).toBe('object');
     });
   });
 }); 

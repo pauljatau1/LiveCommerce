@@ -1,5 +1,4 @@
 const updateNotificationPreferencesValidator = require('@modules/buyer/validators/updateNotificationPreferences.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 
 describe('Update Notification Preferences Validator', () => {
   const buyerId = '507f1f77bcf86cd799439011';

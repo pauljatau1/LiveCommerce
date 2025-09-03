@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const orderRepository = require('../repositories/order.repository');
 const terminalAPI = require('../../../config/terminalAPI');
 const Product = require('../../../models/Product');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 const sgMail = require('@sendgrid/mail');
 
 // Set this to true to enable free shipping promo, false to disable

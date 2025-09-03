@@ -1,6 +1,6 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { Buyer } = require('../modules/buyer/models/buyer.model');
+const { Buyer } = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
 
 // Add this helper function

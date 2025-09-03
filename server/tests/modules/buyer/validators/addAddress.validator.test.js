@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const Buyer = require('@modules/buyer/models/buyer.model');
-const ValidationError = require('@utils/errors/ValidationError');
+const Buyer = require('@models/Buyer');
 const addAddressValidator = require('@modules/buyer/validators/addAddress.validator');
 
 describe('Add Address Validator', () => {

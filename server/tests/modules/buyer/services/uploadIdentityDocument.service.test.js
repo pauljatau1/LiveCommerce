@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const AWS = require('aws-sdk');
 
 // Import the service
 const uploadIdentityDocumentService = require('@modules/buyer/services/uploadIdentityDocument.service');
 
 // Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 const Seller = require('@models/Seller');
 

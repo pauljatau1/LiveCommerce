@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const { app } = require('@/app');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock Firebase
 jest.mock('@firebase', () => ({

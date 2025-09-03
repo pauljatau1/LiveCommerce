@@ -4,7 +4,7 @@ const orderRepository = require('../repositories/order.repository');
 const { updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
 const { handleWalletTopUp, handleFailedPayment } = require('../helpers/order.helper');
 const agenda = require('../../../config/agenda');
-const Buyer = require('../../buyer/models/buyer.model');
+const Buyer = require('../../../models/Buyer');
 
 // Get paystack secret key with fallback
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || require('../../../config/paystack');

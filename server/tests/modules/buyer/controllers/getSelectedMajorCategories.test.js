@@ -13,7 +13,7 @@ const getSelectedMajorCategoriesService = require('@modules/buyer/services/getSe
 const NotFoundException = require('@utils/errors/NotFoundException');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock the service
 jest.mock('@modules/buyer/services/getSelectedMajorCategories.service');

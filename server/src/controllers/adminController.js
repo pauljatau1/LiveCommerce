@@ -1,5 +1,5 @@
 const Admin = require('../models/Admin');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
 const Category = require('../models/Category'); 

@@ -1,4 +1,3 @@
-const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
@@ -9,7 +8,7 @@ const { app } = require('@/app');
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 
 // Mock Firebase
 jest.mock('@firebase', () => ({

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const { listPaginatedFollowers, listFollowers, formatFollower, getPaginationOptions, getFilters } = require('@modules/buyer/services/getFollowers.service');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
 const NotFoundException = require('@utils/errors/NotFoundException');
 

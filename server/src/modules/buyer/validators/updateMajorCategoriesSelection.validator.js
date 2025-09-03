@@ -1,3 +1,21 @@
+/**
+ * Update Major Categories Selection Validator
+ *
+ * This validator handles input validation for updating major category selections
+ * in a buyer's profile. It provides functionality to:
+ * - Validate buyer ID format and structure
+ * - Validate major category IDs array format and content
+ * - Validate ObjectId format for all category IDs
+ * - Ensure data integrity and security standards
+ * - Maintain consistent validation patterns
+ *
+ * The validator ensures that major category selection update requests are properly
+ * formatted and contain valid data to prevent unauthorized modifications and maintain
+ * data integrity.
+ *
+ * @module updateMajorCategoriesSelectionValidator
+ */
+
 const { ObjectId } = require('mongodb');
 const ValidationError = require('../../../utils/errors/ValidationError');
 
@@ -119,6 +137,23 @@ function validateBuyerId(buyerId, errors) {
 
 /**
  * Validate update major categories selection data
+ *
+ * This function orchestrates the complete validation process for major category
+ * selection update requests, ensuring all parameters meet validation requirements.
+ *
+ * Business Logic Flow:
+ * 1. Initialize error collection array
+ * 2. Validate buyer ID format and structure
+ * 3. Validate majorCategoryIds array format and content
+ * 4. Validate ObjectId format for all category IDs
+ * 5. Throw ValidationError if any validation fails
+ *
+ * Security Considerations:
+ * - Buyer ID validation prevents unauthorized modifications
+ * - Array validation prevents injection attacks
+ * - ObjectId validation ensures data integrity
+ * - Error collection provides comprehensive feedback
+ *
  * @param {Object} data - The data to validate
  * @param {string} data.buyerId - The buyer ID to validate
  * @param {Array} data.majorCategoryIds - The major category IDs array to validate

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const requestAccountDeletionService = require('@modules/buyer/services/requestAccountDeletion.service');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 
 // Mock SendGrid

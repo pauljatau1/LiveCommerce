@@ -2,11 +2,9 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const request = require('supertest');
 const { app } = require('@/app');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const MajorCategory = require('@models/MajorCategory');
 const Category = require('@models/Category');
-const ValidationError = require('@utils/errors/ValidationError');
-const NotFoundException = require('@utils/errors/NotFoundException');
 
 let mongoServer;
 let token;

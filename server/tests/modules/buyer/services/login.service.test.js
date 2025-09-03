@@ -3,7 +3,6 @@ const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const loginValidator = require('@modules/buyer/validators/login.validator');
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
-const UnauthorizedException = require('@utils/errors/UnauthorizedException');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');

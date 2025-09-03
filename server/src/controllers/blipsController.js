@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -13,6 +13,7 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
+const baseUrl = process.env.STORE_URL;
 
 
 // Get all product blips
@@ -555,10 +556,17 @@ exports.getSellerBlips = async (req, res) => {
       isFollowing
     };
 
+    // Add product and blip links to each blip
+    const blipsWithLinks = blips.map(blip => ({
+      ...blip,
+      productLink: `${baseUrl}/products/${blip.productId}`,
+      blipLink: `${baseUrl}/products/${blip.productId}/blips/${blip.blipId}`
+    }));
+
     res.json({
       seller: sellerResponse,
       processedFilterApplied: Object.keys(processedFilter).length > 0,
-      blips,
+      blips: blipsWithLinks,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
@@ -1133,7 +1141,7 @@ exports.toggleBlipLike = async (req, res) => {
     // Create notification for the seller when a blip is liked
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../modules/buyer/models/buyer.model');
+      const Buyer = require('../models/Buyer');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -1211,7 +1219,7 @@ exports.addBlipComment = async (req, res) => {
     // Create notification for the seller when a comment is added
     try {
       const notificationController = require('./notificationController');
-      const Buyer = require('../modules/buyer/models/buyer.model');
+      const Buyer = require('../models/Buyer');
 
       // Get buyer information
       const buyer = await Buyer.findById(buyerId).select('firstName lastName');
@@ -2612,8 +2620,15 @@ exports.getBlipDetails = async (req, res) => {
     // Get the single blip
     const processedBlip = blips[0];
 
+    // Add product and blip links
+    const blipWithLinks = {
+      ...processedBlip,
+      productLink: `${baseUrl}/products/${processedBlip.productId}`,
+      blipLink: `${baseUrl}/products/${processedBlip.productId}/blips/${processedBlip.blipId}`
+    };
+
     res.json({
-      blips: [processedBlip]
+      blips: [blipWithLinks]
     });
   } catch (error) {
     console.error('Error in getBlipDetails:', error);
@@ -2630,19 +2645,22 @@ const MAX_SESSIONS = 1000;
 const MAX_SEEN_BLIPS_PER_SESSION = 100;
 
 // Clean up old sessions (run periodically)
-setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
-  for (const [sessionId, data] of sessionBlipStore.entries()) {
-    if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
-      sessionBlipStore.delete(sessionId);
-      cleanedCount++;
+// Only start the interval if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [sessionId, data] of sessionBlipStore.entries()) {
+      if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+        sessionBlipStore.delete(sessionId);
+        cleanedCount++;
+      }
     }
-  }
-  if (cleanedCount > 0) {
-    console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
-  }
-}, 30 * 1000); // Clean every 30 seconds
+    if (cleanedCount > 0) {
+      console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
+    }
+  }, 30 * 1000); // Clean every 30 seconds
+}
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {

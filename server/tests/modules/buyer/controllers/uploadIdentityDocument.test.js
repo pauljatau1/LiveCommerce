@@ -1,15 +1,11 @@
-const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-
-// Import the app without starting the server
-const { app } = require('@/app');
 
 // Import the controller directly for unit testing
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
 // Import the Buyer and Product models
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Product = require('@models/Product');
 
 // Mock the upload identity document service

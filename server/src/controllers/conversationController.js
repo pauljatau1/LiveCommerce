@@ -1,6 +1,6 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 
 exports.getConversations = async (req, res) => {

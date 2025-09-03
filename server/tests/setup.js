@@ -51,3 +51,18 @@ jest.mock('@/config/agenda', () => {
     agenda: mockAgenda
   };
 }); 
+
+// Enforce short-lived HTTP connections during tests across all Supertest requests
+// without importing the Express app (preserves jest.mock ordering in tests)
+try {
+  // Patch Supertest to inject Connection: close on every request
+  const Test = require('supertest/lib/test');
+  const originalServerAddress = Test.prototype.serverAddress;
+  Test.prototype.serverAddress = function patchedServerAddress(...args) {
+    this.set('Connection', 'close');
+    this.set('Keep-Alive', 'timeout=0, max=0');
+    return originalServerAddress.apply(this, args);
+  };
+} catch (_) {
+  // If supertest internals change or are unavailable, skip silently
+}

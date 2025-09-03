@@ -1,5 +1,4 @@
 const topUpWalletValidator = require('@modules/buyer/validators/topUpWallet.validator');
-const ValidationError = require('@utils/errors/ValidationError');
 
 describe('topUpWallet.validator', () => {
   describe('validateAmount', () => {

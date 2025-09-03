@@ -1,16 +1,12 @@
-const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const jwt = require('jsonwebtoken');
-
-// Import the app without starting the server
-const { app } = require('@/app');
 
 // Import the controller directly for unit testing
 const buyerController = require('@modules/buyer/controllers/buyer.controller');
 
 // Import the Buyer model
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const Order = require('@models/Order');
 const ValidationError = require('@utils/errors/ValidationError');
 

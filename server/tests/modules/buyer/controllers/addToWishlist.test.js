@@ -1,9 +1,5 @@
-const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-
-// Import the app without starting the server
-const { app } = require('@/app');
 
 // Import the controller directly for unit testing
 const buyerController = require('@modules/buyer/controllers/buyer.controller');

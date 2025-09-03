@@ -13,11 +13,13 @@ const mixpanelClient = require('./config/mixpanel');
 const responseFormatter = require('./middlewares/response.middleware');
 const ValidationError = require('./utils/errors/ValidationError');
 const InvalidObjectIdException = require('./utils/errors/InvalidObjectIdException');
+const BadRequestException = require('./utils/errors/BadRequestException');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
+const sellerRoutesV2 = require('./modules/seller/routes/seller.routes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 // const orderRoutesv2 = require('./routes/orderRoutesv2');
@@ -44,11 +46,16 @@ const listingRoutes = require('./modules/listing/routes/listing.route');
 const buyerRoutesV2 = require('./modules/buyer/routes/buyer.routes');
 const orderRoutesV2 = require('./modules/orderv2/routes/order.routes');
 const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
+const blipsRoutesV2 = require('./modules/blipsv2/routes/blips.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
 const server = http.createServer(app);
-socketManager.initializeSocket(server);
+
+// Only initialize socket manager if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  socketManager.initializeSocket(server);
+}
 
 // add reponse formatter
 app.use(responseFormatter);
@@ -165,6 +172,8 @@ app.use('/api/users/:userId/listings', listingRoutes);
 app.use('/api/v2/buyers', buyerRoutesV2);
 app.use('/api/v2/orders', orderRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
+app.use('/api/v2/sellers', sellerRoutesV2);
+app.use('/api/v2/blips', blipsRoutesV2);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
@@ -193,6 +202,13 @@ app.use((err, req, res, next) => {
 
   if (err instanceof NotFoundException) {
     return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  if (err instanceof BadRequestException) {
+    return res.status(err.statusCode).json({
       success: false,
       message: err.message,
     });

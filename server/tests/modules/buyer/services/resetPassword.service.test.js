@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const resetPasswordService = require('@modules/buyer/services/resetPassword.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
-const Buyer = require('@modules/buyer/models/buyer.model');
+const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 const bcrypt = require('bcrypt');
 

@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Buyer = require('../modules/buyer/models/buyer.model');
+const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -13,6 +13,7 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
+const baseUrl = process.env.STORE_URL;
 
 
 // Create a new product
@@ -2013,27 +2014,41 @@ exports.getSellerProducts = async (req, res) => {
     const isSellerOnVacation = seller?.vacationMode?.isOn === true;
 
     res.json({
-      products: products.map(product => ({
-        ...product.toObject(),
-        isLowStock: product.stock <= product.inventory.lowStockThreshold,
-        hasDiscount: product.discount?.isActive || false,
-        discountedPrice: product.discountedPrice,
-        blips: product.blips,
-        stock: product.stock,
-        // Add additional product information
-        productInfo: {
+      products: products.map(product => {
+        // Get the first blip if available
+        const firstBlip = product.blips && product.blips.length > 0 ? product.blips[0] : null;
+        
+        // Add blip links to each blip in the array
+        const blipsWithLinks = product.blips ? product.blips.map(blip => ({
+          ...blip.toObject(),
+          blipLink: `${baseUrl}/products/${product._id}/blips/${blip._id}`
+        })) : [];
+
+        return {
+          ...product.toObject(),
+          isLowStock: product.stock <= product.inventory.lowStockThreshold,
+          hasDiscount: product.discount?.isActive || false,
+          discountedPrice: product.discountedPrice,
+          blips: blipsWithLinks,
           stock: product.stock,
-          sku: product.inventory.sku,
-          lowStockThreshold: product.inventory.lowStockThreshold,
-          isOutOfStock: product.stock === 0,
-          variantsInfo: product.variants?.map(variant => ({
-            ...variant.toObject(),
-            stock: variant.totalStock,
-            isOutOfStock: variant.totalStock === 0,
-            isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
-          })) || []
-        }
-      })),
+          // Add product and blip links
+          productLink: `${baseUrl}/products/${product._id}`,
+          blipLink: firstBlip ? `${baseUrl}/products/${product._id}/blips/${firstBlip._id}` : null,
+          // Add additional product information
+          productInfo: {
+            stock: product.stock,
+            sku: product.inventory.sku,
+            lowStockThreshold: product.inventory.lowStockThreshold,
+            isOutOfStock: product.stock === 0,
+            variantsInfo: product.variants?.map(variant => ({
+              ...variant.toObject(),
+              stock: variant.totalStock,
+              isOutOfStock: variant.totalStock === 0,
+              isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
+            })) || []
+          }
+        };
+      }),
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: parseInt(page),
       totalProducts,
@@ -4537,19 +4552,22 @@ const MAX_SESSIONS = 1000;
 const MAX_SEEN_BLIPS_PER_SESSION = 100;
 
 // Clean up old sessions (run periodically)
-setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
-  for (const [sessionId, data] of sessionBlipStore.entries()) {
-    if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
-      sessionBlipStore.delete(sessionId);
-      cleanedCount++;
+// Only start the interval if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [sessionId, data] of sessionBlipStore.entries()) {
+      if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+        sessionBlipStore.delete(sessionId);
+        cleanedCount++;
+      }
     }
-  }
-  if (cleanedCount > 0) {
-    console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
-  }
-}, 30 * 1000); // Clean every 30 seconds
+    if (cleanedCount > 0) {
+      console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
+    }
+  }, 30 * 1000); // Clean every 30 seconds
+}
 
 
 
@@ -4965,7 +4983,7 @@ exports.getReviewDetails = async (req, res) => {
     }
     
     // Get buyer details
-    const Buyer = require('../modules/buyer/models/buyer.model');
+    const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
     
