@@ -24,13 +24,9 @@ import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { useOutletContext, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
+import { formatCurrency } from "@/Utilities/currencyFormater";
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-  }).format(amount)
-}
+
 
 export default function Payout() {
   const { setHeaderName, setNavName } = useOutletContext()
@@ -715,7 +711,7 @@ export default function Payout() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                <span className={`inline-flex items-center px-2.5 py-0.5 mb-[9px] rounded-full text-xs font-medium ${
                                   transaction.status === 'completed' ? 'bg-green-50 text-green-700' :
                                   transaction.status === 'pending' ? 'bg-yellow-50 text-yellow-700' :
                                   transaction.status === 'failed' ? 'bg-red-50 text-red-700' :
@@ -726,7 +722,7 @@ export default function Payout() {
                                 {transaction.breakdown && (
                                   <Dialog>
                                     <DialogTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="text-xs text-gray-500 hover:text-gray-700">
+                                      <Button variant="ghost" size="sm" className="text-xs text-gray-500 border-[1px] border-solid border-gray-300 hover:text-gray-700">
                                         <Info className="h-3 w-3 mr-1" />
                                         View Breakdown
                                       </Button>
@@ -819,7 +815,7 @@ export default function Payout() {
                             {transaction.breakdown && (
                               <Dialog>
                                 <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="w-full mt-2 text-xs text-gray-500 hover:text-gray-700 justify-start p-0 h-auto">
+                                  <Button variant="ghost" size="sm" className=" mt-2 py-2 px-3 border-[1px] border-solid border-gray-300 text-xs text-gray-500 hover:text-gray-700 justify-start">
                                     <Info className="h-3 w-3 mr-1" />
                                     View Breakdown
                                   </Button>

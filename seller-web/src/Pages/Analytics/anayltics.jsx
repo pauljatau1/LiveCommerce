@@ -36,17 +36,9 @@ import { useOutletContext } from 'react-router-dom';
 import Header from "@/Components/ui/Header/Header";
 import { FaChartLine, FaShoppingCart, FaUsers, FaBoxOpen, FaChartPie, FaExclamationTriangle, FaExclamationCircle } from 'react-icons/fa';
 import { Skeleton } from "@/Components/ui/skeleton";
+import { formatCurrency } from "@/Utilities/currencyFormater";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-// Helper functions
-const formatCurrency = (value) => {
-  if (!value && value !== 0) return '₦0';
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN'
-  }).format(value);
-};
 
 const formatNumber = (value) => {
   if (!value && value !== 0) return '0';
@@ -82,11 +74,11 @@ const formatRecommendations = (recs) => {
     message: rec?.message || 'No message available',
     affectedProducts: Array.isArray(rec?.affectedProducts)
       ? rec.affectedProducts.map(product => ({
-          id: product?.id || '',
-          name: product?.name || 'Unknown Product',
-          currentStock: typeof product?.currentStock === 'number' ? product.currentStock : 'N/A',
-          daysListed: typeof product?.daysListed === 'number' ? product.daysListed : 'N/A'
-        }))
+        id: product?.id || '',
+        name: product?.name || 'Unknown Product',
+        currentStock: typeof product?.currentStock === 'number' ? product.currentStock : 'N/A',
+        daysListed: typeof product?.daysListed === 'number' ? product.daysListed : 'N/A'
+      }))
       : []
   }));
 };
@@ -108,9 +100,9 @@ const PerformanceMetricsCard = ({ title, metrics }) => (
               <span className="text-sm font-medium text-gray-600">{metric.name}</span>
               <span className="text-sm font-bold">{formatPercentage(metric.value)}</span>
             </div>
-            <LinearProgress 
-              variant="determinate" 
-              value={metric.value} 
+            <LinearProgress
+              variant="determinate"
+              value={metric.value}
               className="h-2 rounded-full"
               sx={{
                 backgroundColor: 'rgba(0,0,0,0.1)',
@@ -191,7 +183,7 @@ const TopCustomersCard = ({ customers }) => (
 // Updated MetricCard Component with refined design and smaller font sizes
 const MetricCard = ({ title, value, change, icon, gradient }) => {
   const isPositive = change >= 0;
-  
+
   return (
     <div className="bg-white rounded-xl -sm hover:-md transition- duration-300 border border-gray-100/40 overflow-hidden">
       <div className="p-5">
@@ -238,14 +230,14 @@ const AnalyticsAndInsights = () => {
       if (!sellerToken) throw new Error("No auth token found");
 
       const tokenData = JSON.parse(sellerToken);
-      
+
       let url = `${BASE_URL}/seller/analytics?period=${period}`;
-      
+
       // Add custom date range if selected
       if (period === "custom" && customDateRange.startDate && customDateRange.endDate) {
         url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
       }
-      
+
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${tokenData.data}`,
@@ -322,9 +314,9 @@ const AnalyticsAndInsights = () => {
               <SelectTrigger className="w-full md:w-[180px] bg-white border border-gray-200">
                 <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
                 <SelectValue>
-                  {period === "week" ? "Last 7 Days" : 
-                   period === "month" ? "Last 30 Days" : 
-                   period === "year" ? "Last Year" : "Custom Range"}
+                  {period === "week" ? "Last 7 Days" :
+                    period === "month" ? "Last 30 Days" :
+                      period === "year" ? "Last Year" : "Custom Range"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -334,9 +326,9 @@ const AnalyticsAndInsights = () => {
                 <SelectItem value="custom">Custom Range</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
-              onClick={handleRetry} 
+            <Button
+              variant="outline"
+              onClick={handleRetry}
               className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700"
             >
               <ArrowUpRight className="mr-2 h-4 w-4" />
@@ -393,36 +385,36 @@ const AnalyticsAndInsights = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={revenueChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#6b7280" 
+                    <XAxis
+                      dataKey="date"
+                      stroke="#6b7280"
                       fontSize={11}
                       tickLine={false}
                       axisLine={{ stroke: '#e5e7eb' }}
                     />
-                    <YAxis 
-                      stroke="#6b7280" 
+                    <YAxis
+                      stroke="#6b7280"
                       fontSize={11}
                       tickLine={false}
                       axisLine={{ stroke: '#e5e7eb' }}
-                      tickFormatter={(value) => `₦${value/1000}k`}
+                      tickFormatter={(value) => `₦${value / 1000}k`}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value) => [formatCurrency(value), 'Revenue']}
-                      contentStyle={{ 
-                        background: 'rgba(255, 255, 255, 0.95)', 
+                      contentStyle={{
+                        background: 'rgba(255, 255, 255, 0.95)',
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
                         box: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
                     />
                     <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      name="Revenue" 
-                      stroke="#4f46e5" 
-                      strokeWidth={2} 
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      name="Revenue"
+                      stroke="#4f46e5"
+                      strokeWidth={2}
                       dot={{ r: 3, fill: '#4f46e5', stroke: '#ffffff', strokeWidth: 1.5 }}
                       activeDot={{ r: 5, fill: '#4f46e5', stroke: '#ffffff', strokeWidth: 1.5 }}
                     />
@@ -452,7 +444,7 @@ const AnalyticsAndInsights = () => {
                     <p className="text-base font-medium text-gray-800">{ordersData.repeatCustomerRate || 0}%</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-xs font-medium mb-3 text-gray-700">Orders by Status</h3>
                   <div className="space-y-2">
@@ -488,10 +480,10 @@ const AnalyticsAndInsights = () => {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip 
+                          <Tooltip
                             formatter={(value) => [value, 'Orders']}
-                            contentStyle={{ 
-                              background: 'rgba(255, 255, 255, 0.95)', 
+                            contentStyle={{
+                              background: 'rgba(255, 255, 255, 0.95)',
                               border: '1px solid #e5e7eb',
                               borderRadius: '6px',
                               box: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -529,7 +521,7 @@ const AnalyticsAndInsights = () => {
                     <p className="text-base font-medium text-gray-800">{productsData.lowStockProducts?.length || 0}</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-xs font-medium mb-3 text-gray-700">Best Selling Products</h3>
                   <div className="space-y-2">
@@ -570,7 +562,7 @@ const AnalyticsAndInsights = () => {
                     <p className="text-base font-medium text-gray-800">{streamsData.averageViewersPerStream || 0}</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-gray-50/70 p-2.5 rounded-lg border border-gray-100/60">
                     <p className="text-xs text-gray-600 mb-1">Live</p>
@@ -585,7 +577,7 @@ const AnalyticsAndInsights = () => {
                     <p className="text-sm font-medium text-indigo-600">{streamsData.scheduledStreams || 0}</p>
                   </div>
                 </div>
-                
+
                 {streamsData.topPerformingStreams?.length > 0 && (
                   <div>
                     <h3 className="text-xs font-medium mb-3 text-gray-700">Top Performing Streams</h3>
@@ -632,9 +624,8 @@ const AnalyticsAndInsights = () => {
                           {order.buyerName} - {formatDate(order.date)}
                         </p>
                       </div>
-                      <div className={`px-2 py-0.5 rounded-full text-xs ${
-                        order.status === 'Open' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
+                      <div className={`px-2 py-0.5 rounded-full text-xs ${order.status === 'Open' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
                         {order.status}
                       </div>
                     </div>
@@ -717,25 +708,25 @@ const AnalyticsAndInsights = () => {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {[5, 4, 3, 2, 1].map((rating) => {
                     const count = ratingsDistribution[rating] || 0;
-                    const percentage = summary.totalReviews > 0 
-                      ? (count / summary.totalReviews * 100) 
+                    const percentage = summary.totalReviews > 0
+                      ? (count / summary.totalReviews * 100)
                       : 0;
-                    
+
                     return (
                       <div key={rating} className="space-y-1.5">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-medium text-gray-700">{rating} Star</span>
                           <span className="text-xs font-medium text-gray-800">{count} ({percentage.toFixed(0)}%)</span>
                         </div>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={percentage} 
+                        <LinearProgress
+                          variant="determinate"
+                          value={percentage}
                           className="h-1.5 rounded-full"
                           sx={{
                             backgroundColor: 'rgba(0,0,0,0.05)',
                             '& .MuiLinearProgress-bar': {
-                              backgroundColor: rating >= 4 ? 'rgb(16, 185, 129)' : 
-                                             rating === 3 ? 'rgb(245, 158, 11)' : 'rgb(239, 68, 68)',
+                              backgroundColor: rating >= 4 ? 'rgb(16, 185, 129)' :
+                                rating === 3 ? 'rgb(245, 158, 11)' : 'rgb(239, 68, 68)',
                             }
                           }}
                         />
@@ -814,7 +805,7 @@ const LoadingSkeleton = () => (
           <Skeleton className="h-10 w-[100px] rounded-md" />
         </div>
       </div>
-      
+
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[...Array(4)].map((_, i) => (
@@ -828,7 +819,7 @@ const LoadingSkeleton = () => (
           </div>
         ))}
       </div>
-      
+
       {/* Content Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {[...Array(2)].map((_, i) => (
@@ -864,8 +855,8 @@ const ErrorDisplay = ({ message, onRetry }) => (
       <h2 className="text-xl font-bold text-gray-800 mb-2">Data Loading Error</h2>
       <AlertDescription className="text-gray-600 mb-6 text-sm">{message}</AlertDescription>
       {onRetry && (
-        <Button 
-          onClick={onRetry} 
+        <Button
+          onClick={onRetry}
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
         >
           Retry

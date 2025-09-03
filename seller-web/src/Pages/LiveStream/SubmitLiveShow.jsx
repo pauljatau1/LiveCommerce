@@ -221,7 +221,7 @@ const SubmitLiveShow = () => {
                                         <h2 className="text-sm font-semibold text-[#27272E] font-inter">Stream Blip</h2>
                                         <span className="ml-2 text-xs bg-[#E9FCEF] text-[#0BB248] px-2 py-0.5 rounded-full">Recommended</span>
                                     </div>
-                                    <div className="flex md:flex-row flex-col items-start gap-4">
+                                    <div className="flex flex-wrap items-start gap-4">
                                         <div className="relative w-full md:w-1/3 aspect-[9/16] rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                                             {livestream?.video ? (
                                                 <div className="w-full h-full flex items-center justify-center bg-black">

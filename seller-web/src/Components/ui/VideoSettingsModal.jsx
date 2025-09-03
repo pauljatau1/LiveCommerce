@@ -335,7 +335,7 @@ const VideoSettingsModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-2xl bg-[#0D0F12] border border-[#272A31] rounded-xl shadow-xl animate-in fade-in duration-300">
+      <div className="relative w-full h-[90vh] max-w-2xl bg-[#0D0F12] border border-[#272A31] rounded-xl shadow-xl animate-in fade-in duration-300">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#272A31]">
           <div className="flex items-center gap-3">
@@ -373,7 +373,7 @@ const VideoSettingsModal = ({
         </div>
         
         {/* Content */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto 
+        <div className="p-6 max-h-[60vh] 3xl:max-h-[70vh] overflow-y-auto 
         scroll-smooth 
         [&::-webkit-scrollbar]:w-1
         [&::-webkit-scrollbar-track]:rounded-full
@@ -595,10 +595,10 @@ const VideoSettingsModal = ({
               </p>
             </div>
           )}
-        </div>
         
-        {/* Footer */}
-        <div className="flex justify-end gap-3 p-4 border-t border-[#272A31]">
+        </div>
+          {/* Footer */}
+          <div className="absolute bottom-0 left-0 w-full bg-[#0D0F12] flex justify-end gap-3 p-4 border rounded-b-xl border-[#272A31]">
           <button 
             onClick={onClose}
             className="px-4 py-2 text-sm text-[#EFF0FA] bg-[#272A31] rounded-lg hover:bg-[#3A3E47] transition-colors"
@@ -613,6 +613,7 @@ const VideoSettingsModal = ({
             Apply Settings
           </button>
         </div>
+        
       </div>
     </div>
   );

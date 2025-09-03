@@ -163,7 +163,7 @@ export default function HomeAnalyticsCards() {
       </div>
 
       {/* Desktop grid layout */}
-      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 w-full">
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 w-full">
         {homeAnalyticsCardData.map((card) => (
           <HomeAnalyticsCard key={card.id} card={card} />
         ))}

@@ -227,10 +227,10 @@ const StreamDesktopUi = ({
                         <Icon icon="octicon:people-24" className="w-5 h-5" color='#EFF0FA' />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">{viewerCount}</p>
                     </div>
-                    <div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#14AE5C] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
+                    {/*<div className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#14AE5C] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300">
                         <Icon icon="fluent:share-16-regular" className="w-7 h-7" color='#14AE5C' />
                         <p className="text-sm font-inter font-medium text-[#EFF0FA]">Shares ({totalShares})</p>
-                    </div>
+                    </div>*/}
                     <button
                         onClick={toggleMicrophone}
                         className="flex items-center h-6 xl:h-12 cursor-pointer px-4 py-3 border w-fit border-[#272A31] rounded-md gap-2 hover:bg-gray-200/10 transition-all duration-300"
