@@ -1,5 +1,6 @@
 const express = require('express');
 const sellerController = require('../controllers/seller.controller');
+const { verifyToken } = require('../../../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -475,5 +476,107 @@ router.get('/check-token', sellerController.checkToken);
  *                 example: null
  */
 router.post('/resend-otp', sellerController.resendOTP);
+
+/**
+ * @swagger
+ * /api/v2/sellers/profile:
+ *   get:
+ *     summary: Get seller profile information
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: "+2348012345678"
+ *                     isVerified:
+ *                       type: boolean
+ *                       example: true
+ *                     emailVerified:
+ *                       type: boolean
+ *                       example: true
+ *                     walletBalance:
+ *                       type: number
+ *                       example: 5000
+ *                     storeVisits:
+ *                       type: number
+ *                       example: 150
+ *                     followersCount:
+ *                       type: number
+ *                       example: 250
+ *                     followingCount:
+ *                       type: number
+ *                       example: 45
+ *                     totalOrders:
+ *                       type: number
+ *                       example: 89
+ *                     streamCount:
+ *                       type: number
+ *                       example: 15
+ *                     categoriesCount:
+ *                       type: number
+ *                       example: 8
+ *                     hasProducts:
+ *                       type: boolean
+ *                       example: true
+ *                     hasMoreThan10Blips:
+ *                       type: boolean
+ *                       example: true
+ *                     storeStatus:
+ *                       type: object
+ *                       properties:
+ *                         currentSchedule:
+ *                           type: object
+ *                           properties:
+ *                             type:
+ *                               type: string
+ *                               example: "regular"
+ *                             day:
+ *                               type: string
+ *                               example: "monday"
+ *                             isOpen:
+ *                               type: boolean
+ *                               example: true
+ *                             openTime:
+ *                               type: string
+ *                               example: "09:00"
+ *                             closeTime:
+ *                               type: string
+ *                               example: "17:00"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+
+// Get profile route
+router.get('/profile', verifyToken, sellerController.getProfile);
 
 module.exports = router;
