@@ -20,7 +20,7 @@ import {
 } from "@/Components/ui/select"
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
 import { Toaster } from "@/Components/ui/sonner";
-import { BASE_URL } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { useOutletContext, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
@@ -97,20 +97,20 @@ export default function Payout() {
             .reduce((sum, w) => sum + w.amount, 0);
 
           // Fetch seller profile
-          const profileResponse = await fetch(`${BASE_URL}/seller/profile`, {
+          const profileResponse = await fetch(`${BASE_URL_V2}/sellers/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
           const profileData = await profileResponse.json();
-          const availableForWithdrawal = profileData?.walletBalance || 0;
+          const availableForWithdrawal = profileData?.data?.walletBalance || 0;
 
           // Set bank details with default values
           setBankDetails({
-            bankName: profileData?.bankDetails?.bankName || '',
-            accountNumber: profileData?.bankDetails?.accountNumber || '',
-            accountName: profileData?.bankDetails?.accountName || '',
-            bankIdentifierCode: profileData?.bankDetails?.bankIdentifierCode || ''
+            bankName: profileData?.data?.bankDetails?.bankName || '',
+            accountNumber: profileData?.data?.bankDetails?.accountNumber || '',
+            accountName: profileData?.data?.bankDetails?.accountName || '',
+            bankIdentifierCode: profileData?.data?.bankDetails?.bankIdentifierCode || ''
           });
 
           setFinancialData({

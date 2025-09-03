@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer } from 'react';
 import { toast } from "sonner"
 import axios from 'axios';
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 import { useNavigate } from 'react-router-dom';
 
 const OnboardingContext = createContext();
@@ -71,7 +71,7 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: "SET_LOADING", payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/profile/account-type`, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/profile/account-type`, {
                 accountType
             },
                 {
@@ -81,7 +81,7 @@ const OnboardingProvider = ({ children }) => {
                 }
             );
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business Account Type Submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {

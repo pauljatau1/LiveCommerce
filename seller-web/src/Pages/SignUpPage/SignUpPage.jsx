@@ -412,6 +412,7 @@ const SignUpPage = () => {
                   type="checkbox"
                   id="terms"
                   className="mt-1"
+                  required
                 />
                 <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
                   By creating an account means you agree to the{' '}

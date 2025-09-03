@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { toast } from 'sonner';
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 
 // Keep track of consecutive validation errors to avoid false positives
 let consecutiveValidationErrors = 0;
@@ -30,7 +30,7 @@ export const validateToken = async (token, navigate) => {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   
   try {
-    const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+    const response = await axios.get(`${BASE_URL_V2}/sellers/check-token`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal
     });

@@ -36,6 +36,7 @@ import { Calendar } from "../calendar";
 import { Input } from "../input";
 import { Progress } from "../progress";
 import VideoPlayer from "@shared/VideoPlayer";
+import ShareLinkPopUp from '../ShareLinkPopUp';
 // Import all icons directly
 import plusIcon from '@iconify-icons/tabler/plus';
 import magnifyingGlassIcon from '@iconify-icons/heroicons/magnifying-glass';
@@ -1056,7 +1057,7 @@ RerunAuctionDialog.propTypes = {
 };
 
 // Update the BlipUploadModal to include product information
-export const BlipUploadModal = ({ open, onClose, productId, product }) => {
+export const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, openShareLinkPopUp, changeLinkType, changeDeepLink }) => {
     const [blipVideos, setBlipVideos] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -1409,6 +1410,14 @@ export const BlipUploadModal = ({ open, onClose, productId, product }) => {
                                                 )}
                                             </button>
                                         </div>
+                                        <button onClick={() => {
+                                            setOpenShareLinkPopUp(true);
+                                            changeLinkType("Blip");
+                                            changeDeepLink(product?.blipLink)
+                                        }} className="py-2 px-3 border-2 border-solid border-gray-500 text-gray-500 hover:bg-gray-300 hover:text-gray-700 hover:border-gray-700 transition-all duration-300 rounded-md mt-5 flex items-center gap-2 justify-center" >
+                                            <p className="text-sm lg:text-base font-semibold ">Share</p>
+                                            <Icon icon="fluent:share-20-filled" width="18" height="18" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -1569,9 +1578,18 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isRerunLoading, setIsRerunLoading] = useState(false);
     const [showRerunDialog, setShowRerunDialog] = useState(false);
+    const [openShareLinkPopUp, setOpenShareLinkPopUp] = useState(false);
+    const [linkType, setLinkType] = useState("Product");
+    const [deepLink, setDeepLink] = useState(item?.productLink);
+
     // Add the missing state declaration for delete confirmation dialog
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const pagination = useSelector((state) => state.product.pagination);
+
+    useEffect(() => {
+        setDeepLink(item?.productLink)
+        setLinkType("Product")
+    }, [item, openBlipUploadModal])
 
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
@@ -1845,6 +1863,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 </button>
                             )}
                             <button
+                                onClick={() => setOpenShareLinkPopUp(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                            >
+                                <Icon icon="fluent:share-20-filled" width="14" height="14" />
+                                <span className="text-sm">Share product</span>
+                            </button>
+                            <button
                                 onClick={() => setShowDeleteDialog(true)}
                                 className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-600 rounded-md transition-all duration-200 text-left"
                                 disabled={handleDeleteStatusLoading()}
@@ -2019,6 +2044,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 isSubmitting={isSubmitting}
             />
 
+            {/* Share Link Popup */}
+            <ShareLinkPopUp
+                open={openShareLinkPopUp}
+                onOpenChange={setOpenShareLinkPopUp}
+                link={deepLink}
+                linkType={linkType}
+            />
+
             {/* Product Details Modal */}
             <ProductDetailsModal
                 open={openProductDetails}
@@ -2054,6 +2087,10 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 onClose={() => setOpenBlipUploadModal(false)}
                 productId={item._id}
                 product={item}
+                setOpenShareLinkPopUp={setOpenShareLinkPopUp}
+                openShareLinkPopUp={openShareLinkPopUp}
+                changeLinkType={setLinkType}
+                changeDeepLink={setDeepLink}
             />
 
             {/* Delete Confirmation Dialog */}

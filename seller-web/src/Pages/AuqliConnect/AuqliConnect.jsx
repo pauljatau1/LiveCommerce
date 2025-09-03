@@ -13,7 +13,7 @@ import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquar
 import { Search } from 'lucide-react';
 import { Badge } from "@/Components/ui/badge";
 import { Bell } from 'lucide-react';
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
 import 'react-responsive-carousel/lib/styles/carousel.min.css';
@@ -171,14 +171,14 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
     const fetchSellerProducts = async () => {
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
+        const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
         });
         const profileData = await response.json();
         
-        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
+        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData.data._id}`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
@@ -684,11 +684,11 @@ export default function SocialFeed() {
             break
 
           case 'my-posts':
-            const profileRes = await fetch(`${BASE_URL}/seller/profile`, {
+            const profileRes = await fetch(`${BASE_URL_V2}/sellers/profile`, {
               headers: { 'Authorization': `Bearer ${token}` }
             })
             const profileData = await profileRes.json()
-            const sellerId = profileData._id
+            const sellerId = profileData.data._id
 
             const myPostsRes = await fetch(`${BASE_URL}/posts/user/Seller/${sellerId}`)
             const myPostsData = await myPostsRes.json()
@@ -718,13 +718,13 @@ export default function SocialFeed() {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
         if (!sellerToken) return;
 
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
+        const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
         });
         const data = await response.json();
-        setSellerProfile(data);
+        setSellerProfile(data.data);
       } catch (error) {
         console.error('Error fetching seller profile:', error);
       }

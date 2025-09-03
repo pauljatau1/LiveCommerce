@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/Com
 import { Button } from "@/Components/ui/button"
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
 
 export default function SecuritySettings() {
@@ -27,7 +27,7 @@ export default function SecuritySettings() {
   const fetchSellerProfile = async () => {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
         },
@@ -35,7 +35,7 @@ export default function SecuritySettings() {
       
       if (response.ok) {
         const data = await response.json();
-        setSellerEmail(data.email);
+        setSellerEmail(data.data.email);
       }
     } catch (error) {
       toast.error("Failed to fetch profile");

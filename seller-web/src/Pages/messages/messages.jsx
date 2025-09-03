@@ -28,7 +28,7 @@ import {
   Package
 } from 'lucide-react';
 import { toast } from "sonner";
-import { BASE_URL } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { io } from "socket.io-client";
 import { useSocket } from "@/Contexts/SocketContext";
 import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
@@ -335,16 +335,16 @@ export default function ChatInterface() {
     const fetchSellerProfile = async () => {
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
+        const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
         });
         const profileData = await response.json();
-        setSellerId(profileData._id);
+        setSellerId(profileData.data._id);
 
         // Fetch products once we have the seller ID
-        fetchSellerProductsWithParams(profileData._id);
+        fetchSellerProductsWithParams(profileData.data._id);
       } catch (error) {
         console.error('Error fetching seller profile:', error);
         toast.error('Failed to load seller profile');

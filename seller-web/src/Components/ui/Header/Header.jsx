@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { Command, CommandGroup, CommandItem, CommandList } from "../../ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import PropTypes from "prop-types"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { useNavigate } from "react-router-dom"
 import { Dialog, DialogTrigger } from "../../ui/dialog"
 import NotificationsDialog from "../../NotificationsDialog"
@@ -26,13 +26,13 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
 
-          const response = await fetch(`${BASE_URL}/seller/profile`, {
+          const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           })
           const data = await response.json()
-          setSeller(data)
+          setSeller(data.data)
         }
       } catch (error) {
         console.error('Error fetching seller profile:', error)

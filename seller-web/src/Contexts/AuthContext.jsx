@@ -1,5 +1,5 @@
 import { createContext, useReducer } from "react";
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -226,7 +226,7 @@ function AuthProvider({ children }) {
         try {
             shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/register`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/register`, {
                 firstName,
                 lastName,
                 email,
@@ -239,19 +239,19 @@ function AuthProvider({ children }) {
                 console.log("create seller response", response);
                 // Store token and user data
                 localStorage.setItem('sellerToken', JSON.stringify({
-                    data: response.data.token,
+                    data: response.data.data.token,
                     isVerified: false // Email verification still needed
                 }));
 
                 // Store user data
-                localStorage.setItem('seller', JSON.stringify(response.data.user));
+                localStorage.setItem('seller', JSON.stringify(response.data.data.user));
 
-                dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
+                dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.data.user });
 
                 // Set the user as authenticated but with unverified email
                 dispatch({
                     type: 'SET_TOKEN', payload: {
-                        data: response.data.token,
+                        data: response.data.data.token,
                         isVerified: false // Email verification still needed
                     }
                 });
@@ -269,27 +269,27 @@ function AuthProvider({ children }) {
                 // Track signup event
                 try {
                     const userData = {
-                        "Seller ID": response.data.user._id,
+                        "Seller ID": response.data.data.user._id,
                         "$email": email,                           // Use reserved property
                         "$name": `${firstName} ${lastName}`,       // Use reserved property
                         "Seller Phone Number": phoneNumber,
                         "Seller Store Name": storeName,
                         "Signup Method": "Email",
-                        "Referral Used": response.data.referralUsed ? "Yes" : "No",
-                        "Referrer ID": response.data.referrerId || "None",
+                        "Referral Used": response.data.data.referralUsed ? "Yes" : "No",
+                        "Referrer ID": response.data.data.referrerId || "None",
                         "User Type": "Seller",
                         "IP Address": await getClientIP().catch(() => 'unknown')
                     };
 
-                    await identifyUserMixpanel(response.data.user._id, userData);
+                    await identifyUserMixpanel(response.data.data.user._id, userData);
                     await trackEvent("Seller Signed Up", userData);
 
                     // Track seller account creation with Customer.io
                     if (window.cioanalytics) {
                         const clientIP = await getClientIP().catch(() => 'unknown');
                         // First identify the user
-                        window.cioanalytics.identify(response.data.user._id, {
-                            seller_id: response.data.user._id,
+                        window.cioanalytics.identify(response.data.data.user._id, {
+                            seller_id: response.data.data.user._id,
                             email: email,
                             first_name: firstName,
                             last_name: lastName,
@@ -302,7 +302,7 @@ function AuthProvider({ children }) {
                         // Then track events after a small delay
                         setTimeout(() => {
                             window.cioanalytics.track('seller_account_created', {
-                                seller_id: response.data.user._id,
+                                seller_id: response.data.data.user._id,
                                 email: email,
                                 first_name: firstName,
                                 last_name: lastName,
@@ -384,7 +384,7 @@ function AuthProvider({ children }) {
 
             const tokenData = JSON.parse(storedToken);
             console.log('tokenData', tokenData)
-            const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+            const response = await axios.get(`${BASE_URL_V2}/sellers/check-token`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
@@ -395,7 +395,7 @@ function AuthProvider({ children }) {
             if (response.status === 200) {
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
-                    data: response.data.token,
+                    data: response.data.data.token,
                 }));
                 dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
                 return true;
@@ -523,7 +523,7 @@ function AuthProvider({ children }) {
     const requestNewOtp = async (email) => {
         try {
             dispatch({ type: 'SET_RESENDING_OTP', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/resend-otp`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/resend-otp`, {
                 email
             });
 
@@ -559,18 +559,18 @@ function AuthProvider({ children }) {
             shutdown()
             dispatch({ type: "RESET" })
             dispatch({ type: 'SET_LOADING', payload: true });
-            const response = await axios.post(`${BASE_URL}/seller/login`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/login`, {
                 email,
                 password
             });
             dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
                 // Check if account is disabled
-                if (response.data.user.isDisabled === true) {
+                if (response.data.data.user.isDisabled === true) {
                     dispatch({ type: 'ACCOUNT_DISABLED' });
 
                     // Store minimal data needed for the disabled dialog
-                    localStorage.setItem('seller', JSON.stringify(response.data.user));
+                    localStorage.setItem('seller', JSON.stringify(response.data.data.user));
                     localStorage.setItem('sellerToken', JSON.stringify({
                         data: response.data.token,
                         isVerified: false
@@ -588,22 +588,22 @@ function AuthProvider({ children }) {
                 }
 
                 // Check if email is verified before setting authenticated state
-                const isEmailVerified = response.data.user.emailVerified === true || response.data.user.isVerified === true;
+                const isEmailVerified = response.data.data.user.emailVerified === true || response.data.data.user.isVerified === true;
 
-                dispatch({ type: 'STORE_SELLER', payload: response.data.user });
+                dispatch({ type: 'STORE_SELLER', payload: response.data.data.user });
 
                 // Set token but respect verification status
                 dispatch({
                     type: 'STORE_TOKEN', payload: {
-                        data: response.data.token,
-                        isVerified: response.data.user.isVerified && isEmailVerified
+                        data: response.data.data.token,
+                        isVerified: response.data.data.user.isVerified && isEmailVerified
                     }
                 });
 
-                localStorage.setItem('seller', JSON.stringify(response.data.user));
+                localStorage.setItem('seller', JSON.stringify(response.data.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
-                    data: response.data.token,
-                    isVerified: response.data.user.isVerified && isEmailVerified
+                    data: response.data.data.token,
+                    isVerified: response.data.data.user.isVerified && isEmailVerified
                 }));
 
 
@@ -616,39 +616,39 @@ function AuthProvider({ children }) {
                     console.error('IP tracking failed:', e);
                 }
 
-                const isPickupAddressRequired = response?.data?.user?.accountType === 'individual' ? response?.data?.user?.hasFilledAddress === false : response?.data?.user?.hasFilledBusinessAddress === false;
-                const onboardingCompletionStatus = response?.data?.user?.emailVerified && !isPickupAddressRequired ? "Completed" : "Not Completed";
+                const isPickupAddressRequired = response?.data?.data?.user?.accountType === 'individual' ? response?.data?.data?.user?.hasFilledAddress === false : response?.data?.data?.user?.hasFilledBusinessAddress === false;
+                const onboardingCompletionStatus = response?.data?.data?.user?.emailVerified && !isPickupAddressRequired ? "Completed" : "Not Completed";
 
                 // Track analytics using our utility
                 try {
                     // User properties for identification
                     const userTraits = {
-                        "$email": response?.data?.user?.email,
-                        "$name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
-                        "Store Name": response?.data?.user?.storeName,
+                        "$email": response?.data?.data?.user?.email,
+                        "$name": `${response?.data?.data?.user?.firstName} ${response?.data?.data?.user?.lastName}`,
+                        "Store Name": response?.data?.data?.user?.storeName,
                         "User Type": "Seller",
-                        "Seller Account Type": response?.data?.user?.accountType,
-                        "Signup Date": new Date(response?.data?.user?.createdAt).toISOString().split('T')[0],
-                        "Email Verification Status": response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                        "Seller Account Type": response?.data?.data?.user?.accountType,
+                        "Signup Date": new Date(response?.data?.data?.user?.createdAt).toISOString().split('T')[0],
+                        "Email Verification Status": response?.data?.data?.user?.emailVerified ? "Verified" : "Not Verified",
                         "Onboarding Completion Status": onboardingCompletionStatus,
-                        "Onboarding Steps Remaining": `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
-                        "Primary Payment Account Number": response?.data?.user?.bankDetails?.accountNumber || "None",
-                        "Primary Payment Account Name": response?.data?.user?.bankDetails?.accountName || "None",
-                        "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
-                        "Primary Payment Account Currency": response?.data?.user?.bankDetails?.accountCurrency || "None",
-                        "Location": `${response?.data?.user?.businessAddress?.country || ''}, ${response?.data?.user?.businessAddress?.city || ''}, ${response?.data?.user?.businessAddress?.state || ''}, ${response?.data?.user?.businessAddress?.addressLine1 || ''}`,
-                        "Total Wallet Balance": response?.data?.user?.walletBalance,
+                        "Onboarding Steps Remaining": `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
+                        "Primary Payment Account Number": response?.data?.data?.user?.bankDetails?.accountNumber || "None",
+                        "Primary Payment Account Name": response?.data?.data?.user?.bankDetails?.accountName || "None",
+                        "Primary Payment Account Bank": response?.data?.data?.user?.bankDetails?.bankName || "None",
+                        "Primary Payment Account Currency": response?.data?.data?.user?.bankDetails?.accountCurrency || "None",
+                        "Location": `${response?.data?.data?.user?.businessAddress?.country || ''}, ${response?.data?.data?.user?.businessAddress?.city || ''}, ${response?.data?.data?.user?.businessAddress?.state || ''}, ${response?.data?.data?.user?.businessAddress?.addressLine1 || ''}`,
+                        "Total Wallet Balance": response?.data?.data?.user?.walletBalance,
                         "IP Address": clientIP,
                     };
 
                     // Identify user
-                    await identifyUserMixpanel(response?.data?.user?._id, userTraits);
+                    await identifyUserMixpanel(response?.data?.data?.user?._id, userTraits);
 
                     // Track login event with device context and IP
                     await trackEvent("Seller Login", {
                         ...userTraits,
-                        "seller id": response?.data?.user?._id,
-                        "seller full name": `${response?.data?.user?.firstName} ${response?.data?.user?.lastName}`,
+                        "seller id": response?.data?.data?.user?._id,
+                        "seller full name": `${response?.data?.data?.user?.firstName} ${response?.data?.data?.user?.lastName}`,
                         "Device Type": getDeviceType(),
                         "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
                     });
@@ -660,10 +660,10 @@ function AuthProvider({ children }) {
                 if (window.initClarity) {
                     // If clarity isn't directly available but initClarity is, use that
                     window.initClarity({
-                        id: response?.data?.user?._id,
-                        email: response?.data?.user?.email,
-                        firstName: response?.data?.user?.firstName,
-                        lastName: response?.data?.user?.lastName
+                        id: response?.data?.data?.user?._id,
+                        email: response?.data?.data?.user?.email,
+                        firstName: response?.data?.data?.user?.firstName,
+                        lastName: response?.data?.data?.user?.lastName
                     });
                 }
 
@@ -685,21 +685,21 @@ function AuthProvider({ children }) {
                 try {
                     if (window.cioanalytics) {
                         // Always use _id consistently (appears to be your MongoDB ID)
-                        window.cioanalytics.identify(response?.data?.user?._id, {
-                            seller_id: response?.data?.user?._id,
-                            email: response?.data?.user?.email,
-                            email_verification_status: response?.data?.user?.emailVerified ? "Verified" : "Not Verified",
+                        window.cioanalytics.identify(response?.data?.data?.user?._id, {
+                            seller_id: response?.data?.data?.user?._id,
+                            email: response?.data?.data?.user?.email,
+                            email_verification_status: response?.data?.data?.user?.emailVerified ? "Verified" : "Not Verified",
                             onboarding_completion_status: onboardingCompletionStatus,
-                            onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
-                            first_name: response?.data?.user?.firstName,
-                            last_name: response?.data?.user?.lastName,
-                            phone: response?.data?.user?.phoneNumber,
-                            created_at: Math.floor(new Date(response?.data?.user?.createdAt).getTime() / 1000),
+                            onboarding_steps_remaining: `${onboardingCompletionStatus === "Not Completed" ? `${isPickupAddressRequired && "Pickup Address"}${response?.data?.data?.user?.emailVerified && ", Email Verification"}` : "onboarding completed" } `,
+                            first_name: response?.data?.data?.user?.firstName,
+                            last_name: response?.data?.data?.user?.lastName,
+                            phone: response?.data?.data?.user?.phoneNumber,
+                            created_at: Math.floor(new Date(response?.data?.data?.user?.createdAt).getTime() / 1000),
                             user_type: 'seller',
-                            account_type: response?.data?.user?.accountType,
-                            store_name: response?.data?.user?.storeName,
-                            location: `${response?.data?.user?.sellerAddress?.country || ''}, ${response?.data?.user?.sellerAddress?.city || ''}, ${response?.data?.user?.sellerAddress?.state || ''}, ${response?.data?.user?.sellerAddress?.addressLine1 || 'pending onboarding completion'}`,
-                            total_wallet_balance: `₦${response?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
+                            account_type: response?.data?.data?.user?.accountType,
+                            store_name: response?.data?.data?.user?.storeName,
+                            location: `${response?.data?.data?.user?.sellerAddress?.country || ''}, ${response?.data?.data?.user?.sellerAddress?.city || ''}, ${response?.data?.data?.user?.sellerAddress?.state || ''}, ${response?.data?.data?.user?.sellerAddress?.addressLine1 || 'pending onboarding completion'}`,
+                            total_wallet_balance: `₦${response?.data?.data?.user?.walletBalance.toLocaleString('en-NG') || '0'}`,
                             ip_address: clientIP,
                             device_type: getDeviceType(),
                             approximate_location: clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
@@ -708,11 +708,11 @@ function AuthProvider({ children }) {
                         // Use setTimeout to ensure identification is processed before tracking events
                         setTimeout(() => {
                             window.cioanalytics.track('seller_account_login', {
-                                seller_id: response?.data?.user?._id,
-                                email: response?.data?.user?.email,
-                                first_name: response?.data?.user?.firstName,
-                                last_name: response?.data?.user?.lastName,
-                                phone: response?.data?.user?.phoneNumber,
+                                seller_id: response?.data?.data?.user?._id,
+                                email: response?.data?.data?.user?.email,
+                                first_name: response?.data?.data?.user?.firstName,
+                                last_name: response?.data?.data?.user?.lastName,
+                                phone: response?.data?.data?.user?.phoneNumber,
                                 ip_address: clientIP,
                                 device_type: getDeviceType(),
                             });
@@ -814,33 +814,33 @@ function AuthProvider({ children }) {
 
             const tokenData = JSON.parse(sellerToken);
             console.log(tokenData);
-            const response = await axios.get(`${BASE_URL}/seller/profile`, {
+            const response = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
             });
             if (response.status === 200) {
                 // Check if account is disabled
-                if (response.data.isDisabled === true) {
+                if (response.data.data.isDisabled === true) {
                     dispatch({ type: 'ACCOUNT_DISABLED' });
                     return null;
                 }
 
                 // Explicitly check emailVerified status from response
-                const isEmailVerified = response.data.emailVerified === true || response.data.isVerified === true;
+                const isEmailVerified = response.data.data.emailVerified === true || response.data.data.isVerified === true;
 
-                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data });
-                console.log("seller details:", response.data);
+                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data.data });
+                console.log("seller details:", response.data.data);
 
                 // Save token with proper verification status
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
-                    isVerified: isEmailVerified && response.data.isVerified
+                    isVerified: isEmailVerified && response.data.data.isVerified
                 }));
 
                 // Include emailVerified status in user data
                 const userData = {
-                    ...response.data,
+                    ...response.data.data,
                     emailVerified: isEmailVerified
                 };
 

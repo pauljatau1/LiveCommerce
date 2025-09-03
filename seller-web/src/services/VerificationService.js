@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { BASE_URL } from '../Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '../Constants/Server';
 import { trackEvent } from '../util/analytics';
 
 /**
@@ -18,7 +18,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/profile/account-type`,
+        `${BASE_URL_V2}/sellers/profile/account-type`,
         { accountType },
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -41,7 +41,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error selecting account type:', error);
       throw error;
