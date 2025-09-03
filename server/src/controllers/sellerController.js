@@ -1019,35 +1019,6 @@ exports.uploadStoreBanner = async (req, res) => {
   }
 };
 
-
-// Select account type
-exports.selectAccountType = async (req, res) => {
-  try {
-    const { accountType } = req.body;
-
-    const lowerCaseAccountType = accountType ? accountType.toLowerCase() : null;
-
-    const validAccountTypes = ['individual', 'business'];
-    if (!lowerCaseAccountType || !validAccountTypes.includes(lowerCaseAccountType)) {
-      return res.status(400).json({ message: 'Invalid account type. Must be either "individual" or "business"' });
-    }
-
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    seller.accountType = lowerCaseAccountType;
-    seller.isProfileComplete = checkProfileCompletion(seller);
-    const updatedSeller = await seller.save();
-
-    res.json({ message: 'Account type selected successfully', seller: updatedSeller });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to select account type', error: error.message });
-  }
-};
-
-
 // Add business details
 exports.addBusinessDetails = async (req, res) => {
   try {

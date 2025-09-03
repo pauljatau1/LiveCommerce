@@ -6,38 +6,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const storeVisitMiddleware = require('../middlewares/storeVisitMiddleware');
 const mongoose = require('mongoose');
 const Seller = require('../models/Seller');
-
-/**
- * @swagger
- * /api/seller/profile/account-type:
- *   put:
- *     summary: Select account type
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               accountType:
- *                 type: string
- *     responses:
- *       200:
- *         description: Account type selected successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/profile/account-type', authMiddleware.verifyToken, sellerController.selectAccountType);
-
-
 
 /**
  * @swagger

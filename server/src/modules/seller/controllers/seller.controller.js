@@ -3,6 +3,7 @@ const loginService = require('../services/login.service');
 const checkTokenService = require('../services/checkToken.service');
 const resendOTPService = require('../services/resendOTP.service');
 const getProfileService = require('../services/getProfile.service');
+const selectAccountTypeService = require('../services/selectAccountType.service');
 
 /**
  * Register a seller user.
@@ -134,10 +135,46 @@ async function getProfile(req, res, next) {
   }
 }
 
+/**
+ * Select account type for a seller.
+ *
+ * This controller handles the account type selection HTTP request.
+ * It delegates the account type selection logic to the service layer,
+ * and sends a success response with the updated seller data.
+ *
+ * @param {Request} req - Express request object containing the account type in `req.body` and seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function selectAccountType(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Extract account type data from request body
+    const accountTypeData = req.body;
+
+    // Call the service layer to handle account type selection logic
+    const response = await selectAccountTypeService.selectAccountType(sellerId, accountTypeData);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: 'Account type selected successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Account type selected successfully', data: { message: 'Account type selected successfully', seller: updatedSeller }, pagination: null }
+    res.success({ 
+      message: 'Account type selected successfully', 
+      seller: response 
+    }, 'Account type selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   checkToken,
   resendOTP,
-  getProfile
+  getProfile,
+  selectAccountType
 };
