@@ -12,24 +12,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/profile:
- *   get:
- *     summary: Get seller profile
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Seller profile retrieved successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
-
-/**
- * @swagger
  * /api/seller/profile/account-type:
  *   put:
  *     summary: Select account type

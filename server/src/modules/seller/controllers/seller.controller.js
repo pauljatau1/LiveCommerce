@@ -2,6 +2,7 @@ const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
 const checkTokenService = require('../services/checkToken.service');
 const resendOTPService = require('../services/resendOTP.service');
+const getProfileService = require('../services/getProfile.service');
 
 /**
  * Register a seller user.
@@ -107,9 +108,36 @@ async function resendOTP(req, res, next) {
   }
 }
 
+/**
+ * Get seller profile information.
+ *
+ * This controller handles the profile retrieval HTTP request.
+ * It delegates the profile logic to the service layer and returns the enhanced profile data.
+ *
+ * @param {Request} req - Express request object containing the seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getProfile(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle profile retrieval logic
+    const response = await getProfileService.getProfile(sellerId);
+
+    // Send success response with profile data
+    res.success(response, 'Profile retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   checkToken,
-  resendOTP
+  resendOTP,
+  getProfile
 };
