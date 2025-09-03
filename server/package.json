@@ -6,7 +6,7 @@
     "scripts": {
         "start": "node server.js",
         "test": "jest --forceExit",
-        "test:ci": "jest --forceExit --ci --reporters=default --reporters=jest-junit --collectCoverage=true",
+        "test:ci": "jest --forceExit --ci",
         "test:debug": "node --trace-warnings node_modules/.bin/jest --forceExit",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage --forceExit",
@@ -82,13 +82,6 @@
         "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
         "globalTeardown": "<rootDir>/tests/teardown.js",
         "testMatch": ["**/tests/**/*.test.js"],
-        "collectCoverageFrom": [
-            "src/**/*.js",
-            "!src/server.js",
-            "!src/app.js"
-        ],
-        "coverageDirectory": "coverage",
-        "coverageReporters": ["text", "lcov", "html"],
         "maxWorkers": 1,
         "moduleNameMapper": {
             "^@/(.*)$": "<rootDir>/src/$1",
