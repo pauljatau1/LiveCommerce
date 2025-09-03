@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/Components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Badge } from "@/Components/ui/badge";
-import { BASE_URL } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { Input } from "@/Components/ui/input";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from "@/Components/ui/drawer";
 
@@ -213,14 +213,14 @@ export default function OrdersDashboard() {
         if (sellerToken) {
           const tokenData = JSON.parse(sellerToken);
           const token = tokenData.data;
-          const response = await fetch(`${BASE_URL}/seller/profile`, {
+          const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
           const data = await response.json();
-          setSellerId(data._id);
-          fetchOrders(data._id, token);
+          setSellerId(data.data._id);
+          fetchOrders(data.data._id, token);
         }
       } catch (error) {
         console.error("Error fetching seller profile:", error);

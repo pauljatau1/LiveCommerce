@@ -4,7 +4,7 @@ import { Checkbox } from "@/Components/ui/checkbox"
 import { Switch } from "@/Components/ui/switch"
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
 
 export default function NotificationsSettings() {
@@ -27,7 +27,7 @@ export default function NotificationsSettings() {
   const fetchNotificationPreferences = async () => {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
         },
@@ -35,7 +35,7 @@ export default function NotificationsSettings() {
       
       if (response.ok) {
         const data = await response.json();
-        setPreferences(data.notificationPreferences || {});
+        setPreferences(data.data.notificationPreferences || {});
       }
     } catch (error) {
       toast.error("Failed to fetch notification preferences");

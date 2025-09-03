@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/Components/ui/dialog"
 import Loader from '@/Components/Loader'
-import { BASE_URL } from '@/Constants/Server'
+import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server'
 import { useOutletContext } from 'react-router-dom'
 
 export default function OrderDetails() {
@@ -88,16 +88,16 @@ export default function OrderDetails() {
           setOrderStatus(orderResult.orderStatus)
           
           // Fetch seller profile
-          const profileResponse = await fetch(`${BASE_URL}/seller/profile`, {
+          const profileResponse = await fetch(`${BASE_URL_V2}/sellers/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           })
           const profileResult = await profileResponse.json()
-          setSellerProfile(profileResult)
-          
+          setSellerProfile(profileResult.data)
+
           // Check if seller is international
-          if (profileResult && profileResult.isInternational) {
+          if (profileResult && profileResult.data.isInternational) {
             setIsInternationalSeller(true)
           }
         }

@@ -8,7 +8,7 @@ import { Checkbox } from "@/Components/ui/checkbox"
 import { Search, Trash2, HelpCircle, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
@@ -60,12 +60,12 @@ export default function CreateCampaign() {
         const token = tokenData.data
 
         // Get seller profile
-        const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
+        const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         })
 
-        sellerId = profileResponse.data._id
-        
+        sellerId = profileResponse.data.data._id
+
         // Save seller ID to localStorage
         localStorage.setItem('seller', JSON.stringify({ _id: sellerId }))
       } else {

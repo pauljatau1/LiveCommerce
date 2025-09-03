@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
 
 const NIGERIAN_BANKS = [
@@ -66,7 +66,7 @@ export default function PaymentSettings() {
   const fetchProfileData = async () => {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
         },
@@ -74,7 +74,7 @@ export default function PaymentSettings() {
       
       if (response.ok) {
         const data = await response.json();
-        setBankDetails(data.bankDetails || {});
+        setBankDetails(data.data.bankDetails || {});
       }
     } catch (error) {
       toast.error("Failed to fetch bank details");

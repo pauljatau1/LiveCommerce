@@ -8,7 +8,7 @@ import { Label } from "@/Components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { Button } from "@/Components/ui/button"
 import { Textarea } from "@/Components/ui/textarea"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
 import { Switch } from "@/Components/ui/switch"
 import { useIntercom } from 'react-use-intercom';
@@ -138,7 +138,7 @@ export default function StoreSettings() {
   const fetchStoreData = async () => {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
         },
@@ -147,11 +147,11 @@ export default function StoreSettings() {
       if (response.ok) {
         const data = await response.json();
         setFormData({
-          storeName: data.storeName || "",
-          phoneNumber: data.accountType === 'business' ? data.businessNumber : data.phoneNumber || "",
-          email: data.accountType === 'business' ? data.businessEmail : data.email || "",
-          description: data.aboutStore || "",
-          address: data.accountType === 'business' ? data.businessAddress : data.sellerAddress || {
+          storeName: data.data.storeName || "",
+          phoneNumber: data.data.accountType === 'business' ? data.data.businessNumber : data.data.phoneNumber || "",
+          email: data.data.accountType === 'business' ? data.data.businessEmail : data.data.email || "",
+          description: data.data.aboutStore || "",
+          address: data.data.accountType === 'business' ? data.data.businessAddress : data.data.sellerAddress || {
             country: "",
             state: "",
             city: "",
@@ -160,12 +160,12 @@ export default function StoreSettings() {
             zipCode: "",
           },
           businessDetails: {
-            taxInformation: data.businessType || "",
+            taxInformation: data.data.businessType || "",
           },
 
-          specialDates: data.specialDates || [],
-          timezone: data.timezone || "Africa/Lagos",
-          storePolicy: data.storePolicy || {
+          specialDates: data.data.specialDates || [],
+          timezone: data.data.timezone || "Africa/Lagos",
+          storePolicy: data.data.storePolicy || {
             deliveryTimes: "",
             freeShippingPolicy: "",
             lostOrDamagedPolicy: "",
@@ -177,29 +177,29 @@ export default function StoreSettings() {
             returnCondition: "",
             returnShipping: "",
             exchangePolicy: "",
-            allowsCod: data.storePolicy?.allowsCod || false
+            allowsCod: data.data.storePolicy?.allowsCod || false
           },
-          offersStorePickup: data.offersStorePickup || false, // Set initial value here
-          accountType: data.accountType || "",
-          businessName: data.businessName || "",
-          businessType: data.businessType || "",
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
+          offersStorePickup: data.data.offersStorePickup || false, // Set initial value here
+          accountType: data.data.accountType || "",
+          businessName: data.data.businessName || "",
+          businessType: data.data.businessType || "",
+          firstName: data.data.firstName || "",
+          lastName: data.data.lastName || "",
           socialMedia: {
-            instagram: data.socialMedia?.instagram || "",
-            facebook: data.socialMedia?.facebook || "",
-            tiktok: data.socialMedia?.tiktok || ""
+            instagram: data.data.socialMedia?.instagram || "",
+            facebook: data.data.socialMedia?.facebook || "",
+            tiktok: data.data.socialMedia?.tiktok || ""
           },
         });
   
         // Set store avatar if exists
-        if (data.storeAvatar?.url) {
-          setStoreAvatar(data.storeAvatar.url);
+        if (data.data.storeAvatar?.url) {
+          setStoreAvatar(data.data.storeAvatar.url);
         }
   
         // Set store banner if exists
-        if (data.storeBanner?.url) {
-          setStoreBanner(data.storeBanner.url);
+        if (data.data.storeBanner?.url) {
+          setStoreBanner(data.data.storeBanner.url);
         }
       }
     } catch (error) {

@@ -814,33 +814,33 @@ function AuthProvider({ children }) {
 
             const tokenData = JSON.parse(sellerToken);
             console.log(tokenData);
-            const response = await axios.get(`${BASE_URL}/seller/profile`, {
+            const response = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
                 }
             });
             if (response.status === 200) {
                 // Check if account is disabled
-                if (response.data.isDisabled === true) {
+                if (response.data.data.isDisabled === true) {
                     dispatch({ type: 'ACCOUNT_DISABLED' });
                     return null;
                 }
 
                 // Explicitly check emailVerified status from response
-                const isEmailVerified = response.data.emailVerified === true || response.data.isVerified === true;
+                const isEmailVerified = response.data.data.emailVerified === true || response.data.data.isVerified === true;
 
-                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data });
-                console.log("seller details:", response.data);
+                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data.data });
+                console.log("seller details:", response.data.data);
 
                 // Save token with proper verification status
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
-                    isVerified: isEmailVerified && response.data.isVerified
+                    isVerified: isEmailVerified && response.data.data.isVerified
                 }));
 
                 // Include emailVerified status in user data
                 const userData = {
-                    ...response.data,
+                    ...response.data.data,
                     emailVerified: isEmailVerified
                 };
 

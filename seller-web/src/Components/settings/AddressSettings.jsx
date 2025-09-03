@@ -7,7 +7,7 @@ import { Input } from "@/Components/ui/input"
 import { Label } from "@/Components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
 import React from "react"
 
@@ -272,7 +272,7 @@ export default function AddressSettings() {
   const fetchProfileData = async () => {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
         },
@@ -280,7 +280,7 @@ export default function AddressSettings() {
       
       if (response.ok) {
         const data = await response.json();
-        setProfileData(data);
+        setProfileData(data.data);
       }
     } catch (error) {
       toast.error("Failed to fetch address data");

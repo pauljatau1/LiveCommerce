@@ -6,7 +6,7 @@ import { Checkbox } from "@/Components/ui/checkbox"
 import { Button } from "@/Components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table"
 import { Search } from "lucide-react"
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import axios from "axios"
 import {
   Dialog,
@@ -77,11 +77,11 @@ export default function Coupons() {
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
 
-          const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
+          const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
             headers: { Authorization: `Bearer ${token}` }
           })
 
-          const sellerId = profileResponse.data._id
+          const sellerId = profileResponse.data.data._id
           
           // Update to include pagination parameters
           const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
