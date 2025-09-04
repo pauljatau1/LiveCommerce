@@ -5,6 +5,7 @@ const resendOTPService = require('../services/resendOTP.service');
 const getProfileService = require('../services/getProfile.service');
 const selectAccountTypeService = require('../services/selectAccountType.service');
 const addBankDetailsService = require('../services/addBankDetails.service');
+const uploadCompanyVerificationService = require('../services/uploadCompanyVerification.service');
 
 /**
  * Register a seller user.
@@ -206,6 +207,41 @@ async function addBankDetails(req, res, next) {
   }
 }
 
+/**
+ * Upload company verification documents for a seller.
+ *
+ * This controller handles the company verification document upload HTTP request.
+ * It delegates the document upload logic to the service layer,
+ * and sends a success response with the updated seller data.
+ *
+ * @param {Request} req - Express request object containing the uploaded files in `req.files` and seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadCompanyVerification(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Extract uploaded files from request
+    const files = req.files;
+
+    // Call the service layer to handle company verification document upload logic
+    const response = await uploadCompanyVerificationService.uploadCompanyVerification(sellerId, files);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: 'Company verification documents uploaded successfully', documents: seller.verificationDocuments }
+    // New v2: { success: true, message: 'Company verification documents uploaded successfully', data: { message: 'Company verification documents uploaded successfully', documents: seller.verificationDocuments }, pagination: null }
+    res.success({ 
+      message: 'Company verification documents uploaded successfully', 
+      documents: response.verificationDocuments 
+    }, 'Company verification documents uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -213,5 +249,6 @@ module.exports = {
   resendOTP,
   getProfile,
   selectAccountType,
-  addBankDetails
+  addBankDetails,
+  uploadCompanyVerification
 };
