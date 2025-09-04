@@ -204,52 +204,47 @@ export const VerificationService = {
    * @returns {Promise} - The API response
    */
   uploadCompanyVerification: async (documents) => {
-    try {
-      const token = localStorage.getItem('sellerToken');
-      const sellerData = JSON.parse(localStorage.getItem('seller'));
-      const { data: authToken } = JSON.parse(token);
-      
-      const formData = new FormData();
-      
-      if (documents.certificateOfIncorporation) {
-        formData.append('certificateOfIncorporation', documents.certificateOfIncorporation);
-      }
-      
-      if (documents.businessTaxId) {
-        formData.append('businessTaxId', documents.businessTaxId);
-      }
-      
-      const response = await axios.post(
-        `${BASE_URL}/seller/verification/company`,
-        formData,
-        {
-          headers: { 
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-
-      if (response.status === 200) {
-        trackEvent("seller onboarding step 6: Company Verification Documents Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
-          "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
-        });
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error uploading company verification:', error);
-      throw error;
+    const token = localStorage.getItem('sellerToken');
+    const sellerData = JSON.parse(localStorage.getItem('seller'));
+    const { data: authToken } = JSON.parse(token);
+    
+    const formData = new FormData();
+    
+    if (documents.certificateOfIncorporation) {
+      formData.append('certificateOfIncorporation', documents.certificateOfIncorporation);
     }
+    
+    if (documents.businessTaxId) {
+      formData.append('businessTaxId', documents.businessTaxId);
+    }
+    
+    const response = await axios.post(
+      `${BASE_URL_V2}/sellers/verification/company`,
+      formData,
+      {
+        headers: { 
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    if (response.status === 200) {
+      trackEvent("seller onboarding step 6: Company Verification Documents Uploaded", {
+        "seller id": sellerData._id,
+        "seller email": sellerData.email,
+        "seller store name": sellerData.storeName,
+        "seller first name": sellerData.firstName,
+        "seller last name": sellerData.lastName,
+        "seller phone number": sellerData.phoneNumber,
+        "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
+        "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
+        "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+        "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
+      });
+    }
+
+    return response.data.data;
   },
   
   /**
