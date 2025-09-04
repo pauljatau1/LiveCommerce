@@ -334,7 +334,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/profile/bank-details`,
+        `${BASE_URL_V2}/sellers/profile/bank-details`,
         { bankDetails },
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -362,7 +362,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error adding bank details:', error);
       throw error;
