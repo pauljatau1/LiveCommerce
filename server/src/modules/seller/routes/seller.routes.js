@@ -1,6 +1,8 @@
 const express = require('express');
 const sellerController = require('../controllers/seller.controller');
 const { verifyToken } = require('../../../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -816,5 +818,133 @@ router.get('/profile', verifyToken, sellerController.getProfile);
 
 // Add bank details route
 router.put('/profile/bank-details', verifyToken, sellerController.addBankDetails);
+
+/**
+ * @swagger
+ * /api/v2/sellers/verification/company:
+ *   post:
+ *     summary: Upload company verification documents
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - certificateOfIncorporation
+ *             properties:
+ *               certificateOfIncorporation:
+ *                 type: string
+ *                 format: binary
+ *                 description: Certificate of Incorporation document (required)
+ *                 example: "certificate.pdf"
+ *               businessTaxId:
+ *                 type: string
+ *                 format: binary
+ *                 description: Business Tax ID document (optional)
+ *                 example: "tax-id.pdf"
+ *     responses:
+ *       200:
+ *         description: Company verification documents uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Company verification documents uploaded successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Company verification documents uploaded successfully"
+ *                     documents:
+ *                       type: object
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                           example: "company"
+ *                         documents:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               documentType:
+ *                                 type: string
+ *                                 description: Type of verification document
+ *                                 example: "certificateOfIncorporation"
+ *                               fileUrl:
+ *                                 type: string
+ *                                 description: URL of the uploaded document
+ *                                 example: "https://cdn.example.com/verification/507f1f77bcf86cd799439011/company/uuid-certificate.pdf"
+ *                               public_id:
+ *                                 type: string
+ *                                 description: S3 key of the uploaded document
+ *                                 example: "verification/507f1f77bcf86cd799439011/company/uuid-certificate.pdf"
+ *       400:
+ *         description: Bad request - Missing required documents or invalid file format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Certificate of Incorporation is required"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid file type, size, or format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: The field that failed validation
+ *                         example: "certificateOfIncorporation"
+ *                       message:
+ *                         type: string
+ *                         description: The validation error message
+ *                         example: "Certificate of Incorporation file size must not exceed 10MB"
+ *                   example:
+ *                     - field: "certificateOfIncorporation"
+ *                       message: "Certificate of Incorporation file size must not exceed 10MB"
+ *                     - field: "businessTaxId"
+ *                       message: "Business Tax ID must be a PDF, image, or Word document"
+ *       500:
+ *         description: Internal server error
+ */
+
+// Upload company verification documents route
+router.post('/verification/company', verifyToken, upload.fields([
+  { name: 'certificateOfIncorporation', maxCount: 1 },
+  { name: 'businessTaxId', maxCount: 1 }
+]), sellerController.uploadCompanyVerification);
 
 module.exports = router;
