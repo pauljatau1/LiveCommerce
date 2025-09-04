@@ -97,14 +97,14 @@ const Wallet = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/wallet/balance`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setWalletBalance(response.data?.balance);
+      setWalletBalance(response.data?.data?.balance);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     }
@@ -116,14 +116,14 @@ const Wallet = () => {
       const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/wallet/transactions?limit=10`,
+          `api/v2/buyers/wallet/transactions?page=1&limit=10`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setWalletTransactions(response.data?.transactions);
+      setWalletTransactions(response.data?.data);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     } finally {
@@ -167,7 +167,7 @@ const Wallet = () => {
         method: "GET",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/wallet/topup/verify?reference=${paymentReference}`,
+          `api/v2/buyers/wallet/topup/verify?reference=${paymentReference}`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -175,7 +175,7 @@ const Wallet = () => {
       };
 
       const response = await axios(config);
-      setWalletBalance(response.data.currentBalance);
+      setWalletBalance(response.data.data?.newBalance);
       getWalletTransactions();
       setShowSuccessSheet(true);
       console.log("wallet topup response", response.data);

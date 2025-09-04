@@ -23,7 +23,7 @@ const Sellers = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}api/buyer/sellers?page=1&limit=10&sort=rating`,
+        `${process.env.EXPO_PUBLIC_API_URL}api/v2/buyers/sellers?page=1&limit=10&sort=rating`,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -32,12 +32,12 @@ const Sellers = () => {
       );
 
       if (response.status == 200) {
-        var featuredShops = response.data?.sellers
+        var featuredShops = response.data?.data?.sellers
           .filter((seller: any) => seller?.isFeatured)
           .slice(0, 10);
 
         if (featuredShops?.length < 1) {
-          featuredShops = response.data?.sellers?.slice(0, 10);
+          featuredShops = response.data?.data?.sellers?.slice(0, 10);
         }
         setSellers(featuredShops);
       }

@@ -35,7 +35,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const { height } = Dimensions.get("screen");
 const Blips = () => {
-  const isFocused = useIsFocused()
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
   const tabBarHeight = useBottomTabBarHeight();
@@ -46,16 +46,16 @@ const Blips = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isPromotionVisible, setIsPromotionVisible] = useState<boolean>(false);
   const [promotionAmount, setPromotionAmount] = useState<number>();
-  const [version,setVersion] = useState<any>()
-  const [showUpdateSheet,setShowUpdateSheet] = useState<boolean>(false)
+  const [version, setVersion] = useState<any>();
+  const [showUpdateSheet, setShowUpdateSheet] = useState<boolean>(false);
 
   const verifyAppVersion = async () => {
     const version = await checkVersion();
     console.log("Got version info:", version);
 
     if (version.needsUpdate) {
-      setVersion(version)
-      setShowUpdateSheet(true)
+      setVersion(version);
+      setShowUpdateSheet(true);
       // Alert.alert(
       //   "New Update Available",
       //   "Update the app to get the latest features",
@@ -106,13 +106,8 @@ const Blips = () => {
     const verifyPayload = JSON.parse(fromVerify!);
     const token = await AsyncStorage.getItem("token");
 
-    if (
-      isFirstTime &&
-      verifyPayload &&
-      verifyPayload.bonus?.amount &&
-      token
-    ) {
-      setPromotionAmount(verifyPayload.bonus?.amount)
+    if (isFirstTime && verifyPayload && verifyPayload.bonus?.amount && token) {
+      setPromotionAmount(verifyPayload.bonus?.amount);
       setTimeout(() => setIsPromotionVisible(true), 3000);
       await AsyncStorage.removeItem("fromVerify");
     }
@@ -321,7 +316,11 @@ const Blips = () => {
           />
         )}
       </View>
-      <PromotionModal isVisible={isPromotionVisible} closeModal={closeModal} promotionAmount={promotionAmount} />
+      <PromotionModal
+        isVisible={isPromotionVisible}
+        closeModal={closeModal}
+        promotionAmount={promotionAmount}
+      />
 
       <BottomSheet
         bgColor="#121212"
@@ -332,16 +331,31 @@ const Blips = () => {
         onRequestClose={() => null}
         keyboardBehavior="extend"
         enablePanDownToClose={false}
-
       >
         <View className="px-[20px] pb-[20px] pt-[10px]">
-          <MaterialIcons name="update" size={50} color="white" style={{alignSelf:'center',marginBottom:8}}/>
-          <Text className="text-[24px] text-white font-LexendDecaMedium leading-[32.4px] tracking-[-0.96px] self-center mb-[8px]">Update Available</Text>
-          <Text className="text-[16px] text-[#FFFFFF99] font-LexendDecaLight leading-[25.6px] tracking-[-0.16px] text-center mb-[32px]">Please update to the latest version of the app to continue using Auqli.</Text>
-          <Pressable className="bg-[#16783A] p-[20px] py-[16px] rounded-[10px]" style={{
-            borderCurve:'continuous'
-          }} onPress={() => Linking.openURL(version.url)}>
-            <Text className="text-white text-[15px] font-LexendDecaMedium self-center tracking-[-0.22px]">Update</Text>
+          <MaterialIcons
+            name="update"
+            size={50}
+            color="white"
+            style={{ alignSelf: "center", marginBottom: 8 }}
+          />
+          <Text className="text-[24px] text-white font-LexendDecaMedium leading-[32.4px] tracking-[-0.96px] self-center mb-[8px]">
+            Update Available
+          </Text>
+          <Text className="text-[16px] text-[#FFFFFF99] font-LexendDecaLight leading-[25.6px] tracking-[-0.16px] text-center mb-[32px]">
+            Please update to the latest version of the app to continue using
+            Auqli.
+          </Text>
+          <Pressable
+            className="bg-[#16783A] p-[20px] py-[16px] rounded-[10px]"
+            style={{
+              borderCurve: "continuous",
+            }}
+            onPress={() => Linking.openURL(version.url)}
+          >
+            <Text className="text-white text-[15px] font-LexendDecaMedium self-center tracking-[-0.22px]">
+              Update
+            </Text>
           </Pressable>
         </View>
       </BottomSheet>

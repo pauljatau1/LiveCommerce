@@ -89,7 +89,10 @@ const ForgotPassword = () => {
     <SafeAreaView className={`flex-1 bg-[black]`}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <View className="px-[16px] pt-[30px]">
-        <TouchableOpacity className="" onPress={() => router.back()}>
+        <TouchableOpacity
+          className=""
+          onPress={() => router.dismissTo("/sign-in")}
+        >
           <Entypo
             name="chevron-left"
             size={24}

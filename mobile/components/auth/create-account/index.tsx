@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { Link, router } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { Platform, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Input from "@/components/global/textInput";
 import PhoneNumberInput from "@/components/global/custom-input";
@@ -108,14 +108,17 @@ const CreateAccount = () => {
     };
     try {
       const result = await signUp(details).unwrap();
-      await AsyncStorage.setItem("registerPayload", JSON.stringify(result?.data));
+      await AsyncStorage.setItem(
+        "registerPayload",
+        JSON.stringify(result?.data),
+      );
 
       try {
         if (result) {
           // Identify the user directly after signup
           identifyUser(result?.data?.user?._id, {
-            "$email": email,
-            "$name": `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
+            $email: email,
+            $name: `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
             username: result?.data?.user?.username,
             phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
@@ -126,8 +129,8 @@ const CreateAccount = () => {
           // Track event for buyer signup
           trackMixpanelEvent("buyer_account_created", {
             userId: result?.data?.user?._id,
-            "$email": email,
-            "$name": `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
+            $email: email,
+            $name: `${result?.data?.user?.firstName} ${result?.data?.user?.lastName}`,
             username: result?.data?.user?.username,
             phoneNumber: result?.data?.user?.phoneNumber,
             "User Type": "Buyer",
@@ -176,7 +179,7 @@ const CreateAccount = () => {
       }
 
       toast.success("Successfully created");
-      router.push({
+      router.replace({
         pathname: "/(root)/(auth)/verify-code",
         params: {
           email,
@@ -184,7 +187,11 @@ const CreateAccount = () => {
       });
     } catch (error: any) {
       console.log(error.data);
-      toast.error(error.data?.errors[0]?.message || error?.data?.message || "Sorry, your account could not be created at this time. Please try again!" );
+      toast.error(
+        error.data?.errors[0]?.message ||
+          error?.data?.message ||
+          "Sorry, your account could not be created at this time. Please try again!",
+      );
     }
   };
 
@@ -383,6 +390,7 @@ const CreateAccount = () => {
                   title="Sign up"
                   disabled={isLoading || !isValid || !agree}
                   onPress={handleSignUp}
+                  // onPress={() => router.replace("/verify-code")}
                   className="mb-4 mt-[18px] !rounded !text-white"
                   // loading={isLoading}
                 />
@@ -397,14 +405,11 @@ const CreateAccount = () => {
             >
               Don't have an account?
             </Text>
-            <Link
-              href="/(root)/(auth)/sign-in"
-              className="text-center text-lg font-LexendDecaMedium text-primary-100"
-            >
+            <Pressable onPress={() => router.dismissTo("/sign-in")}>
               <Text className="text-center text-lg font-LexendDecaMedium text-primary-100">
                 Log in
               </Text>
-            </Link>
+            </Pressable>
           </View>
 
           <View>

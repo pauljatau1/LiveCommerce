@@ -43,6 +43,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import { ScrollView } from "react-native-virtualized-view";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { generateDeepLinkUrl } from "@/core";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -406,12 +407,12 @@ const SellerProfile = () => {
 
   const { displayShareDialog } = useShareAppLinks();
 
-  const shareLinkUrl = useMemo(
-    () =>
-      // `https://app.auqli.live/sellerProfile?sellerId=${sellerId}&itmSource=share`,
-      `https://app.auqli.live/s/${sellerId}B`,
-    [sellerId],
-  );
+  const shareLinkUrl = useMemo(() => {
+    // `https://app.auqli.live/sellerProfile?sellerId=${sellerId}&itmSource=share`,
+    // `https://app.auqli.live/s/${sellerId}B`,
+    const link = generateDeepLinkUrl(`seller/${sellerId}`);
+    return link;
+  }, [sellerId]);
 
   const [seller, setSeller] = useState<any>({});
   const [profile, setProfile] = useState<any>({});
@@ -581,6 +582,7 @@ const SellerProfile = () => {
           className=""
           onPress={() => {
             if (itmSource?.toString() == "share") {
+              if (router.canGoBack()) return router.back();
               return router.push("/(root)/(tabs)/home/home");
             }
             router.back();

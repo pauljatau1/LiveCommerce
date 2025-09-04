@@ -394,7 +394,7 @@ const LivestreamStudioFeed = ({
             try {
               const sellerProfileData =
                 await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              console.log("Seller profile data:", sellerProfileData);
+              // console.log("Seller profile data:", sellerProfileData);
               setIsFollowing(
                 sellerProfileData?.storeInfo?.isFollowing || false,
               );
@@ -427,7 +427,7 @@ const LivestreamStudioFeed = ({
             try {
               const sellerProfileData =
                 await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              console.log("Seller profile data:", sellerProfileData);
+              // console.log("Seller profile data:", sellerProfileData);
               setIsFollowing(
                 sellerProfileData?.storeInfo?.isFollowing || false,
               );

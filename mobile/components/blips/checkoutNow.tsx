@@ -33,6 +33,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import BottomSheet from "../global/bottom-sheet";
 import SelectRatesSheet from "../orders/selectRatesSheet";
+import AddressSheet from "../orders/addressSheet";
 
 const mockDeliveryOtions = [
   {
@@ -132,6 +133,41 @@ const CheckoutNow = ({
   const [showRatesSheet, setShowRatesSheet] = useState<boolean>(false);
   const [orderTotal, setOrderTotal] = useState<string>("");
   const [rates, setRates] = useState<any[]>([]);
+  const [showAddressSheet, setShowAddressSheet] = useState<boolean>(false);
+
+  const handleSelectAddress = useCallback(
+    (address: any) => {
+      const delivery_address = {
+        _id: address?._id,
+        first_name: user?.firstName,
+        last_name: user?.lastName,
+        email: user?.email,
+        phone:
+          user?.phoneNumber.replaceAll("-", "")?.length > 14
+            ? user?.phoneNumber
+                .replaceAll("-", "")
+                ?.replace("+234", "")
+                ?.replace("0", "")
+            : user?.phoneNumber.replaceAll("-", ""),
+        line1: address?.addressLine1,
+        state: address?.state,
+        city: address?.city,
+        zip: address?.zipCode,
+        country: address?.country,
+      };
+      setSelectedAddress(delivery_address);
+      setShowAddressSheet(false);
+    },
+    [user],
+  );
+
+  const handleCloseAddressSheet = useCallback(
+    (closeParent?: boolean) => {
+      if (closeParent && closeSheet) return closeSheet();
+      setShowAddressSheet(false);
+    },
+    [closeSheet],
+  );
 
   const eligibleForPickup = useMemo(() => {
     return product?.seller?.shippingInfo?.offersStorePickup;
@@ -221,14 +257,14 @@ const CheckoutNow = ({
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/buyers/wallet/balance`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setWalletBalance(response.data?.balance);
+      setWalletBalance(response.data?.data?.balance);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     }
@@ -249,6 +285,7 @@ const CheckoutNow = ({
       setAddresses(response.data);
       if (response.data.length > 0) {
         const delivery_address = {
+          _id: response.data[0]?._id,
           first_name: user?.firstName,
           last_name: user?.lastName,
           email: user?.email,
@@ -900,6 +937,8 @@ const CheckoutNow = ({
                     className="p-[20px] rounded-[16px] flex-row items-center justify-between"
                     style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
                     onPress={() => {
+                      return setShowAddressSheet(true);
+
                       closeSheet();
                       router.push("/settings/addresses");
                     }}
@@ -1238,6 +1277,24 @@ const CheckoutNow = ({
           </>
         )}
       </BottomSheetScrollView>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAddressSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowAddressSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AddressSheet
+          addresses={addresses}
+          closeSheet={handleCloseAddressSheet}
+          selectAddress={handleSelectAddress}
+          activeAddress={selectedAddress?._id}
+        />
+      </BottomSheet>
 
       <BottomSheet
         bgColor="#121212"

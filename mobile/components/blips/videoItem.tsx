@@ -29,7 +29,11 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Octicons from "@expo/vector-icons/Octicons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
-import { useIsFocused, useNavigationState } from "@react-navigation/native";
+import {
+  useIsFocused,
+  useNavigationState,
+  useRoute,
+} from "@react-navigation/native";
 import Entypo from "@expo/vector-icons/Entypo";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
@@ -94,6 +98,7 @@ const VideoItem = ({
   const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+  const currentRoute = useRoute();
 
   const statusBarHeight = Platform.OS == "ios" ? insets.top : 0;
   const videoRef = useRef<any>(null);
@@ -151,11 +156,13 @@ const VideoItem = ({
       const result = await Share.share(
         Platform.OS == "ios"
           ? {
-              url: generateDeepLinkUrl(`products/${product?.id}/blips/${id}`) 
+              url: generateDeepLinkUrl(`products/${product?.id}/blips/${id}`),
               // `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
             }
           : {
-              message: generateDeepLinkUrl(`products/${product?.id}/blips/${id}`) 
+              message: generateDeepLinkUrl(
+                `products/${product?.id}/blips/${id}`,
+              ),
               // `https://app.auqli.live/singleBlip/feed?productId=${product?.id}&id=${id}&itmSource=share`,
             },
       );
@@ -537,7 +544,9 @@ const VideoItem = ({
               <Pressable
                 // onPress={() => router.replace("/blips")}
                 onPress={() => {
-                    router?.canGoBack() ? router?.back() : router.replace("/(root)/(tabs)/blips")
+                  router?.canGoBack()
+                    ? router?.back()
+                    : router.replace("/(root)/(tabs)/blips");
                 }}
                 style={styles.buttonShadow}
               >
@@ -1004,7 +1013,11 @@ const VideoItem = ({
           onRequestClose={() => setShowAuthSheet(false)}
           keyboardBehavior="interactive"
         >
-          <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+          <AuthSheet
+            closeSheet={() => setShowAuthSheet(false)}
+            currentRoute={currentRoute.name}
+            routeParams={currentRoute.params}
+          />
         </BottomSheet>
       </View>
     </TouchableWithoutFeedback>

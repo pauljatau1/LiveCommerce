@@ -1,14 +1,27 @@
 import { View, Text, TouchableOpacity } from "react-native";
-import React from "react";
+import React, { memo } from "react";
 import { router } from "expo-router";
 
 interface Props {
   closeSheet: any;
+  currentRoute?: string;
+  routeParams?: any;
 }
-const AuthSheet = ({ closeSheet }: Props) => {
+const AuthSheet = ({ closeSheet, currentRoute, routeParams = {} }: Props) => {
   const navigateToAuth = () => {
+    console.log({
+      currentRoute: "/" + currentRoute?.replace("/index", ""),
+      routeParams,
+    });
+    // return;
     closeSheet();
-    router.push("/(root)/(auth)/sign-in");
+    router.push({
+      pathname: "/(root)/(auth)/sign-in",
+      params: {
+        prevRoute: "/" + currentRoute?.replace("/index", ""),
+        prevRouteParams: JSON.stringify(routeParams),
+      },
+    });
   };
   return (
     <View className="items-center gap-[20px]">
@@ -31,4 +44,4 @@ const AuthSheet = ({ closeSheet }: Props) => {
   );
 };
 
-export default AuthSheet;
+export default memo(AuthSheet);
