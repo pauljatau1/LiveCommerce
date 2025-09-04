@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
 import { toast } from "sonner";
@@ -20,7 +20,37 @@ const VariantImageUpload = memo(({ variantPath }) => {
 
         const filesToProcess = files.slice(0, remainingSlots);
 
-        const newImages = await Promise.all(filesToProcess.map(file => {
+        // File size limit: 7MB
+        const maxSize = 7 * 1024 * 1024; // 7MB in bytes
+        const validFiles = [];
+        const oversizedFiles = [];
+
+        // Check file sizes
+        filesToProcess.forEach(file => {
+            if (file.size > maxSize) {
+                oversizedFiles.push(file.name);
+            } else {
+                validFiles.push(file);
+            }
+        });
+
+        // Show error for oversized files
+        if (oversizedFiles.length > 0) {
+            toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
+                description: "Each image must be less than 7MB",
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        }
+
+        // Process valid files only
+        if (validFiles.length === 0) {
+            return;
+        }
+
+        const newImages = await Promise.all(validFiles.map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onloadend = () => resolve({
@@ -89,6 +119,7 @@ const VariantImageUpload = memo(({ variantPath }) => {
 });
 
 VariantImageUpload.propTypes = {
+    variantPath: PropTypes.string.isRequired,
     images: PropTypes.arrayOf(PropTypes.shape({
         url: PropTypes.string,
         type: PropTypes.string,

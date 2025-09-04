@@ -680,7 +680,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                             <div className="w-1/3">
                                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                                     <img
-                                        src={productData.images[0]?.url}
+                                        src={productData.images[0]?.resizedImages?.find(img => img.width === 320)?.url || productData.images[0]?.url}
                                         alt={productData.name}
                                         className="w-full h-full object-cover"
                                     />
@@ -689,7 +689,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                     {productData.images.slice(1).map((image, index) => (
                                         <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                                             <img
-                                                src={image.url}
+                                                src={image?.resizedImages?.find(img => img.width === 150)?.url || image.url}
                                                 alt={`${productData.name} ${index + 2}`}
                                                 className="w-full h-full object-cover"
                                             />
@@ -1744,7 +1744,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const DesktopCard = () => (
         <div className="hidden lg:grid grid-cols-[80px_1.5fr_0.8fr_0.8fr_0.8fr_80px_120px_120px] gap-4 px-6 py-4 items-center">
             <img
-                src={item?.images[0]?.url}
+                src={item?.images[0]?.resizedImages?.find(img => img.width === 150)?.url || item?.images[0]?.url}
                 alt={item?.name}
                 className="w-16 h-16 rounded-lg object-cover"
             />
@@ -1895,7 +1895,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 relative">
             <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
                 <img
-                    src={item?.images[0]?.url}
+                    src={item?.images[0]?.resizedImages?.find(img => img.width === 150)?.url || item?.images[0]?.url}
                     alt={item?.name}
                     className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
                 />
