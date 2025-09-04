@@ -77,11 +77,11 @@ const VariantCombinations = memo(() => {
         const file = e.target.files[0];
         if (file) {
             console.log('📁 DESKTOP File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
-            // Check file size (5MB = 5 * 1024 * 1024 bytes)
-            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+            // Check file size (7MB = 7 * 1024 * 1024 bytes)
+            const MAX_FILE_SIZE = 7 * 1024 * 1024;
             if (file.size > MAX_FILE_SIZE) {
                 console.log('❌ DESKTOP File too large:', file.size);
-                toast.error('Image size must be less than 5MB');
+                toast.error('Image size must be less than 7MB');
                 return;
             }
 

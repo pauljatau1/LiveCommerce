@@ -217,8 +217,8 @@ const AddProduct = () => {
         // Take only the number of files that will fit within the limit
         const filesToProcess = files.slice(0, remainingSlots);
 
-        // File size limit: 3MB
-        const maxSize = 3 * 1024 * 1024; // 3MB in bytes
+        // File size limit: 7MB
+        const maxSize = 7 * 1024 * 1024; // 7MB in bytes
         const validFiles = [];
         const oversizedFiles = [];
 
@@ -234,7 +234,7 @@ const AddProduct = () => {
         // Show error for oversized files
         if (oversizedFiles.length > 0) {
             toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 3MB",
+                description: "Each image must be less than 7MB",
                 style: {
                     background: '#17171B',
                     color: '#fff',
