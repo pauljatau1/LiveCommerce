@@ -4,6 +4,7 @@ const checkTokenService = require('../services/checkToken.service');
 const resendOTPService = require('../services/resendOTP.service');
 const getProfileService = require('../services/getProfile.service');
 const selectAccountTypeService = require('../services/selectAccountType.service');
+const addBankDetailsService = require('../services/addBankDetails.service');
 
 /**
  * Register a seller user.
@@ -170,11 +171,47 @@ async function selectAccountType(req, res, next) {
   }
 }
 
+/**
+ * Add bank details to a seller's account.
+ *
+ * This controller handles the bank details addition HTTP request.
+ * It delegates the bank details logic to the service layer,
+ * and sends a success response with the updated seller data.
+ *
+ * @param {Request} req - Express request object containing the bank details in `req.body` and seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBankDetails(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Extract bank details from request body
+    const { bankDetails } = req.body;
+
+    // Call the service layer to handle bank details addition logic
+    const response = await addBankDetailsService.addBankDetails(sellerId, bankDetails);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: 'Bank details added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Bank details added successfully', data: { message: 'Bank details added successfully', seller: updatedSeller }, pagination: null }
+    res.success({ 
+      message: 'Bank details added successfully', 
+      seller: response 
+    }, 'Bank details added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   checkToken,
   resendOTP,
   getProfile,
-  selectAccountType
+  selectAccountType,
+  addBankDetails
 };

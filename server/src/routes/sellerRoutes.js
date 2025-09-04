@@ -11,51 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/profile/bank-details:
- *   put:
- *     summary: Add bank details
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               bankDetails:
- *                 type: object
- *                 properties:
- *                   bankCountry:
- *                     type: string
- *                   bankName:
- *                     type: string
- *                   bankAccountType:
- *                     type: string
- *                   accountCurrency:
- *                     type: string
- *                   accountNumber:
- *                     type: string
- *                   accountName:
- *                     type: string
- *                   swiftCode:
- *                     type: string
- *                   bankIdentifierCode:
- *                     type: string
- *     responses:
- *       200:
- *         description: Bank details added successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController.addBankDetails);
-
-
-/**
- * @swagger
  * /api/seller/verification/company:
  *   post:
  *     summary: Upload company verification documents
