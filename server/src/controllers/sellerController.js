@@ -1129,33 +1129,6 @@ exports.addShippingWarehouse = async (req, res) => {
   }
 };
 
-// Add bank details
-exports.addBankDetails = async (req, res) => {
-  try {
-    const { bankDetails } = req.body;
-
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // If seller already has bank details, they need to use the change request process
-    if (seller.bankDetails && seller.bankDetails.accountNumber) {
-      return res.status(400).json({ 
-        message: 'Bank details already exist. Please use the bank change request process to update your details.' 
-      });
-    }
-
-    seller.bankDetails = bankDetails;
-    seller.hasFilledBankDetails = !!bankDetails;
-    const updatedSeller = await seller.save();
-
-    res.json({ message: 'Bank details added successfully', seller: updatedSeller });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to add bank details', error: error.message });
-  }
-};
-
 // Request bank account change
 exports.requestBankAccountChange = async (req, res) => {
   try {

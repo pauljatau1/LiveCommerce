@@ -652,4 +652,169 @@ router.put('/profile/account-type', verifyToken, sellerController.selectAccountT
 // Get profile route
 router.get('/profile', verifyToken, sellerController.getProfile);
 
+/**
+ * @swagger
+ * /api/v2/sellers/profile/bank-details:
+ *   put:
+ *     summary: Add bank details to seller profile
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bankDetails
+ *             properties:
+ *               bankDetails:
+ *                 type: object
+ *                 required:
+ *                   - bankCountry
+ *                   - bankName
+ *                   - bankAccountType
+ *                   - accountCurrency
+ *                   - accountNumber
+ *                   - accountName
+ *                 properties:
+ *                   bankCountry:
+ *                     type: string
+ *                     description: Country where the bank is located
+ *                     example: "Nigeria"
+ *                   bankName:
+ *                     type: string
+ *                     description: Name of the bank
+ *                     example: "First Bank of Nigeria"
+ *                   bankAccountType:
+ *                     type: string
+ *                     description: Type of bank account
+ *                     example: "Savings"
+ *                   accountCurrency:
+ *                     type: string
+ *                     description: Currency of the account (3-letter code)
+ *                     example: "NGN"
+ *                   accountNumber:
+ *                     type: string
+ *                     description: Bank account number
+ *                     example: "1234567890"
+ *                   accountName:
+ *                     type: string
+ *                     description: Name on the bank account
+ *                     example: "John Doe"
+ *                   swiftCode:
+ *                     type: string
+ *                     description: SWIFT/BIC code (optional)
+ *                     example: "FBNINGL"
+ *                   bankIdentifierCode:
+ *                     type: string
+ *                     description: Bank identifier code (optional)
+ *                     example: "FBNINGL"
+ *     responses:
+ *       200:
+ *         description: Bank details added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bank details added successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Bank details added successfully"
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         bankDetails:
+ *                           type: object
+ *                           properties:
+ *                             bankCountry:
+ *                               type: string
+ *                               example: "Nigeria"
+ *                             bankName:
+ *                               type: string
+ *                               example: "First Bank of Nigeria"
+ *                             bankAccountType:
+ *                               type: string
+ *                               example: "Savings"
+ *                             accountCurrency:
+ *                               type: string
+ *                               example: "NGN"
+ *                             accountNumber:
+ *                               type: string
+ *                               example: "1234567890"
+ *                             accountName:
+ *                               type: string
+ *                               example: "John Doe"
+ *                             swiftCode:
+ *                               type: string
+ *                               example: "FBNINGL"
+ *                             bankIdentifierCode:
+ *                               type: string
+ *                               example: "FBNINGL"
+ *                         hasFilledBankDetails:
+ *                           type: boolean
+ *                           example: true
+ *       422:
+ *         description: Validation error - invalid bank details format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: The field that failed validation
+ *                         example: "bankCountry"
+ *                       message:
+ *                         type: string
+ *                         description: The validation error message
+ *                         example: "Bank country is required"
+ *                   example:
+ *                     - field: "bankCountry"
+ *                       message: "Bank country is required"
+ *                     - field: "bankName"
+ *                       message: "Bank name is required"
+ *                     - field: "bankAccountType"
+ *                       message: "Bank account type is required"
+ *                     - field: "accountCurrency"
+ *                       message: "Account currency is required"
+ *                     - field: "accountNumber"
+ *                       message: "Account number is required"
+ *                     - field: "accountName"
+ *                       message: "Account name is required"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+
+// Add bank details route
+router.put('/profile/bank-details', verifyToken, sellerController.addBankDetails);
+
 module.exports = router;
