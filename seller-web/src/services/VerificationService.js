@@ -99,7 +99,7 @@ export const VerificationService = {
       }
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/individual`,
+        `${BASE_URL_V2}/sellers/verification/individual`,
         formData,
         {
           headers: { 
@@ -125,7 +125,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading individual verification:', error);
       throw error;
