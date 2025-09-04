@@ -138,13 +138,6 @@ function createDocumentObject(documentType, uploadResult) {
  * @returns {Promise<Object>} Updated seller data with verification documents
  * @throws {ValidationError} If document validation fails
  * @throws {Error} If seller not found or upload fails
- * @example
- * try {
- *   const updatedSeller = await uploadCompanyVerification('507f1f77bcf86cd799439011', req.files);
- *   console.log('Verification documents uploaded:', updatedSeller.verificationDocuments);
- * } catch (error) {
- *   console.error('Upload failed:', error.message);
- * }
  */
 async function uploadCompanyVerification(sellerId, files) {
   // Step 1: Validate uploaded documents using the validator
