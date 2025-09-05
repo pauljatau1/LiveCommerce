@@ -11,52 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/verification/smileid/individual:
- *   post:
- *     summary: Save individual SmileID verification result
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               smileIdResult:
- *                 type: object
- *               accountType:
- *                 type: string
- *                 enum: [individual]
- *               verifiedAt:
- *                 type: string
- *               verificationProvider:
- *                 type: string
- *                 enum: [SmileID]
- *     responses:
- *       200:
- *         description: Individual verification result saved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 verification:
- *                   type: object
- *       400:
- *         description: Bad request
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/verification/smileid/individual', authMiddleware.verifyToken, sellerController.saveIndividualSmileIdVerification);
-
-/**
- * @swagger
  * /api/seller/verification/smileid/business:
  *   post:
  *     summary: Save business SmileID verification result
