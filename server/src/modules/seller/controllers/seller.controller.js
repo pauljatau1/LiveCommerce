@@ -9,6 +9,7 @@ const uploadCompanyVerificationService = require('../services/uploadCompanyVerif
 const uploadIndividualVerificationService = require('../services/uploadIndividualVerification.service');
 const generateSmileIdTokenService = require('../services/generateSmileIdToken.service');
 const processSmileIdJobService = require('../services/processSmileIdJob.service');
+const saveIndividualSmileIdVerificationService = require('../services/saveIndividualSmileIdVerification.service');
 
 /**
  * Register a seller user.
@@ -343,6 +344,37 @@ async function processSmileIdJob(req, res, next) {
   }
 }
 
+/**
+ * Save individual SmileID verification result.
+ *
+ * This controller handles the individual SmileID verification result saving HTTP request.
+ * It delegates the verification saving logic to the service layer and sends a success response.
+ *
+ * @param {Request} req - Express request object containing the verification data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function saveIndividualSmileIdVerification(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+    
+    // Extract verification data from request body
+    const verificationData = req.body;
+
+    // Call the service layer to handle individual SmileID verification saving logic
+    const response = await saveIndividualSmileIdVerificationService.saveIndividualSmileIdVerification(verificationData, sellerId);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: '...', verification: {...}, actuallySuccessful: true/false }
+    // New v2: { success: true, message: 'Individual SmileID verification result saved successfully', data: { message: '...', verification: {...}, actuallySuccessful: true/false }, pagination: null }
+    res.success(response, 'Individual SmileID verification result saved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -354,5 +386,6 @@ module.exports = {
   uploadCompanyVerification,
   uploadIndividualVerification,
   generateSmileIdToken,
-  processSmileIdJob
+  processSmileIdJob,
+  saveIndividualSmileIdVerification
 };
