@@ -415,13 +415,11 @@ describe('Generate SmileID Token Service', () => {
       await expect(generateSmileIdTokenService.generateSmileIdToken(validTokenData, seller._id.toString()))
         .rejects.toThrow(ValidationError);
       
-      try {
-        await generateSmileIdTokenService.generateSmileIdToken(validTokenData, seller._id.toString());
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'environment', message: 'Missing required environment variables: SMILEID_PARTNER_ID, SMILEID_API_KEY, BACKEND_URL' }
-        ]);
-      }
+      const error = await generateSmileIdTokenService.generateSmileIdToken(validTokenData, seller._id.toString()).catch(e => e);
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'environment', message: 'Missing required environment variables: SMILEID_PARTNER_ID, SMILEID_API_KEY, BACKEND_URL' }
+      ]);
 
       // Restore environment variables
       process.env.SMILEID_PARTNER_ID = originalEnv.SMILEID_PARTNER_ID;
