@@ -9,56 +9,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 const mongoose = require('mongoose');
 const Seller = require('../models/Seller');
 
-// SmileID Integration Routes
-
-/**
- * @swagger
- * /api/seller/verification/smileid/token:
- *   post:
- *     summary: Generate SmileID token for web verification
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               accountType:
- *                 type: string
- *                 enum: [individual, business]
- *               userId:
- *                 type: string
- *               idType:
- *                 type: string
- *                 enum: [NIN_SLIP, BUSINESS_REGISTRATION]
- *     responses:
- *       200:
- *         description: SmileID token generated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                 expiresAt:
- *                   type: string
- *                 userId:
- *                   type: string
- *                 jobId:
- *                   type: string
- *       400:
- *         description: Bad request
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/verification/smileid/token', authMiddleware.verifyToken, sellerController.generateSmileIdToken);
-
 /**
  * @swagger
  * /api/seller/verification/smileid/process:

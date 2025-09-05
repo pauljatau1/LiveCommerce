@@ -7,6 +7,7 @@ const selectAccountTypeService = require('../services/selectAccountType.service'
 const addBankDetailsService = require('../services/addBankDetails.service');
 const uploadCompanyVerificationService = require('../services/uploadCompanyVerification.service');
 const uploadIndividualVerificationService = require('../services/uploadIndividualVerification.service');
+const generateSmileIdTokenService = require('../services/generateSmileIdToken.service');
 
 /**
  * Register a seller user.
@@ -278,6 +279,38 @@ async function uploadIndividualVerification(req, res, next) {
   }
 }
 
+/**
+ * Generate SmileID token for seller verification.
+ *
+ * This controller handles the SmileID token generation HTTP request.
+ * It delegates the token generation logic to the service layer,
+ * and sends a success response with the token data.
+ *
+ * @param {Request} req - Express request object containing the token generation data in `req.body` and seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function generateSmileIdToken(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Extract token generation data from request body
+    const tokenData = req.body;
+
+    // Call the service layer to handle SmileID token generation logic
+    const response = await generateSmileIdTokenService.generateSmileIdToken(tokenData, sellerId);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { token: result.token, expiresAt: '...', userId: '...', jobId: '...', product: '...', accountType: '...', idType: '...', success: true }
+    // New v2: { success: true, message: 'SmileID token generated successfully', data: { token: '...', expiresAt: '...', ... }, pagination: null }
+    res.success(response, 'SmileID token generated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -287,5 +320,6 @@ module.exports = {
   selectAccountType,
   addBankDetails,
   uploadCompanyVerification,
-  uploadIndividualVerification
+  uploadIndividualVerification,
+  generateSmileIdToken
 };
