@@ -548,7 +548,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/individual`,
+        `${BASE_URL_V2}/sellers/verification/smileid/individual`,
         verificationData,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -570,7 +570,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error saving individual SmileID verification:', error);
       throw error;

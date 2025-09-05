@@ -39,7 +39,7 @@ Response: {
 
 ### 2. Individual Verification Result Endpoint
 ```javascript
-POST /api/seller/verification/smileid/individual
+POST /api/v2/sellers/verification/smileid/individual
 Headers: Authorization: Bearer <token>
 Body: {
   smileIdResult: object,
