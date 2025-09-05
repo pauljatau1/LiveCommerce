@@ -1082,4 +1082,138 @@ router.post('/verification/individual', verifyToken, upload.fields([
   { name: 'proofOfAddress', maxCount: 1 }
 ]), sellerController.uploadIndividualVerification);
 
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/token:
+ *   post:
+ *     summary: Generate SmileID token for seller verification
+ *     description: Generates a SmileID token for seller identity verification using SmileID services
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - accountType
+ *               - idType
+ *             properties:
+ *               accountType:
+ *                 type: string
+ *                 enum: [individual, business]
+ *                 description: The type of account for verification
+ *                 example: "individual"
+ *               idType:
+ *                 type: string
+ *                 description: The type of ID document for verification (varies by account type)
+ *                 example: "NIN_SLIP"
+ *               userId:
+ *                 type: string
+ *                 description: Optional user ID for tracking (if not provided, will be auto-generated)
+ *                 example: "user123"
+ *     responses:
+ *       200:
+ *         description: SmileID token generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "SmileID token generated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: The generated SmileID token
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Token expiration timestamp
+ *                       example: "2024-01-01T01:00:00.000Z"
+ *                     userId:
+ *                       type: string
+ *                       description: Unique user ID for tracking
+ *                       example: "seller-507f1f77bcf86cd799439011-1704067200000"
+ *                     jobId:
+ *                       type: string
+ *                       description: Unique job ID for tracking
+ *                       example: "job-507f1f77bcf86cd799439011-1704067200000"
+ *                     product:
+ *                       type: string
+ *                       description: SmileID product used for verification
+ *                       example: "enhanced_kyc"
+ *                     accountType:
+ *                       type: string
+ *                       description: Account type used
+ *                       example: "individual"
+ *                     idType:
+ *                       type: string
+ *                       description: ID type used
+ *                       example: "NIN_SLIP"
+ *                     success:
+ *                       type: boolean
+ *                       description: Success status
+ *                       example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "accountType"
+ *                       message:
+ *                         type: string
+ *                         example: "Account type must be either \"individual\" or \"business\""
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error - SmileID API failure
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to generate SmileID token"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Generate SmileID token route
+router.post('/verification/smileid/token', verifyToken, sellerController.generateSmileIdToken);
+
 module.exports = router;
