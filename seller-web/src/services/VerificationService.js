@@ -655,7 +655,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/process`,
+        `${BASE_URL_V2}/sellers/verification/smileid/job`,
         jobData,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -672,13 +672,13 @@ export const VerificationService = {
           "seller phone number": sellerData.phoneNumber,
           "Images Count": jobData.images ? jobData.images.length : 0,
           "Account Type": sellerData.accountType,
-          "Job ID": response.data.jobId,
+          "Job ID": response.data.data.jobId,
           "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      
-      return response.data;
+
+      return response.data.data;
     } catch (error) {
       console.error('Error processing SmileID job:', error);
       throw error;
