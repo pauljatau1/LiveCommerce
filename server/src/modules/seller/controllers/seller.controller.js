@@ -8,6 +8,7 @@ const addBankDetailsService = require('../services/addBankDetails.service');
 const uploadCompanyVerificationService = require('../services/uploadCompanyVerification.service');
 const uploadIndividualVerificationService = require('../services/uploadIndividualVerification.service');
 const generateSmileIdTokenService = require('../services/generateSmileIdToken.service');
+const processSmileIdJobService = require('../services/processSmileIdJob.service');
 
 /**
  * Register a seller user.
@@ -311,6 +312,37 @@ async function generateSmileIdToken(req, res, next) {
   }
 }
 
+/**
+ * Process SmileID job for seller verification.
+ *
+ * This controller handles the SmileID job processing HTTP request.
+ * It delegates the job processing logic to the service layer, and sends a success response.
+ *
+ * @param {Request} req - Express request object containing the job processing data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function processSmileIdJob(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+    
+    // Extract job processing data from request body
+    const jobData = req.body;
+
+    // Call the service layer to handle SmileID job processing logic
+    const response = await processSmileIdJobService.processSmileIdJob(jobData, sellerId);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { success: true, jobId: '...', result: {...} }
+    // New v2: { success: true, message: 'SmileID job processed successfully', data: { success: true, jobId: '...', result: {...} }, pagination: null }
+    res.success(response, 'SmileID job processed successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -321,5 +353,6 @@ module.exports = {
   addBankDetails,
   uploadCompanyVerification,
   uploadIndividualVerification,
-  generateSmileIdToken
+  generateSmileIdToken,
+  processSmileIdJob
 };

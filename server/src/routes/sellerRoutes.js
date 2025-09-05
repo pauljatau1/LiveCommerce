@@ -11,50 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/verification/smileid/process:
- *   post:
- *     summary: Process SmileID job submission with captured images
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               images:
- *                 type: array
- *                 items:
- *                   type: object
- *               partner_params:
- *                 type: object
- *     responses:
- *       200:
- *         description: SmileID job processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 jobId:
- *                   type: string
- *                 result:
- *                   type: object
- *       400:
- *         description: Bad request
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/verification/smileid/process', authMiddleware.verifyToken, sellerController.processSmileIdJob);
-
-/**
- * @swagger
  * /api/seller/verification/smileid/individual:
  *   post:
  *     summary: Save individual SmileID verification result

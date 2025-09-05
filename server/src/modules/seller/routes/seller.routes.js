@@ -1216,4 +1216,204 @@ router.post('/verification/individual', verifyToken, upload.fields([
 // Generate SmileID token route
 router.post('/verification/smileid/token', verifyToken, sellerController.generateSmileIdToken);
 
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/job:
+ *   post:
+ *     tags:
+ *       - Seller Verification
+ *     summary: Process SmileID verification job
+ *     description: |
+ *       Processes a SmileID verification job for seller identity verification.
+ *       
+ *       **Individual Account Verification (Enhanced KYC):**
+ *       - Uses SmileID IDApi for Enhanced KYC verification
+ *       - Requires ID information (first_name, last_name, id_number)
+ *       - Supports NIN_SLIP and other ID types
+ *       - Returns job ID for tracking verification status
+ *       
+ *       **Business Account Verification:**
+ *       - Uses SmileID SIDWebAPI for business verification
+ *       - Requires images array for document verification
+ *       - Supports business document verification
+ *       - Returns job ID for tracking verification status
+ *       
+ *       **Security Features:**
+ *       - Requires valid authentication token
+ *       - Validates seller account type
+ *       - Generates unique tracking IDs
+ *       - Stores verification results securely
+ *       
+ *       **Response Structure:**
+ *       - Returns job processing result with tracking information
+ *       - Includes SmileID API response data
+ *       - Provides success status and job ID
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idInfo:
+ *                 type: object
+ *                 description: ID information for individual account verification (required for individual accounts)
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                     description: First name as it appears on the ID
+ *                     example: "John"
+ *                   last_name:
+ *                     type: string
+ *                     description: Last name as it appears on the ID
+ *                     example: "Doe"
+ *                   id_number:
+ *                     type: string
+ *                     description: ID number from the document
+ *                     example: "12345678901"
+ *                   country:
+ *                     type: string
+ *                     description: Country code (defaults to NG)
+ *                     example: "NG"
+ *                   id_type:
+ *                     type: string
+ *                     description: Type of ID document (defaults to NIN_SLIP)
+ *                     example: "NIN_SLIP"
+ *                   phone_number:
+ *                     type: string
+ *                     description: Phone number (optional)
+ *                     example: "+2348012345678"
+ *                   dob:
+ *                     type: string
+ *                     description: Date of birth (optional)
+ *                     example: "1990-01-01"
+ *               images:
+ *                 type: array
+ *                 description: Images array for business account verification (required for business accounts)
+ *                 items:
+ *                   type: string
+ *                   description: Base64 encoded image or image URL
+ *                 example: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...", "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."]
+ *               partner_params:
+ *                 type: object
+ *                 description: Additional partner parameters (optional)
+ *                 additionalProperties: true
+ *                 example: {}
+ *           examples:
+ *             individual_verification:
+ *               summary: Individual account verification
+ *               value:
+ *                 idInfo:
+ *                   first_name: "John"
+ *                   last_name: "Doe"
+ *                   id_number: "12345678901"
+ *                   country: "NG"
+ *                   id_type: "NIN_SLIP"
+ *                   phone_number: "+2348012345678"
+ *                 partner_params: {}
+ *             business_verification:
+ *               summary: Business account verification
+ *               value:
+ *                 images: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...", "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."]
+ *                 partner_params: {}
+ *     responses:
+ *       200:
+ *         description: SmileID job processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "SmileID job processed successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       description: Success status
+ *                       example: true
+ *                     jobId:
+ *                       type: string
+ *                       description: Unique job ID for tracking
+ *                       example: "job-507f1f77bcf86cd799439011-1704067200000"
+ *                     result:
+ *                       type: object
+ *                       description: SmileID API response
+ *                       properties:
+ *                         success:
+ *                           type: boolean
+ *                           description: API success status
+ *                           example: true
+ *                         job_id:
+ *                           type: string
+ *                           description: SmileID job ID
+ *                           example: "job-507f1f77bcf86cd799439011-1704067200000"
+ *                         images:
+ *                           type: array
+ *                           description: Processed images
+ *                           items:
+ *                             type: string
+ *                         ResultCode:
+ *                           type: string
+ *                           description: SmileID result code
+ *                           example: "1012"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "idInfo.first_name"
+ *                       message:
+ *                         type: string
+ *                         example: "First name is required for Enhanced KYC verification"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error - SmileID API failure
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to process SmileID job"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Process SmileID job route
+router.post('/verification/smileid/job', verifyToken, sellerController.processSmileIdJob);
+
 module.exports = router;

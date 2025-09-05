@@ -73,13 +73,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'accountType', message: 'Account type is required' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'accountType', message: 'Account type is required' }
+      ]);
     });
 
     it('should throw ValidationError with correct error message when idType is missing', () => {
@@ -92,13 +97,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'idType', message: 'ID type is required' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'idType', message: 'ID type is required' }
+      ]);
     });
 
     it('should throw ValidationError when accountType is invalid', () => {
@@ -124,13 +134,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'accountType', message: 'Account type must be either "individual" or "business"' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'accountType', message: 'Account type must be either "individual" or "business"' }
+      ]);
     });
 
     it('should throw ValidationError when idType is invalid for individual account', () => {
@@ -156,13 +171,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'idType', message: 'Invalid ID type for individual account. Valid types: NIN_SLIP, BVN, V_NIN, PHONE_NUMBER' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'idType', message: 'Invalid ID type for individual account. Valid types: NIN_SLIP, BVN, V_NIN, PHONE_NUMBER' }
+      ]);
     });
 
     it('should throw ValidationError when idType is invalid for business account', () => {
@@ -188,13 +208,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'idType', message: 'Invalid ID type for business account. Valid types: BN, CO, IT' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'idType', message: 'Invalid ID type for business account. Valid types: BN, CO, IT' }
+      ]);
     });
 
     it('should throw ValidationError when userId is too long', () => {
@@ -222,13 +247,18 @@ describe('Generate SmileID Token Validator', () => {
       expect(() => generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData))
         .toThrow(ValidationError);
       
-      try {
-        generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
-      } catch (error) {
-        expect(error.errors).toEqual([
-          { field: 'userId', message: 'User ID must not exceed 100 characters' }
-        ]);
-      }
+      const error = (() => {
+        try {
+          generateSmileIdTokenValidator.validateGenerateSmileIdTokenData(invalidData);
+        } catch (e) {
+          return e;
+        }
+      })();
+      
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.errors).toEqual([
+        { field: 'userId', message: 'User ID must not exceed 100 characters' }
+      ]);
     });
 
     it('should pass validation with valid individual account ID types', () => {
