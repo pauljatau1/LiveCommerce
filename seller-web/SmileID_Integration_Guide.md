@@ -24,7 +24,7 @@ To complete the SmileID integration, you need to implement these backend endpoin
 
 ### 1. Token Generation Endpoint
 ```javascript
-POST /api/seller/verification/smileid/token
+POST /api/v2/sellers/verification/smileid/token
 Headers: Authorization: Bearer <token>
 Body: {
   accountType: "individual" | "business",
@@ -39,7 +39,7 @@ Response: {
 
 ### 2. Individual Verification Result Endpoint
 ```javascript
-POST /api/seller/verification/smileid/individual
+POST /api/v2/sellers/verification/smileid/individual
 Headers: Authorization: Bearer <token>
 Body: {
   smileIdResult: object,

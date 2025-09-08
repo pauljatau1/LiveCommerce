@@ -255,7 +255,7 @@ const OnboardingProvider = ({ children }) => {
             const { data } = JSON.parse(token);
 
             const response = await axios.post(
-                `${BASE_URL}/seller/verification/company`,
+                `${BASE_URL_V2}/sellers/verification/company`,
                 formData,
                 {
                     headers: {
@@ -266,7 +266,7 @@ const OnboardingProvider = ({ children }) => {
             );
 
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Documents submitted successfully', {
                     description: 'Your verification documents have been uploaded',
                     style: {
@@ -280,9 +280,8 @@ const OnboardingProvider = ({ children }) => {
                 navigate('/onboarding/business-bank-onboarding');
             }
         } catch (error) {
-            console.log(error);
             toast.error('Error submitting documents', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.errors[0]?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',
@@ -298,13 +297,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/profile/bank-details`, bankDetails, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/profile/bank-details`, bankDetails, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Bank details submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
@@ -320,7 +319,7 @@ const OnboardingProvider = ({ children }) => {
         } catch (error) {
             console.log(error);
             toast.error('Error submitting bank details', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.errors[0]?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',
@@ -452,7 +451,7 @@ const OnboardingProvider = ({ children }) => {
             const { data } = JSON.parse(token);
 
             const response = await axios.post(
-                `${BASE_URL}/seller/verification/individual`,
+                `${BASE_URL_V2}/sellers/verification/individual`,
                 formData,
                 {
                     headers: {
@@ -463,7 +462,7 @@ const OnboardingProvider = ({ children }) => {
             );
 
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Documents submitted successfully', {
                     description: 'Your individual verification documents have been uploaded',
                     style: {
@@ -478,9 +477,8 @@ const OnboardingProvider = ({ children }) => {
 
             }
         } catch (error) {
-            console.log(error);
             toast.error('Error submitting documents', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.errors[0]?.message ||error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',

@@ -1654,11 +1654,11 @@ export default function OrderDetails() {
                 </div>
               </CardHeader>
               <CardContent className="p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
                   {shipping.documents.shippingLabel && (
                     <div className="group">
                       <Button
-                        className="w-full h-auto p-4 bg-green-600 border-2 border-green-600 hover:bg-green-700 hover:border-green-700 transition-all duration-200 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
+                        className="w-full h-auto p-4 bg-green-600 border-2 border-green-600 hover:bg-green-700 hover:border-green-700 hover:text-white transition-all ease-in-out duration-300 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
                         variant="outline"
                         onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
                       >
@@ -1688,7 +1688,7 @@ export default function OrderDetails() {
                   {shipping.documents.commercialInvoice && (
                     <div className="group">
                       <Button
-                        className="w-full h-auto p-4 bg-blue-600 border-2 border-blue-600 hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
+                        className="w-full h-auto p-4 bg-blue-600 border-2 border-blue-600 hover:bg-blue-700 hover:border-blue-700 hover:text-white transition-all ease-in-out duration-300 flex flex-row items-center justify-center gap-3 text-white font-semibold text-base"
                         variant="outline"
                         onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
                       >

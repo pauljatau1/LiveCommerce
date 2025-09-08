@@ -192,6 +192,7 @@ const EditProduct = () => {
                 if (product.images && product.images.length > 0) {
                     const formattedImages = product.images.slice(0, 5).map((img, idx) => ({
                         url: img.url,
+                        resizedImages: img.resizedImages, // Preserve the resizedImages property
                         contentType: 'image/jpeg',
                         isDefault: idx === 0
                     }));
@@ -378,8 +379,8 @@ const EditProduct = () => {
         // Take only the number of files that will fit within the limit
         const filesToProcess = files.slice(0, remainingSlots);
 
-        // File size limit: 3MB
-        const maxSize = 3 * 1024 * 1024; // 3MB in bytes
+        // File size limit: 7MB
+        const maxSize = 7 * 1024 * 1024; // 7MB in bytes
         const validFiles = [];
         const oversizedFiles = [];
 
@@ -395,7 +396,7 @@ const EditProduct = () => {
         // Show error for oversized files
         if (oversizedFiles.length > 0) {
             toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 3MB",
+                description: "Each image must be less than 7MB",
                 style: {
                     background: '#17171B',
                     color: '#fff',
@@ -488,6 +489,7 @@ const EditProduct = () => {
                 }));
 
                 return {
+                    id: mainVariant.id, // Include existing variant ID if it exists
                     name: mainVariant.name,
                     value: mainVariant.value,
                     price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
@@ -520,6 +522,7 @@ const EditProduct = () => {
                         }));
 
                         return {
+                            id: subVariant.id, // Include existing sub-variant ID if it exists
                             name: subVariant.name,
                             value: subVariant.value,
                             price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
@@ -547,6 +550,7 @@ const EditProduct = () => {
                                 }));
 
                                 return {
+                                    id: subSubVariant.id, // Include existing sub-sub-variant ID if it exists
                                     name: subSubVariant.name,
                                     value: subSubVariant.value,
                                     price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
@@ -953,7 +957,7 @@ const EditProduct = () => {
                                                                 {images.map((image, index) => (
                                                                     <div key={index} className="relative sm:w-24 sm:h-24 w-16 h-16">
                                                                         <img
-                                                                            src={image.url}
+                                                                            src={image?.resizedImages?.find(img => img.width === 150)?.url || image.url}
                                                                             alt={`Product image ${index + 1}`}
                                                                             className="w-full h-full object-cover rounded-lg"
                                                                         />

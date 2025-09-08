@@ -702,9 +702,9 @@ const ProductsPage = () => {
                             </div>
 
                             {/* Search and filter row */}
-                            <div className="flex flex-col xl:flex-row justify-between gap-4">
+                            <div className="flex flex-col xl:flex-row justify-between gap-[100px]  ">
                                 <div className="flex flex-col gap-4">
-                                    <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 w-full">
+                                    <div className="flex flex-col 2xl:flex-row items-start 2xl:items-center gap-3 w-full">
                                         {/* Search Form */}
                                         <form onSubmit={handleSearch} className="relative w-full lg:w-auto max-w-full lg:max-w-[400px] flex">
                                             <div className="flex items-center relative flex-grow">

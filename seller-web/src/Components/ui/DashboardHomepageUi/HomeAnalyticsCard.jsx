@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 
-// Add this helper function for number formatting
+// Add this helper function for currency formatting
 function formatMetricValue(value) {
     if (!value) return "0";
     if (value >= 1000000000) return `${(value / 1000000000).toFixed(2)}B`;
@@ -35,7 +35,7 @@ const HomeAnalyticsCard = ({ card }) => {
             onClick={() => navigate(card.link)}
             onTouchStart={() => setIsPressed(true)}
             onTouchEnd={() => setIsPressed(false)}
-            className={`bg-white rounded-xl p-4 sm:h-[140px] w-full border border-gray-200 
+            className={`bg-white rounded-xl p-4 sm:h-full w-full border border-gray-200 
             ${isPressed ? 'bg-gray-50 scale-98' : 'hover:shadow-md'} 
             shadow-sm transition-all duration-150 ease-in-out relative overflow-hidden`}
         >
@@ -60,7 +60,7 @@ const HomeAnalyticsCard = ({ card }) => {
             {/* Mobile value display */}
             <p className="sm:hidden text-xl font-semibold font-inter text-[#16192C] mt-1">{card.current}</p>
             
-            <div className="flex items-center gap-1 mt-2">
+            <div className="flex flex-wrap items-center whitespace-nowrap gap-1 mt-2">
                 <span className={`text-xs xl:text-sm rounded-md font-inter px-2 py-1 font-medium ${trend === 'up' ? 'text-[#66CB9F] bg-[#DEFFEE] ' : 'text-[#F16063] bg-[#FFE6E4] '}`}>
                     {percentage}
                 </span>

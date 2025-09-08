@@ -119,7 +119,7 @@ export default function PaymentSettings() {
 
       if (!bankDetails.accountNumber) {
         // Direct update for first-time bank details
-        const response = await fetch(`${BASE_URL}/seller/profile/bank-details`, {
+        const response = await fetch(`${BASE_URL_V2}/sellers/profile/bank-details`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

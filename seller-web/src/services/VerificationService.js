@@ -99,7 +99,7 @@ export const VerificationService = {
       }
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/individual`,
+        `${BASE_URL_V2}/sellers/verification/individual`,
         formData,
         {
           headers: { 
@@ -125,7 +125,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading individual verification:', error);
       throw error;
@@ -204,52 +204,47 @@ export const VerificationService = {
    * @returns {Promise} - The API response
    */
   uploadCompanyVerification: async (documents) => {
-    try {
-      const token = localStorage.getItem('sellerToken');
-      const sellerData = JSON.parse(localStorage.getItem('seller'));
-      const { data: authToken } = JSON.parse(token);
-      
-      const formData = new FormData();
-      
-      if (documents.certificateOfIncorporation) {
-        formData.append('certificateOfIncorporation', documents.certificateOfIncorporation);
-      }
-      
-      if (documents.businessTaxId) {
-        formData.append('businessTaxId', documents.businessTaxId);
-      }
-      
-      const response = await axios.post(
-        `${BASE_URL}/seller/verification/company`,
-        formData,
-        {
-          headers: { 
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-
-      if (response.status === 200) {
-        trackEvent("seller onboarding step 6: Company Verification Documents Uploaded", {
-          "seller id": sellerData._id,
-          "seller email": sellerData.email,
-          "seller store name": sellerData.storeName,
-          "seller first name": sellerData.firstName,
-          "seller last name": sellerData.lastName,
-          "seller phone number": sellerData.phoneNumber,
-          "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
-          "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
-          "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
-          "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
-        });
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error uploading company verification:', error);
-      throw error;
+    const token = localStorage.getItem('sellerToken');
+    const sellerData = JSON.parse(localStorage.getItem('seller'));
+    const { data: authToken } = JSON.parse(token);
+    
+    const formData = new FormData();
+    
+    if (documents.certificateOfIncorporation) {
+      formData.append('certificateOfIncorporation', documents.certificateOfIncorporation);
     }
+    
+    if (documents.businessTaxId) {
+      formData.append('businessTaxId', documents.businessTaxId);
+    }
+    
+    const response = await axios.post(
+      `${BASE_URL_V2}/sellers/verification/company`,
+      formData,
+      {
+        headers: { 
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    if (response.status === 200) {
+      trackEvent("seller onboarding step 6: Company Verification Documents Uploaded", {
+        "seller id": sellerData._id,
+        "seller email": sellerData.email,
+        "seller store name": sellerData.storeName,
+        "seller first name": sellerData.firstName,
+        "seller last name": sellerData.lastName,
+        "seller phone number": sellerData.phoneNumber,
+        "Certificate of Incorporation": documents.certificateOfIncorporation ? "Uploaded" : "Not Uploaded",
+        "Business Tax ID": documents.businessTaxId ? "Uploaded" : "Not Uploaded",
+        "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
+        "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified", 
+      });
+    }
+
+    return response.data.data;
   },
   
   /**
@@ -334,7 +329,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/profile/bank-details`,
+        `${BASE_URL_V2}/sellers/profile/bank-details`,
         { bankDetails },
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -362,7 +357,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error adding bank details:', error);
       throw error;
@@ -553,7 +548,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/individual`,
+        `${BASE_URL_V2}/sellers/verification/smileid/individual`,
         verificationData,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -575,7 +570,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error saving individual SmileID verification:', error);
       throw error;
@@ -634,14 +629,14 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/token`,
+        `${BASE_URL_V2}/sellers/verification/smileid/token`,
         tokenRequest,
         {
           headers: { Authorization: `Bearer ${authToken}` }
         }
       );
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error generating SmileID token:', error);
       throw error;
@@ -660,7 +655,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/process`,
+        `${BASE_URL_V2}/sellers/verification/smileid/job`,
         jobData,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -677,13 +672,13 @@ export const VerificationService = {
           "seller phone number": sellerData.phoneNumber,
           "Images Count": jobData.images ? jobData.images.length : 0,
           "Account Type": sellerData.accountType,
-          "Job ID": response.data.jobId,
+          "Job ID": response.data.data.jobId,
           "Signup Date": new Date(sellerData.createdAt).toISOString().split('T')[0],
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      
-      return response.data;
+
+      return response.data.data;
     } catch (error) {
       console.error('Error processing SmileID job:', error);
       throw error;

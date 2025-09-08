@@ -234,7 +234,7 @@ export default function OrdersDashboard() {
   // Reset page when non-pagination filters change
   useEffect(() => {
     setCurrentPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [activeTab, date, searchTerm, paymentFilter, channelFilter]);
 
   // Refetch orders when filters, pagination, or sorting changes
@@ -359,30 +359,30 @@ export default function OrdersDashboard() {
               </Select>
             </div>
 
-              <div>
+            <div>
               <p className="text-sm font-medium mb-2">Channel</p>
-                <Select value={channelFilter} onValueChange={setChannelFilter}>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Channel" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Channels</SelectItem>
                   <SelectItem value="marketplace">Marketplace</SelectItem>
-                    <SelectItem value="liveshow">Liveshow</SelectItem>
-                    <SelectItem value="auction">Auction</SelectItem>
+                  <SelectItem value="liveshow">Liveshow</SelectItem>
+                  <SelectItem value="auction">Auction</SelectItem>
                   <SelectItem value="blips">Blips</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DrawerFooter className="pt-2">
-              <Button
+            <Button
               variant="outline"
               className="w-full border-slate-300 hover:bg-slate-100"
               onClick={() => {
                 setDate(null);
-                  setSearchTerm("");
-                  setSearchInput("");
+                setSearchTerm("");
+                setSearchInput("");
                 setPaymentFilter("all");
                 setChannelFilter("all");
               }}
@@ -499,7 +499,7 @@ export default function OrdersDashboard() {
 
               {/* Desktop Filters */}
               <div className="hidden sm:flex flex-wrap gap-4">
-                
+
 
                 <div className="flex items-center gap-2 w-[240px]">
                   <Input
@@ -661,24 +661,24 @@ export default function OrdersDashboard() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-2">
+                          <div className=" flex items-center justify-center ">
                             <Badge
                               className={
-                                order.isStale
+                                `whitespace-nowrap ${order.isStale
                                   ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
                                   : order.isOpen
                                     ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
-                                    : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                                    : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"}`
                               }
                             >
                               {order.isStale ? "abandoned" : order.isOpen ? "Open" : "Closed"}
                             </Badge>
                             {!order.orderStatus?.hasReturn ? (
-                              <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
+                              <Badge className="bg-green-100 ml-4 whitespace-nowrap hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
                                 No Issues
                               </Badge>
                             ) : (
-                              <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
+                              <Badge className="bg-orange-100 ml-4 whitespace-nowrap hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
                                 Order Issues
                               </Badge>
                             )}
