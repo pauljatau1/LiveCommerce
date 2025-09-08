@@ -5,20 +5,26 @@ const sessionBlipStore = new Map();
 const MAX_SESSIONS = 1000;
 const MAX_SEEN_BLIPS_PER_SESSION = 100;
 
-// Clean up old sessions (run periodically)
-setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
-  for (const [sessionId, data] of sessionBlipStore.entries()) {
-    if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
-      sessionBlipStore.delete(sessionId);
-      cleanedCount++;
+// Cleanup interval reference for proper cleanup
+let cleanupInterval = null;
+
+// Initialize cleanup interval only in production/development, not in tests
+if (process.env.NODE_ENV !== 'test') {
+  // Clean up old sessions (run periodically)
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [sessionId, data] of sessionBlipStore.entries()) {
+      if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+        sessionBlipStore.delete(sessionId);
+        cleanedCount++;
+      }
     }
-  }
-  if (cleanedCount > 0) {
-    console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
-  }
-}, 30 * 1000); // Clean every 30 seconds
+    if (cleanedCount > 0) {
+      console.log(`🧹 [BLIPS DEBUG] Cleaned up ${cleanedCount} expired sessions. Active sessions: ${sessionBlipStore.size}`);
+    }
+  }, 30 * 1000); // Clean every 30 seconds
+}
 
 class SessionHelper {
   generateSessionId(req) {
@@ -107,4 +113,14 @@ class SessionHelper {
   }
 }
 
+// Cleanup function for tests
+function cleanup() {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+  sessionBlipStore.clear();
+}
+
 module.exports = new SessionHelper();
+module.exports.cleanup = cleanup;
