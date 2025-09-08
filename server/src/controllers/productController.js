@@ -524,48 +524,18 @@ exports.getDiscountedProducts = async (req, res) => {
         sortOptions = { createdAt: -1 };
     }
 
-    // Count total first for window sizing and pagination
-    const totalProducts = await Product.countDocuments(query);
-
-    // Fetch a larger window from the beginning to create a stable, de-clustered global order
-    const parsedLimit = parseInt(limit);
-    const windowSize = Math.min(totalProducts, Math.min(parsedLimit * 5 * Number(page), 1000));
-
-    let productsSample = await Product.find(query)
+    // Execute query
+    let products = await Product.find(query)
       .sort(sortOptions)
-      .limit(windowSize)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .select('-__v');
 
-    // Deterministic round-robin de-clustering by seller (stable across pages)
-    const roundRobinDecluster = (items) => {
-      if (!items || !items.length) return [];
-      const buckets = {};
-      items.forEach(p => {
-        const sid = p.seller && p.seller._id ? p.seller._id.toString() : 'unknown';
-        if (!buckets[sid]) buckets[sid] = [];
-        buckets[sid].push(p);
-      });
-      const sellerIds = Object.keys(buckets).sort();
-      const result = [];
-      let exhausted = false;
-      while (!exhausted) {
-        exhausted = true;
-        for (const sid of sellerIds) {
-          const bucket = buckets[sid];
-          if (bucket.length) {
-            result.push(bucket.shift());
-            exhausted = false;
-          }
-          if (result.length >= items.length) break;
-        }
-      }
-      return result;
-    };
+    // Apply de-clustering to avoid consecutive products from the same seller
+    products = reorderToAvoidSellerClusters(products);
 
-    const ordered = roundRobinDecluster(productsSample);
-    const startIndex = (Number(page) - 1) * parsedLimit;
-    let products = ordered.slice(startIndex, startIndex + parsedLimit);
+    const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limit);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;

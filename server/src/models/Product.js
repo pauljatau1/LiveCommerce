@@ -78,10 +78,10 @@ const variantSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: {
-      type: Number,
+    value: { 
+      type: Number, 
       default: 0,
-      get: function(v) {
+      set: function(v) {
         return typeof v === 'number' ? Math.ceil(v) : v;
       }
     },
@@ -167,10 +167,10 @@ const productSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: {
-      type: Number,
+    value: { 
+      type: Number, 
       default: 0,
-      get: function(v) {
+      set: function(v) {
         return typeof v === 'number' ? Math.ceil(v) : v;
       }
     },
@@ -1225,8 +1225,8 @@ productSchema.virtual('discountedPrice').get(function () {
 });
 
 // Ensure virtual fields are included when converting to JSON
-productSchema.set('toJSON', { virtuals: true, getters: true });
-productSchema.set('toObject', { virtuals: true, getters: true });
+productSchema.set('toJSON', { virtuals: true });
+productSchema.set('toObject', { virtuals: true });
 
 productSchema.pre('save', async function (next) {
   try {
