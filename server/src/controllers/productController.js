@@ -524,21 +524,48 @@ exports.getDiscountedProducts = async (req, res) => {
         sortOptions = { createdAt: -1 };
     }
 
-    // Fetch a larger sample to enable effective de-clustering
+    // Count total first for window sizing and pagination
+    const totalProducts = await Product.countDocuments(query);
+
+    // Fetch a larger window from the beginning to create a stable, de-clustered global order
     const parsedLimit = parseInt(limit);
-    const sampleSize = Math.min(parsedLimit * 5, 100);
+    const windowSize = Math.min(totalProducts, Math.min(parsedLimit * 5 * Number(page), 1000));
 
     let productsSample = await Product.find(query)
       .sort(sortOptions)
-      .skip((page - 1) * parsedLimit)
-      .limit(sampleSize)
+      .limit(windowSize)
       .populate('seller', sellerPopulationFields)
       .select('-__v');
 
-    // Apply de-clustering to avoid consecutive products from the same seller
-    let products = reorderToAvoidSellerClusters(productsSample).slice(0, parsedLimit);
+    // Deterministic round-robin de-clustering by seller (stable across pages)
+    const roundRobinDecluster = (items) => {
+      if (!items || !items.length) return [];
+      const buckets = {};
+      items.forEach(p => {
+        const sid = p.seller && p.seller._id ? p.seller._id.toString() : 'unknown';
+        if (!buckets[sid]) buckets[sid] = [];
+        buckets[sid].push(p);
+      });
+      const sellerIds = Object.keys(buckets).sort();
+      const result = [];
+      let exhausted = false;
+      while (!exhausted) {
+        exhausted = true;
+        for (const sid of sellerIds) {
+          const bucket = buckets[sid];
+          if (bucket.length) {
+            result.push(bucket.shift());
+            exhausted = false;
+          }
+          if (result.length >= items.length) break;
+        }
+      }
+      return result;
+    };
 
-    const totalProducts = await Product.countDocuments(query);
+    const ordered = roundRobinDecluster(productsSample);
+    const startIndex = (Number(page) - 1) * parsedLimit;
+    let products = ordered.slice(startIndex, startIndex + parsedLimit);
     const totalPages = Math.ceil(totalProducts / limit);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
