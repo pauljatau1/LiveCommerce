@@ -524,16 +524,19 @@ exports.getDiscountedProducts = async (req, res) => {
         sortOptions = { createdAt: -1 };
     }
 
-    // Execute query
-    let products = await Product.find(query)
+    // Fetch a larger sample to enable effective de-clustering
+    const parsedLimit = parseInt(limit);
+    const sampleSize = Math.min(parsedLimit * 5, 100);
+
+    let productsSample = await Product.find(query)
       .sort(sortOptions)
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
+      .skip((page - 1) * parsedLimit)
+      .limit(sampleSize)
       .populate('seller', sellerPopulationFields)
       .select('-__v');
 
     // Apply de-clustering to avoid consecutive products from the same seller
-    products = reorderToAvoidSellerClusters(products);
+    let products = reorderToAvoidSellerClusters(productsSample).slice(0, parsedLimit);
 
     const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limit);
