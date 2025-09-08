@@ -45,7 +45,11 @@ const subSubVariantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
-    isDefault: { type: Boolean, default: false }
+    isDefault: { type: Boolean, default: false },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }]
 });
 
@@ -58,6 +62,10 @@ const subVariantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   subSubVariants: [subSubVariantSchema]          // Array of material options
 });
@@ -80,6 +88,10 @@ const variantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   subVariants: [subVariantSchema],
 });
@@ -174,6 +186,10 @@ const productSchema = new mongoose.Schema({
   },
   images: [{
     url: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   blips: [blipSchema],
   stock: {
