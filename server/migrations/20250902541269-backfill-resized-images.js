@@ -27,24 +27,54 @@ const RESIZED_IMAGE_QUALITY = 92;
  * @param {string} fileName - Base filename without extension
  * @returns {Promise<boolean>} - True if resized versions exist
  */
-async function checkResizedImagesExist(basePath, fileName) {
+async function checkResizedImagesExist(basePath, fileName, extPreferred) {
+  // Verify ALL sizes for the provided extension if available; otherwise attempt discovery.
+  return await findExistingExtension(basePath, fileName, extPreferred) !== null;
+}
+
+async function headExists(key) {
   try {
-    // Check if at least one resized version exists
-    const resizedKey = `${basePath}/resized/${fileName}_${RESIZE_DIMENSIONS[0]}w.jpg`;
-    
-    await s3.headObject({
-      Bucket: process.env.CDN_S3_BUCKET,
-      Key: resizedKey
-    }).promise();
-    
+    await s3.headObject({ Bucket: process.env.CDN_S3_BUCKET, Key: key }).promise();
     return true;
   } catch (error) {
-    if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
-      return false;
-    }
-    // For other errors, assume they don't exist and continue processing
-    console.warn(`Error checking resized images existence: ${error.message}`);
+    if (error.code === 'NotFound' || error.code === 'NoSuchKey') return false;
+    console.warn(`Error during headObject for key ${key}: ${error.message}`);
     return false;
+  }
+}
+
+async function findExistingExtension(basePath, fileName, extPreferred) {
+  // If we know the preferred extension, check only that to avoid false positives.
+  if (extPreferred) {
+    const allExistPreferred = await Promise.all(
+      RESIZE_DIMENSIONS.map((w) => headExists(`${basePath}/resized/${fileName}_${w}w.${extPreferred}`))
+    );
+    if (allExistPreferred.every(Boolean)) return extPreferred;
+  }
+  // Fallback to common extensions if preferred is unknown from URL
+  const fallbackExtensions = ['jpg', 'png', 'webp'];
+  for (const ext of fallbackExtensions) {
+    const allExist = await Promise.all(
+      RESIZE_DIMENSIONS.map((w) => headExists(`${basePath}/resized/${fileName}_${w}w.${ext}`))
+    );
+    if (allExist.every(Boolean)) return ext;
+  }
+  return null;
+}
+
+function getExtensionFromSourceUrl(url) {
+  try {
+    if (!url) return null;
+    const pathname = new URL(url).pathname;
+    const last = pathname.split('/').pop();
+    if (!last || !last.includes('.')) return null;
+    let ext = last.split('.').pop().toLowerCase();
+    if (ext === 'jpeg') ext = 'jpg';
+    // Guard against querystrings like .jpg?x=1 (URL.pathname excludes query)
+    if (ext.length > 5) return null;
+    return ext;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -208,12 +238,9 @@ async function uploadResizedImages(originalBuffer, basePath, fileName) {
     if (!originalBuffer || !Buffer.isBuffer(originalBuffer)) {
       throw new Error('Invalid original buffer provided');
     }
-    
     if (originalBuffer.length === 0) {
       throw new Error('Original buffer is empty');
     }
-    
-    const uploadPromises = [];
 
     // Detect original image format with better error handling
     let metadata;
@@ -222,57 +249,63 @@ async function uploadResizedImages(originalBuffer, basePath, fileName) {
     } catch (sharpError) {
       throw new Error(`Failed to read image metadata: ${sharpError.message}`);
     }
-    
+
     const originalFormat = metadata.format || 'jpeg';
     const extension = originalFormat === 'jpeg' ? 'jpg' : originalFormat;
     const contentType = `image/${originalFormat}`;
 
     console.log(`Processing image: ${fileName}.${extension} (${metadata.width}x${metadata.height}, ${originalFormat})`);
 
-    // Upload original image with original format
-    const originalKey = `${basePath}/${fileName}.${extension}`;
-    uploadPromises.push(
-      s3
-        .upload({
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: originalKey,
-          Body: originalBuffer,
-          ContentType: contentType,
-        })
-        .promise()
-    );
-
-    // Upload resized versions (keeping original format)
+    // Precompute resized buffers first to avoid partial uploads if a resize fails
+    const resizedBuffers = [];
     for (const width of RESIZE_DIMENSIONS) {
-      let resizedBuffer;
       try {
-        resizedBuffer = await resizeImage(originalBuffer, width, originalFormat);
+        const resizedBuffer = await resizeImage(originalBuffer, width, originalFormat);
+        resizedBuffers.push({ width, buffer: resizedBuffer });
       } catch (resizeError) {
         throw new Error(`Failed to resize image to ${width}w: ${resizeError.message}`);
       }
-      
-      const resizedKey = `${basePath}/resized/${fileName}_${width}w.${extension}`;
-
-      uploadPromises.push(
-        s3
-          .upload({
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: resizedKey,
-            Body: resizedBuffer,
-            ContentType: contentType,
-          })
-          .promise()
-        );
-      
-      // Clear resized buffer to free memory
-      resizedBuffer = null;
     }
 
-    const uploadResults = await Promise.all(uploadPromises);
+    // Prepare uploads, track uploaded keys for cleanup on failure (all-or-nothing)
+    const keysToUpload = [];
+    const uploadPromises = [];
+
+    const originalKey = `${basePath}/${fileName}.${extension}`;
+    keysToUpload.push(originalKey);
+    uploadPromises.push(
+      s3.upload({ Bucket: process.env.CDN_S3_BUCKET, Key: originalKey, Body: originalBuffer, ContentType: contentType }).promise()
+    );
+
+    for (const { width, buffer } of resizedBuffers) {
+      const resizedKey = `${basePath}/resized/${fileName}_${width}w.${extension}`;
+      keysToUpload.push(resizedKey);
+      uploadPromises.push(
+        s3.upload({ Bucket: process.env.CDN_S3_BUCKET, Key: resizedKey, Body: buffer, ContentType: contentType }).promise()
+      );
+    }
+
+    let uploadResults;
+    try {
+      uploadResults = await Promise.all(uploadPromises);
+    } catch (uploadError) {
+      // Cleanup any uploaded artifacts to enforce all-or-nothing
+      try {
+        const deleteParams = {
+          Bucket: process.env.CDN_S3_BUCKET,
+          Delete: { Objects: keysToUpload.map((Key) => ({ Key })) }
+        };
+        await s3.deleteObjects(deleteParams).promise();
+        console.warn(`Rolled back partial uploads for ${basePath}/${fileName}`);
+      } catch (cleanupError) {
+        console.error(`Failed to cleanup partial uploads for ${basePath}/${fileName}: ${cleanupError.message}`);
+      }
+      throw uploadError;
+    }
+
     const originalUpload = uploadResults[0];
     const resizedUploads = uploadResults.slice(1);
 
-    // Structure the response
     const result = {
       original: {
         url: 'https://' + process.env.CDN_URL + `/${originalUpload.Key}`,
@@ -325,11 +358,24 @@ async function processMainProductImages(product) {
     try {
       console.log(`Processing main product image ${i + 1}/${product.images.length} for product ${product._id}`);
       
-      // Skip if already has resizedImages
+      // If DB claims resizedImages exist, verify S3 actually has full set; otherwise reprocess
       if (image.resizedImages && image.resizedImages.length > 0) {
-        console.log(`Skipping image ${i + 1} - already has resizedImages`);
-        updatedImages.push(image);
-        continue;
+        const sourceUrl = image.url || image.originalUrl;
+        if (sourceUrl && shouldProcessImage(sourceUrl)) {
+          const fileNameProbe = extractFilenameFromUrl(sourceUrl);
+          const basePathProbe = `sellers/${product.seller}/products/${product._id}/images`;
+          const existingExtProbe = await findExistingExtension(basePathProbe, fileNameProbe);
+          if (existingExtProbe) {
+            console.log(`Skipping image ${i + 1} - verified resized set exists in S3`);
+            updatedImages.push(image);
+            continue;
+          }
+          console.log(`Resized URLs exist in DB but not in S3 - reprocessing image ${i + 1}`);
+        } else {
+          console.log(`Resized URLs exist in DB but source URL not processable - keeping as is for image ${i + 1}`);
+          updatedImages.push(image);
+          continue;
+        }
       }
       
       if (!image.url) {
@@ -358,13 +404,14 @@ async function processMainProductImages(product) {
       const basePath = `sellers/${product.seller}/products/${product._id}/images`;
       
       // Check if resized versions already exist in S3
-      const resizedExist = await checkResizedImagesExist(basePath, fileName);
-      if (resizedExist) {
+      const urlExt = getExtensionFromSourceUrl(image.url);
+      const existingExt = await findExistingExtension(basePath, fileName, urlExt);
+      if (existingExt) {
         console.log(`Skipping image ${i + 1} - resized versions already exist in S3`);
         // Generate the resized image URLs since they exist in S3
         const resizedImages = RESIZE_DIMENSIONS.map(width => ({
           width: width,
-          url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.jpg`
+          url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.${existingExt}`
         }));
         
         // Keep original image but populate resizedImages
@@ -431,11 +478,24 @@ async function processVariantImages(variants, productId, sellerId) {
           try {
             console.log(`  Processing variant image ${j + 1}/${variant.images.length}`);
             
-            // Skip if already has resizedImages
+            // If DB claims resizedImages exist, verify S3 actually has full set; otherwise reprocess
             if (image.resizedImages && image.resizedImages.length > 0) {
-              console.log(`  Skipping variant image ${j + 1} - already has resizedImages`);
-              updatedImages.push(image);
-              continue;
+              const sourceUrl = image.data || image.originalData;
+              if (sourceUrl && shouldProcessImage(sourceUrl)) {
+                const fileNameProbe = extractFilenameFromUrl(sourceUrl);
+                const basePathProbe = `sellers/${sellerId}/products/${productId}/variants/${variant._id}/images`;
+                const existingExtProbe = await findExistingExtension(basePathProbe, fileNameProbe);
+                if (existingExtProbe) {
+                  console.log(`  Skipping variant image ${j + 1} - verified resized set exists in S3`);
+                  updatedImages.push(image);
+                  continue;
+                }
+                console.log(`  Resized URLs exist in DB but not in S3 - reprocessing variant image ${j + 1}`);
+              } else {
+                console.log(`  Resized URLs exist in DB but source URL not processable - keeping variant image ${j + 1}`);
+                updatedImages.push(image);
+                continue;
+              }
             }
             
             if (!image.data) {
@@ -464,13 +524,14 @@ async function processVariantImages(variants, productId, sellerId) {
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${variant._id}/images`;
             
             // Check if resized versions already exist in S3
-            const resizedExist = await checkResizedImagesExist(basePath, fileName);
-            if (resizedExist) {
+            const urlExt = getExtensionFromSourceUrl(image.data);
+            const existingExt = await findExistingExtension(basePath, fileName, urlExt);
+            if (existingExt) {
               console.log(`  Skipping variant image ${j + 1} - resized versions already exist in S3`);
               // Generate the resized image URLs since they exist in S3
               const resizedImages = RESIZE_DIMENSIONS.map(width => ({
                 width: width,
-                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.jpg`
+                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.${existingExt}`
               }));
               
               // Keep original image but populate resizedImages
@@ -561,11 +622,24 @@ async function processSubvariantImages(subvariants, productId, sellerId, variant
           try {
             console.log(`  Processing subvariant image ${j + 1}/${subvariant.images.length}`);
             
-            // Skip if already has resizedImages
+            // If DB claims resizedImages exist, verify S3 actually has full set; otherwise reprocess
             if (image.resizedImages && image.resizedImages.length > 0) {
-              console.log(`  Skipping subvariant image ${j + 1} - already has resizedImages`);
-              updatedImages.push(image);
-              continue;
+              const sourceUrl = image.data || image.originalData;
+              if (sourceUrl && shouldProcessImage(sourceUrl)) {
+                const fileNameProbe = extractFilenameFromUrl(sourceUrl);
+                const basePathProbe = `sellers/${sellerId}/products/${productId}/variants/${subvariant._id}/images`;
+                const existingExtProbe = await findExistingExtension(basePathProbe, fileNameProbe);
+                if (existingExtProbe) {
+                  console.log(`  Skipping subvariant image ${j + 1} - verified resized set exists in S3`);
+                  updatedImages.push(image);
+                  continue;
+                }
+                console.log(`  Resized URLs exist in DB but not in S3 - reprocessing subvariant image ${j + 1}`);
+              } else {
+                console.log(`  Resized URLs exist in DB but source URL not processable - keeping subvariant image ${j + 1}`);
+                updatedImages.push(image);
+                continue;
+              }
             }
             
             if (!image.data) {
@@ -594,13 +668,14 @@ async function processSubvariantImages(subvariants, productId, sellerId, variant
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${subvariant._id}/images`;
             
             // Check if resized versions already exist in S3
-            const resizedExist = await checkResizedImagesExist(basePath, fileName);
-            if (resizedExist) {
+            const urlExt = getExtensionFromSourceUrl(image.data);
+            const existingExt = await findExistingExtension(basePath, fileName, urlExt);
+            if (existingExt) {
               console.log(`  Skipping subvariant image ${j + 1} - resized versions already exist in S3`);
               // Generate the resized image URLs since they exist in S3
               const resizedImages = RESIZE_DIMENSIONS.map(width => ({
                 width: width,
-                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.jpg`
+                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.${existingExt}`
               }));
               
               // Keep original image but populate resizedImages
@@ -691,11 +766,24 @@ async function processSubsubvariantImages(subsubvariants, productId, sellerId, s
           try {
             console.log(`  Processing subsubvariant image ${j + 1}/${subsubvariant.images.length}`);
             
-            // Skip if already has resizedImages
+            // If DB claims resizedImages exist, verify S3 actually has full set; otherwise reprocess
             if (image.resizedImages && image.resizedImages.length > 0) {
-              console.log(`  Skipping subsubvariant image ${j + 1} - already has resizedImages`);
-              updatedImages.push(image);
-              continue;
+              const sourceUrl = image.data || image.originalData;
+              if (sourceUrl && shouldProcessImage(sourceUrl)) {
+                const fileNameProbe = extractFilenameFromUrl(sourceUrl);
+                const basePathProbe = `sellers/${sellerId}/products/${productId}/variants/${subsubvariant._id}/images`;
+                const existingExtProbe = await findExistingExtension(basePathProbe, fileNameProbe);
+                if (existingExtProbe) {
+                  console.log(`  Skipping subsubvariant image ${j + 1} - verified resized set exists in S3`);
+                  updatedImages.push(image);
+                  continue;
+                }
+                console.log(`  Resized URLs exist in DB but not in S3 - reprocessing subsubvariant image ${j + 1}`);
+              } else {
+                console.log(`  Resized URLs exist in DB but source URL not processable - keeping subsubvariant image ${j + 1}`);
+                updatedImages.push(image);
+                continue;
+              }
             }
             
             if (!image.data) {
@@ -724,13 +812,14 @@ async function processSubsubvariantImages(subsubvariants, productId, sellerId, s
             const basePath = `sellers/${sellerId}/products/${productId}/variants/${subsubvariant._id}/images`;
             
             // Check if resized versions already exist in S3
-            const resizedExist = await checkResizedImagesExist(basePath, fileName);
-            if (resizedExist) {
+            const urlExt = getExtensionFromSourceUrl(image.data);
+            const existingExt = await findExistingExtension(basePath, fileName, urlExt);
+            if (existingExt) {
               console.log(`  Skipping subsubvariant image ${j + 1} - resized versions already exist in S3`);
               // Generate the resized image URLs since they exist in S3
               const resizedImages = RESIZE_DIMENSIONS.map(width => ({
                 width: width,
-                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.jpg`
+                url: `https://${process.env.CDN_URL}/${basePath}/resized/${fileName}_${width}w.${existingExt}`
               }));
               
               // Keep original image but populate resizedImages
