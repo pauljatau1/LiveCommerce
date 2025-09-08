@@ -78,7 +78,13 @@ const variantSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
+    value: { 
+      type: Number, 
+      default: 0,
+      set: function(v) {
+        return typeof v === 'number' ? Math.ceil(v) : v;
+      }
+    },
     startDate: { type: Date },
     endDate: { type: Date },
     couponName: { type: String },
@@ -161,7 +167,13 @@ const productSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
+    value: { 
+      type: Number, 
+      default: 0,
+      set: function(v) {
+        return typeof v === 'number' ? Math.ceil(v) : v;
+      }
+    },
     startDate: { type: Date },
     endDate: { type: Date },
     couponName: { type: String },

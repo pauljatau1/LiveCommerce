@@ -56,7 +56,7 @@
         "node-cache": "^5.1.2",
         "passport": "^0.7.0",
         "passport-google-oauth20": "^2.0.0",
-        "sharp": "^0.34.2",
+        "sharp": "^0.34.3",
         "smile-identity-core": "^3.1.0",
         "socket.io": "^4.8.1",
         "swagger-jsdoc": "^6.2.8",
@@ -79,9 +79,13 @@
     },
     "jest": {
         "testEnvironment": "node",
-        "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+        "setupFilesAfterEnv": [
+            "<rootDir>/tests/setup.js"
+        ],
         "globalTeardown": "<rootDir>/tests/teardown.js",
-        "testMatch": ["**/tests/**/*.test.js"],
+        "testMatch": [
+            "**/tests/**/*.test.js"
+        ],
         "maxWorkers": 1,
         "moduleNameMapper": {
             "^@/(.*)$": "<rootDir>/src/$1",
