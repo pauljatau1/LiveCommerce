@@ -9,6 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import BottomSheet from "../global/bottom-sheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
+import { getResizedImage } from "@/helpers/helpers";
 
 const ShopCard: React.FC<ProductCardProps> = ({
   imageUrl,
@@ -79,7 +80,7 @@ const ShopCard: React.FC<ProductCardProps> = ({
           source={
             firstImage.url
               ? {
-                  uri: firstImage.url,
+                  uri: getResizedImage(firstImage, 320),
                 }
               : images.diamondsImage
           }

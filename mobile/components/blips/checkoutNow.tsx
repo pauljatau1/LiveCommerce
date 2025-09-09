@@ -34,6 +34,7 @@ import {
 import BottomSheet from "../global/bottom-sheet";
 import SelectRatesSheet from "../orders/selectRatesSheet";
 import AddressSheet from "../orders/addressSheet";
+import { getResizedImage } from "@/helpers/helpers";
 
 const mockDeliveryOtions = [
   {
@@ -1397,7 +1398,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
         </View>
         <View className="flex-row gap-[16px] ">
           <Image
-            source={{ uri: cartItem?.images?.[0]?.url }}
+            source={{ uri: getResizedImage(cartItem?.images?.[0], 150) }}
             contentFit="cover"
             style={{
               width: 100,

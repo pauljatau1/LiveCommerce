@@ -13,7 +13,7 @@ import { getToken } from "@/store/features/auth/utils";
 import AuthSheet from "../auth/authSheet";
 import AddedToCart from "../product/productAddedToCart";
 import CartSheet from "../product/productCartSheet";
-import { formatNumber } from "@/helpers/helpers";
+import { formatNumber, getResizedImage } from "@/helpers/helpers";
 import { Image } from "expo-image";
 
 const CatalogCard: React.FC<ProductCardProps | any> = ({
@@ -90,7 +90,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {firstImage && (
         <Image
-          source={{ uri: imageUrl?.[0]?.url, width: 300, height: 300 }}
+          source={{ uri: getResizedImage(imageUrl?.[0], 320) }}
           contentFit="cover"
           recyclingKey={`image-${imageUrl?.[0]?.url}`}
           // className="w-[100%] h-[157px]"

@@ -8,6 +8,7 @@ import { trackEvent as trackEventMixpanel } from "@/utils/mixpanel";
 import { trackEvent as trackEventCustomerio } from "@/utils/customerio";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getResizedImage } from "@/helpers/helpers";
 
 const CartSheet = ({
   productDetails,
@@ -64,10 +65,10 @@ const CartSheet = ({
       addToCart({ ...productDetails, quantity, includeInOrder: true });
     }
     try {
-      const userData = await AsyncStorage.getItem('user');
-      const user = JSON.parse(userData || '{}');
+      const userData = await AsyncStorage.getItem("user");
+      const user = JSON.parse(userData || "{}");
       if (user?._id) {
-        trackEventMixpanel('add_to_cart', {
+        trackEventMixpanel("add_to_cart", {
           userId: user?._id,
           email: user?.email,
           firstName: user?.firstName,
@@ -86,7 +87,7 @@ const CartSheet = ({
           sellerName: productDetails?.seller?.name,
           timestamp: new Date().toISOString(),
         });
-        trackEventCustomerio('add_to_cart', {
+        trackEventCustomerio("add_to_cart", {
           userId: user?._id,
           email: user?.email,
           firstName: user?.firstName,
@@ -106,7 +107,7 @@ const CartSheet = ({
           timestamp: new Date().toISOString(),
         });
 
-        trackFacebookEvent('AddToCart', {
+        trackFacebookEvent("AddToCart", {
           content_id: productDetails?._id,
           content_name: productDetails?.name,
           content_type: "product",
@@ -168,10 +169,12 @@ const CartSheet = ({
         <View className="flex-row gap-[16px]">
           <Image
             source={{
-              uri:
+              uri: getResizedImage(
                 (selectedVariant?.images?.length > 0 &&
-                  selectedVariant?.images[0]?.data) ||
-                productDetails?.images[0]?.url,
+                  selectedVariant?.images[0]) ||
+                  productDetails?.images[0],
+                150,
+              ),
             }}
             contentFit="cover"
             style={{
@@ -186,9 +189,9 @@ const CartSheet = ({
               {selectedVariant?.discount?.isActive
                 ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
                 : selectedVariant?.price?.toLocaleString() ||
-                (productDetails?.discount?.isActive
-                  ? productDetails?.discount?.discountedPrice?.toLocaleString()
-                  : productDetails?.price?.toLocaleString())}
+                  (productDetails?.discount?.isActive
+                    ? productDetails?.discount?.discountedPrice?.toLocaleString()
+                    : productDetails?.price?.toLocaleString())}
             </Text>
             {productDetails?.discount?.isActive && (
               <View className="flex-row items-center gap-[8px]">
@@ -234,8 +237,10 @@ const CartSheet = ({
               >
                 <Image
                   source={{
-                    uri:
-                      variant?.images[0]?.data || productDetails.images[0].url,
+                    uri: getResizedImage(
+                      variant?.images[0] || productDetails.images[0],
+                      150,
+                    ),
                   }}
                   contentFit="cover"
                   style={{

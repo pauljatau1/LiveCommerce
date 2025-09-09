@@ -274,3 +274,14 @@ export const processDates = (msgs) => {
 
   return result;
 };
+
+export const getResizedImage = (image, size) => {
+  if (image?.resizedImages?.length > 0) {
+    const resizedImg = image.resizedImages.find((img) => img.width === size);
+    if (resizedImg) {
+      return resizedImg.url;
+    }
+    return image?.url || image?.data;
+  }
+  return image?.url || image?.data;
+};
