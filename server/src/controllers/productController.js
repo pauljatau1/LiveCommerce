@@ -461,6 +461,128 @@ exports.getAllProducts = async (req, res) => {
 };
 
 
+// Get discounted products (only products with currently active discounts)
+exports.getDiscountedProducts = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      category = '',
+      minPrice = 0,
+      maxPrice = Number.MAX_SAFE_INTEGER,
+      sortBy = 'newest',
+      visibility = 'visible'
+    } = req.query;
+
+    const now = new Date();
+
+    // Base query: active, visible, in stock, not offline auction, and discount active in current time window
+    let query = {
+      status: 'active',
+      visibility: visibility || 'visible',
+      stock: { $gt: 0 },
+      $and: [
+        { 'discount.isActive': true },
+        { $or: [ { 'discount.startDate': { $exists: false } }, { 'discount.startDate': { $lte: now } } ] },
+        { $or: [ { 'discount.endDate': { $exists: false } }, { 'discount.endDate': { $gte: now } } ] }
+      ],
+      status: { $ne: 'offline_auction' }
+    };
+
+    if (category) {
+      query.category = category;
+    }
+
+    // Optional price filter (based on base price, consistent with other endpoints)
+    if (req.query.minPrice || req.query.maxPrice) {
+      query.price = {
+        $gte: Number(minPrice),
+        $lte: Number(maxPrice)
+      };
+    }
+
+    // Sorting options (consistent with getAllProducts)
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { soldCount: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: -1 };
+    }
+
+    // Execute query
+    let products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
+
+    // Apply de-clustering to avoid consecutive products from the same seller
+    products = reorderToAvoidSellerClusters(products);
+
+    const totalProducts = await Product.countDocuments(query);
+    const totalPages = Math.ceil(totalProducts / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    // Attach stats fields for convenience
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        products: productsWithStats,
+        pagination: {
+          currentPage: Number(page),
+          totalPages,
+          totalProducts,
+          hasNextPage,
+          hasPrevPage,
+          limit: Number(limit)
+        },
+        filters: {
+          category,
+          priceRange: {
+            min: minPrice,
+            max: maxPrice !== Number.MAX_SAFE_INTEGER ? maxPrice : 'no limit'
+          },
+          sortBy,
+          visibility,
+          discountedOnly: true
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving discounted products',
+      error: error.message
+    });
+  }
+};
+
 // Get a single product
 exports.getProduct = async (req, res) => {
   try {
