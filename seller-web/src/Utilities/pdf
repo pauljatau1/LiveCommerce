@@ -1,0 +1,150 @@
+import jsPDF from 'jspdf';
+
+/**
+ * Build a custom shipping invoice/label PDF as per product design.
+ * Returns an object URL to a Blob of the PDF, suitable for embedding in iframe.
+ *
+ * @param {Object} params
+ * @param {Object} params.order Order object from order details
+ * @param {Object} params.shipping Shipping object from order details
+ * @param {Object} params.buyer Buyer details
+ * @param {Object} params.seller Seller details
+ * @param {Array} params.items Line items
+ * @returns {string} object URL
+ */
+export function generateShippingInvoicePdf({ order, shipping, buyer, seller, items }) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+  const pagePadding = 32;
+  let y = pagePadding;
+
+  const addText = (text, x, yPos, size = 12, style = 'normal', color = '#111827') => {
+    doc.setTextColor(color);
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    doc.text(String(text ?? ''), x, yPos);
+  };
+
+  // Header ribbon
+  doc.setFillColor(25, 146, 81); // green
+  doc.saveGraphicsState();
+  doc.rect(0, 0, 200, 200, 'F');
+  doc.restoreGraphicsState();
+  addText('Paid', 28, 40, 14, 'bold', '#ffffff');
+
+  // Logo text (placeholder)
+  addText('auqli', pagePadding + 200, y + 12, 24, 'bold', '#0a0a0a');
+
+  y += 40;
+  const formattedDate = order?.createdAt ? new Date(order.createdAt).toLocaleString() : new Date().toLocaleString();
+  addText(formattedDate, pagePadding, y, 11, 'normal', '#374151');
+
+  y += 24;
+  addText('INVOICE', pagePadding, y, 16, 'bold', '#111827');
+
+  y += 8;
+  doc.setDrawColor('#e5e7eb');
+  doc.line(pagePadding, y, doc.internal.pageSize.getWidth() - pagePadding, y);
+
+  y += 18;
+  const rowGap = 18;
+  const labelColor = '#6b7280';
+  const rightX = 280;
+
+  const shipperName = shipping?.carrier?.name || shipping?.carrier || '-';
+  addText('Carrier', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(shipperName, rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Order ID', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(order?.orderId || order?._id || '-', rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Order Date', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(order?.createdAt ? new Date(order.createdAt).toDateString() : '-', rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Buyer', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(buyer ? `${buyer.firstName ?? ''} ${buyer.lastName ?? ''}`.trim() : '-', rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Seller', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(seller?.storeName || seller?.brandName || seller?.name || '-', rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Shipping Address', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  const addr = shipping?.address || order?.addresses?.delivery;
+  const addressLine = addr ? [addr.street, addr.city, addr.state].filter(Boolean).join(', ') : '-';
+  addText(addressLine, rightX, y, 12, 'bold');
+
+  y += rowGap;
+  addText('Customer Phone No', pagePadding, y, 11, 'normal', labelColor);
+  addText('-', rightX - 20, y, 11, 'normal', labelColor);
+  addText(buyer?.phone || buyer?.phoneNumber || '-', rightX, y, 12, 'bold');
+
+  y += 20;
+  doc.setDrawColor('#e5e7eb');
+  doc.line(pagePadding, y, doc.internal.pageSize.getWidth() - pagePadding, y);
+
+  // Items
+  y += 24;
+  addText('Items Purchased', pagePadding, y, 13, 'bold');
+  y += 20;
+  addText('ITEM', pagePadding, y, 11, 'bold', '#374151');
+  addText('QUANTITY', pagePadding + 220, y, 11, 'bold', '#374151');
+  addText('UNIT PRICE', pagePadding + 350, y, 11, 'bold', '#374151');
+  y += 10;
+  doc.line(pagePadding, y, doc.internal.pageSize.getWidth() - pagePadding, y);
+
+  y += 18;
+  const safeItems = Array.isArray(items) ? items : [];
+  safeItems.slice(0, 5).forEach((itm) => {
+    const name = itm?.product?.name || itm?.productName || '-';
+    const qty = itm?.quantity ?? 1;
+    const unit = itm?.unitPrice ?? itm?.price ?? itm?.amount ?? 0;
+    addText(name, pagePadding, y, 12);
+    addText(String(qty), pagePadding + 250, y, 12);
+    addText(`₦ ${Number(unit).toLocaleString()}`, pagePadding + 350, y, 12, 'bold');
+    y += 18;
+  });
+
+  y += 6;
+  doc.line(pagePadding, y, doc.internal.pageSize.getWidth() - pagePadding, y);
+  y += 18;
+
+  const itemAmount = order?.paymentBreakdown?.items?.reduce((sum, i) => sum + (i?.amount || 0), 0) || 0;
+  const vat = Math.round((order?.paymentBreakdown?.fees?.totalPlatformFee || 0) * 0.075);
+  const total = order?.paymentBreakdown?.sellerPayout || order?.paymentInfo?.amount || itemAmount;
+
+  const rightColX = pagePadding + 350;
+  addText('Item Amount', pagePadding, y, 12, 'normal', labelColor);
+  addText('-', rightColX - 30, y, 12, 'normal', labelColor);
+  addText(`₦ ${Number(itemAmount).toLocaleString()}`, rightColX, y, 12, 'bold');
+  y += 18;
+  addText('VAT', pagePadding, y, 12, 'normal', labelColor);
+  addText('-', rightColX - 30, y, 12, 'normal', labelColor);
+  addText(`₦ ${Number(vat).toLocaleString()}`, rightColX, y, 12, 'bold');
+  y += 18;
+  addText('Total', pagePadding, y, 14, 'bold');
+  addText('-', rightColX - 30, y, 14, 'bold');
+  addText(`₦ ${Number(total).toLocaleString()}`, rightColX, y, 14, 'bold', '#111827');
+
+  // Footer note
+  y += 26;
+  doc.setDrawColor('#e5e7eb');
+  doc.line(pagePadding, y, doc.internal.pageSize.getWidth() - pagePadding, y);
+  y += 22;
+  addText('Payments on Auqli are processed after 24 hours.', pagePadding, y, 10, 'normal', '#6b7280');
+
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  return url;
+}
+
+
