@@ -1,26 +1,16 @@
-import React, { memo, useState, useCallback } from 'react';
-import { Icon } from "@iconify/react";
+import { memo, useState, useCallback } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
 import PropTypes from 'prop-types';
+import AddOptionCard from './AddOptionCard';
 
 const VariantCard = memo(({ variant }) => {
-    const { options, updateOption, deleteOption } = useVariants();
+    const { deleteOption } = useVariants();
     const [isEditing, setIsEditing] = useState(false);
-    const [editedValues, setEditedValues] = useState(variant.values);
-
-    const handleSave = useCallback(() => {
-        updateOption({
-            ...variant,
-            values: editedValues.filter(v => v.trim() !== '')
-        });
-        setIsEditing(false);
-    }, [variant, editedValues, updateOption]);
 
     const handleDelete = useCallback((e) => {
         e.stopPropagation();
-        const optionIndex = options.findIndex(opt => opt.id === variant.id);
         deleteOption(variant.id);
-    }, [variant.id, options, deleteOption]);
+    }, [variant.id, deleteOption]);
 
     return (
         <div className="p-2 sm:p-4 border rounded-lg bg-white space-y-2">
@@ -29,7 +19,7 @@ const VariantCard = memo(({ variant }) => {
                 <div className="flex items-center gap-1 sm:gap-2">
                     {isEditing ? (
                         <button
-                            onClick={handleSave}
+                            onClick={() => setIsEditing(false)}
                             className="p-1 sm:p-2 hover:bg-gray-50 rounded-lg"
                         >
                             <svg
@@ -39,9 +29,7 @@ const VariantCard = memo(({ variant }) => {
                             >
                                 <path
                                     fill="currentColor"
-                                    fillRule="evenodd"
-                                    d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10m-5.97-3.03a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06l1.47 1.47l2.235-2.235L14.97 8.97a.75.75 0 0 1 1.06 0"
-                                    clipRule="evenodd"
+                                    d="M18.75 6.75a.75.75 0 0 1 .75.75v9a.75.75 0 0 1-.75.75h-13.5a.75.75 0 0 1-.75-.75v-9a.75.75 0 0 1 .75-.75zm-2.47 2.47a.75.75 0 0 0-1.06-1.06L12 11.379 8.78 8.16a.75.75 0 1 0-1.06 1.06L10.94 12l-3.22 3.22a.75.75 0 1 0 1.06 1.06L12 12.621l3.22 3.219a.75.75 0 1 0 1.06-1.06L13.06 12z"
                                 />
                             </svg>
                         </button>
@@ -87,20 +75,12 @@ const VariantCard = memo(({ variant }) => {
             </div>
             <div className="mt-2">
                 {isEditing ? (
-                    <div className="flex flex-wrap gap-2">
-                        {editedValues.map((value, index) => (
-                            <input
-                                key={index}
-                                value={value}
-                                onChange={(e) => {
-                                    const newValues = [...editedValues];
-                                    newValues[index] = e.target.value;
-                                    setEditedValues(newValues);
-                                }}
-                                className="border p-1 text-sm  rounded w-full sm:w-auto mb-1"
-                            />
-                        ))}
-                    </div>
+                    <AddOptionCard
+                        onDone={() => setIsEditing(false)}
+                        initialName={variant.name}
+                        initialValues={variant.values}
+                        variantId={variant.id}
+                    />
                 ) : (
                     <div className="flex flex-wrap gap-1 sm:gap-2">
                         {variant.values.map((value, index) => (

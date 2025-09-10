@@ -75,10 +75,11 @@ export const VariantsProvider = ({ children }) => {
         setOptions(prevOptions => {
             const optionIndex = prevOptions.findIndex(opt => opt.id === updatedOption.id);
             
-            if (optionIndex === 0) { // Main variant (color)
+            if (optionIndex === 0) { // Main variant (e.g., color)
                 // Use functional update to access current variant structure
                 setVariantStructure(currentVariantStructure => {
                     const existingStructure = [...currentVariantStructure];
+                    const templateMain = existingStructure[0];
                     
                     // Create new structure preserving sub and sub-sub variants
                     const newStructure = updatedOption.values.map(newValue => {
@@ -91,39 +92,104 @@ export const VariantsProvider = ({ children }) => {
                                 value: newValue
                             };
                         }
-                        // If no existing variant, create new one with empty sub-structures
-                        return {
-                            name: updatedOption.name,
-                            value: newValue,
-                            price: '',
-                            images: [],
-                            subVariants: []
-                        };
-                    });
-
-                    return newStructure;
-                });
-            } else if (optionIndex === 1) { // Sub variant (size)
-                setVariantStructure(prev => prev.map(mainVar => ({
-                    ...mainVar,
-                    subVariants: updatedOption.values.map(newValue => {
-                        // Find existing sub variant to preserve its sub-sub variants
-                        const existingSubVar = mainVar.subVariants.find(sv => sv.value === newValue);
-                        if (existingSubVar) {
-                            return {
-                                ...existingSubVar,
-                                name: updatedOption.name,
-                                value: newValue
-                            };
+                        // If no existing variant, create new one by cloning template sub-structures
+                        let clonedSubVariants = [];
+                        if (templateMain && Array.isArray(templateMain.subVariants) && templateMain.subVariants.length > 0) {
+                            clonedSubVariants = templateMain.subVariants.map(templateSub => ({
+                                name: templateSub.name,
+                                value: templateSub.value,
+                                price: '',
+                                stock: 1,
+                                images: [],
+                                subSubVariants: Array.isArray(templateSub.subSubVariants) && templateSub.subSubVariants.length > 0
+                                    ? templateSub.subSubVariants.map(templateSSV => ({
+                                        name: templateSSV.name,
+                                        value: templateSSV.value,
+                                        price: '',
+                                        stock: 1,
+                                        sku: `SKU-${newValue}-${templateSub.value}-${templateSSV.value}`.toUpperCase(),
+                                        images: []
+                                    }))
+                                    : []
+                            }));
                         }
                         return {
                             name: updatedOption.name,
                             value: newValue,
                             price: '',
+                            totalStock: clonedSubVariants.length || 1,
                             images: [],
-                            subSubVariants: []
+                            subVariants: clonedSubVariants
                         };
-                    })
+                    });
+
+                    return newStructure;
+                });
+            } else if (optionIndex === 1) { // Sub variant (e.g., size)
+                setVariantStructure(prev => prev.map(mainVar => {
+                    // Find a template subVariant (first available) to clone its sub-sub variants if needed
+                    const templateSubVar = mainVar.subVariants && mainVar.subVariants.length > 0
+                        ? mainVar.subVariants[0]
+                        : null;
+                    return {
+                        ...mainVar,
+                        subVariants: updatedOption.values.map(newValue => {
+                            // Find existing sub variant to preserve its sub-sub variants
+                            const existingSubVar = mainVar.subVariants.find(sv => sv.value === newValue);
+                            if (existingSubVar) {
+                                return {
+                                    ...existingSubVar,
+                                    name: updatedOption.name,
+                                    value: newValue
+                                };
+                            }
+                            // Clone sub-sub variants from template if present
+                            const clonedSubSubVariants = templateSubVar && Array.isArray(templateSubVar.subSubVariants) && templateSubVar.subSubVariants.length > 0
+                                ? templateSubVar.subSubVariants.map(templateSSV => ({
+                                    name: templateSSV.name,
+                                    value: templateSSV.value,
+                                    price: '',
+                                    stock: 1,
+                                    sku: `SKU-${mainVar.value}-${newValue}-${templateSSV.value}`.toUpperCase(),
+                                    images: []
+                                }))
+                                : [];
+                            return {
+                                name: updatedOption.name,
+                                value: newValue,
+                                price: '',
+                                stock: 1,
+                                images: [],
+                                subSubVariants: clonedSubSubVariants
+                            };
+                        })
+                    };
+                }));
+            } else if (optionIndex === 2) { // Sub-sub variant (e.g., material)
+                // Update all subVariants' subSubVariants to align with updated values
+                setVariantStructure(prev => prev.map(mainVar => ({
+                    ...mainVar,
+                    subVariants: mainVar.subVariants.map(subVar => ({
+                        ...subVar,
+                        subSubVariants: updatedOption.values.map(newValue => {
+                            const existingSSV = subVar.subSubVariants.find(ssv => ssv.value === newValue);
+                            if (existingSSV) {
+                                return {
+                                    ...existingSSV,
+                                    name: updatedOption.name,
+                                    value: newValue
+                                };
+                            }
+                            return {
+                                name: updatedOption.name,
+                                value: newValue,
+                                price: '',
+                                stock: 1,
+                                sku: `SKU-${mainVar.value}-${subVar.value}-${newValue}`.toUpperCase(),
+                                images: []
+                            };
+                        })
+                    }))
                 })));
             }
 
