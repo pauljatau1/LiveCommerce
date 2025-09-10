@@ -10,8 +10,8 @@ const ProductSkeleton = ({
   padding = 16,
 }: {
   numOfLoaders: number;
-  height: number;
-  padding: number;
+  height?: number;
+  padding?: number;
 }) => {
   return (
     <View
