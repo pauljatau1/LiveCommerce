@@ -1,7 +1,7 @@
-const { s3 } = require('../../../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 const Category = require('../../../models/Category');
 const Product = require('../../../models/Product');
+const { uploadResizedImages } = require('../../../utils/imageProcessor');
 
 class CreateProductService {
   async execute(req) {
@@ -51,104 +51,19 @@ class CreateProductService {
         }
       }
 
-      // Handle main product images
+      // Prepare images and variants to process AFTER product is saved
       let imagesLinks = [];
+      let imagesToProcess = [];
       if (req.body.images && Array.isArray(req.body.images)) {
-        for (let image of req.body.images) {
-          const buffer = Buffer.from(image.data, 'base64');
-          const params = {
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: `${uuidv4()}.jpg`,
-            Body: buffer,
-            ContentType: image.contentType,
-          };
-          const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: 'https://' + process.env.CDN_URL + `/${data.Key}` });
-        }
+        imagesToProcess = req.body.images;
       }
 
-      // Process variant images (variant -> subVariant -> subSubVariant)
+      let variantsToProcess = [];
       if (req.body.variants && Array.isArray(req.body.variants)) {
-        parsedBody.variants = await Promise.all(req.body.variants.map(async (variant) => {
-          let variantImages = [];
-          if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
-            for (let image of variant.images) {
-              if (!image?.data) continue;
-              const base64Data = image.data.split(',')[1] || image.data;
-              if (!base64Data) continue;
-              const buffer = Buffer.from(base64Data, 'base64');
-              const params = {
-                Bucket: process.env.CDN_S3_BUCKET,
-                Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
-                Body: buffer,
-                ContentType: image.contentType,
-              };
-              const data = await s3.upload(params).promise();
-              variantImages.push({
-                data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-                contentType: image.contentType,
-                isDefault: image.isDefault || false
-              });
-            }
-          }
-
-          const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
-            const subVariantImages = [];
-            if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
-              for (let image of subVariant.images) {
-                if (!image?.data) continue;
-                const base64Data = image.data.split(',')[1] || image.data;
-                if (!base64Data) continue;
-                const buffer = Buffer.from(base64Data, 'base64');
-                const params = {
-                  Bucket: process.env.CDN_S3_BUCKET,
-                  Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
-                  Body: buffer,
-                  ContentType: image.contentType,
-                };
-                const data = await s3.upload(params).promise();
-                subVariantImages.push({
-                  data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-                  contentType: image.contentType,
-                  isDefault: image.isDefault || false
-                });
-              }
-            }
-
-            const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
-              const subSubVariantImages = [];
-              if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
-                for (let image of subSubVariant.images) {
-                  if (!image?.data) continue;
-                  const base64Data = image.data.split(',')[1] || image.data;
-                  if (!base64Data) continue;
-                  const buffer = Buffer.from(base64Data, 'base64');
-                  const params = {
-                    Bucket: process.env.CDN_S3_BUCKET,
-                    Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
-                    Body: buffer,
-                    ContentType: image.contentType,
-                  };
-                  const data = await s3.upload(params).promise();
-                  subSubVariantImages.push({
-                    data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-                    contentType: image.contentType,
-                    isDefault: image.isDefault || false
-                  });
-                }
-              }
-
-              return { ...subSubVariant, images: subSubVariantImages };
-            }));
-
-            return { ...subVariant, images: subVariantImages, subSubVariants: processedSubSubVariants };
-          }));
-
-          return { ...variant, images: variantImages, subVariants: processedSubVariants };
-        }));
+        variantsToProcess = req.body.variants;
       }
 
-      // Create new product
+      // Create new product with empty images; we'll process uploads after save
       const newProduct = new Product({
         ...parsedBody,
         seller: sellerId,
@@ -156,6 +71,163 @@ class CreateProductService {
       });
 
       await newProduct.save();
+
+      // Process main product images with resizing after product is saved
+      if (imagesToProcess.length > 0) {
+        const imageProcessingPromises = imagesToProcess.map(async (image) => {
+          const base64Data = image.data.split(',')[1] || image.data;
+          if (!base64Data) {
+            console.error('Invalid base64 data for main product image:', image);
+            throw new Error('Invalid base64 data');
+          }
+
+          const buffer = Buffer.from(base64Data, 'base64');
+          const fileName = uuidv4();
+          const basePath = `sellers/${sellerId}/products/${newProduct._id}/images`;
+
+          const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+          return {
+            url: uploadResults.original.url,
+            resizedImages: uploadResults.resizedImages
+          };
+        });
+
+        imagesLinks = await Promise.all(imageProcessingPromises);
+        newProduct.images = imagesLinks;
+        await newProduct.save();
+      }
+
+      // Process variant images with resizing after product is saved
+      if (variantsToProcess.length > 0) {
+        // Save variants to get their auto-generated IDs
+        newProduct.variants = variantsToProcess;
+        await newProduct.save();
+
+        // Process variants and nested images
+        const processedVariants = await Promise.all(newProduct.variants.map(async (variant) => {
+          // Process main variant images
+          let variantImages = [];
+          if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
+            const variantImagePromises = variant.images.map(async (image) => {
+              if (!image?.data) {
+                console.log('Skipping variant image processing - no image data');
+                return null;
+              }
+
+              const base64Data = image.data.split(',')[1] || image.data;
+              if (!base64Data) {
+                console.error('Invalid base64 data for variant image:', image);
+                return null;
+              }
+
+              const buffer = Buffer.from(base64Data, 'base64');
+              const fileName = uuidv4();
+              const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${variant._id}/images`;
+
+              const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+              return {
+                data: uploadResults.original.url,
+                contentType: image.contentType,
+                isDefault: image.isDefault || false,
+                resizedImages: uploadResults.resizedImages
+              };
+            });
+
+            variantImages = (await Promise.all(variantImagePromises)).filter(img => img !== null);
+          }
+
+          // Process subvariants
+          const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
+            let subVariantImages = [];
+            if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
+              const subVariantImagePromises = subVariant.images.map(async (image) => {
+                if (!image?.data) {
+                  console.log('Skipping subvariant image processing - no image data');
+                  return null;
+                }
+
+                const base64Data = image.data.split(',')[1] || image.data;
+                if (!base64Data) {
+                  console.error('Invalid base64 data for subvariant image:', image);
+                  return null;
+                }
+
+                const buffer = Buffer.from(base64Data, 'base64');
+                const fileName = uuidv4();
+                const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subVariant._id}/images`;
+
+                const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+                return {
+                  data: uploadResults.original.url,
+                  contentType: image.contentType,
+                  isDefault: image.isDefault || false,
+                  resizedImages: uploadResults.resizedImages
+                };
+              });
+
+              subVariantImages = (await Promise.all(subVariantImagePromises)).filter(img => img !== null);
+            }
+
+            // Process subsubvariants
+            const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
+              let subSubVariantImages = [];
+              if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
+                const subSubVariantImagePromises = subSubVariant.images.map(async (image) => {
+                  if (!image?.data) {
+                    console.log('Skipping subsubvariant image processing - no image data');
+                    return null;
+                  }
+
+                  const base64Data = image.data.split(',')[1] || image.data;
+                  if (!base64Data) {
+                    console.error('Invalid base64 data for subsubvariant image:', image);
+                    return null;
+                  }
+
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  const fileName = uuidv4();
+                  const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subSubVariant._id}/images`;
+
+                  const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+                  return {
+                    data: uploadResults.original.url,
+                    contentType: image.contentType,
+                    isDefault: image.isDefault || false,
+                    resizedImages: uploadResults.resizedImages
+                  };
+                });
+
+                subSubVariantImages = (await Promise.all(subSubVariantImagePromises)).filter(img => img !== null);
+              }
+
+              return {
+                ...subSubVariant,
+                images: subSubVariantImages
+              };
+            }));
+
+            return {
+              ...subVariant,
+              images: subVariantImages,
+              subSubVariants: processedSubSubVariants
+            };
+          }));
+
+          return {
+            ...variant,
+            images: variantImages,
+            subVariants: processedSubVariants
+          };
+        }));
+
+        // Update product with processed variants
+        newProduct.variants = processedVariants;
+        await newProduct.save();
+      }
 
       // Populate seller minimal fields
       const populatedProduct = await Product.findById(newProduct._id)

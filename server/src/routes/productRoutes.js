@@ -884,6 +884,58 @@ router.get('/trending', productController.getTrendingProducts);
 
 /**
  * @swagger
+ * /api/products/discounted:
+ *   get:
+ *     summary: Get products with active discounts
+ *     description: Returns only products that currently have active discounts, with pagination and anti-clustering by seller.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         default: 10
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum base price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum base price filter
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
+ *         default: newest
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         default: visible
+ *     responses:
+ *       200:
+ *         description: Discounted products retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/discounted', productController.getDiscountedProducts);
+
+/**
+ * @swagger
  * /api/products/{id}:
  *   get:
  *     summary: Get a product by ID
