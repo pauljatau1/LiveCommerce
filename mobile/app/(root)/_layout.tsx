@@ -184,6 +184,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="catalog/flashSalesCatalog"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
 
       <Stack.Screen
         name="catalog/subCategoriesStreams"

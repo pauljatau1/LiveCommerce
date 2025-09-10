@@ -25,6 +25,7 @@ export const products = createApi({
     "foryouProducts",
     "newProducts",
     "trendingProducts",
+    "discountedProducts",
   ],
   // refetchOnFocus: true,
   endpoints: (builder) => ({
@@ -68,6 +69,10 @@ export const products = createApi({
       query: (credentials) => getRequest(`/products/personalized`, credentials),
       providesTags: ["foryouProducts"],
     }),
+    getDiscountedProducts: builder.query({
+      query: (credentials) => getRequest(`/products/discounted`, credentials),
+      providesTags: ["discountedProducts"],
+    }),
   }),
 });
 
@@ -82,4 +87,5 @@ export const {
   useGetForYouQuery,
   useDeepSearchProductsQuery,
   useGetSellerProductsQuery,
+  useGetDiscountedProductsQuery,
 } = products;

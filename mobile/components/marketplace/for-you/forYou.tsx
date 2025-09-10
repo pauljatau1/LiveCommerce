@@ -89,7 +89,7 @@ const ForYouSection = () => {
   }, [products]);
 
   return (
-    <View className="w-[100%]">
+    <View className="w-[100%] mt-[24px]">
       <SectionHeader title="For You" btnText="View All" />
       {isLoading ? (
         <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
