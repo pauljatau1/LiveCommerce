@@ -82,7 +82,7 @@ const ForYou = () => {
               borderBottomWidth: 1,
               marginLeft: 0,
               marginRight: 0,
-              marginTop: 12,
+              marginTop: 20,
               // marginBottom: 24,
             }}
           />

@@ -35,9 +35,9 @@ const Flashsales = () => {
           {isLoading ? (
             <></>
           ) : (
-            <View className="bg-[#C65E46] w-[100%] py-[8px] pt-[24px]">
+            <View className="bg-[#5466B5] w-[100%] py-[16px]">
               <SectionHeader
-                title="Flash Sales 🎉"
+                title="Flash Sales"
                 btnText="See All"
                 action={() => router.push("/catalog/flashSalesCatalog")}
               />
