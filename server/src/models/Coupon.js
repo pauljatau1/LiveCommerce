@@ -42,11 +42,20 @@ const couponSchema = new mongoose.Schema({
     sparse: true,
     index: true,
   },
+  discountType: {
+    type: String,
+    enum: ['percentage', 'fixed'],
+    default: 'percentage'
+  },
   discountPercentage: {
     type: Number,
-    required: true,
     min: 0,
     max: 100
+  },
+  fixedAmount: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   hasMinimumRequirement: {
     type: Boolean,
@@ -110,6 +119,22 @@ couponSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   if (this.code === '') {
     this.code = null;
+  }
+  next();
+});
+
+// Validate discount fields based on discountType
+couponSchema.pre('validate', function(next) {
+  if (this.discountType === 'percentage') {
+    if (typeof this.discountPercentage !== 'number' || this.discountPercentage <= 0) {
+      return next(new Error('discountPercentage must be provided and greater than 0 for percentage coupons'));
+    }
+    this.fixedAmount = 0;
+  } else if (this.discountType === 'fixed') {
+    if (typeof this.fixedAmount !== 'number' || this.fixedAmount <= 0) {
+      return next(new Error('fixedAmount must be provided and greater than 0 for fixed coupons'));
+    }
+    this.discountPercentage = undefined;
   }
   next();
 });
