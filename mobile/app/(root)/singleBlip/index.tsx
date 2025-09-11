@@ -1,4 +1,4 @@
-import { View, Text, Dimensions } from "react-native";
+import { View, Text, Dimensions, Platform } from "react-native";
 import React, { useEffect, useState } from "react";
 import VideoItem from "@/components/blips/videoItem";
 import { useLocalSearchParams } from "expo-router";
@@ -7,6 +7,7 @@ import axios from "axios";
 import LottieView from "lottie-react-native";
 import { Image } from "expo-image";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 const { height } = Dimensions.get("window");
 
 const singleBlip = () => {
@@ -39,7 +40,10 @@ const singleBlip = () => {
     getBlip();
   }, []);
   return (
-    <>
+    <SafeAreaView
+      className="flex-1 bg-[#121212]"
+      edges={Platform.OS == "ios" ? ["bottom"] : ["top", "bottom"]}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <View
         className="w-full relative bg-[#000]"
@@ -97,7 +101,7 @@ const singleBlip = () => {
           </View>
         )}
       </View>
-    </>
+    </SafeAreaView>
   );
 };
 

@@ -17,7 +17,6 @@ import axios from "axios";
 import { products, useGetSingleProductQuery } from "@/services/products";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
-import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -80,7 +79,7 @@ interface Props {
   closeSheet: () => void;
   channel: string;
   streamId?: string;
-  blipId: string;
+  blipId?: string;
 }
 
 const CheckoutNow = ({
@@ -666,10 +665,13 @@ const CheckoutNow = ({
         return true;
       };
 
-      BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress,
+      );
 
       return () => {
-        BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+        subscription.remove();
       };
     }, []),
   );

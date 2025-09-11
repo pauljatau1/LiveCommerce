@@ -10,6 +10,7 @@ import {
   Keyboard,
   Alert,
   Linking,
+  Pressable,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -34,7 +35,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { io } from "socket.io-client";
 import { initializeSocket } from "../../../core/sockets";
-import { Pressable, TextInput } from "react-native-gesture-handler";
+import { TextInput } from "react-native-gesture-handler";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";

@@ -119,35 +119,53 @@ const FlashSalesCatalog = () => {
 
   const renderListHeader = useCallback(() => {
     return (
-      <View className="flex-row items-center gap-[8px] mb-[12px]">
-        <TouchableOpacity
-          className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+      <View>
+        <View
+          className="w-full mb-[12px]"
           style={{
-            backgroundColor: "rgba(204, 204, 204, 0.25)",
+            height: insets.top + 200,
+            backgroundColor: "#5466B5",
           }}
-          onPress={() => setShowFilterSheet(true)}
         >
-          <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
-          style={{
-            backgroundColor:
-              filter != "None" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-          }}
-          onPress={() => setShowSortSheet(true)}
-        >
-          <Text
-            className={`${filter != "None" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDeca tracking-[-0.16px]`}
-          >
-            Sort
-          </Text>
-          <MaterialIcons
-            name="keyboard-arrow-down"
-            size={16}
-            color={filter != "None" ? "#2F2E41" : "#f2f2f2"}
+          <Image
+            source={require("@/assets/images/flash-sales-banner.png")}
+            style={{
+              width: "100%",
+              height: "100%",
+            }}
+            contentFit="fill"
           />
-        </TouchableOpacity>
+        </View>
+        <View className="flex-row items-center gap-[8px] mb-[12px] px-[16px]">
+          <TouchableOpacity
+            className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+            style={{
+              backgroundColor: "rgba(204, 204, 204, 0.25)",
+            }}
+            onPress={() => setShowFilterSheet(true)}
+          >
+            <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
+            style={{
+              backgroundColor:
+                filter != "None" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+            }}
+            onPress={() => setShowSortSheet(true)}
+          >
+            <Text
+              className={`${filter != "None" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDeca tracking-[-0.16px]`}
+            >
+              Sort
+            </Text>
+            <MaterialIcons
+              name="keyboard-arrow-down"
+              size={16}
+              color={filter != "None" ? "#2F2E41" : "#f2f2f2"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }, [filter]);
@@ -203,46 +221,27 @@ const FlashSalesCatalog = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
 
       <View className="flex-1">
-        <View
-          className="w-full h-[230px]"
-          style={{
-            // paddingTop: insets.top + 8,
-            // paddingHorizontal: 20,
-            backgroundColor: "#C65E46",
-          }}
-        >
-          <View className="absolute w-full h-full bg-blue-200">
-            <Image
-              source={require("@/assets/images/flash-sales-banner.png")}
-              style={{
-                width: "100%",
-                height: "100%",
-              }}
-              contentFit="fill"
-            />
-          </View>
-          <View
-            style={{
-              paddingTop: insets.top + 8,
-              paddingHorizontal: 20,
-            }}
-          >
-            <Pressable
-              className="p-[8px] bg-[#FFFFFF1A] items-center justify-center rounded-[5px] self-start"
-              onPress={() => router.back()}
-            >
-              <Feather name="chevron-left" size={20} color="#F4FFF8" />
-            </Pressable>
-          </View>
-        </View>
-
         {isLoading ? (
-          <View className="flex-1 pt-[12px]">
-            <ProductSkeleton numOfLoaders={4} />
-            {/* <ActivityIndicator size={"small"} color="#fff" /> */}
+          <View className="flex-1 pt-[12px] items-center justify-center">
+            {/* <ProductSkeleton numOfLoaders={4} /> */}
+            <ActivityIndicator size={"small"} color="#fff" />
           </View>
         ) : (
-          <View className="px-[16px] flex-1 pt-[12px]">
+          <View className="flex-1 pt-[12px]">
+            <View
+              className="absolute z-[10000]"
+              style={{
+                paddingTop: insets.top + 8,
+                paddingHorizontal: 20,
+              }}
+            >
+              <Pressable
+                className="p-[8px] bg-[#FFFFFF1A] items-center justify-center rounded-[5px] self-start"
+                onPress={() => router.back()}
+              >
+                <Feather name="chevron-left" size={20} color="#F4FFF8" />
+              </Pressable>
+            </View>
             <FlatList
               data={filteredProducts}
               renderItem={renderProducts}
@@ -251,6 +250,7 @@ const FlashSalesCatalog = () => {
               columnWrapperStyle={{
                 justifyContent: "space-between",
                 marginBottom: 8,
+                paddingHorizontal: 16,
               }}
               contentContainerStyle={{
                 paddingBottom: 80,

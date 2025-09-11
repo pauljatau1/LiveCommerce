@@ -5,6 +5,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  Pressable,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
@@ -25,7 +26,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import EvilIcons from "@expo/vector-icons/EvilIcons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import { Pressable, TextInput } from "react-native-gesture-handler";
+import { TextInput } from "react-native-gesture-handler";
 import axios from "axios";
 import SectionHeader from "@/components/global/section-header";
 import ProductCard from "@/components/global/product-card";
