@@ -13,13 +13,16 @@ import axios from "axios";
 import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
 import { ScrollView } from "react-native-virtualized-view";
 import MarketsSuggestedBlips from "./markets-suggested-blips";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { products } from "@/services/products";
+import Flashsales from "./flashsales";
+import { RootState } from "@/store";
 
 const ForYou = () => {
   const dispatch = useDispatch();
   const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const token = useSelector((state: RootState) => state.authState.token);
   const handleGetBanners = async () => {
     try {
       const response = await axios.get(
@@ -44,6 +47,8 @@ const ForYou = () => {
         "foryouProducts",
         "newProducts",
         "trendingProducts",
+        "discountedProducts",
+        "allProducts",
       ]),
     );
 
@@ -77,11 +82,13 @@ const ForYou = () => {
               borderBottomWidth: 1,
               marginLeft: 0,
               marginRight: 0,
-              marginTop: 12,
-              marginBottom: 24,
+              marginTop: 20,
+              // marginBottom: 24,
             }}
           />
-          <ForYouSection />
+          <Flashsales />
+          {token && <ForYouSection />}
+
           {/* <ForYouCatetorySection /> */}
           <ForYouTrendingSection />
           {/* <Carousel banners={banners} /> */}

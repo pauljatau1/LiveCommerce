@@ -10,7 +10,10 @@ const SectionHeader = ({ title, btnText, action }: any) => {
       className="flex-row justify-between items-center"
       style={{ paddingHorizontal: 16, marginBottom: 5 }}
     >
-      <Text className="text-white font-LexendDecaBold text-[16px]">
+      <Text
+        className="text-white font-LexendDecaMedium text-[20px] tracking-[-0.2px] shrink"
+        numberOfLines={1}
+      >
         {title}
       </Text>
       {btnText && (
@@ -26,15 +29,15 @@ const SectionHeader = ({ title, btnText, action }: any) => {
             });
           }}
         >
-          <Text className="text-[#fff] font-LexendDecaMedium text-[12px]">
+          <Text className="text-white font-LexendDecaLight text-[14px] tracking-[-0.14px]">
             {btnText}
           </Text>
-          <AntDesign
+          {/* <AntDesign
             name="right"
             size={12}
             color="#fff"
             style={{ marginTop: 2 }}
-          />
+          /> */}
         </TouchableOpacity>
       )}
     </View>

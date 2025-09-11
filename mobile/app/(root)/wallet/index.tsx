@@ -24,7 +24,11 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
-import { Paystack } from "react-native-paystack-webview";
+import {
+  // Paystack,
+
+  usePaystack,
+} from "react-native-paystack-webview";
 import { toast } from "@/core/toast";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
@@ -46,6 +50,7 @@ const statusColor = {
 } as any;
 
 const Wallet = () => {
+  const { popup } = usePaystack();
   const isFocused = useIsFocused();
   const [userInfo, setUserInfo] = useState<any>();
   const [walletBalance, setWalletBalance] = useState<any>();
@@ -87,6 +92,36 @@ const Wallet = () => {
     const newReference = `WALLET-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     return newReference;
   };
+
+  const payNow = useCallback(() => {
+    // console.log(userInfo);
+
+    popup.checkout({
+      email: userInfo?.email,
+      amount: amount,
+      reference: generateReference(),
+      metadata: {
+        buyerId: userInfo?._id,
+        transactionType: "wallet_topup",
+        custom_fields: [
+          {
+            display_name: "Buyer ID",
+            variable_name: "buyer_id",
+            value: userInfo?._id,
+          },
+          {
+            display_name: "Transaction Type",
+            variable_name: "transaction_type",
+            value: "wallet_topup",
+          },
+        ],
+      },
+      onSuccess: onPaystackSuccess,
+      onCancel: onPaystackClose,
+      onLoad: (res) => console.log("WebView Loaded:", res),
+      onError: (err) => console.log("WebView Error:", err),
+    });
+  }, [amount, popup, userInfo]);
 
   const getUserInfo = async () => {
     const user = await getUser();
@@ -140,8 +175,14 @@ const Wallet = () => {
       setShowPaymentMethodSheet(false);
       setShowPaystack(true);
     },
-    [amount],
+    [amount, userInfo, popup],
   );
+
+  useEffect(() => {
+    if (amount && showPaystack) {
+      payNow();
+    }
+  }, [amount, showPaystack]);
 
   const closePaymentSheet = useCallback(() => {
     setShowPaymentMethodSheet(false);
@@ -161,7 +202,9 @@ const Wallet = () => {
     try {
       const token = await getToken();
 
-      const paymentReference = paystackResponse.data.transactionRef.reference;
+      const paymentReference =
+        paystackResponse?.reference ||
+        paystackResponse?.data?.transactionRef?.reference;
 
       const config = {
         method: "GET",
@@ -458,6 +501,8 @@ const Wallet = () => {
             className="rounded-[6px] py-[12px] border-[1px] border-[#16783A] flex-row gap-[6px] items-center justify-center shrink "
             style={{ flexBasis: "33%" }}
             onPress={() => {
+              // return payNow();
+              // return setShowPaystack(true);
               setShowPaymentMethodSheet(true);
             }}
           >
@@ -539,44 +584,46 @@ const Wallet = () => {
         </View>
       </ScrollView>
 
-      {showPaystack && (
-        <Paystack
-          refNumber={generateReference()}
-          paystackKey={paystackKey?.publicKey}
-          amount={amount}
-          channels={[
-            "card",
-            "bank",
-            "ussd",
-            "qr",
-            "mobile_money",
-            "bank_transfer",
-            "apple_pay",
-          ]}
-          billingEmail={userInfo?.email}
-          billingName={`${userInfo?.firstName + " " + userInfo?.lastName}`}
-          onSuccess={onPaystackSuccess}
-          onCancel={onPaystackClose}
-          activityIndicatorColor="#16783A"
-          autoStart={true}
-          metadata={JSON.stringify({
-            buyerId: userInfo?._id,
-            transactionType: "wallet_topup",
-            custom_fields: [
-              {
-                display_name: "Buyer ID",
-                variable_name: "buyer_id",
-                value: userInfo?._id,
-              },
-              {
-                display_name: "Transaction Type",
-                variable_name: "transaction_type",
-                value: "wallet_topup",
-              },
-            ],
-          })}
-        />
-      )}
+      {/* {showPaystack && (
+        <View className="absolute top-[100px] left-0 w-full h-full z-10">
+          <Paystack
+            refNumber={generateReference()}
+            paystackKey={paystackKey?.publicKey}
+            amount={amount}
+            channels={[
+              "card",
+              "bank",
+              "ussd",
+              "qr",
+              "mobile_money",
+              "bank_transfer",
+              "apple_pay",
+            ]}
+            billingEmail={userInfo?.email}
+            billingName={`${userInfo?.firstName + " " + userInfo?.lastName}`}
+            onSuccess={onPaystackSuccess}
+            onCancel={onPaystackClose}
+            activityIndicatorColor="#16783A"
+            autoStart={true}
+            metadata={JSON.stringify({
+              buyerId: userInfo?._id,
+              transactionType: "wallet_topup",
+              custom_fields: [
+                {
+                  display_name: "Buyer ID",
+                  variable_name: "buyer_id",
+                  value: userInfo?._id,
+                },
+                {
+                  display_name: "Transaction Type",
+                  variable_name: "transaction_type",
+                  value: "wallet_topup",
+                },
+              ],
+            })}
+          />
+        </View>
+      )} */}
 
       <BottomSheet
         bgColor="#ffffff"

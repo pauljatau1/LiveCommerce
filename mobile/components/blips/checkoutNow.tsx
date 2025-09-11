@@ -17,7 +17,6 @@ import axios from "axios";
 import { products, useGetSingleProductQuery } from "@/services/products";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
-import { Paystack } from "react-native-paystack-webview";
 import LoadingModal from "../global/loading-modal";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -34,6 +33,7 @@ import {
 import BottomSheet from "../global/bottom-sheet";
 import SelectRatesSheet from "../orders/selectRatesSheet";
 import AddressSheet from "../orders/addressSheet";
+import { getResizedImage } from "@/helpers/helpers";
 
 const mockDeliveryOtions = [
   {
@@ -79,7 +79,7 @@ interface Props {
   closeSheet: () => void;
   channel: string;
   streamId?: string;
-  blipId: string;
+  blipId?: string;
 }
 
 const CheckoutNow = ({
@@ -665,10 +665,13 @@ const CheckoutNow = ({
         return true;
       };
 
-      BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress,
+      );
 
       return () => {
-        BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+        subscription.remove();
       };
     }, []),
   );
@@ -1397,7 +1400,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
         </View>
         <View className="flex-row gap-[16px] ">
           <Image
-            source={{ uri: cartItem?.images?.[0]?.url }}
+            source={{ uri: getResizedImage(cartItem?.images?.[0], 150) }}
             contentFit="cover"
             style={{
               width: 100,

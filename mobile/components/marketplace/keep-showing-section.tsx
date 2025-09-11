@@ -11,6 +11,7 @@ import LottieView from "lottie-react-native";
 import React, { useCallback, useEffect, useState, memo } from "react";
 import { FlatList, View, Text } from "react-native";
 import ForYouHeader from "./for-you/for-you-header";
+import { debounce } from "lodash";
 
 const KeepShowingSection = () => {
   const [page, setPage] = useState<number>(1);
@@ -37,17 +38,20 @@ const KeepShowingSection = () => {
   //     />
   //   ));
   // };
-  const fetchMoreProducts = () => {
-    if (!isFetching && !hasReachedEnd) {
-      console.log("keep showing section ", {
-        isFetching,
-        hasReachedEnd,
-        page,
-      });
+  const fetchMoreProducts = useCallback(
+    debounce(() => {
+      if (!isFetching && !hasReachedEnd) {
+        console.log("keep showing section ", {
+          isFetching,
+          hasReachedEnd,
+          page,
+        });
 
-      setPage((prev) => prev + 1);
-    }
-  };
+        setPage((prev) => prev + 1);
+      }
+    }, 500),
+    [isFetching, hasReachedEnd],
+  );
 
   const renderContent = useCallback(
     ({ item, index }: any) => {
@@ -140,7 +144,11 @@ const KeepShowingSection = () => {
 
   useEffect(() => {
     if (data) {
-      setProducts([...products, ...data?.data?.products]);
+      if (page === 1) {
+        setProducts(data?.data?.products);
+      } else {
+        setProducts([...products, ...data?.data?.products]);
+      }
 
       if (!data?.data?.pagination?.hasNextPage) {
         console.log({
@@ -153,10 +161,6 @@ const KeepShowingSection = () => {
     }
   }, [data]);
 
-  useEffect(() => {
-    refetch();
-  }, [page]);
-
   return (
     <View className=" w-[100%] pb-[10px] pt-[16px] flex-1">
       <View className="flex-row items-center justify-between">
@@ -166,9 +170,8 @@ const KeepShowingSection = () => {
         <FlatList
           data={products}
           renderItem={renderContent}
-          keyExtractor={(item, index) => item?._id || `group-${index}`}
+          keyExtractor={(item, index) => item?._id}
           onEndReached={fetchMoreProducts}
-          onEndReachedThreshold={0.5}
           numColumns={2}
           // columnWrapperStyle={{
           //   justifyContent: "space-between",

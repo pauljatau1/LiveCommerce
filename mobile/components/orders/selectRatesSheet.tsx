@@ -19,10 +19,11 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import LoadingModal from "../global/loading-modal";
 import { Image } from "expo-image";
-import { Paystack } from "react-native-paystack-webview";
+import { usePaystack } from "react-native-paystack-webview";
 import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomSheetModal } from "@gorhom/bottom-sheet";
+import CallPaystack from "@/app/(root)/checkout/callPaystack";
 
 const rates = [
   {
@@ -93,11 +94,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SelectRatesSheet = (props: any) => {
   const { dismissAll } = useBottomSheetModal();
   const { user } = useSelector((state: RootState) => state?.authState);
-  // const { openPaystackPopup } = CallPaystack();
+  const { openPaystackPopup } = CallPaystack();
   const { paystackPublicKey } = useGetPaystackKeys();
   const [selectedRate, setSelectedRate] = useState<any>(props?.rates[0]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [showPaystack, setShowPaystack] = useState<boolean>(false);
+  // const [showPaystack, setShowPaystack] = useState<boolean>(false);
 
   const payBtnScale = useSharedValue(1);
 
@@ -114,41 +115,41 @@ const SelectRatesSheet = (props: any) => {
   const handlePay = () => {
     if (props?.paymentMethod == "paystack") {
       try {
-        setShowPaystack(true);
-        // openPaystackPopup({
-        //   email: props?.userEmail,
-        //   amount: props?.orderTotal + selectedRate?.amount,
-        //   reference: generateReference(),
-        //   metadata: {
-        //     orderId: props?.orderId,
-        //     buyerId: user?._id,
-        //     transactionType: "order_payment",
-        //     custom_fields: [
-        //       {
-        //         display_name: "Order ID",
-        //         variable_name: "order_id",
-        //         value: props?.orderId,
-        //       },
-        //       {
-        //         display_name: "Buyer ID",
-        //         variable_name: "buyer_id",
-        //         value: user?._id,
-        //       },
-        //       {
-        //         display_name: "Transaction Type",
-        //         variable_name: "transaction_type",
-        //         value: "order_payment",
-        //       },
-        //     ],
-        //   },
-        //   onSuccess: onPaystackSuccess,
-        //   onCancel: onPaystackClose,
-        //   onLoad: (res: any) => console.log("Paystack WebView Loaded:", res),
-        //   onError: (err: any) =>
-        //     sonnerToast.info(
-        //       "We had a problem initiating payment. Please Try Again.",
-        //     ),
-        // });
+        // setShowPaystack(true);
+        openPaystackPopup({
+          email: props?.userEmail,
+          amount: totalOrderAmount,
+          reference: generateReference(),
+          metadata: {
+            orderId: props?.orderId,
+            buyerId: user?._id,
+            transactionType: "order_payment",
+            custom_fields: [
+              {
+                display_name: "Order ID",
+                variable_name: "order_id",
+                value: props?.orderId,
+              },
+              {
+                display_name: "Buyer ID",
+                variable_name: "buyer_id",
+                value: user?._id,
+              },
+              {
+                display_name: "Transaction Type",
+                variable_name: "transaction_type",
+                value: "order_payment",
+              },
+            ],
+          },
+          onSuccess: onPaystackSuccess,
+          onCancel: onPaystackClose,
+          onLoad: (res: any) => console.log("Paystack WebView Loaded:", res),
+          onError: (err: any) =>
+            sonnerToast.info(
+              "We had a problem initiating payment. Please Try Again.",
+            ),
+        });
       } catch (e) {
         console.log("Paystack error ", e);
         sonnerToast.info(
@@ -161,8 +162,10 @@ const SelectRatesSheet = (props: any) => {
   };
 
   const onPaystackSuccess = (paystackResponse: any) => {
-    setShowPaystack(false);
-    const paystackReference = paystackResponse?.data?.transactionRef?.reference;
+    // setShowPaystack(false);
+    const paystackReference =
+      paystackResponse?.reference ||
+      paystackResponse?.data?.transactionRef?.reference;
 
     console.log("Paystack payment succesful ", paystackReference);
 
@@ -170,7 +173,7 @@ const SelectRatesSheet = (props: any) => {
   };
 
   const onPaystackClose = () => {
-    setShowPaystack(false);
+    // setShowPaystack(false);
 
     sonnerToast.info("Payment Cancelled");
   };
@@ -441,7 +444,7 @@ const SelectRatesSheet = (props: any) => {
         </Text>
       </AnimatedPressable>
 
-      {showPaystack && (
+      {/* {showPaystack && (
         <View className="absolute top-0 left-0 w-full h-full z-10">
           <Paystack
             refNumber={generateReference()}
@@ -486,7 +489,7 @@ const SelectRatesSheet = (props: any) => {
             })}
           />
         </View>
-      )}
+      )} */}
       <LoadingModal isVisible={loading} />
     </View>
   );

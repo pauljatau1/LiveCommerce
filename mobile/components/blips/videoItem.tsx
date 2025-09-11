@@ -93,7 +93,7 @@ const VideoItem = ({
   product: any;
   item: any;
   singularBlip: boolean;
-  shared: boolean;
+  shared?: boolean;
 }) => {
   const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();

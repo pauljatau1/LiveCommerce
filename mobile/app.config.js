@@ -13,7 +13,7 @@ module.exports = ({ config }) => {
       name: "auqli",
       slug: "auqli-app",
       // slug: "auqli-mobile",
-      version: "1.2.2",
+      version: "1.2.3",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
       scheme: IS_STAGING ? "auqlistaging" : "auqli",
@@ -111,6 +111,15 @@ module.exports = ({ config }) => {
               googleServicesFile:
                 process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
             },
+            // ios: {
+            //   pushNotification: {
+            //     useRichPush: false,
+            //     env: {
+            //       cdpApiKey: process.env.EXPO_PUBLIC_CDP_API_KEY,
+            //       region: "us",
+            //     },
+            //   },
+            // },
           },
         ],
         // [

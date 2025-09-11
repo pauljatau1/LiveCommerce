@@ -25,11 +25,12 @@ const Tags = ({ tags, setSelected, selected }: any) => {
       style={[
         // styles.container,
         {
-          borderBottomColor: "rgba(255, 255, 255, 0.38)",
+          // borderBottomColor: "rgba(255, 255, 255, 0.38)",
           alignItems: "center",
         },
       ]}
-      className=" mt-[17px] border-b-[1px]"
+      // className=" mt-[17px] border-b-[1px]"
+      className=" mt-[17px]"
     >
       <FlatList
         ref={tabsRef}
@@ -38,7 +39,10 @@ const Tags = ({ tags, setSelected, selected }: any) => {
         showsHorizontalScrollIndicator={false}
         renderItem={({ item, index }) => {
           return (
-            <TouchableOpacity onPress={() => setSelected(item)}>
+            <TouchableOpacity
+              className="items-center"
+              onPress={() => setSelected(item)}
+            >
               <Text
                 style={[
                   styles.tagText,
@@ -48,6 +52,9 @@ const Tags = ({ tags, setSelected, selected }: any) => {
               >
                 {item}
               </Text>
+              {item === selected && (
+                <View className="w-[20px] h-[3px] rounded-full bg-[#16783A]"></View>
+              )}
             </TouchableOpacity>
           );
         }}
@@ -66,15 +73,17 @@ export default memo(Tags);
 const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     color: "#938F8F",
-    fontFamily: "LexendDeca-Medium",
+    fontFamily: "LexendDeca-Light",
+    letterSpacing: -0.22,
   },
   isSelected: {
     color: "#00A353",
-    borderBottomWidth: 1,
-    borderColor: "#00A353",
+    // borderBottomWidth: 1,
+    // borderColor: "#00A353",
+    fontFamily: "LexendDeca-Medium",
   },
   container: {
     marginVertical: 0,

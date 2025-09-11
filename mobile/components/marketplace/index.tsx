@@ -45,6 +45,8 @@ const Marketplace = () => {
           "foryouProducts",
           "newProducts",
           "trendingProducts",
+          "discountedProducts",
+          "allProducts",
         ]),
       );
     }
@@ -72,12 +74,14 @@ const Marketplace = () => {
         setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
         return setSelected("For You");
       }
-      setCategories(allCategories.map((ct: any) => ct.name));
-      setSelected(allCategories[0]?.name);
+      setCategories(["For You", ...allCategories.map((ct: any) => ct.name)]);
+      setSelected("For You");
     } catch (e) {
       console.log(e);
-      setSelected(allCategories[0]?.name);
-      setCategories(allCategories.map((ct: any) => ct.name));
+      // setSelected(allCategories[0]?.name);
+      // setCategories(allCategories.map((ct: any) => ct.name));
+      setCategories(["For You", ...allCategories.map((ct: any) => ct.name)]);
+      setSelected("For You");
     }
   };
 
@@ -86,7 +90,6 @@ const Marketplace = () => {
   }, [allCategories]);
 
   const renderContent = useCallback(() => {
-
     // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
     if (selected == "For You") {
       return <ForYou />;
@@ -103,7 +106,7 @@ const Marketplace = () => {
         category={currentCategory}
       />
     );
-  }, [selected, setSelected]);
+  }, [selected, setSelected, categories]);
 
   return (
     <View className="pt-[30px]" style={{ flex: 1 }}>

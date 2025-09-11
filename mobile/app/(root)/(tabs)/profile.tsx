@@ -380,8 +380,8 @@ const Profile = () => {
               alignItems: "center",
             }}
           >
-            <View className="flex-row items-center gap-[8px]">
-              <Text style={styles.userName}>
+            <View className="flex-row items-center gap-[8px] shrink">
+              <Text style={styles.userName} numberOfLines={1}>
                 {profile?.username || user?.username}
               </Text>
             </View>
@@ -521,6 +521,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#ccc",
     fontFamily: "LexendDeca-Medium",
+    flexShrink: 1,
   },
 });
 

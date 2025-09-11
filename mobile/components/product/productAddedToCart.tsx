@@ -3,6 +3,7 @@ import React, { memo, useCallback, useEffect, useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image } from "expo-image";
+import { getResizedImage } from "@/helpers/helpers";
 
 const AddedToCart = ({
   cartData,
@@ -18,7 +19,7 @@ const AddedToCart = ({
       </Text>
       <View className="flex-row gap-[16px] bg-white p-[8px] rounded-[8px] mb-[20px] items-center ">
         <Image
-          source={{ uri: cartData?.images[0]?.url }}
+          source={{ uri: getResizedImage(cartData?.images[0], 150) }}
           contentFit="cover"
           style={{ width: 73, height: 73, borderRadius: 4 }}
         />

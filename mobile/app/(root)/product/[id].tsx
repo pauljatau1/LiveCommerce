@@ -5,6 +5,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  Pressable,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
@@ -25,7 +26,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import EvilIcons from "@expo/vector-icons/EvilIcons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import { Pressable, TextInput } from "react-native-gesture-handler";
+import { TextInput } from "react-native-gesture-handler";
 import axios from "axios";
 import SectionHeader from "@/components/global/section-header";
 import ProductCard from "@/components/global/product-card";
@@ -40,7 +41,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
 import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
-import { formatNumber, getProductSpecifications } from "@/helpers/helpers";
+import {
+  formatNumber,
+  getProductSpecifications,
+  getResizedImage,
+} from "@/helpers/helpers";
 import { getToken, getUser, setToken } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
 import CheckoutNow from "@/components/blips/checkoutNow";
@@ -567,7 +572,7 @@ const ProductDescription = () => {
       return (
         <View>
           <Image
-            source={{ uri: item.url, width: 400, height: 400 }}
+            source={{ uri: getResizedImage(item, 640) }}
             style={{
               width: "100%",
               height: 400,

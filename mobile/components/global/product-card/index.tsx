@@ -13,7 +13,7 @@ import AuthSheet from "@/components/auth/authSheet";
 import { getToken } from "@/store/features/auth/utils";
 import AddedToCart from "@/components/product/productAddedToCart";
 import CartSheet from "@/components/product/productCartSheet";
-import { formatDate, formatNumber } from "@/helpers/helpers";
+import { formatDate, formatNumber, getResizedImage } from "@/helpers/helpers";
 // import { Image, useImage } from "expo-image";
 
 const ProductCard: React.FC<ProductCardProps | any> = ({
@@ -93,7 +93,9 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
       {/* Product Image */}
       {
         <Image
-          source={{ uri: imageUrl[0]?.url, width: 200, height: 200 }}
+          source={{
+            uri: getResizedImage(imageUrl?.[0], 320),
+          }}
           resizeMode="cover"
           resizeMethod="resize"
           progressiveRenderingEnabled={true}
