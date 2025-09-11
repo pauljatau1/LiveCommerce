@@ -607,7 +607,6 @@ const EditProduct = () => {
                 brand: brand, // Still include brand even if optional
                 variants: processedVariants,
                 images: processedImages,
-                blips: [],
                 shippingInfo: {
                     weight: {
                         value: weightInKg, // Weight in kg
