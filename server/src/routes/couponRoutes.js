@@ -28,6 +28,11 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: string
  *               discountPercentage:
  *                 type: number
+ *               discountType:
+ *                 type: string
+ *                 enum: [percentage, fixed]
+ *               fixedAmount:
+ *                 type: number
  *               hasMinimumRequirement:
  *                 type: boolean
  *               minimumAmount:
@@ -121,6 +126,11 @@ router.get('/seller',
  *                 type: string
  *                 enum: [active, inactive]
  *               discountPercentage:
+ *                 type: number
+ *               discountType:
+ *                 type: string
+ *                 enum: [percentage, fixed]
+ *               fixedAmount:
  *                 type: number
  *               hasMinimumRequirement:
  *                 type: boolean
@@ -251,6 +261,13 @@ router.post('/:id/expire',
  *                 description: Percentage discount to apply
  *                 minimum: 0
  *                 maximum: 100
+ *               discountType:
+ *                 type: string
+ *                 enum: [percentage, fixed]
+ *                 description: Choose between percentage or fixed amount coupon
+ *               fixedAmount:
+ *                 type: number
+ *                 description: Fixed amount to deduct for fixed coupons
  *               startDate:
  *                 type: string
  *                 format: date-time
