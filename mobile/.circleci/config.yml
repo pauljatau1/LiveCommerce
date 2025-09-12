@@ -49,6 +49,21 @@ commands:
       - add_ssh_keys:
           fingerprints:
             - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  install_google_file:
+    description: Add google services
+    steps:
+    - run:
+        name: Create google services
+        command: echo $GOOGLE_SERVICES_JSON | base64 -d > google-services.json
+    - run:
+        name: Create google service plist
+        command: echo $GOOGLE_SERVICE_INFO_PLIST | base64 -d > GoogleService-Info.plist
+    - run:
+        name: Add files to environment variable
+        command: |
+            echo "export GOOGLE_SERVICES_JSON=$(echo $GOOGLE_SERVICES_JSON |base64 -d)" >> "$BASH_ENV"
+            echo "export GOOGLE_SERVICE_INFO_PLIST=$(echo $GOOGLE_SERVICE_INFO_PLIST |base64 -d)" >> "$BASH_ENV"
+            source "$BASH_ENV"
   eas_profile_json:
     description: Create eas.json
     steps:
@@ -128,6 +143,7 @@ commands:
         type: string
         default: "android"
     steps:
+      - install_google_file
       - expo_restore_cache
       - eas_profile_json
       - run:
@@ -147,6 +163,7 @@ commands:
         type: string
         default: "android"
     steps:
+      - install_google_file
       - expo_restore_cache
       - eas_profile_json
       - run:
