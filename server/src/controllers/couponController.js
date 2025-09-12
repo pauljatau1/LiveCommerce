@@ -9,7 +9,9 @@ exports.createCoupon = async (req, res) => {
     const sellerId = req.user.id;
     const {
       name,
+      discountType = 'percentage',
       discountPercentage,
+      fixedAmount,
       hasMinimumRequirement,
       minimumAmount,
       startDate,
@@ -20,10 +22,22 @@ exports.createCoupon = async (req, res) => {
     } = req.body;
 
     // Validate required fields (code is no longer required)
-    if (!name || !discountPercentage || !productDiscounts) {
+    if (!name || !productDiscounts) {
       return res.status(400).json({
         message: 'Missing required fields'
       });
+    }
+
+    if (discountType === 'percentage') {
+      if (typeof discountPercentage !== 'number' || discountPercentage <= 0) {
+        return res.status(400).json({ message: 'discountPercentage must be a positive number for percentage coupons' });
+      }
+    } else if (discountType === 'fixed') {
+      if (typeof fixedAmount !== 'number' || fixedAmount <= 0) {
+        return res.status(400).json({ message: 'fixedAmount must be a positive number for fixed coupons' });
+      }
+    } else {
+      return res.status(400).json({ message: 'Invalid discountType' });
     }
 
     // Validate products and build applicableProducts array
@@ -55,40 +69,53 @@ exports.createCoupon = async (req, res) => {
         pd => pd.productId.toString() === product._id.toString()
       );
       
-      // Validate discounted price is less than original price
-      if (discountInfo.discountedPrice >= product.price) {
-        throw new Error(`Discounted price for ${product.name} must be less than original price`);
+      // Determine discounted price and discount value based on type
+      let discountedPrice;
+      let discountValue; // for percentage, this is percent; for fixed, it's fixedAmount
+      if (discountType === 'percentage') {
+        const inferredDiscounted = discountInfo && typeof discountInfo.discountedPrice === 'number'
+          ? discountInfo.discountedPrice
+          : Math.round((product.price * (100 - discountPercentage)) / 100);
+        if (inferredDiscounted >= product.price) {
+          throw new Error(`Discounted price for ${product.name} must be less than original price`);
+        }
+        discountedPrice = inferredDiscounted;
+        discountValue = ((product.price - discountedPrice) / product.price) * 100;
+      } else {
+        const amount = fixedAmount;
+        discountedPrice = Math.max(0, product.price - amount);
+        if (discountedPrice >= product.price) {
+          throw new Error(`Fixed discount for ${product.name} must reduce the price`);
+        }
+        discountValue = amount;
       }
 
-      // Calculate discount percentage
-      const discountValue = ((product.price - discountInfo.discountedPrice) / product.price) * 100;
-      
       // Update product's discount information and its variants
       await Product.findByIdAndUpdate(product._id, {
         discount: {
           isActive: true,
-          type: 'percentage',
-          value: discountValue,
+          type: discountType,
+          value: discountType === 'percentage' ? discountValue : fixedAmount,
           startDate: startDate || new Date(),
           endDate: endDate,
           couponName: name,
-          discountedPrice: discountInfo.discountedPrice
+          discountedPrice: discountedPrice
         },
         'pricing.discountInfo': {
           isActive: true,
-          type: 'percentage',
-          value: discountValue,
+          type: discountType,
+          value: discountType === 'percentage' ? discountValue : fixedAmount,
           startDate: startDate || new Date(),
           endDate: endDate,
           couponName: name,
-          discountedPrice: discountInfo.discountedPrice
+          discountedPrice: discountedPrice
         },
         // Apply same discount to all variants
         $set: {
           'variants.$[].discount': {
             isActive: true,
-            type: 'percentage',
-            value: discountValue,
+            type: discountType,
+            value: discountType === 'percentage' ? discountValue : fixedAmount,
             startDate: startDate || new Date(),
             endDate: endDate,
             couponName: name,
@@ -101,7 +128,9 @@ exports.createCoupon = async (req, res) => {
       const updatedProduct = await Product.findById(product._id);
       if (updatedProduct.variants && updatedProduct.variants.length > 0) {
         const variantUpdates = updatedProduct.variants.map(variant => {
-          const variantDiscountedPrice = Math.round((variant.price * (100 - discountValue)) / 100);
+          const variantDiscountedPrice = discountType === 'percentage'
+            ? Math.round((variant.price * (100 - discountValue)) / 100)
+            : Math.max(0, variant.price - fixedAmount);
           return {
             updateOne: {
               filter: {
@@ -123,7 +152,7 @@ exports.createCoupon = async (req, res) => {
       return {
         product: product._id,
         originalPrice: product.price,
-        discountedPrice: discountInfo.discountedPrice,
+        discountedPrice: discountedPrice,
         status: 'active'
       };
     }));
@@ -132,7 +161,9 @@ exports.createCoupon = async (req, res) => {
     const coupon = new Coupon({
       seller: sellerId,
       name,
+      discountType,
       discountPercentage,
+      fixedAmount,
       hasMinimumRequirement,
       minimumAmount: hasMinimumRequirement ? minimumAmount : 0,
       startDate: startDate || new Date(),
@@ -414,7 +445,8 @@ exports.validateCoupon = async (req, res) => {
         productName: ap.product.name,
         originalPrice: ap.originalPrice,
         discountedPrice: ap.discountedPrice,
-        discount: coupon.discountPercentage.toFixed(2) + '%',
+        discountType: coupon.discountType,
+        discount: coupon.discountType === 'percentage' ? (coupon.discountPercentage || 0).toFixed(2) + '%' : coupon.fixedAmount,
         validUntil: coupon.endDate
       }));
 
@@ -436,7 +468,9 @@ exports.validateCoupon = async (req, res) => {
     res.json({
       valid: true,
       status: 'active',
+      discountType: coupon.discountType,
       discountPercentage: coupon.discountPercentage,
+      fixedAmount: coupon.fixedAmount,
       discountedProducts,
       minimumAmount: coupon.hasMinimumRequirement ? coupon.minimumAmount : null,
       validUntil: coupon.endDate,
@@ -555,7 +589,9 @@ exports.createSpecialCoupon = async (req, res) => {
     const {
       name,
       code,
+      discountType = 'percentage',
       discountPercentage,
+      fixedAmount,
       startDate,
       endDate,
       usageLimit,
@@ -563,10 +599,19 @@ exports.createSpecialCoupon = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!name || !code || !discountPercentage) {
-      return res.status(400).json({
-        message: 'Missing required fields: name, code, and discountPercentage are required'
-      });
+    if (!name || !code) {
+      return res.status(400).json({ message: 'Missing required fields: name and code are required' });
+    }
+    if (discountType === 'percentage') {
+      if (typeof discountPercentage !== 'number' || discountPercentage <= 0) {
+        return res.status(400).json({ message: 'discountPercentage must be a positive number for percentage coupons' });
+      }
+    } else if (discountType === 'fixed') {
+      if (typeof fixedAmount !== 'number' || fixedAmount <= 0) {
+        return res.status(400).json({ message: 'fixedAmount must be a positive number for fixed coupons' });
+      }
+    } else {
+      return res.status(400).json({ message: 'Invalid discountType' });
     }
 
     // Check if code already exists
@@ -595,7 +640,9 @@ exports.createSpecialCoupon = async (req, res) => {
       applicableProducts = products.map(product => ({
         product: product._id,
         originalPrice: product.price,
-        discountedPrice: Math.round((product.price * (100 - discountPercentage)) / 100),
+        discountedPrice: discountType === 'percentage'
+          ? Math.round((product.price * (100 - discountPercentage)) / 100)
+          : Math.max(0, product.price - fixedAmount),
         status: 'active'
       }));
     }
@@ -605,7 +652,9 @@ exports.createSpecialCoupon = async (req, res) => {
       seller: sellerId,
       name,
       code: code.toUpperCase(),
+      discountType,
       discountPercentage,
+      fixedAmount,
       startDate: startDate || new Date(),
       endDate,
       customerEligibility: 'all', // Default for special coupons
@@ -626,7 +675,9 @@ exports.createSpecialCoupon = async (req, res) => {
         id: coupon._id,
         name: coupon.name,
         code: coupon.code,
+        discountType: coupon.discountType,
         discountPercentage: coupon.discountPercentage,
+        fixedAmount: coupon.fixedAmount,
         startDate: coupon.startDate,
         endDate: coupon.endDate,
         usageLimit: coupon.usageLimit,
@@ -652,7 +703,7 @@ exports.createSpecialCoupon = async (req, res) => {
 // Apply special coupon to a product
 exports.applySpecialCoupon = async (req, res) => {
   try {
-    const { code, productId } = req.body;
+    const { code, productId, confirmBelow50 } = req.body;
     const buyerId = req.user.id;
 
     if (!code || !productId) {
@@ -733,27 +784,59 @@ exports.applySpecialCoupon = async (req, res) => {
         
         await coupon.save();
 
+        const discountedPrice = coupon.discountType === 'percentage'
+          ? Math.round((product.price * (100 - coupon.discountPercentage)) / 100)
+          : Math.max(0, product.price - (coupon.fixedAmount || 0));
+
+        // 50% warning check
+        const thresholdPrice = product.price * 0.5;
+        if (discountedPrice < thresholdPrice && !confirmBelow50) {
+          return res.status(409).json({
+            requireConfirmation: true,
+            message: 'Warning: This coupon reduces the product price to less than 50% of its original value. Are you sure you want to proceed?',
+            originalPrice: product.price,
+            discountedPrice
+          });
+        }
+
         return res.json({
           message: 'Coupon applied successfully',
           product: {
             id: product._id,
             name: product.name,
             originalPrice: product.price,
-            discountedPrice: productDiscount.discountedPrice,
+            discountedPrice: discountedPrice,
+            discountType: coupon.discountType,
             discountPercentage: coupon.discountPercentage,
-            savings: (product.price * coupon.discountPercentage) / 100
+            fixedAmount: coupon.fixedAmount,
+            savings: coupon.discountType === 'percentage' ? (product.price * coupon.discountPercentage) / 100 : Math.min(product.price, coupon.fixedAmount || 0)
           },
           coupon: {
             code: coupon.code,
             name: coupon.name,
-            discountPercentage: coupon.discountPercentage
+            discountType: coupon.discountType,
+            discountPercentage: coupon.discountPercentage,
+            fixedAmount: coupon.fixedAmount
           }
         });
       }
     }
 
     // If no pre-calculated price or no product restrictions, calculate discount now
-    const discountedPrice = Math.round((product.price * (100 - coupon.discountPercentage)) / 100);
+    const discountedPrice = coupon.discountType === 'percentage'
+      ? Math.round((product.price * (100 - coupon.discountPercentage)) / 100)
+      : Math.max(0, product.price - (coupon.fixedAmount || 0));
+
+    // 50% warning check
+    const thresholdPrice = product.price * 0.5;
+    if (discountedPrice < thresholdPrice && !confirmBelow50) {
+      return res.status(409).json({
+        requireConfirmation: true,
+        message: 'Warning: This coupon reduces the product price to less than 50% of its original value. Are you sure you want to proceed?',
+        originalPrice: product.price,
+        discountedPrice
+      });
+    }
 
     // Increment usage count
     coupon.usageCount += 1;
@@ -782,13 +865,17 @@ exports.applySpecialCoupon = async (req, res) => {
         name: product.name,
         originalPrice: product.price,
         discountedPrice: discountedPrice,
+        discountType: coupon.discountType,
         discountPercentage: coupon.discountPercentage,
-        savings: (product.price * coupon.discountPercentage) / 100
+        fixedAmount: coupon.fixedAmount,
+        savings: coupon.discountType === 'percentage' ? (product.price * coupon.discountPercentage) / 100 : Math.min(product.price, coupon.fixedAmount || 0)
       },
       coupon: {
         code: coupon.code,
         name: coupon.name,
-        discountPercentage: coupon.discountPercentage
+        discountType: coupon.discountType,
+        discountPercentage: coupon.discountPercentage,
+        fixedAmount: coupon.fixedAmount
       }
     });
   } catch (error) {
@@ -880,9 +967,7 @@ exports.getProductCoupons = async (req, res) => {
       $and: [
         { 
           $or: [
-            // Coupons with no product restrictions
             { 'applicableProducts': { $size: 0 } },
-            // Coupons where this product is specifically included
             { 'applicableProducts.product': productId }
           ]
         }
@@ -897,7 +982,9 @@ exports.getProductCoupons = async (req, res) => {
     // Format the response
     const availableCoupons = validCoupons.map(coupon => {
       // Calculate discounted price
-      const discountedPrice = Math.round((product.price * (100 - coupon.discountPercentage)) / 100);
+      const discountedPrice = coupon.discountType === 'percentage'
+        ? Math.round((product.price * (100 - coupon.discountPercentage)) / 100)
+        : Math.max(0, product.price - (coupon.fixedAmount || 0));
       
       // Check if this product has a specific discount in the coupon
       const productDiscount = coupon.applicableProducts.find(
@@ -908,10 +995,12 @@ exports.getProductCoupons = async (req, res) => {
         couponId: coupon._id,
         code: coupon.code,
         name: coupon.name,
+        discountType: coupon.discountType,
         discountPercentage: coupon.discountPercentage,
+        fixedAmount: coupon.fixedAmount,
         originalPrice: product.price,
         discountedPrice: productDiscount ? productDiscount.discountedPrice : discountedPrice,
-        savings: (product.price * coupon.discountPercentage) / 100,
+        savings: coupon.discountType === 'percentage' ? (product.price * coupon.discountPercentage) / 100 : Math.min(product.price, coupon.fixedAmount || 0),
         validUntil: coupon.endDate,
         usageLimit: coupon.usageLimit,
         usageCount: coupon.usageCount
