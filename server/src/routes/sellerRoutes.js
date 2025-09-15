@@ -38,37 +38,6 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
 
 /**
  * @swagger
- * /api/seller/business-details:
- *   put:
- *     summary: Add basic business details
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               businessName:
- *                 type: string
- *               businessType:
- *                 type: string
- *               taxInformation:
- *                 type: string
- *     responses:
- *       200:
- *         description: Business details added successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/business-details', authMiddleware.verifyToken, sellerController.addBusinessDetails);
-
-/**
- * @swagger
  * /api/seller/business-information:
  *   put:
  *     summary: Add business contact and address information
