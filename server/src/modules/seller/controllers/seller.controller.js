@@ -11,6 +11,7 @@ const generateSmileIdTokenService = require('../services/generateSmileIdToken.se
 const processSmileIdJobService = require('../services/processSmileIdJob.service');
 const saveIndividualSmileIdVerificationService = require('../services/saveIndividualSmileIdVerification.service');
 const saveBusinessSmileIdVerificationService = require('../services/saveBusinessSmileIdVerification.service');
+const smileIdCallbackService = require('../services/smileIdCallback.service');
 
 /**
  * Register a seller user.
@@ -407,6 +408,35 @@ async function saveBusinessSmileIdVerification(req, res, next) {
   }
 }
 
+/**
+ * Handle SmileID verification callback.
+ *
+ * This controller handles webhook callbacks from SmileID verification service.
+ * It delegates the callback processing logic to the service layer and sends
+ * appropriate responses to SmileID.
+ *
+ * @param {Request} req - Express request object containing the verification callback data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function smileIdCallback(req, res, next) {
+  try {
+    // Extract verification callback data from request body
+    const verificationResult = req.body;
+
+    // Call the service layer to handle SmileID callback processing logic
+    const response = await smileIdCallbackService.processSmileIdCallback(verificationResult);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }
+    // New v2: { success: true, message: 'Callback received successfully', data: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }, pagination: null }
+    res.success(response, 'Callback received successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -420,5 +450,6 @@ module.exports = {
   generateSmileIdToken,
   processSmileIdJob,
   saveIndividualSmileIdVerification,
-  saveBusinessSmileIdVerification
+  saveBusinessSmileIdVerification,
+  smileIdCallback
 };
