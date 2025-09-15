@@ -12,6 +12,7 @@ const processSmileIdJobService = require('../services/processSmileIdJob.service'
 const saveIndividualSmileIdVerificationService = require('../services/saveIndividualSmileIdVerification.service');
 const saveBusinessSmileIdVerificationService = require('../services/saveBusinessSmileIdVerification.service');
 const smileIdCallbackService = require('../services/smileIdCallback.service');
+const addBusinessDetailsService = require('../services/addBusinessDetails.service');
 
 /**
  * Register a seller user.
@@ -437,6 +438,36 @@ async function smileIdCallback(req, res, next) {
   }
 }
 
+/**
+ * Add business details to seller profile.
+ *
+ * This controller handles the HTTP request for adding business details
+ * to a seller's profile. It delegates the business logic to the service
+ * layer and sends appropriate responses.
+ *
+ * @param {Request} req - Express request object containing the business details in `req.body` and seller ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBusinessDetails(req, res, next) {
+  try {
+    // Extract business details from request body
+    const businessDetails = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle business details addition logic
+    const response = await addBusinessDetailsService.addBusinessDetails(sellerId, businessDetails);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Business details added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Business details added successfully', data: { message: 'Business details added successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Business details added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -451,5 +482,6 @@ module.exports = {
   processSmileIdJob,
   saveIndividualSmileIdVerification,
   saveBusinessSmileIdVerification,
-  smileIdCallback
+  smileIdCallback,
+  addBusinessDetails
 };

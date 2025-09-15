@@ -368,45 +368,6 @@ exports.uploadStoreBanner = async (req, res) => {
   }
 };
 
-// Add business details
-exports.addBusinessDetails = async (req, res) => {
-  try {
-    const { businessName, businessType, taxInformation } = req.body;
-
-    // // Validate required fields
-    // if (!businessName || !businessType || !taxInformation) {
-    //   return res.status(400).json({ 
-    //     message: 'Business name, business type, and tax information are all required' 
-    //   });
-    // }
-
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    seller.businessName = businessName;
-    seller.businessType = businessType;
-    seller.taxInformation = taxInformation;
-
-    // Update completion flags
-    seller.hasFilledBusinessAddress = !!seller.businessAddress;
-    seller.hasFilledVerificationDocuments = !!seller.verificationDocuments.documents.length;
-
-    const updatedSeller = await seller.save();
-
-    res.json({ 
-      message: 'Business details added successfully', 
-      seller: updatedSeller 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add business details', 
-      error: error.message 
-    });
-  }
-};
-
 // Add business information
 exports.addBusinessInformation = async (req, res) => {
   try {
