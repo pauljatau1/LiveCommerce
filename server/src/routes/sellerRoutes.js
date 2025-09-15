@@ -11,52 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/verification/smileid/business:
- *   post:
- *     summary: Save business SmileID verification result
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               smileIdResult:
- *                 type: object
- *               accountType:
- *                 type: string
- *                 enum: [business]
- *               verifiedAt:
- *                 type: string
- *               verificationProvider:
- *                 type: string
- *                 enum: [SmileID]
- *     responses:
- *       200:
- *         description: Business verification result saved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 verification:
- *                   type: object
- *       400:
- *         description: Bad request
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/verification/smileid/business', authMiddleware.verifyToken, sellerController.saveBusinessSmileIdVerification);
-
-/**
- * @swagger
  * /api/seller/verification/smileid/callback:
  *   post:
  *     summary: SmileID webhook callback endpoint
@@ -81,37 +35,6 @@ router.post('/verification/smileid/business', authMiddleware.verifyToken, seller
  *         description: Internal server error
  */
 router.post('/verification/smileid/callback', sellerController.smileIdCallback);
-
-/**
- * @swagger
- * /api/seller/business-details:
- *   put:
- *     summary: Add basic business details
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               businessName:
- *                 type: string
- *               businessType:
- *                 type: string
- *               taxInformation:
- *                 type: string
- *     responses:
- *       200:
- *         description: Business details added successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/business-details', authMiddleware.verifyToken, sellerController.addBusinessDetails);
 
 /**
  * @swagger

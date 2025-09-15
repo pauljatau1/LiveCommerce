@@ -10,6 +10,9 @@ const uploadIndividualVerificationService = require('../services/uploadIndividua
 const generateSmileIdTokenService = require('../services/generateSmileIdToken.service');
 const processSmileIdJobService = require('../services/processSmileIdJob.service');
 const saveIndividualSmileIdVerificationService = require('../services/saveIndividualSmileIdVerification.service');
+const saveBusinessSmileIdVerificationService = require('../services/saveBusinessSmileIdVerification.service');
+const smileIdCallbackService = require('../services/smileIdCallback.service');
+const addBusinessDetailsService = require('../services/addBusinessDetails.service');
 
 /**
  * Register a seller user.
@@ -375,6 +378,96 @@ async function saveIndividualSmileIdVerification(req, res, next) {
   }
 }
 
+/**
+ * Save business SmileID verification result.
+ *
+ * This controller handles the business SmileID verification result saving HTTP request.
+ * It delegates the verification saving logic to the service layer and sends a success response.
+ *
+ * @param {Request} req - Express request object containing the verification data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function saveBusinessSmileIdVerification(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+    
+    // Extract verification data from request body
+    const verificationData = req.body;
+
+    // Call the service layer to handle business SmileID verification saving logic
+    const response = await saveBusinessSmileIdVerificationService.saveBusinessSmileIdVerification(verificationData, sellerId);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: 'Business SmileID verification result saved successfully', verification: {...}, actuallySuccessful: true/false }
+    // New v2: { success: true, message: 'Business SmileID verification result saved successfully', data: { message: 'Business SmileID verification result saved successfully', verification: {...}, actuallySuccessful: true/false }, pagination: null }
+    res.success(response, 'Business SmileID verification result saved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Handle SmileID verification callback.
+ *
+ * This controller handles webhook callbacks from SmileID verification service.
+ * It delegates the callback processing logic to the service layer and sends
+ * appropriate responses to SmileID.
+ *
+ * @param {Request} req - Express request object containing the verification callback data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function smileIdCallback(req, res, next) {
+  try {
+    // Extract verification callback data from request body
+    const verificationResult = req.body;
+
+    // Call the service layer to handle SmileID callback processing logic
+    const response = await smileIdCallbackService.processSmileIdCallback(verificationResult);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }
+    // New v2: { success: true, message: 'Callback received successfully', data: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }, pagination: null }
+    res.success(response, 'Callback received successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Add business details to seller profile.
+ *
+ * This controller handles the HTTP request for adding business details
+ * to a seller's profile. It delegates the business logic to the service
+ * layer and sends appropriate responses.
+ *
+ * @param {Request} req - Express request object containing the business details in `req.body` and seller ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBusinessDetails(req, res, next) {
+  try {
+    // Extract business details from request body
+    const businessDetails = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle business details addition logic
+    const response = await addBusinessDetailsService.addBusinessDetails(sellerId, businessDetails);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Business details added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Business details added successfully', data: { message: 'Business details added successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Business details added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -387,5 +480,8 @@ module.exports = {
   uploadIndividualVerification,
   generateSmileIdToken,
   processSmileIdJob,
-  saveIndividualSmileIdVerification
+  saveIndividualSmileIdVerification,
+  saveBusinessSmileIdVerification,
+  smileIdCallback,
+  addBusinessDetails
 };

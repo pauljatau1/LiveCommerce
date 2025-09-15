@@ -1589,4 +1589,555 @@ router.post('/verification/smileid/job', verifyToken, sellerController.processSm
 // Save individual SmileID verification result route
 router.post('/verification/smileid/individual', verifyToken, sellerController.saveIndividualSmileIdVerification);
 
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/business:
+ *   post:
+ *     tags:
+ *       - Seller Verification
+ *     summary: Save business SmileID verification result
+ *     description: |
+ *       Saves the result of business SmileID verification to the seller's record.
+ *       
+ *       **Business Verification Processing:**
+ *       - Validates SmileID verification result data
+ *       - Analyzes verification success based on images and result codes
+ *       - Updates seller verification status and documents
+ *       - Tracks verification completion with analytics
+ *       - Sends confirmation email to seller
+ *       
+ *       **Success Criteria:**
+ *       - Must have images in the result
+ *       - Must have successful result codes (1012, 1020, 1021) or success flag
+ *       - Only marks as verified if both criteria are met
+ *       
+ *       **Security Features:**
+ *       - Requires valid authentication token
+ *       - Validates all required fields
+ *       - Ensures data integrity and consistency
+ *       - Provider validation for security
+ *       
+ *       **Response Structure:**
+ *       - Returns verification result with success status
+ *       - Includes verification details and actual success indicator
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - smileIdResult
+ *               - accountType
+ *               - verifiedAt
+ *               - verificationProvider
+ *             properties:
+ *               smileIdResult:
+ *                 type: object
+ *                 description: SmileID verification result object
+ *                 properties:
+ *                   ResultCode:
+ *                     type: string
+ *                     description: SmileID result code
+ *                     example: "1012"
+ *                   success:
+ *                     type: boolean
+ *                     description: API success status
+ *                     example: true
+ *                   images:
+ *                     type: array
+ *                     description: Processed images
+ *                     items:
+ *                       type: string
+ *               accountType:
+ *                 type: string
+ *                 enum: [business]
+ *                 description: Account type for verification
+ *                 example: "business"
+ *               verifiedAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Verification completion timestamp
+ *                 example: "2024-01-15T10:30:00.000Z"
+ *               verificationProvider:
+ *                 type: string
+ *                 enum: [SmileID]
+ *                 description: Verification provider
+ *                 example: "SmileID"
+ *     responses:
+ *       200:
+ *         description: Business verification result saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Business SmileID verification result saved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Business SmileID verification result saved successfully"
+ *                     verification:
+ *                       type: object
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                           example: "business"
+ *                         provider:
+ *                           type: string
+ *                           example: "SmileID"
+ *                         result:
+ *                           type: object
+ *                           description: SmileID verification result
+ *                         verifiedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                         status:
+ *                           type: string
+ *                           enum: [verified, failed]
+ *                           example: "verified"
+ *                     actuallySuccessful:
+ *                       type: boolean
+ *                       description: Whether verification was actually successful
+ *                       example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "smileIdResult"
+ *                       message:
+ *                         type: string
+ *                         example: "SmileID result is required"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to save business SmileID verification result"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Save business SmileID verification result route
+router.post('/verification/smileid/business', verifyToken, sellerController.saveBusinessSmileIdVerification);
+
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/callback:
+ *   post:
+ *     tags:
+ *       - Seller Verification
+ *     summary: Handle SmileID verification callback
+ *     description: |
+ *       Processes webhook callbacks from SmileID verification service.
+ *       
+ *       **Callback Processing:**
+ *       - Validates callback data structure
+ *       - Extracts verification result information
+ *       - Determines verification success based on images and result codes
+ *       - Updates seller verification status and documents
+ *       - Tracks verification completion with analytics
+ *       - Sends confirmation email to seller
+ *       
+ *       **Success Criteria:**
+ *       - Must have images in the result
+ *       - Must have successful result codes (1012, 1020, 1021) or success flag
+ *       - Only marks as verified if both criteria are met
+ *       
+ *       **Security Features:**
+ *       - Validates all required fields
+ *       - Ensures data integrity and consistency
+ *       - Validates partner parameters for security
+ *       - Ensures proper verification result structure
+ *       
+ *       **Response Structure:**
+ *       - Returns callback processing result with assessment details
+ *       - Includes job ID and processing status
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - job_id
+ *               - partner_params
+ *             properties:
+ *               job_id:
+ *                 type: string
+ *                 description: SmileID job identifier
+ *                 example: "job_123456789"
+ *               user_id:
+ *                 type: string
+ *                 description: User identifier
+ *                 example: "user_123456789"
+ *               partner_params:
+ *                 type: object
+ *                 description: Partner-specific parameters
+ *                 properties:
+ *                   seller_id:
+ *                     type: string
+ *                     description: Seller ID
+ *                     example: "507f1f77bcf86cd799439011"
+ *                   account_type:
+ *                     type: string
+ *                     enum: [business, individual]
+ *                     description: Account type for verification
+ *                     example: "business"
+ *               ResultCode:
+ *                 type: string
+ *                 description: SmileID result code
+ *                 example: "1012"
+ *               result_code:
+ *                 type: string
+ *                 description: Alternative result code field
+ *                 example: "1012"
+ *               ResultText:
+ *                 type: string
+ *                 description: SmileID result text
+ *                 example: "Success"
+ *               result_text:
+ *                 type: string
+ *                 description: Alternative result text field
+ *                 example: "Success"
+ *               job_complete:
+ *                 type: boolean
+ *                 description: Job completion status
+ *                 example: true
+ *               success:
+ *                 type: boolean
+ *                 description: API success status
+ *                 example: true
+ *               Images:
+ *                 type: array
+ *                 description: Processed images
+ *                 items:
+ *                   type: string
+ *               images:
+ *                 type: array
+ *                 description: Alternative images field
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Callback received successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Callback received successfully"
+ *                     job_id:
+ *                       type: string
+ *                       example: "job_123456789"
+ *                     processed:
+ *                       type: boolean
+ *                       example: true
+ *                     assessment:
+ *                       type: object
+ *                       properties:
+ *                         hasImages:
+ *                           type: boolean
+ *                           example: true
+ *                         resultCode:
+ *                           type: string
+ *                           example: "1012"
+ *                         isSuccessful:
+ *                           type: boolean
+ *                           example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "job_id"
+ *                       message:
+ *                         type: string
+ *                         example: "Verification result must include either: (1) Images array with at least one image, OR (2) job_complete: true/false, OR (3) success: true/false. Currently missing all three."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error processing callback"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Handle SmileID verification callback route
+router.post('/verification/smileid/callback', sellerController.smileIdCallback);
+
+/**
+ * @swagger
+ * /api/v2/sellers/business-details:
+ *   put:
+ *     summary: Add business details to seller profile
+ *     description: |
+ *       This endpoint allows sellers to add or update their business details including
+ *       business name, business type, and tax information. The endpoint validates
+ *       all required fields and updates the seller's profile with the provided information.
+ *       
+ *       **Business Logic:**
+ *       - Validates all required fields (businessName, businessType, taxInformation)
+ *       - Updates seller business profile information
+ *       - Maintains completion status flags for business address and verification documents
+ *       - Ensures data integrity and consistency
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates seller ownership of the account
+ *       - Ensures data sanitization and validation
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - businessName
+ *               - businessType
+ *               - taxInformation
+ *             properties:
+ *               businessName:
+ *                 type: string
+ *                 description: The name of the business
+ *                 example: "Tech Solutions Ltd"
+ *                 maxLength: 200
+ *               businessType:
+ *                 type: string
+ *                 description: The type of business (e.g., "LLC", "Corporation", "Sole Proprietorship")
+ *                 example: "LLC"
+ *                 maxLength: 100
+ *               taxInformation:
+ *                 type: string
+ *                 description: Tax identification information for the business
+ *                 example: "Tax ID: 123456789"
+ *                 maxLength: 500
+ *     responses:
+ *       200:
+ *         description: Business details added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Business details added successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Business details added successfully"
+ *                     seller:
+ *                       type: object
+ *                       description: Updated seller object with business details
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         businessName:
+ *                           type: string
+ *                           example: "Tech Solutions Ltd"
+ *                         businessType:
+ *                           type: string
+ *                           example: "LLC"
+ *                         taxInformation:
+ *                           type: string
+ *                           example: "Tax ID: 123456789"
+ *                         hasFilledBusinessAddress:
+ *                           type: boolean
+ *                           example: true
+ *                         hasFilledVerificationDocuments:
+ *                           type: boolean
+ *                           example: false
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation failed - Invalid or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "businessName"
+ *                       message:
+ *                         type: string
+ *                         example: "Business name is required"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ */
+
+// Add business details route - using same middleware as original route
+router.put('/business-details', verifyToken, sellerController.addBusinessDetails);
+
 module.exports = router;
