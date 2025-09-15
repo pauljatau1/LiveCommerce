@@ -119,7 +119,7 @@ const OnboardingProvider = ({ children }) => {
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
             console.log(data);
-            const response = await axios.put(`${BASE_URL}/seller/business-details`, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/business-details`, {
                 businessName,
                 businessType,
                 taxInformation: businessTaxInformation
@@ -132,7 +132,7 @@ const OnboardingProvider = ({ children }) => {
             );
             if (response.status === 200) {
                 console.log(response);
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business name submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {

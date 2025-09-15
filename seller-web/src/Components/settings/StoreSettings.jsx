@@ -427,7 +427,7 @@ export default function StoreSettings() {
     setUpdatingSection(prev => ({ ...prev, businessDetails: true }));
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/business-details`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/business-details`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
