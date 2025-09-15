@@ -1589,4 +1589,177 @@ router.post('/verification/smileid/job', verifyToken, sellerController.processSm
 // Save individual SmileID verification result route
 router.post('/verification/smileid/individual', verifyToken, sellerController.saveIndividualSmileIdVerification);
 
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/business:
+ *   post:
+ *     tags:
+ *       - Seller Verification
+ *     summary: Save business SmileID verification result
+ *     description: |
+ *       Saves the result of business SmileID verification to the seller's record.
+ *       
+ *       **Business Verification Processing:**
+ *       - Validates SmileID verification result data
+ *       - Analyzes verification success based on images and result codes
+ *       - Updates seller verification status and documents
+ *       - Tracks verification completion with analytics
+ *       - Sends confirmation email to seller
+ *       
+ *       **Success Criteria:**
+ *       - Must have images in the result
+ *       - Must have successful result codes (1012, 1020, 1021) or success flag
+ *       - Only marks as verified if both criteria are met
+ *       
+ *       **Security Features:**
+ *       - Requires valid authentication token
+ *       - Validates all required fields
+ *       - Ensures data integrity and consistency
+ *       - Provider validation for security
+ *       
+ *       **Response Structure:**
+ *       - Returns verification result with success status
+ *       - Includes verification details and actual success indicator
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - smileIdResult
+ *               - accountType
+ *               - verifiedAt
+ *               - verificationProvider
+ *             properties:
+ *               smileIdResult:
+ *                 type: object
+ *                 description: SmileID verification result object
+ *                 properties:
+ *                   ResultCode:
+ *                     type: string
+ *                     description: SmileID result code
+ *                     example: "1012"
+ *                   success:
+ *                     type: boolean
+ *                     description: API success status
+ *                     example: true
+ *                   images:
+ *                     type: array
+ *                     description: Processed images
+ *                     items:
+ *                       type: string
+ *               accountType:
+ *                 type: string
+ *                 enum: [business]
+ *                 description: Account type for verification
+ *                 example: "business"
+ *               verifiedAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Verification completion timestamp
+ *                 example: "2024-01-15T10:30:00.000Z"
+ *               verificationProvider:
+ *                 type: string
+ *                 enum: [SmileID]
+ *                 description: Verification provider
+ *                 example: "SmileID"
+ *     responses:
+ *       200:
+ *         description: Business verification result saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Business SmileID verification result saved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Business SmileID verification result saved successfully"
+ *                     verification:
+ *                       type: object
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                           example: "business"
+ *                         provider:
+ *                           type: string
+ *                           example: "SmileID"
+ *                         result:
+ *                           type: object
+ *                           description: SmileID verification result
+ *                         verifiedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                         status:
+ *                           type: string
+ *                           enum: [verified, failed]
+ *                           example: "verified"
+ *                     actuallySuccessful:
+ *                       type: boolean
+ *                       description: Whether verification was actually successful
+ *                       example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "smileIdResult"
+ *                       message:
+ *                         type: string
+ *                         example: "SmileID result is required"
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to save business SmileID verification result"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Save business SmileID verification result route
+router.post('/verification/smileid/business', verifyToken, sellerController.saveBusinessSmileIdVerification);
+
 module.exports = router;
