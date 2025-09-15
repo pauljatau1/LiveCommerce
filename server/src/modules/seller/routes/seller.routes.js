@@ -1762,4 +1762,187 @@ router.post('/verification/smileid/individual', verifyToken, sellerController.sa
 // Save business SmileID verification result route
 router.post('/verification/smileid/business', verifyToken, sellerController.saveBusinessSmileIdVerification);
 
+/**
+ * @swagger
+ * /api/v2/sellers/verification/smileid/callback:
+ *   post:
+ *     tags:
+ *       - Seller Verification
+ *     summary: Handle SmileID verification callback
+ *     description: |
+ *       Processes webhook callbacks from SmileID verification service.
+ *       
+ *       **Callback Processing:**
+ *       - Validates callback data structure
+ *       - Extracts verification result information
+ *       - Determines verification success based on images and result codes
+ *       - Updates seller verification status and documents
+ *       - Tracks verification completion with analytics
+ *       - Sends confirmation email to seller
+ *       
+ *       **Success Criteria:**
+ *       - Must have images in the result
+ *       - Must have successful result codes (1012, 1020, 1021) or success flag
+ *       - Only marks as verified if both criteria are met
+ *       
+ *       **Security Features:**
+ *       - Validates all required fields
+ *       - Ensures data integrity and consistency
+ *       - Validates partner parameters for security
+ *       - Ensures proper verification result structure
+ *       
+ *       **Response Structure:**
+ *       - Returns callback processing result with assessment details
+ *       - Includes job ID and processing status
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - job_id
+ *               - partner_params
+ *             properties:
+ *               job_id:
+ *                 type: string
+ *                 description: SmileID job identifier
+ *                 example: "job_123456789"
+ *               user_id:
+ *                 type: string
+ *                 description: User identifier
+ *                 example: "user_123456789"
+ *               partner_params:
+ *                 type: object
+ *                 description: Partner-specific parameters
+ *                 properties:
+ *                   seller_id:
+ *                     type: string
+ *                     description: Seller ID
+ *                     example: "507f1f77bcf86cd799439011"
+ *                   account_type:
+ *                     type: string
+ *                     enum: [business, individual]
+ *                     description: Account type for verification
+ *                     example: "business"
+ *               ResultCode:
+ *                 type: string
+ *                 description: SmileID result code
+ *                 example: "1012"
+ *               result_code:
+ *                 type: string
+ *                 description: Alternative result code field
+ *                 example: "1012"
+ *               ResultText:
+ *                 type: string
+ *                 description: SmileID result text
+ *                 example: "Success"
+ *               result_text:
+ *                 type: string
+ *                 description: Alternative result text field
+ *                 example: "Success"
+ *               job_complete:
+ *                 type: boolean
+ *                 description: Job completion status
+ *                 example: true
+ *               success:
+ *                 type: boolean
+ *                 description: API success status
+ *                 example: true
+ *               Images:
+ *                 type: array
+ *                 description: Processed images
+ *                 items:
+ *                   type: string
+ *               images:
+ *                 type: array
+ *                 description: Alternative images field
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Callback received successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Callback received successfully"
+ *                     job_id:
+ *                       type: string
+ *                       example: "job_123456789"
+ *                     processed:
+ *                       type: boolean
+ *                       example: true
+ *                     assessment:
+ *                       type: object
+ *                       properties:
+ *                         hasImages:
+ *                           type: boolean
+ *                           example: true
+ *                         resultCode:
+ *                           type: string
+ *                           example: "1012"
+ *                         isSuccessful:
+ *                           type: boolean
+ *                           example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "job_id"
+ *                       message:
+ *                         type: string
+ *                         example: "Verification result must include either: (1) Images array with at least one image, OR (2) job_complete: true/false, OR (3) success: true/false. Currently missing all three."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error processing callback"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ */
+
+// Handle SmileID verification callback route
+router.post('/verification/smileid/callback', sellerController.smileIdCallback);
+
 module.exports = router;
