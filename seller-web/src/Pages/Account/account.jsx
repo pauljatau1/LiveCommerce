@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, Link2 } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2, AUQLI_STORE_BASE_URL } from "@/Constants/Server";
 import { format } from "date-fns";
 import ShopTab from "./components/ShopTab";
 import BlipsTab from "./components/BlipsTab";
@@ -308,7 +308,7 @@ export default function AccountPage() {
 
   const handleCopyProfileLink = () => {
     if (profile?._id) {
-      const profileUrl = `https://app.auqli.live/s/${profile._id}B`;
+      const profileUrl = `${AUQLI_STORE_BASE_URL}/seller/${profile._id}`;
       navigator.clipboard.writeText(profileUrl)
         .then(() => {
           toast.success("Profile link copied to clipboard");
