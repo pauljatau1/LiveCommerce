@@ -33,7 +33,7 @@
 
 //       // Try to get app ID
 //       try {
-//         const appID = '1749317145848990'; // The app ID should match what's in strings.xml
+//         const appID = '****'; // The app ID should match what's in strings.xml
 //         console.log('App ID:', appID);
 
 //         // Test setAppID

@@ -156,7 +156,7 @@ module.exports = ({ config }) => {
           {
             appID: `${process.env.FACEBOOK_APP_ID}`,
             clientToken: `${process.env.FACEBOOK_CLIENT_SECRET}`,
-            displayName: "Auqli",
+            displayName: "Auqli Nigeria",
             scheme: "fb" + process.env.FACEBOOK_APP_ID,
             advertiserIDCollectionEnabled: true,
             autoLogAppEventsEnabled: true,
