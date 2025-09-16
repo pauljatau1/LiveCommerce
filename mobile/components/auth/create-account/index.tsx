@@ -216,21 +216,21 @@ const CreateAccount = () => {
         <View className=" justify-between px-[21px] pb-3">
           <View>
             <View className="my-[48px] mb-10">
-              <Text className="mb-[20px] text-center text-gray-200 font-LexendDecaBold text-[21px] ">
-                Create Account
+              <Text className="mb-2 text-center text-[24px] font-LexendDecaMedium text-white tracking-[-0.22px]">
+                Signup
               </Text>
-              <Text className="mx-auto text-center font-LexendDeca  text-sm text-gray-200">
+              <Text className="text-center font-LexendDecaLight text-[#425466] tracking-[-0.22px]">
                 To get max benefits at Auqli, please take a few minutes to
                 create an account.
               </Text>
             </View>
-            <View className="gap-y-4 rounded-[8px] border border-[#C6C6C640] p-8">
+            <View className="gap-y-[16px]">
               <FormProvider {...methods}>
                 <View className="w-full flex-row gap-x-2">
                   <View className="flex-1">
                     <Input
                       name="firstName"
-                      label="First Name*"
+                      label="First Name"
                       placeholder="First name"
                       rules={["required"]}
                       autoCapitalize="words"
@@ -239,7 +239,7 @@ const CreateAccount = () => {
                   <View className="flex-1">
                     <Input
                       name="lastName"
-                      label="Last Name*"
+                      label="Last Name"
                       placeholder="Last name"
                       rules={["required"]}
                       autoCapitalize="words"
@@ -260,12 +260,12 @@ const CreateAccount = () => {
                   keyboardType="email-address"
                   rules={["required", "email"]}
                 />
-                <Input
+                {/* <Input
                   name="Country"
                   label="Country"
                   placeholder="Nigeria"
                   readOnly
-                />
+                /> */}
                 {/* <Select
                     name="country"
                     required
@@ -280,7 +280,7 @@ const CreateAccount = () => {
                     estimatedItemSize={4}
                   /> */}
                 <View>
-                  <Text className="mb-[6px] font-LexendDecaMedium text-sm font-medium tracking-wider text-white">
+                  <Text className="mb-[12px] font-LexendDecaLight text-[14px] tracking-[-0.22px] text-white">
                     Mobile Number
                   </Text>
                   <Controller
@@ -335,17 +335,22 @@ const CreateAccount = () => {
                             paddingRight: 10,
                             borderTopRightRadius: 6,
                             borderBottomRightRadius: 6,
-                            paddingTop: 15,
+                            // paddingTop: 15,
                             minWidth: "200%",
                           }}
                           textInputStyle={{
                             color: "white",
                             paddingHorizontal: 2,
+                            fontFamily: "LexendDeca-Light",
+                          }}
+                          textInputProps={{
+                            placeholderTextColor: "#5E5D6F",
+                            cursorColor: "white",
                           }}
                         />
 
                         {errors.phone && (
-                          <Text className="mt-2 text-left font-LexendDeca text-xs tracking-wider text-red-500">
+                          <Text className="mt-2 text-left font-LexendDeca text-[12px] tracking-[-0.24px] text-red-500">
                             *{errors?.phone.message as string}
                             {/* {value} */}
                           </Text>
@@ -365,7 +370,7 @@ const CreateAccount = () => {
                 <Input
                   name="confirmPassword"
                   label="Confirm Password"
-                  placeholder="Enter your password again"
+                  placeholder="Confirm Password"
                   secureTextEntry
                   rules={["required", "confirmPassword"]}
                 />
@@ -380,8 +385,8 @@ const CreateAccount = () => {
                         name="agree"
                         // checked={value}
                         // onChange={onChange}
-                        label="I agree with the Terms & Conditions"
-                        textStyle="Roboto-Bold" // Example font family
+                        label="I accept the terms and privacy policy"
+                        textStyle="LexendDeca-Light" // Example font family
                       />
                     )}
                   />
@@ -390,30 +395,30 @@ const CreateAccount = () => {
                   title="Sign up"
                   disabled={isLoading || !isValid || !agree}
                   onPress={handleSignUp}
-                  // onPress={() => router.replace("/verify-code")}
-                  className="mb-4 mt-[18px] !rounded !text-white"
-                  // loading={isLoading}
+                  className="mb-4 mt-[18px] !rounded-[10px] !text-white text-sm h-[50px]"
+                  textStyle="font-LexendDecaMedium tracking-[-0.22px]"
+                  loading={isLoading}
                 />
               </FormProvider>
             </View>
           </View>
-          <View className="mx-auto py-12 ">
+          <View className=" py-12 flex-row items-center justify-center gap-[4px] shrink flex-wrap">
             <Text
               className="text-center text-lg font-normal text-[#CCCCCC]
-                        font-LexendDecaMedium
+                        font-LexendDeca tracking-[-0.22px]
                         "
             >
               Don't have an account?
             </Text>
             <Pressable onPress={() => router.dismissTo("/sign-in")}>
-              <Text className="text-center text-lg font-LexendDecaMedium text-primary-100">
+              <Text className="text-center text-lg font-LexendDecaMedium text-primary-100 tracking-[-0.22px]">
                 Log in
               </Text>
             </Pressable>
           </View>
 
           <View>
-            <Text className="text-[#ccc] font-LexendDeca text-[12px] text-center">
+            <Text className="text-[#ccc] font-LexendDeca text-[12px] text-center tracking-[-0.22px]">
               By signing up you agree to our{" "}
               <Link
                 href="https://www.auqli.live/terms"

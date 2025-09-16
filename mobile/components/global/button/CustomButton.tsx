@@ -51,6 +51,9 @@ const CustomButton = ({
       className={`rounded-full p-[10px]  flex flex-row justify-center items-center shadow-neutral-400/70 ${disabled ? "!bg-[#C6C6C6] !border-transparent" : `${getBgVariantStyle(bgVariant)} `}  ${className}`}
       {...props}
       disabled={disabled}
+      style={{
+        borderCurve: "continuous",
+      }}
     >
       {IconLeft && <IconLeft />}
       <Text

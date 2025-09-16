@@ -7,7 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { Link, useLocalSearchParams } from "expo-router";
@@ -25,6 +25,8 @@ import LoadingModal from "@/components/global/loading-modal";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import Entypo from "@expo/vector-icons/Entypo";
+import { cn } from "@/core";
 
 const VerifyCodeOtp = () => {
   const params = useLocalSearchParams();
@@ -45,6 +47,9 @@ const VerifyCodeOtp = () => {
   } = methods;
 
   const data = watch();
+
+  const [resetTimer, setResetTimer] = useState<boolean>(true);
+  const [timer, setTimer] = useState<number>(59);
 
   const [verify, { isLoading }] = useVerifyEmailMutation();
 
@@ -73,6 +78,8 @@ const VerifyCodeOtp = () => {
           error?.data?.message ||
           "Could not Resend OTP",
       );
+    } finally {
+      return setResetTimer(true);
     }
   };
 
@@ -100,39 +107,55 @@ const VerifyCodeOtp = () => {
     resendOtp(false);
   }, []);
 
+  useEffect(() => {
+    const timerInterval = setInterval(
+      () =>
+        setTimer((prev) => {
+          if (prev > 0) {
+            return prev - 1;
+          }
+          setResetTimer(false);
+          return 0;
+        }),
+      1000,
+    );
+    if (!resetTimer) {
+      clearInterval(timerInterval);
+      setTimer(59);
+    }
+
+    return () => clearInterval(timerInterval);
+  }, [resetTimer]);
+
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full flex-1 bg-black">
-        <View className="container px-[30.6px] my-16">
-          <View className="flex-row mb-[45px]">
+        <View className="container px-[20px] my-[20px]">
+          <View className="mb-[20px]">
             <Pressable
               onPress={() => {
                 console.log("logging");
                 router.dismissTo("/sign-up");
               }}
-              className="absolute"
-              style={{
-                zIndex: 100,
-              }}
             >
-              <Image source={icons.circleBackArrow} className="w-7 h-7" />
+              <Entypo name="chevron-left" size={24} color="white" />
             </Pressable>
-            <View className="self-center justify-center w-full">
-              <Text className="text-gray-200 pt-4 text-center font-LexendDecaBold text-[21.77px] pb-5 leading-5">
-                Verify Code
-              </Text>
-              <Text className="text-gray-200 text-center font-LexendDecaMedium text-sm">
-                We sent a code to you at {"\n"}
-                {email}
-              </Text>
-              {/* <Link
+          </View>
+          <View className="self-center justify-center w-full mb-[24px]">
+            <Text className="text-white mb-[10px] text-center font-LexendDecaMedium text-[24px] tracking-[-0.22px]">
+              Verify Code
+            </Text>
+            <Text className="text-gray-200 text-center font-LexendDecaLight text-sm tracking-[-0.22px]">
+              We sent a code to you at {"\n"}
+              {email}
+            </Text>
+            {/* <Link
                 href={"/(root)/(auth)/sign-up"}
                 className="text-center text-[10px] font-LexendDecaMedium underline text-primary-100 mt-2"
               >
                 Change email
               </Link> */}
-            </View>
           </View>
           <Controller
             name="otp"
@@ -143,7 +166,6 @@ const VerifyCodeOtp = () => {
                 focusColor="#2F2E41"
                 autoFocus={false}
                 hideStick={true}
-                placeholder="******"
                 blurOnFilled={true}
                 disabled={false}
                 type="numeric"
@@ -156,37 +178,66 @@ const VerifyCodeOtp = () => {
                 textInputProps={{
                   accessibilityLabel: "One-Time Password",
                 }}
+                placeholder="----"
                 theme={{
+                  containerStyle: {
+                    paddingHorizontal: 40,
+                  },
                   pinCodeContainerStyle: {
-                    width: 70.74,
-                    height: 50.7,
-                    backgroundColor: "#fff",
-                    borderRadius: 3.63,
+                    borderRadius: 10,
+                    borderCurve: "continuous",
+                    width: 50,
+                    height: 50,
+                    backgroundColor: "#FFFFFF05",
+                    borderWidth: 1,
+                    borderColor: "#FFFFFF33",
+                  },
+                  focusedPinCodeContainerStyle: {
+                    borderWidth: 1,
+                    borderColor: "#16783A",
+                  },
+                  pinCodeTextStyle: {
+                    color: "white",
+                    fontSize: 20,
+                    fontFamily: "LexendDeca-Medium",
+                  },
+                  placeholderTextStyle: {
+                    color: "#FFFFFF99",
+                  },
+                  focusStickStyle: {
+                    borderWidth: 1,
+                    borderColor: "#16783A",
+                    height: 20,
                   },
                 }}
               />
             )}
           />
 
-          <View className="flex-row justify-center py-8 items-center">
-            <Text className="font-LexendDeca text-sm text-gray-200">
-              Didn’t receive any OTP code?
-            </Text>
+          <View className="flex-row justify-center py-8 items-center gap-[6px]">
             <TouchableOpacity
               onPress={() => {
-                resendOtp(true);
+                if (!resetTimer) resendOtp(true);
               }}
             >
-              <Text className="underline text-gray-200 text-base font-LexendDecaBold pl-1">
+              <Text
+                className={cn("text-white opacity-50 font-LexendDecaLight", {
+                  "text-white opacity-100": !resetTimer,
+                })}
+              >
                 Resend code
               </Text>
             </TouchableOpacity>
+            <Text className="font-LexendDeca text-gray-400">
+              {resetTimer && `${timer}s`}
+            </Text>
           </View>
           <CustomButton
             title="Verify Code"
             onPress={onSubmit}
             // onPress={() => router.replace("/category")}
             className="mb-4 mt-[18px] !rounded-[40px] py-4 !text-white text-sm font-LexendDecaBold"
+            textStyle="font-LexendDecaMedium tracking-[-0.22px]"
             disabled={data.otp.length !== 4 || isLoading}
           />
         </View>

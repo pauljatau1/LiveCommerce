@@ -104,20 +104,20 @@ const ForgotPassword = () => {
       <View className="mt-[80px]">
         {/* <ScrollView> */}
         <View className=" w-full justify-between px-[21px]">
-          <View className="mb-[24px] ">
-            <Image
+          <View className="mb-[40px] ">
+            {/* <Image
               source={icons.lock}
               resizeMode="contain"
               className="mx-auto mb-[18px] h-[40px]"
-            />
-            <Text className="mb-2.5 text-center font-SfPro text-xl font-semibold text-white font-LexendDecaBold">
+            /> */}
+            <Text className="mb-2.5 text-center font-LexendDecaMedium text-[24px] text-white tracking-[-0.22px]">
               Forgot Password
             </Text>
-            <Text className="text-center font-SfPro text-base text-[#425466] font-LexendDeca">
+            <Text className="text-center font-LexendDecaLight text-[#425466] tracking-[-0.22px]">
               Enter your email and we will send you an OTP
             </Text>
           </View>
-          <View className="w-full gap-y-4 rounded-[8px] border border-[#C6C6C640] p-8">
+          <View className="w-full gap-y-[16px]">
             <FormProvider {...methods}>
               <Input
                 name="email"
@@ -134,11 +134,12 @@ const ForgotPassword = () => {
                 />
               </View> */}
               <CustomButton
-                title="Continue"
+                title="Reset Password"
                 // isLoading={isLoading}
                 disabled={!isValid || isLoading}
                 onPress={() => handleSubmit()}
-                className="mb-4 mt-[18px] !rounded !text-white"
+                className="mb-4 mt-[18px] !rounded-[10px] !text-white text-sm h-[50px]"
+                textStyle="font-LexendDecaMedium tracking-[-0.22px]"
                 loading={isLoading || isLoadingReset}
                 style={{
                   zIndex: 100,
