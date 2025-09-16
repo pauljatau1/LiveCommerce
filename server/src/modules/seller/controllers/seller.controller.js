@@ -15,6 +15,7 @@ const smileIdCallbackService = require('../services/smileIdCallback.service');
 const addBusinessDetailsService = require('../services/addBusinessDetails.service');
 const addBusinessInformationService = require('../services/addBusinessInformation.service');
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
+const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 
 /**
  * Register a seller user.
@@ -545,6 +546,45 @@ async function addShippingWarehouse(req, res, next) {
   }
 }
 
+/**
+ * Upload store avatar to seller profile.
+ *
+ * This controller handles the store avatar upload HTTP request.
+ * It delegates the avatar upload logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Avatar Upload Process includes:
+ * - File validation for security and format requirements
+ * - Upload to AWS S3 cloud storage
+ * - Update seller profile with new avatar information
+ * - Cleanup of previous avatar from storage
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the uploaded file in `req.file`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadStoreAvatar(req, res, next) {
+  try {
+    // Extract uploaded file from request
+    const avatarFile = req.file;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle store avatar upload logic
+    const response = await uploadStoreAvatarService.uploadStoreAvatar(sellerId, avatarFile);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Store avatar uploaded successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Store avatar uploaded successfully', data: { message: 'Store avatar uploaded successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Store avatar uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -562,5 +602,6 @@ module.exports = {
   smileIdCallback,
   addBusinessDetails,
   addBusinessInformation,
-  addShippingWarehouse
+  addShippingWarehouse,
+  uploadStoreAvatar
 };
