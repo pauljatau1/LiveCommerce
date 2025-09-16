@@ -2915,4 +2915,273 @@ router.put('/shipping-warehouse', verifyToken, sellerController.addShippingWareh
 // Upload store avatar route - using same middleware as original route
 router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerController.uploadStoreAvatar);
 
+/**
+ * @swagger
+ * /api/v2/sellers/profile/banner:
+ *   post:
+ *     summary: Upload store banner to seller profile
+ *     description: |
+ *       This endpoint allows sellers to upload a new store banner image. The endpoint
+ *       validates the uploaded file, uploads it to AWS S3 cloud storage, and updates
+ *       the seller's profile with the new banner information.
+ *       
+ *       **Business Logic:**
+ *       - Validates uploaded file for security and format requirements
+ *       - Uploads file to AWS S3 cloud storage with unique filename
+ *       - Updates seller profile with new banner URL and metadata
+ *       - Deletes previous banner from S3 storage to prevent bloat
+ *       - Ensures data integrity and security standards
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates file type (JPEG, PNG, GIF, WebP only)
+ *       - Validates file size (max 10MB)
+ *       - Generates unique filenames to prevent conflicts
+ *       - Validates seller ownership of the account
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *                 description: The store banner image file
+ *                 maxLength: 10485760
+ *             required:
+ *               - banner
+ *     responses:
+ *       200:
+ *         description: Store banner uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store banner uploaded successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Store banner uploaded successfully"
+ *                     seller:
+ *                       type: object
+ *                       description: Updated seller object with new banner information
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         storeBanner:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                               example: "https://cdn.example.com/uuid-banner.jpg"
+ *                             public_id:
+ *                               type: string
+ *                               example: "uuid-banner.jpg"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       400:
+ *         description: Bad request - No banner file uploaded or invalid file
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Banner file is required"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "banner"
+ *                       message:
+ *                         type: string
+ *                         example: "Banner file is required"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       413:
+ *         description: Payload too large - File size exceeds 10MB limit
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "File size cannot exceed 10MB"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "file.size"
+ *                       message:
+ *                         type: string
+ *                         example: "File size cannot exceed 10MB"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       415:
+ *         description: Unsupported media type - Invalid file format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "File must be a valid image format (JPEG, PNG, GIF, WebP)"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "file.mimetype"
+ *                       message:
+ *                         type: string
+ *                         example: "File must be a valid image format (JPEG, PNG, GIF, WebP)"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation failed - Invalid file data or format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "file.buffer"
+ *                       message:
+ *                         type: string
+ *                         example: "File buffer must be a valid Buffer object"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ */
+// Upload store banner route - using same middleware as original route
+router.post('/profile/banner', verifyToken, upload.single('banner'), sellerController.uploadStoreBanner);
+
 module.exports = router;

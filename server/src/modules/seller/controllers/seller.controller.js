@@ -16,6 +16,7 @@ const addBusinessDetailsService = require('../services/addBusinessDetails.servic
 const addBusinessInformationService = require('../services/addBusinessInformation.service');
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
+const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
 
 /**
  * Register a seller user.
@@ -585,6 +586,49 @@ async function uploadStoreAvatar(req, res, next) {
   }
 }
 
+/**
+ * Upload store banner for a seller.
+ *
+ * This controller handles the HTTP request for uploading a store banner image.
+ * It delegates the upload logic to the service layer and sends a success response.
+ *
+ * Business Logic:
+ * - Validates uploaded banner file for security and format requirements
+ * - Uploads banner to AWS S3 cloud storage with unique filename
+ * - Updates seller profile with new banner URL and metadata
+ * - Deletes previous banner from S3 storage to prevent bloat
+ * - Ensures data integrity and security standards
+ *
+ * Security Considerations:
+ * - Requires valid authentication token
+ * - Validates file type (JPEG, PNG, GIF, WebP only)
+ * - Validates file size (max 10MB)
+ * - Generates unique filenames to prevent conflicts
+ * - Validates seller ownership of the account
+ *
+ * @param {Request} req - Express request object containing the uploaded banner file in `req.file`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadStoreBanner(req, res, next) {
+  try {
+    // Extract uploaded file from request
+    const bannerFile = req.file;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle store banner upload logic
+    const response = await uploadStoreBannerService.uploadStoreBanner(sellerId, bannerFile);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Store banner uploaded successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Store banner uploaded successfully', data: { message: 'Store banner uploaded successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Store banner uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -603,5 +647,6 @@ module.exports = {
   addBusinessDetails,
   addBusinessInformation,
   addShippingWarehouse,
-  uploadStoreAvatar
+  uploadStoreAvatar,
+  uploadStoreBanner
 };
