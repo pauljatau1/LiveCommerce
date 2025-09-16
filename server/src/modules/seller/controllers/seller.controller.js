@@ -14,6 +14,7 @@ const saveBusinessSmileIdVerificationService = require('../services/saveBusiness
 const smileIdCallbackService = require('../services/smileIdCallback.service');
 const addBusinessDetailsService = require('../services/addBusinessDetails.service');
 const addBusinessInformationService = require('../services/addBusinessInformation.service');
+const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 
 /**
  * Register a seller user.
@@ -507,6 +508,43 @@ async function addBusinessInformation(req, res, next) {
   }
 }
 
+/**
+ * Add shipping and warehouse information to seller profile.
+ *
+ * This controller handles the shipping and warehouse information addition HTTP request.
+ * It delegates the shipping and warehouse information addition logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Shipping and Warehouse Information includes:
+ * - shippingOptions: The seller's shipping options (shippingMethod, returnsAndExchangePolicy)
+ * - warehouseDetails: The seller's warehouse details (name, contactNumber, address)
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the shipping and warehouse information in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addShippingWarehouse(req, res, next) {
+  try {
+    // Extract shipping and warehouse information from request body
+    const shippingWarehouseData = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle shipping and warehouse information addition logic
+    const response = await addShippingWarehouseService.addShippingWarehouse(sellerId, shippingWarehouseData);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Shipping and warehouse information added successfully', seller: { shippingOptions, warehouseDetails } }
+    // New v2: { success: true, message: 'Shipping and warehouse information added successfully', data: { message: 'Shipping and warehouse information added successfully', seller: { shippingOptions, warehouseDetails } }, pagination: null }
+    res.success(response, 'Shipping and warehouse information added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -523,5 +561,6 @@ module.exports = {
   saveBusinessSmileIdVerification,
   smileIdCallback,
   addBusinessDetails,
-  addBusinessInformation
+  addBusinessInformation,
+  addShippingWarehouse
 };

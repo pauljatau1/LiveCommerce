@@ -368,41 +368,6 @@ exports.uploadStoreBanner = async (req, res) => {
   }
 };
 
-// Add shipping and warehouse information
-exports.addShippingWarehouse = async (req, res) => {
-  try {
-    const { shippingOptions, warehouseDetails } = req.body;
-
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Update seller with warehouse and shipping details
-    seller.shippingOptions = shippingOptions;
-    seller.warehouseDetails = warehouseDetails;
-
-    // Update completion flags
-    seller.hasFilledWarehouseAddress = !!warehouseDetails;
-
-    await seller.save();
-
-    res.json({
-      message: 'Shipping and warehouse information added successfully',
-      seller: {
-        shippingOptions: seller.shippingOptions,
-        warehouseDetails: seller.warehouseDetails
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to add shipping and warehouse information',
-      error: error.message
-    });
-  }
-};
-
 // Request bank account change
 exports.requestBankAccountChange = async (req, res) => {
   try {
