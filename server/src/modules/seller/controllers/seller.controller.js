@@ -10,6 +10,13 @@ const uploadIndividualVerificationService = require('../services/uploadIndividua
 const generateSmileIdTokenService = require('../services/generateSmileIdToken.service');
 const processSmileIdJobService = require('../services/processSmileIdJob.service');
 const saveIndividualSmileIdVerificationService = require('../services/saveIndividualSmileIdVerification.service');
+const saveBusinessSmileIdVerificationService = require('../services/saveBusinessSmileIdVerification.service');
+const smileIdCallbackService = require('../services/smileIdCallback.service');
+const addBusinessDetailsService = require('../services/addBusinessDetails.service');
+const addBusinessInformationService = require('../services/addBusinessInformation.service');
+const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
+const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
+const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
 
 /**
  * Register a seller user.
@@ -375,6 +382,253 @@ async function saveIndividualSmileIdVerification(req, res, next) {
   }
 }
 
+/**
+ * Save business SmileID verification result.
+ *
+ * This controller handles the business SmileID verification result saving HTTP request.
+ * It delegates the verification saving logic to the service layer and sends a success response.
+ *
+ * @param {Request} req - Express request object containing the verification data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function saveBusinessSmileIdVerification(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+    
+    // Extract verification data from request body
+    const verificationData = req.body;
+
+    // Call the service layer to handle business SmileID verification saving logic
+    const response = await saveBusinessSmileIdVerificationService.saveBusinessSmileIdVerification(verificationData, sellerId);
+
+    // Send success response with exact same structure as original function in data object
+    // Original: { message: 'Business SmileID verification result saved successfully', verification: {...}, actuallySuccessful: true/false }
+    // New v2: { success: true, message: 'Business SmileID verification result saved successfully', data: { message: 'Business SmileID verification result saved successfully', verification: {...}, actuallySuccessful: true/false }, pagination: null }
+    res.success(response, 'Business SmileID verification result saved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Handle SmileID verification callback.
+ *
+ * This controller handles webhook callbacks from SmileID verification service.
+ * It delegates the callback processing logic to the service layer and sends
+ * appropriate responses to SmileID.
+ *
+ * @param {Request} req - Express request object containing the verification callback data in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function smileIdCallback(req, res, next) {
+  try {
+    // Extract verification callback data from request body
+    const verificationResult = req.body;
+
+    // Call the service layer to handle SmileID callback processing logic
+    const response = await smileIdCallbackService.processSmileIdCallback(verificationResult);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }
+    // New v2: { success: true, message: 'Callback received successfully', data: { message: 'Callback received successfully', job_id: ..., processed: true, assessment: {...} }, pagination: null }
+    res.success(response, 'Callback received successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Add business details to seller profile.
+ *
+ * This controller handles the HTTP request for adding business details
+ * to a seller's profile. It delegates the business logic to the service
+ * layer and sends appropriate responses.
+ *
+ * @param {Request} req - Express request object containing the business details in `req.body` and seller ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBusinessDetails(req, res, next) {
+  try {
+    // Extract business details from request body
+    const businessDetails = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle business details addition logic
+    const response = await addBusinessDetailsService.addBusinessDetails(sellerId, businessDetails);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Business details added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Business details added successfully', data: { message: 'Business details added successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Business details added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Add business information to seller profile.
+ *
+ * This controller handles the business information addition HTTP request.
+ * It delegates the business information addition logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Business Information includes:
+ * - businessEmail: The seller's business email address
+ * - businessNumber: The seller's business phone number
+ * - businessAddress: The seller's business address details
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the business information in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBusinessInformation(req, res, next) {
+  try {
+    // Extract business information from request body
+    const businessInformation = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle business information addition logic
+    const response = await addBusinessInformationService.addBusinessInformation(sellerId, businessInformation);
+
+    // Send success response with exact same structure as original function
+    // Original: { success: true, message: 'Business information added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Business information added successfully', data: { message: 'Business information added successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Business information added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Add shipping and warehouse information to seller profile.
+ *
+ * This controller handles the shipping and warehouse information addition HTTP request.
+ * It delegates the shipping and warehouse information addition logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Shipping and Warehouse Information includes:
+ * - shippingOptions: The seller's shipping options (shippingMethod, returnsAndExchangePolicy)
+ * - warehouseDetails: The seller's warehouse details (name, contactNumber, address)
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the shipping and warehouse information in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addShippingWarehouse(req, res, next) {
+  try {
+    // Extract shipping and warehouse information from request body
+    const shippingWarehouseData = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle shipping and warehouse information addition logic
+    const response = await addShippingWarehouseService.addShippingWarehouse(sellerId, shippingWarehouseData);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Shipping and warehouse information added successfully', seller: { shippingOptions, warehouseDetails } }
+    // New v2: { success: true, message: 'Shipping and warehouse information added successfully', data: { message: 'Shipping and warehouse information added successfully', seller: { shippingOptions, warehouseDetails } }, pagination: null }
+    res.success(response, 'Shipping and warehouse information added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Upload store avatar to seller profile.
+ *
+ * This controller handles the store avatar upload HTTP request.
+ * It delegates the avatar upload logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Avatar Upload Process includes:
+ * - File validation for security and format requirements
+ * - Upload to AWS S3 cloud storage
+ * - Update seller profile with new avatar information
+ * - Cleanup of previous avatar from storage
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the uploaded file in `req.file`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadStoreAvatar(req, res, next) {
+  try {
+    // Extract uploaded file from request
+    const avatarFile = req.file;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle store avatar upload logic
+    const response = await uploadStoreAvatarService.uploadStoreAvatar(sellerId, avatarFile);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Store avatar uploaded successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Store avatar uploaded successfully', data: { message: 'Store avatar uploaded successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Store avatar uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Upload store banner for a seller.
+ *
+ * This controller handles the HTTP request for uploading a store banner image.
+ * It delegates the upload logic to the service layer and sends a success response.
+ *
+ * Business Logic:
+ * - Validates uploaded banner file for security and format requirements
+ * - Uploads banner to AWS S3 cloud storage with unique filename
+ * - Updates seller profile with new banner URL and metadata
+ * - Deletes previous banner from S3 storage to prevent bloat
+ * - Ensures data integrity and security standards
+ *
+ * Security Considerations:
+ * - Requires valid authentication token
+ * - Validates file type (JPEG, PNG, GIF, WebP only)
+ * - Validates file size (max 10MB)
+ * - Generates unique filenames to prevent conflicts
+ * - Validates seller ownership of the account
+ *
+ * @param {Request} req - Express request object containing the uploaded banner file in `req.file`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function uploadStoreBanner(req, res, next) {
+  try {
+    // Extract uploaded file from request
+    const bannerFile = req.file;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle store banner upload logic
+    const response = await uploadStoreBannerService.uploadStoreBanner(sellerId, bannerFile);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Store banner uploaded successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Store banner uploaded successfully', data: { message: 'Store banner uploaded successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Store banner uploaded successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -387,5 +641,12 @@ module.exports = {
   uploadIndividualVerification,
   generateSmileIdToken,
   processSmileIdJob,
-  saveIndividualSmileIdVerification
+  saveIndividualSmileIdVerification,
+  saveBusinessSmileIdVerification,
+  smileIdCallback,
+  addBusinessDetails,
+  addBusinessInformation,
+  addShippingWarehouse,
+  uploadStoreAvatar,
+  uploadStoreBanner
 };
