@@ -1,11 +1,16 @@
-import React, { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
+import PropTypes from 'prop-types';
 
-const AddOptionCard = memo(({ onDone }) => {
-    const [optionName, setOptionName] = useState('');
-    const [optionValues, setOptionValues] = useState(['']);
-    const { addOption } = useVariants();
+const AddOptionCard = memo(({ onDone, initialName, initialValues, variantId }) => {
+    const [optionName, setOptionName] = useState(initialName || '');
+    const [optionValues, setOptionValues] = useState(
+        initialValues && Array.isArray(initialValues) && initialValues.length > 0
+            ? [...initialValues, '']
+            : ['']
+    );
+    const { addOption, updateOption } = useVariants();
 
     const handleValueChange = useCallback((index, value) => {
         setOptionValues(prev => {
@@ -26,14 +31,19 @@ const AddOptionCard = memo(({ onDone }) => {
     const handleDone = useCallback(() => {
         const validValues = optionValues.filter(value => value.trim() !== '');
         if (optionName && validValues.length > 0) {
-            addOption({
-                id: crypto.randomUUID(),
+            const optionPayload = {
+                id: variantId || crypto.randomUUID(),
                 name: optionName,
                 values: validValues
-            });
+            };
+            if (variantId) {
+                updateOption(optionPayload);
+            } else {
+                addOption(optionPayload);
+            }
             onDone();
         }
-    }, [optionName, optionValues, addOption, onDone]);
+    }, [optionName, optionValues, addOption, updateOption, onDone, variantId]);
 
     return (
         <div className="p-6 border rounded-lg bg-white">
@@ -86,5 +96,12 @@ const AddOptionCard = memo(({ onDone }) => {
 });
 
 AddOptionCard.displayName = 'AddOptionCard';
+
+AddOptionCard.propTypes = {
+    onDone: PropTypes.func.isRequired,
+    initialName: PropTypes.string,
+    initialValues: PropTypes.arrayOf(PropTypes.string),
+    variantId: PropTypes.string
+};
 
 export default AddOptionCard; 

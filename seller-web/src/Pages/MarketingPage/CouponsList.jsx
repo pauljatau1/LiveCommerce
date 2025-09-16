@@ -262,7 +262,11 @@ export default function CouponsList() {
                     )}
                   </TableCell>
                   <TableCell className="text-green-600 font-semibold">
-                    {coupon.discountPercentage}% OFF
+                    {coupon.discountType === 'fixed' ? (
+                      <>₦ {Number(coupon.fixedAmount || 0).toLocaleString()}</>
+                    ) : (
+                      <>{coupon.discountPercentage}% OFF</>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-1">

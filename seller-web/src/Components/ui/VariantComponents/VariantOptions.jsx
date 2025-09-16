@@ -1,7 +1,5 @@
-import React, { memo, useState, useCallback } from 'react';
-import { Icon } from "@iconify/react";
+import { memo, useState, useCallback } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
-import { Button } from '../button';
 import PropTypes from 'prop-types';
 
 const VariantOptions = memo(({ onDone, editingVariant }) => {

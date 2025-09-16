@@ -51,7 +51,7 @@ Body: {
 
 ### 3. Business Verification Result Endpoint
 ```javascript
-POST /api/seller/verification/smileid/business
+POST /api/v2/sellers/verification/smileid/business
 Headers: Authorization: Bearer <token>
 Body: {
   smileIdResult: object,

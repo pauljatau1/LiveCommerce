@@ -119,7 +119,7 @@ const OnboardingProvider = ({ children }) => {
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
             console.log(data);
-            const response = await axios.put(`${BASE_URL}/seller/business-details`, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/business-details`, {
                 businessName,
                 businessType,
                 taxInformation: businessTaxInformation
@@ -132,7 +132,7 @@ const OnboardingProvider = ({ children }) => {
             );
             if (response.status === 200) {
                 console.log(response);
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business name submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
@@ -164,13 +164,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/business-information`, businessData, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/business-information`, businessData, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business information submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
@@ -214,14 +214,14 @@ const OnboardingProvider = ({ children }) => {
 
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const warehouseResponse = await axios.put(`${BASE_URL}/seller/shipping-warehouse`, warehouseData, {
+            const warehouseResponse = await axios.put(`${BASE_URL_V2}/sellers/shipping-warehouse`, warehouseData, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
 
             if (warehouseResponse.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: warehouseResponse.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: warehouseResponse.data.data.token });
                 toast.success('Business warehouse submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
@@ -237,7 +237,7 @@ const OnboardingProvider = ({ children }) => {
         } catch (error) {
             console.log(error);
             toast.error('Error submitting business warehouse', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.data?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',
@@ -376,13 +376,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/shipping-warehouse`, shippingOptions, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/shipping-warehouse`, shippingOptions, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Shipping options submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
@@ -395,7 +395,7 @@ const OnboardingProvider = ({ children }) => {
         } catch (error) {
             console.log(error);
             toast.error('Error submitting shipping options', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.data?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',
@@ -510,13 +510,13 @@ const OnboardingProvider = ({ children }) => {
 
             // Make both API calls simultaneously
             const [profileResponse, bannerResponse] = await Promise.all([
-                axios.post(`${BASE_URL}/seller/profile/avatar`, profileFormData, {
+                axios.post(`${BASE_URL_V2}/sellers/profile/avatar`, profileFormData, {
                     headers: {
                         Authorization: `Bearer ${data}`,
                         'Content-Type': 'multipart/form-data'
                     }
                 }),
-                axios.post(`${BASE_URL}/seller/profile/banner`, bannerFormData, {
+                axios.post(`${BASE_URL_V2}/sellers/profile/banner`, bannerFormData, {
                     headers: {
                         Authorization: `Bearer ${data}`,
                         'Content-Type': 'multipart/form-data'

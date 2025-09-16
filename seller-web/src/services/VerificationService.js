@@ -144,7 +144,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/business-details`,
+        `${BASE_URL_V2}/sellers/business-details`,
         businessDetails,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -184,7 +184,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/business-information`,
+        `${BASE_URL_V2}/sellers/business-information`,
         businessInfo,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -379,7 +379,7 @@ export const VerificationService = {
       formData.append('avatar', avatarFile);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/profile/avatar`,
+        `${BASE_URL_V2}/sellers/profile/avatar`,
         formData,
         {
           headers: { 
@@ -403,7 +403,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading store avatar:', error);
       throw error;
@@ -425,7 +425,7 @@ export const VerificationService = {
       formData.append('banner', bannerFile);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/profile/banner`,
+        `${BASE_URL_V2}/sellers/profile/banner`,
         formData,
         {
           headers: { 
@@ -448,7 +448,7 @@ export const VerificationService = {
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading store banner:', error);
       throw error;
@@ -589,7 +589,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/verification/smileid/business`,
+        `${BASE_URL_V2}/sellers/verification/smileid/business`,
         verificationData,
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -611,7 +611,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error saving business SmileID verification:', error);
       throw error;
@@ -686,4 +686,4 @@ export const VerificationService = {
   },
 };
 
-export default VerificationService; 
+export default VerificationService;
