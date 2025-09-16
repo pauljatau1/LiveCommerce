@@ -2140,4 +2140,250 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
 // Add business details route - using same middleware as original route
 router.put('/business-details', verifyToken, sellerController.addBusinessDetails);
 
+/**
+ * @swagger
+ * /api/v2/sellers/business-information:
+ *   put:
+ *     summary: Add business information to seller profile
+ *     description: |
+ *       This endpoint allows sellers to add or update their business contact and address information
+ *       including business email, business phone number, and business address details. The endpoint
+ *       validates all required fields and updates the seller's profile with the provided information.
+ *       
+ *       **Business Logic:**
+ *       - Validates all required fields (businessEmail, businessNumber, businessAddress)
+ *       - Updates seller business contact and address information
+ *       - Maintains completion status flags for business address
+ *       - Ensures data integrity and consistency
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates seller ownership of the account
+ *       - Ensures data sanitization and validation
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - businessEmail
+ *               - businessNumber
+ *               - businessAddress
+ *             properties:
+ *               businessEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: The business email address
+ *                 example: "business@techsolutions.com"
+ *                 maxLength: 255
+ *               businessNumber:
+ *                 type: string
+ *                 description: The business phone number
+ *                 example: "+2348012345678"
+ *                 maxLength: 20
+ *               businessAddress:
+ *                 type: object
+ *                 description: The business address details
+ *                 required:
+ *                   - country
+ *                   - state
+ *                   - city
+ *                   - addressLine1
+ *                   - zipCode
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                     description: The country
+ *                     example: "Nigeria"
+ *                     maxLength: 100
+ *                   state:
+ *                     type: string
+ *                     description: The state or province
+ *                     example: "Lagos"
+ *                     maxLength: 100
+ *                   city:
+ *                     type: string
+ *                     description: The city
+ *                     example: "Lagos"
+ *                     maxLength: 100
+ *                   addressLine1:
+ *                     type: string
+ *                     description: The primary address line
+ *                     example: "123 Business Street"
+ *                     maxLength: 200
+ *                   addressLine2:
+ *                     type: string
+ *                     description: The secondary address line (optional)
+ *                     example: "Suite 100"
+ *                     maxLength: 200
+ *                   zipCode:
+ *                     type: string
+ *                     description: The postal or zip code
+ *                     example: "100001"
+ *                     maxLength: 20
+ *     responses:
+ *       200:
+ *         description: Business information added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Business information added successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Business information added successfully"
+ *                     seller:
+ *                       type: object
+ *                       description: Updated seller object with business information
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         businessEmail:
+ *                           type: string
+ *                           example: "business@techsolutions.com"
+ *                         businessNumber:
+ *                           type: string
+ *                           example: "+2348012345678"
+ *                         businessAddress:
+ *                           type: object
+ *                           properties:
+ *                             country:
+ *                               type: string
+ *                               example: "Nigeria"
+ *                             state:
+ *                               type: string
+ *                               example: "Lagos"
+ *                             city:
+ *                               type: string
+ *                               example: "Lagos"
+ *                             addressLine1:
+ *                               type: string
+ *                               example: "123 Business Street"
+ *                             addressLine2:
+ *                               type: string
+ *                               example: "Suite 100"
+ *                             zipCode:
+ *                               type: string
+ *                               example: "100001"
+ *                         hasFilledBusinessAddress:
+ *                           type: boolean
+ *                           example: true
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation failed - Invalid or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "businessEmail"
+ *                       message:
+ *                         type: string
+ *                         example: "Business email is required"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ */
+
+// Add business information route - using same middleware as original route
+router.put('/business-information', verifyToken, sellerController.addBusinessInformation);
+
 module.exports = router;
