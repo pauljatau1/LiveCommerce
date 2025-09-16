@@ -379,7 +379,7 @@ export const VerificationService = {
       formData.append('avatar', avatarFile);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/profile/avatar`,
+        `${BASE_URL_V2}/sellers/profile/avatar`,
         formData,
         {
           headers: { 
@@ -403,7 +403,7 @@ export const VerificationService = {
         });
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading store avatar:', error);
       throw error;

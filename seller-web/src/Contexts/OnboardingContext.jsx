@@ -510,7 +510,7 @@ const OnboardingProvider = ({ children }) => {
 
             // Make both API calls simultaneously
             const [profileResponse, bannerResponse] = await Promise.all([
-                axios.post(`${BASE_URL}/seller/profile/avatar`, profileFormData, {
+                axios.post(`${BASE_URL_V2}/sellers/profile/avatar`, profileFormData, {
                     headers: {
                         Authorization: `Bearer ${data}`,
                         'Content-Type': 'multipart/form-data'
