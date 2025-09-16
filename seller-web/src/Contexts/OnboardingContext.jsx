@@ -164,13 +164,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/business-information`, businessData, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/business-information`, businessData, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business information submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {

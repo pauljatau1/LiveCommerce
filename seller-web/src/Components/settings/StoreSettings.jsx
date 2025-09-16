@@ -466,7 +466,7 @@ export default function StoreSettings() {
 
       if (Object.keys(updateData).length === 0) return true; // Skip if no changes
 
-      const response = await fetch(`${BASE_URL}/seller/business-information`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/business-information`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
