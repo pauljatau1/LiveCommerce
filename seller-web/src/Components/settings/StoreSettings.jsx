@@ -286,7 +286,7 @@ export default function StoreSettings() {
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile/banner`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/banner`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${sellerToken}`,

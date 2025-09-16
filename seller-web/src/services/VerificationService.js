@@ -425,7 +425,7 @@ export const VerificationService = {
       formData.append('banner', bannerFile);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/profile/banner`,
+        `${BASE_URL_V2}/sellers/profile/banner`,
         formData,
         {
           headers: { 
@@ -448,7 +448,7 @@ export const VerificationService = {
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error uploading store banner:', error);
       throw error;

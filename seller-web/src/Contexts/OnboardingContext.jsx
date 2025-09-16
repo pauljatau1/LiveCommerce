@@ -516,7 +516,7 @@ const OnboardingProvider = ({ children }) => {
                         'Content-Type': 'multipart/form-data'
                     }
                 }),
-                axios.post(`${BASE_URL}/seller/profile/banner`, bannerFormData, {
+                axios.post(`${BASE_URL_V2}/sellers/profile/banner`, bannerFormData, {
                     headers: {
                         Authorization: `Bearer ${data}`,
                         'Content-Type': 'multipart/form-data'
