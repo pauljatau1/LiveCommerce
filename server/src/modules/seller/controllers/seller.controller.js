@@ -13,6 +13,7 @@ const saveIndividualSmileIdVerificationService = require('../services/saveIndivi
 const saveBusinessSmileIdVerificationService = require('../services/saveBusinessSmileIdVerification.service');
 const smileIdCallbackService = require('../services/smileIdCallback.service');
 const addBusinessDetailsService = require('../services/addBusinessDetails.service');
+const addBusinessInformationService = require('../services/addBusinessInformation.service');
 
 /**
  * Register a seller user.
@@ -468,6 +469,44 @@ async function addBusinessDetails(req, res, next) {
   }
 }
 
+/**
+ * Add business information to seller profile.
+ *
+ * This controller handles the business information addition HTTP request.
+ * It delegates the business information addition logic to the service layer,
+ * and sends a success response with the same structure as the original API.
+ *
+ * Business Information includes:
+ * - businessEmail: The seller's business email address
+ * - businessNumber: The seller's business phone number
+ * - businessAddress: The seller's business address details
+ *
+ * The response maintains the same structure as the original API to ensure
+ * compatibility with existing frontend implementations.
+ *
+ * @param {Request} req - Express request object containing the business information in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function addBusinessInformation(req, res, next) {
+  try {
+    // Extract business information from request body
+    const businessInformation = req.body;
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle business information addition logic
+    const response = await addBusinessInformationService.addBusinessInformation(sellerId, businessInformation);
+
+    // Send success response with exact same structure as original function
+    // Original: { success: true, message: 'Business information added successfully', seller: updatedSeller }
+    // New v2: { success: true, message: 'Business information added successfully', data: { message: 'Business information added successfully', seller: updatedSeller }, pagination: null }
+    res.success(response, 'Business information added successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -483,5 +522,6 @@ module.exports = {
   saveIndividualSmileIdVerification,
   saveBusinessSmileIdVerification,
   smileIdCallback,
-  addBusinessDetails
+  addBusinessDetails,
+  addBusinessInformation
 };

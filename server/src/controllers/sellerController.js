@@ -368,42 +368,6 @@ exports.uploadStoreBanner = async (req, res) => {
   }
 };
 
-// Add business information
-exports.addBusinessInformation = async (req, res) => {
-  try {
-    const { businessEmail, businessNumber, businessAddress } = req.body;
-
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Seller not found' 
-      });
-    }
-
-    seller.businessEmail = businessEmail;
-    seller.businessNumber = businessNumber;
-    seller.businessAddress = businessAddress;
-
-    // Update completion flags
-    seller.hasFilledBusinessAddress = !!businessAddress;
-
-    const updatedSeller = await seller.save();
-
-    res.json({ 
-      success: true,
-      message: 'Business information added successfully', 
-      seller: updatedSeller 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to add business information', 
-      error: error.message 
-    });
-  }
-};
-
 // Add shipping and warehouse information
 exports.addShippingWarehouse = async (req, res) => {
   try {
