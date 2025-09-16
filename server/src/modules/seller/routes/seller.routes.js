@@ -2386,4 +2386,263 @@ router.put('/business-details', verifyToken, sellerController.addBusinessDetails
 // Add business information route - using same middleware as original route
 router.put('/business-information', verifyToken, sellerController.addBusinessInformation);
 
+/**
+ * @swagger
+ * /api/v2/sellers/shipping-warehouse:
+ *   put:
+ *     summary: Add shipping and warehouse information to seller profile
+ *     description: |
+ *       This endpoint allows sellers to add or update their shipping options and warehouse details
+ *       including shipping methods, return policies, and warehouse address information. The endpoint
+ *       validates all provided fields and updates the seller's profile with the provided information.
+ *       
+ *       **Business Logic:**
+ *       - Validates all provided fields (shippingOptions, warehouseDetails)
+ *       - Updates seller shipping options and warehouse details information
+ *       - Maintains completion status flags for warehouse address
+ *       - Ensures data integrity and consistency
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates seller ownership of the account
+ *       - Ensures data sanitization and validation
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               shippingOptions:
+ *                 type: object
+ *                 description: The shipping options details
+ *                 properties:
+ *                   shippingMethod:
+ *                     type: string
+ *                     description: The shipping method
+ *                     example: "Standard Shipping"
+ *                     maxLength: 200
+ *                   returnsAndExchangePolicy:
+ *                     type: string
+ *                     description: The returns and exchange policy
+ *                     example: "30-day return policy"
+ *                     maxLength: 500
+ *               warehouseDetails:
+ *                 type: object
+ *                 description: The warehouse details
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: The warehouse name
+ *                     example: "Main Warehouse"
+ *                     maxLength: 200
+ *                   contactNumber:
+ *                     type: string
+ *                     description: The warehouse contact number
+ *                     example: "+2348012345678"
+ *                     maxLength: 20
+ *                   address:
+ *                     type: object
+ *                     description: The warehouse address details
+ *                     properties:
+ *                       country:
+ *                         type: string
+ *                         description: The country
+ *                         example: "Nigeria"
+ *                         maxLength: 100
+ *                       state:
+ *                         type: string
+ *                         description: The state or province
+ *                         example: "Lagos"
+ *                         maxLength: 100
+ *                       city:
+ *                         type: string
+ *                         description: The city
+ *                         example: "Lagos"
+ *                         maxLength: 100
+ *                       addressLine1:
+ *                         type: string
+ *                         description: The primary address line
+ *                         example: "123 Warehouse Street"
+ *                         maxLength: 200
+ *                       addressLine2:
+ *                         type: string
+ *                         description: The secondary address line (optional)
+ *                         example: "Building A"
+ *                         maxLength: 200
+ *                       zipCode:
+ *                         type: string
+ *                         description: The postal or zip code
+ *                         example: "100001"
+ *                         maxLength: 20
+ *     responses:
+ *       200:
+ *         description: Shipping and warehouse information added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Shipping and warehouse information added successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Shipping and warehouse information added successfully"
+ *                     seller:
+ *                       type: object
+ *                       description: Updated seller object with shipping and warehouse information
+ *                       properties:
+ *                         shippingOptions:
+ *                           type: object
+ *                           properties:
+ *                             shippingMethod:
+ *                               type: string
+ *                               example: "Standard Shipping"
+ *                             returnsAndExchangePolicy:
+ *                               type: string
+ *                               example: "30-day return policy"
+ *                         warehouseDetails:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                               example: "Main Warehouse"
+ *                             contactNumber:
+ *                               type: string
+ *                               example: "+2348012345678"
+ *                             address:
+ *                               type: object
+ *                               properties:
+ *                                 country:
+ *                                   type: string
+ *                                   example: "Nigeria"
+ *                                 state:
+ *                                   type: string
+ *                                   example: "Lagos"
+ *                                 city:
+ *                                   type: string
+ *                                   example: "Lagos"
+ *                                 addressLine1:
+ *                                   type: string
+ *                                   example: "123 Warehouse Street"
+ *                                 addressLine2:
+ *                                   type: string
+ *                                   example: "Building A"
+ *                                 zipCode:
+ *                                   type: string
+ *                                   example: "100001"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation failed - Invalid or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "shippingOptions.shippingMethod"
+ *                       message:
+ *                         type: string
+ *                         example: "Shipping method must be a string"
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *                 errors:
+ *                   type: null
+ *                   example: null
+ *                 data:
+ *                   type: null
+ *                   example: null
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ */
+
+// Add shipping and warehouse information route - using same middleware as original route
+router.put('/shipping-warehouse', verifyToken, sellerController.addShippingWarehouse);
+
 module.exports = router;
