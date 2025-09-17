@@ -338,13 +338,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.post(`${BASE_URL}/seller/select-categories`, selectedCategories, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/select-categories`, selectedCategories, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Business Onboarding Completed', {
                     description: 'Your onboarding is complete and your account is being reviewed',
                     style: {
@@ -360,7 +360,7 @@ const OnboardingProvider = ({ children }) => {
         } catch (error) {
             console.log(error);
             toast.error('Error submitting business category', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.data?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',

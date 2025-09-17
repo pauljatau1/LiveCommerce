@@ -290,7 +290,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.post(
-        `${BASE_URL}/seller/select-categories`,
+        `${BASE_URL_V2}/sellers/select-categories`,
         { categories },
         {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -310,7 +310,7 @@ export const VerificationService = {
           "Verification Status": sellerData.isVerified ? "Verified" : "Not Verified",
         });
       }
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error selecting categories:', error);
       throw error;
