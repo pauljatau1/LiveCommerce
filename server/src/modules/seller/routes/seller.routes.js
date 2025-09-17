@@ -481,6 +481,152 @@ router.post('/resend-otp', sellerController.resendOTP);
 
 /**
  * @swagger
+ * /api/v2/sellers/verify-otp:
+ *   post:
+ *     summary: Verify OTP for seller email verification
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Seller's email address
+ *                 example: "seller@example.com"
+ *               otp:
+ *                 type: string
+ *                 description: One-time password (4 digits)
+ *                 example: "1234"
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email verified successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                       example: "Email verified successfully."
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "seller@example.com"
+ *                         emailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                         storeName:
+ *                           type: string
+ *                           example: "John's Store"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-01-01T00:00:00.000Z"
+ *                     token:
+ *                       type: string
+ *                       description: JWT token for authentication
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation error - Invalid input data or OTP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "otp"
+ *                       message:
+ *                         type: string
+ *                         example: "Invalid OTP"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.post('/verify-otp', sellerController.verifyOTP);
+
+/**
+ * @swagger
  * /api/v2/sellers/profile/account-type:
  *   put:
  *     summary: Select account type for seller
@@ -551,6 +697,354 @@ router.post('/resend-otp', sellerController.resendOTP);
 
 // Select account type route
 router.put('/profile/account-type', verifyToken, sellerController.selectAccountType);
+
+/**
+ * @swagger
+ * /api/v2/sellers/select-categories:
+ *   post:
+ *     summary: Select categories for seller
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - categories
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 description: Array of categories to select
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - name
+ *                     - subCategories
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Category ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                       example: "Electronics"
+ *                     subCategories:
+ *                       type: array
+ *                       description: Array of sub-categories
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - name
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Sub-category name
+ *                             example: "Smartphones"
+ *     responses:
+ *       200:
+ *         description: Categories selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Categories selected successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Categories selected successfully"
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "seller@example.com"
+ *                         storeName:
+ *                           type: string
+ *                           example: "John's Store"
+ *                         categories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "Electronics"
+ *                               subCategories:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     name:
+ *                                       type: string
+ *                                       example: "Smartphones"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-01-01T00:00:00.000Z"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation error - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "categories"
+ *                       message:
+ *                         type: string
+ *                         example: "Categories are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.post('/select-categories', verifyToken, sellerController.selectCategories);
+
+/**
+ * @swagger
+ * /api/v2/sellers/update-categories:
+ *   put:
+ *     summary: Update categories for seller
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - categories
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 description: Array of categories to update
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - name
+ *                     - subCategories
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Category ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                       example: "Electronics"
+ *                     subCategories:
+ *                       type: array
+ *                       description: Array of sub-categories
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - name
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Sub-category name
+ *                             example: "Smartphones"
+ *     responses:
+ *       200:
+ *         description: Categories updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Categories updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Categories updated successfully"
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "seller@example.com"
+ *                         storeName:
+ *                           type: string
+ *                           example: "John's Store"
+ *                         categories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "Electronics"
+ *                               subCategories:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     name:
+ *                                       type: string
+ *                                       example: "Smartphones"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-01-01T00:00:00.000Z"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation error - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "categories"
+ *                       message:
+ *                         type: string
+ *                         example: "Categories are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.put('/update-categories', verifyToken, sellerController.updateCategories);
 
 /**
  * @swagger
@@ -2082,15 +2576,6 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
  *                 message:
  *                   type: string
  *                   example: "Unauthorized"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       404:
  *         description: Seller not found
  *         content:
@@ -2104,15 +2589,6 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
  *                 message:
  *                   type: string
  *                   example: "Seller not found"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       500:
  *         description: Internal server error
  *         content:
@@ -2126,15 +2602,6 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
  *                 message:
  *                   type: string
  *                   example: "Internal server error"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  */
 
 // Add business details route - using same middleware as original route
@@ -2328,15 +2795,6 @@ router.put('/business-details', verifyToken, sellerController.addBusinessDetails
  *                 message:
  *                   type: string
  *                   example: "Unauthorized"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       404:
  *         description: Seller not found
  *         content:
@@ -2350,15 +2808,6 @@ router.put('/business-details', verifyToken, sellerController.addBusinessDetails
  *                 message:
  *                   type: string
  *                   example: "Seller not found"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       500:
  *         description: Internal server error
  *         content:
@@ -2372,15 +2821,6 @@ router.put('/business-details', verifyToken, sellerController.addBusinessDetails
  *                 message:
  *                   type: string
  *                   example: "Internal server error"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  */
 
 // Add business information route - using same middleware as original route
@@ -2587,15 +3027,6 @@ router.put('/business-information', verifyToken, sellerController.addBusinessInf
  *                 message:
  *                   type: string
  *                   example: "Unauthorized"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       404:
  *         description: Seller not found
  *         content:
@@ -2609,15 +3040,6 @@ router.put('/business-information', verifyToken, sellerController.addBusinessInf
  *                 message:
  *                   type: string
  *                   example: "Seller not found"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       500:
  *         description: Internal server error
  *         content:
@@ -2631,15 +3053,6 @@ router.put('/business-information', verifyToken, sellerController.addBusinessInf
  *                 message:
  *                   type: string
  *                   example: "Internal server error"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  */
 
 // Add shipping and warehouse information route - using same middleware as original route
@@ -2767,15 +3180,6 @@ router.put('/shipping-warehouse', verifyToken, sellerController.addShippingWareh
  *                 message:
  *                   type: string
  *                   example: "Unauthorized"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       404:
  *         description: Seller not found
  *         content:
@@ -2789,15 +3193,6 @@ router.put('/shipping-warehouse', verifyToken, sellerController.addShippingWareh
  *                 message:
  *                   type: string
  *                   example: "Seller not found"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       413:
  *         description: Payload too large - File size exceeds 10MB limit
  *         content:
@@ -2901,15 +3296,6 @@ router.put('/shipping-warehouse', verifyToken, sellerController.addShippingWareh
  *                 message:
  *                   type: string
  *                   example: "Internal server error"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  */
 
 // Upload store avatar route - using same middleware as original route
@@ -3037,15 +3423,6 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
  *                 message:
  *                   type: string
  *                   example: "Unauthorized"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       404:
  *         description: Seller not found
  *         content:
@@ -3059,15 +3436,6 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
  *                 message:
  *                   type: string
  *                   example: "Seller not found"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  *       413:
  *         description: Payload too large - File size exceeds 10MB limit
  *         content:
@@ -3171,15 +3539,6 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
  *                 message:
  *                   type: string
  *                   example: "Internal server error"
- *                 errors:
- *                   type: null
- *                   example: null
- *                 data:
- *                   type: null
- *                   example: null
- *                 pagination:
- *                   type: null
- *                   example: null
  */
 // Upload store banner route - using same middleware as original route
 router.post('/profile/banner', verifyToken, upload.single('banner'), sellerController.uploadStoreBanner);

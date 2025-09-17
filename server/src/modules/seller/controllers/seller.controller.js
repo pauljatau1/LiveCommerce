@@ -17,6 +17,9 @@ const addBusinessInformationService = require('../services/addBusinessInformatio
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
+const verifyOTPService = require('../services/verifyOTP.service');
+const selectCategoriesService = require('../services/selectCategories.service');
+const updateCategoriesService = require('../services/updateCategories.service');
 
 /**
  * Register a seller user.
@@ -629,11 +632,157 @@ async function uploadStoreBanner(req, res, next) {
   }
 }
 
+/**
+ * Verify OTP for seller email verification.
+ *
+ * This controller handles the OTP verification HTTP request.
+ * It delegates the verification logic to the service layer and returns the verification result.
+ *
+ * Business Logic:
+ * - Validates email and OTP input data
+ * - Finds seller by email address
+ * - Verifies OTP against stored value
+ * - Updates seller verification status
+ * - Generates JWT token for authentication
+ * - Returns user data and token for immediate access
+ *
+ * Security Features:
+ * - Comprehensive input validation
+ * - Secure OTP comparison
+ * - Account verification status management
+ * - JWT token generation for authenticated access
+ * - Error handling without information leakage
+ *
+ * Response Structure:
+ * - Maintains same structure as original API
+ * - Includes success status, message, user data, and token
+ * - Compatible with existing frontend implementations
+ *
+ * @param {Request} req - Express request object containing email and OTP in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyOTP(req, res, next) {
+  try {
+    // Extract email and OTP from request body
+    const { email, otp } = req.body;
+
+    // Call the service layer to handle OTP verification logic
+    const response = await verifyOTPService.verifyOTP(email, otp);
+
+    // Send success response with exact same structure as original function
+    // Original: { success: true, message: 'Email verified successfully.', user: seller, token }
+    // New v2: { success: true, message: 'Email verified successfully.', data: { success: true, message: 'Email verified successfully.', user: seller, token }, pagination: null }
+    res.success(response, 'Email verified successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Select categories for a seller.
+ *
+ * This controller handles the category selection HTTP request.
+ * It delegates the category selection logic to the service layer, and sends a success response.
+ *
+ * The controller ensures that:
+ * - Request data is properly extracted and validated
+ * - Service layer handles all business logic
+ * - Response is properly formatted using responseFormatter
+ * - Errors are properly handled and forwarded
+ *
+ * Request Processing:
+ * - Extracts seller ID from authenticated user
+ * - Extracts categories from request body
+ * - Calls service layer for business logic
+ * - Formats and sends response
+ *
+ * Security Features:
+ * - Uses authenticated user ID for seller identification
+ * - Delegates validation to service layer
+ * - Proper error handling without information leakage
+ * - Consistent response formatting
+ *
+ * @param {Request} req - Express request object containing categories in `req.body` and user ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function selectCategories(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user and categories from request body
+    const sellerId = req.user.id;
+    const { categories } = req.body;
+
+    // Call the service layer to handle category selection logic
+    const response = await selectCategoriesService.selectCategories(sellerId, categories);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Categories selected successfully', seller }
+    // New v2: { success: true, message: 'Categories selected successfully', data: { message: 'Categories selected successfully', seller }, pagination: null }
+    res.success(response, 'Categories selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Update categories for a seller.
+ *
+ * This controller handles the HTTP request for updating seller categories.
+ * It provides secure category update functionality with proper validation,
+ * authentication, and response formatting.
+ *
+ * The controller ensures that:
+ * - Only authenticated sellers can update their categories
+ * - Input data is properly validated
+ * - Business logic is handled by the service layer
+ * - Responses are consistently formatted
+ * - Errors are properly handled
+ *
+ * Request Flow:
+ * 1. Extract seller ID from authenticated user
+ * 2. Extract categories from request body
+ * 3. Call service layer for business logic
+ * 4. Return formatted success response
+ * 5. Handle any errors through middleware
+ *
+ * Security Features:
+ * - Uses authenticated user ID for seller identification
+ * - Delegates validation to service layer
+ * - Proper error handling without information leakage
+ * - Consistent response formatting
+ *
+ * @param {Request} req - Express request object containing categories in `req.body` and user ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function updateCategories(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user and categories from request body
+    const sellerId = req.user.id;
+    const { categories } = req.body;
+
+    // Call the service layer to handle category update logic
+    const response = await updateCategoriesService.updateCategories(sellerId, categories);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Categories updated successfully', seller }
+    // New v2: { success: true, message: 'Categories updated successfully', data: { message: 'Categories updated successfully', seller }, pagination: null }
+    res.success(response, 'Categories updated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   checkToken,
   resendOTP,
+  verifyOTP,
   getProfile,
   selectAccountType,
   addBankDetails,
@@ -648,5 +797,7 @@ module.exports = {
   addBusinessInformation,
   addShippingWarehouse,
   uploadStoreAvatar,
-  uploadStoreBanner
+  uploadStoreBanner,
+  selectCategories,
+  updateCategories
 };

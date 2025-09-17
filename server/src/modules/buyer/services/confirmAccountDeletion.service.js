@@ -159,7 +159,7 @@ async function sendConfirmationEmail(email) {
 function isValidOTP(buyer, otp) {
   // Direct string comparison for OTP validation
   // Both values should be 4-digit strings for exact match
-  return buyer.accountDeletion.otp === otp;
+  return buyer.accountDeletion.otp === otp.toString();
 }
 
 /**
