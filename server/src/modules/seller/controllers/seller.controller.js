@@ -18,6 +18,7 @@ const addShippingWarehouseService = require('../services/addShippingWarehouse.se
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
 const verifyOTPService = require('../services/verifyOTP.service');
+const selectCategoriesService = require('../services/selectCategories.service');
 
 /**
  * Register a seller user.
@@ -678,6 +679,53 @@ async function verifyOTP(req, res, next) {
   }
 }
 
+/**
+ * Select categories for a seller.
+ *
+ * This controller handles the category selection HTTP request.
+ * It delegates the category selection logic to the service layer, and sends a success response.
+ *
+ * The controller ensures that:
+ * - Request data is properly extracted and validated
+ * - Service layer handles all business logic
+ * - Response is properly formatted using responseFormatter
+ * - Errors are properly handled and forwarded
+ *
+ * Request Processing:
+ * - Extracts seller ID from authenticated user
+ * - Extracts categories from request body
+ * - Calls service layer for business logic
+ * - Formats and sends response
+ *
+ * Security Features:
+ * - Uses authenticated user ID for seller identification
+ * - Delegates validation to service layer
+ * - Proper error handling without information leakage
+ * - Consistent response formatting
+ *
+ * @param {Request} req - Express request object containing categories in `req.body` and user ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function selectCategories(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user and categories from request body
+    const sellerId = req.user.id;
+    const { categories } = req.body;
+
+    // Call the service layer to handle category selection logic
+    const response = await selectCategoriesService.selectCategories(sellerId, categories);
+
+    // Send success response with exact same structure as original function
+    // Original: { message: 'Categories selected successfully', seller }
+    // New v2: { success: true, message: 'Categories selected successfully', data: { message: 'Categories selected successfully', seller }, pagination: null }
+    res.success(response, 'Categories selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -698,5 +746,6 @@ module.exports = {
   addBusinessInformation,
   addShippingWarehouse,
   uploadStoreAvatar,
-  uploadStoreBanner
+  uploadStoreBanner,
+  selectCategories
 };
