@@ -7,43 +7,38 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  // ScrollView,
 } from "react-native";
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  memo,
-  useCallback,
-  useMemo,
-} from "react";
-// import { ScrollView } from "react-native-virtualized-view";
+import React, { useState, useRef, useEffect, memo, useMemo } from "react";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AllPostsList from "@/components/profile/myPostsList";
-import { Link, router, useLocalSearchParams } from "expo-router";
+import {
+  Link,
+  RelativePathString,
+  router,
+  useLocalSearchParams,
+} from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
-import { getToken, getUser } from "@/store/features/auth/utils";
+import { getToken } from "@/store/features/auth/utils";
 import Feather from "@expo/vector-icons/Feather";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Shops from "@/components/sellerProfile/shops";
 import Blips from "@/components/sellerProfile/blips";
-import ReviewsPage from "../reviews/[id]";
 import SellerReviews from "@/components/sellerProfile/reviews";
 import Shows from "@/components/sellerProfile/shows";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { MaterialIcons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
 import { ScrollView } from "react-native-virtualized-view";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { generateDeepLinkUrl } from "@/core";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -57,12 +52,14 @@ const CollapsibleHeader = memo(
     seller,
     handleSendMessage,
     sellerId,
+    storeName,
   }: {
     scrollY: any;
     info: any;
     seller: any;
     handleSendMessage: any;
     sellerId: string;
+    storeName: string;
   }) => {
     const headerTranslateY = scrollY.interpolate({
       inputRange: [0, HEADER_HEIGHT],
@@ -136,25 +133,48 @@ const CollapsibleHeader = memo(
               style={styles.bannerImage}
             />
             <View style={styles.profilePictureContainer}>
-              <Image
-                source={{ uri: seller?.storeInfo?.storeAvatar?.url }}
-                style={styles.profilePicture}
-              />
+              {seller?.storeInfo?.storeAvatar?.url ? (
+                <Image
+                  source={{ uri: seller?.storeInfo?.storeAvatar?.url }}
+                  style={styles.profilePicture}
+                />
+              ) : (
+                <Text className="text-[24px] text-white font-LexendDeca capitalize leading-[24px]">
+                  {storeName?.[0]}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.actions}>
             {isFollowing ? (
-              <Pressable style={styles.followAction} onPress={handleUnFollow}>
-                <Text style={styles.actionsText}>unfollow</Text>
+              <Pressable
+                className="flex-row items-center gap-[2px] bg-[#FFFFFF0D] px-[15.5px] py-[7.5px] rounded-full"
+                onPress={handleUnFollow}
+              >
+                <Text className="text-white text-[14px] font-LexendDeca tracking-[-0.22px]">
+                  Following
+                </Text>
               </Pressable>
             ) : (
-              <Pressable style={styles.followAction} onPress={handleFollow}>
-                <Text style={styles.actionsText}>follow</Text>
+              <Pressable
+                className=" flex-row items-center gap-[2px] bg-[#FFFEFE] px-[15.5px] py-[7.5px] rounded-full"
+                onPress={handleFollow}
+              >
+                <Text className="text-[#000000] text-[14px] font-LexendDeca tracking-[-0.22px]">
+                  Follow
+                </Text>
               </Pressable>
             )}
 
             <Pressable style={styles.messageAction} onPress={handleSendMessage}>
-              <Text style={styles.actionsText}>Send a Message</Text>
+              <MaterialCommunityIcons
+                name="message-text-outline"
+                size={16}
+                color="white"
+              />
+              {/* <Text className="text-white text-[14px] font-LexendDeca tracking-[-0.22px]">
+                Send a Message
+              </Text> */}
             </Pressable>
           </View>
           <View style={styles.infoContainer}>
@@ -194,21 +214,33 @@ const CollapsibleHeader = memo(
             seller?.storeInfo?.socialMedia?.tiktok ? (
               <View style={styles.socialContainer}>
                 {seller?.storeInfo?.socialMedia?.facebook && (
-                  <Link href={`${seller?.storeInfo?.socialMedia?.facebook}`}>
+                  <Link
+                    href={
+                      `${seller?.storeInfo?.socialMedia?.facebook}` as RelativePathString
+                    }
+                  >
                     <View style={[styles.socialCard]}>
                       <MaterialIcons name="facebook" size={12} color="white" />
                     </View>
                   </Link>
                 )}
                 {seller?.storeInfo?.socialMedia?.instagram && (
-                  <Link href={`${seller?.storeInfo?.socialMedia?.instagram}`}>
+                  <Link
+                    href={
+                      `${seller?.storeInfo?.socialMedia?.instagram}` as RelativePathString
+                    }
+                  >
                     <View style={[styles.socialCard]}>
                       <AntDesign name="instagram" size={12} color="white" />
                     </View>
                   </Link>
                 )}
                 {seller?.storeInfo?.socialMedia?.tiktok && (
-                  <Link href={`${seller?.storeInfo?.socialMedia?.tiktok}`}>
+                  <Link
+                    href={
+                      `${seller?.storeInfo?.socialMedia?.tiktok}` as RelativePathString
+                    }
+                  >
                     <View style={[styles.socialCard]}>
                       <MaterialIcons name="tiktok" size={12} color="white" />
                     </View>
@@ -592,11 +624,7 @@ const SellerProfile = () => {
           //   left: 12,
           // }}
         >
-          <Entypo
-            name="chevron-left"
-            size={24}
-            color="rgba(204, 204, 204, 0.8)"
-          />
+          <Entypo name="chevron-left" size={24} color="white" />
         </TouchableOpacity>
         <View
           className="flex-row items-center gap-[8px] shrink"
@@ -615,11 +643,9 @@ const SellerProfile = () => {
             </View>
           )}
 
-          <View className="shrink">
-            <Text style={styles.userName} numberOfLines={1}>
-              {storeName}
-            </Text>
-          </View>
+          <Text style={styles.userName} numberOfLines={1}>
+            {storeName}
+          </Text>
 
           {seller?.reviews?.averageRating > 0 && (
             <View className="flex-row items-center gap-[4px]">
@@ -644,7 +670,7 @@ const SellerProfile = () => {
             }}
             className="items-center gap-[2px]"
           >
-            <Entypo name="share" size={20} color="#ccc" />
+            <Ionicons name="share-outline" size={20} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -662,6 +688,7 @@ const SellerProfile = () => {
           seller={seller}
           handleSendMessage={handleSendMessage}
           sellerId={sellerId?.toString()}
+          storeName={storeName}
         />
 
         <View
@@ -678,14 +705,17 @@ const SellerProfile = () => {
           {routes?.map((tab, ind) => (
             <TouchableOpacity
               onPress={() => setIndex(ind)}
-              className={`py-[4px] pb-[16px] px-[8px] ${index == ind ? "border-b-[1px] border-b-white" : ""}`}
+              className={`pt-[4px] px-[8px]`}
               key={ind}
             >
               <Text
-                className={` font-LexendDecaMedium text-[12px] ${index == ind ? "text-white" : "text-[#94A3B1]"}`}
+                className={`mb-[6px] text-[14px] font-LexendDecaMedium ${index == ind ? "text-white " : "text-[#94A3B1]"}`}
               >
                 {tab.title}
               </Text>
+              {index === ind && (
+                <View className="w-full h-[3px] rounded-full bg-white"></View>
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -715,12 +745,16 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 18,
-    color: "#ccc",
+    color: "#ffffff",
     fontFamily: "LexendDeca-Medium",
+    letterSpacing: -0.22,
+    flexShrink: 1,
+    // lineHeight: 18,
   },
   banner: {
     width: "100%",
     height: 140,
+    backgroundColor: "#090D0B",
   },
   bannerImage: {
     width: "100%",
@@ -733,14 +767,15 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 90,
-    backgroundColor: "#fff",
+    backgroundColor: "#031209",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
   profilePicture: {
-    width: 85,
-    height: 85,
-    borderRadius: 85,
+    width: "100%",
+    height: "100%",
+    // borderRadius: 85,
   },
   actions: {
     marginTop: 20,
@@ -748,7 +783,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    gap: 20,
+    gap: 10,
     paddingHorizontal: 20,
   },
   followAction: {
@@ -761,14 +796,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   messageAction: {
-    width: 100,
-    paddingVertical: 7.5,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: "#16783A",
+    // width: 100,
+    padding: 7.5,
+    borderRadius: "100%",
+    borderWidth: 1,
+    borderColor: "white",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#16783A",
   },
   actionsText: {
     color: "#fff",
@@ -799,7 +833,8 @@ const styles = StyleSheet.create({
   infoBubbleText: {
     color: "#fff",
     fontFamily: "LexendDeca",
-    fontSize: 8,
+    fontSize: 10,
+    letterSpacing: -0.22,
   },
   infoBubbleImage: {
     width: 11,
@@ -824,6 +859,7 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.63)",
     fontFamily: "LexendDeca",
     fontSize: 11,
+    letterSpacing: -0.22,
   },
   statValue: {
     color: "#fff",
@@ -832,10 +868,12 @@ const styles = StyleSheet.create({
   },
   bio: {
     paddingHorizontal: 16,
-    color: "#ccc",
-    fontFamily: "LexendDeca",
-    fontSize: 12,
+    color: "#FFFFFFCC",
+    fontFamily: "LexendDecaLight",
+    fontSize: 14,
     marginBottom: 15,
+    letterSpacing: -0.14,
+    lineHeight: 19.6,
   },
   policyContainer: {
     flexDirection: "row",
