@@ -3534,16 +3534,29 @@ exports.getOriginalBlipDownloadUrl = async (req, res) => {
       return res.status(500).json({ success: false, message: 'RAW blips bucket not configured' });
     }
 
+    // Resolve seller id safely (works whether populated or not)
+    const sellerId = (product.seller && product.seller._id)
+      ? product.seller._id.toString()
+      : product.seller.toString();
+
     // Build the original raw MP4 object key
     // Folder structure: sellers/{sellerId}/products/{productId}/blips/{uuid}.mp4
-    const folderPath = productBlips.GetFolderPath(product.seller.toString(), productId);
-    const objectKey = `${folderPath}${blip.key}.mp4`;
+    const folderPath = productBlips.GetFolderPath(sellerId, productId);
+    const keyHasExt = typeof blip.key === 'string' && /\.mp4$/i.test(blip.key);
+    let objectKey = `${folderPath}${keyHasExt ? blip.key : blip.key + '.mp4'}`;
 
     // Optional: verify object exists
     try {
       await s3.headObject({ Bucket: bucket, Key: objectKey }).promise();
     } catch (err) {
-      return res.status(404).json({ success: false, message: 'Original blip file not found' });
+      // Fallback: some historical layouts may have nested UUID folder
+      const nestedKey = `${folderPath}${blip.key}/${blip.key}.mp4`;
+      try {
+        await s3.headObject({ Bucket: bucket, Key: nestedKey }).promise();
+        objectKey = nestedKey;
+      } catch (err2) {
+        return res.status(404).json({ success: false, message: 'Original blip file not found' });
+      }
     }
 
     // Generate a filename for download
