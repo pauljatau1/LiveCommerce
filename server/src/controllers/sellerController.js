@@ -483,7 +483,7 @@ exports.verifyOTP = async (req, res) => {
     const seller = await Seller.findOne({ email });
     if (!seller) return res.status(404).json({ message: 'Seller not found.' });
 
-    if (seller.otp === otp) {
+    if (seller.otp === otp.toString()) {
       seller.emailVerified = true;
       seller.otp = undefined; // Clear the OTP after verification
       await seller.save();
